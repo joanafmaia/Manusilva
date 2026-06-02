@@ -1,0 +1,5 @@
+.DS_Store
+*.pem
+.dev_stdout.log
+.dev_stderr.log
+.env

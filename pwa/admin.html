@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0f172a">
+  <title>Manusilva — Administração</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <script src="js/theme-boot.js"></script>
+  <button type="button" id="theme-toggle" class="theme-toggle-btn" aria-label="Alternar tema">
+    <span id="theme-icon"></span>
+  </button>
+  <div class="bg-mesh"></div>
+
+  <div class="admin-app">
+    <aside class="admin-sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-logo-sm brand-logo-slot" id="brand-logo" data-brand-logo aria-label="ManuSilva">MS</div>
+        <div>
+          <strong id="brand-name" data-hide-if-logo>Manusilva</strong>
+          <p class="text-muted" style="font-size:0.7rem;margin:0">Painel RH</p>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <a href="#calendar" class="nav-item active">📅 Calendário de Equipa</a>
+        <a href="#pending" class="nav-item">📋 Relatórios Pendentes</a>
+        <a href="#clients" class="nav-item">🏢 Clientes / Empresas</a>
+        <a href="#client-history" class="nav-item">🗂 Histórico de Clientes</a>
+        <a href="#employees" class="nav-item">👷 Funcionários</a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <p style="font-size:0.8rem;margin:0 0 0.5rem">Olá, <strong id="user-name"></strong></p>
+        <button class="btn-outline btn-sm" id="logout-btn" style="width:100%">Terminar Sessão</button>
+      </div>
+    </aside>
+
+    <main class="admin-main">
+      <div class="admin-header">
+        <h1>Painel de Administração</h1>
+        <button class="btn-primary" id="btn-assign-work" style="width:auto">+ Atribuir Trabalho</button>
+      </div>
+
+      <div class="admin-grid">
+        <div class="admin-left">
+          <!-- Calendar -->
+          <section class="admin-panel glass-card" id="calendar">
+            <div class="panel-header" style="padding:1.25rem 1.25rem 0">
+              <h2>Calendário de Equipa</h2>
+              <div class="panel-controls">
+                <select class="form-select-sm" id="tech-filter"></select>
+                <div class="view-toggle">
+                  <button data-cal-view="week" class="active">Semana</button>
+                  <button data-cal-view="month">Mês</button>
+                  <button data-cal-view="list">Agenda</button>
+                </div>
+              </div>
+            </div>
+            <div class="calendar-container">
+              <div class="calendar-nav">
+                <button id="prev-week" aria-label="Anterior">‹</button>
+                <span id="calendar-title"></span>
+                <button id="next-week" aria-label="Seguinte">›</button>
+              </div>
+              <div id="calendar-grid"></div>
+            </div>
+          </section>
+
+          <!-- Clientes: métricas + cadastro -->
+          <section class="admin-panel" id="clients">
+            <div class="panel-header">
+              <h2>Clientes / Empresas</h2>
+            </div>
+            <div id="app" class="clients-app-root"></div>
+          </section>
+
+          <!-- Histórico de Clientes (Admin/RH) -->
+          <section class="admin-panel" id="client-history">
+            <div class="panel-header">
+              <h2>Histórico de Clientes</h2>
+            </div>
+            <div id="client-history-app" class="clients-app-root"></div>
+          </section>
+
+          <!-- Employees -->
+          <section class="admin-panel" id="employees">
+            <div class="panel-header">
+              <h2>Gestão de Funcionários / Técnicos</h2>
+            </div>
+            <div id="employees-panel" class="rh-employees-panel-wrap"></div>
+          </section>
+        </div>
+
+        <!-- Pending Reports Sidebar -->
+        <aside class="admin-right" id="pending">
+          <section class="admin-panel glass-card" style="position:sticky;top:1.5rem">
+            <div class="panel-header" style="padding:1.25rem 1.25rem 0">
+              <h2>Relatórios Pendentes <span class="badge-count" id="pending-count">0</span></h2>
+            </div>
+            <div style="padding:0 1.25rem 1.25rem" id="pending-reports"></div>
+          </section>
+        </aside>
+      </div>
+    </main>
+  </div>
+
+  <script src="js/vendor/jspdf.umd.min.js" data-jspdf defer></script>
+  <script type="module">
+    import { seedDatabase } from './js/mock_data.js';
+    import { initAdminDashboard } from './js/admin-dashboard.js';
+    import { applyThemeToDocument, themeToggleLabel, toggleTheme } from './js/theme.js';
+
+    applyThemeToDocument();
+    const themeBtn = document.getElementById('theme-toggle');
+    const themeIcon = document.getElementById('theme-icon');
+    if (themeIcon) themeIcon.textContent = themeToggleLabel();
+    themeBtn?.addEventListener('click', () => {
+      const next = toggleTheme();
+      if (themeIcon) themeIcon.textContent = themeToggleLabel(next);
+    });
+
+    seedDatabase();
+    initAdminDashboard();
+  </script>
+</body>
+</html>

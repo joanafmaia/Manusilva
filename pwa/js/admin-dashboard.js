@@ -1,0 +1,719 @@
+/**
+ * Manusilva PWA — HR / Admin Dashboard
+ */
+
+import {
+  requireAuth,
+  getWeekDates,
+  getAllJobs,
+  getClient,
+  getTechnician,
+  getServiceType,
+  getPendingReports,
+  getReport,
+  approveReport,
+  rejectReport,
+  assignJob,
+  deleteJob,
+  getJob,
+  getReportForJob,
+  statusBadge,
+  warmClientsCatalog,
+  getAllTechnicians,
+  openModal,
+  closeModal,
+  escapeHtml,
+  formatDate,
+  formatDateLong,
+  getDayLabel,
+  getDayNumber,
+  isToday,
+  COMPANY,
+  applyBrandLogo,
+  SERVICE_TYPES,
+  showToast,
+} from './app.js';
+import { ensureProductionCatalog } from './clients-catalog.js';
+import { renderClientCombobox, bindClientComboboxes } from './client-combobox.js';
+import { initLogoutButton, renderUserGreeting } from './auth.js';
+import { refreshDashboardPanel } from './views/dashboard.js';
+import { initClientsApp } from './views/clients-app.js';
+import { initEmployeesPanel, refreshTechniciansList } from './views/rh-registry.js';
+import { initArquivoHistoricoPage, refreshArquivoHistoricoPage } from './views/arquivo-historico.js';
+
+let calendarView = 'week';
+let filterTechId = 'all';
+let currentWeekOffset = 0;
+
+const AGENDA_SWIPE_OPEN_PX = 88;
+
+function bindAdminNavigation() {
+  document.querySelectorAll('.nav-item').forEach((item) => {
+    item.addEventListener('click', (e) => {
+      e.preventDefault();
+      document.querySelectorAll('.nav-item').forEach((n) => n.classList.remove('active'));
+      item.classList.add('active');
+      const target = document.querySelector(item.getAttribute('href'));
+      target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
+}
+
+export function initAdminDashboard() {
+  bindAdminNavigation();
+
+  const session = requireAuth('admin');
+  if (!session) return;
+
+  renderUserGreeting('user-name');
+  initLogoutButton();
+
+  try {
+    renderSidebar();
+    renderCalendar();
+    bindViewToggle();
+    bindCalendarJobInteractions();
+    bindAssignWork();
+  } catch (err) {
+    console.error('[Admin] Erro ao iniciar painel:', err);
+    showToast('Erro ao carregar o calendário. Veja a consola (F12).', 'error');
+  }
+
+  renderPendingReports().catch((err) => {
+    console.error('[Admin] Relatórios pendentes:', err);
+  });
+
+  initClientsApp().catch((err) => {
+    console.error('[Admin] Painel de clientes:', err);
+    showToast('Erro ao carregar métricas e pesquisa de clientes.', 'error');
+  });
+  initArquivoHistoricoPage(document.getElementById('client-history-app')).catch((err) => {
+    console.error('[Admin] Histórico de clientes:', err);
+    showToast('Erro ao carregar histórico de clientes.', 'error');
+  });
+
+  try {
+    initEmployeesPanel(document.getElementById('employees-panel'));
+  } catch (err) {
+    console.error('[Admin] Funcionários:', err);
+    showToast('Erro ao carregar cadastro de técnicos.', 'error');
+  }
+
+  window.addEventListener('db-updated', () => {
+    try {
+      renderCalendar();
+      renderSidebar();
+      refreshTechniciansList(document.getElementById('employees-panel'));
+    } catch (err) {
+      console.error('[Admin] Atualização:', err);
+    }
+    refreshDashboardPanel();
+    refreshArquivoHistoricoPage();
+    renderPendingReports().catch(console.error);
+  });
+}
+
+function renderSidebar() {
+  if (!applyBrandLogo()) {
+    const logoEl = document.getElementById('brand-logo');
+    if (logoEl) logoEl.textContent = COMPANY.logo;
+    const nameEl = document.getElementById('brand-name');
+    if (nameEl) nameEl.textContent = COMPANY.name;
+  }
+
+  const filter = document.getElementById('tech-filter');
+  if (filter) {
+    const previous = filter.value;
+    filter.innerHTML = `
+      <option value="all">Todos os Técnicos</option>
+      ${getAllTechnicians()
+        .map((t) => `<option value="${t.id}">${escapeHtml(t.name)}</option>`)
+        .join('')}
+    `;
+    if ([...filter.options].some((o) => o.value === previous)) {
+      filter.value = previous;
+    }
+    if (filter.dataset.bound !== 'true') {
+      filter.dataset.bound = 'true';
+      filter.addEventListener('change', () => {
+        filterTechId = filter.value;
+        renderCalendar();
+      });
+    }
+  }
+}
+
+function bindViewToggle() {
+  document.querySelectorAll('[data-cal-view]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      calendarView = btn.dataset.calView;
+      document.querySelectorAll('[data-cal-view]').forEach((b) => b.classList.toggle('active', b === btn));
+      renderCalendar();
+    });
+  });
+
+  document.getElementById('prev-week')?.addEventListener('click', () => {
+    currentWeekOffset--;
+    renderCalendar();
+  });
+  document.getElementById('next-week')?.addEventListener('click', () => {
+    currentWeekOffset++;
+    renderCalendar();
+  });
+}
+
+function getCalendarDates() {
+  const base = new Date();
+  base.setDate(base.getDate() + currentWeekOffset * 7);
+  if (calendarView === 'week' || calendarView === 'list') return getWeekDates(base);
+
+  const dates = [];
+  const start = new Date(base.getFullYear(), base.getMonth(), 1);
+  const end = new Date(base.getFullYear(), base.getMonth() + 1, 0);
+  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+    dates.push(new Date(d).toISOString().split('T')[0]);
+  }
+  return dates;
+}
+
+function renderCalendar() {
+  const grid = document.getElementById('calendar-grid');
+  const title = document.getElementById('calendar-title');
+  if (!grid) return;
+
+  const dates = getCalendarDates();
+  const jobs = getAllJobs().filter((j) => filterTechId === 'all' || j.technicianId === filterTechId);
+
+  const firstDate = new Date(dates[0] + 'T00:00:00');
+  if (calendarView === 'list') {
+    title.textContent = `Agenda — Semana de ${formatDate(dates[0])}`;
+  } else if (calendarView === 'week') {
+    title.textContent = `Semana de ${formatDate(dates[0])}`;
+  } else {
+    title.textContent = firstDate.toLocaleDateString('pt-PT', { month: 'long', year: 'numeric' });
+  }
+
+  if (calendarView === 'list') {
+    grid.className = 'calendar-grid calendar-agenda-list';
+    grid.innerHTML = renderAgendaList(jobs, dates);
+    bindAgendaSwipeRows(grid);
+  } else if (calendarView === 'week') {
+    grid.className = 'calendar-grid calendar-week';
+    grid.innerHTML = dates.map((date) => {
+      const dayJobs = jobs.filter((j) => j.date === date);
+      return `
+        <div class="cal-col ${isToday(date) ? 'today-col' : ''}">
+          <div class="cal-col-header">
+            <span>${getDayLabel(date)}</span>
+            <strong>${getDayNumber(date)}</strong>
+          </div>
+          <div class="cal-col-body">
+            ${dayJobs.map((j) => renderCalendarBlock(j)).join('') || '<span class="cal-empty">—</span>'}
+          </div>
+        </div>
+      `;
+    }).join('');
+  } else {
+    grid.className = 'calendar-grid calendar-month';
+    const startDay = firstDate.getDay();
+    const pad = startDay === 0 ? 6 : startDay - 1;
+    let html = Array(pad).fill('<div class="cal-cell cal-pad"></div>').join('');
+
+    dates.forEach((date) => {
+      const dayJobs = jobs.filter((j) => j.date === date);
+      html += `
+        <div class="cal-cell ${isToday(date) ? 'today-cell' : ''}">
+          <span class="cal-cell-day">${getDayNumber(date)}</span>
+          ${dayJobs.slice(0, 3).map((j) => renderCalendarBlock(j, true)).join('')}
+          ${dayJobs.length > 3 ? `<span class="cal-more">+${dayJobs.length - 3}</span>` : ''}
+        </div>
+      `;
+    });
+    grid.innerHTML = html;
+  }
+}
+
+function renderCalendarBlock(job, compact = false) {
+  const tech = getTechnician(job.technicianId);
+  const client = getClient(job.clientId);
+  const service = getServiceType(job.serviceType);
+  const cls = compact ? 'cal-block cal-block-sm cal-block--interactive' : 'cal-block cal-block--interactive';
+  const label = `${job.time} — ${client?.name || 'Cliente'} — ${service?.label || 'Serviço'}`;
+  return `
+    <button type="button" class="${cls}" data-job-id="${job.id}" style="--tech-color:${tech?.color || '#3b82f6'}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">
+      <span class="cal-block-time">${job.time}</span>
+      <span class="cal-block-client">${escapeHtml(compact ? client?.name?.split(' ')[0] : client?.name)}</span>
+      ${!compact ? `<span class="cal-block-tech">${escapeHtml(tech?.name?.split(' ')[0])}</span>` : ''}
+    </button>
+  `;
+}
+
+function sortJobsByDateTime(a, b) {
+  if (a.date !== b.date) return a.date.localeCompare(b.date);
+  return (a.time || '').localeCompare(b.time || '');
+}
+
+function renderAgendaList(jobs, dates) {
+  const dateSet = new Set(dates);
+  const inRange = jobs.filter((j) => dateSet.has(j.date)).sort(sortJobsByDateTime);
+
+  if (!inRange.length) {
+    return '<p class="cal-empty">Sem serviços atribuídos neste período.</p>';
+  }
+
+  return dates
+    .map((date) => {
+      const dayJobs = inRange.filter((j) => j.date === date);
+      if (!dayJobs.length) return '';
+
+      return `
+        <section class="agenda-day-group" aria-label="${escapeHtml(formatDateLong(date))}">
+          <h3 class="agenda-day-heading">${escapeHtml(formatDateLong(date))}</h3>
+          ${dayJobs.map((j) => renderAgendaListItem(j)).join('')}
+        </section>
+      `;
+    })
+    .filter(Boolean)
+    .join('');
+}
+
+function renderAgendaListItem(job) {
+  const tech = getTechnician(job.technicianId);
+  const client = getClient(job.clientId);
+  const service = getServiceType(job.serviceType);
+  const serial = job.forkliftSerial ? ` · ${job.forkliftSerial}` : '';
+
+  return `
+    <div class="agenda-swipe-row" data-job-id="${job.id}">
+      <div class="agenda-swipe-actions" aria-hidden="true">
+        <button type="button" class="agenda-swipe-delete" data-delete-job="${job.id}">Eliminar</button>
+      </div>
+      <div class="agenda-swipe-track">
+        <button type="button" class="agenda-list-item" data-job-id="${job.id}" style="--tech-color:${tech?.color || '#3b82f6'}">
+          <div class="agenda-list-top">
+            <span class="agenda-list-time">${job.time}</span>
+            ${statusBadge(job.status)}
+          </div>
+          <p class="agenda-list-client">${escapeHtml(client?.name || 'Cliente')}</p>
+          <p class="agenda-list-meta">${service?.icon || '🔧'} ${escapeHtml(service?.label || job.serviceType)} · ${escapeHtml(tech?.name || '—')}${escapeHtml(serial)}</p>
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+/** Clique nos blocos do calendário (semana / mês) */
+function bindCalendarJobInteractions() {
+  const grid = document.getElementById('calendar-grid');
+  if (!grid || grid.__calendarJobsBound) return;
+  grid.__calendarJobsBound = true;
+
+  grid.addEventListener('click', (e) => {
+    if (e.target.closest('[data-delete-job]')) return;
+    const trigger = e.target.closest('[data-job-id]');
+    if (!trigger?.dataset.jobId) return;
+    e.preventDefault();
+    openJobDetailModal(trigger.dataset.jobId);
+  });
+}
+
+/** Swipe para a esquerda na vista Agenda — revela Eliminar */
+function bindAgendaSwipeRows(container) {
+  let openRow = null;
+
+  const closeRow = (row) => {
+    if (!row) return;
+    row.classList.remove('is-open');
+    const track = row.querySelector('.agenda-swipe-track');
+    if (track) track.style.transform = '';
+  };
+
+  container.querySelectorAll('.agenda-swipe-row').forEach((row) => {
+    const track = row.querySelector('.agenda-swipe-track');
+    if (!track) return;
+
+    let startX = 0;
+    let startOffset = 0;
+    let dragging = false;
+
+    const applyOffset = (px) => {
+      const clamped = Math.max(-AGENDA_SWIPE_OPEN_PX, Math.min(0, px));
+      track.style.transform = `translateX(${clamped}px)`;
+      return clamped;
+    };
+
+    const snapOpen = (open) => {
+      if (open && openRow && openRow !== row) closeRow(openRow);
+      if (open) {
+        row.classList.add('is-open');
+        track.style.transform = `translateX(-${AGENDA_SWIPE_OPEN_PX}px)`;
+        openRow = row;
+      } else {
+        closeRow(row);
+        if (openRow === row) openRow = null;
+      }
+    };
+
+    track.addEventListener(
+      'touchstart',
+      (e) => {
+        if (e.target.closest('[data-delete-job]')) return;
+        dragging = true;
+        startX = e.touches[0].clientX;
+        startOffset = row.classList.contains('is-open') ? -AGENDA_SWIPE_OPEN_PX : 0;
+      },
+      { passive: true },
+    );
+
+    track.addEventListener(
+      'touchmove',
+      (e) => {
+        if (!dragging) return;
+        const dx = e.touches[0].clientX - startX;
+        applyOffset(startOffset + dx);
+      },
+      { passive: true },
+    );
+
+    track.addEventListener('touchend', (e) => {
+      if (!dragging) return;
+      dragging = false;
+      const dx = e.changedTouches[0].clientX - startX;
+      const wasOpen = row.classList.contains('is-open');
+      if (wasOpen && dx > 28) snapOpen(false);
+      else if (!wasOpen && dx < -36) snapOpen(true);
+      else snapOpen(wasOpen);
+    });
+
+    track.addEventListener('touchcancel', () => {
+      dragging = false;
+      snapOpen(row.classList.contains('is-open'));
+    });
+  });
+
+  container.querySelectorAll('[data-delete-job]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      confirmDeleteJob(btn.dataset.deleteJob);
+    });
+  });
+}
+
+function buildJobDetailContent(job) {
+  const tech = getTechnician(job.technicianId);
+  const client = getClient(job.clientId);
+  const service = getServiceType(job.serviceType);
+  const report = getReportForJob(job.id);
+
+  let reportLine = 'Sem relatório iniciado';
+  if (report?.status === 'draft') reportLine = 'Rascunho guardado pelo técnico';
+  else if (report?.status === 'pending_review') reportLine = 'Aguarda aprovação (RH)';
+  else if (report?.status === 'approved') reportLine = 'Relatório aprovado';
+  else if (report) reportLine = `Relatório: ${report.status}`;
+
+  const rejectionBlock =
+    job.status === 'rejected' && job.rejectionNote
+      ? `<div class="job-detail-rejection"><strong>Nota de rejeição</strong>${escapeHtml(job.rejectionNote)}</div>`
+      : '';
+
+  return `
+    <dl class="job-detail-grid">
+      <div><dt>Cliente</dt><dd>${escapeHtml(client?.name || '—')}</dd></div>
+      <div><dt>Técnico</dt><dd>${escapeHtml(tech?.name || '—')}</dd></div>
+      <div><dt>Serviço</dt><dd>${service?.icon || ''} ${escapeHtml(service?.label || job.serviceType)}</dd></div>
+      <div><dt>Data e hora</dt><dd>${escapeHtml(formatDateLong(job.date))} · ${escapeHtml(job.time)}</dd></div>
+      <div><dt>N.º série</dt><dd>${escapeHtml(job.forkliftSerial || '—')}</dd></div>
+      <div><dt>Estado</dt><dd>${statusBadge(job.status)}</dd></div>
+      <div><dt>Relatório</dt><dd>${escapeHtml(reportLine)}</dd></div>
+    </dl>
+    ${rejectionBlock}
+  `;
+}
+
+function openJobDetailModal(jobId) {
+  const job = getJob(jobId);
+  if (!job) {
+    showToast('Serviço não encontrado.', 'error');
+    return;
+  }
+
+  const client = getClient(job.clientId);
+  const service = getServiceType(job.serviceType);
+  const modalTitle = `${service?.icon || '🔧'} ${client?.name || 'Serviço'} — ${job.time}`;
+
+  const actions = `
+    <button type="button" class="btn-ghost" id="job-detail-close">Fechar</button>
+    <button type="button" class="btn-danger" id="job-detail-delete">Eliminar</button>
+  `;
+
+  const overlay = openModal(modalTitle, buildJobDetailContent(job), actions);
+
+  overlay.querySelector('#job-detail-close')?.addEventListener('click', closeModal);
+  overlay.querySelector('#job-detail-delete')?.addEventListener('click', () => {
+    closeModal();
+    confirmDeleteJob(jobId);
+  });
+}
+
+function confirmDeleteJob(jobId) {
+  const job = getJob(jobId);
+  if (!job) return;
+
+  const report = getReportForJob(jobId);
+  const client = getClient(job.clientId);
+  const extra = report
+    ? '<p class="text-muted" style="margin-top:0.5rem;font-size:0.8125rem">O relatório associado a este trabalho também será removido.</p>'
+    : '';
+
+  const content = `
+    <p>Tem a certeza que deseja eliminar o serviço atribuído a <strong>${escapeHtml(client?.name || 'este cliente')}</strong> (${escapeHtml(job.date)} ${escapeHtml(job.time)})?</p>
+    ${extra}
+  `;
+
+  const actions = `
+    <button type="button" class="btn-ghost" id="cancel-delete-job">Cancelar</button>
+    <button type="button" class="btn-danger" id="confirm-delete-job">Eliminar</button>
+  `;
+
+  const overlay = openModal('Eliminar trabalho', content, actions);
+  overlay.querySelector('#cancel-delete-job')?.addEventListener('click', closeModal);
+  overlay.querySelector('#confirm-delete-job')?.addEventListener('click', () => {
+    if (deleteJob(jobId)) {
+      closeModal();
+      renderCalendar();
+    }
+  });
+}
+
+async function renderPendingReports() {
+  const container = document.getElementById('pending-reports');
+  const count = document.getElementById('pending-count');
+  if (!container) return;
+
+  const reports = getPendingReports();
+  if (count) count.textContent = reports.length;
+
+  if (!reports.length) {
+    container.innerHTML = '<p class="text-muted empty-inline">Nenhum relatório pendente de aprovação.</p>';
+    return;
+  }
+
+  const { countFilledFields } = await import('./form-engine.js');
+
+  container.innerHTML = reports.map((r) => {
+    const client = getClient(r.clientId);
+    const tech = getTechnician(r.technicianId);
+    const service = getServiceType(r.serviceType);
+    const values = r.data?.values || { ...r.data?.textFields, ...r.data?.dropdowns };
+    const checklistCount = countFilledFields(service, values);
+    const photoCount = r.data?.photos?.length || 0;
+
+    return `
+      <div class="report-card glass-card" data-report-id="${r.id}">
+        <div class="report-card-header">
+          <div>
+            <h4>${service?.icon} ${escapeHtml(service?.label)}</h4>
+            <p class="report-meta">${escapeHtml(client?.name)} · ${escapeHtml(r.forkliftSerial)}</p>
+          </div>
+          <span class="report-tech-badge" style="background:${tech?.color}20;color:${tech?.color}">${escapeHtml(tech?.name)}</span>
+        </div>
+        <div class="report-stats">
+          <span>✓ ${checklistCount} itens</span>
+          <span>📷 ${photoCount} fotos</span>
+          <span>${r.data?.signatures?.technician ? '✍ Técnico' : ''} ${r.data?.signatures?.client ? '✍ Cliente' : ''}</span>
+        </div>
+        <div class="report-actions">
+          <button class="btn-outline btn-sm" data-review="${r.id}">Rever</button>
+          <button class="btn-danger btn-sm" data-reject="${r.id}">Rejeitar</button>
+          <button class="btn-success btn-sm" data-approve="${r.id}">Aprovar</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  container.querySelectorAll('[data-review]').forEach((btn) => {
+    btn.addEventListener('click', () => openReportReview(btn.dataset.review));
+  });
+  container.querySelectorAll('[data-approve]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      const ok = await approveReport(btn.dataset.approve);
+      btn.disabled = false;
+      if (ok) {
+        renderPendingReports();
+        renderCalendar();
+        refreshDashboardPanel();
+      }
+    });
+  });
+  container.querySelectorAll('[data-reject]').forEach((btn) => {
+    btn.addEventListener('click', () => openRejectDialog(btn.dataset.reject));
+  });
+}
+
+async function openReportReview(reportId) {
+  const report = getReport(reportId);
+  if (!report) return;
+
+  const { renderReportValuesForReview } = await import('./form-engine.js');
+
+  const client = getClient(report.clientId);
+  const tech = getTechnician(report.technicianId);
+  const service = getServiceType(report.serviceType);
+  const data = report.data || {};
+
+  const fieldsHTML = renderReportValuesForReview(service, data.values || {});
+
+  const photosHTML = (data.photos || []).map((p) => `
+    <div class="photo-thumb review-photo">
+      <div class="photo-placeholder">${p.label.charAt(0)}</div>
+      <span class="photo-label">${escapeHtml(p.label)}</span>
+    </div>
+  `).join('') || '<p class="text-muted">Sem fotos anexadas.</p>';
+
+  const content = `
+    <div class="review-detail">
+      <div class="review-header-info">
+        <p><strong>Cliente:</strong> ${escapeHtml(client?.name)} (${escapeHtml(client?.email)})</p>
+        <p><strong>Técnico:</strong> ${escapeHtml(tech?.name)}</p>
+        <p><strong>Máquina:</strong> ${escapeHtml(report.forkliftSerial)}</p>
+      </div>
+      <h4>Dados do Relatório</h4>${fieldsHTML}
+      <h4>Fotos</h4><div class="photo-grid">${photosHTML}</div>
+      <h4>Assinaturas</h4>
+      <p>Técnico: ${data.signatures?.technician ? '✓ Assinado' : '✗ Pendente'} · Cliente: ${data.signatures?.client ? '✓ Assinado' : '✗ Pendente'}</p>
+    </div>
+  `;
+
+  const actions = `
+    <button class="btn-danger" id="modal-reject">Rejeitar</button>
+    <button class="btn-success" id="modal-approve">Aprovar</button>
+  `;
+
+  const overlay = openModal(`${service?.icon} ${service?.label} — Revisão`, content, actions);
+
+  overlay.querySelector('#modal-approve').addEventListener('click', async () => {
+    const btn = overlay.querySelector('#modal-approve');
+    btn.disabled = true;
+    const ok = await approveReport(reportId);
+    btn.disabled = false;
+    if (ok) {
+      closeModal();
+      renderPendingReports();
+      renderCalendar();
+      refreshDashboardPanel();
+    }
+  });
+  overlay.querySelector('#modal-reject').addEventListener('click', () => {
+    closeModal();
+    openRejectDialog(reportId);
+  });
+}
+
+function openRejectDialog(reportId) {
+  const content = `
+    <p class="text-muted mb-4">Escreva uma nota de correção para o técnico:</p>
+    <textarea id="reject-note" class="form-textarea" rows="4" placeholder="Ex: Faltam fotos do componente substituído..."></textarea>
+  `;
+  const actions = `
+    <button class="btn-ghost" id="cancel-reject">Cancelar</button>
+    <button class="btn-danger" id="confirm-reject">Enviar Rejeição</button>
+  `;
+
+  const overlay = openModal('Rejeitar Relatório', content, actions);
+
+  overlay.querySelector('#cancel-reject').addEventListener('click', closeModal);
+  overlay.querySelector('#confirm-reject').addEventListener('click', () => {
+    const note = document.getElementById('reject-note').value.trim();
+    if (!note) {
+      showToast('Por favor, escreva uma nota de correção.', 'error');
+      return;
+    }
+    rejectReport(reportId, note);
+    closeModal();
+    renderPendingReports();
+    renderCalendar();
+  });
+}
+
+function bindAssignWork() {
+  const btn = document.getElementById('btn-assign-work');
+  btn?.addEventListener('click', () => {
+    openAssignModal().catch((err) => {
+      console.error('[Admin] Atribuir trabalho:', err);
+      showToast('Erro ao abrir o formulário de atribuição.', 'error');
+    });
+  });
+}
+
+async function openAssignModal() {
+  try {
+    await warmClientsCatalog();
+    await ensureProductionCatalog();
+  } catch (err) {
+    console.error('[Admin] Clientes para atribuição:', err);
+    showToast('Não foi possível carregar a lista de clientes.', 'error');
+    return;
+  }
+
+  const techOptions = getAllTechnicians()
+    .map((t) => `<option value="${t.id}">${escapeHtml(t.name)}</option>`)
+    .join('');
+
+  const content = `
+    <form id="assign-form" class="assign-form">
+      <div class="form-group">
+        <label class="form-label">Técnico</label>
+        <select class="form-select" id="assign-tech" required>${techOptions}</select>
+      </div>
+      ${renderClientCombobox({ fieldId: 'assign-client', label: 'Cliente / Empresa' })}
+      <div class="form-group">
+        <label class="form-label">Tipo de Serviço</label>
+        <select class="form-select" id="assign-service" required>
+          ${SERVICE_TYPES.map((s) => `<option value="${s.id}">${s.icon} ${escapeHtml(s.label)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Data</label>
+          <input type="date" class="form-input" id="assign-date" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Hora</label>
+          <input type="time" class="form-input" id="assign-time" required value="09:00">
+        </div>
+      </div>
+    </form>
+  `;
+
+  const actions = `
+    <button class="btn-ghost" id="cancel-assign">Cancelar</button>
+    <button class="btn-primary" id="confirm-assign">Atribuir Trabalho</button>
+  `;
+
+  const overlay = openModal('Atribuir Trabalho', content, actions);
+  await bindClientComboboxes(overlay);
+
+  const dateInput = overlay.querySelector('#assign-date');
+  dateInput.value = new Date().toISOString().split('T')[0];
+
+  overlay.querySelector('#cancel-assign').addEventListener('click', closeModal);
+  overlay.querySelector('#confirm-assign').addEventListener('click', () => {
+    const techId = overlay.querySelector('#assign-tech').value;
+    const clientId = overlay.querySelector(
+      '[data-client-combobox][data-field-id="assign-client"] .client-combobox-id',
+    )?.value;
+    const serviceType = overlay.querySelector('#assign-service').value;
+    const date = overlay.querySelector('#assign-date').value;
+    const time = overlay.querySelector('#assign-time').value;
+
+    if (!techId || !clientId || !date || !time) {
+      showToast('Preencha todos os campos.', 'error');
+      return;
+    }
+
+    assignJob({ technicianId: techId, clientId, forkliftSerial: '', serviceType, date, time });
+    closeModal();
+    renderCalendar();
+  });
+}

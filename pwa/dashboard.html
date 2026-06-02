@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#0f172a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Manusilva — Técnico</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <script src="js/theme-boot.js"></script>
+  <button type="button" id="theme-toggle" class="theme-toggle-btn" aria-label="Alternar tema">
+    <span id="theme-icon"></span>
+  </button>
+  <div class="bg-mesh"></div>
+
+  <div class="tech-app">
+    <header class="tech-header">
+      <div class="header-top">
+        <div class="brand-compact">
+          <div class="brand-logo-sm brand-logo-slot" id="brand-logo" data-brand-logo aria-label="ManuSilva">MS</div>
+          <div class="brand-text">
+            <h1 id="brand-name" data-hide-if-logo>Manusilva</h1>
+            <p id="brand-tagline">Empilhadores · Manutenção · Baterias</p>
+          </div>
+        </div>
+        <div class="header-actions">
+          <span class="connection-badge online" id="connection-badge">● Online</span>
+          <button class="btn-ghost btn-sm" id="logout-btn" title="Sair">⏻</button>
+        </div>
+      </div>
+
+      <div class="offline-control">
+        <span class="toggle-label" id="offline-label">Online</span>
+        <label class="toggle-switch-wrap">
+          <input type="checkbox" id="offline-toggle">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+
+      <div class="calendar-strip" id="calendar-strip"></div>
+    </header>
+
+    <main id="app" class="tech-main">
+      <section class="jobs-section" data-tech-jobs-shell>
+        <div class="section-header">
+          <h2>Trabalhos do Dia</h2>
+          <span class="date-label" id="selected-date-label"></span>
+        </div>
+        <p class="text-muted tech-greeting" style="font-size:0.8rem;margin:-0.5rem 0 1rem">
+          Olá, <strong id="user-name"></strong>
+        </p>
+        <div class="jobs-list" id="jobs-list"></div>
+      </section>
+    </main>
+  </div>
+
+  <script src="js/vendor/jspdf.umd.min.js" data-jspdf defer></script>
+  <script type="module">
+    import { seedDatabase } from './js/mock_data.js';
+    import { warmClientsCatalog } from './js/app.js';
+    import { initTechDashboard } from './js/tech-dashboard.js';
+    import { applyThemeToDocument, themeToggleLabel, toggleTheme } from './js/theme.js';
+
+    applyThemeToDocument();
+    const themeBtn = document.getElementById('theme-toggle');
+    const themeIcon = document.getElementById('theme-icon');
+    if (themeIcon) themeIcon.textContent = themeToggleLabel();
+    themeBtn?.addEventListener('click', () => {
+      const next = toggleTheme();
+      if (themeIcon) themeIcon.textContent = themeToggleLabel(next);
+    });
+
+    seedDatabase();
+    warmClientsCatalog();
+    initTechDashboard();
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js').catch(() => {});
+    }
+  </script>
+</body>
+</html>
