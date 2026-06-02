@@ -193,6 +193,22 @@ module.exports = async function handler(req, res) {
     return res.status(200).json({ ok: true });
   } catch (err) {
     console.error('[API /enviar-email]', err);
-    return res.status(500).json({ error: 'Falha ao enviar e-mail.' });
+    const responseCode = err?.responseCode || null;
+    const code = err?.code || null;
+    const response = typeof err?.response === 'string' ? err.response : '';
+
+    let hint = null;
+    if (responseCode === 552 && response.includes('BlockedMessage')) {
+      hint = 'Gmail bloqueou o anexo/conteúdo (BlockedMessage).';
+    } else if (responseCode === 535) {
+      hint = 'Falha de autenticação SMTP (ver App Password / 2FA).';
+    }
+
+    return res.status(500).json({
+      error: 'Falha ao enviar e-mail.',
+      code,
+      responseCode,
+      hint,
+    });
   }
 };

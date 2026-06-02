@@ -473,6 +473,7 @@ export async function approveReport(reportId) {
     const pdfBlob = doc.output('blob');
     const pdfArrayBuffer = await pdfBlob.arrayBuffer();
     const pdfBase64 = arrayBufferToBase64(pdfArrayBuffer);
+    const pdfBase64Len = pdfBase64.length;
 
     // Mantém o comportamento existente de download local.
     doc.save(filename);
@@ -504,6 +505,13 @@ export async function approveReport(reportId) {
             ? 'baterias'
             : 'outro';
 
+      // Proteção: payload grande pode estourar limite do body em serverless (e falhar o envio).
+      const MAX_BASE64_LEN = 3_000_000; // ~2.2MB binário (base64 tem overhead)
+      const attachPdf = pdfBase64Len > 0 && pdfBase64Len <= MAX_BASE64_LEN;
+      if (!attachPdf) {
+        showToast('E-mail será enviado sem anexo (PDF demasiado grande).', 'warning', 6000);
+      }
+
       sendOfficialReportEmail({
         tipoRelatorio,
         reportId: report.id,
@@ -513,11 +521,15 @@ export async function approveReport(reportId) {
         dataConclusao: values.data_de_conclusao || String(report.submittedAt || '').split('T')[0] || '',
         serieFrota: values.numero_de_serie || report.forkliftSerial || '',
         to: recipientEmail,
-        pdfFilename: filename,
-        pdfBase64,
+        pdfFilename: attachPdf ? filename : undefined,
+        pdfBase64: attachPdf ? pdfBase64 : undefined,
       }).catch((err) => {
         console.error('[Email] Envio após aprovação falhou:', err);
-        showToast('Relatório aprovado, mas o e-mail para o cliente falhou.', 'warning');
+        showToast(
+          `Relatório aprovado, mas o e-mail para o cliente falhou. ${err?.message || ''}`.trim(),
+          'warning',
+          8000,
+        );
       });
     } else {
       showToast('Relatório aprovado, mas o cliente não tem e-mail registado.', 'warning');
