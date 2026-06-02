@@ -143,7 +143,10 @@ export async function sendOfficialReportEmail(meta = {}) {
 
   if (!response.ok) {
     const err = await response.json().catch(() => ({}));
-    throw new Error(err.error || 'Falha ao enviar e-mail pela API.');
+    const details = [err.error, err.hint, err.code, err.responseCode]
+      .filter(Boolean)
+      .join(' | ');
+    throw new Error(details || 'Falha ao enviar e-mail pela API.');
   }
 
   return true;
