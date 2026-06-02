@@ -15,7 +15,7 @@ function escapeHtml(value) {
 }
 
 function buildSubject(payload = {}) {
-  const company = payload.nomeEmpresa || payload.clientName || 'Empresa';
+  const company = payload.clienteNome || payload.nomeEmpresa || payload.clientName || 'Empresa';
   const tipoRelatorio = String(payload.tipoRelatorio || '').toLowerCase();
 
   if (tipoRelatorio === 'dl50-2005') {
@@ -30,10 +30,11 @@ function buildSubject(payload = {}) {
 }
 
 function buildHtmlBody(payload = {}) {
-  const company = escapeHtml(payload.nomeEmpresa || payload.clientName || 'Cliente');
+  const company = escapeHtml(payload.clienteNome || payload.nomeEmpresa || payload.clientName || 'Cliente');
   const tecnico = escapeHtml(payload.tecnico || payload.technician || 'Não informado');
   const data = escapeHtml(
-    payload.data ||
+    payload.dataConclusao ||
+      payload.data ||
       payload.date ||
       new Date().toLocaleDateString('pt-PT', {
         year: 'numeric',
@@ -41,7 +42,6 @@ function buildHtmlBody(payload = {}) {
         day: '2-digit',
       }),
   );
-  const serieOuFrota = escapeHtml(payload.serieFrota || payload.forkliftSerial || 'Não informado');
   const tipoRelatorio = String(payload.tipoRelatorio || '').toLowerCase();
   const serviceLabel =
     tipoRelatorio === 'dl50-2005'
@@ -98,10 +98,6 @@ function buildHtmlBody(payload = {}) {
                     <td style="padding:13px 14px;background:#f8fafc;border-bottom:1px solid #e2e8f0;color:#475569;font-size:12px;font-weight:700;letter-spacing:0.3px;text-transform:uppercase;">Data</td>
                     <td style="padding:13px 14px;border-bottom:1px solid #e2e8f0;font-size:13px;color:#0f172a;font-weight:500;">${data}</td>
                   </tr>
-                  <tr>
-                    <td style="padding:13px 14px;background:#f8fafc;color:#475569;font-size:12px;font-weight:700;letter-spacing:0.3px;text-transform:uppercase;">Número de Série / Frota</td>
-                    <td style="padding:13px 14px;font-size:13px;color:#0f172a;font-weight:500;">${serieOuFrota}</td>
-                  </tr>
                 </table>
 
                 <p style="margin:20px 0 0 0;font-size:14px;line-height:1.7;color:#334155;">
@@ -118,7 +114,7 @@ function buildHtmlBody(payload = {}) {
                   Rua São Mamede, Lote Nº1 - Fração D, 4760-725 Ribeirão VNF
                 </p>
                 <p style="margin:0 0 10px 0;font-size:12px;line-height:1.6;color:#475569;">
-                  geral@manusilva.pt · +351 220 100 200 · www.manusilva.pt
+                  geral@manusilva.pt · +351 229 811 990 · www.manusilva.pt
                 </p>
                 <p style="margin:0;font-size:10px;line-height:1.55;color:#64748b;">
                   Nota de confidencialidade: esta comunicação e quaisquer anexos podem conter informação confidencial e legalmente protegida,
@@ -141,30 +137,57 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: 'Método não permitido.' });
   }
 
-  if (!SMTP_HOST || !SMTP_PORT || !EMAIL_USER || !EMAIL_PASS) {
+  if (!EMAIL_USER || !EMAIL_PASS) {
     return res.status(500).json({ error: 'Variáveis SMTP não configuradas.' });
   }
+
+  const emailPass = String(EMAIL_PASS).replace(/\s+/g, '');
 
   try {
     const payload = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : req.body || {};
 
-    const transporter = nodemailer.createTransport({
-      host: SMTP_HOST,
-      port: SMTP_PORT,
-      secure: SMTP_PORT === 465,
-      auth: {
-        user: EMAIL_USER,
-        pass: EMAIL_PASS,
-      },
-    });
+    const isGmail =
+      /@gmail\.com$/i.test(EMAIL_USER) ||
+      String(SMTP_HOST || '').toLowerCase().includes('gmail');
+
+    const transporter = isGmail
+      ? nodemailer.createTransport({
+          service: 'gmail',
+          auth: {
+            user: EMAIL_USER,
+            pass: emailPass,
+          },
+        })
+      : nodemailer.createTransport({
+          host: SMTP_HOST,
+          port: SMTP_PORT,
+          secure: SMTP_PORT === 465,
+          auth: {
+            user: EMAIL_USER,
+            pass: emailPass,
+          },
+        });
 
     const recipient = String(payload.to || '').trim() || EMAIL_USER;
+
+    const attachments = [];
+    if (payload.pdfBase64 && payload.pdfFilename) {
+      const pdfBase64 = String(payload.pdfBase64);
+      const pdfFilename = String(payload.pdfFilename);
+      const content = Buffer.from(pdfBase64, 'base64');
+      attachments.push({
+        filename: pdfFilename,
+        content,
+        contentType: 'application/pdf',
+      });
+    }
 
     await transporter.sendMail({
       from: EMAIL_USER,
       to: recipient,
       subject: buildSubject(payload),
       html: buildHtmlBody(payload),
+      attachments: attachments.length ? attachments : undefined,
     });
 
     return res.status(200).json({ ok: true });

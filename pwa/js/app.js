@@ -114,29 +114,30 @@ export function updateDB(updater) {
 
 /**
  * Dispara envio de e-mail oficial via Serverless Function (`/api/enviar-email`).
- * @param {{ reportType?: string, reportId?: string, clientName?: string, date?: string }} [meta]
+ * @param {{ tipoRelatorio?: string, reportId?: string, clienteNome?: string, nome_empresa?: string, tecnico?: string, dataConclusao?: string, to?: string, serieFrota?: string, pdfFilename?: string, pdfBase64?: string }} [meta]
  */
 export async function sendOfficialReportEmail(meta = {}) {
   const dateStamp =
-    meta.date ||
+    meta.dataConclusao ||
     new Date().toLocaleDateString('pt-PT', { year: 'numeric', month: '2-digit', day: '2-digit' });
-  const subjectParts = [
-    REPORT_EMAIL_SUBJECT_PREFIX,
-    meta.reportType || 'Tipo não indicado',
-    meta.reportId ? `#${meta.reportId}` : null,
-    meta.clientName ? `Cliente: ${meta.clientName}` : null,
-    dateStamp,
-  ].filter(Boolean);
-
-  const subject = subjectParts.join(' | ');
+  const clienteNome = meta.clienteNome || meta.nome_empresa || 'Cliente não indicado';
+  const tecnico = meta.tecnico || 'Técnico não indicado';
+  const tipoRelatorio = meta.tipoRelatorio || 'outro';
+  const serieFrota = meta.serieFrota || '';
 
   const response = await fetch('/api/enviar-email', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      ...meta,
-      date: dateStamp,
-      subject,
+      to: meta.to,
+      reportId: meta.reportId,
+      clienteNome,
+      tecnico,
+      dataConclusao: dateStamp,
+      tipoRelatorio,
+      serieFrota,
+      pdfFilename: meta.pdfFilename,
+      pdfBase64: meta.pdfBase64,
     }),
   });
 
@@ -460,8 +461,21 @@ export async function approveReport(reportId) {
 
   try {
     showToast('A gerar folha de intervenção em PDF...', 'info', 2500);
-    const { generateInterventionPDF } = await import('./pdf-report.js');
-    const filename = await generateInterventionPDF(report);
+    const { renderInterventionPDF } = await import('./pdf-report.js');
+
+    // Renderiza uma vez: usamos o mesmo documento para download e para anexo no e-mail.
+    const doc = await renderInterventionPDF(report);
+    const safeSerial = (report.forkliftSerial || 'report').replace(/[^\w-]/g, '_');
+    const dateStamp = (report.submittedAt || new Date().toISOString()).slice(0, 10);
+    const filename = `Manusilva_${report.serviceType}_${safeSerial}_${dateStamp}.pdf`;
+
+    // Gera anexo em memória (base64) para envio no back-end.
+    const pdfBlob = doc.output('blob');
+    const pdfArrayBuffer = await pdfBlob.arrayBuffer();
+    const pdfBase64 = arrayBufferToBase64(pdfArrayBuffer);
+
+    // Mantém o comportamento existente de download local.
+    doc.save(filename);
 
     updateDB((db) => {
       const r = db.reports.find((x) => x.id === reportId);
@@ -482,11 +496,25 @@ export async function approveReport(reportId) {
 
     const recipientEmail = client?.email || client?.['E-mail'] || '';
     if (recipientEmail) {
+      const values = report?.data?.values || {};
+      const tipoRelatorio =
+        report.serviceType === 'inspecao_dl50_2005'
+          ? 'dl50-2005'
+          : report.serviceType === 'manutencao_baterias_grandes'
+            ? 'baterias'
+            : 'outro';
+
       sendOfficialReportEmail({
-        reportType: getServiceType(report.serviceType)?.label || report.serviceType,
+        tipoRelatorio,
         reportId: report.id,
-        clientName: client?.name || client?.Nome || '',
+        clienteNome: values.nome_empresa || values.cliente || client?.name || client?.Nome || '',
+        nome_empresa: values.nome_empresa || '',
+        tecnico: values.tecnico || getTechnician(report.technicianId)?.name || '',
+        dataConclusao: values.data_de_conclusao || String(report.submittedAt || '').split('T')[0] || '',
+        serieFrota: values.numero_de_serie || report.forkliftSerial || '',
         to: recipientEmail,
+        pdfFilename: filename,
+        pdfBase64,
       }).catch((err) => {
         console.error('[Email] Envio após aprovação falhou:', err);
         showToast('Relatório aprovado, mas o e-mail para o cliente falhou.', 'warning');
@@ -501,6 +529,16 @@ export async function approveReport(reportId) {
     showToast('Erro ao gerar o PDF. Tente novamente.', 'error');
     return null;
   }
+}
+
+function arrayBufferToBase64(buffer) {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+  return btoa(binary);
 }
 
 export function rejectReport(reportId, note) {
