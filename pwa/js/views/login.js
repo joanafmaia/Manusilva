@@ -1,6 +1,23 @@
-import { AuthService } from '../auth.js';
+import { AuthService, resolveLoginEmail, resolveDisplayNameForHint } from '../auth.js';
+import { buildInitialPasswordHint } from '../auth-password.js';
 import { ROLE_UI_TO_DB } from '../mock_data.js';
 import { toggleTheme, themeToggleLabel, getStoredTheme } from '../theme.js';
+
+const MAX_FAILED_ATTEMPTS = 5;
+const LOGIN_LOCK_MS = 120_000;
+const FAILED_COUNT_KEY = 'manusilva_login_failed_count';
+
+function getFailedCount() {
+  return Number(localStorage.getItem(FAILED_COUNT_KEY) || 0);
+}
+
+function setFailedCount(n) {
+  localStorage.setItem(FAILED_COUNT_KEY, String(Math.max(0, n)));
+}
+
+function resetFailedCount() {
+  localStorage.removeItem(FAILED_COUNT_KEY);
+}
 
 export const LoginView = {
   render() {
@@ -42,26 +59,37 @@ export const LoginView = {
           <form id="login-form" autocomplete="on">
             <div style="margin-bottom: 20px;">
               <label for="identifier" style="display: block; margin-bottom: 8px; font-size: 14px; font-weight: 600; color: var(--text-muted);">Nome ou e-mail</label>
-              <input type="text" id="identifier" class="form-input" required value="Hugo" autocomplete="username" style="
+              <input type="text" id="identifier" class="form-input" required autocomplete="username" style="
                 width: 100%; padding: 14px; border-radius: 8px; font-size: 16px; box-sizing: border-box; outline: none;
                 background-color: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-main);
                 transition: border-color 0.2s;
               " placeholder="Nome ou exemplo@empresa.com">
             </div>
 
-            <div style="margin-bottom: 24px;">
+            <div style="margin-bottom: 8px;">
               <label for="password" style="display: block; margin-bottom: 8px; font-size: 14px; font-weight: 600; color: var(--text-muted);">Palavra-passe</label>
-              <input type="password" id="password" class="form-input" required value="12345" autocomplete="current-password" style="
+              <input type="password" id="password" class="form-input" required autocomplete="current-password" style="
                 width: 100%; padding: 14px; border-radius: 8px; font-size: 16px; box-sizing: border-box; outline: none;
                 background-color: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-main);
                 transition: border-color 0.2s;
-              " placeholder="••••••••">
+              " placeholder="Ex.: Tecnico.2026">
+              <p id="password-format-hint" class="login-password-hint" style="
+                margin: 8px 0 0; font-size: 12px; color: var(--text-muted); line-height: 1.4;
+              ">
+                Primeiro acesso: primeira letra do nome em maiúscula + <code>.2026</code> (ex.: <span id="password-hint-example">Tecnico.2026</span>).
+              </p>
             </div>
 
             <div id="login-error" style="
               color: #dc2626; background: rgba(220, 38, 38, 0.08); padding: 12px;
-              border-radius: 8px; margin-bottom: 20px; font-size: 14px; display: none;
+              border-radius: 8px; margin: 20px 0; font-size: 14px; display: none;
               border: 1px solid rgba(220, 38, 38, 0.2); text-align: center; font-weight: 500;
+            "></div>
+
+            <div id="login-info" style="
+              color: #1d4ed8; background: rgba(37, 99, 235, 0.08); padding: 12px;
+              border-radius: 8px; margin-bottom: 20px; font-size: 14px; display: none;
+              border: 1px solid rgba(37, 99, 235, 0.2); text-align: center; font-weight: 500;
             "></div>
 
             <button type="submit" id="btn-submit" style="
@@ -73,10 +101,6 @@ export const LoginView = {
               <span id="btn-text">Entrar no Sistema</span>
             </button>
           </form>
-
-          <p style="color: var(--text-muted); text-align: center; margin: 20px 0 0; font-size: 12px;">
-            Demo: nome ou e-mail + palavra-passe <code>12345</code>
-          </p>
         </div>
       </div>
     `;
@@ -89,17 +113,82 @@ export const LoginView = {
     const themeIcon = document.getElementById('theme-icon');
     const form = document.getElementById('login-form');
     const errorDiv = document.getElementById('login-error');
+    const infoDiv = document.getElementById('login-info');
     const btnSubmit = document.getElementById('btn-submit');
     const btnText = document.getElementById('btn-text');
     const card = document.getElementById('login-card');
     const roleButtons = document.querySelectorAll('.role-pick');
+    const identifierInput = document.getElementById('identifier');
+    const passwordInput = document.getElementById('password');
+    const hintExample = document.getElementById('password-hint-example');
 
     let selectedUiRole = 'technician';
+    let lockTimer = null;
 
     const loginDefaults = {
-      technician: { identifier: 'Hugo', password: '12345' },
-      admin: { identifier: 'Joana', password: '12345' },
+      technician: { identifier: 'Hugo' },
+      admin: { identifier: 'Joana' },
     };
+
+    function refreshPasswordPlaceholder() {
+      const term = identifierInput.value.trim();
+      const roleFiltro = ROLE_UI_TO_DB[selectedUiRole];
+      const displayName = resolveDisplayNameForHint(term, roleFiltro) || term;
+      const hint = buildInitialPasswordHint(displayName);
+      passwordInput.placeholder = hint;
+      if (hintExample) hintExample.textContent = hint;
+    }
+
+    function setLoginLocked(locked, message = '') {
+      btnSubmit.disabled = locked;
+      if (locked) {
+        btnSubmit.style.background = '#94a3b8';
+        btnSubmit.style.cursor = 'not-allowed';
+        if (message) btnText.textContent = message;
+      } else {
+        btnSubmit.style.background = '#2563eb';
+        btnSubmit.style.cursor = 'pointer';
+        btnText.textContent = 'Entrar no Sistema';
+      }
+    }
+
+    function showError(msg) {
+      infoDiv.style.display = 'none';
+      errorDiv.textContent = msg;
+      errorDiv.style.display = 'block';
+    }
+
+    function showInfo(msg) {
+      errorDiv.style.display = 'none';
+      infoDiv.textContent = msg;
+      infoDiv.style.display = 'block';
+    }
+
+    function shakeCard() {
+      card.style.transform = 'translateX(-8px)';
+      setTimeout(() => {
+        card.style.transform = 'translateX(8px)';
+      }, 80);
+      setTimeout(() => {
+        card.style.transform = 'translateX(0)';
+      }, 160);
+    }
+
+    async function triggerLockoutAndReset(email) {
+      const msg =
+        'Demasiadas tentativas incorretas. Enviámos um link de redefinição de palavra-passe para o teu email para segurança da tua conta.';
+      showInfo(msg);
+
+      if (email) {
+        await AuthService.requestPasswordReset(email);
+      }
+
+      setLoginLocked(true, 'Login bloqueado temporariamente');
+      clearTimeout(lockTimer);
+      lockTimer = setTimeout(() => {
+        setLoginLocked(false);
+      }, LOGIN_LOCK_MS);
+    }
 
     themeToggle?.addEventListener('click', () => {
       const next = toggleTheme();
@@ -115,10 +204,14 @@ export const LoginView = {
           b.setAttribute('aria-pressed', selected ? 'true' : 'false');
         });
         const defaults = loginDefaults[selectedUiRole] || loginDefaults.technician;
-        document.getElementById('identifier').value = defaults.identifier;
-        document.getElementById('password').value = defaults.password;
+        identifierInput.value = defaults.identifier;
+        passwordInput.value = '';
+        refreshPasswordPlaceholder();
       });
     });
+
+    identifierInput.addEventListener('input', refreshPasswordPlaceholder);
+    identifierInput.addEventListener('blur', refreshPasswordPlaceholder);
 
     form.querySelectorAll('#identifier, #password').forEach((input) => {
       input.addEventListener('focus', () => {
@@ -129,38 +222,48 @@ export const LoginView = {
       });
     });
 
+    refreshPasswordPlaceholder();
+
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
-      errorDiv.style.display = 'none';
+      if (btnSubmit.disabled && getFailedCount() >= MAX_FAILED_ATTEMPTS) return;
 
-      btnSubmit.disabled = true;
+      errorDiv.style.display = 'none';
+      infoDiv.style.display = 'none';
+
+      setLoginLocked(true);
       btnSubmit.style.background = '#1d4ed8';
       btnText.textContent = 'A verificar...';
 
-      const identifier = document.getElementById('identifier').value.trim();
-      const password = document.getElementById('password').value;
+      const identifier = identifierInput.value.trim();
+      const password = passwordInput.value;
       const roleFiltro = ROLE_UI_TO_DB[selectedUiRole];
 
       const resultado = await AuthService.login(identifier, password, roleFiltro);
 
       if (resultado.success) {
+        resetFailedCount();
         window.location.reload();
         return;
       }
 
-      btnSubmit.disabled = false;
-      btnSubmit.style.background = '#2563eb';
-      btnText.textContent = 'Entrar no Sistema';
-      errorDiv.textContent = resultado.error;
-      errorDiv.style.display = 'block';
+      const email =
+        resultado.email || resolveLoginEmail(identifier, roleFiltro) || identifier;
+      const failures = getFailedCount() + 1;
+      setFailedCount(failures);
 
-      card.style.transform = 'translateX(-8px)';
-      setTimeout(() => {
-        card.style.transform = 'translateX(8px)';
-      }, 80);
-      setTimeout(() => {
-        card.style.transform = 'translateX(0)';
-      }, 160);
+      if (failures >= MAX_FAILED_ATTEMPTS) {
+        await triggerLockoutAndReset(email);
+        shakeCard();
+        return;
+      }
+
+      setLoginLocked(false);
+      const restantes = MAX_FAILED_ATTEMPTS - failures;
+      showError(
+        `${resultado.error} (${restantes} tentativa${restantes === 1 ? '' : 's'} restante${restantes === 1 ? '' : 's'}).`,
+      );
+      shakeCard();
     });
   },
 };

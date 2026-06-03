@@ -1,20 +1,13 @@
 /**
- * Manusilva PWA — Autenticação (mock de desenvolvimento)
- * Validação por nome ou e-mail.
+ * Manusilva PWA — Autenticação Supabase Auth (técnicos e RH)
  */
 
+import { getSupabaseClient } from './supabase-client.js';
 import { APP_SESSION_KEY, clearSession, normalizeSession, setRawSession } from './session.js';
+import { UTILIZADORES } from './mock_data.js';
+import { buildInitialPasswordHint } from './auth-password.js';
 
-export const AUTH_BUILD = '2026-05-30-v3';
-
-/** Dados reais da equipa para simulação em desenvolvimento */
-const EQUIPA_MOCK = [
-  { nome: 'Hugo', email: 'filipasilvahugo2013@gmail.com', password: '12345', role: 'Tecnico' },
-  { nome: 'Filipe', email: 'filipeg409@gmail.com', password: '12345', role: 'Tecnico' },
-  { nome: 'Adelton', email: 'adeltonair@gmail.com', password: '12345', role: 'Tecnico' },
-  { nome: 'Joana', email: 'joanamaia97@gmail.com', password: '12345', role: 'RH' },
-  { nome: 'Filipa', email: 'filipasilvahugo2013@gmail.com', password: '12345', role: 'RH' },
-];
+export const AUTH_BUILD = '2026-06-03-supabase-auth';
 
 const TECHNICIAN_IDS = {
   'filipasilvahugo2013@gmail.com': 'tech-1',
@@ -25,23 +18,27 @@ const TECHNICIAN_IDS = {
 function technicianIdFor(user) {
   if (user.role !== 'Tecnico') return null;
   if (user.technicianId) return user.technicianId;
-  return TECHNICIAN_IDS[user.email.toLowerCase()] || null;
+  return TECHNICIAN_IDS[String(user.email || '').toLowerCase()] || null;
 }
 
-/** Equipa base + técnicos/RH registados no painel (localStorage) */
+/** Catálogo local para resolver nome → e-mail e metadados de perfil */
 function buildLoginPool() {
-  const pool = EQUIPA_MOCK.map((u) => ({ ...u }));
+  const pool = UTILIZADORES.map((u) => ({
+    nome: u.nome,
+    email: u.email,
+    role: u.role,
+    technicianId: u.technicianId || null,
+  }));
 
   try {
     const raw = localStorage.getItem('manusilva_db');
     if (!raw) return pool;
     const db = JSON.parse(raw);
     (db.utilizadores || []).forEach((u) => {
-      if (!u?.email || !u.password) return;
+      if (!u?.email) return;
       const entry = {
         nome: u.nome,
         email: u.email,
-        password: u.password,
         role: u.role,
         technicianId: u.technicianId || null,
       };
@@ -53,61 +50,132 @@ function buildLoginPool() {
       else pool.push(entry);
     });
   } catch {
-    /* mantém pool demo */
+    /* mantém pool base */
   }
 
   return pool;
 }
 
-function findUtilizador(termoNormalizado, password, roleFiltro) {
-  const pass = password.trim();
-  const matches = buildLoginPool().filter(
-    (u) =>
-      (u.email.toLowerCase() === termoNormalizado || u.nome.toLowerCase() === termoNormalizado) &&
-      u.password === pass,
-  );
+/**
+ * Resolve nome ou e-mail para o e-mail usado no Supabase Auth.
+ * @param {string} identifier
+ * @param {string|null} roleFiltro `Tecnico` | `RH`
+ */
+export function resolveLoginEmail(identifier, roleFiltro = null) {
+  const term = String(identifier || '').trim().toLowerCase();
+  if (!term) return null;
 
-  if (matches.length === 0) return null;
-  if (matches.length === 1) return matches[0];
-  if (roleFiltro) return matches.find((u) => u.role === roleFiltro) || null;
-  return matches[0];
+  if (term.includes('@')) return term;
+
+  const matches = buildLoginPool().filter((u) => u.nome.toLowerCase() === term);
+  if (!matches.length) return null;
+  if (roleFiltro) {
+    const filtered = matches.find((u) => u.role === roleFiltro);
+    return filtered?.email.toLowerCase() || null;
+  }
+  return matches[0].email.toLowerCase();
+}
+
+export function resolveDisplayNameForHint(identifier, roleFiltro = null) {
+  const term = String(identifier || '').trim();
+  if (!term) return '';
+  if (term.includes('@')) {
+    const pool = buildLoginPool();
+    const match = pool.find((u) => u.email.toLowerCase() === term.toLowerCase());
+    return match?.nome || term.split('@')[0];
+  }
+  return term;
+}
+
+function profileFromAuthUser(user, roleFiltro) {
+  const meta = user.user_metadata || {};
+  const email = (user.email || '').toLowerCase();
+  const fromPool = buildLoginPool().find((u) => u.email.toLowerCase() === email);
+
+  const role = meta.role || fromPool?.role;
+  const nome = meta.nome || meta.name || fromPool?.nome || email;
+  const technicianId =
+    meta.technician_id || meta.technicianId || fromPool?.technicianId || null;
+
+  if (roleFiltro && role && role !== roleFiltro) {
+    return {
+      error:
+        roleFiltro === 'RH'
+          ? 'Esta conta não tem acesso de Recursos Humanos.'
+          : 'Esta conta não tem acesso de Técnico.',
+    };
+  }
+
+  if (!role) {
+    return { error: 'Perfil não configurado. Contacte o RH.' };
+  }
+
+  return {
+    nome,
+    email: user.email,
+    role,
+    technicianId: technicianId || technicianIdFor({ email, role, technicianId }),
+  };
+}
+
+function formatAuthError(err) {
+  const msg = String(err?.message || '').toLowerCase();
+  if (msg.includes('invalid login credentials') || msg.includes('invalid_credentials')) {
+    return 'Utilizador ou palavra-passe incorretos.';
+  }
+  if (msg.includes('email not confirmed')) {
+    return 'Confirme o seu e-mail antes de entrar.';
+  }
+  if (msg.includes('too many requests')) {
+    return 'Demasiadas tentativas. Aguarde alguns minutos.';
+  }
+  return err?.message || 'Não foi possível iniciar sessão.';
 }
 
 export const AuthService = {
   /**
-   * Simula a validação de login no cliente (aceita nome ou e-mail).
+   * Login Supabase Auth (e-mail + palavra-passe).
    * @param {string} identifier Nome ou e-mail
    * @param {string} password
-   * @param {string} [roleFiltro] `Tecnico` ou `RH` — necessário quando o e-mail é partilhado
+   * @param {string|null} [roleFiltro] `Tecnico` ou `RH`
    */
   async login(identifier, password, roleFiltro = null) {
-    await new Promise((resolve) => setTimeout(resolve, 500));
-
-    const termoNormalizado = String(identifier || '').trim().toLowerCase();
     const pass = String(password || '').trim();
+    const email = resolveLoginEmail(identifier, roleFiltro);
 
-    if (!termoNormalizado || !pass) {
+    if (!email || !pass) {
       return {
         success: false,
         error: 'Utilizador ou palavra-passe incorretos.',
       };
     }
 
-    const utilizador = findUtilizador(termoNormalizado, pass, roleFiltro);
+    const supabase = await getSupabaseClient();
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password: pass,
+    });
 
-    if (!utilizador) {
+    if (error) {
       return {
         success: false,
-        error: 'Utilizador ou palavra-passe incorretos.',
+        error: formatAuthError(error),
+        email,
       };
+    }
+
+    const profile = profileFromAuthUser(data.user, roleFiltro);
+    if (profile.error) {
+      await supabase.auth.signOut();
+      return { success: false, error: profile.error, email };
     }
 
     const sessao = {
-      nome: utilizador.nome,
-      email: utilizador.email,
-      role: utilizador.role,
-      technicianId: utilizador.technicianId || technicianIdFor(utilizador),
-      token: `demo-jwt-token-id-${Math.random().toString(36).slice(2)}`,
+      nome: profile.nome,
+      email: profile.email,
+      role: profile.role,
+      technicianId: profile.technicianId,
+      token: data.session?.access_token || '',
       loginAt: new Date().toISOString(),
       authBuild: AUTH_BUILD,
     };
@@ -117,10 +185,38 @@ export const AuthService = {
     return {
       success: true,
       user: sessao,
+      email,
     };
   },
 
-  logout() {
+  async requestPasswordReset(email) {
+    const normalized = String(email || '').trim().toLowerCase();
+    if (!normalized || !normalized.includes('@')) {
+      return { success: false, error: 'E-mail inválido para redefinição.' };
+    }
+
+    const supabase = await getSupabaseClient();
+    const redirectTo = `${window.location.origin}${window.location.pathname.replace(/[^/]+$/, '')}index.html`;
+
+    const { error } = await supabase.auth.resetPasswordForEmail(normalized, {
+      redirectTo,
+    });
+
+    if (error) {
+      console.error('[Auth] resetPasswordForEmail:', error);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true };
+  },
+
+  async logout() {
+    try {
+      const supabase = await getSupabaseClient();
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.warn('[Auth] signOut:', err);
+    }
     clearSession();
   },
 
@@ -128,11 +224,14 @@ export const AuthService = {
     const sessao = localStorage.getItem(APP_SESSION_KEY);
     return sessao ? JSON.parse(sessao) : null;
   },
+
+  buildLoginPool,
+  buildInitialPasswordHint,
 };
 
 export function initLogoutButton() {
-  document.getElementById('logout-btn')?.addEventListener('click', () => {
-    AuthService.logout();
+  document.getElementById('logout-btn')?.addEventListener('click', async () => {
+    await AuthService.logout();
     window.location.href = 'index.html';
   });
 }
