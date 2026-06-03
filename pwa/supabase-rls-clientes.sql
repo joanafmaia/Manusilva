@@ -16,3 +16,16 @@ CREATE POLICY "anon_insert_clientes"
   FOR INSERT
   TO anon
   WITH CHECK (true);
+
+-- A coluna id já é IDENTITY: não uses DEFAULT/SEQUENCE manual.
+-- Após importar ids 1..129, o próximo INSERT deve ser 130, 131, …
+DO $$
+DECLARE
+  next_id bigint;
+BEGIN
+  SELECT COALESCE(MAX(id), 0) + 1 INTO next_id FROM public.clientes;
+  EXECUTE format(
+    'ALTER TABLE public.clientes ALTER COLUMN id RESTART WITH %s',
+    next_id
+  );
+END $$;

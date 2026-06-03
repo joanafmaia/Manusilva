@@ -1,0 +1,16 @@
+---
+description: Após alterações ao código do projeto Manusilva, fazer commit e push para GitHub (origin/main).
+alwaysApply: true
+---
+
+# Git após alterações de código
+
+Quando alterares ficheiros do projeto (código, SQL da app, HTML da PWA, etc.):
+
+1. No final da tarefa, se houver alterações relevantes, faz **commit + push** para `origin/main` sem o utilizador ter de pedir outra vez.
+2. **Não** commits `.env`, credenciais SMTP, nem ficheiros só locais.
+3. Mensagem de commit: frase clara em português ou inglês, focada no «porquê».
+4. Se o push for rejeitado, pede aprovação e reintenta; informa o hash do commit e o URL do repositório.
+5. Se não houver diff, não cries commit vazio.
+
+Exceção: se o utilizador disser explicitamente para não fazer push ou não commitar.

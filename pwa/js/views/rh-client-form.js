@@ -61,25 +61,34 @@ export function mountClientForm(root, callbacks = {}) {
     e.preventDefault();
 
     const btn = form.querySelector('.rh-register-submit');
-    btn.disabled = true;
+    const btnLabel = btn?.textContent;
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = 'A gravar…';
+    }
 
-    const record = await addClient({
-      Nome: form.querySelector('#rh-client-nome')?.value,
-      NIF: form.querySelector('#rh-client-nif')?.value,
-      'E-mail': form.querySelector('#rh-client-email')?.value,
-      Morada: form.querySelector('#rh-client-morada')?.value,
-      'Código postal': form.querySelector('#rh-client-cp')?.value,
-      Localidade: form.querySelector('#rh-client-localidade')?.value,
-      'País/Região': form.querySelector('#rh-client-pais')?.value,
-    });
+    try {
+      const record = await addClient({
+        Nome: form.querySelector('#rh-client-nome')?.value,
+        NIF: form.querySelector('#rh-client-nif')?.value,
+        'E-mail': form.querySelector('#rh-client-email')?.value,
+        Morada: form.querySelector('#rh-client-morada')?.value,
+        'Código postal': form.querySelector('#rh-client-cp')?.value,
+        Localidade: form.querySelector('#rh-client-localidade')?.value,
+        'País/Região': form.querySelector('#rh-client-pais')?.value,
+      });
 
-    btn.disabled = false;
-
-    if (record) {
-      form.reset();
-      const pais = form.querySelector('#rh-client-pais');
-      if (pais) pais.value = 'Portugal';
-      callbacks.onSuccess?.(record);
+      if (record) {
+        form.reset();
+        const pais = form.querySelector('#rh-client-pais');
+        if (pais) pais.value = 'Portugal';
+        callbacks.onSuccess?.(record);
+      }
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = btnLabel || 'Adicionar cliente';
+      }
     }
   });
 }

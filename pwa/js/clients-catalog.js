@@ -84,6 +84,31 @@ export function formatClientsLoadError(err) {
   return msg || 'Não foi possível carregar a lista de clientes.';
 }
 
+/** Mensagens para falhas ao criar cliente no Supabase */
+export function formatClientInsertError(err) {
+  if (!err) return 'Não foi possível gravar o cliente.';
+  const msg = String(err.message || err.details || err.hint || '').trim();
+  const code = err.code || '';
+
+  if (code === '23505' || /duplicate key|unique constraint/i.test(msg)) {
+    return (
+      'Já existe um registo com este ID ou NIF. No Supabase SQL Editor, executa pwa/supabase-rls-clientes.sql (bloco RESTART WITH).'
+    );
+  }
+  if (code === '42501' || /permission denied|row-level security/i.test(msg)) {
+    return (
+      'Sem permissão para inserir (RLS). Executa pwa/supabase-rls-clientes.sql no SQL Editor do Supabase.'
+    );
+  }
+  if (code === '23502' || /null value.*id/i.test(msg)) {
+    return (
+      'A coluna id está vazia no INSERT. Executa pwa/supabase-rls-clientes.sql no Supabase (RESTART WITH).'
+    );
+  }
+
+  return msg || formatClientsLoadError(err);
+}
+
 async function fetchClientsFromSupabase() {
   const supabase = await getSupabaseClient();
   const { data, error } = await supabase

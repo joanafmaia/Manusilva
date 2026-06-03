@@ -25,6 +25,8 @@ import {
   loadClientsDataModule,
   registerClientInCatalog,
   normalizeClientRecord,
+  formatClientInsertError,
+  resetProductionCatalogCache,
 } from './clients-catalog.js';
 export { MANUSILVA_LOGO, applyBrandLogo, isLogoConfigured, getPdfLogoFormat } from './brand-ui.js';
 
@@ -302,59 +304,94 @@ export function addTechnician({ nome, email, telemovel, nif, password }) {
 export async function addClient(payload) {
   const nome = String(
     payload?.nome_empresa ?? payload?.Nome ?? payload?.nome ?? '',
-  ).trim();
+  )
+    .replace(/\s+/g, ' ')
+    .trim();
   if (!nome) {
     showToast('O nome do cliente é obrigatório.', 'error');
     return null;
   }
 
-  const nif = String(payload?.nif ?? payload?.NIF ?? '').trim();
-  await ensureProductionCatalog();
-  const catalog = getProductionClientsCatalog();
-  const existing = catalog.find(
-    (c) => (nif && c.NIF === nif) || c.Nome === nome,
-  );
-  if (existing) {
-    showToast('Já existe um cliente com este NIF ou nome.', 'error');
+  const nif = String(payload?.nif ?? payload?.NIF ?? '')
+    .replace(/\s+/g, '')
+    .trim();
+
+  try {
+    await ensureProductionCatalog();
+    const catalog = getProductionClientsCatalog({ warn: false });
+    const nomeKey = nome.toLowerCase();
+    const existing = catalog.find(
+      (c) =>
+        (nif && c.NIF === nif) || String(c.Nome || '').toLowerCase() === nomeKey,
+    );
+    if (existing) {
+      showToast('Já existe um cliente com este NIF ou nome.', 'error');
+      return null;
+    }
+
+    const row = {
+      nome_empresa: nome,
+      nif: nif || null,
+      email: String(payload?.email ?? payload?.['E-mail'] ?? '').trim() || null,
+      morada: String(payload?.morada ?? payload?.Morada ?? '').trim() || null,
+      codigo_postal:
+        String(
+          payload?.codigo_postal ??
+            payload?.['Código postal'] ??
+            payload?.codigoPostal ??
+            '',
+        ).trim() || null,
+      localidade:
+        String(payload?.localidade ?? payload?.Localidade ?? '').trim() || null,
+    };
+
+    const supabase = await getSupabaseClient();
+    const { data, error } = await supabase.from('clientes').insert(row).select();
+
+    if (error) {
+      console.error('[ManuSilva] Erro ao gravar cliente no Supabase:', error);
+      showToast(formatClientInsertError(error), 'error', 9000);
+      return null;
+    }
+
+    let inserted = Array.isArray(data) ? data[0] : data;
+    if (!inserted) {
+      resetProductionCatalogCache();
+      await ensureProductionCatalog();
+      inserted =
+        getProductionClientsCatalog({ warn: false }).find(
+          (c) =>
+            String(c.Nome || '').toLowerCase() === nomeKey &&
+            (!nif || c.NIF === nif),
+        ) || null;
+    }
+
+    if (!inserted) {
+      showToast(
+        'Cliente pode ter sido gravado, mas a resposta do Supabase veio vazia. Recarregue a página.',
+        'error',
+        9000,
+      );
+      return null;
+    }
+
+    const record = normalizeClientRecord(inserted);
+    record.forklifts = Array.isArray(payload?.forklifts) ? payload.forklifts : [];
+
+    updateDB((d) => {
+      if (!Array.isArray(d.clients)) d.clients = [];
+      d.clients.push(record);
+    });
+
+    registerClientInCatalog(record);
+
+    showToast(`Cliente «${nome}» adicionado na base de dados.`, 'success');
+    return record;
+  } catch (err) {
+    console.error('[ManuSilva] addClient:', err);
+    showToast(formatClientInsertError(err), 'error', 9000);
     return null;
   }
-
-  const row = {
-    nome_empresa: nome,
-    nif: nif || null,
-    email: String(payload?.email ?? payload?.['E-mail'] ?? '').trim() || null,
-    morada: String(payload?.morada ?? payload?.Morada ?? '').trim() || null,
-    codigo_postal:
-      String(payload?.codigo_postal ?? payload?.['Código postal'] ?? payload?.codigoPostal ?? '').trim() ||
-      null,
-    localidade:
-      String(payload?.localidade ?? payload?.Localidade ?? '').trim() || null,
-  };
-
-  const { data, error } = await getSupabaseClient()
-    .from('clientes')
-    .insert(row)
-    .select()
-    .single();
-
-  if (error) {
-    console.error('[ManuSilva] Erro ao gravar cliente no Supabase:', error);
-    showToast(error.message || 'Não foi possível gravar o cliente.', 'error');
-    return null;
-  }
-
-  const record = normalizeClientRecord(data);
-  record.forklifts = Array.isArray(payload?.forklifts) ? payload.forklifts : [];
-
-  updateDB((d) => {
-    if (!Array.isArray(d.clients)) d.clients = [];
-    d.clients.push(record);
-  });
-
-  registerClientInCatalog(record);
-
-  showToast(`Cliente «${nome}» adicionado e disponível para pesquisa.`, 'success');
-  return record;
 }
 
 export function getServiceType(id) {
