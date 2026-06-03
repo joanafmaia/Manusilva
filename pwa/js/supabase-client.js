@@ -9,7 +9,7 @@ const SUPABASE_URL = 'https://zhfbezrevosmbmcbyskw.supabase.co';
 /** Cola aqui a chave publishable/anon do painel Supabase → Settings → API Keys */
 const SUPABASE_ANON_KEY =
   (typeof window !== 'undefined' && window.MANUSILVA_SUPABASE_ANON_KEY) ||
-  'COLOQUE_AQUI_A_CHAVE_PUBLISHABLE_OU_ANON';
+  'sb_publishable_PRH6HA2MPJsA6EFAx-Qaww_8ZLOowTV';
 
 let supabaseClient = null;
 
