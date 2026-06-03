@@ -6,7 +6,7 @@ import {
   COMPANY,
   PDF_DOCUMENT_TITLES,
   CLIENTS,
-  clients,
+  DEMO_CLIENT_FORKLIFTS,
   mapClientToLegacy,
   TECHNICIANS,
   SERVICE_TYPES,
@@ -41,9 +41,20 @@ function getDB() {
 }
 
 function getClient(id) {
-  const raw = getDB().clients?.find((c) => c.id === id) || clients.find((c) => c.id === id);
-  if (!raw) return CLIENTS.find((c) => c.id === id);
-  return raw.name ? raw : mapClientToLegacy(raw);
+  const raw = getDB().clients?.find((c) => c.id === id);
+  if (raw) {
+    const legacy = raw.name ? raw : mapClientToLegacy(raw);
+    const demo = DEMO_CLIENT_FORKLIFTS[id];
+    if (demo?.forklifts?.length && !legacy.forklifts?.length) {
+      legacy.forklifts = demo.forklifts;
+    }
+    return legacy;
+  }
+  const demo = DEMO_CLIENT_FORKLIFTS[id];
+  if (demo) {
+    return mapClientToLegacy({ id, Nome: demo.Nome, NIF: demo.NIF, forklifts: demo.forklifts });
+  }
+  return CLIENTS.find((c) => c.id === id) || null;
 }
 
 async function resolvePdfClientMeta(report, values = {}) {

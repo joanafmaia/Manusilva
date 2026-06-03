@@ -536,18 +536,12 @@ export const TECHNICIANS = UTILIZADORES.filter((u) => u.role === 'Tecnico').map(
 }));
 
 /**
- * Catálogo de clientes — schema Excel (Nome, NIF, E-mail, Morada, Código postal, Localidade, País/Região)
+ * Metadados locais (empilhadores) para trabalhos/relatórios demo — não substitui o Supabase.
  */
-export const clients = [
-  {
-    id: 'cli-1',
+export const DEMO_CLIENT_FORKLIFTS = {
+  'cli-1': {
     Nome: 'Empresa Órgãos Hidráulicos Lda',
     NIF: '501234567',
-    'E-mail': 'geral@eohidraulicos.pt',
-    Morada: 'Zona Industrial da Maia, Lote 12',
-    'Código postal': '4475-074',
-    Localidade: 'Maia',
-    'País/Região': 'Portugal',
     forklifts: [
       {
         serial: 'FL-2021-0045',
@@ -566,15 +560,9 @@ export const clients = [
       },
     ],
   },
-  {
-    id: 'cli-2',
+  'cli-2': {
     Nome: 'Logística do Norte S.A.',
     NIF: '502987654',
-    'E-mail': 'frotas@logisticanorte.pt',
-    Morada: 'Rua das Frotas 450',
-    'Código postal': '4700-309',
-    Localidade: 'Braga',
-    'País/Região': 'Portugal',
     forklifts: [
       {
         serial: 'FL-2020-0078',
@@ -586,15 +574,9 @@ export const clients = [
       },
     ],
   },
-  {
-    id: 'cli-3',
+  'cli-3': {
     Nome: 'Distribuição Atlântico Lda',
     NIF: '503456789',
-    'E-mail': 'geral@distatlantico.pt',
-    Morada: 'Av. das Indústrias 450',
-    'Código postal': '3800-011',
-    Localidade: 'Aveiro',
-    'País/Região': 'Portugal',
     forklifts: [
       {
         serial: 'FL-2022-0033',
@@ -619,26 +601,29 @@ export const clients = [
       },
     ],
   },
-];
+};
 
 /** Vista compatível para jobs, PDF e dashboards */
 export function mapClientToLegacy(record) {
   const morada = record.Morada ?? record.morada ?? '';
-  const cp = record['Código postal'] ?? record.codigoPostal ?? '';
+  const cp = record['Código postal'] ?? record.codigo_postal ?? record.codigoPostal ?? '';
   const loc = record.Localidade ?? record.localidade ?? '';
   const address = [morada, cp, loc].filter(Boolean).join(', ');
+  const nome = record.Nome ?? record.name ?? record.nome_empresa ?? '';
+  const nif = record.NIF ?? record.nif ?? '';
+  const email = record['E-mail'] ?? record.email ?? '';
   return {
     id: record.id,
-    Nome: record.Nome ?? record.name,
-    NIF: record.NIF ?? record.nif,
-    'E-mail': record['E-mail'] ?? record.email,
+    Nome: nome,
+    NIF: nif,
+    'E-mail': email,
     Morada: morada,
     'Código postal': cp,
     Localidade: loc,
     'País/Região': record['País/Região'] ?? record.pais ?? 'Portugal',
-    name: record.Nome ?? record.name,
-    nif: record.NIF ?? record.nif,
-    email: record['E-mail'] ?? record.email,
+    name: nome,
+    nif,
+    email,
     address,
     morada,
     codigoPostal: cp,
@@ -648,7 +633,7 @@ export function mapClientToLegacy(record) {
   };
 }
 
-export const CLIENTS = clients.map(mapClientToLegacy);
+export const CLIENTS = [];
 
 /** Tipos de serviço disponíveis (8 relatórios oficiais MS. 061) */
 export const SERVICE_TYPES = [...reportTemplates];
@@ -792,7 +777,7 @@ export function seedDatabase() {
     schemaVersion: SCHEMA_VERSION,
     jobs: INITIAL_JOBS,
     reports: INITIAL_REPORTS,
-    clients,
+    clients: [],
     technicians: TECHNICIANS,
     utilizadores: UTILIZADORES,
     offlineQueue: [],

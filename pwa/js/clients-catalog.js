@@ -1,68 +1,80 @@
 /**
- * Catálogo de produção (560 clientes) — carregamento único em memória
+ * Catálogo de clientes — Supabase (tabela `clientes`)
  */
+
+import { getSupabaseClient } from './supabase-client.js';
 
 const MAX_DROPDOWN_RESULTS = 10;
 
 let productionCatalog = null;
-/** Mapa NIF → registo para lookup O(1) */
+/** Mapa NIF / id → registo para lookup O(1) */
 let catalogByNif = null;
-let clientsDataModule = null;
+let catalogLoadPromise = null;
 
 export { MAX_DROPDOWN_RESULTS };
 
-export async function loadClientsDataModule() {
-  if (!clientsDataModule) {
-    clientsDataModule = await import('../clients_data.js');
-  }
-  return clientsDataModule.default ?? clientsDataModule;
-}
-
 export function normalizeClientRecord(raw, index = 0) {
   if (!raw) return null;
-  const nome = String(raw.Nome ?? raw.name ?? '').trim();
-  const nif = String(raw.NIF ?? raw.nif ?? '').trim();
-  const id = raw.id || nif || `cli-${index}`;
+  const nome = String(raw.nome_empresa ?? raw.Nome ?? raw.name ?? '').trim();
+  const nif = String(raw.nif ?? raw.NIF ?? '').trim();
+  const id = raw.id ?? (nif || `cli-${index}`);
   return {
     id,
     Nome: nome,
     NIF: nif,
-    'E-mail': raw['E-mail'] ?? raw.email ?? '',
-    Morada: raw.Morada ?? raw.morada ?? raw.address ?? '',
-    'Código postal': raw['Código postal'] ?? raw.codigoPostal ?? '',
-    Localidade: raw.Localidade ?? raw.localidade ?? '',
+    'E-mail': raw.email ?? raw['E-mail'] ?? '',
+    Morada: raw.morada ?? raw.Morada ?? raw.address ?? '',
+    'Código postal': raw.codigo_postal ?? raw['Código postal'] ?? raw.codigoPostal ?? '',
+    Localidade: raw.localidade ?? raw.Localidade ?? '',
     'País/Região': raw['País/Região'] ?? raw.pais ?? 'Portugal',
     forklifts: raw.forklifts || [],
   };
 }
 
-export function getProductionClientsCatalog() {
-  if (productionCatalog) return productionCatalog;
-
-  if (!clientsDataModule) {
-    console.warn(
-      '[ManuSilva] Catálogo de 560 clientes ainda não carregado. Chame loadClientsDataModule() antes.',
-    );
-    return [];
-  }
-
-  const raw = clientsDataModule.default ?? clientsDataModule;
-  const data = Array.isArray(raw) ? raw : raw?.default;
-  if (!Array.isArray(data)) {
-    productionCatalog = [];
-    catalogByNif = new Map();
-    return productionCatalog;
-  }
-
-  productionCatalog = data.map((row, index) => normalizeClientRecord(row, index));
+function buildCatalogIndexes() {
   catalogByNif = new Map();
   productionCatalog.forEach((c) => {
     if (c.NIF) catalogByNif.set(c.NIF, c);
     catalogByNif.set(c.id, c);
   });
+}
 
+export function resetProductionCatalogCache() {
+  productionCatalog = null;
+  catalogByNif = null;
+  catalogLoadPromise = null;
+}
+
+async function fetchClientsFromSupabase() {
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase
+    .from('clientes')
+    .select('*')
+    .order('nome_empresa', { ascending: true });
+
+  if (error) {
+    console.error('[ManuSilva] Erro ao carregar clientes do Supabase:', error);
+    throw error;
+  }
+
+  return data || [];
+}
+
+async function loadCatalogFromSupabase() {
+  const rows = await fetchClientsFromSupabase();
+  productionCatalog = rows.map((row, index) => normalizeClientRecord(row, index));
+  buildCatalogIndexes();
   mergeClientsFromStorage();
+  return productionCatalog;
+}
 
+export function getProductionClientsCatalog() {
+  if (!productionCatalog) {
+    console.warn(
+      '[ManuSilva] Catálogo de clientes ainda não carregado. Chame ensureProductionCatalog() antes.',
+    );
+    return [];
+  }
   return productionCatalog;
 }
 
@@ -113,10 +125,21 @@ export function registerClientInCatalog(raw, index = 0) {
   return record;
 }
 
-/** Carrega `clients_data.js` e constrói o catálogo em memória */
+/** @deprecated Alias de ensureProductionCatalog — compatibilidade */
+export async function loadClientsDataModule() {
+  return ensureProductionCatalog();
+}
+
+/** Carrega clientes do Supabase e constrói o catálogo em memória */
 export async function ensureProductionCatalog() {
-  await loadClientsDataModule();
-  return getProductionClientsCatalog();
+  if (productionCatalog) return productionCatalog;
+  if (!catalogLoadPromise) {
+    catalogLoadPromise = loadCatalogFromSupabase().catch((err) => {
+      catalogLoadPromise = null;
+      throw err;
+    });
+  }
+  return catalogLoadPromise;
 }
 
 export function getClientFromCatalog(idOrNif, catalog = getProductionClientsCatalog()) {

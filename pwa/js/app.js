@@ -3,10 +3,14 @@
  * Storage, auth, utilities, notifications
  */
 
+import { getSupabaseClient } from './supabase-client.js';
+
+export { getSupabaseClient };
+
 import {
   COMPANY,
   CLIENTS,
-  clients,
+  DEMO_CLIENT_FORKLIFTS,
   mapClientToLegacy,
   TECHNICIANS,
   SERVICE_TYPES,
@@ -19,6 +23,8 @@ import {
   getProductionClientsCatalog,
   getClientFromCatalog,
   loadClientsDataModule,
+  registerClientInCatalog,
+  normalizeClientRecord,
 } from './clients-catalog.js';
 export { MANUSILVA_LOGO, applyBrandLogo, isLogoConfigured, getPdfLogoFormat } from './brand-ui.js';
 
@@ -44,7 +50,7 @@ export function getDB() {
   return JSON.parse(localStorage.getItem(DB_KEY));
 }
 
-/** Pré-carrega o catálogo de 560 clientes (uma vez por sessão) */
+/** Pré-carrega o catálogo de clientes do Supabase (uma vez por sessão) */
 export function warmClientsCatalog() {
   return ensureProductionCatalog();
 }
@@ -65,8 +71,7 @@ export async function ensureFullClientsInStorage() {
   const stored = Array.isArray(db.clients) ? db.clients : [];
 
   if (!catalog.length) {
-    const fallback = stored.length ? stored : clients;
-    return fallback.map(normalizeStoredClient).filter(Boolean);
+    return stored.map(normalizeStoredClient).filter(Boolean);
   }
 
   if (stored.length >= catalog.length) {
@@ -168,13 +173,35 @@ export function requireAuth(role) {
 /* ─── Lookups ─── */
 
 export function getClient(id) {
-  const raw = getDB().clients.find((c) => c.id === id) || clients.find((c) => c.id === id);
-  if (!raw) {
-    const fromCatalog = getClientFromCatalog(id);
-    if (fromCatalog) return mapClientToLegacy(fromCatalog);
-    return CLIENTS.find((c) => c.id === id);
+  const raw = getDB().clients.find((c) => c.id === id);
+  if (raw) {
+    const legacy = raw.name ? raw : mapClientToLegacy(raw);
+    const demo = DEMO_CLIENT_FORKLIFTS[id];
+    if (demo?.forklifts?.length && !legacy.forklifts?.length) {
+      legacy.forklifts = demo.forklifts;
+    }
+    return legacy;
   }
-  return raw.name ? raw : mapClientToLegacy(raw);
+
+  const fromCatalog = getClientFromCatalog(id);
+  if (fromCatalog) {
+    const legacy = mapClientToLegacy(fromCatalog);
+    const demo = DEMO_CLIENT_FORKLIFTS[id];
+    if (demo?.forklifts?.length) legacy.forklifts = demo.forklifts;
+    return legacy;
+  }
+
+  const demoOnly = DEMO_CLIENT_FORKLIFTS[id];
+  if (demoOnly) {
+    return mapClientToLegacy({
+      id,
+      Nome: demoOnly.Nome || 'Cliente demo',
+      NIF: demoOnly.NIF || '',
+      forklifts: demoOnly.forklifts || [],
+    });
+  }
+
+  return CLIENTS.find((c) => c.id === id) || null;
 }
 
 const TECHNICIAN_COLORS = ['#3b82f6', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#ec4899'];
@@ -268,35 +295,51 @@ export function addTechnician({ nome, email, telemovel, nif, password }) {
  * @returns {object|null} registo normalizado
  */
 export async function addClient(payload) {
-  const nome = String(payload?.Nome ?? payload?.nome ?? '').trim();
+  const nome = String(
+    payload?.nome_empresa ?? payload?.Nome ?? payload?.nome ?? '',
+  ).trim();
   if (!nome) {
     showToast('O nome do cliente é obrigatório.', 'error');
     return null;
   }
 
-  const nif = String(payload?.NIF ?? payload?.nif ?? '').trim();
-  const db = getDB();
-  const existing = (db.clients || []).find(
-    (c) => (nif && String(c.NIF || c.nif) === nif) || String(c.Nome || c.name) === nome,
+  const nif = String(payload?.nif ?? payload?.NIF ?? '').trim();
+  await ensureProductionCatalog();
+  const catalog = getProductionClientsCatalog();
+  const existing = catalog.find(
+    (c) => (nif && c.NIF === nif) || c.Nome === nome,
   );
   if (existing) {
     showToast('Já existe um cliente com este NIF ou nome.', 'error');
     return null;
   }
 
-  const record = {
-    id: payload?.id || `cli-${Date.now()}`,
-    Nome: nome,
-    NIF: nif,
-    'E-mail': String(payload?.['E-mail'] ?? payload?.email ?? '').trim(),
-    Morada: String(payload?.Morada ?? payload?.morada ?? '').trim(),
-    'Código postal': String(payload?.['Código postal'] ?? payload?.codigoPostal ?? '').trim(),
-    Localidade: String(payload?.Localidade ?? payload?.localidade ?? '').trim(),
-    'País/Região': String(payload?.['País/Região'] ?? payload?.pais ?? 'Portugal').trim() || 'Portugal',
-    forklifts: Array.isArray(payload?.forklifts) ? payload.forklifts : [],
+  const row = {
+    nome_empresa: nome,
+    nif: nif || null,
+    email: String(payload?.email ?? payload?.['E-mail'] ?? '').trim() || null,
+    morada: String(payload?.morada ?? payload?.Morada ?? '').trim() || null,
+    codigo_postal:
+      String(payload?.codigo_postal ?? payload?.['Código postal'] ?? payload?.codigoPostal ?? '').trim() ||
+      null,
+    localidade:
+      String(payload?.localidade ?? payload?.Localidade ?? '').trim() || null,
   };
 
-  const { registerClientInCatalog } = await import('./clients-catalog.js');
+  const { data, error } = await getSupabaseClient()
+    .from('clientes')
+    .insert(row)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('[ManuSilva] Erro ao gravar cliente no Supabase:', error);
+    showToast(error.message || 'Não foi possível gravar o cliente.', 'error');
+    return null;
+  }
+
+  const record = normalizeClientRecord(data);
+  record.forklifts = Array.isArray(payload?.forklifts) ? payload.forklifts : [];
 
   updateDB((d) => {
     if (!Array.isArray(d.clients)) d.clients = [];
@@ -719,7 +762,7 @@ export function closeModal() {
 export {
   COMPANY,
   CLIENTS,
-  clients,
+  DEMO_CLIENT_FORKLIFTS,
   mapClientToLegacy,
   TECHNICIANS,
   SERVICE_TYPES,
