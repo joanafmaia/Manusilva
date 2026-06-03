@@ -33,7 +33,7 @@ import {
   SERVICE_TYPES,
   showToast,
 } from './app.js';
-import { ensureProductionCatalog } from './clients-catalog.js';
+import { ensureProductionCatalog, formatClientsLoadError } from './clients-catalog.js';
 import { renderClientCombobox, bindClientComboboxes } from './client-combobox.js';
 import { initLogoutButton, renderUserGreeting } from './auth.js';
 import { refreshDashboardPanel } from './views/dashboard.js';
@@ -85,11 +85,11 @@ export function initAdminDashboard() {
 
   initClientsApp().catch((err) => {
     console.error('[Admin] Painel de clientes:', err);
-    showToast('Erro ao carregar métricas e pesquisa de clientes.', 'error');
+    showToast(formatClientsLoadError(err), 'error', 9000);
   });
   initArquivoHistoricoPage(document.getElementById('client-history-app')).catch((err) => {
     console.error('[Admin] Histórico de clientes:', err);
-    showToast('Erro ao carregar histórico de clientes.', 'error');
+    showToast(formatClientsLoadError(err), 'error', 9000);
   });
 
   try {
@@ -652,7 +652,7 @@ async function openAssignModal() {
     await ensureProductionCatalog();
   } catch (err) {
     console.error('[Admin] Clientes para atribuição:', err);
-    showToast('Não foi possível carregar a lista de clientes.', 'error');
+    showToast(formatClientsLoadError(err), 'error', 9000);
     return;
   }
 

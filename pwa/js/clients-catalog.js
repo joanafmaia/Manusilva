@@ -45,8 +45,40 @@ export function resetProductionCatalogCache() {
   catalogLoadPromise = null;
 }
 
+/** Mensagem legível para toasts / consola (F12) */
+export function formatClientsLoadError(err) {
+  if (!err) return 'Erro desconhecido ao carregar clientes.';
+
+  const msg = String(err.message || err.details || err.hint || err).trim();
+  const code = err.code || err.status || '';
+
+  if (msg.includes('sb_secret_') || msg.includes('publishable')) {
+    return msg;
+  }
+  if (msg.includes('SDK Supabase') || msg.includes('Chave Supabase')) {
+    return msg;
+  }
+  if (
+    code === '42501' ||
+    /permission denied|row-level security|RLS/i.test(msg)
+  ) {
+    return (
+      'Sem permissão na tabela clientes (RLS). No Supabase → SQL Editor, permite SELECT para anon: ' +
+      'CREATE POLICY "anon_read_clientes" ON public.clientes FOR SELECT TO anon USING (true);'
+    );
+  }
+  if (code === 'PGRST205' || /relation.*does not exist|Could not find the table/i.test(msg)) {
+    return 'Tabela "clientes" não encontrada no Supabase. Confirma o nome da tabela no Table Editor.';
+  }
+  if (/Invalid API key|JWT|401|403/i.test(msg) || code === 401 || code === 403) {
+    return 'Chave API inválida. Usa a chave publishable ou anon (não uses sb_secret_ no browser).';
+  }
+
+  return msg || 'Não foi possível carregar a lista de clientes.';
+}
+
 async function fetchClientsFromSupabase() {
-  const supabase = getSupabaseClient();
+  const supabase = await getSupabaseClient();
   const { data, error } = await supabase
     .from('clientes')
     .select('*')
@@ -54,7 +86,9 @@ async function fetchClientsFromSupabase() {
 
   if (error) {
     console.error('[ManuSilva] Erro ao carregar clientes do Supabase:', error);
-    throw error;
+    const wrapped = new Error(formatClientsLoadError(error));
+    wrapped.cause = error;
+    throw wrapped;
   }
 
   return data || [];
