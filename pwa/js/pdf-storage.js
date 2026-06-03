@@ -6,6 +6,32 @@ import { getSupabaseClient } from './supabase-client.js';
 
 export const PDF_BUCKET = 'pdfs_trabalhos';
 
+/** Segmento seguro para nome de ficheiro (espaços → underscores) */
+export function sanitizePdfFilenameSegment(text) {
+  return String(text || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, '_')
+    .replace(/[^\w-]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .replace(/_+/g, '_');
+}
+
+/**
+ * Ordem_${numero_ordem}_${tipo_trabalho}.pdf
+ * @param {{ numeroOrdem?: number | null }} job
+ * @param {{ serviceType?: string }} report
+ * @param {string} [tipoTrabalhoLabel] rótulo legível do tipo de serviço
+ */
+export function buildOrdemPdfStorageFilename(job, report, tipoTrabalhoLabel) {
+  const ordem = job?.numeroOrdem;
+  if (ordem == null || !Number.isFinite(Number(ordem))) {
+    throw new Error('Trabalho sem número de ordem. Executa supabase-migration-numero-ordem.sql.');
+  }
+  const tipo = sanitizePdfFilenameSegment(tipoTrabalhoLabel || report?.serviceType || 'relatorio');
+  return `Ordem_${ordem}_${tipo}.pdf`;
+}
+
 export function formatPdfStorageError(err) {
   if (!err) return 'Erro ao guardar o PDF no Storage.';
   const msg = String(err.message || err.error || err.statusText || '').trim();

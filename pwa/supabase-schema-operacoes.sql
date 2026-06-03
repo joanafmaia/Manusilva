@@ -4,6 +4,7 @@
 -- ─── Trabalhos agendados (equivalente a manusilva_db.jobs) ───
 CREATE TABLE IF NOT EXISTS public.trabalhos (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  numero_ordem bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
   tecnico_id text NOT NULL,
   cliente_id bigint REFERENCES public.clientes(id) ON DELETE SET NULL,
   numero_serie text,
@@ -20,6 +21,7 @@ CREATE TABLE IF NOT EXISTS public.trabalhos (
 -- Migração em bases já criadas:
 -- ALTER TABLE public.trabalhos ADD COLUMN IF NOT EXISTS url_pdf text;
 
+CREATE UNIQUE INDEX IF NOT EXISTS trabalhos_numero_ordem_idx ON public.trabalhos (numero_ordem);
 CREATE INDEX IF NOT EXISTS trabalhos_data_idx ON public.trabalhos (data);
 CREATE INDEX IF NOT EXISTS trabalhos_tecnico_idx ON public.trabalhos (tecnico_id);
 CREATE INDEX IF NOT EXISTS trabalhos_cliente_idx ON public.trabalhos (cliente_id);

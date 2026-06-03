@@ -32,12 +32,17 @@ import {
   ensureJobsLoaded,
   getJobsSnapshot,
   insertTrabalho,
+  insertTrabalhoFromReport,
   deleteTrabalho,
   patchTrabalhoStatus,
   patchTrabalho,
   formatTrabalhosError,
 } from './trabalhos-db.js';
-import { uploadTrabalhoPdf, formatPdfStorageError } from './pdf-storage.js';
+import {
+  uploadTrabalhoPdf,
+  formatPdfStorageError,
+  buildOrdemPdfStorageFilename,
+} from './pdf-storage.js';
 import {
   ensureReportsLoaded,
   getReportsSnapshot,
@@ -501,9 +506,9 @@ export async function syncOfflineQueue() {
       if (action.type === 'save_draft' || action.type === 'submit_report') {
         const report = action.report;
         if (!report) continue;
-        await upsertRelatorio(report);
-        if (action.type === 'submit_report' && report.jobId) {
-          await patchTrabalhoStatus(report.jobId, {
+        const saved = await upsertRelatorio(report);
+        if (action.type === 'submit_report' && saved?.jobId) {
+          await patchTrabalhoStatus(saved.jobId, {
             status: 'completed',
             rejectionNote: null,
           });
@@ -584,11 +589,11 @@ export async function submitReport(report) {
   }
 
   try {
-    await upsertRelatorio(final);
-    await patchTrabalhoStatus(report.jobId, { status: 'completed', rejectionNote: null });
+    const saved = await upsertRelatorio(final);
+    await patchTrabalhoStatus(saved.jobId, { status: 'completed', rejectionNote: null });
     window.dispatchEvent(new CustomEvent('db-updated'));
     showToast('Relatório submetido para aprovação!', 'success');
-    return { queued: false };
+    return { queued: false, report: saved };
   } catch (err) {
     console.error('[ManuSilva] submitReport:', err);
     showToast(formatRelatoriosError(err), 'error', 9000);
@@ -604,28 +609,44 @@ export async function approveReport(reportId) {
   }
 
   const client = getClient(report.clientId);
+  const service = getServiceType(report.serviceType);
 
   try {
+    await ensureJobsLoaded(true);
+
+    let job = report.jobId ? getJob(report.jobId) : null;
+    let reportForPdf = report;
+
+    if (!job) {
+      job = await insertTrabalhoFromReport(report);
+      if (!job?.id) {
+        showToast('Não foi possível criar o trabalho para numerar a ordem.', 'error');
+        return null;
+      }
+      reportForPdf = { ...report, jobId: job.id };
+      await upsertRelatorio(reportForPdf);
+    }
+
+    if (job.numeroOrdem == null) {
+      await ensureJobsLoaded(true);
+      job = getJob(job.id) || job;
+    }
+
     showToast('A gerar folha de intervenção em PDF...', 'info', 2500);
     const { renderInterventionPDF } = await import('./pdf-report.js');
 
-    // Renderiza uma vez: usamos o mesmo documento para download e para anexo no e-mail.
-    const doc = await renderInterventionPDF(report);
-    const safeSerial = (report.forkliftSerial || 'report').replace(/[^\w-]/g, '_');
-    const dateStamp = (report.submittedAt || new Date().toISOString()).slice(0, 10);
-    const filename = `Manusilva_${report.serviceType}_${safeSerial}_${dateStamp}.pdf`;
+    const doc = await renderInterventionPDF(reportForPdf);
+    const filename = buildOrdemPdfStorageFilename(job, reportForPdf, service?.label);
 
-    // Gera anexo em memória (base64) para envio no back-end.
     const pdfBlob = doc.output('blob');
     const pdfArrayBuffer = await pdfBlob.arrayBuffer();
     const pdfBase64 = arrayBufferToBase64(pdfArrayBuffer);
     const pdfBase64Len = pdfBase64.length;
 
-    const storageFilename = `trabalho_${Date.now()}.pdf`;
     let publicPdfUrl = null;
 
     try {
-      const uploaded = await uploadTrabalhoPdf(pdfBlob, storageFilename);
+      const uploaded = await uploadTrabalhoPdf(pdfBlob, filename);
       publicPdfUrl = uploaded.publicUrl;
     } catch (storageErr) {
       console.error('[ManuSilva] Upload PDF Storage:', storageErr);
@@ -639,8 +660,8 @@ export async function approveReport(reportId) {
       pdfFilename: filename,
     });
 
-    if (report.jobId) {
-      await patchTrabalho(report.jobId, {
+    if (reportForPdf.jobId) {
+      await patchTrabalho(reportForPdf.jobId, {
         status: 'completed',
         rejectionNote: null,
         urlPdf: publicPdfUrl,

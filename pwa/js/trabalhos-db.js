@@ -30,6 +30,7 @@ export function mapRowToJob(row) {
   if (!row) return null;
   return {
     id: String(row.id),
+    numeroOrdem: row.numero_ordem != null ? Number(row.numero_ordem) : null,
     technicianId: row.tecnico_id,
     clientId: row.cliente_id != null ? String(row.cliente_id) : '',
     forkliftSerial: row.numero_serie || '',
@@ -181,4 +182,23 @@ export async function patchTrabalho(jobId, patch = {}) {
 export function getJobsForClient(clientId) {
   const id = String(clientId ?? '');
   return getJobsSnapshot().filter((j) => String(j.clientId) === id);
+}
+
+/** Dados mínimos de um relatório → linha `trabalhos` (obtém numero_ordem no INSERT) */
+export function jobDataFromReport(report) {
+  const submitted = report.submittedAt || new Date().toISOString();
+  return {
+    technicianId: report.technicianId,
+    clientId: report.clientId,
+    forkliftSerial: report.forkliftSerial || '',
+    serviceType: report.serviceType,
+    date: String(submitted).split('T')[0],
+    time: '',
+    status: 'scheduled',
+    rejectionNote: null,
+  };
+}
+
+export async function insertTrabalhoFromReport(report) {
+  return insertTrabalho(jobDataFromReport(report));
 }

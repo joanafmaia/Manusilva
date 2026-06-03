@@ -3,6 +3,11 @@
  */
 
 import { getSupabaseClient } from './supabase-client.js';
+import {
+  ensureJobsLoaded,
+  getJobsSnapshot,
+  insertTrabalhoFromReport,
+} from './trabalhos-db.js';
 
 let reportsCache = null;
 let reportsLoadPromise = null;
@@ -135,11 +140,32 @@ function findExistingReportId(report) {
   return null;
 }
 
+/**
+ * Garante que existe um trabalho em Supabase (com numero_ordem) antes de gravar o relatório.
+ * @returns {{ report: object, job: object | null }}
+ */
+async function ensureTrabalhoForReport(report) {
+  await ensureJobsLoaded();
+  if (report.jobId) {
+    const job = getJobsSnapshot().find((j) => j.id === report.jobId);
+    if (job) return { report, job };
+  }
+
+  const job = await insertTrabalhoFromReport(report);
+  if (!job?.id) {
+    throw new Error('Não foi possível criar o trabalho para este relatório.');
+  }
+
+  return { report: { ...report, jobId: job.id }, job };
+}
+
 /** Cria ou atualiza relatório (um por trabalho, identificado por trabalho_id) */
 export async function upsertRelatorio(report) {
+  const { report: linkedReport } = await ensureTrabalhoForReport(report);
+
   const supabase = await getSupabaseClient();
-  const row = mapReportToRow(report);
-  const existingId = findExistingReportId(report);
+  const row = mapReportToRow(linkedReport);
+  const existingId = findExistingReportId(linkedReport);
 
   let data;
   let error;
@@ -162,7 +188,7 @@ export async function upsertRelatorio(report) {
   const inserted = Array.isArray(data) ? data[0] : data;
   if (!inserted) {
     await ensureReportsLoaded(true);
-    return reportsCache?.find((r) => r.jobId === report.jobId) || null;
+    return reportsCache?.find((r) => r.jobId === linkedReport.jobId) || null;
   }
 
   const saved = mapRowToReport(inserted);

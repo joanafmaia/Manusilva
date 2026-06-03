@@ -237,6 +237,9 @@ export async function renderInterventionPDF(report) {
     `FOLHA DE INTERVENÇÃO — ${(service?.label || 'SERVIÇO TÉCNICO').toUpperCase()}`;
 
   let y = drawTopRow(doc, service);
+  if (job?.numeroOrdem != null) {
+    y = drawOrdemNumberBanner(doc, y, job.numeroOrdem);
+  }
   y = drawTitleBar(doc, y, title);
   const values = mapReportValuesForPdf(data, service);
   const clientMeta = await resolvePdfClientMeta(report, values);
@@ -404,6 +407,18 @@ function drawTopRow(doc, service) {
 
   const blockH = Math.max(logoSize, metaY - topY);
   return topY + blockH + 6;
+}
+
+/** Faixa destacada com o número de ordem sequencial */
+function drawOrdemNumberBanner(doc, y, numeroOrdem) {
+  const barH = 11;
+  doc.setFillColor(...CORPORATE_BLUE_DARK);
+  doc.rect(MARGIN, y, CONTENT_W, barH, 'F');
+  doc.setTextColor(255, 255, 255);
+  pdfSetFont(doc, 'bold');
+  doc.setFontSize(13);
+  doc.text(`Ordem Nº: ${numeroOrdem}`, PAGE_W / 2, y + barH / 2 + 1.2, { align: 'center' });
+  return y + barH + 4;
 }
 
 function drawTitleBar(doc, y, title) {
