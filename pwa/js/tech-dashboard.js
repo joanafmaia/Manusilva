@@ -78,6 +78,14 @@ export async function initTechDashboard() {
     console.error('[Técnico] Trabalhos Supabase:', err);
   }
 
+  const { initTrabalhosOfflineSync, migrateLegacyOfflineQueue, sincronizarTrabalhosOffline } =
+    await import('./trabalhos-offline.js');
+  const { getDB, updateDB } = await import('./app.js');
+
+  migrateLegacyOfflineQueue(getDB, updateDB);
+  initTrabalhosOfflineSync();
+  sincronizarTrabalhosOffline().catch(console.error);
+
   renderCalendarStrip();
   renderJobs();
 

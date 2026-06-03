@@ -483,7 +483,12 @@ export function setOfflineMode(value) {
   updateDB((db) => {
     db.settings.offline = value;
   });
-  if (!value) syncOfflineQueue().catch(console.error);
+  if (!value) {
+    import('./trabalhos-offline.js')
+      .then((m) => m.sincronizarTrabalhosOffline())
+      .catch(console.error);
+    syncOfflineQueue().catch(console.error);
+  }
 }
 
 export function queueOfflineAction(action) {
@@ -575,31 +580,62 @@ export async function saveReportDraft(report, options = {}) {
 }
 
 export async function submitReport(report) {
-  const offline = isOffline();
+  const {
+    addTrabalhoPendente,
+    sincronizarTrabalhosOffline,
+    hasTrabalhoPendente,
+    canSyncToServer,
+    MSG_SAVED_ON_DEVICE,
+  } = await import('./trabalhos-offline.js');
+
   const final = {
     ...report,
     status: 'pending_review',
     submittedAt: new Date().toISOString(),
   };
 
-  if (offline) {
-    queueOfflineAction({ type: 'submit_report', report: final });
-    showToast('Relatório na fila offline. Será sincronizado quando voltar online.', 'warning');
-    return { queued: true };
+  let pendingId;
+  try {
+    pendingId = addTrabalhoPendente({ report: final, tipo: 'submit' });
+  } catch (err) {
+    console.error('[ManuSilva] Guardar relatório local:', err);
+    showToast('Não foi possível guardar o relatório no dispositivo.', 'error');
+    return { queued: false };
+  }
+
+  if (!canSyncToServer()) {
+    showToast(MSG_SAVED_ON_DEVICE, 'warning', 8000);
+    return { queued: true, pendingId };
   }
 
   try {
-    const saved = await upsertRelatorio(final);
-    await patchTrabalhoStatus(saved.jobId, { status: 'completed', rejectionNote: null });
-    window.dispatchEvent(new CustomEvent('db-updated'));
-    showToast('Relatório submetido para aprovação!', 'success');
-    return { queued: false, report: saved };
+    await sincronizarTrabalhosOffline({ notify: false });
+
+    if (!hasTrabalhoPendente(pendingId)) {
+      window.dispatchEvent(new CustomEvent('db-updated'));
+      showToast('Relatório submetido para aprovação!', 'success');
+      return { queued: false };
+    }
+
+    if (!navigator.onLine) {
+      showToast(MSG_SAVED_ON_DEVICE, 'warning', 8000);
+      return { queued: true, pendingId };
+    }
+
+    showToast(MSG_SAVED_ON_DEVICE, 'warning', 8000);
+    return { queued: true, pendingId };
   } catch (err) {
     console.error('[ManuSilva] submitReport:', err);
-    showToast(formatRelatoriosError(err), 'error', 9000);
-    return { queued: false };
+    if (!navigator.onLine) {
+      showToast(MSG_SAVED_ON_DEVICE, 'warning', 8000);
+      return { queued: true, pendingId };
+    }
+    showToast(MSG_SAVED_ON_DEVICE, 'warning', 8000);
+    return { queued: true, pendingId };
   }
 }
+
+export { sincronizarTrabalhosOffline, initTrabalhosOfflineSync } from './trabalhos-offline.js';
 
 export async function approveReport(reportId) {
   const report = getReport(reportId);
