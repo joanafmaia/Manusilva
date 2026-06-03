@@ -15,9 +15,16 @@ export { MAX_DROPDOWN_RESULTS };
 
 export function normalizeClientRecord(raw, index = 0) {
   if (!raw) return null;
-  const nome = String(raw.nome_empresa ?? raw.Nome ?? raw.name ?? '').trim();
-  const nif = String(raw.nif ?? raw.NIF ?? '').trim();
-  const id = raw.id ?? (nif || `cli-${index}`);
+  const nome = String(raw.nome_empresa ?? raw.Nome ?? raw.name ?? '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const nif = String(raw.nif ?? raw.NIF ?? '')
+    .replace(/\s+/g, '')
+    .trim();
+  const id =
+    raw.id !== undefined && raw.id !== null
+      ? String(raw.id)
+      : nif || `cli-${index}`;
   return {
     id,
     Nome: nome,
@@ -91,12 +98,23 @@ async function fetchClientsFromSupabase() {
     throw wrapped;
   }
 
-  return data || [];
+  const rows = data || [];
+  if (!rows.length) {
+    console.warn(
+      '[ManuSilva] Supabase devolveu 0 clientes. Confirma dados na tabela public.clientes e executa pwa/supabase-rls-clientes.sql (políticas RLS para anon).',
+    );
+  } else {
+    console.info(`[ManuSilva] ${rows.length} clientes carregados do Supabase.`);
+  }
+
+  return rows;
 }
 
 async function loadCatalogFromSupabase() {
   const rows = await fetchClientsFromSupabase();
-  productionCatalog = rows.map((row, index) => normalizeClientRecord(row, index));
+  productionCatalog = rows
+    .map((row, index) => normalizeClientRecord(row, index))
+    .filter((r) => r?.Nome);
   buildCatalogIndexes();
   mergeClientsFromStorage();
   return productionCatalog;
@@ -213,11 +231,20 @@ export function searchClients(query, catalog = null) {
   const items = [];
   let totalMatches = 0;
 
+  const qCompact = q.replace(/\s+/g, '');
+
   for (let i = 0; i < list.length; i += 1) {
     const c = list[i];
     const nome = c.Nome.toLowerCase();
     const nif = c.NIF.toLowerCase();
-    if (!nome.includes(q) && !nif.includes(q)) continue;
+    const nifCompact = nif.replace(/\s+/g, '');
+    if (
+      !nome.includes(q) &&
+      !nif.includes(q) &&
+      !(qCompact && nifCompact.includes(qCompact))
+    ) {
+      continue;
+    }
 
     totalMatches += 1;
     if (items.length < MAX_DROPDOWN_RESULTS) {
