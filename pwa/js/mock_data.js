@@ -16,8 +16,8 @@ export const COMPANY = {
   logo: 'MS',
   address: 'Rua São Mamede, Lote Nº1 - Fração D, 4760-725 Ribeirão VNF',
   postalCode: '4760-725 Ribeirão VNF',
-  phone: '+351 220 100 200',
-  email: 'geral@manusilva.pt',
+  phone: '+351 229 811 990',
+  email: 'manusilva.lda@gmail.com',
   website: 'www.manusilva.pt',
 };
 

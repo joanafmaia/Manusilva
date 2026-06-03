@@ -5,6 +5,12 @@ const SMTP_PORT = Number(process.env.SMTP_PORT || 465);
 const EMAIL_USER = process.env.EMAIL_USER;
 const EMAIL_PASS = process.env.EMAIL_PASS;
 
+/** Rodapé dos e-mails (alinhado com COMPANY em mock_data.js / PDFs) */
+const CONTACT_EMAIL =
+  process.env.COMPANY_EMAIL || process.env.EMAIL_USER || 'manusilva.lda@gmail.com';
+const CONTACT_PHONE = process.env.COMPANY_PHONE || '+351 229 811 990';
+const CONTACT_WEBSITE = process.env.COMPANY_WEBSITE || 'www.manusilva.pt';
+
 function escapeHtml(value) {
   return String(value ?? '')
     .replace(/&/g, '&amp;')
@@ -114,7 +120,7 @@ function buildHtmlBody(payload = {}) {
                   Rua São Mamede, Lote Nº1 - Fração D, 4760-725 Ribeirão VNF
                 </p>
                 <p style="margin:0 0 10px 0;font-size:12px;line-height:1.6;color:#475569;">
-                  geral@manusilva.pt · +351 229 811 990 · www.manusilva.pt
+                  ${escapeHtml(CONTACT_EMAIL)} · ${escapeHtml(CONTACT_PHONE)} · ${escapeHtml(CONTACT_WEBSITE)}
                 </p>
                 <p style="margin:0;font-size:10px;line-height:1.55;color:#64748b;">
                   Nota de confidencialidade: esta comunicação e quaisquer anexos podem conter informação confidencial e legalmente protegida,
