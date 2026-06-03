@@ -38,14 +38,16 @@ export function getClientsCatalog() {
 
 export { normalizeClientRecord, getProductionClientsCatalog, getClientFromCatalog };
 
-export function findClientById(id, catalog = getProductionClientsCatalog()) {
-  return getClientFromCatalog(id, catalog);
+export function findClientById(id, catalog = null) {
+  const list = catalog ?? getProductionClientsCatalog({ warn: false });
+  return getClientFromCatalog(id, list);
 }
 
-export function findClientByNome(nome, catalog = getProductionClientsCatalog()) {
+export function findClientByNome(nome, catalog = null) {
+  const list = catalog ?? getProductionClientsCatalog({ warn: false });
   const q = String(nome || '').trim().toLowerCase();
   if (!q) return null;
-  return catalog.find((c) => c.Nome.toLowerCase() === q) || null;
+  return list.find((c) => c.Nome.toLowerCase() === q) || null;
 }
 
 function renderOptions(items, activeIndex, searchMeta = null) {
@@ -129,7 +131,7 @@ export function renderHeaderClientCombobox({ value, selectedId }) {
 
 export function applyClientAutofill(overlay, client) {
   if (!client) return;
-  const catalog = getProductionClientsCatalog();
+  const catalog = getProductionClientsCatalog({ warn: false });
   const record = client.Nome ? client : getClientFromCatalog(client.id || client, catalog) || findClientByNome(client, catalog);
   if (!record) return;
 

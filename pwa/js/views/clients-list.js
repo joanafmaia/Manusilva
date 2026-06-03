@@ -40,7 +40,7 @@ export function renderClientsListSection() {
  * @param {HTMLElement} root
  * @param {(clientId: string) => void} onClientClick
  */
-export function mountClientsList(root, onClientClick) {
+export async function mountClientsList(root, onClientClick) {
   if (!root) return;
 
   root.innerHTML = renderClientsListSection();
@@ -53,7 +53,8 @@ export function mountClientsList(root, onClientClick) {
 
   if (!input || !ul) return;
 
-  let catalog = getProductionClientsCatalog();
+  await ensureProductionCatalog();
+  let catalog = getProductionClientsCatalog({ warn: false });
 
   const paint = (query = '') => {
     const result = searchClients(query, catalog);
@@ -108,11 +109,6 @@ export function mountClientsList(root, onClientClick) {
   input.addEventListener('input', () => {
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => paint(input.value), 120);
-  });
-
-  ensureProductionCatalog().then(() => {
-    catalog = getProductionClientsCatalog();
-    paint('');
   });
 
   paint('');

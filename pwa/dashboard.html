@@ -79,7 +79,7 @@
     });
 
     seedDatabase();
-    warmClientsCatalog();
+    await warmClientsCatalog();
     initTechDashboard();
 
     if ('serviceWorker' in navigator) {

@@ -3,7 +3,7 @@
  */
 
 import { ensureProductionCatalog } from '../clients-catalog.js';
-import { warmClientsCatalog, showToast } from '../app.js';
+import { showToast } from '../app.js';
 import { renderSearchSection, mountClientSearch } from './dashboard-client-search.js';
 import { HistoricoClienteView } from './historico-cliente.js';
 
@@ -91,7 +91,7 @@ function paintSelectedClient(clientId) {
   });
 }
 
-function paint() {
+async function paint() {
   if (!mountRoot) return;
 
   mountRoot.innerHTML = `
@@ -103,7 +103,7 @@ function paint() {
 
   teardownSearch?.();
   const searchMount = mountRoot.querySelector('[data-dashboard-search-mount]');
-  teardownSearch = mountClientSearch(searchMount, (record) => {
+  teardownSearch = await mountClientSearch(searchMount, (record) => {
     selectedClientId = record?.id || null;
     if (!selectedClientId) return;
     paintSelectedClient(selectedClientId);
@@ -118,9 +118,8 @@ export async function initArquivoHistoricoPage(root) {
   mountRoot = root;
   if (!mountRoot) return;
 
-  await warmClientsCatalog();
   await ensureProductionCatalog();
-  paint();
+  await paint();
 }
 
 export function refreshArquivoHistoricoPage() {

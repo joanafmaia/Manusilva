@@ -3,7 +3,6 @@
  */
 
 import { ensureProductionCatalog } from '../clients-catalog.js';
-import { warmClientsCatalog } from '../app.js';
 import { computeDashboardMetrics, renderMetricsSection } from './dashboard-metrics.js';
 import { renderClientRegistryBlock, mountClientRegistry } from './rh-registry.js';
 
@@ -13,13 +12,13 @@ export async function initDashboardPanel(root) {
   mountRoot = root;
   if (!mountRoot) return;
 
-  await warmClientsCatalog();
   await ensureProductionCatalog();
   paint();
 }
 
-export function refreshDashboardPanel() {
+export async function refreshDashboardPanel() {
   if (!mountRoot) return;
+  await ensureProductionCatalog();
   updateMetrics();
 }
 

@@ -3,10 +3,15 @@
  */
 
 import { getDB, getPendingReports, getAllJobs, getWeekDates, getAllTechnicians } from '../app.js';
-import { getProductionClientsCatalog } from '../clients-catalog.js';
+import {
+  getProductionClientsCatalog,
+  isProductionCatalogReady,
+} from '../clients-catalog.js';
 
 export function computeDashboardMetrics(db = getDB()) {
-  const catalog = getProductionClientsCatalog();
+  const catalog = isProductionCatalogReady()
+    ? getProductionClientsCatalog({ warn: false })
+    : [];
   const jobs = db.jobs || getAllJobs();
   const pending = getPendingReports();
   const today = new Date().toISOString().split('T')[0];

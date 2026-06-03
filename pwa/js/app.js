@@ -55,6 +55,11 @@ export function warmClientsCatalog() {
   return ensureProductionCatalog();
 }
 
+/** Garante catálogo carregado antes de pintar painéis (admin / técnico) */
+export async function prepareClientsCatalog() {
+  return ensureProductionCatalog();
+}
+
 function normalizeStoredClient(record) {
   if (!record) return null;
   return record.name ? record : mapClientToLegacy(record);

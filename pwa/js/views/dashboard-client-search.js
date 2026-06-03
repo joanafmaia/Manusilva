@@ -179,7 +179,7 @@ export function renderClientDetail(clientRecord) {
  * @param {(record: object) => void} onSelect
  * @returns {() => void} cleanup
  */
-export function mountClientSearch(root, onSelect) {
+export async function mountClientSearch(root, onSelect) {
   if (!root) return () => {};
 
   const wrap = root.querySelector('[data-dashboard-client-search]');
@@ -189,7 +189,8 @@ export function mountClientSearch(root, onSelect) {
 
   if (!wrap || !input || !list) return () => {};
 
-  let catalog = getProductionClientsCatalog();
+  await ensureProductionCatalog();
+  let catalog = getProductionClientsCatalog({ warn: false });
   let filtered = [];
   let searchMeta = { query: '', totalMatches: 0, truncated: false };
   let activeIndex = 0;
@@ -293,10 +294,6 @@ export function mountClientSearch(root, onSelect) {
   });
 
   document.addEventListener('click', onDocClick, { capture: true });
-
-  ensureProductionCatalog().then(() => {
-    catalog = getProductionClientsCatalog();
-  });
 
   return () => {
     document.removeEventListener('click', onDocClick, { capture: true });

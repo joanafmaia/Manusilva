@@ -102,14 +102,28 @@ async function loadCatalogFromSupabase() {
   return productionCatalog;
 }
 
-export function getProductionClientsCatalog() {
+export function isProductionCatalogReady() {
+  return Array.isArray(productionCatalog);
+}
+
+export function getProductionClientsCatalog(options = {}) {
+  const { warn = true } = options;
   if (!productionCatalog) {
-    console.warn(
-      '[ManuSilva] Catálogo de clientes ainda não carregado. Chame ensureProductionCatalog() antes.',
-    );
+    if (warn) {
+      console.warn(
+        '[ManuSilva] Catálogo de clientes ainda não carregado. Chame ensureProductionCatalog() antes.',
+      );
+    }
     return [];
   }
   return productionCatalog;
+}
+
+function resolveCatalog(catalog) {
+  if (catalog) return catalog;
+  return isProductionCatalogReady()
+    ? getProductionClientsCatalog({ warn: false })
+    : [];
 }
 
 /** Clientes criados no RH (localStorage) — disponíveis para pesquisa/agendamento */
@@ -176,17 +190,19 @@ export async function ensureProductionCatalog() {
   return catalogLoadPromise;
 }
 
-export function getClientFromCatalog(idOrNif, catalog = getProductionClientsCatalog()) {
+export function getClientFromCatalog(idOrNif, catalog = null) {
   if (!idOrNif) return null;
+  const list = resolveCatalog(catalog);
   const byMap = catalogByNif?.get(idOrNif);
   if (byMap) return byMap;
-  return catalog.find((c) => c.id === idOrNif || c.NIF === idOrNif) || null;
+  return list.find((c) => c.id === idOrNif || c.NIF === idOrNif) || null;
 }
 
 /**
  * Pesquisa por Nome ou NIF — percorre o array completo, devolve no máximo 10 linhas.
  */
-export function searchClients(query, catalog = getProductionClientsCatalog()) {
+export function searchClients(query, catalog = null) {
+  const list = resolveCatalog(catalog);
   const q = String(query || '')
     .trim()
     .toLowerCase();
@@ -197,8 +213,8 @@ export function searchClients(query, catalog = getProductionClientsCatalog()) {
   const items = [];
   let totalMatches = 0;
 
-  for (let i = 0; i < catalog.length; i += 1) {
-    const c = catalog[i];
+  for (let i = 0; i < list.length; i += 1) {
+    const c = list[i];
     const nome = c.Nome.toLowerCase();
     const nif = c.NIF.toLowerCase();
     if (!nome.includes(q) && !nif.includes(q)) continue;

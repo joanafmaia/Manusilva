@@ -59,7 +59,7 @@ function bindAdminNavigation() {
   });
 }
 
-export function initAdminDashboard() {
+export async function initAdminDashboard() {
   bindAdminNavigation();
 
   const session = requireAuth('admin');
@@ -67,6 +67,13 @@ export function initAdminDashboard() {
 
   renderUserGreeting('user-name');
   initLogoutButton();
+
+  try {
+    await warmClientsCatalog();
+  } catch (err) {
+    console.error('[Admin] Catálogo Supabase:', err);
+    showToast(formatClientsLoadError(err), 'error', 9000);
+  }
 
   try {
     renderSidebar();
@@ -83,14 +90,20 @@ export function initAdminDashboard() {
     console.error('[Admin] Relatórios pendentes:', err);
   });
 
-  initClientsApp().catch((err) => {
-    console.error('[Admin] Painel de clientes:', err);
-    showToast(formatClientsLoadError(err), 'error', 9000);
-  });
-  initArquivoHistoricoPage(document.getElementById('client-history-app')).catch((err) => {
-    console.error('[Admin] Histórico de clientes:', err);
-    showToast(formatClientsLoadError(err), 'error', 9000);
-  });
+  const historyRoot = document.getElementById('client-history-app');
+
+  await Promise.all([
+    initClientsApp().catch((err) => {
+      console.error('[Admin] Painel de clientes:', err);
+      showToast(formatClientsLoadError(err), 'error', 9000);
+    }),
+    historyRoot
+      ? initArquivoHistoricoPage(historyRoot).catch((err) => {
+          console.error('[Admin] Histórico de clientes:', err);
+          showToast(formatClientsLoadError(err), 'error', 9000);
+        })
+      : Promise.resolve(),
+  ]);
 
   try {
     initEmployeesPanel(document.getElementById('employees-panel'));
@@ -107,7 +120,7 @@ export function initAdminDashboard() {
     } catch (err) {
       console.error('[Admin] Atualização:', err);
     }
-    refreshDashboardPanel();
+    refreshDashboardPanel().catch(console.error);
     refreshArquivoHistoricoPage();
     renderPendingReports().catch(console.error);
   });
@@ -542,7 +555,7 @@ async function renderPendingReports() {
       if (ok) {
         renderPendingReports();
         renderCalendar();
-        refreshDashboardPanel();
+        refreshDashboardPanel().catch(console.error);
       }
     });
   });
@@ -601,7 +614,7 @@ async function openReportReview(reportId) {
       closeModal();
       renderPendingReports();
       renderCalendar();
-      refreshDashboardPanel();
+      refreshDashboardPanel().catch(console.error);
     }
   });
   overlay.querySelector('#modal-reject').addEventListener('click', () => {
@@ -648,7 +661,6 @@ function bindAssignWork() {
 
 async function openAssignModal() {
   try {
-    await warmClientsCatalog();
     await ensureProductionCatalog();
   } catch (err) {
     console.error('[Admin] Clientes para atribuição:', err);
