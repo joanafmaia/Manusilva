@@ -36,6 +36,14 @@ import {
   patchTrabalhoStatus,
   formatTrabalhosError,
 } from './trabalhos-db.js';
+import {
+  ensureReportsLoaded,
+  getReportsSnapshot,
+  upsertRelatorio,
+  updateRelatorio,
+  deleteRelatoriosByTrabalho,
+  formatRelatoriosError,
+} from './relatorios-db.js';
 export { MANUSILVA_LOGO, applyBrandLogo, isLogoConfigured, getPdfLogoFormat } from './brand-ui.js';
 
 import {
@@ -59,6 +67,7 @@ export function getDB() {
   seedDatabase();
   const db = JSON.parse(localStorage.getItem(DB_KEY));
   db.jobs = getJobsSnapshot();
+  db.reports = getReportsSnapshot();
   return db;
 }
 
@@ -75,6 +84,16 @@ export async function prepareClientsCatalog() {
 /** Carrega trabalhos do Supabase (substitui lista local em localStorage) */
 export function warmJobs() {
   return ensureJobsLoaded();
+}
+
+/** Carrega relatórios do Supabase (substitui lista local em localStorage) */
+export function warmReports() {
+  return ensureReportsLoaded();
+}
+
+export async function warmOperacoes() {
+  await ensureJobsLoaded();
+  await ensureReportsLoaded();
 }
 
 function normalizeStoredClient(record) {
@@ -128,7 +147,7 @@ export async function getAllClientsList() {
 }
 
 export function saveDB(db) {
-  const payload = { ...db, jobs: [] };
+  const payload = { ...db, jobs: [], reports: [] };
   localStorage.setItem(DB_KEY, JSON.stringify(payload));
   window.dispatchEvent(new CustomEvent('db-updated'));
 }
@@ -137,6 +156,7 @@ export function updateDB(updater) {
   const db = getDB();
   updater(db);
   db.jobs = [];
+  db.reports = [];
   saveDB(db);
   return db;
 }
@@ -425,11 +445,11 @@ export function getJob(id) {
 }
 
 export function getReport(id) {
-  return getDB().reports.find((r) => r.id === id);
+  return getReportsSnapshot().find((r) => r.id === id) || null;
 }
 
 export function getReportForJob(jobId) {
-  return getDB().reports.find((r) => r.jobId === jobId);
+  return getReportsSnapshot().find((r) => r.jobId === jobId) || null;
 }
 
 export function getJobsForTechnician(techId, date) {
@@ -443,7 +463,7 @@ export function getAllJobs() {
 }
 
 export function getPendingReports() {
-  return getDB().reports.filter((r) => r.status === 'pending_review');
+  return getReportsSnapshot().filter((r) => r.status === 'pending_review');
 }
 
 /* ─── Offline Mode ─── */
@@ -456,7 +476,7 @@ export function setOfflineMode(value) {
   updateDB((db) => {
     db.settings.offline = value;
   });
-  if (!value) syncOfflineQueue();
+  if (!value) syncOfflineQueue().catch(console.error);
 }
 
 export function queueOfflineAction(action) {
@@ -465,27 +485,36 @@ export function queueOfflineAction(action) {
   });
 }
 
-export function syncOfflineQueue() {
+export async function syncOfflineQueue() {
   const db = getDB();
   if (!db.offlineQueue.length) return;
 
   const queue = [...db.offlineQueue];
-  updateDB((db) => {
-    db.offlineQueue = [];
-    queue.forEach((action) => {
-      if (action.type === 'submit_report') {
-        const existing = db.reports.findIndex((r) => r.id === action.report.id);
-        if (existing >= 0) db.reports[existing] = action.report;
-        else db.reports.push(action.report);
-        patchTrabalhoStatus(action.report.jobId, {
-          status: 'completed',
-          rejectionNote: null,
-        }).catch(console.error);
-      }
-    });
+  updateDB((d) => {
+    d.offlineQueue = [];
   });
 
-  showToast(`${queue.length} relatório(s) sincronizado(s) com sucesso!`, 'success');
+  try {
+    for (const action of queue) {
+      if (action.type === 'save_draft' || action.type === 'submit_report') {
+        const report = action.report;
+        if (!report) continue;
+        await upsertRelatorio(report);
+        if (action.type === 'submit_report' && report.jobId) {
+          await patchTrabalhoStatus(report.jobId, {
+            status: 'completed',
+            rejectionNote: null,
+          });
+        }
+      }
+    }
+    await ensureReportsLoaded(true);
+    window.dispatchEvent(new CustomEvent('db-updated'));
+    showToast(`${queue.length} item(ns) sincronizado(s) com a base de dados.`, 'success');
+  } catch (err) {
+    console.error('[ManuSilva] syncOfflineQueue:', err);
+    showToast(formatRelatoriosError(err), 'error', 9000);
+  }
 }
 
 /* ─── Report Actions ─── */
@@ -498,61 +527,71 @@ export function syncOfflineQueue() {
  * @param {object} report
  * @param {{ silent?: boolean }} [options] — `silent: true` para auto-save (sem toast)
  */
-export function saveReportDraft(report, options = {}) {
+export async function saveReportDraft(report, options = {}) {
   const { silent = false } = options;
 
   if (!report?.jobId) {
     if (!silent) showToast('Não foi possível guardar o rascunho.', 'error');
-    return;
+    return null;
   }
 
   const draft = {
     ...report,
-    id: report.id || `rep-draft-${report.jobId}`,
     status: 'draft',
     submittedAt: report.submittedAt || new Date().toISOString(),
   };
 
-  updateDB((db) => {
-    const idx = db.reports.findIndex((r) => r.id === draft.id || r.jobId === draft.jobId);
-    if (idx >= 0) db.reports[idx] = draft;
-    else db.reports.push(draft);
-  });
+  if (isOffline()) {
+    queueOfflineAction({ type: 'save_draft', report: draft });
+    if (!silent) {
+      showToast('Rascunho na fila offline. Sincroniza quando voltar online.', 'warning');
+    }
+    return draft;
+  }
 
-  window.dispatchEvent(new CustomEvent('db-updated'));
-
-  if (!silent) {
-    showToast(
-      'Rascunho guardado no browser (dados do formulário). Não é um PDF — use «Pré-visualizar» para ver o PDF.',
-      'success',
-      5000,
-    );
+  try {
+    const saved = await upsertRelatorio(draft);
+    window.dispatchEvent(new CustomEvent('db-updated'));
+    if (!silent) {
+      showToast(
+        'Rascunho guardado na base de dados. Use «Pré-visualizar» para ver o PDF.',
+        'success',
+        5000,
+      );
+    }
+    return saved;
+  } catch (err) {
+    console.error('[ManuSilva] saveReportDraft:', err);
+    if (!silent) showToast(formatRelatoriosError(err), 'error', 9000);
+    return null;
   }
 }
 
-export function submitReport(report) {
+export async function submitReport(report) {
   const offline = isOffline();
+  const final = {
+    ...report,
+    status: 'pending_review',
+    submittedAt: new Date().toISOString(),
+  };
 
   if (offline) {
-    queueOfflineAction({ type: 'submit_report', report: { ...report, status: 'pending_review' } });
-    showToast('Relatório guardado localmente. Será sincronizado quando voltar online.', 'warning');
+    queueOfflineAction({ type: 'submit_report', report: final });
+    showToast('Relatório na fila offline. Será sincronizado quando voltar online.', 'warning');
     return { queued: true };
   }
 
-  updateDB((db) => {
-    const idx = db.reports.findIndex((r) => r.id === report.id);
-    const final = { ...report, status: 'pending_review', submittedAt: new Date().toISOString() };
-    if (idx >= 0) db.reports[idx] = final;
-    else db.reports.push(final);
-
-  });
-
-  patchTrabalhoStatus(report.jobId, { status: 'completed', rejectionNote: null }).catch(
-    console.error,
-  );
-
-  showToast('Relatório submetido para aprovação!', 'success');
-  return { queued: false };
+  try {
+    await upsertRelatorio(final);
+    await patchTrabalhoStatus(report.jobId, { status: 'completed', rejectionNote: null });
+    window.dispatchEvent(new CustomEvent('db-updated'));
+    showToast('Relatório submetido para aprovação!', 'success');
+    return { queued: false };
+  } catch (err) {
+    console.error('[ManuSilva] submitReport:', err);
+    showToast(formatRelatoriosError(err), 'error', 9000);
+    return { queued: false };
+  }
 }
 
 export async function approveReport(reportId) {
@@ -583,20 +622,17 @@ export async function approveReport(reportId) {
     // Mantém o comportamento existente de download local.
     doc.save(filename);
 
-    updateDB((db) => {
-      const r = db.reports.find((x) => x.id === reportId);
-      if (r) {
-        r.status = 'approved';
-        r.approvedAt = new Date().toISOString();
-        r.pdfFilename = filename;
-      }
+    await updateRelatorio(reportId, {
+      status: 'approved',
+      approvedAt: new Date().toISOString(),
+      pdfFilename: filename,
     });
 
     if (report.jobId) {
-      patchTrabalhoStatus(report.jobId, { status: 'completed', rejectionNote: null }).catch(
-        console.error,
-      );
+      await patchTrabalhoStatus(report.jobId, { status: 'completed', rejectionNote: null });
     }
+
+    window.dispatchEvent(new CustomEvent('db-updated'));
 
     showToast(
       `Relatório aprovado! PDF "${filename}" gerado. A enviar automaticamente para ${client?.email || 'N/A'}...`,
@@ -662,22 +698,26 @@ function arrayBufferToBase64(buffer) {
   return btoa(binary);
 }
 
-export function rejectReport(reportId, note) {
+export async function rejectReport(reportId, note) {
   const report = getReport(reportId);
-  updateDB((db) => {
-    const r = db.reports.find((x) => x.id === reportId);
-    if (!r) return;
-    r.status = 'rejected';
-    r.rejectionNote = note;
-  });
-
-  if (report?.jobId) {
-    patchTrabalhoStatus(report.jobId, { status: 'rejected', rejectionNote: note }).catch(
-      console.error,
-    );
+  if (!report) {
+    showToast('Relatório não encontrado.', 'error');
+    return;
   }
 
-  showToast('Relatório rejeitado. O técnico foi notificado.', 'error');
+  try {
+    await updateRelatorio(reportId, { status: 'rejected', rejectionNote: note });
+    if (report.jobId) {
+      await patchTrabalhoStatus(report.jobId, { status: 'rejected', rejectionNote: note });
+    }
+    window.dispatchEvent(new CustomEvent('db-updated'));
+    showToast('Relatório rejeitado. O técnico foi notificado.', 'error');
+    return true;
+  } catch (err) {
+    console.error('[ManuSilva] rejectReport:', err);
+    showToast(formatRelatoriosError(err), 'error', 9000);
+    return false;
+  }
 }
 
 export async function assignJob(jobData) {
@@ -706,10 +746,8 @@ export async function assignJob(jobData) {
 /** Remove trabalho na Supabase e relatórios locais associados */
 export async function deleteJob(jobId) {
   try {
+    await deleteRelatoriosByTrabalho(jobId);
     await deleteTrabalho(jobId);
-    updateDB((db) => {
-      db.reports = (db.reports || []).filter((r) => r.jobId !== jobId);
-    });
     showToast('Trabalho eliminado.', 'success');
     window.dispatchEvent(new CustomEvent('db-updated'));
     return true;

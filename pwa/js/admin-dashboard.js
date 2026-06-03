@@ -20,6 +20,7 @@ import {
   statusBadge,
   warmClientsCatalog,
   warmJobs,
+  warmOperacoes,
   getAllTechnicians,
   openModal,
   closeModal,
@@ -71,7 +72,7 @@ export async function initAdminDashboard() {
 
   try {
     await warmClientsCatalog();
-    await warmJobs();
+    await warmOperacoes();
   } catch (err) {
     console.error('[Admin] Supabase:', err);
     showToast(formatClientsLoadError(err), 'error', 9000);
@@ -644,10 +645,11 @@ function openRejectDialog(reportId) {
       showToast('Por favor, escreva uma nota de correção.', 'error');
       return;
     }
-    rejectReport(reportId, note);
-    closeModal();
-    renderPendingReports();
-    renderCalendar();
+    rejectReport(reportId, note).then(() => {
+      closeModal();
+      renderPendingReports();
+      renderCalendar();
+    });
   });
 }
 

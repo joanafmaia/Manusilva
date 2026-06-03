@@ -3,11 +3,9 @@
  */
 
 import { ensureProductionCatalog } from '../clients-catalog.js';
-import { showToast } from '../app.js';
+import { showToast, getReport } from '../app.js';
 import { renderSearchSection, mountClientSearch } from './dashboard-client-search.js';
 import { HistoricoClienteView } from './historico-cliente.js';
-
-const DB_KEY = 'manusilva_db';
 
 let mountRoot = null;
 let teardownSearch = null;
@@ -23,22 +21,10 @@ function renderEmptyState() {
   `;
 }
 
-function getReportFromLocalStorage(reportId) {
-  try {
-    const raw = localStorage.getItem(DB_KEY);
-    const db = raw ? JSON.parse(raw) : {};
-    const reports = Array.isArray(db.reports) ? db.reports : [];
-    return reports.find((r) => r?.id === reportId) || null;
-  } catch (err) {
-    console.error('[Arquivo Digital] Erro a ler localStorage:', err);
-    return null;
-  }
-}
-
 async function downloadArquivoPdf(reportId) {
   if (!reportId) return;
 
-  const report = getReportFromLocalStorage(reportId);
+  const report = getReport(reportId);
   if (!report) {
     showToast('Relatório não encontrado no arquivo local.', 'error');
     return;

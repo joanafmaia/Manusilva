@@ -7,6 +7,7 @@ import {
   getTechnician,
   getServiceType,
   getJob,
+  getReportForJob,
   submitReport,
   saveReportDraft,
   closeModal,
@@ -45,7 +46,7 @@ export function openJobForm(jobId) {
   const client = getClient(job.clientId);
   const tech = getTechnician(job.technicianId);
   const service = getServiceType(job.serviceType);
-  const existingReport = getReportByJobId(jobId);
+  const existingReport = getReportForJob(jobId);
 
   currentPhotos = existingReport?.data?.photos ? [...existingReport.data.photos] : [];
 
@@ -63,11 +64,6 @@ export function openJobForm(jobId) {
   if (existingReport?.status === 'draft') {
     showToast('Rascunho anterior recuperado automaticamente.', 'info', 3500);
   }
-}
-
-function getReportByJobId(jobId) {
-  const db = getDB();
-  return db.reports.find((r) => r.jobId === jobId);
 }
 
 function getFormValues(existingReport) {
@@ -187,7 +183,7 @@ function buildFormHTML(job, client, tech, service, existingReport) {
 function buildReportFromForm(overlay, job, existingReport, signaturePads, reportId) {
   const values = collectReportValues(overlay);
   return {
-    id: reportId || existingReport?.id || `rep-draft-${job.id}`,
+    id: reportId || existingReport?.id || null,
     jobId: job.id,
     technicianId: job.technicianId,
     clientId: job.clientId,
@@ -217,7 +213,7 @@ function restoreSignaturesFromReport(existingReport) {
 }
 
 function bindFormEvents(overlay, job, client, tech, service, existingReport) {
-  const draftReportId = existingReport?.id || `rep-draft-${job.id}`;
+  const draftReportId = existingReport?.id || null;
 
   overlay.querySelector('#close-form').addEventListener('click', () => {
     formAutosave?.flush();
@@ -260,10 +256,10 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport) {
     });
   }
 
-  overlay.querySelector('#btn-save-draft').addEventListener('click', () => {
+  overlay.querySelector('#btn-save-draft').addEventListener('click', async () => {
     formAutosave?.flush();
     const report = buildReportFromForm(overlay, job, existingReport, signaturePads, draftReportId);
-    saveReportDraft(report);
+    await saveReportDraft(report);
   });
 
   overlay.querySelector('#btn-preview-pdf')?.addEventListener('click', async () => {
@@ -282,7 +278,7 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport) {
     }
   });
 
-  overlay.querySelector('#btn-submit-report').addEventListener('click', () => {
+  overlay.querySelector('#btn-submit-report').addEventListener('click', async () => {
     if (!signaturePads.technician?.hasSignature) {
       showToast('A assinatura do técnico é obrigatória.', 'error');
       return;
@@ -292,9 +288,9 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport) {
     formAutosave = null;
 
     const report = buildReportFromForm(overlay, job, existingReport, signaturePads, draftReportId);
-    report.id = existingReport?.status === 'draft' ? draftReportId : `rep-${Date.now()}`;
+    if (existingReport?.id) report.id = existingReport.id;
 
-    submitReport(report);
+    await submitReport(report);
     closeForm(overlay);
     window.dispatchEvent(new CustomEvent('jobs-updated'));
   });
