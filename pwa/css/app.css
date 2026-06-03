@@ -3444,6 +3444,14 @@ body {
   background: var(--surface-hover, rgba(59, 130, 246, 0.06));
 }
 
+.client-history-item-main--static {
+  cursor: default;
+}
+
+.client-history-item-main--static:hover {
+  background: transparent;
+}
+
 .client-history-date {
   font-size: 0.75rem;
   font-weight: 700;

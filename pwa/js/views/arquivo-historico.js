@@ -104,7 +104,9 @@ export async function initArquivoHistoricoPage(root) {
   mountRoot = root;
   if (!mountRoot) return;
 
+  const { warmOperacoes } = await import('../app.js');
   await ensureProductionCatalog();
+  await warmOperacoes();
   await paint();
 }
 

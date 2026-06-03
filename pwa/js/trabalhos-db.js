@@ -38,6 +38,7 @@ export function mapRowToJob(row) {
     time: formatTime(row.hora),
     status: row.estado || 'scheduled',
     rejectionNote: row.nota_rejeicao ?? null,
+    urlPdf: row.url_pdf || null,
   };
 }
 
@@ -147,17 +148,20 @@ export async function deleteTrabalho(jobId) {
 }
 
 export async function patchTrabalhoStatus(jobId, { status, rejectionNote = null }) {
+  return patchTrabalho(jobId, { status, rejectionNote });
+}
+
+/** Atualiza campos do trabalho (estado, nota, url_pdf, …) */
+export async function patchTrabalho(jobId, patch = {}) {
   if (!jobId) return;
 
+  const update = { atualizado_em: new Date().toISOString() };
+  if (patch.status !== undefined) update.estado = patch.status;
+  if (patch.rejectionNote !== undefined) update.nota_rejeicao = patch.rejectionNote;
+  if (patch.urlPdf !== undefined) update.url_pdf = patch.urlPdf;
+
   const supabase = await getSupabaseClient();
-  const { error } = await supabase
-    .from('trabalhos')
-    .update({
-      estado: status,
-      nota_rejeicao: rejectionNote,
-      atualizado_em: new Date().toISOString(),
-    })
-    .eq('id', jobId);
+  const { error } = await supabase.from('trabalhos').update(update).eq('id', jobId);
 
   if (error) {
     console.error('[ManuSilva] Erro ao atualizar trabalho:', error);
@@ -167,8 +171,14 @@ export async function patchTrabalhoStatus(jobId, { status, rejectionNote = null 
   if (jobsCache) {
     const job = jobsCache.find((j) => j.id === jobId);
     if (job) {
-      job.status = status;
-      job.rejectionNote = rejectionNote;
+      if (patch.status !== undefined) job.status = patch.status;
+      if (patch.rejectionNote !== undefined) job.rejectionNote = patch.rejectionNote;
+      if (patch.urlPdf !== undefined) job.urlPdf = patch.urlPdf;
     }
   }
+}
+
+export function getJobsForClient(clientId) {
+  const id = String(clientId ?? '');
+  return getJobsSnapshot().filter((j) => String(j.clientId) === id);
 }

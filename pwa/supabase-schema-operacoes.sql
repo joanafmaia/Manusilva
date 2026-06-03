@@ -12,9 +12,13 @@ CREATE TABLE IF NOT EXISTS public.trabalhos (
   hora time,
   estado text NOT NULL DEFAULT 'scheduled',
   nota_rejeicao text,
+  url_pdf text,
   criado_em timestamptz NOT NULL DEFAULT now(),
   atualizado_em timestamptz NOT NULL DEFAULT now()
 );
+
+-- Migração em bases já criadas:
+-- ALTER TABLE public.trabalhos ADD COLUMN IF NOT EXISTS url_pdf text;
 
 CREATE INDEX IF NOT EXISTS trabalhos_data_idx ON public.trabalhos (data);
 CREATE INDEX IF NOT EXISTS trabalhos_tecnico_idx ON public.trabalhos (tecnico_id);

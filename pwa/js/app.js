@@ -34,8 +34,10 @@ import {
   insertTrabalho,
   deleteTrabalho,
   patchTrabalhoStatus,
+  patchTrabalho,
   formatTrabalhosError,
 } from './trabalhos-db.js';
+import { uploadTrabalhoPdf, formatPdfStorageError } from './pdf-storage.js';
 import {
   ensureReportsLoaded,
   getReportsSnapshot,
@@ -619,8 +621,17 @@ export async function approveReport(reportId) {
     const pdfBase64 = arrayBufferToBase64(pdfArrayBuffer);
     const pdfBase64Len = pdfBase64.length;
 
-    // Mantém o comportamento existente de download local.
-    doc.save(filename);
+    const storageFilename = `trabalho_${Date.now()}.pdf`;
+    let publicPdfUrl = null;
+
+    try {
+      const uploaded = await uploadTrabalhoPdf(pdfBlob, storageFilename);
+      publicPdfUrl = uploaded.publicUrl;
+    } catch (storageErr) {
+      console.error('[ManuSilva] Upload PDF Storage:', storageErr);
+      showToast(formatPdfStorageError(storageErr), 'error', 9000);
+      return null;
+    }
 
     await updateRelatorio(reportId, {
       status: 'approved',
@@ -629,15 +640,19 @@ export async function approveReport(reportId) {
     });
 
     if (report.jobId) {
-      await patchTrabalhoStatus(report.jobId, { status: 'completed', rejectionNote: null });
+      await patchTrabalho(report.jobId, {
+        status: 'completed',
+        rejectionNote: null,
+        urlPdf: publicPdfUrl,
+      });
     }
 
     window.dispatchEvent(new CustomEvent('db-updated'));
 
     showToast(
-      `Relatório aprovado! PDF "${filename}" gerado. A enviar automaticamente para ${client?.email || 'N/A'}...`,
+      `Relatório aprovado! PDF guardado no Storage. A enviar e-mail para ${client?.email || 'N/A'}...`,
       'success',
-      7000
+      7000,
     );
 
     const recipientEmail = client?.email || client?.['E-mail'] || '';

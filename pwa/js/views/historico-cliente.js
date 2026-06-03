@@ -2,7 +2,17 @@
  * Histórico do Cliente — ficha da empresa + relatórios de bateria submetidos.
  */
 
-import { getClient, getDB, getServiceType, getTechnician, escapeHtml, formatDateLong } from '../app.js';
+import {
+  getClient,
+  getDB,
+  getServiceType,
+  getTechnician,
+  getJob,
+  escapeHtml,
+  formatDateLong,
+  warmOperacoes,
+} from '../app.js';
+import { getJobsForClient } from '../trabalhos-db.js';
 import { getClientFromCatalog } from '../clients-catalog.js';
 import { mapClientToLegacy } from '../mock_data.js';
 import { openReportReviewModal, downloadReportPDF } from '../report-review-modal.js';
@@ -64,6 +74,44 @@ function statusBadge(status) {
   return `<span class="status-pill">${escapeHtml(status)}</span>`;
 }
 
+function pdfActionButton(report) {
+  const job = report.jobId ? getJob(report.jobId) : null;
+  if (job?.urlPdf) {
+    return `<button type="button" class="btn-outline btn-sm client-history-pdf" data-open-pdf-url="${escapeHtml(job.urlPdf)}" title="Ver PDF" aria-label="Ver PDF">👁️</button>`;
+  }
+  return `<button type="button" class="btn-outline btn-sm client-history-pdf" data-download-pdf="${escapeHtml(report.id)}" title="Descarregar PDF" aria-label="Descarregar PDF">PDF</button>`;
+}
+
+function renderTrabalhosPdfSection(clientId) {
+  const jobs = getJobsForClient(clientId)
+    .filter((j) => j.urlPdf)
+    .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  if (!jobs.length) return '';
+
+  const listHtml = jobs
+    .map((j) => {
+      const service = getServiceType(j.serviceType);
+      const dateStr = j.date ? formatDateLong(j.date) : '—';
+      return `
+          <li class="client-history-item glass-card">
+            <div class="client-history-item-main client-history-item-main--static">
+              <span class="client-history-date">${escapeHtml(dateStr)}</span>
+              <span class="client-history-service">${escapeHtml(service?.label || j.serviceType)}</span>
+              <span class="client-history-tech text-muted">${escapeHtml(j.forkliftSerial || '—')}</span>
+            </div>
+            <button type="button" class="btn-outline btn-sm client-history-pdf" data-open-pdf-url="${escapeHtml(j.urlPdf)}" title="Ver PDF" aria-label="Ver PDF">👁️</button>
+          </li>`;
+    })
+    .join('');
+
+  return `
+        <section class="client-history-jobs">
+          <h3 class="dashboard-section-title">Trabalhos com PDF</h3>
+          <p class="text-muted client-history-reports-hint">Documentos guardados — clique no ícone para abrir numa nova aba.</p>
+          <ul class="client-history-list" role="list">${listHtml}</ul>
+        </section>`;
+}
+
 /** @type {{ onBack?: () => void, showWorkflowActions?: boolean, batteryOnly?: boolean, onDownloadPDF?: (reportId: string) => void } | null} */
 let activeNavOptions = null;
 
@@ -80,8 +128,9 @@ export const HistoricoClienteView = {
       ? 'Relatórios técnicos de bateria'
       : 'Intervenções anteriores';
     const reportsHint = batteryOnly
-      ? 'Do mais recente ao mais antigo — clique na linha para rever ou use PDF para descarregar.'
+      ? 'Do mais recente ao mais antigo — clique na linha para rever; use 👁️ para abrir o PDF guardado.'
       : 'Do mais recente ao mais antigo — consulte o que foi feito em visitas anteriores.';
+    const trabalhosPdfHtml = renderTrabalhosPdfSection(clientId);
     const emptyMsg = batteryOnly
       ? 'Ainda não existem relatórios de bateria submetidos para esta empresa.'
       : 'Ainda não existem relatórios submetidos para esta empresa.';
@@ -100,9 +149,7 @@ export const HistoricoClienteView = {
               <span class="client-history-tech text-muted">${escapeHtml(tech?.name || '—')}</span>
               ${statusBadge(r.status)}
             </button>
-            <button type="button" class="btn-outline btn-sm client-history-pdf" data-download-pdf="${escapeHtml(r.id)}" title="Descarregar PDF" aria-label="Descarregar PDF">
-              PDF
-            </button>
+            ${pdfActionButton(r)}
           </li>
         `;
           })
@@ -125,6 +172,8 @@ export const HistoricoClienteView = {
           </dl>
         </section>
 
+        ${trabalhosPdfHtml}
+
         <section class="client-history-reports">
           <h3 class="dashboard-section-title">${escapeHtml(reportsTitle)}</h3>
           <p class="text-muted client-history-reports-hint">${escapeHtml(reportsHint)}</p>
@@ -138,7 +187,9 @@ export const HistoricoClienteView = {
    * @param {string} clientId
    * @param {{ onBack?: () => void, showWorkflowActions?: boolean, batteryOnly?: boolean, onDownloadPDF?: (reportId: string) => void }} [options]
    */
-  init(clientId, options = {}) {
+  async init(clientId, options = {}) {
+    await warmOperacoes();
+
     const onDownloadPDF =
       typeof options.onDownloadPDF === 'function'
         ? options.onDownloadPDF
@@ -164,7 +215,7 @@ export const HistoricoClienteView = {
       const app = document.getElementById('app');
       if (!app) return;
       app.innerHTML = HistoricoClienteView.render(clientId, { batteryOnly });
-      HistoricoClienteView.init(clientId, activeNavOptions || options);
+      void HistoricoClienteView.init(clientId, activeNavOptions || options);
     };
 
     root.querySelectorAll('[data-open-report]').forEach((btn) => {
@@ -182,6 +233,14 @@ export const HistoricoClienteView = {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         onDownloadPDF(btn.dataset.downloadPdf);
+      });
+    });
+
+    root.querySelectorAll('[data-open-pdf-url]').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const url = btn.dataset.openPdfUrl;
+        if (url) window.open(url, '_blank');
       });
     });
   },

@@ -161,6 +161,14 @@ export async function downloadReportPDF(reportId) {
     return;
   }
 
+  const { getJob } = await import('./app.js');
+  const job = report.jobId ? getJob(report.jobId) : null;
+  if (job?.urlPdf) {
+    window.open(job.urlPdf, '_blank');
+    showToast('A abrir PDF…', 'info');
+    return;
+  }
+
   const { showPdfPreviewLoading } = await import('./pdf-preview.js');
   showPdfPreviewLoading(true, 'A gerar PDF…');
 
