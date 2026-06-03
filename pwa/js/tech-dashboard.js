@@ -12,6 +12,7 @@ import {
   getTechnician,
   isOffline,
   setOfflineMode,
+  warmJobs,
   statusBadge,
   formatDate,
   getDayLabel,
@@ -62,7 +63,7 @@ export function openTechClientHistory(clientId) {
   app.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-export function initTechDashboard() {
+export async function initTechDashboard() {
   const session = requireAuth('technician');
   if (!session) return;
 
@@ -70,6 +71,13 @@ export function initTechDashboard() {
   initLogoutButton();
   renderHeader();
   renderOfflineToggle();
+
+  try {
+    await warmJobs();
+  } catch (err) {
+    console.error('[Técnico] Trabalhos Supabase:', err);
+  }
+
   renderCalendarStrip();
   renderJobs();
 

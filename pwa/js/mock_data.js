@@ -8,7 +8,7 @@ import {
   VERIFICACOES_INTERNAS_ITEMS,
 } from './preventiva-empilhadores-items.js';
 
-export const SCHEMA_VERSION = 15;
+export const SCHEMA_VERSION = 16;
 
 export const COMPANY = {
   name: 'ManuSilva Manutenção Industrial, Unipessoal, Lda',
@@ -768,6 +768,12 @@ export function seedDatabase() {
     try {
       const db = JSON.parse(stored);
       if (db.schemaVersion === SCHEMA_VERSION) return;
+      if (db.schemaVersion === 15) {
+        db.jobs = [];
+        db.schemaVersion = SCHEMA_VERSION;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
+        return;
+      }
     } catch {
       /* reseed */
     }
@@ -775,8 +781,8 @@ export function seedDatabase() {
 
   const db = {
     schemaVersion: SCHEMA_VERSION,
-    jobs: INITIAL_JOBS,
-    reports: INITIAL_REPORTS,
+    jobs: [],
+    reports: [],
     clients: [],
     technicians: TECHNICIANS,
     utilizadores: UTILIZADORES,

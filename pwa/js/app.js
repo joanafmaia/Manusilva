@@ -28,6 +28,14 @@ import {
   formatClientInsertError,
   resetProductionCatalogCache,
 } from './clients-catalog.js';
+import {
+  ensureJobsLoaded,
+  getJobsSnapshot,
+  insertTrabalho,
+  deleteTrabalho,
+  patchTrabalhoStatus,
+  formatTrabalhosError,
+} from './trabalhos-db.js';
 export { MANUSILVA_LOGO, applyBrandLogo, isLogoConfigured, getPdfLogoFormat } from './brand-ui.js';
 
 import {
@@ -49,7 +57,9 @@ const REPORT_EMAIL_SUBJECT_PREFIX = '[ManuSilva] Relatório de Intervenção';
 
 export function getDB() {
   seedDatabase();
-  return JSON.parse(localStorage.getItem(DB_KEY));
+  const db = JSON.parse(localStorage.getItem(DB_KEY));
+  db.jobs = getJobsSnapshot();
+  return db;
 }
 
 /** Pré-carrega o catálogo de clientes do Supabase (uma vez por sessão) */
@@ -60,6 +70,11 @@ export function warmClientsCatalog() {
 /** Garante catálogo carregado antes de pintar painéis (admin / técnico) */
 export async function prepareClientsCatalog() {
   return ensureProductionCatalog();
+}
+
+/** Carrega trabalhos do Supabase (substitui lista local em localStorage) */
+export function warmJobs() {
+  return ensureJobsLoaded();
 }
 
 function normalizeStoredClient(record) {
@@ -113,13 +128,15 @@ export async function getAllClientsList() {
 }
 
 export function saveDB(db) {
-  localStorage.setItem(DB_KEY, JSON.stringify(db));
+  const payload = { ...db, jobs: [] };
+  localStorage.setItem(DB_KEY, JSON.stringify(payload));
   window.dispatchEvent(new CustomEvent('db-updated'));
 }
 
 export function updateDB(updater) {
   const db = getDB();
   updater(db);
+  db.jobs = [];
   saveDB(db);
   return db;
 }
@@ -404,7 +421,7 @@ export function getForklift(clientId, serial) {
 }
 
 export function getJob(id) {
-  return getDB().jobs.find((j) => j.id === id);
+  return getJobsSnapshot().find((j) => j.id === id) || null;
 }
 
 export function getReport(id) {
@@ -416,11 +433,13 @@ export function getReportForJob(jobId) {
 }
 
 export function getJobsForTechnician(techId, date) {
-  return getDB().jobs.filter((j) => j.technicianId === techId && j.date === date);
+  return getJobsSnapshot().filter(
+    (j) => j.technicianId === techId && j.date === date,
+  );
 }
 
 export function getAllJobs() {
-  return getDB().jobs;
+  return getJobsSnapshot();
 }
 
 export function getPendingReports() {
@@ -458,11 +477,10 @@ export function syncOfflineQueue() {
         const existing = db.reports.findIndex((r) => r.id === action.report.id);
         if (existing >= 0) db.reports[existing] = action.report;
         else db.reports.push(action.report);
-        const job = db.jobs.find((j) => j.id === action.report.jobId);
-        if (job) {
-          job.status = 'completed';
-          job.rejectionNote = null;
-        }
+        patchTrabalhoStatus(action.report.jobId, {
+          status: 'completed',
+          rejectionNote: null,
+        }).catch(console.error);
       }
     });
   });
@@ -527,12 +545,11 @@ export function submitReport(report) {
     if (idx >= 0) db.reports[idx] = final;
     else db.reports.push(final);
 
-    const job = db.jobs.find((j) => j.id === report.jobId);
-    if (job) {
-      job.status = 'completed';
-      job.rejectionNote = null;
-    }
   });
+
+  patchTrabalhoStatus(report.jobId, { status: 'completed', rejectionNote: null }).catch(
+    console.error,
+  );
 
   showToast('Relatório submetido para aprovação!', 'success');
   return { queued: false };
@@ -573,9 +590,13 @@ export async function approveReport(reportId) {
         r.approvedAt = new Date().toISOString();
         r.pdfFilename = filename;
       }
-      const job = db.jobs.find((j) => j.id === r?.jobId);
-      if (job) job.status = 'completed';
     });
+
+    if (report.jobId) {
+      patchTrabalhoStatus(report.jobId, { status: 'completed', rejectionNote: null }).catch(
+        console.error,
+      );
+    }
 
     showToast(
       `Relatório aprovado! PDF "${filename}" gerado. A enviar automaticamente para ${client?.email || 'N/A'}...`,
@@ -642,44 +663,61 @@ function arrayBufferToBase64(buffer) {
 }
 
 export function rejectReport(reportId, note) {
+  const report = getReport(reportId);
   updateDB((db) => {
     const r = db.reports.find((x) => x.id === reportId);
     if (!r) return;
     r.status = 'rejected';
     r.rejectionNote = note;
-    const job = db.jobs.find((j) => j.id === r.jobId);
-    if (job) {
-      job.status = 'rejected';
-      job.rejectionNote = note;
-    }
   });
+
+  if (report?.jobId) {
+    patchTrabalhoStatus(report.jobId, { status: 'rejected', rejectionNote: note }).catch(
+      console.error,
+    );
+  }
+
   showToast('Relatório rejeitado. O técnico foi notificado.', 'error');
 }
 
-export function assignJob(jobData) {
-  const id = `job-${Date.now()}`;
-  updateDB((db) => {
-    db.jobs.push({ id, status: 'scheduled', rejectionNote: null, ...jobData });
-  });
-  showToast('Trabalho atribuído com sucesso!', 'success');
-  return id;
+export async function assignJob(jobData) {
+  try {
+    const job = await insertTrabalho({
+      ...jobData,
+      status: 'scheduled',
+      rejectionNote: null,
+    });
+    if (!job) {
+      showToast('Trabalho gravado, mas não foi possível confirmar a resposta.', 'warning');
+      await ensureJobsLoaded(true);
+      window.dispatchEvent(new CustomEvent('db-updated'));
+      return null;
+    }
+    showToast('Trabalho atribuído e guardado na base de dados.', 'success');
+    window.dispatchEvent(new CustomEvent('db-updated'));
+    return job.id;
+  } catch (err) {
+    console.error('[ManuSilva] assignJob:', err);
+    showToast(formatTrabalhosError(err), 'error', 9000);
+    return null;
+  }
 }
 
-/** Remove trabalho atribuído e relatórios associados (rascunho, pendente, etc.) */
-export function deleteJob(jobId) {
-  let removed = false;
-  updateDB((db) => {
-    const idx = db.jobs.findIndex((j) => j.id === jobId);
-    if (idx === -1) return;
-    db.jobs.splice(idx, 1);
-    db.reports = (db.reports || []).filter((r) => r.jobId !== jobId);
-    removed = true;
-  });
-  if (removed) {
+/** Remove trabalho na Supabase e relatórios locais associados */
+export async function deleteJob(jobId) {
+  try {
+    await deleteTrabalho(jobId);
+    updateDB((db) => {
+      db.reports = (db.reports || []).filter((r) => r.jobId !== jobId);
+    });
     showToast('Trabalho eliminado.', 'success');
     window.dispatchEvent(new CustomEvent('db-updated'));
+    return true;
+  } catch (err) {
+    console.error('[ManuSilva] deleteJob:', err);
+    showToast(formatTrabalhosError(err), 'error', 9000);
+    return false;
   }
-  return removed;
 }
 
 /* ─── Date Utilities ─── */

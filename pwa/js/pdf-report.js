@@ -17,6 +17,7 @@ import {
   getClientFromCatalog,
   getProductionClientsCatalog,
 } from './clients-catalog.js';
+import { getJobsSnapshot } from './trabalhos-db.js';
 import MANUSILVA_LOGO from './logo_data.js';
 import { isLogoConfigured, getPdfLogoFormat } from './brand-ui.js';
 import {
@@ -103,7 +104,7 @@ function columnKey(col) {
 }
 
 function getJob(id) {
-  return getDB().jobs?.find((j) => j.id === id);
+  return getJobsSnapshot().find((j) => j.id === id) || null;
 }
 
 const CORPORATE_BLUE = [30, 64, 115];

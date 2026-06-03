@@ -19,6 +19,7 @@ import {
   getReportForJob,
   statusBadge,
   warmClientsCatalog,
+  warmJobs,
   getAllTechnicians,
   openModal,
   closeModal,
@@ -70,8 +71,9 @@ export async function initAdminDashboard() {
 
   try {
     await warmClientsCatalog();
+    await warmJobs();
   } catch (err) {
-    console.error('[Admin] Catálogo Supabase:', err);
+    console.error('[Admin] Supabase:', err);
     showToast(formatClientsLoadError(err), 'error', 9000);
   }
 
@@ -490,8 +492,8 @@ function confirmDeleteJob(jobId) {
 
   const overlay = openModal('Eliminar trabalho', content, actions);
   overlay.querySelector('#cancel-delete-job')?.addEventListener('click', closeModal);
-  overlay.querySelector('#confirm-delete-job')?.addEventListener('click', () => {
-    if (deleteJob(jobId)) {
+  overlay.querySelector('#confirm-delete-job')?.addEventListener('click', async () => {
+    if (await deleteJob(jobId)) {
       closeModal();
       renderCalendar();
     }
@@ -710,7 +712,7 @@ async function openAssignModal() {
   dateInput.value = new Date().toISOString().split('T')[0];
 
   overlay.querySelector('#cancel-assign').addEventListener('click', closeModal);
-  overlay.querySelector('#confirm-assign').addEventListener('click', () => {
+  overlay.querySelector('#confirm-assign').addEventListener('click', async () => {
     const techId = overlay.querySelector('#assign-tech').value;
     const clientId = overlay.querySelector(
       '[data-client-combobox][data-field-id="assign-client"] .client-combobox-id',
@@ -724,7 +726,15 @@ async function openAssignModal() {
       return;
     }
 
-    assignJob({ technicianId: techId, clientId, forkliftSerial: '', serviceType, date, time });
+    const id = await assignJob({
+      technicianId: techId,
+      clientId,
+      forkliftSerial: '',
+      serviceType,
+      date,
+      time,
+    });
+    if (!id) return;
     closeModal();
     renderCalendar();
   });
