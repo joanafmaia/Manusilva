@@ -130,7 +130,15 @@ function upsertCacheEntry(report) {
     (r) => r.id === report.id || (report.jobId && r.jobId === report.jobId),
   );
   if (idx >= 0) reportsCache[idx] = report;
-  else reportsCache.push(report);
+  else reportsCache.unshift(report);
+}
+
+/** Atualiza cache local a partir de um evento Realtime (INSERT/UPDATE) */
+export function mergeReportFromRealtime(row) {
+  const report = mapRowToReport(row);
+  if (!report) return null;
+  upsertCacheEntry(report);
+  return report;
 }
 
 function findExistingReportId(report) {

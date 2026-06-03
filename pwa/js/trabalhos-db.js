@@ -104,6 +104,17 @@ async function loadJobsFromSupabase() {
   return jobsCache;
 }
 
+/** Atualiza cache local a partir de um evento Realtime (INSERT) */
+export function mergeJobFromRealtime(row) {
+  const job = mapRowToJob(row);
+  if (!job) return null;
+  if (!jobsCache) jobsCache = [];
+  const idx = jobsCache.findIndex((j) => j.id === job.id);
+  if (idx >= 0) jobsCache[idx] = job;
+  else jobsCache.unshift(job);
+  return job;
+}
+
 export function invalidateJobsCache() {
   jobsCache = null;
   jobsLoadPromise = null;

@@ -89,8 +89,27 @@ export async function initAdminDashboard() {
     showToast('Erro ao carregar o calendário. Veja a consola (F12).', 'error');
   }
 
+  bindPendingReportsActions();
   renderPendingReports().catch((err) => {
     console.error('[Admin] Relatórios pendentes:', err);
+  });
+
+  const { initAdminRealtime, playNotificationBeep } = await import('./admin-realtime.js');
+  initAdminRealtime({
+    onTrabalhoInserted: () => {
+      try {
+        renderCalendar();
+      } catch (e) {
+        console.error('[Admin] Calendário após trabalho realtime:', e);
+      }
+    },
+    onPendingReport: (report, opts = {}) => {
+      prependPendingReport(report).catch(console.error);
+      if (opts.playSound) playNotificationBeep();
+      if (opts.showBanner) showRealtimePendingBanner();
+    },
+  }).catch((err) => {
+    console.error('[Admin] Realtime:', err);
   });
 
   const historyRoot = document.getElementById('client-history-app');
@@ -501,70 +520,130 @@ function confirmDeleteJob(jobId) {
   });
 }
 
-async function renderPendingReports() {
-  const container = document.getElementById('pending-reports');
+let pendingReportsActionsBound = false;
+let realtimeBannerTimer = null;
+
+function ensureRealtimeBannerElement() {
+  let el = document.getElementById('admin-realtime-banner');
+  if (el) return el;
+  el = document.createElement('div');
+  el.id = 'admin-realtime-banner';
+  el.className = 'admin-realtime-banner';
+  el.setAttribute('role', 'status');
+  el.setAttribute('aria-live', 'polite');
+  el.textContent = 'Novo relatório pendente de aprovação!';
+  document.body.appendChild(el);
+  return el;
+}
+
+function showRealtimePendingBanner() {
+  const el = ensureRealtimeBannerElement();
+  el.classList.add('is-visible');
+  clearTimeout(realtimeBannerTimer);
+  realtimeBannerTimer = setTimeout(() => {
+    el.classList.remove('is-visible');
+  }, 5000);
+}
+
+function updatePendingCount() {
   const count = document.getElementById('pending-count');
+  if (count) count.textContent = String(getPendingReports().length);
+}
+
+function bindPendingReportsActions() {
+  if (pendingReportsActionsBound) return;
+  const container = document.getElementById('pending-reports');
   if (!container) return;
+  pendingReportsActionsBound = true;
 
-  const reports = getPendingReports();
-  if (count) count.textContent = reports.length;
+  container.addEventListener('click', async (e) => {
+    const reviewBtn = e.target.closest('[data-review]');
+    if (reviewBtn) {
+      openReportReview(reviewBtn.dataset.review);
+      return;
+    }
+    const rejectBtn = e.target.closest('[data-reject]');
+    if (rejectBtn) {
+      openRejectDialog(rejectBtn.dataset.reject);
+      return;
+    }
+    const approveBtn = e.target.closest('[data-approve]');
+    if (approveBtn) {
+      approveBtn.disabled = true;
+      const ok = await approveReport(approveBtn.dataset.approve);
+      approveBtn.disabled = false;
+      if (ok) {
+        renderPendingReports();
+        renderCalendar();
+        refreshDashboardPanel().catch(console.error);
+      }
+    }
+  });
+}
 
-  if (!reports.length) {
-    container.innerHTML = '<p class="text-muted empty-inline">Nenhum relatório pendente de aprovação.</p>';
-    return;
-  }
-
+async function buildPendingReportCardHtml(report, { highlight = false } = {}) {
   const { countFilledFields } = await import('./form-engine.js');
+  const client = getClient(report.clientId);
+  const tech = getTechnician(report.technicianId);
+  const service = getServiceType(report.serviceType);
+  const values = report.data?.values || { ...report.data?.textFields, ...report.data?.dropdowns };
+  const checklistCount = countFilledFields(service, values);
+  const photoCount = report.data?.photos?.length || 0;
+  const highlightClass = highlight ? ' report-card--new' : '';
 
-  container.innerHTML = reports.map((r) => {
-    const client = getClient(r.clientId);
-    const tech = getTechnician(r.technicianId);
-    const service = getServiceType(r.serviceType);
-    const values = r.data?.values || { ...r.data?.textFields, ...r.data?.dropdowns };
-    const checklistCount = countFilledFields(service, values);
-    const photoCount = r.data?.photos?.length || 0;
-
-    return `
-      <div class="report-card glass-card" data-report-id="${r.id}">
+  return `
+      <div class="report-card glass-card${highlightClass}" data-report-id="${escapeHtml(report.id)}">
         <div class="report-card-header">
           <div>
             <h4>${service?.icon} ${escapeHtml(service?.label)}</h4>
-            <p class="report-meta">${escapeHtml(client?.name)} · ${escapeHtml(r.forkliftSerial)}</p>
+            <p class="report-meta">${escapeHtml(client?.name)} · ${escapeHtml(report.forkliftSerial)}</p>
           </div>
           <span class="report-tech-badge" style="background:${tech?.color}20;color:${tech?.color}">${escapeHtml(tech?.name)}</span>
         </div>
         <div class="report-stats">
           <span>✓ ${checklistCount} itens</span>
           <span>📷 ${photoCount} fotos</span>
-          <span>${r.data?.signatures?.technician ? '✍ Técnico' : ''} ${r.data?.signatures?.client ? '✍ Cliente' : ''}</span>
+          <span>${report.data?.signatures?.technician ? '✍ Técnico' : ''} ${report.data?.signatures?.client ? '✍ Cliente' : ''}</span>
         </div>
         <div class="report-actions">
-          <button class="btn-outline btn-sm" data-review="${r.id}">Rever</button>
-          <button class="btn-danger btn-sm" data-reject="${r.id}">Rejeitar</button>
-          <button class="btn-success btn-sm" data-approve="${r.id}">Aprovar</button>
+          <button type="button" class="btn-outline btn-sm" data-review="${escapeHtml(report.id)}">Rever</button>
+          <button type="button" class="btn-danger btn-sm" data-reject="${escapeHtml(report.id)}">Rejeitar</button>
+          <button type="button" class="btn-success btn-sm" data-approve="${escapeHtml(report.id)}">Aprovar</button>
         </div>
       </div>
     `;
-  }).join('');
+}
 
-  container.querySelectorAll('[data-review]').forEach((btn) => {
-    btn.addEventListener('click', () => openReportReview(btn.dataset.review));
-  });
-  container.querySelectorAll('[data-approve]').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      btn.disabled = true;
-      const ok = await approveReport(btn.dataset.approve);
-      btn.disabled = false;
-      if (ok) {
-        renderPendingReports();
-        renderCalendar();
-        refreshDashboardPanel().catch(console.error);
-      }
-    });
-  });
-  container.querySelectorAll('[data-reject]').forEach((btn) => {
-    btn.addEventListener('click', () => openRejectDialog(btn.dataset.reject));
-  });
+/** Insere relatório pendente no topo da lista (Realtime) */
+async function prependPendingReport(report) {
+  const container = document.getElementById('pending-reports');
+  if (!container || !report?.id) return;
+
+  const empty = container.querySelector('.empty-inline');
+  if (empty) empty.remove();
+
+  const existing = container.querySelector(`[data-report-id="${report.id}"]`);
+  existing?.remove();
+
+  const html = await buildPendingReportCardHtml(report, { highlight: true });
+  container.insertAdjacentHTML('afterbegin', html);
+  updatePendingCount();
+}
+
+async function renderPendingReports() {
+  const container = document.getElementById('pending-reports');
+  if (!container) return;
+
+  const reports = getPendingReports();
+  updatePendingCount();
+
+  if (!reports.length) {
+    container.innerHTML = '<p class="text-muted empty-inline">Nenhum relatório pendente de aprovação.</p>';
+    return;
+  }
+
+  const cards = await Promise.all(reports.map((r) => buildPendingReportCardHtml(r)));
+  container.innerHTML = cards.join('');
 }
 
 async function openReportReview(reportId) {
