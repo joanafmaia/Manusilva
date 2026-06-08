@@ -15,9 +15,6 @@
 </head>
 <body>
   <script src="js/theme-boot.js"></script>
-  <button type="button" id="theme-toggle" class="theme-toggle-btn" aria-label="Alternar tema">
-    <span id="theme-icon"></span>
-  </button>
   <div class="bg-mesh"></div>
 
   <div class="tech-app">
@@ -32,6 +29,9 @@
         </div>
         <div class="header-actions">
           <span class="connection-badge online" id="connection-badge">● Online</span>
+          <button type="button" id="theme-toggle" class="theme-toggle-btn theme-toggle-btn--inline btn-ghost btn-sm" aria-label="Alternar tema" title="Alternar tema">
+            <span id="theme-icon" aria-hidden="true"></span>
+          </button>
           <button class="btn-ghost btn-sm" id="logout-btn" title="Sair">⏻</button>
         </div>
       </div>
@@ -72,15 +72,15 @@
     import { seedDatabase } from './js/mock_data.js';
     import { warmClientsCatalog, warmOperacoes } from './js/app.js';
     import { initTechDashboard } from './js/tech-dashboard.js';
-    import { applyThemeToDocument, themeToggleLabel, toggleTheme } from './js/theme.js';
+    import { applyThemeToDocument, themeToggleIcon, toggleTheme } from './js/theme.js';
 
     applyThemeToDocument();
     const themeBtn = document.getElementById('theme-toggle');
     const themeIcon = document.getElementById('theme-icon');
-    if (themeIcon) themeIcon.textContent = themeToggleLabel();
+    if (themeIcon) themeIcon.textContent = themeToggleIcon();
     themeBtn?.addEventListener('click', () => {
       const next = toggleTheme();
-      if (themeIcon) themeIcon.textContent = themeToggleLabel(next);
+      if (themeIcon) themeIcon.textContent = themeToggleIcon(next);
     });
 
     seedDatabase();

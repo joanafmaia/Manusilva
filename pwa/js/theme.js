@@ -31,3 +31,7 @@ export function toggleTheme() {
 export function themeToggleLabel(theme = getStoredTheme()) {
   return theme === 'dark' ? '☀️ Modo Claro' : '🌙 Modo Escuro';
 }
+
+export function themeToggleIcon(theme = getStoredTheme()) {
+  return theme === 'dark' ? '☀️' : '🌙';
+}

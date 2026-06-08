@@ -5241,6 +5241,10 @@ body.dark-mode .rh-card__btn--pdf {
   padding: 0 1rem 1.5rem;
 }
 
+.tech-main .jobs-section {
+  padding: 1rem 1rem 0;
+}
+
 .tech-main .client-history-page {
   padding: 0;
 }
@@ -6008,8 +6012,36 @@ body.light-mode #login-page-wrapper .login-portal-title {
   box-shadow: 0 6px 18px rgba(59, 130, 246, 0.2);
 }
 
-/* Páginas sem botão de tema: toasts no topo habitual */
-body:not(:has(.theme-toggle-btn)) .toast-container {
+.theme-toggle-btn--inline {
+  position: static;
+  top: auto;
+  right: auto;
+  z-index: auto;
+  min-height: 0;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  font-size: 1.05rem;
+  line-height: 1;
+  box-shadow: none;
+  background: transparent;
+  flex-shrink: 0;
+}
+
+.theme-toggle-btn--inline:hover {
+  background: rgba(148, 163, 184, 0.15);
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.tech-header .header-actions .theme-toggle-btn--inline #theme-icon {
+  display: block;
+}
+
+/* Páginas sem botão de tema flutuante: toasts no topo habitual */
+body:not(:has(.theme-toggle-btn:not(.theme-toggle-btn--inline))) .toast-container {
   top: var(--app-top-inset);
 }
 
