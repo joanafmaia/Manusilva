@@ -235,8 +235,21 @@ function renderJobs() {
     const service = getServiceType(job.serviceType);
     const savedReport = getReportForJob(job.id);
     const isRejected = job.status === 'rejected' || savedReport?.status === 'rejected';
+    const isPendingReview = savedReport?.status === 'pending_review';
+    const isApproved = savedReport?.status === 'approved';
     const hasDraft = savedReport?.status === 'draft';
     const stateClass = getCalendarEventStateClass(job, savedReport);
+
+    let actionBtn = '';
+    if (isPendingReview) {
+      actionBtn = `<button type="button" class="job-action-btn job-action-btn--primary" data-edit-pending-job="${job.id}">✏️ Editar</button>`;
+    } else if (isRejected) {
+      actionBtn = `<button type="button" class="job-action-btn job-action-btn--primary" data-open-job="${job.id}">Corrigir e Reenviar</button>`;
+    } else if (isApproved) {
+      actionBtn = `<button type="button" class="job-action-btn job-action-btn--primary" data-open-job="${job.id}">Ver Relatório</button>`;
+    } else {
+      actionBtn = `<button type="button" class="job-action-btn job-action-btn--primary" data-open-job="${job.id}">Iniciar</button>`;
+    }
 
     return `
       <article class="job-card glass-card ${stateClass} ${isRejected ? 'job-rejected' : ''}" data-job-id="${job.id}">
@@ -253,7 +266,7 @@ function renderJobs() {
           <div class="job-time">${job.time}</div>
           <div class="job-card-badges">
             ${hasDraft ? '<span class="draft-badge">Rascunho</span>' : ''}
-            ${statusBadge(job.status)}
+            ${isPendingReview ? '<span class="status-badge" style="color:#78350f;background:#fef3c7">Pendente RH</span>' : statusBadge(job.status)}
           </div>
         </div>
         <div class="job-client-row">
@@ -268,9 +281,7 @@ function renderJobs() {
           <span class="job-type">${service?.icon || '🔧'} ${escapeHtml(service?.label || job.serviceType)}</span>
           ${job.forkliftSerial ? `<span class="job-serial">${escapeHtml(job.forkliftSerial)}</span>` : ''}
         </div>
-        <button class="job-action-btn job-action-btn--primary" data-open-job="${job.id}">
-          ${isRejected ? 'Corrigir e Reenviar' : job.status === 'completed' ? 'Ver Relatório' : 'Iniciar'}
-        </button>
+        ${actionBtn}
       </article>
     `;
   }).join('');
@@ -279,6 +290,13 @@ function renderJobs() {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       openJobForm(btn.dataset.openJob);
+    });
+  });
+
+  container.querySelectorAll('[data-edit-pending-job]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openJobForm(btn.dataset.editPendingJob, { editPending: true });
     });
   });
 
@@ -292,6 +310,12 @@ function renderJobs() {
   container.querySelectorAll('.job-card').forEach((card) => {
     card.addEventListener('click', (e) => {
       if (e.target.closest('[data-client-history]')) return;
+      if (e.target.closest('[data-edit-pending-job], [data-open-job]')) return;
+      const report = getReportForJob(card.dataset.jobId);
+      if (report?.status === 'pending_review') {
+        openJobForm(card.dataset.jobId, { editPending: true });
+        return;
+      }
       openJobForm(card.dataset.jobId);
     });
   });

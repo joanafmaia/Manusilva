@@ -594,7 +594,12 @@ export async function saveReportDraft(report, options = {}) {
   }
 }
 
-export async function submitReport(report) {
+/**
+ * @param {object} report
+ * @param {{ isCorrection?: boolean }} [options] — `isCorrection`: atualiza relatório pendente (UPDATE)
+ */
+export async function submitReport(report, options = {}) {
+  const { isCorrection = false } = options;
   const {
     addTrabalhoPendente,
     sincronizarTrabalhosOffline,
@@ -606,8 +611,15 @@ export async function submitReport(report) {
   const final = {
     ...report,
     status: 'pending_review',
-    submittedAt: new Date().toISOString(),
+    submittedAt: isCorrection
+      ? report.submittedAt || new Date().toISOString()
+      : new Date().toISOString(),
   };
+
+  if (isCorrection && !final.id && report.jobId) {
+    const existing = getReportForJob(report.jobId);
+    if (existing?.id) final.id = existing.id;
+  }
 
   let pendingId;
   try {
@@ -628,8 +640,13 @@ export async function submitReport(report) {
 
     if (!hasTrabalhoPendente(pendingId)) {
       window.dispatchEvent(new CustomEvent('db-updated'));
-      showToast('Relatório submetido para aprovação!', 'success');
-      return { queued: false };
+      showToast(
+        isCorrection
+          ? 'Relatório atualizado com sucesso!'
+          : 'Relatório submetido para aprovação!',
+        'success',
+      );
+      return { queued: false, updated: isCorrection };
     }
 
     if (!navigator.onLine) {

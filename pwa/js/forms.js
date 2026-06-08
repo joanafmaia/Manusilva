@@ -43,24 +43,39 @@ let signaturePads = {};
 /** @type {{ flush: Function, destroy: Function, markDirty: Function } | null} */
 let formAutosave = null;
 
+/** ID do trabalho em correção (relatório já submetido, ainda pendente de RH). */
+let trabalhoIdEmEdicao = null;
+/** ID do relatório Supabase em correção. */
+let relatorioIdEmEdicao = null;
+
 /** @type {{ file: File|null, previewUrl: string|null, remoteUrl: string|null, cleared: boolean }} */
 let fotoAntesState = { file: null, previewUrl: null, remoteUrl: null, cleared: false };
 /** @type {{ file: File|null, previewUrl: string|null, remoteUrl: string|null, cleared: boolean }} */
 let fotoDepoisState = { file: null, previewUrl: null, remoteUrl: null, cleared: false };
 
-function resetFotoState(job) {
+function resetFotoState(job, existingReport) {
+  const data = existingReport?.data || {};
   fotoAntesState = {
     file: null,
     previewUrl: null,
-    remoteUrl: job?.fotoAntes || null,
+    remoteUrl: job?.fotoAntes || data.fotoAntesUrl || null,
     cleared: false,
   };
   fotoDepoisState = {
     file: null,
     previewUrl: null,
-    remoteUrl: job?.fotoDepois || null,
+    remoteUrl: job?.fotoDepois || data.fotoDepoisUrl || null,
     cleared: false,
   };
+}
+
+function clearEdicaoState() {
+  trabalhoIdEmEdicao = null;
+  relatorioIdEmEdicao = null;
+}
+
+function isEdicaoPendenteAtiva(jobId) {
+  return Boolean(trabalhoIdEmEdicao && jobId && trabalhoIdEmEdicao === jobId);
 }
 
 function fotoDisplayUrl(state) {
@@ -68,7 +83,11 @@ function fotoDisplayUrl(state) {
   return state.previewUrl || state.remoteUrl || null;
 }
 
-export function openJobForm(jobId) {
+/**
+ * @param {string} jobId
+ * @param {{ editPending?: boolean }} [options]
+ */
+export function openJobForm(jobId, options = {}) {
   const job = getJob(jobId);
   if (!job) return;
 
@@ -77,7 +96,22 @@ export function openJobForm(jobId) {
   const service = getServiceType(job.serviceType);
   const existingReport = getReportForJob(jobId);
 
-  resetFotoState(job);
+  if (existingReport?.status === 'approved') {
+    showToast('Este relatório já foi aprovado pelo RH e não pode ser editado.', 'warning', 5000);
+    return;
+  }
+
+  const editPending =
+    options.editPending === true ||
+    (options.editPending !== false && existingReport?.status === 'pending_review');
+
+  clearEdicaoState();
+  if (editPending && existingReport?.status === 'pending_review') {
+    trabalhoIdEmEdicao = jobId;
+    relatorioIdEmEdicao = existingReport.id || null;
+  }
+
+  resetFotoState(job, existingReport);
 
   const overlay = document.createElement('div');
   overlay.id = 'form-overlay';
@@ -90,7 +124,9 @@ export function openJobForm(jobId) {
 
   bindFormEvents(overlay, job, client, tech, service, existingReport);
 
-  if (existingReport?.status === 'draft') {
+  if (trabalhoIdEmEdicao) {
+    showToast('Pode editar o relatório enquanto aguarda aprovação do RH.', 'info', 4000);
+  } else if (existingReport?.status === 'draft') {
     showToast('Rascunho anterior recuperado automaticamente.', 'info', 3500);
   }
 }
@@ -152,6 +188,16 @@ function buildFormHTML(job, client, tech, service, existingReport) {
     </div>
   ` : '';
 
+  const editPendingBanner = trabalhoIdEmEdicao ? `
+    <div class="edit-pending-banner">
+      <span class="edit-pending-banner-icon" aria-hidden="true">✏️</span>
+      <div>
+        <strong>Edição de relatório pendente</strong>
+        <p>As alterações substituem a submissão anterior. As fotos existentes mantêm-se se não tirar novas.</p>
+      </div>
+    </div>
+  ` : '';
+
   const antesUrl = fotoDisplayUrl(fotoAntesState);
   const depoisUrl = fotoDisplayUrl(fotoDepoisState);
 
@@ -163,6 +209,7 @@ function buildFormHTML(job, client, tech, service, existingReport) {
 
       <div class="form-panel-body">
         ${rejectionBanner}
+        ${editPendingBanner}
 
         ${clientHeader}
 
@@ -217,8 +264,8 @@ function buildFormHTML(job, client, tech, service, existingReport) {
           Pré-visualizar Relatório
         </button>
         <div class="form-panel-footer-row">
-          <button type="button" class="btn-secondary btn-touch" id="btn-save-draft">Gravar Rascunho</button>
-          <button type="button" class="btn-primary btn-touch" id="btn-submit-report">Submeter Relatório</button>
+          ${trabalhoIdEmEdicao ? '' : '<button type="button" class="btn-secondary btn-touch" id="btn-save-draft">Gravar Rascunho</button>'}
+          <button type="button" class="btn-primary btn-touch" id="btn-submit-report">${trabalhoIdEmEdicao ? 'Guardar alterações' : 'Submeter Relatório'}</button>
         </div>
       </div>
     </div>
@@ -227,14 +274,15 @@ function buildFormHTML(job, client, tech, service, existingReport) {
 
 function buildReportFromForm(overlay, job, existingReport, signaturePads, reportId) {
   const values = collectReportValues(overlay);
+  const editingPending = isEdicaoPendenteAtiva(job.id);
   return {
-    id: reportId || existingReport?.id || null,
+    id: relatorioIdEmEdicao || reportId || existingReport?.id || null,
     jobId: job.id,
     technicianId: job.technicianId,
     clientId: job.clientId,
     forkliftSerial: job.forkliftSerial,
     serviceType: job.serviceType,
-    status: existingReport?.status || 'draft',
+    status: editingPending ? 'pending_review' : existingReport?.status || 'draft',
     submittedAt: existingReport?.submittedAt || new Date().toISOString(),
     data: {
       values,
@@ -388,7 +436,7 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport) {
     }
   };
 
-  overlay.querySelector('#btn-save-draft').addEventListener('click', async () => {
+  overlay.querySelector('#btn-save-draft')?.addEventListener('click', async () => {
     formAutosave?.flush();
     try {
       const fotoResult = await persistJobFotos(job.id);
@@ -434,11 +482,17 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport) {
       updateFotoPreview(overlay, 'antes');
       updateFotoPreview(overlay, 'depois');
       const report = buildReportFromForm(overlay, job, existingReport, signaturePads, draftReportId);
-      if (existingReport?.id) report.id = existingReport.id;
-      report.data.fotoAntesUrl = fotoResult.fotoAntes || report.data.fotoAntesUrl || null;
-      report.data.fotoDepoisUrl = fotoResult.fotoDepois || report.data.fotoDepoisUrl || null;
+      if (relatorioIdEmEdicao) report.id = relatorioIdEmEdicao;
+      else if (existingReport?.id) report.id = existingReport.id;
+      report.data.fotoAntesUrl =
+        fotoResult.fotoAntes || report.data.fotoAntesUrl || fotoAntesState.remoteUrl || null;
+      report.data.fotoDepoisUrl =
+        fotoResult.fotoDepois || report.data.fotoDepoisUrl || fotoDepoisState.remoteUrl || null;
       await ensureFotoUrlsOnTrabalho(job.id, report.data.fotoAntesUrl, report.data.fotoDepoisUrl);
-      await submitReport(report);
+
+      const isCorrection = isEdicaoPendenteAtiva(job.id);
+      await submitReport(report, { isCorrection });
+      clearEdicaoState();
       closeForm(overlay);
       window.dispatchEvent(new CustomEvent('jobs-updated'));
       window.dispatchEvent(new CustomEvent('db-updated'));
@@ -449,6 +503,7 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport) {
 }
 
 function closeForm(overlay) {
+  clearEdicaoState();
   formAutosave?.destroy();
   formAutosave = null;
   if (fotoAntesState.previewUrl?.startsWith('blob:')) URL.revokeObjectURL(fotoAntesState.previewUrl);
