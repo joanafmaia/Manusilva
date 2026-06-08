@@ -52,7 +52,7 @@ body.dark-mode {
 }
 
 body.light-mode {
-  --bg-page: #f1f5f9;
+  --bg-page: #f8fafc;
   --bg-card: #ffffff;
   --bg-input: #ffffff;
   --border-color: #cbd5e1;
@@ -162,14 +162,34 @@ body:not(.light-mode):not(.dark-mode) {
 }
 
 :root {
-  --primary: #3b82f6;
-  --primary-glow: rgba(59, 130, 246, 0.25);
+  /* Manusilva Design System — equivalente Tailwind slate */
+  --ms-page-bg: #f8fafc;
+  --ms-card-bg: #ffffff;
+  --ms-border: #f1f5f9;
+  --ms-border-md: #e2e8f0;
+  --ms-radius-xl: 0.75rem;
+  --ms-radius-lg: 0.5rem;
+  --ms-text-800: #1e293b;
+  --ms-text-700: #334155;
+  --ms-text-600: #475569;
+  --ms-text-500: #64748b;
+  --ms-table-head-bg: #f1f5f9;
+  --ms-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
+  --ms-primary: #2563eb;
+  --ms-primary-hover: #1d4ed8;
+  --ms-red-600: #dc2626;
+  --ms-red-700: #b91c1c;
+  --ms-red-50: #fef2f2;
+  --ms-red-100: #fee2e2;
+
+  --primary: #2563eb;
+  --primary-glow: rgba(37, 99, 235, 0.22);
   --success: #10b981;
   --warning: #f59e0b;
-  --danger: #f87171;
+  --danger: #dc2626;
   --purple: #a855f7;
-  --radius: 14px;
-  --radius-sm: 10px;
+  --radius: var(--ms-radius-xl);
+  --radius-sm: var(--ms-radius-lg);
   --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   --border-glow: rgba(59, 130, 246, 0.3);
   --app-top-inset: max(1rem, env(safe-area-inset-top, 0px));
@@ -206,26 +226,41 @@ body {
   transition: background 0.3s ease;
 }
 
-/* Glass Card */
+/* Glass Card — cartões unificados (rounded-xl, slate borders) */
 .glass-card {
-  background: var(--glass-bg);
+  background: var(--ms-card-bg, var(--glass-bg));
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius);
+  border: 1px solid var(--ms-border-md, var(--border-color));
+  border-radius: var(--ms-radius-xl, var(--radius));
+  box-shadow: var(--ms-shadow-sm, none);
   color: var(--text-main);
   transition: border-color var(--transition), transform var(--transition), box-shadow var(--transition), background 0.3s ease;
 }
 
+body.light-mode .glass-card,
+body.tech-dashboard-page:not(.dark-mode) .glass-card {
+  background: var(--ms-card-bg);
+  border-color: var(--ms-border-md);
+  box-shadow: var(--ms-shadow-sm);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
 .glass-card:hover {
-  border-color: color-mix(in srgb, var(--border-color) 70%, var(--primary));
+  border-color: color-mix(in srgb, var(--ms-border-md, var(--border-color)) 70%, var(--primary));
 }
 
 .glass-card-inner {
   background: var(--glass-inner);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
+  border: 1px solid var(--ms-border-md, var(--border-color));
+  border-radius: var(--ms-radius-lg, var(--radius-sm));
   padding: 1rem;
+}
+
+body.light-mode .glass-card-inner {
+  background: var(--ms-card-bg);
+  border-color: var(--ms-border-md);
 }
 
 /* ─── Login Page ─── */
@@ -312,9 +347,9 @@ body {
 
 .form-label {
   display: block;
-  font-size: 0.8rem;
+  font-size: 0.875rem;
   font-weight: 500;
-  color: var(--text-secondary);
+  color: var(--ms-text-500, var(--text-secondary));
   margin-bottom: 0.4rem;
 }
 
@@ -322,8 +357,8 @@ body {
   width: 100%;
   padding: 0.75rem 1rem;
   background: var(--bg-input);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
+  border: 1px solid var(--ms-border-md, var(--border-color));
+  border-radius: var(--ms-radius-lg, var(--radius-sm));
   color: var(--text-main);
   font-size: 0.9375rem;
   font-family: inherit;
@@ -382,30 +417,35 @@ body {
   font-size: 0.8125rem;
 }
 
-/* Buttons */
+/* Buttons — primários rounded-lg, área de toque confortável */
 .btn-primary, .btn-secondary, .btn-outline, .btn-ghost, .btn-danger, .btn-success {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  padding: 0.75rem 1.25rem;
-  border-radius: var(--radius-sm);
+  padding: 0.625rem 1rem;
+  border-radius: var(--ms-radius-lg, var(--radius-sm));
   font-size: 0.9375rem;
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
   border: none;
   transition: all var(--transition);
+  text-align: center;
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, var(--primary), #2563eb);
-  color: white;
+  background: var(--ms-primary, var(--primary));
+  color: #ffffff;
   width: 100%;
-  box-shadow: 0 4px 16px var(--primary-glow);
+  box-shadow: 0 1px 3px rgba(37, 99, 235, 0.28);
 }
 
-.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 24px var(--primary-glow); }
+.btn-primary:hover {
+  background: var(--ms-primary-hover, #1d4ed8);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px var(--primary-glow);
+}
 
 .btn-secondary {
   background: var(--surface-hover);
@@ -525,11 +565,11 @@ body {
   gap: 0.4rem;
   min-width: 40px;
   min-height: 40px;
-  padding: 0.45rem 0.55rem;
-  border: 1px solid rgba(239, 68, 68, 0.28);
-  border-radius: 0.65rem;
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
+  padding: 0.45rem 0.75rem;
+  border: 1px solid var(--ms-red-100, #fee2e2);
+  border-radius: var(--ms-radius-lg, 0.5rem);
+  background: var(--ms-red-50, #fef2f2);
+  color: var(--ms-red-600, #dc2626);
   font-family: inherit;
   font-size: 0.875rem;
   font-weight: 700;
@@ -539,9 +579,9 @@ body {
 }
 
 .tech-logout-btn:hover {
-  color: #b91c1c;
-  background: rgba(239, 68, 68, 0.18);
-  border-color: rgba(185, 28, 28, 0.35);
+  color: var(--ms-red-700, #b91c1c);
+  background: var(--ms-red-100, #fee2e2);
+  border-color: #fecaca;
 }
 
 .tech-logout-icon {
@@ -730,7 +770,12 @@ body {
   margin-bottom: 1rem;
 }
 
-.section-header h2 { font-size: 1.125rem; margin: 0; font-weight: 600; }
+.section-header h2 {
+  font-size: 1.25rem;
+  margin: 0;
+  font-weight: 700;
+  color: var(--ms-text-800, var(--text-primary));
+}
 .date-label { font-size: 0.8rem; color: var(--text-muted); }
 
 .jobs-list { display: flex; flex-direction: column; gap: 0.875rem; }
@@ -827,7 +872,12 @@ body {
   white-space: nowrap;
 }
 
-.job-client { font-size: 1.05rem; font-weight: 600; margin: 0 0 0.5rem; }
+.job-client {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--ms-text-700, var(--text-primary));
+  margin: 0 0 0.5rem;
+}
 
 .job-meta {
   display: flex;
@@ -1579,7 +1629,14 @@ body.dark-mode .btn-preview:hover:not(:disabled) {
 }
 
 .form-section { margin-bottom: 1.5rem; }
-.section-title { font-size: 0.875rem; font-weight: 600; color: var(--text-secondary); margin: 0 0 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; }
+.section-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--ms-text-500, var(--text-secondary));
+  margin: 0 0 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
 
 /* Custom Checklist Toggle */
 .checklist-grid { display: flex; flex-direction: column; gap: 0.5rem; }
@@ -1854,13 +1911,13 @@ body.dark-mode .btn-preview:hover:not(:disabled) {
 .form-report-title {
   margin: 0.35rem 0 1rem;
   padding: 0.75rem 0.5rem 0.85rem;
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--ms-border-md, var(--border-subtle));
   font-size: 1.25rem;
   font-weight: 700;
   line-height: 1.35;
   letter-spacing: -0.02em;
   text-align: center;
-  color: #1e293b;
+  color: var(--ms-text-800, #1e293b);
 }
 
 body.dark-mode .form-report-title {
@@ -2636,18 +2693,20 @@ body.dark-mode .matrix-bulk-good-btn--active {
 
 .dynamic-table th {
   text-align: left;
-  padding: 0.6rem 0.5rem;
-  font-size: 0.7rem;
-  font-weight: 700;
+  padding: 0.75rem 1rem;
+  font-size: 0.75rem;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--text-secondary);
-  border-bottom: 1px solid var(--border-subtle);
+  color: var(--ms-text-600, var(--text-secondary));
+  background: var(--ms-table-head-bg, #f1f5f9);
+  border-bottom: 1px solid var(--ms-border-md, var(--border-subtle));
 }
 
 .dynamic-table td {
-  padding: 0.35rem 0.25rem;
+  padding: 0.75rem 1rem;
   vertical-align: middle;
+  border-bottom: 1px solid var(--ms-border, #f1f5f9);
 }
 
 .dynamic-table-actions-th {
@@ -3513,7 +3572,12 @@ body.dark-mode .signature-block {
   flex-shrink: 0;
 }
 
-.admin-header h1 { font-size: 1.5rem; margin: 0; font-weight: 700; }
+.admin-header h1 {
+  font-size: 1.25rem;
+  margin: 0;
+  font-weight: 700;
+  color: var(--ms-text-800, var(--text-primary));
+}
 
 .admin-header-actions {
   display: flex;
@@ -4400,7 +4464,12 @@ body.dark-mode .rh-card__btn--pdf {
   margin-bottom: 0;
 }
 
-.panel-header h2 { font-size: 1rem; font-weight: 600; margin: 0; }
+.panel-header h2 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin: 0;
+  color: var(--ms-text-700, var(--text-primary));
+}
 
 .panel-controls { display: flex; gap: 0.5rem; align-items: center; }
 
@@ -5102,9 +5171,9 @@ body.dark-mode .rh-card__btn--pdf {
 
 .dashboard-section-title {
   margin: 0 0 0.85rem;
-  font-size: 0.9375rem;
-  font-weight: 700;
-  color: var(--text-primary);
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--ms-text-700, var(--text-primary));
 }
 
 .dashboard-metrics {
@@ -5927,6 +5996,26 @@ body.dark-mode .rh-card__btn--pdf {
 .rh-data-table {
   width: 100%;
   border-collapse: collapse;
+}
+
+.rh-data-table th {
+  padding: 0.75rem 1rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  text-align: left;
+  color: var(--ms-text-600, #475569);
+  background: var(--ms-table-head-bg, #f1f5f9);
+  border-bottom: 1px solid var(--ms-border-md, #e2e8f0);
+  white-space: nowrap;
+}
+
+.rh-data-table td {
+  padding: 0.875rem 1rem;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--ms-border, #f1f5f9);
+  color: var(--ms-text-700, var(--text-primary));
 }
 
 .rh-table-tech-cell {
@@ -6758,17 +6847,17 @@ body:not(:has(.theme-toggle-btn:not(.theme-toggle-btn--inline))) .toast-containe
     padding: 1rem;
     text-align: left;
     vertical-align: middle;
-    border-bottom: 1px solid var(--border-subtle);
+    border-bottom: 1px solid var(--ms-border, #f1f5f9);
   }
 
   .rh-employees-table th {
-    font-size: 0.72rem;
-    font-weight: 700;
+    font-size: 0.75rem;
+    font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    color: var(--text-secondary);
+    color: var(--ms-text-600, #475569);
     white-space: nowrap;
-    background: var(--surface-muted, #f1f5f9);
+    background: var(--ms-table-head-bg, #f1f5f9);
   }
 
   .rh-employees-table th:nth-child(1) { min-width: 11rem; }
@@ -6997,4 +7086,173 @@ body:not(:has(.theme-toggle-btn:not(.theme-toggle-btn--inline))) .toast-containe
   .form-field-section {
     display: block;
   }
+}
+
+/* ═══ Manusilva Design System — Unificação global UI ═══ */
+
+body.light-mode,
+body.tech-dashboard-page:not(.dark-mode),
+body:not(.dark-mode) .admin-main {
+  background-color: var(--ms-page-bg);
+}
+
+body.light-mode .bg-mesh,
+body.tech-dashboard-page:not(.dark-mode) .bg-mesh {
+  background: var(--ms-page-bg);
+}
+
+body.light-mode .text-muted,
+body.tech-dashboard-page:not(.dark-mode) .text-muted {
+  color: var(--ms-text-500);
+}
+
+/* Tipografia — títulos de ecrã */
+.ms-page-title,
+.admin-header h1,
+.form-report-title {
+  color: var(--ms-text-800);
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+@media (max-width: 767px) {
+  .admin-header h1,
+  .section-header h2 {
+    font-size: 1.25rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .admin-header h1,
+  .section-header h2 {
+    font-size: 1.5rem;
+  }
+
+  .btn-primary,
+  .btn-secondary,
+  .btn-touch,
+  .job-action-btn,
+  .btn-preview {
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
+  }
+}
+
+.ms-subtitle,
+.job-client-header-name,
+.job-client-link,
+.panel-header h2 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--ms-text-700);
+}
+
+/* Cartões — dashboard, RH, formulários */
+body.light-mode .admin-panel.glass-card,
+body.light-mode .dashboard-metric-card,
+body.light-mode .employee-card.glass-card,
+body.light-mode .client-card.glass-card,
+body.light-mode .rh-register.glass-card,
+body.light-mode .form-section-card,
+body.light-mode .form-panel--premium,
+body.tech-dashboard-page:not(.dark-mode) .job-card,
+body.tech-dashboard-page:not(.dark-mode) .empty-state {
+  background: var(--ms-card-bg);
+  border: 1px solid var(--ms-border-md);
+  border-radius: var(--ms-radius-xl);
+  box-shadow: var(--ms-shadow-sm);
+}
+
+body.light-mode .dashboard-metric-card {
+  border-color: var(--ms-border-md);
+}
+
+/* Botões de ação do dashboard */
+.job-action-btn {
+  border-radius: var(--ms-radius-lg);
+  padding: 0.625rem 1rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.job-action-btn--primary {
+  background: var(--ms-primary);
+  color: #ffffff;
+  border: none;
+  box-shadow: 0 1px 3px rgba(37, 99, 235, 0.25);
+}
+
+.job-action-btn--primary:hover {
+  background: var(--ms-primary-hover);
+}
+
+.btn-preview {
+  border-radius: var(--ms-radius-lg);
+  padding: 0.625rem 1rem;
+}
+
+.btn-danger {
+  background: var(--ms-red-50);
+  color: var(--ms-red-600);
+  border: 1px solid var(--ms-red-100);
+}
+
+.btn-danger:hover {
+  background: var(--ms-red-100);
+  color: var(--ms-red-700);
+}
+
+/* Formulário overlay */
+body.light-mode .form-overlay {
+  background: var(--ms-page-bg);
+}
+
+body.light-mode .form-panel--premium {
+  border-color: var(--ms-border-md);
+}
+
+body.light-mode .report-form-tab {
+  border-radius: var(--ms-radius-lg);
+  border-color: var(--ms-border-md);
+}
+
+body.light-mode .report-form-tab.is-active {
+  border-color: var(--ms-primary);
+}
+
+/* Tech header tablet */
+body.tech-dashboard-page:not(.dark-mode) .tech-header {
+  background: var(--ms-card-bg);
+  border-color: var(--ms-border-md);
+}
+
+/* RH tabs tablet */
+body.light-mode .rh-admin-tab {
+  border-radius: var(--ms-radius-lg);
+  border-color: var(--ms-border-md);
+}
+
+body.light-mode .rh-admin-tab.is-active {
+  border-color: var(--ms-primary);
+  color: var(--ms-primary);
+}
+
+/* Tabelas — hover unificado */
+.rh-data-table-row:hover,
+.rh-data-table-row:focus-visible {
+  background: rgba(37, 99, 235, 0.06);
+}
+
+body.dark-mode .rh-data-table th {
+  background: var(--surface-2);
+  color: var(--text-muted);
+  border-color: var(--border-color);
+}
+
+body.dark-mode .rh-data-table td {
+  border-color: var(--border-color);
+}
+
+body.dark-mode .dynamic-table th {
+  background: var(--surface-2);
 }
