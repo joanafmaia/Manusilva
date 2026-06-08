@@ -37,6 +37,7 @@ import {
   showToast,
   showNotificationToast,
 } from './app.js';
+import { getCalendarEventStateClass } from './calendar-event-state.js';
 import { ensureProductionCatalog, formatClientsLoadError } from './clients-catalog.js';
 import { renderClientCombobox, bindClientComboboxes } from './client-combobox.js';
 import { initLogoutButton, renderUserGreeting } from './auth.js';
@@ -279,7 +280,10 @@ function renderCalendarBlock(job, compact = false) {
   const tech = getTechnician(job.technicianId);
   const client = getClient(job.clientId);
   const service = getServiceType(job.serviceType);
-  const cls = compact ? 'cal-block cal-block-sm cal-block--interactive' : 'cal-block cal-block--interactive';
+  const report = getReportForJob(job.id);
+  const stateClass = getCalendarEventStateClass(job, report);
+  const sizeClass = compact ? 'cal-block cal-block-sm' : 'cal-block';
+  const cls = `${sizeClass} cal-block--interactive ${stateClass}`;
   const label = `${job.time} — ${client?.name || 'Cliente'} — ${service?.label || 'Serviço'}`;
   return `
     <button type="button" class="${cls}" data-job-id="${job.id}" style="--tech-color:${tech?.color || '#3b82f6'}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">
@@ -323,6 +327,8 @@ function renderAgendaListItem(job) {
   const tech = getTechnician(job.technicianId);
   const client = getClient(job.clientId);
   const service = getServiceType(job.serviceType);
+  const report = getReportForJob(job.id);
+  const stateClass = getCalendarEventStateClass(job, report);
   const serial = job.forkliftSerial ? ` · ${job.forkliftSerial}` : '';
 
   return `
@@ -331,7 +337,7 @@ function renderAgendaListItem(job) {
         <button type="button" class="agenda-swipe-delete" data-delete-job="${job.id}">Eliminar</button>
       </div>
       <div class="agenda-swipe-track">
-        <button type="button" class="agenda-list-item" data-job-id="${job.id}" style="--tech-color:${tech?.color || '#3b82f6'}">
+        <button type="button" class="agenda-list-item ${stateClass}" data-job-id="${job.id}" style="--tech-color:${tech?.color || '#3b82f6'}">
           <div class="agenda-list-top">
             <span class="agenda-list-time">${job.time}</span>
             ${statusBadge(job.status)}

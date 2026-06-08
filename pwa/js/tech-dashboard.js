@@ -12,7 +12,7 @@ import {
   getTechnician,
   isOffline,
   setOfflineMode,
-  warmJobs,
+  warmOperacoes,
   statusBadge,
   formatDate,
   getDayLabel,
@@ -22,13 +22,14 @@ import {
   escapeHtml,
   applyBrandLogo,
 } from './app.js';
+import {
+  getCalendarEventStateClass,
+  resolveCalendarEventState,
+} from './calendar-event-state.js';
 import { initLogoutButton, renderUserGreeting } from './auth.js';
 import { openJobForm } from './forms.js';
 import { HistoricoClienteView } from './views/historico-cliente.js';
-import {
-  ensureTrabalhosSemana,
-  getTechnicianJobDatesInRange,
-} from './trabalhos-db.js';
+import { ensureTrabalhosSemana } from './trabalhos-db.js';
 
 let selectedDate = new Date().toISOString().split('T')[0];
 let weekDates = getWeekDates();
@@ -78,9 +79,9 @@ export async function initTechDashboard() {
   renderOfflineToggle();
 
   try {
-    await warmJobs();
+    await warmOperacoes();
   } catch (err) {
-    console.error('[Técnico] Trabalhos Supabase:', err);
+    console.error('[Técnico] Dados Supabase:', err);
   }
 
   const { initTrabalhosOfflineSync, migrateLegacyOfflineQueue, sincronizarTrabalhosOffline } =
@@ -164,16 +165,14 @@ function renderCalendarStrip() {
   if (!strip) return;
 
   weekDates = getWeekDates(new Date(selectedDate));
-  const jobDates =
-    session?.technicianId
-      ? getTechnicianJobDatesInRange(session.technicianId, weekDates)
-      : new Set();
+  const techId = session?.technicianId;
 
   strip.innerHTML = weekDates
     .map((date) => {
       const isSelected = date === selectedDate;
       const today = isToday(date);
-      const hasJobs = jobDates.has(date);
+      const dayJobs = techId ? getJobsForTechnician(techId, date) : [];
+      const hasJobs = dayJobs.length > 0;
       const classes = [
         'cal-day',
         isSelected ? 'selected' : '',
@@ -183,11 +182,20 @@ function renderCalendarStrip() {
         .filter(Boolean)
         .join(' ');
 
+      const statusDots = hasJobs
+        ? `<span class="cal-job-dots" aria-hidden="true">${dayJobs
+            .map((job) => {
+              const state = resolveCalendarEventState(job, getReportForJob(job.id));
+              return `<span class="cal-status-dot cal-status-dot--${state}"></span>`;
+            })
+            .join('')}</span>`
+        : '';
+
       return `
       <button type="button" class="${classes}" data-date="${date}" aria-pressed="${isSelected}">
         <span class="cal-day-name">${getDayLabel(date)}</span>
         <span class="cal-day-num">${getDayNumber(date)}</span>
-        ${hasJobs ? '<span class="cal-job-dot" aria-hidden="true"></span>' : ''}
+        ${statusDots}
         ${today && !hasJobs ? '<span class="cal-today-dot" aria-hidden="true"></span>' : ''}
       </button>
     `;
@@ -225,12 +233,13 @@ function renderJobs() {
   container.innerHTML = jobs.map((job) => {
     const client = getClient(job.clientId);
     const service = getServiceType(job.serviceType);
-    const isRejected = job.status === 'rejected';
     const savedReport = getReportForJob(job.id);
+    const isRejected = job.status === 'rejected' || savedReport?.status === 'rejected';
     const hasDraft = savedReport?.status === 'draft';
+    const stateClass = getCalendarEventStateClass(job, savedReport);
 
     return `
-      <article class="job-card glass-card ${isRejected ? 'job-rejected' : ''}" data-job-id="${job.id}">
+      <article class="job-card glass-card ${stateClass} ${isRejected ? 'job-rejected' : ''}" data-job-id="${job.id}">
         ${isRejected ? `
           <div class="job-rejection-alert">
             <span class="alert-icon">⚠</span>
