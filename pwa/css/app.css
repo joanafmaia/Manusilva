@@ -435,7 +435,8 @@ body {
 /* ─── Tech Dashboard ─── */
 
 .tech-app {
-  max-width: 480px;
+  width: 100%;
+  max-width: 100%;
   margin: 0 auto;
   min-height: 100dvh;
   padding-bottom: 2rem;
@@ -5428,6 +5429,106 @@ body.dark-mode .rh-card__btn--pdf {
 
 .tech-main .client-history-page {
   padding: 0;
+}
+
+/* Tablet/desktop — dashboard técnico (max-w-4xl centrado, fundo slate-50) */
+@media (min-width: 768px) {
+  body.tech-dashboard-page:not(.dark-mode) {
+    background-color: #f8fafc;
+  }
+
+  body.tech-dashboard-page:not(.dark-mode) .bg-mesh {
+    background: #f8fafc;
+  }
+
+  .tech-app {
+    max-width: 56rem;
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
+    padding-bottom: 2.5rem;
+  }
+
+  .tech-header {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-top: none;
+    border-radius: 0 0 0.75rem 0.75rem;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+    margin-bottom: 0.5rem;
+  }
+
+  body.dark-mode .tech-header {
+    background: var(--glass-bg);
+    border-color: var(--border-color);
+    box-shadow: none;
+  }
+
+  .tech-main {
+    padding: 0 0.25rem 2rem;
+  }
+
+  .tech-main .jobs-section {
+    padding: 1.25rem 0.5rem 0;
+  }
+
+  .section-header h2 {
+    font-size: 1.3rem;
+  }
+
+  .jobs-list {
+    gap: 1rem;
+  }
+
+  .tech-app .job-card.glass-card,
+  .tech-app .empty-state.glass-card {
+    background: #ffffff;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+  }
+
+  body.dark-mode .tech-app .job-card.glass-card:not(.cal-event--draft):not(.cal-event--pending):not(.cal-event--rejected):not(.cal-event--approved),
+  body.dark-mode .tech-app .empty-state.glass-card {
+    background: var(--glass-bg);
+    border-color: var(--border-color);
+  }
+
+  .job-card {
+    padding: 1.25rem 1.35rem;
+  }
+
+  .job-client,
+  .job-client-link {
+    font-size: 1.2rem;
+  }
+
+  .job-meta {
+    font-size: 0.95rem;
+    margin-bottom: 1rem;
+  }
+
+  .job-meta .job-type {
+    font-size: 0.95rem;
+    font-weight: 500;
+  }
+
+  .job-time {
+    font-size: 0.95rem;
+  }
+
+  .job-action-btn {
+    min-height: 52px;
+    padding: 0.95rem 1.25rem;
+    font-size: 1.05rem;
+    border-radius: 0.65rem;
+  }
+
+  .job-history-btn {
+    min-height: 40px;
+    padding: 0.45rem 0.85rem;
+    font-size: 0.8rem;
+  }
 }
 
 .job-client-row {
