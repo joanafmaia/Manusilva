@@ -5852,6 +5852,28 @@ button.toast-notification:hover {
 #login-container .role-pick-hint,
 #login-page-wrapper .role-pick-hint { color: var(--text-muted); font-size: 12px; }
 
+#login-container .login-portal-title,
+#login-page-wrapper .login-portal-title {
+  margin: 0 0 8px;
+  font-size: 24px;
+  font-weight: 600;
+  color: #ffffff;
+  letter-spacing: -0.02em;
+}
+
+#login-container .login-portal-subtitle,
+#login-page-wrapper .login-portal-subtitle {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+body.light-mode #login-container .login-portal-title,
+body.light-mode #login-page-wrapper .login-portal-title {
+  color: #0f172a;
+}
+
 #login-container .brand-logo-slot,
 #login-page-wrapper .brand-logo-slot {
   width: 56px;

@@ -39,9 +39,8 @@ export const LoginView = {
         ">
           <div style="text-align: center; margin-bottom: 28px;">
             <div class="brand-logo-slot" data-brand-logo-lg aria-label="ManuSilva">MS</div>
-            <h2 class="login-title" style="margin: 0 0 6px 0; font-size: 26px; font-weight: 800; letter-spacing: -0.5px;">ManuSilva</h2>
-            <p class="login-subtitle" style="color: var(--text-muted); margin: 0 0 4px 0; font-size: 14px; font-weight: 600;">Manutenção Industrial</p>
-            <p style="color: var(--text-muted); margin: 0; font-size: 14px; font-weight: 500;">Introduza os seus dados para aceder</p>
+            <h2 class="login-portal-title">Portal Interno</h2>
+            <p class="login-portal-subtitle">Introduza os seus dados para aceder</p>
           </div>
 
           <p style="margin: 0 0 10px 0; font-size: 13px; font-weight: 600; color: var(--text-muted);">Entrar como</p>
@@ -72,7 +71,7 @@ export const LoginView = {
                 width: 100%; padding: 14px; border-radius: 8px; font-size: 16px; box-sizing: border-box; outline: none;
                 background-color: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-main);
                 transition: border-color 0.2s;
-              " placeholder="Introduza a palavra-passe">
+              " placeholder="">
             </div>
 
             <div id="login-error" style="
