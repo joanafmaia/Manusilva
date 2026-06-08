@@ -14,6 +14,7 @@ export const COMPANY = {
   name: 'ManuSilva Manutenção Industrial, Unipessoal, Lda',
   tagline: 'Empilhadores · Manutenção · Baterias',
   logo: 'MS',
+  nif: '',
   address: 'Rua São Mamede, Lote Nº1 - Fração D, 4760-725 Ribeirão VNF',
   postalCode: '4760-725 Ribeirão VNF',
   phone: '+351 229 811 990',

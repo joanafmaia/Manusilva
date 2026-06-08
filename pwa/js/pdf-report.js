@@ -119,6 +119,10 @@ const MARGIN = 14;
 const PAGE_W = 210;
 const PAGE_H = 297;
 const CONTENT_W = PAGE_W - MARGIN * 2;
+/** Zona reservada para rodapé institucional fixo (mm) */
+const PDF_FOOTER_RESERVE_MM = 22;
+const PDF_FOOTER_TEXT_RGB = [148, 163, 184];
+const PDF_FOOTER_FONT_SIZE = 8;
 
 let jsPDFCtor = null;
 let jsPDFLoadPromise = null;
@@ -367,11 +371,19 @@ function formatOrdemDisplay(numeroOrdem) {
   return `Ordem No: OP-2026-${padded}`;
 }
 
-function drawTopRow(doc, service, numeroOrdem = null) {
+function buildInstitutionalFooterLines() {
+  const contact = [COMPANY.phone, COMPANY.email, COMPANY.website].filter(Boolean).join(' · ');
+  return [
+    COMPANY.name,
+    COMPANY.nif ? `NIF ${COMPANY.nif}` : null,
+    COMPANY.address,
+    contact,
+  ].filter(Boolean);
+}
+
+function drawTopRow(doc, _service, numeroOrdem = null) {
   const topY = MARGIN;
   const logoSize = PDF_LOGO_SIZE_MM;
-  const companyName = service?.companyName || COMPANY.name;
-  const companyAddress = service?.companyAddress || COMPANY.address;
 
   if (isLogoConfigured()) {
     try {
@@ -392,43 +404,14 @@ function drawTopRow(doc, service, numeroOrdem = null) {
     drawLogoPlaceholder(doc, MARGIN, topY, logoSize);
   }
 
-  const metaX = PAGE_W - MARGIN;
-  let metaY = topY + 2;
-
   if (numeroOrdem != null) {
     doc.setTextColor(...TEXT_DARK);
     pdfSetFont(doc, 'normal');
     doc.setFontSize(9);
-    doc.text(formatOrdemDisplay(numeroOrdem), metaX, metaY, { align: 'right' });
-    metaY += 4.5;
+    doc.text(formatOrdemDisplay(numeroOrdem), PAGE_W - MARGIN, topY + 4, { align: 'right' });
   }
 
-  doc.setTextColor(...TEXT_DARK);
-  pdfSetFont(doc, 'bold');
-  doc.setFontSize(8);
-  const nameLines = pdfSplitText(doc,companyName, 95);
-  nameLines.forEach((line) => {
-    doc.text(line, metaX, metaY, { align: 'right' });
-    metaY += 3.8;
-  });
-  metaY += 1;
-
-  pdfSetFont(doc, 'normal');
-  doc.setFontSize(7.5);
-  doc.setTextColor(...TEXT_MUTED);
-  const lines = [
-    companyAddress,
-    `Tel: ${COMPANY.phone}`,
-    COMPANY.email,
-    COMPANY.website,
-  ];
-  lines.forEach((line) => {
-    doc.text(line, metaX, metaY, { align: 'right' });
-    metaY += 3.8;
-  });
-
-  const blockH = Math.max(logoSize, metaY - topY);
-  return topY + blockH + 6;
+  return topY + logoSize + 6;
 }
 
 function drawTitleBar(doc, y, title) {
@@ -1256,82 +1239,80 @@ async function drawPhotosAppendix(doc, y, photos) {
   return col > 0 ? rowY + thumbH + 10 : rowY + 6;
 }
 
-/** Altura total (mm) do bloco: título + divisória + 2 caixas + margem inferior */
-const SIGNATURES_BLOCK_HEIGHT_MM = 52;
+/** Espaço generoso após fotos Polaroid + bloco de assinaturas */
+const SIGNATURES_TOP_MARGIN_MM = 16;
+const SIGNATURE_LINE_GAP_MM = 12;
+const SIGNATURE_IMG_H_MM = 20;
+const SIGNATURES_BLOCK_HEIGHT_MM =
+  SIGNATURES_TOP_MARGIN_MM + SIGNATURE_IMG_H_MM + 14;
 
 async function drawSignaturesFooter(doc, y, signatures) {
-  /* Quebra de página antes do título se o bloco inteiro não couber (evita título órfão) */
+  y += SIGNATURES_TOP_MARGIN_MM;
   y = ensureSpace(doc, y, SIGNATURES_BLOCK_HEIGHT_MM);
 
-  y = drawSectionTitle(doc, y, 'Assinaturas Digitais', { skipEnsure: true });
-  y = drawDivider(doc, y - 4);
-
-  const boxW = (CONTENT_W - 8) / 2;
-  const boxH = 32;
-
+  const lineW = (CONTENT_W - SIGNATURE_LINE_GAP_MM) / 2;
   const boxes = [
-    { label: 'Assinatura do Técnico', data: signatures.technicianData, signed: signatures.technician },
-    { label: 'Assinatura do Cliente', data: signatures.clientData, signed: signatures.client },
+    { label: 'Assinatura do Técnico', data: signatures.technicianData },
+    { label: 'Assinatura do Cliente', data: signatures.clientData },
   ];
 
   boxes.forEach((box, i) => {
-    const x = MARGIN + i * (boxW + 8);
-
-    doc.setDrawColor(...SLATE_LINE);
-    doc.setLineWidth(0.35);
-    doc.setFillColor(255, 255, 255);
-    doc.roundedRect(x, y, boxW, boxH, 2, 2, 'FD');
-
-    pdfSetFont(doc, 'bold');
-    doc.setFontSize(7);
-    doc.setTextColor(...TEXT_MUTED);
-    doc.text(box.label.toUpperCase(), x + 4, y + 5);
+    const x = MARGIN + i * (lineW + SIGNATURE_LINE_GAP_MM);
+    const lineY = y + SIGNATURE_IMG_H_MM + 5;
 
     if (box.data) {
       try {
-        doc.addImage(box.data, 'PNG', x + 3, y + 7, boxW - 6, boxH - 12);
+        doc.addImage(box.data, 'PNG', x, y, lineW, SIGNATURE_IMG_H_MM);
       } catch {
-        drawSignaturePlaceholder(doc, x, y, boxW, boxH, box.signed);
+        /* linha vazia */
       }
-    } else {
-      drawSignaturePlaceholder(doc, x, y, boxW, boxH, box.signed);
     }
-  });
 
-  return y + boxH + 8;
-}
-
-function drawSignaturePlaceholder(doc, x, y, boxW, boxH, signed) {
-  pdfSetFont(doc, 'italic');
-  doc.setFontSize(8);
-  doc.setTextColor(...TEXT_MUTED);
-  const msg = signed ? 'Assinatura registada' : 'Sem assinatura';
-  doc.text(msg, x + boxW / 2, y + boxH / 2 + 2, { align: 'center' });
-}
-
-function drawPageFooter(doc, reportId) {
-  const total = doc.getNumberOfPages();
-  for (let i = 1; i <= total; i++) {
-    doc.setPage(i);
-    doc.setDrawColor(...SLATE_LINE);
+    doc.setDrawColor(203, 213, 225);
     doc.setLineWidth(0.25);
-    doc.line(MARGIN, PAGE_H - 12, PAGE_W - MARGIN, PAGE_H - 12);
+    doc.line(x, lineY, x + lineW, lineY);
 
     pdfSetFont(doc, 'normal');
-    doc.setFontSize(6.5);
+    doc.setFontSize(8);
     doc.setTextColor(...TEXT_MUTED);
-    doc.text(
-      `${COMPANY.name} · Documento gerado automaticamente · Ref: ${reportId}`,
-      PAGE_W / 2,
-      PAGE_H - 8,
-      { align: 'center' }
-    );
-    doc.text(`Página ${i} de ${total}`, PAGE_W - MARGIN, PAGE_H - 8, { align: 'right' });
+    doc.text(box.label, x + lineW / 2, lineY + 5, { align: 'center' });
+  });
+
+  return y + SIGNATURES_BLOCK_HEIGHT_MM;
+}
+
+function drawPageFooter(doc, _reportId) {
+  const total = doc.getNumberOfPages();
+  const footerLines = buildInstitutionalFooterLines();
+
+  for (let i = 1; i <= total; i++) {
+    doc.setPage(i);
+
+    const footerTop = PAGE_H - PDF_FOOTER_RESERVE_MM;
+    doc.setDrawColor(226, 232, 240);
+    doc.setLineWidth(0.2);
+    doc.line(MARGIN, footerTop, PAGE_W - MARGIN, footerTop);
+
+    pdfSetFont(doc, 'normal');
+    doc.setFontSize(PDF_FOOTER_FONT_SIZE);
+    doc.setTextColor(...PDF_FOOTER_TEXT_RGB);
+
+    let textY = footerTop + 4.5;
+    footerLines.forEach((line) => {
+      const wrapped = pdfSplitText(doc, line, CONTENT_W - 8);
+      wrapped.forEach((part) => {
+        doc.text(part, PAGE_W / 2, textY, { align: 'center' });
+        textY += 3.4;
+      });
+    });
+
+    doc.setFontSize(7);
+    doc.text(`Pág. ${i} / ${total}`, PAGE_W / 2, PAGE_H - 5, { align: 'center' });
   }
 }
 
 function ensureSpace(doc, y, needed) {
-  if (y + needed > PAGE_H - 20) {
+  if (y + needed > PAGE_H - PDF_FOOTER_RESERVE_MM - 2) {
     doc.addPage();
     return MARGIN + 8;
   }
