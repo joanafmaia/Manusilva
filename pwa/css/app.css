@@ -5884,6 +5884,60 @@ body.dark-mode .rh-card__btn--pdf {
   margin-top: 0.35rem;
 }
 
+/* RH — abas de gestão (distintas das abas de relatórios técnicos) */
+.rh-admin-tabs {
+  display: none;
+}
+
+.rh-admin-tab-panels {
+  width: 100%;
+}
+
+.rh-admin-tab-panel {
+  display: none;
+}
+
+.rh-admin-tab-panel.is-active {
+  display: block;
+}
+
+.rh-admin-placeholder {
+  margin: 0;
+  padding: 1.5rem 0.5rem;
+  font-size: 0.9rem;
+}
+
+.rh-employees-table-wrap {
+  display: none;
+}
+
+.rh-table-scroll {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.rh-data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.rh-table-tech-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.rh-table-tech-name {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* Impede herança acidental das abas de relatórios técnicos no painel RH */
+.admin-page .report-form-tabs {
+  display: none !important;
+}
+
 /* Client Cards */
 .client-card { margin-bottom: 0.75rem; overflow: hidden; }
 
@@ -6596,6 +6650,139 @@ body:not(:has(.theme-toggle-btn:not(.theme-toggle-btn--inline))) .toast-containe
 @media (max-width: 640px) {
   .calendar-week { grid-template-columns: repeat(2, 1fr); }
   .admin-page { padding: 16px; gap: 24px; }
+}
+
+/* RH — tablet (md: 768px–1023px; não altera mobile nem desktop lg+) */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .admin-page {
+    width: 95%;
+    max-width: 72rem;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
+  }
+
+  #admin-tab-funcionarios .admin-form-shell,
+  #admin-tab-clientes .admin-form-shell {
+    max-width: none;
+    width: 100%;
+    margin-left: 0;
+    margin-right: 0;
+  }
+
+  #admin-tab-funcionarios .rh-employees-panel {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+
+  .admin-metrics-wrap .dashboard-metrics-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+  }
+
+  .admin-metrics-wrap .dashboard-metric-card {
+    padding: 1rem 1.15rem;
+  }
+
+  .rh-admin-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1.25rem;
+    padding-bottom: 0.25rem;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .rh-admin-tab {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    min-height: 48px;
+    padding: 0.55rem 1rem;
+    border: 1px solid var(--border-subtle);
+    border-radius: 0.65rem;
+    background: var(--surface-raised, #f8fafc);
+    color: var(--text-secondary);
+    font-family: inherit;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+  }
+
+  .rh-admin-tab:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  .rh-admin-tab:not(:disabled):hover {
+    border-color: var(--primary);
+    color: var(--text-primary);
+  }
+
+  .rh-admin-tab.is-active {
+    background: #ffffff;
+    border-color: var(--primary);
+    color: var(--primary);
+    box-shadow: 0 1px 3px rgba(30, 64, 115, 0.1);
+  }
+
+  .rh-admin-tab-icon {
+    font-size: 1.05rem;
+    line-height: 1;
+  }
+
+  .rh-employees-cards {
+    display: none;
+  }
+
+  .rh-employees-table-wrap {
+    display: block;
+  }
+
+  .rh-employees-table {
+    min-width: 640px;
+  }
+
+  .rh-employees-table th,
+  .rh-employees-table td {
+    padding: 1rem;
+    text-align: left;
+    vertical-align: middle;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .rh-employees-table th {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    background: var(--surface-muted, #f1f5f9);
+  }
+
+  .rh-employees-table th:nth-child(1) { min-width: 11rem; }
+  .rh-employees-table th:nth-child(2) { min-width: 12rem; }
+  .rh-employees-table th:nth-child(3) { min-width: 8rem; }
+  .rh-employees-table th:nth-child(4) { min-width: 6rem; }
+
+  .rh-data-table-row {
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+
+  .rh-data-table-row:hover,
+  .rh-data-table-row:focus-visible {
+    background: var(--primary-glow);
+    outline: none;
+  }
+
+  .rh-employees-list .employee-card {
+    margin-bottom: 0;
+  }
 }
 
 @media (min-width: 481px) {

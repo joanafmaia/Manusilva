@@ -42,21 +42,21 @@ export function renderTechnicianFormSection() {
   `;
 }
 
-export function renderTechniciansList(technicians) {
-  if (!technicians.length) {
-    return '<p class="text-muted empty-inline">Sem técnicos registados.</p>';
-  }
+function technicianInitials(name) {
+  return name
+    .split(' ')
+    .map((n) => n[0])
+    .join('')
+    .slice(0, 2);
+}
 
+function renderTechnicianCards(technicians) {
   return technicians
     .map(
       (t) => `
     <div class="employee-card glass-card" data-tech-id="${escapeHtml(t.id)}">
       <div class="employee-avatar" style="background:${t.color}20;color:${t.color}">${escapeHtml(
-        t.name
-          .split(' ')
-          .map((n) => n[0])
-          .join('')
-          .slice(0, 2),
+        technicianInitials(t.name),
       )}</div>
       <div class="employee-info">
         <h4>${escapeHtml(t.name)}</h4>
@@ -68,6 +68,55 @@ export function renderTechniciansList(technicians) {
   `,
     )
     .join('');
+}
+
+function renderTechniciansTable(technicians) {
+  return `
+    <div class="rh-table-scroll">
+      <table class="rh-data-table rh-employees-table">
+        <thead>
+          <tr>
+            <th scope="col">Técnico</th>
+            <th scope="col">E-mail</th>
+            <th scope="col">Telemóvel</th>
+            <th scope="col">Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${technicians
+            .map(
+              (t) => `
+            <tr class="rh-data-table-row" data-tech-id="${escapeHtml(t.id)}" tabindex="0" role="button" aria-label="Perfil de ${escapeHtml(t.name)}">
+              <td>
+                <div class="rh-table-tech-cell">
+                  <div class="employee-avatar" style="background:${t.color}20;color:${t.color}">${escapeHtml(
+                    technicianInitials(t.name),
+                  )}</div>
+                  <span class="rh-table-tech-name">${escapeHtml(t.name)}</span>
+                </div>
+              </td>
+              <td data-col-label="E-mail">${escapeHtml(t.email)}</td>
+              <td data-col-label="Telemóvel">${escapeHtml(t.phone || '—')}</td>
+              <td data-col-label="Estado"><span class="employee-status online-dot">Ativo</span></td>
+            </tr>
+          `,
+            )
+            .join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+export function renderTechniciansList(technicians) {
+  if (!technicians.length) {
+    return '<p class="text-muted empty-inline">Sem técnicos registados.</p>';
+  }
+
+  return `
+    <div class="rh-employees-cards">${renderTechnicianCards(technicians)}</div>
+    <div class="rh-employees-table-wrap">${renderTechniciansTable(technicians)}</div>
+  `;
 }
 
 /**
