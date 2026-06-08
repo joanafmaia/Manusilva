@@ -301,7 +301,7 @@ export async function drawInspecaoDl50HeaderBlock(doc, y, values, helpers) {
   const machineBody = buildInspecaoDl50MachineTableBody(machine);
   doc.autoTable({
     startY: y,
-    margin: { left: margin, right: margin },
+    margin: { left: margin, right: margin, bottom: 30 },
     tableWidth: contentW,
     body: machineBody,
     theme: 'plain',

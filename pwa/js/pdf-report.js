@@ -188,8 +188,16 @@ const MARGIN = 14;
 const PAGE_W = 210;
 const PAGE_H = 297;
 const CONTENT_W = PAGE_W - MARGIN * 2;
-/** Zona reservada para rodapé institucional fixo (mm) */
-const PDF_FOOTER_RESERVE_MM = 22;
+/** Y inicial após quebra de página forçada */
+const PDF_PAGE_CONTENT_START_Y = 20;
+/** Conteúdo não pode ultrapassar esta distância ao fundo da página (mm) */
+const PDF_CONTENT_SAFE_BOTTOM_MM = 35;
+/** Margem inferior autoTable — impede tabelas na zona do rodapé */
+const PDF_AUTOTABLE_MARGIN_BOTTOM_MM = 30;
+/** Ancora fixa do rodapé institucional (mm desde o topo da página) */
+const PDF_FOOTER_BASELINE_Y = PAGE_H - 15;
+/** @deprecated usar PDF_CONTENT_SAFE_BOTTOM_MM — mantido para compatibilidade interna */
+const PDF_FOOTER_RESERVE_MM = PDF_CONTENT_SAFE_BOTTOM_MM;
 const PDF_FOOTER_TEXT_RGB = [148, 163, 184];
 const PDF_FOOTER_FONT_SIZE = 8;
 
@@ -588,7 +596,7 @@ async function drawPdfGridTable(doc, y, options = {}) {
 
   const tableConfig = {
     startY: y,
-    margin: { left: marginLeft, right: marginRight },
+    margin: getPdfAutoTableMargin(marginLeft, marginRight),
     tableWidth,
     theme: 'plain',
     styles: {
@@ -624,10 +632,11 @@ async function drawPdfGridTable(doc, y, options = {}) {
 
   if (body?.length) tableConfig.body = body;
   if (didParseCell) tableConfig.didParseCell = didParseCell;
+  tableConfig.didDrawPage = buildPdfAutoTableDidDrawPage(doc);
 
   doc.autoTable(tableConfig);
   touchPdfContentPage(doc);
-  return doc.lastAutoTable.finalY + gapAfter;
+  return normalizeYAfterAutoTable(doc, y, gapAfter);
 }
 
 function isPdfScalarField(field) {
@@ -1183,7 +1192,35 @@ const MATRIX_CAT_GAP = 5;
 const MATRIX_MIN_KEEP_ROWS = 3;
 
 function pdfContentBottomY() {
-  return PAGE_H - PDF_FOOTER_RESERVE_MM - 2;
+  return PAGE_H - PDF_CONTENT_SAFE_BOTTOM_MM;
+}
+
+function getPdfAutoTableMargin(marginLeft = MARGIN, marginRight = MARGIN) {
+  return {
+    left: marginLeft,
+    right: marginRight,
+    bottom: PDF_AUTOTABLE_MARGIN_BOTTOM_MM,
+  };
+}
+
+/** Após autoTable — força nova página se finalY invadir a zona de segurança */
+function normalizeYAfterAutoTable(doc, y, gapAfter = 0) {
+  const nextY = (doc.lastAutoTable?.finalY ?? y) + gapAfter;
+  return clampYToSafeZone(doc, nextY);
+}
+
+function clampYToSafeZone(doc, y) {
+  if (y <= pdfContentBottomY()) return y;
+  doc.addPage();
+  touchPdfContentPage(doc);
+  return PDF_PAGE_CONTENT_START_Y;
+}
+
+function ensureBlockFitsSafeZone(doc, y, blockHeight) {
+  if (y + blockHeight <= pdfContentBottomY()) return y;
+  doc.addPage();
+  touchPdfContentPage(doc);
+  return PDF_PAGE_CONTENT_START_Y;
 }
 
 function ensureBlockFitsPage(doc, y, blockHeight, minOrphan = 22) {
@@ -1192,7 +1229,7 @@ function ensureBlockFitsPage(doc, y, blockHeight, minOrphan = 22) {
   if (remaining < Math.min(blockHeight, minOrphan)) {
     doc.addPage();
     touchPdfContentPage(doc);
-    return MARGIN + 8;
+    return PDF_PAGE_CONTENT_START_Y;
   }
   return y;
 }
@@ -1258,7 +1295,7 @@ async function drawMatrixInspectionBlock(doc, y, field, matrixValue) {
     pdfSetFont(doc, 'normal');
     doc.autoTable({
       startY: y,
-      margin: { left: MARGIN, right: MARGIN },
+      margin: getPdfAutoTableMargin(MARGIN, MARGIN),
       tableWidth: CONTENT_W,
       head: [['Ponto de Inspeção', 'Estado']],
       body,
@@ -1305,9 +1342,10 @@ async function drawMatrixInspectionBlock(doc, y, field, matrixValue) {
           data.cell.styles.textColor = matrixPdfRgb(opt);
         }
       },
+      didDrawPage: buildPdfAutoTableDidDrawPage(doc),
     });
 
-    y = doc.lastAutoTable.finalY + MATRIX_CAT_GAP;
+    y = normalizeYAfterAutoTable(doc, y, MATRIX_CAT_GAP);
     touchPdfContentPage(doc);
   });
 
@@ -1353,9 +1391,11 @@ function drawLegalVerdictBlock(doc, y, label, value, opts = {}) {
   const minBoxH = opts.minBoxH ?? 14;
   const lineFactor = opts.lineFactor ?? 4.5;
 
-  if (!opts.skipEnsure) {
-    y = ensureSpace(doc, y, 22);
-  }
+  const lines = pdfSplitText(doc, value, CONTENT_W - 10);
+  const boxH = Math.max(minBoxH, lines.length * lineFactor + 6);
+  const blockHeight = titleGap + boxH + gapAfter + 6;
+  y = ensureBlockFitsSafeZone(doc, y, blockHeight);
+
   pdfSetFont(doc, 'bold');
   doc.setFontSize(8.5);
   doc.setTextColor(...CORPORATE_BLUE);
@@ -1374,9 +1414,6 @@ function drawLegalVerdictBlock(doc, y, label, value, opts = {}) {
     rgb = DANGER;
     borderRgb = DANGER;
   }
-
-  const lines = pdfSplitText(doc, value, CONTENT_W - 10);
-  const boxH = Math.max(minBoxH, lines.length * lineFactor + 6);
 
   doc.setDrawColor(...borderRgb);
   doc.setLineWidth(0.5);
@@ -1459,13 +1496,30 @@ function planReportClosingProfile(doc, y, opts) {
 }
 
 async function drawReportClosingSection(doc, y, opts) {
-  const profile = planReportClosingProfile(doc, y, opts);
   const hasLegal = Boolean(opts.legalValue && String(opts.legalValue).trim());
   const hasFotos = Boolean(opts.fotoAntesUrl || opts.fotoDepoisUrl);
+  const polaroidOpts = { simpleLegend: Boolean(opts.simplePhotoLegend) };
+
+  let profile = planReportClosingProfile(doc, y, opts);
+  const estimateClosingHeight = (closingProfile) =>
+    (hasLegal ? estimateLegalVerdictHeight(doc, opts.legalValue, closingProfile) : 0) +
+    estimatePolaroidSectionHeight(hasFotos, closingProfile, polaroidOpts) +
+    estimateSignaturesHeight(closingProfile);
+
+  let closingHeight = estimateClosingHeight(profile);
+  if (y + closingHeight > pdfContentBottomY()) {
+    doc.addPage();
+    touchPdfContentPage(doc);
+    y = PDF_PAGE_CONTENT_START_Y;
+    profile = planReportClosingProfile(doc, y, opts);
+    closingHeight = estimateClosingHeight(profile);
+    y = ensureBlockFitsSafeZone(doc, y, closingHeight);
+  }
 
   if (hasLegal) {
+    const legalH = estimateLegalVerdictHeight(doc, opts.legalValue, profile);
+    y = ensureBlockFitsSafeZone(doc, y, legalH);
     y = drawLegalVerdictBlock(doc, y, opts.legalLabel, opts.legalValue, {
-      skipEnsure: true,
       gapAfter: profile.legalGap,
       titleGap: profile.legalGap <= 5 ? 5 : 6,
       minBoxH: 12,
@@ -1474,6 +1528,8 @@ async function drawReportClosingSection(doc, y, opts) {
   }
 
   if (hasFotos) {
+    const fotoH = estimatePolaroidSectionHeight(hasFotos, profile, polaroidOpts);
+    y = ensureBlockFitsSafeZone(doc, y, fotoH);
     y = await drawAntesDepoisPolaroidSection(
       doc,
       y,
@@ -1491,6 +1547,8 @@ async function drawReportClosingSection(doc, y, opts) {
     );
   }
 
+  const sigH = estimateSignaturesHeight(profile);
+  y = ensureBlockFitsSafeZone(doc, y, sigH);
   y = await drawSignaturesFooter(doc, y, opts.signatures || {}, {
     topMargin: profile.sigTop,
     imgHeight: profile.sigImg,
@@ -1873,6 +1931,7 @@ async function drawAntesDepoisPolaroidSection(doc, y, fotoAntesUrl, fotoDepoisUr
 async function drawPhotosAppendix(doc, y, photos) {
   if (!photos.length) return y;
 
+  y = ensureBlockFitsSafeZone(doc, y, 48);
   y = drawSectionTitle(doc, y, 'Anexo Fotográfico — Evidências');
   y = drawDivider(doc, y - 4);
 
@@ -1930,10 +1989,10 @@ async function drawSignaturesFooter(doc, y, signatures, opts = {}) {
   const imgHeight = opts.imgHeight ?? SIGNATURE_IMG_H_MM;
   const blockHeight = topMargin + imgHeight + 12;
 
-  y += topMargin;
   if (!opts.skipEnsure) {
-    y = ensureSpace(doc, y, blockHeight);
+    y = ensureBlockFitsSafeZone(doc, y, blockHeight);
   }
+  y += topMargin;
 
   const lineW = (CONTENT_W - SIGNATURE_LINE_GAP_MM) / 2;
   const boxes = [
@@ -1967,33 +2026,51 @@ async function drawSignaturesFooter(doc, y, signatures, opts = {}) {
   return y + blockHeight;
 }
 
-function drawPageFooter(doc, _reportId) {
-  const total = doc.getNumberOfPages();
+/**
+ * Rodapé institucional — única função autorizada a desenhar o bloco comercial no fundo da página.
+ * @param {import('jspdf').jsPDF} doc
+ * @param {number} pageNumber
+ * @param {number} totalPages
+ */
+function drawInstitutionalPageFooter(doc, pageNumber, totalPages) {
+  doc.setPage(pageNumber);
+
+  const footerAnchorY = PDF_FOOTER_BASELINE_Y;
+  const footerTop = footerAnchorY - 11;
   const footerLines = buildInstitutionalFooterLines();
 
-  for (let i = 1; i <= total; i++) {
-    doc.setPage(i);
+  doc.setDrawColor(226, 232, 240);
+  doc.setLineWidth(0.2);
+  doc.line(MARGIN, footerTop, PAGE_W - MARGIN, footerTop);
 
-    const footerTop = PAGE_H - PDF_FOOTER_RESERVE_MM;
-    doc.setDrawColor(226, 232, 240);
-    doc.setLineWidth(0.2);
-    doc.line(MARGIN, footerTop, PAGE_W - MARGIN, footerTop);
+  pdfSetFont(doc, 'normal');
+  doc.setFontSize(PDF_FOOTER_FONT_SIZE);
+  doc.setTextColor(...PDF_FOOTER_TEXT_RGB);
 
-    pdfSetFont(doc, 'normal');
-    doc.setFontSize(PDF_FOOTER_FONT_SIZE);
-    doc.setTextColor(...PDF_FOOTER_TEXT_RGB);
-
-    let textY = footerTop + 4.5;
-    footerLines.forEach((line) => {
-      const wrapped = pdfSplitText(doc, line, CONTENT_W - 8);
-      wrapped.forEach((part) => {
-        doc.text(part, PAGE_W / 2, textY, { align: 'center' });
-        textY += 3.4;
-      });
+  let textY = footerTop + 3.5;
+  footerLines.forEach((line) => {
+    const wrapped = pdfSplitText(doc, line, CONTENT_W - 8);
+    wrapped.forEach((part) => {
+      doc.text(part, PAGE_W / 2, textY, { align: 'center' });
+      textY += 3.2;
     });
+  });
 
-    doc.setFontSize(7);
-    doc.text(`Pág. ${i} / ${total}`, PAGE_W / 2, PAGE_H - 5, { align: 'center' });
+  doc.setFontSize(7);
+  doc.text(`Pág. ${pageNumber} / ${totalPages}`, PAGE_W / 2, footerAnchorY, { align: 'center' });
+}
+
+/** Hook autoTable — reserva páginas; rodapé desenhado no fecho do documento */
+function buildPdfAutoTableDidDrawPage(doc) {
+  return () => {
+    touchPdfContentPage(doc);
+  };
+}
+
+function drawPageFooter(doc, _reportId) {
+  const total = doc.getNumberOfPages();
+  for (let i = 1; i <= total; i++) {
+    drawInstitutionalPageFooter(doc, i, total);
   }
 }
 
@@ -2032,14 +2109,7 @@ function pdfBlockTitle(field, sectionRendered) {
 }
 
 function ensureSpace(doc, y, needed) {
-  const bottomLimit = PAGE_H - PDF_FOOTER_RESERVE_MM - 2;
-  const maxChunk = bottomLimit - (MARGIN + 8);
-  const chunk = Math.max(4, Math.min(needed, maxChunk));
-  if (y + chunk > bottomLimit) {
-    doc.addPage();
-    return MARGIN + 8;
-  }
-  return y;
+  return ensureBlockFitsSafeZone(doc, y, needed);
 }
 
 function formatPdfCompactDateTime(dateInput) {
