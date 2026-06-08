@@ -21,8 +21,8 @@ export function formatFotoStorageError(err) {
   if (/Bucket not found|404/i.test(msg)) {
     return 'Bucket "fotos_trabalhos" não encontrado. Cria o bucket público no Supabase Storage.';
   }
-  if (/permission|policy|403|401/i.test(msg)) {
-    return 'Sem permissão no Storage de fotos. Executa pwa/supabase-storage-fotos.sql no Supabase.';
+  if (/permission|policy|403|401|row-level security/i.test(msg)) {
+    return 'Sem permissão no Storage de fotos. No Supabase → SQL Editor, executa o ficheiro pwa/supabase-storage-fotos.sql (políticas para role authenticated).';
   }
   return msg || 'Erro ao guardar a foto no Storage.';
 }
@@ -43,7 +43,7 @@ export async function uploadFotoTrabalho(file, filename) {
   const { error: uploadError } = await supabase.storage.from(FOTOS_BUCKET).upload(path, file, {
     contentType,
     cacheControl: '3600',
-    upsert: true,
+    upsert: false,
   });
 
   if (uploadError) {
