@@ -34,7 +34,7 @@ import {
   GRANDES_BATTERY_FIELD_ID,
   init as initGrandesBatteryTable,
 } from './views/relatorio-grandes.js';
-import { createSignatureBlock, initSignaturePads } from './signatures.js';
+import { createSignatureBlock, initSignaturePads, refreshSignaturePads } from './signatures.js';
 import { initReportFormAutosave } from './report-form-autosave.js';
 import {
   syncJobFotosAntesDepois,
@@ -421,15 +421,35 @@ async function persistJobFotos(jobId) {
   return result;
 }
 
+let signaturesRestoredFromReport = false;
+
 function restoreSignaturesFromReport(existingReport) {
+  if (signaturesRestoredFromReport) return;
   const sig = existingReport?.data?.signatures;
-  if (!sig) return;
+  if (!sig?.technicianData && !sig?.clientData) return;
+  refreshSignaturePads(signaturePads);
   signaturePads.technician?.loadFromDataURL(sig.technicianData);
   signaturePads.client?.loadFromDataURL(sig.clientData);
+  signaturesRestoredFromReport = true;
+}
+
+function onReportTabActivated(tabId) {
+  if (tabId !== 'finalizacao') return;
+  refreshSignaturePads(signaturePads);
+  restoreSignaturesFromReport(existingReportRef);
+}
+
+let existingReportRef = null;
+
+function activateReportTab(overlay, tabId) {
+  const btn = overlay.querySelector(`[data-report-tab="${tabId}"]`);
+  btn?.click();
 }
 
 function bindFormEvents(overlay, job, client, tech, service, existingReport) {
   const draftReportId = existingReport?.id || null;
+  existingReportRef = existingReport;
+  signaturesRestoredFromReport = false;
 
   overlay.querySelector('#close-form').addEventListener('click', () => {
     formAutosave?.flush();
@@ -440,14 +460,13 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport) {
     console.error('[Form] Interações dos campos:', err);
     showToast('Alguns controlos do formulário podem não responder. Recarregue a página.', 'error');
   });
-  bindReportFormTabs(overlay);
+  bindReportFormTabs(overlay, { onTabActivate: onReportTabActivated });
 
   bindFotoInputs(overlay);
 
   signaturePads = initSignaturePads(['technician', 'client'], () => {
     formAutosave?.markDirty();
   });
-  restoreSignaturesFromReport(existingReport);
 
   formAutosave = initReportFormAutosave({
     overlay,
@@ -508,7 +527,10 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport) {
 
   overlay.querySelector('#btn-submit-report').addEventListener('click', async () => {
     if (!signaturePads.technician?.hasSignature) {
-      showToast('A assinatura do técnico é obrigatória.', 'error');
+      activateReportTab(overlay, 'finalizacao');
+      refreshSignaturePads(signaturePads);
+      showToast('A assinatura do técnico é obrigatória. Assine na aba Finalização.', 'error');
+      overlay.querySelector('#sig-technician')?.focus?.();
       return;
     }
 
@@ -542,6 +564,8 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport) {
 
 function closeForm(overlay) {
   clearEdicaoState();
+  existingReportRef = null;
+  signaturesRestoredFromReport = false;
   formAutosave?.destroy();
   formAutosave = null;
   if (fotoAntesState.previewUrl?.startsWith('blob:')) URL.revokeObjectURL(fotoAntesState.previewUrl);

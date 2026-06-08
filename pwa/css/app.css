@@ -3079,9 +3079,12 @@ body.dark-mode .signature-block {
 
 .signature-canvas {
   display: block;
+  position: relative;
+  z-index: 1;
   width: 100%;
   height: 120px;
   touch-action: none;
+  cursor: crosshair;
   background: var(--signature-canvas-bg, #ffffff);
 }
 

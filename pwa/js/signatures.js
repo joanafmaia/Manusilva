@@ -40,11 +40,33 @@ export class SignaturePad {
     this.ctx.restore();
   }
 
+  resize() {
+    this._resize();
+  }
+
+  _resolveCanvasSize() {
+    const wrap = this.canvas.parentElement;
+    if (!wrap) return { cssW: 320, cssH: 120 };
+
+    const rect = wrap.getBoundingClientRect();
+    let cssW = rect.width;
+    let cssH = rect.height || 120;
+
+    if (cssW <= 0) {
+      cssW = wrap.offsetWidth || wrap.clientWidth || 0;
+    }
+    if (cssW <= 0) {
+      const panel = this.canvas.closest('.form-panel-body, .form-section-card, .signatures-grid');
+      cssW = panel?.clientWidth ? Math.max(0, panel.clientWidth - 48) : 0;
+    }
+    if (cssW <= 0) cssW = 320;
+
+    return { cssW, cssH };
+  }
+
   _resize() {
-    const rect = this.canvas.parentElement.getBoundingClientRect();
+    const { cssW, cssH } = this._resolveCanvasSize();
     const ratio = window.devicePixelRatio || 1;
-    const cssW = rect.width;
-    const cssH = rect.height || 120;
     this.canvas.width = cssW * ratio;
     this.canvas.height = cssH * ratio;
     this.canvas.style.width = `${cssW}px`;
@@ -105,6 +127,7 @@ export class SignaturePad {
     this.canvas.addEventListener('touchstart', start, { passive: false });
     this.canvas.addEventListener('touchmove', move, { passive: false });
     this.canvas.addEventListener('touchend', end);
+    this.canvas.addEventListener('touchcancel', end);
   }
 
   _getPos(e) {
@@ -120,9 +143,9 @@ export class SignaturePad {
   }
 
   clear() {
-    const rect = this.canvas.parentElement.getBoundingClientRect();
+    const { cssW, cssH } = this._resolveCanvasSize();
     this._savedImage = null;
-    this._paintCanvasBackground(rect.width, rect.height || 120);
+    this._paintCanvasBackground(cssW, cssH);
     this.hasSignature = false;
     this._syncBlockState(false);
     this.onChange(false);
@@ -136,9 +159,7 @@ export class SignaturePad {
     if (!dataUrl) return;
     const img = new Image();
     img.onload = () => {
-      const rect = this.canvas.parentElement.getBoundingClientRect();
-      const cssW = rect.width;
-      const cssH = rect.height || 120;
+      const { cssW, cssH } = this._resolveCanvasSize();
       this._paintCanvasBackground(cssW, cssH);
       this.ctx.drawImage(img, 0, 0, cssW, cssH);
       this._savedImage = img;
@@ -158,7 +179,7 @@ export function createSignatureBlock(label, id) {
         <button type="button" class="btn-ghost btn-sm" data-clear-sig="${id}">Limpar</button>
       </div>
       <div class="signature-canvas-wrap">
-        <canvas id="sig-${id}" class="signature-canvas"></canvas>
+        <canvas id="sig-${id}" class="signature-canvas" tabindex="0" aria-label="${label}"></canvas>
         <span class="signature-placeholder">Assine aqui com o dedo</span>
       </div>
     </div>
@@ -176,4 +197,11 @@ export function initSignaturePads(ids, onUpdate) {
     document.querySelector(`[data-clear-sig="${id}"]`)?.addEventListener('click', () => pads[id].clear());
   });
   return pads;
+}
+
+/** Recalcula dimensões dos canvas — necessário quando a aba Finalização fica visível */
+export function refreshSignaturePads(pads = {}) {
+  Object.values(pads).forEach((pad) => {
+    if (pad && typeof pad.resize === 'function') pad.resize();
+  });
 }

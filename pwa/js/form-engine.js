@@ -412,7 +412,7 @@ export function renderReportFormTabsNav(service, activeTab = 'geral') {
   `;
 }
 
-export function bindReportFormTabs(overlay) {
+export function bindReportFormTabs(overlay, options = {}) {
   const tabButtons = overlay.querySelectorAll('[data-report-tab]');
   const panels = overlay.querySelectorAll('[data-report-panel]');
   if (!tabButtons.length || !panels.length) return;
@@ -429,6 +429,9 @@ export function bindReportFormTabs(overlay) {
       panel.classList.toggle('is-active', active);
       panel.hidden = !active;
     });
+    if (tabId) {
+      requestAnimationFrame(() => options.onTabActivate?.(tabId));
+    }
   };
 
   tabButtons.forEach((btn) => {
