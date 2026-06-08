@@ -187,6 +187,7 @@ const PDF_FOOTER_FONT_SIZE = 8;
 
 let jsPDFCtor = null;
 let jsPDFLoadPromise = null;
+let autoTableLoadPromise = null;
 
 /** URL absoluta do bundle UMD (sem dependências npm) */
 function getJsPdfScriptUrl() {
@@ -194,6 +195,76 @@ function getJsPdfScriptUrl() {
   const slash = pagePath.lastIndexOf('/');
   const base = slash >= 0 ? pagePath.slice(0, slash + 1) : '/';
   return `${window.location.origin}${base}js/vendor/jspdf.umd.min.js`;
+}
+
+function getAutoTableScriptUrl() {
+  const pagePath = window.location.pathname.replace(/\\/g, '/');
+  const slash = pagePath.lastIndexOf('/');
+  const base = slash >= 0 ? pagePath.slice(0, slash + 1) : '/';
+  return `${window.location.origin}${base}js/vendor/jspdf.plugin.autotable.min.js`;
+}
+
+function isAutoTableReady() {
+  try {
+    const probe = new window.jspdf.jsPDF();
+    return typeof probe.autoTable === 'function';
+  } catch {
+    return false;
+  }
+}
+
+function loadJsPdfAutoTable() {
+  if (isAutoTableReady()) return Promise.resolve();
+
+  if (!autoTableLoadPromise) {
+    autoTableLoadPromise = new Promise((resolve, reject) => {
+      const finish = () => {
+        if (isAutoTableReady()) resolve();
+        else reject(new Error('jspdf-autotable carregou mas autoTable não ficou disponível.'));
+      };
+
+      const script =
+        document.querySelector('script[data-jspdf-autotable]') ||
+        Array.from(document.scripts).find((s) => s.src && s.src.includes('jspdf.plugin.autotable'));
+
+      if (script) {
+        if (script.getAttribute('data-jspdf-autotable-ready') === 'true' || isAutoTableReady()) {
+          finish();
+          return;
+        }
+        script.addEventListener(
+          'load',
+          () => {
+            script.setAttribute('data-jspdf-autotable-ready', 'true');
+            finish();
+          },
+          { once: true },
+        );
+        script.addEventListener(
+          'error',
+          () => reject(new Error(`Falha ao carregar jspdf-autotable (${getAutoTableScriptUrl()})`)),
+          { once: true },
+        );
+        return;
+      }
+
+      const el = document.createElement('script');
+      el.src = getAutoTableScriptUrl();
+      el.async = true;
+      el.setAttribute('data-jspdf-autotable', 'true');
+      el.onload = () => {
+        el.setAttribute('data-jspdf-autotable-ready', 'true');
+        finish();
+      };
+      el.onerror = () => reject(new Error(`Falha ao carregar jspdf-autotable (${getAutoTableScriptUrl()})`));
+      document.head.appendChild(el);
+    }).catch((err) => {
+      autoTableLoadPromise = null;
+      throw err;
+    });
+  }
+
+  return autoTableLoadPromise;
 }
 
 function resolveJsPDFFromWindow() {
@@ -327,15 +398,29 @@ export async function renderInterventionPDF(report) {
     { omitClient: isDl50Pdf },
   );
   y = drawDivider(doc, y);
-  y = drawReportFieldsSection(doc, y, service, values, pdfContext);
+  y = await drawReportFieldsSection(doc, y, service, values, pdfContext);
   const fotoAntesUrl = data.fotoAntesUrl || job?.fotoAntes || null;
   const fotoDepoisUrl = data.fotoDepoisUrl || job?.fotoDepois || null;
   const fotoLegenda = buildFotoRegistoLegenda(service, values);
-  y = await drawAntesDepoisPolaroidSection(doc, y, fotoAntesUrl, fotoDepoisUrl, fotoLegenda);
-  if ((data.photos || []).length) {
+  if (isDl50Pdf) {
+    y = await drawDl50ClosingSection(doc, y, {
+      legalLabel: 'Declaração de Segurança',
+      legalValue: values.declaracao_seguranca,
+      fotoAntesUrl,
+      fotoDepoisUrl,
+      fotoLegenda,
+      signatures: data.signatures || {},
+    });
+  } else {
+    y = await drawAntesDepoisPolaroidSection(doc, y, fotoAntesUrl, fotoDepoisUrl, fotoLegenda);
+    if ((data.photos || []).length) {
+      y = await drawPhotosAppendix(doc, y, data.photos || []);
+    }
+    y = await drawSignaturesFooter(doc, y, data.signatures || {});
+  }
+  if (isDl50Pdf && (data.photos || []).length) {
     y = await drawPhotosAppendix(doc, y, data.photos || []);
   }
-  y = await drawSignaturesFooter(doc, y, data.signatures || {});
 
   touchPdfContentPage(doc);
   trimTrailingBlankPages(doc);
@@ -790,7 +875,7 @@ function mapReportValuesForPdf(data, service, pdfContext = null) {
   return values;
 }
 
-function drawReportFieldsSection(doc, y, service, values, pdfContext = null) {
+async function drawReportFieldsSection(doc, y, service, values, pdfContext = null) {
   if (!service?.fields?.length) return y;
 
   y = drawSectionTitle(doc, y, 'Conteúdo do Relatório');
@@ -809,20 +894,20 @@ function drawReportFieldsSection(doc, y, service, values, pdfContext = null) {
 
   let currentSection = null;
 
-  service.fields.forEach((field) => {
-    if (isDl50 && INSPECAO_DL50_PDF_SKIP_FIELD_IDS.has(field.id)) return;
-    if (!isDl50 && isMachineTrackingField(field)) return;
-    if (field.dependency && !isPdfDependencyMet(field, values)) return;
+  for (const field of service.fields) {
+    if (isDl50 && INSPECAO_DL50_PDF_SKIP_FIELD_IDS.has(field.id)) continue;
+    if (!isDl50 && isMachineTrackingField(field)) continue;
+    if (field.dependency && !isPdfDependencyMet(field, values)) continue;
 
     if (field.id === 'deslocacao') {
       y = ensureSpace(doc, y, 14);
       const desloc = formatPdfDeslocacao(values.deslocacao, { ...pdfContext, values });
       y = drawKeyValueLine(doc, y, field.label, desloc, field.type);
-      return;
+      continue;
     }
 
     const value = coercePdfFieldValue(field, values[field.id], pdfContext);
-    if (isPdfEmptyValue(field, value)) return;
+    if (isPdfEmptyValue(field, value)) continue;
 
     if (field.section && field.section !== currentSection) {
       currentSection = field.section;
@@ -837,7 +922,7 @@ function drawReportFieldsSection(doc, y, service, values, pdfContext = null) {
       const sectionRendered = Boolean(field.section && field.section === currentSection);
       const blockTitle = pdfBlockTitle(field, sectionRendered);
       y = drawVerificationBlock(doc, y, blockTitle, field.items || [], value);
-      return;
+      continue;
     }
 
     if (field.type === 'dynamic_table' && Array.isArray(value)) {
@@ -849,7 +934,7 @@ function drawReportFieldsSection(doc, y, service, values, pdfContext = null) {
         field.columns || [],
         value,
       );
-      return;
+      continue;
     }
 
     if (field.type === 'grandes_identificacao_baterias' && Array.isArray(value)) {
@@ -861,33 +946,33 @@ function drawReportFieldsSection(doc, y, service, values, pdfContext = null) {
         getColumnLabels(),
         value,
       );
-      return;
+      continue;
     }
 
     if (field.type === 'multi_checkbox' && Array.isArray(value)) {
       const sectionRendered = Boolean(field.section && field.section === currentSection);
       y = drawMultiCheckboxBlock(doc, y, pdfBlockTitle(field, sectionRendered), value);
-      return;
+      continue;
     }
 
     if (field.type === 'status_pills') {
       y = drawKeyValueLine(doc, y, field.label, value, 'status_pills');
-      return;
+      continue;
     }
 
     if (field.type === 'toggle_component') {
       y = drawKeyValueLine(doc, y, field.label, value, 'toggle_component');
-      return;
+      continue;
     }
 
     if (field.type === 'matrix_4options' && value && typeof value === 'object') {
-      y = drawMatrixInspectionBlock(doc, y, field, value);
-      return;
+      y = await drawMatrixInspectionBlock(doc, y, field, value);
+      continue;
     }
 
     if (field.type === 'legal_verdict') {
       y = drawLegalVerdictBlock(doc, y, field.label, value);
-      return;
+      continue;
     }
 
     if (field.type === 'longtext' || field.type === 'textarea' || field.type === 'grid') {
@@ -903,11 +988,11 @@ function drawReportFieldsSection(doc, y, service, values, pdfContext = null) {
       } else {
         y = drawLongTextBlock(doc, y, field.label, value);
       }
-      return;
+      continue;
     }
 
     y = drawKeyValueLine(doc, y, field.label, value, field.type);
-  });
+  }
 
   return y + 4;
 }
@@ -969,70 +1054,36 @@ function matrixDisplayState(opt) {
   return opt === 'N.A.' ? 'NA' : opt;
 }
 
-function estimateMatrixCategoryHeight(doc, cat, catData) {
-  const rows = cat.items.filter((item) => catData[columnKey(item)]);
-  if (!rows.length) return 0;
+const MATRIX_TABLE_HEAD_FILL = [241, 245, 249];
+const MATRIX_TABLE_LINE = [226, 232, 240];
 
+function buildMatrixCategoryTable(doc, cat, catData) {
+  const body = [];
+  const rowOpts = [];
+
+  cat.items.forEach((item) => {
+    const opt = catData[columnKey(item)];
+    if (!opt) return;
+    body.push([pdfSafeText(item), matrixDisplayState(opt)]);
+    rowOpts.push(opt);
+  });
+
+  return { body, rowOpts };
+}
+
+function estimateMatrixAutoTableHeight(doc, body) {
+  if (!body.length) return 0;
   let height = MATRIX_CAT_TITLE_H + MATRIX_TABLE_HEADER_H;
-  rows.forEach((item) => {
-    const lines = pdfSplitText(doc, pdfSafeText(item), MATRIX_POINT_COL_W - 6);
-    height += Math.max(MATRIX_TABLE_ROW_MIN_H, lines.length * 3.2 + 2) + 1;
+  body.forEach((row) => {
+    const lines = pdfSplitText(doc, row[0], MATRIX_POINT_COL_W - 6);
+    height += Math.max(MATRIX_TABLE_ROW_MIN_H, lines.length * 3.2 + 2.5) + 0.5;
   });
   return height + MATRIX_CAT_GAP;
 }
 
-function drawMatrixTableColumnDivider(doc, yTop, height) {
-  const x = MARGIN + MATRIX_POINT_COL_W;
-  doc.setDrawColor(226, 232, 240);
-  doc.setLineWidth(0.15);
-  doc.line(x, yTop, x, yTop + height);
-}
+async function drawMatrixInspectionBlock(doc, y, field, matrixValue) {
+  await loadJsPdfAutoTable();
 
-function drawMatrixTableHeader(doc, y) {
-  doc.setFillColor(30, 64, 115);
-  doc.setDrawColor(30, 64, 115);
-  doc.setLineWidth(0.2);
-  doc.rect(MARGIN, y, CONTENT_W, MATRIX_TABLE_HEADER_H, 'FD');
-
-  pdfSetFont(doc, 'bold');
-  doc.setFontSize(7);
-  doc.setTextColor(255, 255, 255);
-  doc.text('Ponto de Inspeção', MARGIN + 2, y + 4.8);
-  doc.text('Estado', MARGIN + MATRIX_POINT_COL_W + MATRIX_STATE_COL_W / 2, y + 4.8, {
-    align: 'center',
-  });
-  drawMatrixTableColumnDivider(doc, y, MATRIX_TABLE_HEADER_H);
-}
-
-function drawMatrixTableRow(doc, y, item, opt, rowIdx) {
-  const label = pdfSafeText(item);
-  const labelLines = pdfSplitText(doc, label, MATRIX_POINT_COL_W - 6);
-  const rowH = Math.max(MATRIX_TABLE_ROW_MIN_H, labelLines.length * 3.2 + 2);
-  const fill = rowIdx % 2 === 0 ? [248, 250, 252] : [255, 255, 255];
-
-  doc.setFillColor(...fill);
-  doc.setDrawColor(226, 232, 240);
-  doc.setLineWidth(0.12);
-  doc.rect(MARGIN, y, CONTENT_W, rowH, 'FD');
-  drawMatrixTableColumnDivider(doc, y, rowH);
-
-  pdfSetFont(doc, 'normal');
-  doc.setFontSize(7);
-  doc.setTextColor(...TEXT_DARK);
-  doc.text(labelLines, MARGIN + 2, y + 4.2, { lineHeightFactor: 1.2 });
-
-  const display = matrixDisplayState(opt);
-  pdfSetFont(doc, 'bold');
-  doc.setFontSize(7.5);
-  doc.setTextColor(...(opt ? matrixPdfRgb(opt) : TEXT_MUTED));
-  doc.text(display, MARGIN + MATRIX_POINT_COL_W + MATRIX_STATE_COL_W / 2, y + 4.5, {
-    align: 'center',
-  });
-
-  return rowH + 1;
-}
-
-function drawMatrixInspectionBlock(doc, y, field, matrixValue) {
   y = ensureSpace(doc, y, 16);
   pdfSetFont(doc, 'bold');
   doc.setFontSize(8.5);
@@ -1043,10 +1094,10 @@ function drawMatrixInspectionBlock(doc, y, field, matrixValue) {
   (field.categories || []).forEach((cat) => {
     const catKey = columnKey(cat.name);
     const catData = matrixValue[catKey] || {};
-    const activeItems = cat.items.filter((item) => catData[columnKey(item)]);
-    if (!activeItems.length) return;
+    const { body, rowOpts } = buildMatrixCategoryTable(doc, cat, catData);
+    if (!body.length) return;
 
-    const catHeight = estimateMatrixCategoryHeight(doc, cat, catData);
+    const catHeight = estimateMatrixAutoTableHeight(doc, body);
     const minOrphan =
       MATRIX_CAT_TITLE_H +
       MATRIX_TABLE_HEADER_H +
@@ -1059,30 +1110,58 @@ function drawMatrixInspectionBlock(doc, y, field, matrixValue) {
     doc.text(cat.name.toUpperCase(), MARGIN, y);
     y += MATRIX_CAT_TITLE_H;
 
-    const tableTopY = y;
-    drawMatrixTableHeader(doc, y);
-    y += MATRIX_TABLE_HEADER_H;
-
-    let rowIdx = 0;
-    cat.items.forEach((item) => {
-      const itemKey = columnKey(item);
-      const opt = catData[itemKey];
-      if (!opt) return;
-
-      const labelLines = pdfSplitText(doc, pdfSafeText(item), MATRIX_POINT_COL_W - 6);
-      const rowH = Math.max(MATRIX_TABLE_ROW_MIN_H, labelLines.length * 3.2 + 2);
-      y = ensureSpace(doc, y, rowH + 1);
-      y += drawMatrixTableRow(doc, y, item, opt, rowIdx);
-      rowIdx += 1;
+    pdfSetFont(doc, 'normal');
+    doc.autoTable({
+      startY: y,
+      margin: { left: MARGIN, right: MARGIN },
+      tableWidth: CONTENT_W,
+      head: [['Ponto de Inspeção', 'Estado']],
+      body,
+      theme: 'plain',
+      styles: {
+        fontSize: 7,
+        cellPadding: { top: 1.6, right: 2, bottom: 1.6, left: 2 },
+        lineColor: MATRIX_TABLE_LINE,
+        lineWidth: 0.12,
+        textColor: TEXT_DARK,
+        valign: 'middle',
+        overflow: 'linebreak',
+      },
+      headStyles: {
+        fillColor: MATRIX_TABLE_HEAD_FILL,
+        textColor: CORPORATE_BLUE_DARK,
+        fontStyle: 'bold',
+        fontSize: 7.5,
+        lineColor: MATRIX_TABLE_LINE,
+        lineWidth: 0.12,
+      },
+      bodyStyles: {
+        fillColor: [255, 255, 255],
+      },
+      alternateRowStyles: {
+        fillColor: [248, 250, 252],
+      },
+      columnStyles: {
+        0: { cellWidth: MATRIX_POINT_COL_W },
+        1: {
+          cellWidth: MATRIX_STATE_COL_W,
+          halign: 'center',
+          fontStyle: 'bold',
+          fontSize: 7.5,
+        },
+      },
+      didParseCell: (data) => {
+        if (data.section === 'body' && data.column.index === 1) {
+          const opt = rowOpts[data.row.index];
+          data.cell.styles.textColor = matrixPdfRgb(opt);
+        }
+      },
     });
 
-    doc.setDrawColor(...SLATE_LINE);
-    doc.setLineWidth(0.3);
-    doc.rect(MARGIN, tableTopY, CONTENT_W, y - tableTopY);
-    y += MATRIX_CAT_GAP;
+    y = doc.lastAutoTable.finalY + MATRIX_CAT_GAP;
+    touchPdfContentPage(doc);
   });
 
-  touchPdfContentPage(doc);
   return y + 4;
 }
 
@@ -1119,13 +1198,20 @@ function buildFotoRegistoLegenda(service, values) {
   return pdfSafeText(service?.label || 'Intervenção técnica');
 }
 
-function drawLegalVerdictBlock(doc, y, label, value) {
-  y = ensureSpace(doc, y, 22);
+function drawLegalVerdictBlock(doc, y, label, value, opts = {}) {
+  const gapAfter = opts.gapAfter ?? 8;
+  const titleGap = opts.titleGap ?? 6;
+  const minBoxH = opts.minBoxH ?? 14;
+  const lineFactor = opts.lineFactor ?? 4.5;
+
+  if (!opts.skipEnsure) {
+    y = ensureSpace(doc, y, 22);
+  }
   pdfSetFont(doc, 'bold');
   doc.setFontSize(8.5);
   doc.setTextColor(...CORPORATE_BLUE);
   doc.text(label.toUpperCase(), MARGIN, y);
-  y += 6;
+  y += titleGap;
 
   let rgb = TEXT_DARK;
   let borderRgb = SLATE_LINE;
@@ -1140,8 +1226,8 @@ function drawLegalVerdictBlock(doc, y, label, value) {
     borderRgb = DANGER;
   }
 
-  const lines = pdfSplitText(doc,value, CONTENT_W - 10);
-  const boxH = Math.max(14, lines.length * 4.5 + 6);
+  const lines = pdfSplitText(doc, value, CONTENT_W - 10);
+  const boxH = Math.max(minBoxH, lines.length * lineFactor + 6);
 
   doc.setDrawColor(...borderRgb);
   doc.setLineWidth(0.5);
@@ -1154,7 +1240,112 @@ function drawLegalVerdictBlock(doc, y, label, value) {
   doc.text(lines, MARGIN + 4, y + 6, { lineHeightFactor: 1.4 });
 
   touchPdfContentPage(doc);
-  return y + boxH + 8;
+  return y + boxH + gapAfter;
+}
+
+const DL50_CLOSING_PROFILES = [
+  {
+    polaroidMm: 60,
+    descH: 10,
+    polaroidBottom: 10,
+    sectionHeader: true,
+    legalGap: 8,
+    sigTop: 16,
+    sigImg: 20,
+  },
+  {
+    polaroidMm: 48,
+    descH: 8,
+    polaroidBottom: 6,
+    sectionHeader: true,
+    legalGap: 5,
+    sigTop: 8,
+    sigImg: 16,
+  },
+  {
+    polaroidMm: 42,
+    descH: 6,
+    polaroidBottom: 4,
+    sectionHeader: false,
+    legalGap: 4,
+    sigTop: 4,
+    sigImg: 14,
+  },
+];
+
+function estimateLegalVerdictHeight(doc, value, profile) {
+  if (!value || !String(value).trim()) return 0;
+  const lines = pdfSplitText(doc, pdfSafeText(value), CONTENT_W - 10);
+  const boxH = Math.max(12, lines.length * (profile.legalGap <= 5 ? 4 : 4.5) + 5);
+  return (profile.legalGap <= 5 ? 5 : 6) + boxH + profile.legalGap;
+}
+
+function estimatePolaroidSectionHeight(hasFotos, profile) {
+  if (!hasFotos) return 0;
+  const headerH = profile.sectionHeader ? 17 : 0;
+  return headerH + profile.descH + profile.polaroidMm + 6 + profile.polaroidBottom;
+}
+
+function estimateSignaturesHeight(profile) {
+  return profile.sigTop + profile.sigImg + 12;
+}
+
+function planDl50ClosingProfile(doc, y, opts) {
+  const bottom = pdfContentBottomY();
+  const available = bottom - y;
+  const hasFotos = Boolean(opts.fotoAntesUrl || opts.fotoDepoisUrl);
+  const hasLegal = Boolean(opts.legalValue && String(opts.legalValue).trim());
+
+  for (const profile of DL50_CLOSING_PROFILES) {
+    const total =
+      (hasLegal ? estimateLegalVerdictHeight(doc, opts.legalValue, profile) : 0) +
+      estimatePolaroidSectionHeight(hasFotos, profile) +
+      estimateSignaturesHeight(profile);
+    if (total <= available) return profile;
+  }
+
+  return DL50_CLOSING_PROFILES[DL50_CLOSING_PROFILES.length - 1];
+}
+
+async function drawDl50ClosingSection(doc, y, opts) {
+  const profile = planDl50ClosingProfile(doc, y, opts);
+  const hasLegal = Boolean(opts.legalValue && String(opts.legalValue).trim());
+  const hasFotos = Boolean(opts.fotoAntesUrl || opts.fotoDepoisUrl);
+
+  if (hasLegal) {
+    y = drawLegalVerdictBlock(doc, y, opts.legalLabel, opts.legalValue, {
+      skipEnsure: true,
+      gapAfter: profile.legalGap,
+      titleGap: profile.legalGap <= 5 ? 5 : 6,
+      minBoxH: 12,
+      lineFactor: profile.legalGap <= 5 ? 4 : 4.5,
+    });
+  }
+
+  if (hasFotos) {
+    y = await drawAntesDepoisPolaroidSection(
+      doc,
+      y,
+      opts.fotoAntesUrl,
+      opts.fotoDepoisUrl,
+      opts.fotoLegenda,
+      {
+        polaroidMm: profile.polaroidMm,
+        descH: profile.descH,
+        bottomGap: profile.polaroidBottom,
+        showSectionHeader: profile.sectionHeader,
+        skipEnsure: true,
+      },
+    );
+  }
+
+  y = await drawSignaturesFooter(doc, y, opts.signatures || {}, {
+    topMargin: profile.sigTop,
+    imgHeight: profile.sigImg,
+    skipEnsure: true,
+  });
+
+  return y;
 }
 
 function drawMultiCheckboxBlock(doc, y, label, selected) {
@@ -1468,8 +1659,10 @@ function detectImageFormat(dataUrl) {
   return 'JPEG';
 }
 
-function drawPolaroidFrame(doc, x, y, imgData, phaseLabel, description = '') {
-  const outerW = POLAROID_MM;
+function drawPolaroidFrame(doc, x, y, imgData, phaseLabel, description = '', layout = {}) {
+  const polaroidMm = layout.polaroidMm ?? POLAROID_MM;
+  const descH = layout.descH ?? POLAROID_DESC_H;
+  const outerW = polaroidMm;
   let cursorY = y;
 
   if (description) {
@@ -1480,18 +1673,18 @@ function drawPolaroidFrame(doc, x, y, imgData, phaseLabel, description = '') {
     descLines.slice(0, 2).forEach((line, i) => {
       doc.text(line, x + outerW / 2, cursorY + 3 + i * 3.2, { align: 'center' });
     });
-    cursorY += POLAROID_DESC_H;
+    cursorY += descH;
   }
 
   const frameY = cursorY;
-  const outerH = POLAROID_MM + POLAROID_CAPTION_H;
+  const outerH = polaroidMm + POLAROID_CAPTION_H;
   doc.setDrawColor(...SLATE_LINE);
   doc.setLineWidth(0.35);
   doc.setFillColor(255, 255, 255);
   doc.roundedRect(x, frameY, outerW, outerH, 1.5, 1.5, 'FD');
 
   const imgPad = POLAROID_FRAME_PAD;
-  const imgSize = POLAROID_MM - imgPad * 2;
+  const imgSize = polaroidMm - imgPad * 2;
   try {
     const fmt = detectImageFormat(imgData);
     doc.addImage(imgData, fmt, x + imgPad, frameY + imgPad, imgSize, imgSize, undefined, 'FAST');
@@ -1504,35 +1697,48 @@ function drawPolaroidFrame(doc, x, y, imgData, phaseLabel, description = '') {
   pdfSetFont(doc, 'bold');
   doc.setFontSize(7);
   doc.setTextColor(...TEXT_DARK);
-  doc.text(phaseLabel, x + outerW / 2, frameY + POLAROID_MM + 4, { align: 'center' });
+  doc.text(phaseLabel, x + outerW / 2, frameY + polaroidMm + 4, { align: 'center' });
   return cursorY - y + outerH;
 }
 
 /**
  * Secção Antes/Depois estilo Polaroid — só ocupa espaço se houver foto(s).
  */
-async function drawAntesDepoisPolaroidSection(doc, y, fotoAntesUrl, fotoDepoisUrl, legenda = '') {
+async function drawAntesDepoisPolaroidSection(doc, y, fotoAntesUrl, fotoDepoisUrl, legenda = '', opts = {}) {
   const antes = fotoAntesUrl ? await loadImageForPdf(fotoAntesUrl) : null;
   const depois = fotoDepoisUrl ? await loadImageForPdf(fotoDepoisUrl) : null;
   if (!antes && !depois) return y;
 
-  const frameStackH = POLAROID_DESC_H + POLAROID_MM + POLAROID_CAPTION_H;
-  const blockH = frameStackH + 16;
-  y = ensureSpace(doc, y, blockH);
-  y = drawSectionTitle(doc, y, 'Registo Fotográfico');
-  y = drawDivider(doc, y - 4);
+  const polaroidMm = opts.polaroidMm ?? POLAROID_MM;
+  const descH = opts.descH ?? POLAROID_DESC_H;
+  const bottomGap = opts.bottomGap ?? 10;
+  const showSectionHeader = opts.showSectionHeader !== false;
+  const frameLayout = { polaroidMm, descH };
 
-  y = ensureSpace(doc, y, frameStackH + 6);
+  const frameStackH = descH + polaroidMm + POLAROID_CAPTION_H;
+  const blockH = frameStackH + (showSectionHeader ? 16 : 4);
+
+  if (!opts.skipEnsure) {
+    y = ensureSpace(doc, y, blockH);
+  }
+
+  if (showSectionHeader) {
+    y = drawSectionTitle(doc, y, 'Registo Fotográfico');
+    y = drawDivider(doc, y - 4);
+    if (!opts.skipEnsure) {
+      y = ensureSpace(doc, y, frameStackH + 6);
+    }
+  }
 
   if (antes && depois) {
-    const gap = 10;
-    const totalW = POLAROID_MM * 2 + gap;
+    const gap = polaroidMm <= 48 ? 8 : 10;
+    const totalW = polaroidMm * 2 + gap;
     const startX = MARGIN + (CONTENT_W - totalW) / 2;
     const antesDesc = legenda ? `Antes da intervenção — ${legenda}` : 'Antes da intervenção';
     const depoisDesc = legenda ? `Depois da intervenção — ${legenda}` : 'Depois da intervenção';
-    const h1 = drawPolaroidFrame(doc, startX, y, antes, 'Antes', antesDesc);
-    const h2 = drawPolaroidFrame(doc, startX + POLAROID_MM + gap, y, depois, 'Depois', depoisDesc);
-    return y + Math.max(h1, h2) + 10;
+    const h1 = drawPolaroidFrame(doc, startX, y, antes, 'Antes', antesDesc, frameLayout);
+    const h2 = drawPolaroidFrame(doc, startX + polaroidMm + gap, y, depois, 'Depois', depoisDesc, frameLayout);
+    return y + Math.max(h1, h2) + bottomGap;
   }
 
   const single = antes || depois;
@@ -1540,9 +1746,9 @@ async function drawAntesDepoisPolaroidSection(doc, y, fotoAntesUrl, fotoDepoisUr
   const desc = legenda
     ? `${phaseLabel} da intervenção — ${legenda}`
     : `${phaseLabel} da intervenção`;
-  const startX = MARGIN + (CONTENT_W - POLAROID_MM) / 2;
-  const frameH = drawPolaroidFrame(doc, startX, y, single, phaseLabel, desc);
-  return y + frameH + 10;
+  const startX = MARGIN + (CONTENT_W - polaroidMm) / 2;
+  const frameH = drawPolaroidFrame(doc, startX, y, single, phaseLabel, desc, frameLayout);
+  return y + frameH + bottomGap;
 }
 
 async function drawPhotosAppendix(doc, y, photos) {
@@ -1600,9 +1806,15 @@ const SIGNATURE_IMG_H_MM = 20;
 const SIGNATURES_BLOCK_HEIGHT_MM =
   SIGNATURES_TOP_MARGIN_MM + SIGNATURE_IMG_H_MM + 14;
 
-async function drawSignaturesFooter(doc, y, signatures) {
-  y += SIGNATURES_TOP_MARGIN_MM;
-  y = ensureSpace(doc, y, SIGNATURES_BLOCK_HEIGHT_MM);
+async function drawSignaturesFooter(doc, y, signatures, opts = {}) {
+  const topMargin = opts.topMargin ?? SIGNATURES_TOP_MARGIN_MM;
+  const imgHeight = opts.imgHeight ?? SIGNATURE_IMG_H_MM;
+  const blockHeight = topMargin + imgHeight + 12;
+
+  y += topMargin;
+  if (!opts.skipEnsure) {
+    y = ensureSpace(doc, y, blockHeight);
+  }
 
   const lineW = (CONTENT_W - SIGNATURE_LINE_GAP_MM) / 2;
   const boxes = [
@@ -1612,11 +1824,11 @@ async function drawSignaturesFooter(doc, y, signatures) {
 
   boxes.forEach((box, i) => {
     const x = MARGIN + i * (lineW + SIGNATURE_LINE_GAP_MM);
-    const lineY = y + SIGNATURE_IMG_H_MM + 5;
+    const lineY = y + imgHeight + 5;
 
     if (box.data) {
       try {
-        doc.addImage(box.data, 'PNG', x, y, lineW, SIGNATURE_IMG_H_MM);
+        doc.addImage(box.data, 'PNG', x, y, lineW, imgHeight);
       } catch {
         /* linha vazia */
       }
@@ -1633,7 +1845,7 @@ async function drawSignaturesFooter(doc, y, signatures) {
   });
 
   touchPdfContentPage(doc);
-  return y + SIGNATURES_BLOCK_HEIGHT_MM;
+  return y + blockHeight;
 }
 
 function drawPageFooter(doc, _reportId) {

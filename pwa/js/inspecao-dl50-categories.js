@@ -147,6 +147,7 @@ export const INSPECAO_DL50_PDF_SKIP_FIELD_IDS = new Set([
   'numero_de_serie',
   'data_fabrico',
   'periodicidade_inspecao',
+  'declaracao_seguranca',
 ]);
 
 function drawPdfLabelValueCell(doc, x, y, colW, label, value) {
