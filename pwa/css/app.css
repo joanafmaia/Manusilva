@@ -5529,6 +5529,56 @@ body.dark-mode .rh-card__btn--pdf {
     padding: 0.45rem 0.85rem;
     font-size: 0.8rem;
   }
+
+  /* Calendário semanal — 7 colunas iguais em toda a largura */
+  .tech-header .tech-calendar-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    gap: 0.75rem;
+    margin: 0.75rem 0 0.5rem;
+  }
+
+  .tech-header .tech-calendar-nav button {
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+    font-size: 1.2rem;
+    border-radius: 0.65rem;
+  }
+
+  .tech-header .tech-calendar-nav #tech-calendar-title {
+    flex: 1;
+    min-width: 0;
+    font-size: 0.95rem;
+    text-align: center;
+  }
+
+  .tech-header .calendar-strip {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 0.5rem;
+    width: 100%;
+    overflow-x: visible;
+    padding: 0.35rem 0 0.5rem;
+  }
+
+  .tech-header .cal-day {
+    flex: none;
+    width: 100%;
+    min-width: 0;
+    min-height: 68px;
+    padding: 0.7rem 0.4rem 1.1rem;
+  }
+
+  .tech-header .cal-day-name {
+    font-size: 0.72rem;
+  }
+
+  .tech-header .cal-day-num {
+    font-size: 1.28rem;
+  }
 }
 
 .job-client-row {
