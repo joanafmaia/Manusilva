@@ -3136,6 +3136,62 @@ body {
   box-sizing: border-box;
 }
 
+/* Abas do painel admin (sidebar) */
+.admin-tab-view {
+  display: none;
+  flex-direction: column;
+  gap: 32px;
+  width: 100%;
+  min-width: 0;
+}
+
+.admin-tab-view.is-active {
+  display: flex;
+}
+
+.admin-tab-subview {
+  display: none;
+  width: 100%;
+}
+
+.admin-tab-subview.is-active {
+  display: block;
+}
+
+.admin-metrics-wrap {
+  width: 100%;
+}
+
+.admin-metrics-wrap .dashboard-metrics {
+  padding: 1.25rem;
+}
+
+.admin-form-shell {
+  max-width: 800px;
+  margin-left: auto;
+  margin-right: auto;
+  width: 100%;
+}
+
+#admin-tab-clientes .admin-panel,
+#admin-tab-funcionarios .admin-panel {
+  width: 100%;
+}
+
+#admin-tab-funcionarios .rh-employees-panel {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+}
+
+@media (min-width: 960px) {
+  #admin-tab-funcionarios .rh-employees-panel {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+    align-items: start;
+    gap: 24px;
+  }
+}
+
 .admin-header {
   display: flex;
   align-items: center;

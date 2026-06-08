@@ -28,12 +28,12 @@
         </div>
       </div>
 
-      <nav class="sidebar-nav">
-        <a href="#calendar" class="nav-item active">📅 Calendário de Equipa</a>
-        <a href="#pending" class="nav-item">📋 Revisão de Relatórios</a>
-        <a href="#clients" class="nav-item">🏢 Clientes / Empresas</a>
-        <a href="#client-history" class="nav-item">🗂 Histórico de Clientes</a>
-        <a href="#employees" class="nav-item">👷 Funcionários</a>
+      <nav class="sidebar-nav" aria-label="Secções do painel">
+        <a href="#calendar" class="nav-item active" data-admin-tab="calendario">📅 Calendário de Equipa</a>
+        <a href="#pending" class="nav-item" data-admin-tab="relatorios">📋 Revisão de Relatórios</a>
+        <a href="#clients" class="nav-item" data-admin-tab="clientes">🏢 Clientes / Empresas</a>
+        <a href="#client-history" class="nav-item" data-admin-tab="clientes">🗂 Histórico de Clientes</a>
+        <a href="#employees" class="nav-item" data-admin-tab="funcionarios">👷 Funcionários</a>
       </nav>
 
       <div class="sidebar-footer">
@@ -49,61 +49,70 @@
           <button class="btn-primary" id="btn-assign-work" style="width:auto">+ Atribuir Trabalho</button>
         </header>
 
-        <!-- Calendário + Revisão (split-screen) -->
-        <div class="admin-split-layout" id="calendar">
-          <section class="admin-panel glass-card admin-split-calendar">
-            <div class="panel-header">
-              <h2>Calendário de Equipa</h2>
-              <div class="panel-controls">
-                <select class="form-select-sm" id="tech-filter"></select>
-                <div class="view-toggle">
-                  <button data-cal-view="week" class="active">Semana</button>
-                  <button data-cal-view="month">Mês</button>
-                  <button data-cal-view="list">Agenda</button>
+        <!-- Aba: Calendário + Relatórios -->
+        <div class="admin-tab-view is-active" data-admin-tab="calendario relatorios" id="admin-tab-ops">
+          <div class="admin-split-layout" id="calendar">
+            <section class="admin-panel glass-card admin-split-calendar">
+              <div class="panel-header">
+                <h2>Calendário de Equipa</h2>
+                <div class="panel-controls">
+                  <select class="form-select-sm" id="tech-filter"></select>
+                  <div class="view-toggle">
+                    <button data-cal-view="week" class="active">Semana</button>
+                    <button data-cal-view="month">Mês</button>
+                    <button data-cal-view="list">Agenda</button>
+                  </div>
                 </div>
               </div>
-            </div>
-            <div class="calendar-container">
+              <div class="calendar-container">
                 <div class="calendar-nav">
                   <button id="prev-week" aria-label="Anterior">‹</button>
                   <span id="calendar-title"></span>
                   <button id="next-week" aria-label="Seguinte">›</button>
                 </div>
-              <div id="calendar-grid"></div>
-            </div>
-          </section>
+                <div id="calendar-grid"></div>
+              </div>
+            </section>
 
-          <aside class="admin-review-panel glass-card" id="pending">
-            <div class="admin-review-panel-header">
-              <h2>Relatórios <span class="badge-count" id="pending-count" title="Pendentes de aprovação">0</span></h2>
-            </div>
-            <div class="rh-review-panel" id="rh-review-panel" aria-live="polite"></div>
-          </aside>
+            <aside class="admin-review-panel glass-card" id="pending">
+              <div class="admin-review-panel-header">
+                <h2>Relatórios <span class="badge-count" id="pending-count" title="Pendentes de aprovação">0</span></h2>
+              </div>
+              <div class="rh-review-panel" id="rh-review-panel" aria-live="polite"></div>
+            </aside>
+          </div>
+
+          <div class="admin-tab-subview is-active" data-admin-subtab="calendario">
+            <div id="admin-metrics-root" class="admin-metrics-wrap"></div>
+          </div>
         </div>
 
-        <!-- Clientes: métricas + cadastro -->
-        <section class="admin-panel glass-card" id="clients">
-          <div class="panel-header">
-            <h2>Clientes / Empresas</h2>
-          </div>
-          <div id="app" class="clients-app-root admin-panel-body"></div>
-        </section>
+        <!-- Aba: Clientes -->
+        <div class="admin-tab-view" data-admin-tab="clientes" id="admin-tab-clientes">
+          <section class="admin-panel glass-card" id="clients">
+            <div class="panel-header">
+              <h2>Clientes / Empresas</h2>
+            </div>
+            <div id="app" class="clients-app-root admin-panel-body admin-form-shell"></div>
+          </section>
 
-        <!-- Histórico de Clientes (Admin/RH) -->
-        <section class="admin-panel glass-card" id="client-history">
-          <div class="panel-header">
-            <h2>Histórico de Clientes</h2>
-          </div>
-          <div id="client-history-app" class="clients-app-root admin-panel-body"></div>
-        </section>
+          <section class="admin-panel glass-card" id="client-history">
+            <div class="panel-header">
+              <h2>Histórico de Clientes</h2>
+            </div>
+            <div id="client-history-app" class="clients-app-root admin-panel-body admin-form-shell"></div>
+          </section>
+        </div>
 
-        <!-- Employees -->
-        <section class="admin-panel glass-card" id="employees">
-          <div class="panel-header">
-            <h2>Gestão de Funcionários / Técnicos</h2>
-          </div>
-          <div id="employees-panel" class="rh-employees-panel-wrap admin-panel-body"></div>
-        </section>
+        <!-- Aba: Funcionários -->
+        <div class="admin-tab-view" data-admin-tab="funcionarios" id="admin-tab-funcionarios">
+          <section class="admin-panel glass-card" id="employees">
+            <div class="panel-header">
+              <h2>Gestão de Funcionários / Técnicos</h2>
+            </div>
+            <div id="employees-panel" class="rh-employees-panel-wrap admin-panel-body admin-form-shell"></div>
+          </section>
+        </div>
       </div>
     </main>
   </div>

@@ -1,50 +1,51 @@
 /**
- * Painel principal RH — métricas + pesquisa de clientes (sem lista completa no DOM).
+ * Painel principal RH — métricas (aba calendário) e cadastro de clientes (aba clientes).
  */
 
 import { ensureProductionCatalog } from '../clients-catalog.js';
 import { computeDashboardMetrics, renderMetricsSection } from './dashboard-metrics.js';
 import { renderClientRegistryBlock, mountClientRegistry } from './rh-registry.js';
 
-let mountRoot = null;
+let metricsRoot = null;
 
+export async function initMetricsPanel(root) {
+  metricsRoot = root;
+  if (!metricsRoot) return;
+  await ensureProductionCatalog();
+  await refreshMetricsPanel();
+}
+
+export async function refreshMetricsPanel() {
+  if (!metricsRoot) return;
+  await ensureProductionCatalog();
+  metricsRoot.innerHTML = renderMetricsSection(computeDashboardMetrics());
+}
+
+/** @deprecated Use initMetricsPanel — mantido para compatibilidade */
 export async function initDashboardPanel(root) {
-  mountRoot = root;
-  if (!mountRoot) return;
-
-  await ensureProductionCatalog();
-  paint();
+  await initMetricsPanel(root);
 }
 
+/** @deprecated Use refreshMetricsPanel */
 export async function refreshDashboardPanel() {
-  if (!mountRoot) return;
-  await ensureProductionCatalog();
-  updateMetrics();
+  await refreshMetricsPanel();
 }
 
-function paint() {
-  const metrics = computeDashboardMetrics();
+let clientsRoot = null;
 
-  mountRoot.innerHTML = `
-    <div class="dashboard-panel-inner">
-      <div data-dashboard-metrics-mount>${renderMetricsSection(metrics)}</div>
+export async function initClientsHubPanel(root) {
+  clientsRoot = root;
+  if (!clientsRoot) return;
+
+  clientsRoot.innerHTML = `
+    <div class="clients-hub" data-clients-hub>
       ${renderClientRegistryBlock()}
     </div>
   `;
 
-  mountClientRegistry(mountRoot, {
+  mountClientRegistry(clientsRoot, {
     onClientAdded: () => {
-      updateMetrics();
+      refreshMetricsPanel().catch(console.error);
     },
   });
 }
-
-function updateMetrics() {
-  const slot = mountRoot?.querySelector('[data-dashboard-metrics-mount]');
-  if (!slot) {
-    paint();
-    return;
-  }
-  slot.innerHTML = renderMetricsSection(computeDashboardMetrics());
-}
-

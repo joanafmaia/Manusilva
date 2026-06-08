@@ -1,24 +1,18 @@
 /**
- * Hub da secção Clientes — métricas e cadastro (sem histórico).
+ * Hub da secção Clientes — cadastro de empresa (aba Clientes).
  */
 
-import { initDashboardPanel } from './dashboard.js';
+import { initClientsHubPanel } from './dashboard.js';
 
-let dashboardMounted = false;
+let clientsMounted = false;
 
 export async function restoreClientsDashboard() {
   const app = document.getElementById('app');
   if (!app) return;
 
-  app.innerHTML = `
-    <div class="clients-hub" data-clients-hub>
-      <div id="dashboard-panel" class="dashboard-panel"></div>
-    </div>
-  `;
-
-  dashboardMounted = false;
-  await initDashboardPanel(document.getElementById('dashboard-panel'));
-  dashboardMounted = true;
+  clientsMounted = false;
+  await initClientsHubPanel(app);
+  clientsMounted = true;
 }
 
 export async function initClientsApp() {
@@ -26,5 +20,5 @@ export async function initClientsApp() {
 }
 
 export function isClientsDashboardMounted() {
-  return dashboardMounted;
+  return clientsMounted;
 }

@@ -42,10 +42,21 @@ import { getCalendarEventStateClass } from './calendar-event-state.js';
 import { ensureProductionCatalog, formatClientsLoadError } from './clients-catalog.js';
 import { renderClientCombobox, bindClientComboboxes } from './client-combobox.js';
 import { initLogoutButton, renderUserGreeting } from './auth.js';
-import { refreshDashboardPanel } from './views/dashboard.js';
+import { initMetricsPanel, refreshMetricsPanel } from './views/dashboard.js';
 import { initClientsApp } from './views/clients-app.js';
 import { initEmployeesPanel, refreshTechniciansList } from './views/rh-registry.js';
 import { initArquivoHistoricoPage, refreshArquivoHistoricoPage } from './views/arquivo-historico.js';
+
+/** Aba ativa do painel admin (controlada pela sidebar) */
+let currentTab = 'calendario';
+
+const ADMIN_TAB_BY_NAV = {
+  '#calendar': 'calendario',
+  '#pending': 'relatorios',
+  '#clients': 'clientes',
+  '#client-history': 'clientes',
+  '#employees': 'funcionarios',
+};
 
 let calendarView = 'week';
 let filterTechId = 'all';
@@ -99,26 +110,53 @@ function bindReviewPanelHeightSync() {
   window.addEventListener('resize', syncReviewPanelHeight, { passive: true });
 }
 
+export function setAdminTab(tab) {
+  if (!tab) return;
+  currentTab = tab;
+  updateAdminTabUI();
+  document.querySelector('.admin-main')?.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function updateAdminTabUI() {
+  document.querySelectorAll('[data-admin-tab]').forEach((panel) => {
+    const tabs = String(panel.dataset.adminTab || '')
+      .split(/\s+/)
+      .filter(Boolean);
+    panel.classList.toggle('is-active', tabs.includes(currentTab));
+  });
+
+  document.querySelectorAll('[data-admin-subtab]').forEach((panel) => {
+    panel.classList.toggle('is-active', panel.dataset.adminSubtab === currentTab);
+  });
+
+  document.querySelectorAll('.nav-item[data-admin-tab]').forEach((item) => {
+    item.classList.toggle('active', item.dataset.adminTab === currentTab);
+  });
+
+  const showSplit = currentTab === 'calendario' || currentTab === 'relatorios';
+  if (showSplit) {
+    requestAnimationFrame(() => syncReviewPanelHeight());
+  }
+}
+
 function bindAdminNavigation() {
   document.querySelectorAll('.nav-item').forEach((item) => {
     item.addEventListener('click', (e) => {
       e.preventDefault();
-      document.querySelectorAll('.nav-item').forEach((n) => n.classList.remove('active'));
-      item.classList.add('active');
-      const target = document.querySelector(item.getAttribute('href'));
-      target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const href = item.getAttribute('href');
+      const tab = item.dataset.adminTab || ADMIN_TAB_BY_NAV[href];
+      if (tab) setAdminTab(tab);
     });
   });
 }
 
 export async function initAdminDashboard() {
-  bindAdminNavigation();
-
   const session = requireAuth('admin');
   if (!session) return;
 
   renderUserGreeting('user-name');
   initLogoutButton();
+  bindAdminNavigation();
 
   try {
     await warmClientsCatalog();
@@ -138,6 +176,7 @@ export async function initAdminDashboard() {
     bindAssignWork();
     updatePendingCount();
     renderRhReviewStack().catch(console.error);
+    updateAdminTabUI();
   } catch (err) {
     console.error('[Admin] Erro ao iniciar painel:', err);
     showToast('Erro ao carregar o calendário. Veja a consola (F12).', 'error');
@@ -166,8 +205,14 @@ export async function initAdminDashboard() {
   });
 
   const historyRoot = document.getElementById('client-history-app');
+  const metricsRoot = document.getElementById('admin-metrics-root');
 
   await Promise.all([
+    metricsRoot
+      ? initMetricsPanel(metricsRoot).catch((err) => {
+          console.error('[Admin] Métricas:', err);
+        })
+      : Promise.resolve(),
     initClientsApp().catch((err) => {
       console.error('[Admin] Painel de clientes:', err);
       showToast(formatClientsLoadError(err), 'error', 9000);
@@ -195,7 +240,7 @@ export async function initAdminDashboard() {
     } catch (err) {
       console.error('[Admin] Atualização:', err);
     }
-    refreshDashboardPanel().catch(console.error);
+    refreshMetricsPanel().catch(console.error);
     refreshArquivoHistoricoPage();
     updatePendingCount();
     renderRhReviewStack().catch(console.error);
@@ -415,7 +460,7 @@ function bindCalendarJobInteractions() {
 
 function scrollToReportInPanel(reportId) {
   if (!reportId) return;
-  document.getElementById('pending')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  setAdminTab('relatorios');
   const card = document.querySelector(`#rh-review-panel [data-report-id="${reportId}"]`);
   if (!card) return;
   card.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -561,7 +606,7 @@ function bindRhReviewPanel() {
       if (ok) {
         clearRhReviewSelection();
         renderCalendar();
-        refreshDashboardPanel().catch(console.error);
+        refreshMetricsPanel().catch(console.error);
         await renderRhReviewStack();
       }
       return;
@@ -773,6 +818,7 @@ async function handleNewPendingReport(report, opts = {}, beep) {
   }
   rhReviewFilter = 'pending_review';
   relatorioSelecionadoId = report.id;
+  setAdminTab('relatorios');
   renderCalendar();
   await renderRhReviewStack();
   showPendingReportNotification(report);
