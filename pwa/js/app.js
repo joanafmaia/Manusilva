@@ -170,7 +170,7 @@ export function updateDB(updater) {
 
 /**
  * Dispara envio de e-mail oficial via Serverless Function (`/api/enviar-email`).
- * @param {{ tipoRelatorio?: string, reportId?: string, clienteNome?: string, nome_empresa?: string, tecnico?: string, dataConclusao?: string, to?: string, serieFrota?: string, pdfFilename?: string, pdfBase64?: string }} [meta]
+ * @param {{ tipoRelatorio?: string, reportId?: string, clienteNome?: string, nome_empresa?: string, tecnico?: string, dataConclusao?: string, to?: string, serieFrota?: string, pdfUrl?: string, pdfFilename?: string, pdfBase64?: string }} [meta]
  */
 export async function sendOfficialReportEmail(meta = {}) {
   const dateStamp =
@@ -192,6 +192,7 @@ export async function sendOfficialReportEmail(meta = {}) {
       dataConclusao: dateStamp,
       tipoRelatorio,
       serieFrota,
+      pdfUrl: meta.pdfUrl,
       pdfFilename: meta.pdfFilename,
       pdfBase64: meta.pdfBase64,
     }),
@@ -723,12 +724,9 @@ export async function approveReport(reportId) {
             ? 'baterias'
             : 'outro';
 
-      // Proteção: payload grande pode estourar limite do body em serverless (e falhar o envio).
+      // Anexo opcional (só se couber no limite do body serverless); o link do Storage vai sempre no e-mail.
       const MAX_BASE64_LEN = 3_000_000; // ~2.2MB binário (base64 tem overhead)
       const attachPdf = pdfBase64Len > 0 && pdfBase64Len <= MAX_BASE64_LEN;
-      if (!attachPdf) {
-        showToast('E-mail será enviado sem anexo (PDF demasiado grande).', 'warning', 6000);
-      }
 
       sendOfficialReportEmail({
         tipoRelatorio,
@@ -739,6 +737,7 @@ export async function approveReport(reportId) {
         dataConclusao: values.data_de_conclusao || String(report.submittedAt || '').split('T')[0] || '',
         serieFrota: values.numero_de_serie || report.forkliftSerial || '',
         to: recipientEmail,
+        pdfUrl: publicPdfUrl,
         pdfFilename: attachPdf ? filename : undefined,
         pdfBase64: attachPdf ? pdfBase64 : undefined,
       }).catch((err) => {

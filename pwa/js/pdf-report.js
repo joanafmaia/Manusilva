@@ -1091,23 +1091,58 @@ const POLAROID_MM = 60;
 const POLAROID_FRAME_PAD = 3;
 const POLAROID_CAPTION_H = 6;
 
+const PDF_IMAGE_MAX_PX = 900;
+const PDF_IMAGE_JPEG_QUALITY = 0.72;
+
+async function compressImageForPdf(dataUrl, maxPx = PDF_IMAGE_MAX_PX, quality = PDF_IMAGE_JPEG_QUALITY) {
+  if (!dataUrl || typeof document === 'undefined') return dataUrl;
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      try {
+        let { width, height } = img;
+        const scale = Math.min(1, maxPx / Math.max(width, height, 1));
+        width = Math.max(1, Math.round(width * scale));
+        height = Math.max(1, Math.round(height * scale));
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(dataUrl);
+          return;
+        }
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      } catch {
+        resolve(dataUrl);
+      }
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+}
+
 async function loadImageForPdf(url) {
   if (!url) return null;
-  if (url.startsWith('data:')) return url;
-  try {
-    const res = await fetch(url, { mode: 'cors' });
-    if (!res.ok) return null;
-    const blob = await res.blob();
-    return await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
-  } catch (err) {
-    console.warn('[PDF] Não foi possível carregar imagem:', url, err);
-    return null;
+  let dataUrl = url;
+  if (!url.startsWith('data:')) {
+    try {
+      const res = await fetch(url, { mode: 'cors' });
+      if (!res.ok) return null;
+      const blob = await res.blob();
+      dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    } catch (err) {
+      console.warn('[PDF] Não foi possível carregar imagem:', url, err);
+      return null;
+    }
   }
+  return compressImageForPdf(dataUrl);
 }
 
 function detectImageFormat(dataUrl) {

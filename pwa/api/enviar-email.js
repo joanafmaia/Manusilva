@@ -35,9 +35,19 @@ function buildSubject(payload = {}) {
   return `ManuSilva - Relatório Técnico - ${company}`;
 }
 
+function isSafeHttpUrl(value) {
+  try {
+    const url = new URL(String(value || '').trim());
+    return url.protocol === 'https:' || url.protocol === 'http:';
+  } catch {
+    return false;
+  }
+}
+
 function buildHtmlBody(payload = {}) {
   const company = escapeHtml(payload.clienteNome || payload.nomeEmpresa || payload.clientName || 'Cliente');
   const tecnico = escapeHtml(payload.tecnico || payload.technician || 'Não informado');
+  const pdfUrl = isSafeHttpUrl(payload.pdfUrl) ? String(payload.pdfUrl).trim() : '';
   const data = escapeHtml(
     payload.dataConclusao ||
       payload.data ||
@@ -105,6 +115,24 @@ function buildHtmlBody(payload = {}) {
                     <td style="padding:13px 14px;border-bottom:1px solid #e2e8f0;font-size:13px;color:#0f172a;font-weight:500;">${data}</td>
                   </tr>
                 </table>
+
+                ${
+                  pdfUrl
+                    ? `
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:20px 0 0 0;">
+                  <tr>
+                    <td align="center" style="padding:18px 16px;background:#f8fafc;border:1px solid #dbe3ef;border-radius:12px;">
+                      <p style="margin:0 0 12px 0;font-size:13px;line-height:1.6;color:#475569;">
+                        O relatório técnico em PDF está disponível para consulta e descarga:
+                      </p>
+                      <a href="${escapeHtml(pdfUrl)}" target="_blank" rel="noopener noreferrer" style="display:inline-block;background:#0f172a;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:700;letter-spacing:0.2px;">
+                        Descarregar relatório PDF
+                      </a>
+                    </td>
+                  </tr>
+                </table>`
+                    : ''
+                }
 
                 <p style="margin:20px 0 0 0;font-size:14px;line-height:1.7;color:#334155;">
                   Permanecemos à disposição para qualquer esclarecimento técnico adicional.
