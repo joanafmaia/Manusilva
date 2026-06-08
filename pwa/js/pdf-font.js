@@ -24,11 +24,14 @@ const UNICODE_REPLACEMENTS = {
   '\u200C': '',
   '\u200D': '',
   '\u2060': '',
-  '\u2713': '[OK]',
-  '\u2714': '[OK]',
-  '\u2717': '[X]',
-  '\u2718': '[X]',
-  '\u2715': '[X]',
+  '\u2713': '',
+  '\u2714': '',
+  '\u2717': '',
+  '\u2718': '',
+  '\u2715': '',
+  '\u2611': '',
+  '\u2610': '',
+  '\u2612': '',
   '\u25CF': '-',
   '\u2022': '-',
   '\u00B7': ' ',
@@ -128,6 +131,16 @@ export function pdfSafeText(val) {
 
   s = s.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '');
 
+  s = s
+    .replace(/☑\s*\[\s*\]/g, '')
+    .replace(/\[\s*\]/g, '')
+    .replace(/\[OK\]/gi, '')
+    .replace(/\[X\]/gi, '')
+    .replace(/^\s*\|+\s*|\s*\|+\s*$/g, '')
+    .replace(/\s*\|\s*/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+
   if (!unicodeFontsAvailable) {
     s = s.replace(/[^\u0000-\u00FF]/g, '');
   }
@@ -147,3 +160,15 @@ export const PDF_SYMBOL = {
   fail: '[X]',
   bullet: '-',
 };
+
+/** Glifo de estado para PDF — unicode com Roboto, texto simples em fallback */
+export function pdfStatusGlyph(kind) {
+  if (unicodeFontsAvailable) {
+    if (kind === 'ok') return '\u2713';
+    if (kind === 'fail') return '\u2717';
+    return '\u2022';
+  }
+  if (kind === 'ok') return 'OK';
+  if (kind === 'fail') return 'NOK';
+  return '-';
+}

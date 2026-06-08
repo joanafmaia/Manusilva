@@ -26,6 +26,7 @@ import {
   pdfSafeText,
   pdfSplitText,
   PDF_SYMBOL,
+  pdfStatusGlyph,
 } from './pdf-font.js';
 import { isMachineTrackingField } from './form-engine.js';
 import { getColumnLabels } from './views/relatorio-grandes.js';
@@ -228,6 +229,7 @@ function yieldToMain() {
 export async function renderInterventionPDF(report) {
   const jsPDF = await loadJsPDF();
   const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+  doc.__manusilvaLastContentPage = 1;
   await ensurePdfFonts(doc);
   pdfSetFont(doc, 'normal');
 
@@ -263,6 +265,8 @@ export async function renderInterventionPDF(report) {
   }
   y = await drawSignaturesFooter(doc, y, data.signatures || {});
 
+  touchPdfContentPage(doc);
+  trimTrailingBlankPages(doc);
   drawPageFooter(doc, report.id);
 
   return doc;
@@ -411,6 +415,7 @@ function drawTopRow(doc, _service, numeroOrdem = null) {
     doc.text(formatOrdemDisplay(numeroOrdem), PAGE_W - MARGIN, topY + 4, { align: 'right' });
   }
 
+  touchPdfContentPage(doc);
   return topY + logoSize + 6;
 }
 
@@ -425,6 +430,7 @@ function drawTitleBar(doc, y, title) {
   doc.setDrawColor(...SLATE_LINE);
   doc.setLineWidth(0.35);
   doc.line(MARGIN, y, MARGIN + CONTENT_W, y);
+  touchPdfContentPage(doc);
   return y + 7;
 }
 
@@ -480,6 +486,7 @@ function drawMetadataGrid(doc, y, meta) {
     });
   });
 
+  touchPdfContentPage(doc);
   return maxY + 4;
 }
 
@@ -498,6 +505,7 @@ function drawSectionTitle(doc, y, title, options = {}) {
   doc.setFontSize(9);
   doc.setTextColor(...CORPORATE_BLUE);
   doc.text(title.toUpperCase(), MARGIN, y);
+  touchPdfContentPage(doc);
   return y + 6;
 }
 
@@ -662,24 +670,39 @@ function drawReportFieldsSection(doc, y, service, values) {
     y = ensureSpace(doc, y, 14);
 
     if (field.type === 'verification_toggles' && value && typeof value === 'object') {
-      const blockTitle = field.section || field.label;
-      const blockSubtitle = field.section ? field.label : null;
-      y = drawVerificationBlock(doc, y, blockTitle, field.items || [], value, blockSubtitle);
+      const sectionRendered = Boolean(field.section && field.section === currentSection);
+      const blockTitle = pdfBlockTitle(field, sectionRendered);
+      y = drawVerificationBlock(doc, y, blockTitle, field.items || [], value);
       return;
     }
 
     if (field.type === 'dynamic_table' && Array.isArray(value)) {
-      y = drawDynamicTableBlock(doc, y, field.label, field.columns || [], value);
+      const sectionRendered = Boolean(field.section && field.section === currentSection);
+      y = drawDynamicTableBlock(
+        doc,
+        y,
+        pdfBlockTitle(field, sectionRendered),
+        field.columns || [],
+        value,
+      );
       return;
     }
 
     if (field.type === 'grandes_identificacao_baterias' && Array.isArray(value)) {
-      y = drawDynamicTableBlock(doc, y, field.label, getColumnLabels(), value);
+      const sectionRendered = Boolean(field.section && field.section === currentSection);
+      y = drawDynamicTableBlock(
+        doc,
+        y,
+        pdfBlockTitle(field, sectionRendered),
+        getColumnLabels(),
+        value,
+      );
       return;
     }
 
     if (field.type === 'multi_checkbox' && Array.isArray(value)) {
-      y = drawMultiCheckboxBlock(doc, y, field.label, value);
+      const sectionRendered = Boolean(field.section && field.section === currentSection);
+      y = drawMultiCheckboxBlock(doc, y, pdfBlockTitle(field, sectionRendered), value);
       return;
     }
 
@@ -705,7 +728,14 @@ function drawReportFieldsSection(doc, y, service, values) {
 
     if (field.type === 'longtext' || field.type === 'textarea' || field.type === 'grid') {
       if (field.prominent) {
-        y = drawDiagnosticAnalysisBlock(doc, y, field.label, field.section, value);
+        const sectionRendered = Boolean(field.section && field.section === currentSection);
+        y = drawDiagnosticAnalysisBlock(
+          doc,
+          y,
+          field.label,
+          sectionRendered ? null : field.section,
+          value,
+        );
       } else {
         y = drawLongTextBlock(doc, y, field.label, value);
       }
@@ -799,6 +829,7 @@ function drawMatrixInspectionBlock(doc, y, field, matrixValue) {
     y += 3;
   });
 
+  touchPdfContentPage(doc);
   return y + 4;
 }
 
@@ -836,16 +867,19 @@ function drawLegalVerdictBlock(doc, y, label, value) {
   doc.setTextColor(...rgb);
   doc.text(lines, MARGIN + 4, y + 6, { lineHeightFactor: 1.4 });
 
+  touchPdfContentPage(doc);
   return y + boxH + 8;
 }
 
 function drawMultiCheckboxBlock(doc, y, label, selected) {
   y = ensureSpace(doc, y, 14);
-  pdfSetFont(doc, 'bold');
-  doc.setFontSize(8.5);
-  doc.setTextColor(...CORPORATE_BLUE);
-  doc.text(label.toUpperCase(), MARGIN, y);
-  y += 6;
+  if (label) {
+    pdfSetFont(doc, 'bold');
+    doc.setFontSize(8.5);
+    doc.setTextColor(...CORPORATE_BLUE);
+    doc.text(label.toUpperCase(), MARGIN, y);
+    y += 6;
+  }
 
   const lineH = 6;
   selected.forEach((item, idx) => {
@@ -859,7 +893,7 @@ function drawMultiCheckboxBlock(doc, y, label, selected) {
     doc.setTextColor(...SUCCESS);
     pdfSetFont(doc, 'bold');
     doc.setFontSize(8);
-    doc.text(PDF_SYMBOL.ok, MARGIN + 3, y + 4.5);
+    doc.text(pdfStatusGlyph('ok'), MARGIN + 3, y + 4.5);
 
     doc.setTextColor(...TEXT_DARK);
     pdfSetFont(doc, 'normal');
@@ -868,6 +902,7 @@ function drawMultiCheckboxBlock(doc, y, label, selected) {
     y += lineH + 1;
   });
 
+  touchPdfContentPage(doc);
   return y + 4;
 }
 
@@ -881,20 +916,15 @@ function normalizeVerifyItem(item) {
   return { id: item.id, label: item.label };
 }
 
-function drawVerificationBlock(doc, y, label, items, states, subtitle = null) {
+function drawVerificationBlock(doc, y, label, items, states) {
   y = ensureSpace(doc, y, 16);
-  pdfSetFont(doc, 'bold');
-  doc.setFontSize(8.5);
-  doc.setTextColor(...CORPORATE_BLUE);
-  doc.text(label.toUpperCase(), MARGIN, y);
-  y += 6;
 
-  if (subtitle) {
-    pdfSetFont(doc, 'normal');
-    doc.setFontSize(7);
-    doc.setTextColor(...TEXT_MUTED);
-    doc.text(subtitle, MARGIN, y);
-    y += 5;
+  if (label) {
+    pdfSetFont(doc, 'bold');
+    doc.setFontSize(8.5);
+    doc.setTextColor(...CORPORATE_BLUE);
+    doc.text(label.toUpperCase(), MARGIN, y);
+    y += 6;
   }
 
   const rowH = 7;
@@ -926,16 +956,19 @@ function drawVerificationBlock(doc, y, label, items, states, subtitle = null) {
     y += rowH + 1;
   });
 
+  touchPdfContentPage(doc);
   return y + 4;
 }
 
 function drawDynamicTableBlock(doc, y, label, columns, rows) {
-  y = ensureSpace(doc, y, 20);
-  pdfSetFont(doc, 'bold');
-  doc.setFontSize(8.5);
-  doc.setTextColor(...CORPORATE_BLUE);
-  doc.text(label.toUpperCase(), MARGIN, y);
-  y += 6;
+  if (label) {
+    y = ensureSpace(doc, y, 12);
+    pdfSetFont(doc, 'bold');
+    doc.setFontSize(8.5);
+    doc.setTextColor(...CORPORATE_BLUE);
+    doc.text(label.toUpperCase(), MARGIN, y);
+    y += 6;
+  }
 
   const colKeys = columns.map((c) => columnKey(c));
   const colCount = columns.length;
@@ -943,9 +976,9 @@ function drawDynamicTableBlock(doc, y, label, columns, rows) {
   const colW = tableW / colCount;
   const headerH = 8;
   const rowH = 7;
+  const tableTopY = y;
 
-  y = ensureSpace(doc, y, headerH + rows.length * rowH + 4);
-
+  y = ensureSpace(doc, y, headerH + 2);
   doc.setFillColor(30, 64, 115);
   doc.rect(MARGIN, y, tableW, headerH, 'F');
   doc.setTextColor(255, 255, 255);
@@ -957,6 +990,7 @@ function drawDynamicTableBlock(doc, y, label, columns, rows) {
   y += headerH;
 
   rows.forEach((row, rowIdx) => {
+    y = ensureSpace(doc, y, rowH + 1);
     const fill = rowIdx % 2 === 0 ? [248, 250, 252] : [255, 255, 255];
     doc.setFillColor(...fill);
     doc.setDrawColor(226, 232, 240);
@@ -967,7 +1001,7 @@ function drawDynamicTableBlock(doc, y, label, columns, rows) {
     doc.setFontSize(7.5);
     doc.setTextColor(...TEXT_DARK);
     colKeys.forEach((key, i) => {
-      const cellVal = pdfSplitText(doc,cleanPdfText(row[key]) || '—', colW - 4);
+      const cellVal = pdfSplitText(doc, cleanPdfText(row[key]) || '—', colW - 4);
       doc.text(cellVal[0] || '—', MARGIN + i * colW + 2, y + 5);
     });
     y += rowH;
@@ -975,8 +1009,9 @@ function drawDynamicTableBlock(doc, y, label, columns, rows) {
 
   doc.setDrawColor(...SLATE_LINE);
   doc.setLineWidth(0.35);
-  doc.rect(MARGIN, y - headerH - rows.length * rowH, tableW, headerH + rows.length * rowH);
+  doc.rect(MARGIN, tableTopY, tableW, y - tableTopY);
 
+  touchPdfContentPage(doc);
   return y + 6;
 }
 
@@ -984,27 +1019,33 @@ function drawKeyValueLine(doc, y, label, value, fieldType) {
   const text = cleanPdfText(value);
   const isConforme = /conforme|ok|bom|limpo|operacional|aprovada/i.test(text);
   const isNegative = /não|nao|danificado|substituir|rejeitada|inoperacional|aviso/i.test(text);
-  let symbol = PDF_SYMBOL.bullet;
+  let symbolKind = 'bullet';
   let rgb = TEXT_DARK;
 
   if (fieldType === 'status_pills') {
     if (/apta a trabalhar|normal|operacional|reparação concluída|reparacao concluida/i.test(text)) rgb = SUCCESS;
     else if (/aguardar|baixo|alto|irregular|peças|pecas|elementos novos|necessita/i.test(text)) rgb = [245, 158, 11];
     else if (/orçamento|orcamento|inoperacional|segurança|seguranca|^inoperacional$/i.test(text)) rgb = DANGER;
-    symbol = PDF_SYMBOL.bullet;
+    symbolKind = 'bullet';
   } else if (fieldType === 'toggle_component') {
     const damaged = /danificad/i.test(text);
-    symbol = damaged ? PDF_SYMBOL.fail : PDF_SYMBOL.ok;
+    symbolKind = damaged ? 'fail' : 'ok';
     rgb = damaged ? DANGER : SUCCESS;
   } else if (fieldType === 'choice' || fieldType === 'toggle' || fieldType === 'dropdown') {
-    symbol = isConforme && !isNegative ? PDF_SYMBOL.ok : isNegative ? PDF_SYMBOL.fail : PDF_SYMBOL.bullet;
-    rgb = symbol === PDF_SYMBOL.ok ? SUCCESS : symbol === PDF_SYMBOL.fail ? DANGER : TEXT_DARK;
+    symbolKind = isConforme && !isNegative ? 'ok' : isNegative ? 'fail' : 'bullet';
+    rgb = symbolKind === 'ok' ? SUCCESS : symbolKind === 'fail' ? DANGER : TEXT_DARK;
   }
+
+  const symbol = pdfStatusGlyph(symbolKind);
+
+  const valLines = pdfSplitText(doc, text, CONTENT_W - 62);
+  const blockH = Math.max(5, valLines.length * 4.2) + 3;
+  y = ensureSpace(doc, y, blockH);
 
   doc.setTextColor(...rgb);
   pdfSetFont(doc, 'bold');
   doc.setFontSize(9);
-  doc.text(symbol, MARGIN + 1, y);
+  if (symbol) doc.text(symbol, MARGIN + 1, y);
 
   pdfSetFont(doc, 'bold');
   doc.setFontSize(8);
@@ -1014,10 +1055,10 @@ function drawKeyValueLine(doc, y, label, value, fieldType) {
   pdfSetFont(doc, 'normal');
   doc.setFontSize(8.5);
   doc.setTextColor(...TEXT_DARK);
-  const valLines = pdfSplitText(doc,text, CONTENT_W - 62);
   doc.text(valLines, MARGIN + 58, y);
 
-  return y + Math.max(5, valLines.length * 4.2) + 3;
+  touchPdfContentPage(doc);
+  return y + blockH;
 }
 
 function drawDiagnosticAnalysisBlock(doc, y, label, section, value) {
@@ -1049,6 +1090,7 @@ function drawDiagnosticAnalysisBlock(doc, y, label, section, value) {
   doc.setTextColor(...TEXT_DARK);
   doc.text(lines, MARGIN + 4, y + 12, { lineHeightFactor: 1.45 });
 
+  touchPdfContentPage(doc);
   return y + boxH + 8;
 }
 
@@ -1064,9 +1106,15 @@ function drawLongTextBlock(doc, y, label, value) {
   pdfSetFont(doc, 'normal');
   doc.setFontSize(8.5);
   doc.setTextColor(...TEXT_DARK);
-  const lines = pdfSplitText(doc,value, CONTENT_W);
-  doc.text(lines, MARGIN, y, { lineHeightFactor: 1.45 });
-  return y + lines.length * 4.5 + 8;
+  const lines = pdfSplitText(doc, value, CONTENT_W);
+  lines.forEach((line) => {
+    y = ensureSpace(doc, y, 5);
+    doc.text(line, MARGIN, y);
+    y += 4.5;
+  });
+
+  touchPdfContentPage(doc);
+  return y + 8;
 }
 
 const POLAROID_MM = 60;
@@ -1278,6 +1326,7 @@ async function drawSignaturesFooter(doc, y, signatures) {
     doc.text(box.label, x + lineW / 2, lineY + 5, { align: 'center' });
   });
 
+  touchPdfContentPage(doc);
   return y + SIGNATURES_BLOCK_HEIGHT_MM;
 }
 
@@ -1311,8 +1360,45 @@ function drawPageFooter(doc, _reportId) {
   }
 }
 
+function touchPdfContentPage(doc) {
+  const page = doc.internal.getCurrentPageInfo().pageNumber;
+  doc.__manusilvaLastContentPage = Math.max(doc.__manusilvaLastContentPage || 1, page);
+}
+
+function trimTrailingBlankPages(doc) {
+  const last = doc.__manusilvaLastContentPage || 1;
+  let total = doc.getNumberOfPages();
+  while (total > last) {
+    doc.deletePage(total);
+    total -= 1;
+  }
+}
+
+function pdfNormalizeHeading(text) {
+  return String(text || '')
+    .trim()
+    .toLocaleLowerCase('pt-PT')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
+/** Título de bloco/tabela — evita repetir o cabeçalho de secção já desenhado */
+function pdfBlockTitle(field, sectionRendered) {
+  if (!sectionRendered) return field.section || field.label || null;
+  if (
+    field.label &&
+    pdfNormalizeHeading(field.label) !== pdfNormalizeHeading(field.section)
+  ) {
+    return field.label;
+  }
+  return null;
+}
+
 function ensureSpace(doc, y, needed) {
-  if (y + needed > PAGE_H - PDF_FOOTER_RESERVE_MM - 2) {
+  const bottomLimit = PAGE_H - PDF_FOOTER_RESERVE_MM - 2;
+  const maxChunk = bottomLimit - (MARGIN + 8);
+  const chunk = Math.max(4, Math.min(needed, maxChunk));
+  if (y + chunk > bottomLimit) {
     doc.addPage();
     return MARGIN + 8;
   }
