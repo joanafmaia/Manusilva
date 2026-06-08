@@ -10,6 +10,7 @@ import {
   getTechnician,
   getServiceType,
   getPendingReports,
+  getAdminReviewReports,
   getReport,
   approveReport,
   rejectReport,
@@ -89,6 +90,7 @@ export async function initAdminDashboard() {
     showToast('Erro ao carregar o calendário. Veja a consola (F12).', 'error');
   }
 
+  bindReportsFilterBar();
   bindPendingReportsActions();
   renderPendingReports().catch((err) => {
     console.error('[Admin] Relatórios pendentes:', err);
@@ -521,7 +523,23 @@ function confirmDeleteJob(jobId) {
 }
 
 let pendingReportsActionsBound = false;
+let reportsFilter = 'all';
 let realtimeBannerTimer = null;
+
+const REPORT_STATUS_BADGES = {
+  pending_review: { label: 'Pendente', color: '#78350f', bg: '#fef3c7' },
+  rejected: { label: 'Recusado', color: '#991b1b', bg: '#fee2e2' },
+  approved: { label: 'Aprovado', color: '#166534', bg: '#dcfce7' },
+};
+
+function reportStatusBadge(status) {
+  const s = REPORT_STATUS_BADGES[status] || {
+    label: status || '—',
+    color: '#475569',
+    bg: '#f1f5f9',
+  };
+  return `<span class="status-badge" style="color:${s.color};background:${s.bg}">${escapeHtml(s.label)}</span>`;
+}
 
 function ensureRealtimeBannerElement() {
   let el = document.getElementById('admin-realtime-banner');
@@ -548,6 +566,22 @@ function showRealtimePendingBanner() {
 function updatePendingCount() {
   const count = document.getElementById('pending-count');
   if (count) count.textContent = String(getPendingReports().length);
+}
+
+function bindReportsFilterBar() {
+  const bar = document.getElementById('reports-filter-bar');
+  if (!bar || bar.dataset.bound === 'true') return;
+  bar.dataset.bound = 'true';
+
+  bar.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-report-filter]');
+    if (!btn) return;
+    reportsFilter = btn.dataset.reportFilter || 'all';
+    bar.querySelectorAll('.reports-filter-btn').forEach((el) => {
+      el.classList.toggle('active', el === btn);
+    });
+    renderPendingReports().catch(console.error);
+  });
 }
 
 function bindPendingReportsActions() {
@@ -581,56 +615,78 @@ function bindPendingReportsActions() {
   });
 }
 
-async function buildPendingReportCardHtml(report, { highlight = false } = {}) {
-  const { countFilledFields } = await import('./form-engine.js');
-  const { countJobFotos, formatFotoCountLabel } = await import('./job-fotos.js');
+function buildReportRowActions(report) {
+  const id = escapeHtml(report.id);
+  const reviewBtn = `<button type="button" class="btn-outline btn-sm" data-review="${id}">Rever</button>`;
+  if (report.status !== 'pending_review') {
+    return `<div class="reports-table-actions">${reviewBtn}</div>`;
+  }
+  return `
+    <div class="reports-table-actions">
+      ${reviewBtn}
+      <button type="button" class="btn-danger btn-sm" data-reject="${id}">Rejeitar</button>
+      <button type="button" class="btn-success btn-sm" data-approve="${id}">Aprovar</button>
+    </div>`;
+}
+
+function buildReportTableRow(report) {
   const client = getClient(report.clientId);
   const tech = getTechnician(report.technicianId);
   const service = getServiceType(report.serviceType);
-  const job = report.jobId ? getJob(report.jobId) : null;
-  const values = report.data?.values || { ...report.data?.textFields, ...report.data?.dropdowns };
-  const checklistCount = countFilledFields(service, values);
-  const photoCount = countJobFotos(job, report);
-  const photoLabel = formatFotoCountLabel(photoCount);
-  const highlightClass = highlight ? ' report-card--new' : '';
+  const dateStr = (report.submittedAt || report.approvedAt || '').slice(0, 10);
+  const serial = report.forkliftSerial ? ` · ${report.forkliftSerial}` : '';
 
   return `
-      <div class="report-card glass-card${highlightClass}" data-report-id="${escapeHtml(report.id)}">
-        <div class="report-card-header">
-          <div>
-            <h4>${service?.icon} ${escapeHtml(service?.label)}</h4>
-            <p class="report-meta">${escapeHtml(client?.name)} · ${escapeHtml(report.forkliftSerial)}</p>
-          </div>
-          <span class="report-tech-badge" style="background:${tech?.color}20;color:${tech?.color}">${escapeHtml(tech?.name)}</span>
-        </div>
-        <div class="report-stats">
-          <span>✓ ${checklistCount} itens</span>
-          <span>📷 ${escapeHtml(photoLabel)}</span>
-          <span>${report.data?.signatures?.technician ? '✍ Técnico' : ''} ${report.data?.signatures?.client ? '✍ Cliente' : ''}</span>
-        </div>
-        <div class="report-actions">
-          <button type="button" class="btn-outline btn-sm" data-review="${escapeHtml(report.id)}">Rever</button>
-          <button type="button" class="btn-danger btn-sm" data-reject="${escapeHtml(report.id)}">Rejeitar</button>
-          <button type="button" class="btn-success btn-sm" data-approve="${escapeHtml(report.id)}">Aprovar</button>
-        </div>
-      </div>
-    `;
+    <tr class="reports-table-row" data-report-id="${escapeHtml(report.id)}">
+      <td class="reports-table-service">
+        <span class="reports-table-service-icon" aria-hidden="true">${service?.icon || '📋'}</span>
+        <span>${escapeHtml(service?.label || report.serviceType)}</span>
+      </td>
+      <td>${escapeHtml(client?.name || '—')}${escapeHtml(serial)}</td>
+      <td>
+        <span class="report-tech-badge" style="background:${tech?.color || '#3b82f6'}20;color:${tech?.color || '#3b82f6'}">${escapeHtml(tech?.name || '—')}</span>
+      </td>
+      <td>${reportStatusBadge(report.status)}</td>
+      <td class="reports-table-date">${dateStr ? escapeHtml(formatDate(dateStr)) : '—'}</td>
+      <td class="reports-table-actions-cell">${buildReportRowActions(report)}</td>
+    </tr>`;
 }
 
-/** Insere relatório pendente no topo da lista (Realtime) */
+function buildReportsTableHtml(reports) {
+  if (!reports.length) {
+    const emptyMsg =
+      reportsFilter === 'all'
+        ? 'Nenhum relatório para revisão.'
+        : 'Nenhum relatório neste filtro.';
+    return `<p class="text-muted empty-inline reports-table-empty">${emptyMsg}</p>`;
+  }
+
+  return `
+    <div class="reports-table-wrap">
+      <table class="admin-zebra-table reports-table">
+        <thead>
+          <tr>
+            <th scope="col">Serviço</th>
+            <th scope="col">Cliente</th>
+            <th scope="col">Técnico</th>
+            <th scope="col">Estado</th>
+            <th scope="col">Data</th>
+            <th scope="col">Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${reports.map((r) => buildReportTableRow(r)).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+/** Atualiza lista após evento Realtime */
 async function prependPendingReport(report) {
-  const container = document.getElementById('pending-reports');
-  if (!container || !report?.id) return;
-
-  const empty = container.querySelector('.empty-inline');
-  if (empty) empty.remove();
-
-  const existing = container.querySelector(`[data-report-id="${report.id}"]`);
-  existing?.remove();
-
-  const html = await buildPendingReportCardHtml(report, { highlight: true });
-  container.insertAdjacentHTML('afterbegin', html);
-  updatePendingCount();
+  if (!report?.id) return;
+  await renderPendingReports();
+  const row = document.querySelector(`[data-report-id="${report.id}"]`);
+  row?.classList.add('reports-table-row--new');
 }
 
 async function renderPendingReports() {
@@ -643,16 +699,9 @@ async function renderPendingReports() {
     console.warn('[Admin] Trabalhos para fotos:', err);
   }
 
-  const reports = getPendingReports();
+  const reports = getAdminReviewReports(reportsFilter);
   updatePendingCount();
-
-  if (!reports.length) {
-    container.innerHTML = '<p class="text-muted empty-inline">Nenhum relatório pendente de aprovação.</p>';
-    return;
-  }
-
-  const cards = await Promise.all(reports.map((r) => buildPendingReportCardHtml(r)));
-  container.innerHTML = cards.join('');
+  container.innerHTML = buildReportsTableHtml(reports);
 }
 
 async function openReportReview(reportId) {
@@ -700,7 +749,9 @@ async function openReportReview(reportId) {
 
   const actions = buildReviewModalActions({ showWorkflow: true });
 
-  const overlay = openModal(`${service?.icon} ${service?.label} — Revisão`, content, actions);
+  const overlay = openModal(`${service?.icon} ${service?.label} — Revisão`, content, actions, {
+    review: true,
+  });
 
   bindReviewFotoClicks(overlay);
   bindReviewPdfButton(overlay, { job, report });

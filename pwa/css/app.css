@@ -3407,7 +3407,143 @@ body {
 
 .cal-more { font-size: 0.6rem; color: var(--text-muted); }
 
-/* Report Cards */
+/* RH — filtros e tabela de relatórios */
+.reports-filter-wrap {
+  padding: 0 1.25rem 0.75rem;
+}
+
+.reports-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.reports-filter-btn {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0.45rem 0.65rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: var(--surface-muted);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  white-space: nowrap;
+}
+
+.reports-filter-btn:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.reports-filter-btn.active {
+  background: rgba(59, 130, 246, 0.12);
+  border-color: rgba(59, 130, 246, 0.35);
+  color: var(--primary);
+}
+
+.reports-table-container {
+  padding: 0 1.25rem 1.25rem;
+}
+
+.reports-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: #fff;
+}
+
+.admin-zebra-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+}
+
+.admin-zebra-table thead th {
+  text-align: left;
+  padding: 0.65rem 0.75rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-subtle);
+  background: #f8fafc;
+  white-space: nowrap;
+}
+
+.admin-zebra-table tbody tr {
+  transition: background 0.15s ease;
+}
+
+.admin-zebra-table tbody tr:nth-child(even) {
+  background: #f8fafc;
+}
+
+.admin-zebra-table tbody tr:nth-child(odd) {
+  background: #ffffff;
+}
+
+.admin-zebra-table tbody tr:hover {
+  background: #f1f5f9;
+}
+
+.admin-zebra-table td {
+  padding: 0.7rem 0.75rem;
+  border-bottom: 1px solid var(--border-subtle);
+  vertical-align: middle;
+  color: var(--text-primary);
+}
+
+.admin-zebra-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.reports-table-service {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 600;
+  min-width: 8rem;
+}
+
+.reports-table-service-icon {
+  flex-shrink: 0;
+}
+
+.reports-table-date {
+  white-space: nowrap;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+
+.reports-table-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.reports-table-actions-cell {
+  min-width: 9rem;
+}
+
+.reports-table-empty {
+  padding: 1.25rem 0;
+}
+
+.reports-table-row--new {
+  animation: report-row-highlight 1.4s ease;
+}
+
+@keyframes report-row-highlight {
+  0% { background: rgba(59, 130, 246, 0.22); }
+  100% { background: inherit; }
+}
+
+/* Report Cards (legado) */
 .report-card { padding: 1rem; margin-bottom: 0.75rem; }
 
 .report-card-header {
@@ -4070,6 +4206,12 @@ details[open] .expand-icon { transform: rotate(90deg); }
 }
 
 .modal-overlay.show { opacity: 1; }
+
+.modal-overlay--review {
+  background-color: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+}
 
 .modal {
   width: 100%;

@@ -474,6 +474,20 @@ export function getPendingReports() {
   return getReportsSnapshot().filter((r) => r.status === 'pending_review');
 }
 
+const ADMIN_REVIEW_STATUSES = new Set(['pending_review', 'rejected', 'approved']);
+
+/** Relatórios visíveis no painel RH (com filtro opcional por estado) */
+export function getAdminReviewReports(filter = 'all') {
+  const list = getReportsSnapshot().filter((r) => ADMIN_REVIEW_STATUSES.has(r.status));
+  const filtered =
+    filter === 'all' ? list : list.filter((r) => r.status === filter);
+  return filtered.sort((a, b) =>
+    String(b.submittedAt || b.approvedAt || '').localeCompare(
+      String(a.submittedAt || a.approvedAt || ''),
+    ),
+  );
+}
+
 /* ─── Offline Mode ─── */
 
 export function isOffline() {
@@ -917,11 +931,11 @@ export function showToast(message, type = 'info', duration = 4000) {
 
 /* ─── Modal ─── */
 
-export function openModal(title, content, actions = '') {
+export function openModal(title, content, actions = '', options = {}) {
   closeModal();
   const overlay = document.createElement('div');
   overlay.id = 'modal-overlay';
-  overlay.className = 'modal-overlay';
+  overlay.className = `modal-overlay${options.review ? ' modal-overlay--review' : ''}`;
   overlay.innerHTML = `
     <div class="modal glass-card">
       <div class="modal-header">

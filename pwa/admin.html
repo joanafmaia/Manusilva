@@ -30,7 +30,7 @@
 
       <nav class="sidebar-nav">
         <a href="#calendar" class="nav-item active">📅 Calendário de Equipa</a>
-        <a href="#pending" class="nav-item">📋 Relatórios Pendentes</a>
+        <a href="#pending" class="nav-item">📋 Revisão de Relatórios</a>
         <a href="#clients" class="nav-item">🏢 Clientes / Empresas</a>
         <a href="#client-history" class="nav-item">🗂 Histórico de Clientes</a>
         <a href="#employees" class="nav-item">👷 Funcionários</a>
@@ -102,9 +102,17 @@
         <aside class="admin-right" id="pending">
           <section class="admin-panel glass-card" style="position:sticky;top:1.5rem">
             <div class="panel-header" style="padding:1.25rem 1.25rem 0">
-              <h2>Relatórios Pendentes <span class="badge-count" id="pending-count">0</span></h2>
+              <h2>Revisão de Relatórios <span class="badge-count" id="pending-count">0</span></h2>
             </div>
-            <div style="padding:0 1.25rem 1.25rem" id="pending-reports"></div>
+            <div class="reports-filter-wrap" id="reports-filter-wrap">
+              <div class="reports-filter-bar" id="reports-filter-bar" role="tablist" aria-label="Filtrar relatórios">
+                <button type="button" class="reports-filter-btn active" data-report-filter="all">Todos</button>
+                <button type="button" class="reports-filter-btn" data-report-filter="pending_review">Pendentes 🟡</button>
+                <button type="button" class="reports-filter-btn" data-report-filter="rejected">Recusados 🔴</button>
+                <button type="button" class="reports-filter-btn" data-report-filter="approved">Aprovados 🟢</button>
+              </div>
+            </div>
+            <div class="reports-table-container" id="pending-reports"></div>
           </section>
         </aside>
       </div>
