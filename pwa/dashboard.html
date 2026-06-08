@@ -18,25 +18,32 @@
   <div class="bg-mesh"></div>
 
   <div class="tech-app">
-    <header class="tech-header">
-      <div class="header-top">
-        <div class="brand-compact">
+    <header class="tech-header tech-navbar">
+      <div class="header-top tech-navbar__top">
+        <div class="brand-compact tech-navbar__brand">
           <div class="brand-logo-sm brand-logo-slot" id="brand-logo" data-brand-logo aria-label="ManuSilva">MS</div>
           <div class="brand-text">
             <h1 id="brand-name" data-hide-if-logo>Manusilva</h1>
-            <p id="brand-tagline">Empilhadores · Manutenção · Baterias</p>
+            <p id="brand-tagline" class="tech-navbar__tagline">Empilhadores · Manutenção · Baterias</p>
           </div>
         </div>
-        <div class="header-actions">
-          <span class="connection-badge online" id="connection-badge">● Online</span>
-          <button type="button" id="theme-toggle" class="theme-toggle-btn theme-toggle-btn--inline btn-ghost btn-sm" aria-label="Alternar tema" title="Alternar tema">
+        <div class="header-actions tech-navbar__actions">
+          <span class="connection-badge online tech-navbar__badge" id="connection-badge">● Online</span>
+          <button type="button" id="theme-toggle" class="theme-toggle-btn theme-toggle-btn--inline tech-navbar__theme" aria-label="Alternar tema" title="Alternar tema">
             <span id="theme-icon" aria-hidden="true"></span>
           </button>
-          <button class="btn-ghost btn-sm" id="logout-btn" title="Sair">⏻</button>
+          <button type="button" class="tech-logout-btn" id="logout-btn" title="Terminar sessão" aria-label="Terminar sessão">
+            <svg class="tech-logout-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+              <polyline points="16 17 21 12 16 7"/>
+              <line x1="21" x2="9" y1="12" y2="12"/>
+            </svg>
+            <span class="tech-logout-label">Sair</span>
+          </button>
         </div>
       </div>
 
-      <div class="offline-control">
+      <div class="offline-control tech-navbar__offline">
         <span class="toggle-label" id="offline-label">Online</span>
         <label class="toggle-switch-wrap">
           <input type="checkbox" id="offline-toggle">
