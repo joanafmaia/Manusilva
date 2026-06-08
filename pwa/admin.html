@@ -43,69 +43,67 @@
     </aside>
 
     <main class="admin-main">
-      <div class="admin-header">
-        <h1>Painel de Administração</h1>
-        <button class="btn-primary" id="btn-assign-work" style="width:auto">+ Atribuir Trabalho</button>
-      </div>
+      <div class="admin-page">
+        <header class="admin-header">
+          <h1>Painel de Administração</h1>
+          <button class="btn-primary" id="btn-assign-work" style="width:auto">+ Atribuir Trabalho</button>
+        </header>
 
-      <div class="admin-grid">
-        <div class="admin-content">
-          <!-- Calendário + Revisão (split-screen) -->
-          <div class="admin-split-layout" id="calendar">
-            <section class="admin-panel glass-card admin-split-calendar">
-              <div class="panel-header" style="padding:1.25rem 1.25rem 0">
-                <h2>Calendário de Equipa</h2>
-                <div class="panel-controls">
-                  <select class="form-select-sm" id="tech-filter"></select>
-                  <div class="view-toggle">
-                    <button data-cal-view="week" class="active">Semana</button>
-                    <button data-cal-view="month">Mês</button>
-                    <button data-cal-view="list">Agenda</button>
-                  </div>
+        <!-- Calendário + Revisão (split-screen) -->
+        <div class="admin-split-layout" id="calendar">
+          <section class="admin-panel glass-card admin-split-calendar">
+            <div class="panel-header">
+              <h2>Calendário de Equipa</h2>
+              <div class="panel-controls">
+                <select class="form-select-sm" id="tech-filter"></select>
+                <div class="view-toggle">
+                  <button data-cal-view="week" class="active">Semana</button>
+                  <button data-cal-view="month">Mês</button>
+                  <button data-cal-view="list">Agenda</button>
                 </div>
               </div>
-              <div class="calendar-container">
+            </div>
+            <div class="calendar-container">
                 <div class="calendar-nav">
                   <button id="prev-week" aria-label="Anterior">‹</button>
                   <span id="calendar-title"></span>
                   <button id="next-week" aria-label="Seguinte">›</button>
                 </div>
-                <div id="calendar-grid"></div>
-              </div>
-            </section>
-
-            <aside class="admin-review-panel glass-card" id="pending">
-              <div class="admin-review-panel-header">
-                <h2>Relatórios <span class="badge-count" id="pending-count" title="Pendentes de aprovação">0</span></h2>
-              </div>
-              <div class="rh-review-panel" id="rh-review-panel" aria-live="polite"></div>
-            </aside>
-          </div>
-
-          <!-- Clientes: métricas + cadastro -->
-          <section class="admin-panel" id="clients">
-            <div class="panel-header">
-              <h2>Clientes / Empresas</h2>
+              <div id="calendar-grid"></div>
             </div>
-            <div id="app" class="clients-app-root"></div>
           </section>
 
-          <!-- Histórico de Clientes (Admin/RH) -->
-          <section class="admin-panel" id="client-history">
-            <div class="panel-header">
-              <h2>Histórico de Clientes</h2>
+          <aside class="admin-review-panel glass-card" id="pending">
+            <div class="admin-review-panel-header">
+              <h2>Relatórios <span class="badge-count" id="pending-count" title="Pendentes de aprovação">0</span></h2>
             </div>
-            <div id="client-history-app" class="clients-app-root"></div>
-          </section>
-
-          <!-- Employees -->
-          <section class="admin-panel" id="employees">
-            <div class="panel-header">
-              <h2>Gestão de Funcionários / Técnicos</h2>
-            </div>
-            <div id="employees-panel" class="rh-employees-panel-wrap"></div>
-          </section>
+            <div class="rh-review-panel" id="rh-review-panel" aria-live="polite"></div>
+          </aside>
         </div>
+
+        <!-- Clientes: métricas + cadastro -->
+        <section class="admin-panel glass-card" id="clients">
+          <div class="panel-header">
+            <h2>Clientes / Empresas</h2>
+          </div>
+          <div id="app" class="clients-app-root admin-panel-body"></div>
+        </section>
+
+        <!-- Histórico de Clientes (Admin/RH) -->
+        <section class="admin-panel glass-card" id="client-history">
+          <div class="panel-header">
+            <h2>Histórico de Clientes</h2>
+          </div>
+          <div id="client-history-app" class="clients-app-root admin-panel-body"></div>
+        </section>
+
+        <!-- Employees -->
+        <section class="admin-panel glass-card" id="employees">
+          <div class="panel-header">
+            <h2>Gestão de Funcionários / Técnicos</h2>
+          </div>
+          <div id="employees-panel" class="rh-employees-panel-wrap admin-panel-body"></div>
+        </section>
       </div>
     </main>
   </div>
