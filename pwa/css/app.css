@@ -578,6 +578,20 @@ body {
   transform: translateX(20px);
 }
 
+.tech-calendar-nav {
+  margin: 0.65rem 0 0.35rem;
+}
+
+.tech-calendar-nav #tech-calendar-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-align: center;
+  line-height: 1.35;
+  color: var(--text-main);
+}
+
 /* Calendar Strip */
 .calendar-strip {
   display: flex;

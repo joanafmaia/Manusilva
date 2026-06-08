@@ -31,9 +31,18 @@ import { openJobForm } from './forms.js';
 import { HistoricoClienteView } from './views/historico-cliente.js';
 import { ensureTrabalhosSemana } from './trabalhos-db.js';
 
+/** Âncora da semana visível no calendário (segunda-feira da semana em foco) */
+let currentWeekDate = startOfLocalDay(new Date());
 let selectedDate = new Date().toISOString().split('T')[0];
-let weekDates = getWeekDates();
+let weekDates = getWeekDates(currentWeekDate);
 let weekJobsCacheKey = null;
+let weekNavBound = false;
+
+function startOfLocalDay(date) {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
 
 const TECH_JOBS_SHELL_HTML = `
   <section class="jobs-section" data-tech-jobs-shell>
@@ -92,6 +101,7 @@ export async function initTechDashboard() {
   initTrabalhosOfflineSync();
   sincronizarTrabalhosOffline().catch(console.error);
 
+  bindTechWeekNavigation();
   await refreshTechWeekCalendar();
 
   window.addEventListener('jobs-updated', () => {
@@ -134,11 +144,36 @@ function renderOfflineToggle() {
   };
 }
 
+function syncSelectedDateToWeek() {
+  weekDates = getWeekDates(currentWeekDate);
+  if (!weekDates.includes(selectedDate)) {
+    const today = new Date().toISOString().split('T')[0];
+    selectedDate = weekDates.includes(today) ? today : weekDates[0];
+  }
+}
+
+function shiftTechWeek(deltaWeeks) {
+  const next = new Date(currentWeekDate);
+  next.setDate(next.getDate() + deltaWeeks * 7);
+  currentWeekDate = startOfLocalDay(next);
+  syncSelectedDateToWeek();
+  weekJobsCacheKey = null;
+  refreshTechWeekCalendar().catch(console.error);
+}
+
+function bindTechWeekNavigation() {
+  if (weekNavBound) return;
+  weekNavBound = true;
+
+  document.getElementById('tech-prev-week')?.addEventListener('click', () => shiftTechWeek(-1));
+  document.getElementById('tech-next-week')?.addEventListener('click', () => shiftTechWeek(1));
+}
+
 async function loadWeekJobsFromSupabase() {
   const session = requireAuth('technician');
   if (!session?.technicianId) return;
 
-  weekDates = getWeekDates(new Date(selectedDate));
+  weekDates = getWeekDates(currentWeekDate);
   const startDate = weekDates[0];
   const endDate = weekDates[weekDates.length - 1];
   const cacheKey = `${session.technicianId}:${startDate}:${endDate}`;
@@ -159,12 +194,20 @@ async function refreshTechWeekCalendar() {
   renderJobs();
 }
 
+function renderWeekTitle() {
+  const title = document.getElementById('tech-calendar-title');
+  if (!title) return;
+  weekDates = getWeekDates(currentWeekDate);
+  title.textContent = `Semana de ${formatDate(weekDates[0])}`;
+}
+
 function renderCalendarStrip() {
   const session = requireAuth('technician');
   const strip = document.getElementById('calendar-strip');
   if (!strip) return;
 
-  weekDates = getWeekDates(new Date(selectedDate));
+  renderWeekTitle();
+  weekDates = getWeekDates(currentWeekDate);
   const techId = session?.technicianId;
 
   strip.innerHTML = weekDates
