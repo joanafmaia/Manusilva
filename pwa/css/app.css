@@ -5992,7 +5992,7 @@ body.light-mode #login-page-wrapper .login-portal-title {
 #login-page-wrapper .brand-logo-slot.login-brand-logo {
   width: 56px;
   height: 56px;
-  margin: 0 0 1rem;
+  margin: 0 0 1.5rem;
   padding: 0;
   border-radius: 12px;
   background: var(--bg-input);
@@ -6010,11 +6010,13 @@ body.light-mode #login-page-wrapper .login-portal-title {
   width: auto;
   height: auto;
   min-height: 0;
-  margin: 0 0 1rem;
+  min-width: 0;
+  margin: 0 0 1.5rem;
   padding: 0;
-  background: transparent;
+  background: none;
   box-shadow: none;
   border-radius: 0;
+  border: none;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -6027,12 +6029,20 @@ body.light-mode #login-page-wrapper .login-portal-title {
   display: block;
   margin: 0;
   padding: 0;
-  max-height: 72px;
-  max-width: 220px;
-  width: auto;
+  width: 200px;
+  max-width: min(100%, 280px);
   height: auto;
+  max-height: none;
   object-fit: contain;
   object-position: center;
+}
+
+#login-container .brand-logo-slot.login-brand-logo.has-brand-image .brand-logo-img,
+#login-page-wrapper .brand-logo-slot.login-brand-logo.has-brand-image .brand-logo-img,
+#login-container .brand-logo-slot.login-brand-logo.has-brand-image .brand-logo-img--lg,
+#login-page-wrapper .brand-logo-slot.login-brand-logo.has-brand-image .brand-logo-img--lg {
+  width: 200px;
+  max-width: min(100%, 280px);
 }
 
 .theme-toggle-btn {
