@@ -35,6 +35,7 @@ import {
   applyBrandLogo,
   SERVICE_TYPES,
   showToast,
+  showNotificationToast,
 } from './app.js';
 import { ensureProductionCatalog, formatClientsLoadError } from './clients-catalog.js';
 import { renderClientCombobox, bindClientComboboxes } from './client-combobox.js';
@@ -105,10 +106,14 @@ export async function initAdminDashboard() {
         console.error('[Admin] Calendário após trabalho realtime:', e);
       }
     },
+    onTrabalhoPendente: (job) => {
+      const report = getReportForJob(job.id);
+      if (report?.status === 'pending_review') {
+        handleNewPendingReport(report, { playSound: true }, playNotificationBeep).catch(console.error);
+      }
+    },
     onPendingReport: (report, opts = {}) => {
-      prependPendingReport(report).catch(console.error);
-      if (opts.playSound) playNotificationBeep();
-      if (opts.showBanner) showRealtimePendingBanner();
+      handleNewPendingReport(report, opts, playNotificationBeep).catch(console.error);
     },
   }).catch((err) => {
     console.error('[Admin] Realtime:', err);
@@ -524,7 +529,6 @@ function confirmDeleteJob(jobId) {
 
 let pendingReportsActionsBound = false;
 let reportsFilter = 'all';
-let realtimeBannerTimer = null;
 
 const REPORT_STATUS_BADGES = {
   pending_review: { label: 'Pendente', color: '#78350f', bg: '#fef3c7' },
@@ -541,26 +545,38 @@ function reportStatusBadge(status) {
   return `<span class="status-badge" style="color:${s.color};background:${s.bg}">${escapeHtml(s.label)}</span>`;
 }
 
-function ensureRealtimeBannerElement() {
-  let el = document.getElementById('admin-realtime-banner');
-  if (el) return el;
-  el = document.createElement('div');
-  el.id = 'admin-realtime-banner';
-  el.className = 'admin-realtime-banner';
-  el.setAttribute('role', 'status');
-  el.setAttribute('aria-live', 'polite');
-  el.textContent = 'Novo relatório pendente de aprovação!';
-  document.body.appendChild(el);
-  return el;
+function formatOrdemOp2026(numeroOrdem) {
+  if (numeroOrdem == null) return 'nova ordem';
+  return `Ordem OP-2026-${String(numeroOrdem).padStart(2, '0')}`;
 }
 
-function showRealtimePendingBanner() {
-  const el = ensureRealtimeBannerElement();
-  el.classList.add('is-visible');
-  clearTimeout(realtimeBannerTimer);
-  realtimeBannerTimer = setTimeout(() => {
-    el.classList.remove('is-visible');
-  }, 5000);
+function showPendingReportNotification(report) {
+  const tech = getTechnician(report.technicianId);
+  const job = report.jobId ? getJob(report.jobId) : null;
+  const ordem = formatOrdemOp2026(job?.numeroOrdem);
+
+  showNotificationToast(
+    'Novo Relatório Pendente!',
+    `O técnico ${tech?.name || '—'} acabou de submeter o relatório da ${ordem}.`,
+    {
+      icon: '🔔',
+      duration: 8000,
+      dedupeKey: report.id || report.jobId,
+      onClick: () => openReportReview(report.id),
+    },
+  );
+}
+
+async function handleNewPendingReport(report, opts = {}, beep) {
+  if (!report?.id) return;
+  try {
+    await warmJobs();
+  } catch (err) {
+    console.warn('[Admin] Trabalhos para notificação:', err);
+  }
+  await prependPendingReport(report);
+  showPendingReportNotification(report);
+  if (opts.playSound && beep) beep();
 }
 
 function updatePendingCount() {
@@ -684,6 +700,15 @@ function buildReportsTableHtml(reports) {
 /** Atualiza lista após evento Realtime */
 async function prependPendingReport(report) {
   if (!report?.id) return;
+
+  if (reportsFilter !== 'all' && reportsFilter !== 'pending_review') {
+    reportsFilter = 'pending_review';
+    const bar = document.getElementById('reports-filter-bar');
+    bar?.querySelectorAll('.reports-filter-btn').forEach((el) => {
+      el.classList.toggle('active', el.dataset.reportFilter === 'pending_review');
+    });
+  }
+
   await renderPendingReports();
   const row = document.querySelector(`[data-report-id="${report.id}"]`);
   row?.classList.add('reports-table-row--new');

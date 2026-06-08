@@ -7,6 +7,23 @@ import { mergeJobFromRealtime } from './trabalhos-db.js';
 import { mergeReportFromRealtime } from './relatorios-db.js';
 
 let channel = null;
+const recentlyNotifiedReports = new Set();
+
+function isPendingReviewEstado(estado) {
+  const e = String(estado || '').toLowerCase();
+  return e === 'pending_review' || e === 'pendente' || e === 'pending';
+}
+
+function shouldNotifyNewPendingReport(report, oldRow) {
+  if (!report || !isPendingReviewEstado(report.status)) return false;
+  if (oldRow && isPendingReviewEstado(oldRow.estado)) return false;
+
+  const key = report.id || `${report.jobId || 'job'}-${report.submittedAt || Date.now()}`;
+  if (recentlyNotifiedReports.has(key)) return false;
+  recentlyNotifiedReports.add(key);
+  setTimeout(() => recentlyNotifiedReports.delete(key), 5000);
+  return true;
+}
 
 function playNotificationBeep() {
   try {
@@ -45,7 +62,11 @@ export async function initAdminRealtime(callbacks = {}) {
       { event: 'INSERT', schema: 'public', table: 'trabalhos' },
       (payload) => {
         const job = mergeJobFromRealtime(payload.new);
-        if (job) callbacks.onTrabalhoInserted?.(job);
+        if (!job) return;
+        callbacks.onTrabalhoInserted?.(job);
+        if (isPendingReviewEstado(payload.new?.estado)) {
+          callbacks.onTrabalhoPendente?.(job, payload.new);
+        }
       },
     )
     .on(
@@ -53,8 +74,8 @@ export async function initAdminRealtime(callbacks = {}) {
       { event: 'INSERT', schema: 'public', table: 'relatorios' },
       (payload) => {
         const report = mergeReportFromRealtime(payload.new);
-        if (report?.status === 'pending_review') {
-          callbacks.onPendingReport?.(report, { playSound: true, showBanner: true });
+        if (shouldNotifyNewPendingReport(report)) {
+          callbacks.onPendingReport?.(report, { playSound: true });
         }
       },
     )
@@ -63,8 +84,8 @@ export async function initAdminRealtime(callbacks = {}) {
       { event: 'UPDATE', schema: 'public', table: 'relatorios' },
       (payload) => {
         const report = mergeReportFromRealtime(payload.new);
-        if (report?.status === 'pending_review') {
-          callbacks.onPendingReport?.(report, { playSound: true, showBanner: true });
+        if (shouldNotifyNewPendingReport(report, payload.old)) {
+          callbacks.onPendingReport?.(report, { playSound: true });
         }
       },
     )

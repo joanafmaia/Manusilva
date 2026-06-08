@@ -904,6 +904,64 @@ export function escapeHtml(str) {
 /* ─── Toast Notifications ─── */
 
 let toastContainer = null;
+let adminToastContainer = null;
+
+/**
+ * Toast estilo notificação (canto inferior direito) — painel RH.
+ * @param {string} title
+ * @param {string} body
+ * @param {{ icon?: string, duration?: number, onClick?: () => void, dedupeKey?: string }} [options]
+ */
+export function showNotificationToast(title, body, options = {}) {
+  const {
+    icon = '🔔',
+    duration = 8000,
+    onClick,
+    dedupeKey,
+  } = options;
+
+  if (dedupeKey) {
+    if (!showNotificationToast._recent) showNotificationToast._recent = new Set();
+    if (showNotificationToast._recent.has(dedupeKey)) return;
+    showNotificationToast._recent.add(dedupeKey);
+    setTimeout(() => showNotificationToast._recent.delete(dedupeKey), 4500);
+  }
+
+  if (!adminToastContainer) {
+    adminToastContainer = document.createElement('div');
+    adminToastContainer.id = 'admin-toast-container';
+    adminToastContainer.className = 'toast-container toast-container--bottom-end';
+    adminToastContainer.setAttribute('aria-live', 'polite');
+    document.body.appendChild(adminToastContainer);
+  }
+
+  const toast = document.createElement(onClick ? 'button' : 'div');
+  toast.type = onClick ? 'button' : undefined;
+  toast.className = 'toast toast-notification toast-info';
+  toast.innerHTML = `
+    <span class="toast-notification-icon" aria-hidden="true">${icon}</span>
+    <span class="toast-notification-content">
+      <strong class="toast-notification-title">${escapeHtml(title)}</strong>
+      <span class="toast-notification-body">${escapeHtml(body)}</span>
+    </span>
+  `;
+
+  if (onClick) {
+    toast.addEventListener('click', () => {
+      onClick();
+      toast.classList.remove('show');
+      setTimeout(() => toast.remove(), 320);
+    });
+  }
+
+  adminToastContainer.appendChild(toast);
+  requestAnimationFrame(() => toast.classList.add('show'));
+
+  setTimeout(() => {
+    toast.classList.remove('show');
+    setTimeout(() => toast.remove(), 320);
+  }, duration);
+}
 
 export function showToast(message, type = 'info', duration = 4000) {
   if (!toastContainer) {
