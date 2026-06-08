@@ -733,11 +733,8 @@ async function openReportReview(reportId) {
   if (!report) return;
 
   const { renderReportValuesForReview } = await import('./form-engine.js');
-  const {
-    buildReviewModalContent,
-    bindReviewFotoClicks,
-    bindReviewPdfButton,
-  } = await import('./report-review-ui.js');
+  const { bindReviewFotoClicks, bindReviewPdfButton } = await import('./report-review-ui.js');
+  const { buildRhReviewModalContent } = await import('./report-review-rh-modal.js');
   const { ensureJobsLoaded } = await import('./trabalhos-db.js');
 
   try {
@@ -754,7 +751,7 @@ async function openReportReview(reportId) {
 
   const fieldsHTML = renderReportValuesForReview(service, data.values || {});
 
-  const content = buildReviewModalContent({
+  const content = buildRhReviewModalContent({
     job,
     report,
     client,

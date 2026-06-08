@@ -14,7 +14,9 @@ import {
   showToast,
 } from './app.js';
 import {
-  buildReviewModalContent,
+  renderReviewFotosSection,
+  renderReviewPdfSection,
+  buildReviewModalActions,
   bindReviewFotoClicks,
   bindReviewPdfButton,
 } from './report-review-ui.js';
@@ -59,21 +61,28 @@ export async function openReportReviewModal(reportId, options = {}) {
   const showWorkflow =
     options.showWorkflowActions !== false && report.status === 'pending_review';
 
-  const content = buildReviewModalContent({
-    job,
-    report,
-    client,
-    tech,
-    fieldsHTML,
-    showWorkflow,
-    statusLabel,
-  });
+  const content = `
+    <div class="review-detail">
+      <div class="review-header-info">
+        <p><strong>Estado:</strong> ${escapeHtml(statusLabel)}</p>
+        <p><strong>Cliente:</strong> ${escapeHtml(client?.name || client?.Nome || '—')}</p>
+        <p><strong>Técnico:</strong> ${escapeHtml(tech?.name || '—')}</p>
+        <p><strong>Contacto:</strong> ${escapeHtml(client?.email || client?.['E-mail'] || '—')}</p>
+      </div>
+      <h4 class="review-section-title">Dados do Relatório</h4>${fieldsHTML}
+      ${renderReviewFotosSection(job, report)}
+      ${renderReviewPdfSection(job)}
+      <h4 class="review-section-title">Assinaturas</h4>
+      <p>Técnico: ${data.signatures?.technician ? '✓ Assinado' : '✗ Pendente'} · Cliente: ${data.signatures?.client ? '✓ Assinado' : '✗ Pendente'}</p>
+    </div>
+  `;
+
+  const actions = buildReviewModalActions({ showWorkflow });
 
   const overlay = openModal(
     `${service?.icon || '📋'} ${escapeHtml(service?.label || 'Relatório')} — Revisão`,
     content,
-    '',
-    { review: true },
+    actions,
   );
 
   overlay.querySelector('#modal-close-review')?.addEventListener('click', closeModal);
