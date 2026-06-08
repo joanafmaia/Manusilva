@@ -157,7 +157,7 @@ function buildFormHTML(job, client, tech, service, existingReport) {
     <div class="form-panel glass-card">
       <div class="form-panel-header">
         <button type="button" class="btn-ghost" id="close-form">&larr; Voltar</button>
-        <h2>${service?.icon || '📋'} ${escapeHtml(official ? `${service.code}` : service?.label || 'Relatório')}</h2>
+        <h2>${service?.icon || '📋'} ${escapeHtml(service?.label || service?.title || 'Relatório')}</h2>
       </div>
 
       <div class="form-panel-body">

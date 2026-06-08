@@ -68,7 +68,7 @@ function escapeHtml(str) {
 }
 
 export function isOfficialTemplate(service) {
-  return Boolean(service?.code);
+  return Boolean(service?.companyName && (service?.title || service?.label));
 }
 
 /** Campos de rastreamento de máquina — suspensos no fluxo de relatórios */
@@ -92,13 +92,12 @@ function filterReportFields(fields, service) {
   });
 }
 
-/** Cabeçalho do formulário oficial (ex.: MS. 061) */
+/** Cabeçalho do formulário oficial */
 export function renderOfficialTemplateHeader(service) {
-  if (!service?.code) return '';
+  if (!isOfficialTemplate(service)) return '';
 
   return `
     <div class="official-form-header glass-card-inner">
-      <div class="official-form-code">${escapeHtml(service.code)}</div>
       <h3 class="official-form-title">${escapeHtml(service.title || service.label)}</h3>
       <p class="official-form-company">${escapeHtml(service.companyName || '')}</p>
       <p class="official-form-address">${escapeHtml(service.companyAddress || '')}</p>

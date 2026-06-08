@@ -396,11 +396,11 @@ function drawTopRow(doc, service, numeroOrdem = null) {
   let metaY = topY + 2;
 
   if (numeroOrdem != null) {
-    doc.setTextColor(...TEXT_MUTED);
+    doc.setTextColor(...TEXT_DARK);
     pdfSetFont(doc, 'normal');
-    doc.setFontSize(7);
+    doc.setFontSize(9);
     doc.text(formatOrdemDisplay(numeroOrdem), metaX, metaY, { align: 'right' });
-    metaY += 4;
+    metaY += 4.5;
   }
 
   doc.setTextColor(...TEXT_DARK);
@@ -432,18 +432,17 @@ function drawTopRow(doc, service, numeroOrdem = null) {
 }
 
 function drawTitleBar(doc, y, title) {
-  const barH = 14;
-  doc.setFillColor(...CORPORATE_BLUE);
-  doc.rect(MARGIN, y, CONTENT_W, barH, 'F');
-
-  doc.setTextColor(255, 255, 255);
   pdfSetFont(doc, 'bold');
   doc.setFontSize(10);
-  const lines = pdfSplitText(doc,title, CONTENT_W - 12);
-  const textY = y + (barH / 2) - ((lines.length - 1) * 2.2) / 2 + 1.5;
-  doc.text(lines, MARGIN + 6, textY);
-
-  return y + barH + 8;
+  doc.setTextColor(...TEXT_DARK);
+  const lines = pdfSplitText(doc, title, CONTENT_W);
+  doc.text(lines, MARGIN, y + 4);
+  const textH = lines.length * 4.5;
+  y += textH + 3;
+  doc.setDrawColor(...SLATE_LINE);
+  doc.setLineWidth(0.35);
+  doc.line(MARGIN, y, MARGIN + CONTENT_W, y);
+  return y + 7;
 }
 
 function drawMetadataGrid(doc, y, meta) {

@@ -1,5 +1,5 @@
 /**
- * Manusilva PWA — Mock Database (8 relatórios oficiais MS. 061)
+ * Manusilva PWA — Mock Database (8 relatórios oficiais)
  */
 
 import { INSPECAO_DL50_CATEGORIES, INSPECAO_DL50_LEGAL_OPTIONS } from './inspecao-dl50-categories.js';
@@ -21,12 +21,11 @@ export const COMPANY = {
   website: 'www.manusilva.pt',
 };
 
-/** Template oficial MS. 061 */
+/** Template oficial */
 export const FOLHA_INTERVENCAO_AVARIAS = {
   id: 'folha_intervencao_avarias',
   title: 'Folha de Intervenção de Avarias',
   label: 'Folha de Intervenção de Avarias',
-  code: 'MS. 061',
   icon: '🔧',
   companyName: 'ManuSilva Manutenção Industrial, Unipessoal, Lda',
   companyAddress: 'Rua São Mamede, Lote Nº1 - Fração D, 4760-725 Ribeirão VNF',
@@ -58,7 +57,6 @@ export const MANUTENCAO_BATERIAS_GRANDES = {
   id: 'manutencao_baterias_grandes',
   title: 'Formulário Manutenção Baterias Clientes Grandes',
   label: 'Formulário Manutenção Baterias Clientes Grandes',
-  code: 'MS. 061',
   icon: '🏭',
   companyName: 'ManuSilva Manutenção Industrial, Unipessoal, Lda',
   companyAddress: 'Rua São Mamede, Lote Nº1 - Fração D, 4760-725 Ribeirão VNF',
@@ -86,7 +84,6 @@ export const MANUTENCAO_CORRETIVA_MAQUINAS = {
   id: 'manutencao_corretiva_maquinas',
   title: 'Folha Manutenção Corretiva de Máquinas',
   label: 'Folha Manutenção Corretiva de Máquinas',
-  code: 'MS. 061',
   icon: '⚙️',
   companyName: 'ManuSilva Manutenção Industrial, Unipessoal, Lda',
   companyAddress: 'Rua São Mamede, Lote Nº1 - Fração D, 4760-725 Ribeirão VNF',
@@ -122,7 +119,6 @@ export const MANUTENCAO_PREVENTIVA_BATERIA = {
   id: 'manutencao_preventiva_bateria',
   title: 'Relatório Manutenção Preventiva Bateria',
   label: 'Relatório Manutenção Preventiva Bateria',
-  code: 'MS. 061',
   icon: '🔋',
   companyName: 'ManuSilva Manutenção Industrial, Unipessoal, Lda',
   companyAddress: 'Rua São Mamede, Lote Nº1 - Fração D, 4760-725 Ribeirão VNF',
@@ -217,7 +213,6 @@ export const INSPECAO_DL50_2005 = {
   id: 'inspecao_dl50_2005',
   title: 'Inspeção da Máquina Decreto-Lei 50-2005',
   label: 'Inspeção da Máquina Decreto-Lei 50-2005',
-  code: 'MS. 061',
   icon: '📋',
   companyName: 'ManuSilva Manutenção Industrial, Unipessoal, Lda',
   companyAddress: 'Rua São Mamede, Lote Nº1 - Fração D, 4760-725 Ribeirão VNF',
@@ -255,7 +250,6 @@ export const MANUTENCAO_PREVENTIVA_EMPILHADORES = {
   id: 'manutencao_preventiva_empilhadores',
   title: 'Relatório Manutenção Preventiva Empilhadores',
   label: 'Relatório Manutenção Preventiva Empilhadores',
-  code: 'MS. 061',
   icon: '🛡️',
   companyName: 'ManuSilva Manutenção Industrial, Unipessoal, Lda',
   companyAddress: 'Rua São Mamede, Lote Nº1 - Fração D, 4760-725 Ribeirão VNF',
@@ -396,7 +390,6 @@ export const REPARACAO_CARREGADOR = {
   id: 'reparacao_carregador',
   title: 'Relatório Reparação Carregador',
   label: 'Relatório Reparação Carregador',
-  code: 'MS. 061',
   icon: '⚡',
   companyName: 'ManuSilva Manutenção Industrial, Unipessoal, Lda',
   companyAddress: 'Rua São Mamede, Lote Nº1 - Fração D, 4760-725 Ribeirão VNF',
@@ -452,7 +445,6 @@ export const REPARACAO_AVARIAS_BATERIA = {
   id: 'reparacao_avarias_bateria',
   title: 'Relatório Reparação Avarias Bateria',
   label: 'Relatório Reparação Avarias Bateria',
-  code: 'MS. 061',
   icon: '🔋',
   companyName: 'ManuSilva Manutenção Industrial, Unipessoal, Lda',
   companyAddress: 'Rua São Mamede, Lote Nº1 - Fração D, 4760-725 Ribeirão VNF',
@@ -489,7 +481,7 @@ export const REPARACAO_AVARIAS_BATERIA = {
   ],
 };
 
-/** 8 templates oficiais MS. 061 — suite completa ManuSilva */
+/** 8 templates oficiais — suite completa ManuSilva */
 export const reportTemplates = [
   FOLHA_INTERVENCAO_AVARIAS,
   MANUTENCAO_BATERIAS_GRANDES,
@@ -547,15 +539,15 @@ export const DEMO_CLIENT_FORKLIFTS = {
         serial: 'FL-2021-0045',
         model: 'Toyota 8FBMT25',
         history: [
-          { date: '2025-01-10', service: 'Manutenção preventiva bateria (MS. 061)', type: 'manutencao_preventiva_bateria' },
-          { date: '2024-11-05', service: 'Inspeção Decreto-Lei 50/2005 (MS. 061)', type: 'inspecao_dl50_2005' },
+          { date: '2025-01-10', service: 'Manutenção preventiva bateria', type: 'manutencao_preventiva_bateria' },
+          { date: '2024-11-05', service: 'Inspeção Decreto-Lei 50/2005', type: 'inspecao_dl50_2005' },
         ],
       },
       {
         serial: 'FL-2019-0112',
         model: 'Linde E25',
         history: [
-          { date: '2024-12-18', service: 'Reparação carregador (MS. 061)', type: 'reparacao_carregador' },
+          { date: '2024-12-18', service: 'Reparação carregador', type: 'reparacao_carregador' },
         ],
       },
     ],
@@ -568,8 +560,8 @@ export const DEMO_CLIENT_FORKLIFTS = {
         serial: 'FL-2020-0078',
         model: 'Hyster H2.5FT',
         history: [
-          { date: '2025-02-14', service: 'Folha de Intervenção de Avarias (MS. 061)', type: 'folha_intervencao_avarias' },
-          { date: '2024-10-01', service: 'Manutenção corretiva de máquinas (MS. 061)', type: 'manutencao_corretiva_maquinas' },
+          { date: '2025-02-14', service: 'Folha de Intervenção de Avarias', type: 'folha_intervencao_avarias' },
+          { date: '2024-10-01', service: 'Manutenção corretiva de máquinas', type: 'manutencao_corretiva_maquinas' },
         ],
       },
     ],
@@ -582,21 +574,21 @@ export const DEMO_CLIENT_FORKLIFTS = {
         serial: 'FL-2022-0033',
         model: 'Jungheinrich EFG 320',
         history: [
-          { date: '2025-03-01', service: 'Manutenção preventiva empilhadores (MS. 061)', type: 'manutencao_preventiva_empilhadores' },
+          { date: '2025-03-01', service: 'Manutenção preventiva empilhadores', type: 'manutencao_preventiva_empilhadores' },
         ],
       },
       {
         serial: 'FL-2018-0099',
         model: 'Still RX20-16',
         history: [
-          { date: '2024-09-15', service: 'Reparação avarias bateria (MS. 061)', type: 'reparacao_avarias_bateria' },
+          { date: '2024-09-15', service: 'Reparação avarias bateria', type: 'reparacao_avarias_bateria' },
         ],
       },
       {
         serial: 'FL-2023-0017',
         model: 'Crown SC 5245-40',
         history: [
-          { date: '2025-04-01', service: 'Manutenção baterias clientes grandes (MS. 061)', type: 'manutencao_baterias_grandes' },
+          { date: '2025-04-01', service: 'Manutenção baterias clientes grandes', type: 'manutencao_baterias_grandes' },
         ],
       },
     ],
@@ -635,7 +627,7 @@ export function mapClientToLegacy(record) {
 
 export const CLIENTS = [];
 
-/** Tipos de serviço disponíveis (8 relatórios oficiais MS. 061) */
+/** Tipos de serviço disponíveis (8 relatórios oficiais) */
 export const SERVICE_TYPES = [...reportTemplates];
 
 export const JOB_STATUSES = {
