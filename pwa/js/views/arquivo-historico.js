@@ -12,7 +12,7 @@ let selectedClientId = null;
 
 function renderEmptyState() {
   return `
-    <div class="glass-card" style="padding:1rem">
+    <div class="rh-section client-history-empty">
       <p class="text-muted" style="margin:0">
         Pesquise uma empresa para abrir o histórico de relatórios submetidos.
       </p>
@@ -95,7 +95,7 @@ async function paint() {
 
   mountRoot.innerHTML = `
     <div class="dashboard-panel-inner">
-      <div class="clients-history-nav glass-card" data-clients-history-nav>
+      <div class="clients-history-nav rh-section" data-clients-history-nav>
         <p class="clients-history-nav-text text-muted">
           Para consultar ou editar dados cadastrais (NIF, morada, contacto), use a lista em
           <a href="#clients" class="clients-history-nav-link" data-goto-clients-list>Clientes / Empresas</a>.

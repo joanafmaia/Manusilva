@@ -12,7 +12,7 @@ let selectedClientId = null;
 
 function renderEmptyState() {
   return `
-    <div class="glass-card" style="padding:1rem">
+    <div class="rh-section client-history-empty">
       <p class="text-muted" style="margin:0">
         Pesquise uma empresa para abrir o histórico de relatórios submetidos.
       </p>

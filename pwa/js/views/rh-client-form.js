@@ -6,7 +6,7 @@ import { addClient } from '../app.js';
 
 export function renderClientFormSection() {
   return `
-    <section class="rh-register glass-card" data-rh-client-form aria-labelledby="rh-client-form-title">
+    <section class="rh-register rh-section" data-rh-client-form aria-labelledby="rh-client-form-title">
       <h3 id="rh-client-form-title" class="dashboard-section-title">Novo cliente / empresa</h3>
       <p class="rh-register-hint text-muted">O registo fica disponível de imediato na pesquisa e ao atribuir trabalho.</p>
       <form id="rh-client-form" class="rh-register-form" novalidate>

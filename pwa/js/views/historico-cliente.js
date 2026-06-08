@@ -181,7 +181,7 @@ function renderToolbar(rows) {
   const filtered = filterHistoryRows(rows);
 
   return `
-    <div class="client-history-toolbar glass-card" data-history-toolbar>
+    <div class="client-history-toolbar rh-section" data-history-toolbar>
       <div class="client-history-toolbar-search">
         <label class="form-label" for="client-history-search">Pesquisa rápida</label>
         <input type="search" id="client-history-search" class="form-input client-history-search-input"
@@ -218,7 +218,7 @@ function renderHistoryCard(row) {
   const { report } = row;
 
   return `
-    <article class="client-history-card glass-card" data-report-id="${escapeHtml(report.id)}">
+    <article class="client-history-card" data-report-id="${escapeHtml(report.id)}">
       <button type="button" class="client-history-card-body" data-open-report="${escapeHtml(report.id)}">
         <div class="client-history-card-top">
           <span class="client-history-ordem">${escapeHtml(row.ordem)}</span>
@@ -341,7 +341,7 @@ export const HistoricoClienteView = {
           <h2 class="client-history-title ms-page-title">Histórico do Cliente</h2>
         </header>
 
-        <section class="client-history-company glass-card">
+        <section class="client-history-company rh-section">
           <div class="client-history-company-head">
             <h3 class="dashboard-section-title">Dados da empresa</h3>
             <button type="button" class="btn-secondary btn-sm" data-client-ficha="${escapeHtml(clientId)}">

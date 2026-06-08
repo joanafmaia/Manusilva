@@ -6,7 +6,7 @@ import { addTechnician, escapeHtml } from '../app.js';
 
 export function renderTechnicianFormSection() {
   return `
-    <section class="rh-register glass-card" data-rh-tech-form aria-labelledby="rh-tech-form-title">
+    <section class="rh-register rh-section" data-rh-tech-form aria-labelledby="rh-tech-form-title">
       <h3 id="rh-tech-form-title" class="dashboard-section-title">Novo técnico</h3>
       <p class="rh-register-hint text-muted">
         O técnico passa a aparecer no calendário, nas atribuições e no ecrã de login (perfil Técnico).
@@ -54,7 +54,7 @@ function renderTechnicianCards(technicians) {
   return technicians
     .map(
       (t) => `
-    <div class="employee-card glass-card" data-tech-id="${escapeHtml(t.id)}">
+    <div class="employee-card" data-tech-id="${escapeHtml(t.id)}">
       <div class="employee-avatar" style="background:${t.color}20;color:${t.color}">${escapeHtml(
         technicianInitials(t.name),
       )}</div>

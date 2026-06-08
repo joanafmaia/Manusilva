@@ -66,7 +66,7 @@ function renderSearchOptions(items, activeIndex, searchMeta) {
 
 export function renderSearchSection() {
   return `
-    <section class="dashboard-search glass-card" data-dashboard-search aria-labelledby="dashboard-search-title">
+    <section class="dashboard-search rh-section" data-dashboard-search aria-labelledby="dashboard-search-title">
       <h3 id="dashboard-search-title" class="dashboard-section-title">Encontrar cliente</h3>
       <p class="dashboard-search-hint text-muted">
         Pesquisa por nome ou NIF. Escolha um resultado para abrir o histórico de relatórios da empresa.
@@ -155,7 +155,7 @@ export function renderClientDetail(clientRecord) {
     : '<p class="text-muted">Sem intervenções registadas para este cliente.</p>';
 
   return `
-    <article class="dashboard-client-detail glass-card">
+    <article class="dashboard-client-detail rh-section">
       <header class="dashboard-client-detail-header">
         <div>
           <h4>${escapeHtml(legacy.name || legacy.Nome)}</h4>

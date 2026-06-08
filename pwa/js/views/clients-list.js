@@ -18,7 +18,7 @@ function escapeAttr(str) {
 
 export function renderClientsListSection() {
   return `
-    <section class="clients-list-section glass-card" data-clients-list-section aria-labelledby="clients-list-title">
+    <section class="clients-list-section rh-section" data-clients-list-section aria-labelledby="clients-list-title">
       <h3 id="clients-list-title" class="dashboard-section-title">Lista de clientes</h3>
       <p class="text-muted clients-list-hint">
         Clique no nome para consultar a ficha cadastral (NIF, morada, contacto). Use «Histórico» para ver relatórios.
@@ -59,7 +59,7 @@ export function renderClientsListSection() {
 
 function renderClientCard(c) {
   return `
-    <article class="clients-list-card glass-card" role="listitem">
+    <article class="clients-list-card" role="listitem">
       <button type="button" class="clients-list-card-name" data-client-profile="${escapeAttr(c.id)}">
         ${escapeHtml(c.Nome)}
       </button>

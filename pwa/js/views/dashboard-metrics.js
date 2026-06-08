@@ -40,7 +40,7 @@ export function renderMetricsSection(metrics) {
   ];
 
   return `
-    <section class="dashboard-metrics glass-card" data-dashboard-metrics aria-labelledby="dashboard-metrics-title">
+    <section class="dashboard-metrics rh-section" data-dashboard-metrics aria-labelledby="dashboard-metrics-title">
       <h3 id="dashboard-metrics-title" class="dashboard-section-title">Métricas rápidas</h3>
       <div class="dashboard-metrics-grid">
         ${cards

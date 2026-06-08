@@ -3538,15 +3538,74 @@ body.dark-mode .signature-block {
 }
 
 .admin-form-shell {
-  max-width: 800px;
-  margin-left: auto;
-  margin-right: auto;
   width: 100%;
+  max-width: 100%;
+  margin: 0;
+  box-sizing: border-box;
 }
 
 #admin-tab-clientes .admin-panel,
 #admin-tab-funcionarios .admin-panel {
   width: 100%;
+  align-self: stretch;
+}
+
+#admin-tab-clientes,
+#admin-tab-funcionarios {
+  align-items: stretch;
+}
+
+/* RH — secção interna (evita cartão dentro de cartão) */
+.rh-section {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 1.25rem;
+  background: var(--ms-page-bg, #f8fafc);
+  border: 1px solid var(--ms-border-md, #e2e8f0);
+  border-radius: var(--ms-radius-lg, 0.5rem);
+}
+
+body.light-mode .admin-panel .rh-section,
+body.light-mode .rh-section {
+  background: var(--ms-page-bg, #f8fafc);
+  border-color: var(--ms-border-md, #e2e8f0);
+}
+
+body.dark-mode .admin-panel .rh-section {
+  background: var(--surface-2, rgba(15, 23, 42, 0.35));
+  border-color: var(--border-color);
+}
+
+.admin-panel .rh-section .form-input,
+.admin-panel .rh-section .form-select,
+.admin-panel .rh-section .client-combobox-input,
+.admin-panel .rh-register-form .form-input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.admin-panel .rh-register-form {
+  align-items: stretch;
+  width: 100%;
+}
+
+.admin-panel .rh-register-form .form-group {
+  width: 100%;
+  margin-bottom: 0;
+}
+
+.admin-panel .rh-register-submit {
+  width: 100%;
+  max-width: none;
+  margin-top: 0.5rem;
+}
+
+@media (min-width: 768px) {
+  .admin-panel .rh-register-submit {
+    width: auto;
+    min-width: 11rem;
+    align-self: flex-start;
+  }
 }
 
 #admin-tab-funcionarios .rh-employees-panel {
@@ -5167,6 +5226,8 @@ body.dark-mode .rh-card__btn--pdf {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  width: 100%;
+  align-items: stretch;
 }
 
 .dashboard-section-title {
@@ -5305,9 +5366,14 @@ body.dark-mode .rh-card__btn--pdf {
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
+  width: 100%;
 }
 
 .clients-list-section {
+  padding: 0;
+}
+
+.clients-list-section.rh-section {
   padding: 1.25rem;
 }
 
@@ -5398,6 +5464,10 @@ body.dark-mode .rh-card__btn--pdf {
   display: flex;
   flex-direction: column;
   gap: 0.65rem;
+  background: var(--ms-card-bg, #fff);
+  border: 1px solid var(--ms-border-md, #e2e8f0);
+  border-radius: var(--ms-radius-lg, 0.5rem);
+  box-shadow: none;
 }
 
 .clients-list-card-name {
@@ -5861,7 +5931,16 @@ body.dark-mode .client-ficha-machine {
 
 .clients-history-nav {
   padding: 0.85rem 1rem;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0;
+}
+
+.clients-history-nav.rh-section {
+  padding: 1rem 1.25rem;
+}
+
+.dashboard-search.rh-section,
+.dashboard-metrics.rh-section {
+  padding: 1.25rem;
 }
 
 .clients-history-nav-text {
@@ -5878,6 +5957,14 @@ body.dark-mode .client-ficha-machine {
 
 .clients-history-nav-link:hover {
   text-decoration: underline;
+}
+
+.client-history-empty {
+  margin: 0;
+}
+
+.client-history-empty .text-muted {
+  margin: 0;
 }
 
 .client-history-page {
@@ -5910,6 +5997,21 @@ body.dark-mode .client-ficha-machine {
 
 .client-history-company {
   padding: 1.25rem;
+}
+
+#client-history-app .client-history-company.rh-section,
+#client-history-app .client-history-toolbar.rh-section {
+  padding: 1.25rem;
+}
+
+#client-history-app .client-history-page {
+  width: 100%;
+  align-items: stretch;
+}
+
+#client-history-app .client-history-toolbar-filters .form-group {
+  margin-bottom: 0;
+  width: 100%;
 }
 
 .client-history-dl {
@@ -6590,6 +6692,10 @@ body.dark-mode .client-history-status--rejected {
 }
 
 .rh-register {
+  padding: 0;
+}
+
+.rh-register.rh-section {
   padding: 1.25rem;
 }
 
@@ -6601,8 +6707,9 @@ body.dark-mode .client-history-status--rejected {
 .rh-register-form {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: stretch;
   width: 100%;
+  gap: 0.85rem;
 }
 
 .rh-register-form .form-group,
@@ -6744,6 +6851,10 @@ details[open] .expand-icon { transform: rotate(90deg); }
   gap: 1rem;
   padding: 1rem;
   margin-bottom: 0.75rem;
+  background: var(--ms-card-bg, var(--surface-1));
+  border: 1px solid var(--ms-border-md, #e2e8f0);
+  border-radius: var(--ms-radius-lg, 0.5rem);
+  box-sizing: border-box;
 }
 
 .employee-avatar {
@@ -7429,12 +7540,17 @@ body:not(:has(.theme-toggle-btn:not(.theme-toggle-btn--inline))) .toast-containe
     padding-right: 1.25rem;
   }
 
-  #admin-tab-funcionarios .admin-form-shell,
-  #admin-tab-clientes .admin-form-shell {
-    max-width: none;
-    width: 100%;
-    margin-left: 0;
-    margin-right: 0;
+  #admin-tab-funcionarios .admin-panel-body,
+  #admin-tab-clientes .admin-panel-body {
+    padding: 1rem 1.25rem 1.5rem;
+  }
+
+  .clients-list-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .client-history-toolbar-filters {
+    grid-template-columns: 1fr 1fr;
   }
 
   #admin-tab-funcionarios .rh-employees-panel {
@@ -7822,7 +7938,8 @@ body.light-mode .admin-panel.glass-card,
 body.light-mode .dashboard-metric-card,
 body.light-mode .employee-card.glass-card,
 body.light-mode .client-card.glass-card,
-body.light-mode .rh-register.glass-card,
+body.light-mode .rh-register.rh-section,
+body.light-mode .rh-section,
 body.light-mode .form-section-card,
 body.light-mode .form-panel--premium,
 body.tech-dashboard-page:not(.dark-mode) .job-card,
