@@ -631,6 +631,40 @@ body.light-mode .glass-card-inner {
 .connection-badge.offline { color: var(--warning); background: rgba(245, 158, 11, 0.12); }
 
 /* Toggle Switch */
+/* Barra de sincronização — relatórios pendentes no tablet */
+.offline-sync-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0 0 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--ms-radius-lg, 0.5rem);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  background: rgba(245, 158, 11, 0.12);
+  color: var(--text-main);
+}
+
+.offline-sync-bar__text {
+  margin: 0;
+  flex: 1;
+  min-width: 12rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.offline-sync-bar__btn {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+body.dark-mode .offline-sync-bar {
+  background: rgba(245, 158, 11, 0.14);
+  border-color: rgba(245, 158, 11, 0.4);
+}
+
 .offline-control {
   display: flex;
   align-items: center;

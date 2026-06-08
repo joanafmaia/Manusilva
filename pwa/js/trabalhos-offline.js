@@ -2,14 +2,18 @@
  * Contingência offline — fila local `trabalhos_pendentes` e sincronização com Supabase
  */
 
-import { upsertRelatorio, ensureReportsLoaded } from './relatorios-db.js';
+import { upsertRelatorio, ensureReportsLoaded, mergeReportInCache } from './relatorios-db.js';
 import { patchTrabalho, patchTrabalhoStatus } from './trabalhos-db.js';
 import { isValidFotoUrl } from './job-fotos.js';
+import { uploadPendingFotosFromReport } from './foto-trabalho-storage.js';
 
 export const STORAGE_KEY = 'trabalhos_pendentes';
 
 export const MSG_SAVED_ON_DEVICE =
   'Relatório guardado no dispositivo. Será sincronizado automaticamente assim que tiver rede.';
+
+export const MSG_OFFLINE_SUBMIT =
+  'Sem ligação à internet. O seu relatório ficou guardado em segurança no tablet. Assim que tiver rede, clique em «Sincronizar Agora» no painel.';
 
 let syncInProgress = false;
 let listenerRegistered = false;
@@ -35,6 +39,12 @@ export function getTrabalhosPendentes() {
 
 function setTrabalhosPendentes(list) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+  notifyPendingChange();
+}
+
+function notifyPendingChange() {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent('trabalhos-pendentes-changed'));
 }
 
 /**
@@ -97,10 +107,12 @@ export function canSyncToServer() {
 }
 
 async function syncOnePendingItem(item) {
-  const report = item.report;
+  let report = item.report;
   if (!report) throw new Error('Item da fila sem dados de relatório.');
 
+  report = await uploadPendingFotosFromReport(report);
   const saved = await upsertRelatorio(report);
+  mergeReportInCache(saved || report);
 
   if (saved?.jobId) {
     const fotoPatch = {};

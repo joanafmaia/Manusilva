@@ -680,6 +680,16 @@ export function isOffline() {
   return getDB().settings?.offline ?? false;
 }
 
+/** Rede do dispositivo (navigator.onLine). */
+export function isNetworkOnline() {
+  return typeof navigator === 'undefined' || navigator.onLine !== false;
+}
+
+/** Tablet pode sincronizar com Supabase (rede + modo manual não offline). */
+export function canReachServer() {
+  return isNetworkOnline() && !isOffline();
+}
+
 export function setOfflineMode(value) {
   updateDB((db) => {
     db.settings.offline = value;
@@ -754,16 +764,23 @@ export async function saveReportDraft(report, options = {}) {
     submittedAt: report.submittedAt || new Date().toISOString(),
   };
 
-  if (isOffline()) {
-    queueOfflineAction({ type: 'save_draft', report: draft });
+  const { saveLocalReportDraft } = await import('./report-local-storage.js');
+  const { mergeReportInCache } = await import('./relatorios-db.js');
+
+  saveLocalReportDraft(draft);
+  mergeReportInCache(draft);
+  window.dispatchEvent(new CustomEvent('db-updated'));
+
+  if (!canReachServer()) {
     if (!silent) {
-      showToast('Rascunho na fila offline. Sincroniza quando voltar online.', 'warning');
+      showToast('Rascunho guardado neste dispositivo.', 'info', 3500);
     }
     return draft;
   }
 
   try {
     const saved = await upsertRelatorio(draft);
+    if (saved) mergeReportInCache(saved);
     window.dispatchEvent(new CustomEvent('db-updated'));
     if (!silent) {
       showToast(
@@ -772,11 +789,17 @@ export async function saveReportDraft(report, options = {}) {
         5000,
       );
     }
-    return saved;
+    return saved || draft;
   } catch (err) {
     console.error('[ManuSilva] saveReportDraft:', err);
-    if (!silent) showToast(formatRelatoriosError(err), 'error', 9000);
-    return null;
+    if (!silent) {
+      showToast(
+        'Rascunho guardado neste dispositivo. Sincroniza quando tiver rede.',
+        'warning',
+        5000,
+      );
+    }
+    return draft;
   }
 }
 
@@ -791,8 +814,10 @@ export async function submitReport(report, options = {}) {
     sincronizarTrabalhosOffline,
     hasTrabalhoPendente,
     canSyncToServer,
-    MSG_SAVED_ON_DEVICE,
+    MSG_OFFLINE_SUBMIT,
   } = await import('./trabalhos-offline.js');
+  const { removeLocalReportDraft } = await import('./report-local-storage.js');
+  const { mergeReportInCache } = await import('./relatorios-db.js');
 
   const final = {
     ...report,
@@ -816,8 +841,13 @@ export async function submitReport(report, options = {}) {
     return { queued: false };
   }
 
+  mergeReportInCache(final);
+  removeLocalReportDraft(final.jobId);
+
   if (!canSyncToServer()) {
-    showToast(MSG_SAVED_ON_DEVICE, 'warning', 8000);
+    showToast(MSG_OFFLINE_SUBMIT, 'warning', 10000);
+    window.dispatchEvent(new CustomEvent('db-updated'));
+    window.dispatchEvent(new CustomEvent('trabalhos-pendentes-changed'));
     return { queued: true, pendingId };
   }
 
@@ -835,20 +865,13 @@ export async function submitReport(report, options = {}) {
       return { queued: false, updated: isCorrection };
     }
 
-    if (!navigator.onLine) {
-      showToast(MSG_SAVED_ON_DEVICE, 'warning', 8000);
-      return { queued: true, pendingId };
-    }
-
-    showToast(MSG_SAVED_ON_DEVICE, 'warning', 8000);
+    showToast(MSG_OFFLINE_SUBMIT, 'warning', 10000);
+    window.dispatchEvent(new CustomEvent('db-updated'));
     return { queued: true, pendingId };
   } catch (err) {
     console.error('[ManuSilva] submitReport:', err);
-    if (!navigator.onLine) {
-      showToast(MSG_SAVED_ON_DEVICE, 'warning', 8000);
-      return { queued: true, pendingId };
-    }
-    showToast(MSG_SAVED_ON_DEVICE, 'warning', 8000);
+    showToast(MSG_OFFLINE_SUBMIT, 'warning', 10000);
+    window.dispatchEvent(new CustomEvent('db-updated'));
     return { queued: true, pendingId };
   }
 }

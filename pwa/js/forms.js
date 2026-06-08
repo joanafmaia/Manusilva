@@ -40,7 +40,11 @@ import {
   syncJobFotosAntesDepois,
   ensureFotoUrlsOnTrabalho,
   formatFotoStorageError,
+  attachOfflineFotosToReportData,
+  readFileAsDataUrl,
 } from './foto-trabalho-storage.js';
+import { resolveReportForJob } from './report-local-storage.js';
+import { canReachServer } from './app.js';
 
 let signaturePads = {};
 /** @type {{ flush: Function, destroy: Function, markDirty: Function } | null} */
@@ -51,23 +55,31 @@ let trabalhoIdEmEdicao = null;
 /** ID do relatório Supabase em correção. */
 let relatorioIdEmEdicao = null;
 
-/** @type {{ file: File|null, previewUrl: string|null, remoteUrl: string|null, cleared: boolean }} */
-let fotoAntesState = { file: null, previewUrl: null, remoteUrl: null, cleared: false };
-/** @type {{ file: File|null, previewUrl: string|null, remoteUrl: string|null, cleared: boolean }} */
-let fotoDepoisState = { file: null, previewUrl: null, remoteUrl: null, cleared: false };
+/** @type {{ file: File|null, previewUrl: string|null, remoteUrl: string|null, base64: string|null, cleared: boolean }} */
+let fotoAntesState = { file: null, previewUrl: null, remoteUrl: null, base64: null, cleared: false };
+/** @type {{ file: File|null, previewUrl: string|null, remoteUrl: string|null, base64: string|null, cleared: boolean }} */
+let fotoDepoisState = { file: null, previewUrl: null, remoteUrl: null, base64: null, cleared: false };
 
 function resetFotoState(job, existingReport) {
   const data = existingReport?.data || {};
+  const antesStored =
+    data.fotoAntesBase64 || data.fotoAntesUrl || job?.fotoAntes || null;
+  const depoisStored =
+    data.fotoDepoisBase64 || data.fotoDepoisUrl || job?.fotoDepois || null;
+  const antesBase64 = data.fotoAntesBase64 || (String(antesStored || '').startsWith('data:') ? antesStored : null);
+  const depoisBase64 = data.fotoDepoisBase64 || (String(depoisStored || '').startsWith('data:') ? depoisStored : null);
   fotoAntesState = {
     file: null,
     previewUrl: null,
-    remoteUrl: job?.fotoAntes || data.fotoAntesUrl || null,
+    remoteUrl: antesBase64 || antesStored,
+    base64: antesBase64,
     cleared: false,
   };
   fotoDepoisState = {
     file: null,
     previewUrl: null,
-    remoteUrl: job?.fotoDepois || data.fotoDepoisUrl || null,
+    remoteUrl: depoisBase64 || depoisStored,
+    base64: depoisBase64,
     cleared: false,
   };
 }
@@ -83,7 +95,18 @@ function isEdicaoPendenteAtiva(jobId) {
 
 function fotoDisplayUrl(state) {
   if (state.cleared) return null;
-  return state.previewUrl || state.remoteUrl || null;
+  return state.previewUrl || state.base64 || state.remoteUrl || null;
+}
+
+function fotoPersistPayload(state) {
+  if (state.cleared) {
+    return { url: null, base64: null };
+  }
+  const base64 = state.base64 || (String(state.remoteUrl || '').startsWith('data:') ? state.remoteUrl : null);
+  return {
+    url: state.previewUrl || base64 || state.remoteUrl || null,
+    base64,
+  };
 }
 
 /**
@@ -99,7 +122,13 @@ export function openJobForm(jobId, options = {}) {
   const tech =
     getTechnician(session?.technicianId) || getPrimaryTechnicianForJob(job);
   const service = getServiceType(job.serviceType);
-  const existingReport = getReportForJob(jobId);
+  const serverReport = getReportForJob(jobId);
+  const editPendingOpt =
+    options.editPending === true ||
+    (options.editPending !== false && serverReport?.status === 'pending_review');
+  const existingReport = resolveReportForJob(jobId, serverReport, {
+    editPending: editPendingOpt,
+  });
 
   if (existingReport?.status === 'approved') {
     showToast('Este relatório já foi aprovado pelo RH e não pode ser editado.', 'warning', 5000);
@@ -131,8 +160,8 @@ export function openJobForm(jobId, options = {}) {
 
   if (trabalhoIdEmEdicao) {
     showToast('Pode editar o relatório enquanto aguarda aprovação do RH.', 'info', 4000);
-  } else if (existingReport?.status === 'draft') {
-    showToast('Rascunho anterior recuperado automaticamente.', 'info', 3500);
+  } else if (existingReport?.status === 'draft' || existingReport?._localSavedAt) {
+    showToast('Rascunho guardado neste dispositivo recuperado automaticamente.', 'info', 4000);
   }
 }
 
@@ -329,8 +358,16 @@ function buildReportFromForm(overlay, job, existingReport, signaturePads, report
         technicianData: signaturePads.technician?.toDataURL?.() || null,
         clientData: signaturePads.client?.toDataURL?.() || null,
       },
-      fotoAntesUrl: fotoDisplayUrl(fotoAntesState),
-      fotoDepoisUrl: fotoDisplayUrl(fotoDepoisState),
+      ...(() => {
+        const antes = fotoPersistPayload(fotoAntesState);
+        const depois = fotoPersistPayload(fotoDepoisState);
+        return {
+          fotoAntesUrl: antes.url,
+          fotoAntesBase64: antes.base64,
+          fotoDepoisUrl: depois.url,
+          fotoDepoisBase64: depois.base64,
+        };
+      })(),
     },
     rejectionNote: null,
   };
@@ -352,7 +389,7 @@ function bindFotoInputs(overlay) {
     const input = overlay.querySelector(`#foto-${which}-input`);
     const state = which === 'antes' ? fotoAntesState : fotoDepoisState;
 
-    input?.addEventListener('change', () => {
+    input?.addEventListener('change', async () => {
       const file = input.files?.[0];
       if (!file) return;
       if (!file.type.startsWith('image/')) {
@@ -366,8 +403,15 @@ function bindFotoInputs(overlay) {
       state.file = file;
       state.previewUrl = URL.createObjectURL(file);
       state.cleared = false;
+      try {
+        state.base64 = await readFileAsDataUrl(file);
+      } catch (err) {
+        console.error('[Form] Foto base64:', err);
+        state.base64 = null;
+      }
       updateFotoPreview(overlay, which);
       formAutosave?.markDirty();
+      formAutosave?.flush();
     });
   };
 
@@ -383,11 +427,13 @@ function bindFotoInputs(overlay) {
       }
       state.file = null;
       state.previewUrl = null;
+      state.base64 = null;
       state.cleared = true;
       const input = overlay.querySelector(`#foto-${which}-input`);
       if (input) input.value = '';
       updateFotoPreview(overlay, which);
       formAutosave?.markDirty();
+      formAutosave?.flush();
     });
   });
 }
@@ -496,10 +542,24 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport) {
   overlay.querySelector('#btn-save-draft')?.addEventListener('click', async () => {
     formAutosave?.flush();
     try {
+      let report = buildReportFromForm(overlay, job, existingReport, signaturePads, draftReportId);
+
+      if (!canReachServer()) {
+        report.data = await attachOfflineFotosToReportData(report.data, {
+          antesFile: fotoAntesState.file,
+          depoisFile: fotoDepoisState.file,
+          fotoAntesUrl: fotoDisplayUrl(fotoAntesState),
+          fotoDepoisUrl: fotoDisplayUrl(fotoDepoisState),
+          clearAntes: fotoAntesState.cleared,
+          clearDepois: fotoDepoisState.cleared,
+        });
+        await saveReportDraft(report);
+        return;
+      }
+
       const fotoResult = await persistJobFotos(job.id);
       updateFotoPreview(overlay, 'antes');
       updateFotoPreview(overlay, 'depois');
-      const report = buildReportFromForm(overlay, job, existingReport, signaturePads, draftReportId);
       report.data.fotoAntesUrl = fotoResult.fotoAntes || report.data.fotoAntesUrl || null;
       report.data.fotoDepoisUrl = fotoResult.fotoDepois || report.data.fotoDepoisUrl || null;
       await ensureFotoUrlsOnTrabalho(job.id, report.data.fotoAntesUrl, report.data.fotoDepoisUrl);
@@ -534,30 +594,67 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport) {
       return;
     }
 
+    formAutosave?.flush();
     formAutosave?.destroy();
     formAutosave = null;
 
+    const submitBtn = overlay.querySelector('#btn-submit-report');
+    if (submitBtn) submitBtn.disabled = true;
+
     try {
+      let report = buildReportFromForm(overlay, job, existingReport, signaturePads, draftReportId);
+      if (relatorioIdEmEdicao) report.id = relatorioIdEmEdicao;
+      else if (existingReport?.id) report.id = existingReport.id;
+
+      const isCorrection = isEdicaoPendenteAtiva(job.id);
+      const online = canReachServer();
+
+      if (!online) {
+        report.data = await attachOfflineFotosToReportData(report.data, {
+          antesFile: fotoAntesState.file,
+          depoisFile: fotoDepoisState.file,
+          fotoAntesUrl: fotoDisplayUrl(fotoAntesState),
+          fotoDepoisUrl: fotoDisplayUrl(fotoDepoisState),
+          clearAntes: fotoAntesState.cleared,
+          clearDepois: fotoDepoisState.cleared,
+        });
+        const result = await submitReport(report, { isCorrection });
+        if (result?.queued) {
+          clearEdicaoState();
+          closeForm(overlay);
+          window.dispatchEvent(new CustomEvent('jobs-updated'));
+          window.dispatchEvent(new CustomEvent('db-updated'));
+          window.dispatchEvent(new CustomEvent('trabalhos-pendentes-changed'));
+        }
+        return;
+      }
+
       const fotoResult = await persistJobFotos(job.id);
       updateFotoPreview(overlay, 'antes');
       updateFotoPreview(overlay, 'depois');
-      const report = buildReportFromForm(overlay, job, existingReport, signaturePads, draftReportId);
-      if (relatorioIdEmEdicao) report.id = relatorioIdEmEdicao;
-      else if (existingReport?.id) report.id = existingReport.id;
       report.data.fotoAntesUrl =
         fotoResult.fotoAntes || report.data.fotoAntesUrl || fotoAntesState.remoteUrl || null;
       report.data.fotoDepoisUrl =
         fotoResult.fotoDepois || report.data.fotoDepoisUrl || fotoDepoisState.remoteUrl || null;
       await ensureFotoUrlsOnTrabalho(job.id, report.data.fotoAntesUrl, report.data.fotoDepoisUrl);
 
-      const isCorrection = isEdicaoPendenteAtiva(job.id);
-      await submitReport(report, { isCorrection });
-      clearEdicaoState();
-      closeForm(overlay);
-      window.dispatchEvent(new CustomEvent('jobs-updated'));
-      window.dispatchEvent(new CustomEvent('db-updated'));
+      const result = await submitReport(report, { isCorrection });
+      if (result && !result.queued) {
+        clearEdicaoState();
+        closeForm(overlay);
+        window.dispatchEvent(new CustomEvent('jobs-updated'));
+        window.dispatchEvent(new CustomEvent('db-updated'));
+      } else if (result?.queued) {
+        clearEdicaoState();
+        closeForm(overlay);
+        window.dispatchEvent(new CustomEvent('jobs-updated'));
+        window.dispatchEvent(new CustomEvent('db-updated'));
+        window.dispatchEvent(new CustomEvent('trabalhos-pendentes-changed'));
+      }
     } catch {
       /* toast já mostrado */
+    } finally {
+      if (submitBtn) submitBtn.disabled = false;
     }
   });
 }

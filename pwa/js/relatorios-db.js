@@ -137,6 +137,11 @@ function upsertCacheEntry(report) {
   else reportsCache.unshift(report);
 }
 
+/** Atualiza cache em memória (ex.: rascunho local antes de sincronizar com Supabase). */
+export function mergeReportInCache(report) {
+  upsertCacheEntry(report);
+}
+
 /** Atualiza cache local a partir de um evento Realtime (INSERT/UPDATE) */
 export function mergeReportFromRealtime(row) {
   const report = mapRowToReport(row);

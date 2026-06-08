@@ -11,6 +11,8 @@ import {
   getServiceType,
   getTechnician,
   isOffline,
+  isNetworkOnline,
+  canReachServer,
   setOfflineMode,
   warmOperacoes,
   statusBadge,
@@ -89,12 +91,18 @@ export async function initTechDashboard() {
   initLogoutButton();
   renderHeader();
   renderOfflineToggle();
+  renderOfflineSyncBar();
+
+  const { hydrateLocalReportsIntoCache } = await import('./report-local-storage.js');
+  await hydrateLocalReportsIntoCache();
 
   try {
     await warmOperacoes();
   } catch (err) {
     console.error('[Técnico] Dados Supabase:', err);
   }
+
+  await hydrateLocalReportsIntoCache();
 
   const { initTrabalhosOfflineSync, migrateLegacyOfflineQueue, sincronizarTrabalhosOffline } =
     await import('./trabalhos-offline.js');
@@ -103,6 +111,7 @@ export async function initTechDashboard() {
   migrateLegacyOfflineQueue(getDB, updateDB);
   initTrabalhosOfflineSync();
   sincronizarTrabalhosOffline().catch(console.error);
+  renderOfflineSyncBar();
 
   bindTechWeekNavigation();
   await refreshTechWeekCalendar();
@@ -113,9 +122,104 @@ export async function initTechDashboard() {
   });
   window.addEventListener('db-updated', () => {
     renderOfflineToggle();
+    renderOfflineSyncBar();
     weekJobsCacheKey = null;
     refreshTechWeekCalendar().catch(console.error);
   });
+
+  window.addEventListener('trabalhos-pendentes-changed', renderOfflineSyncBar);
+  window.addEventListener('online', () => {
+    renderOfflineToggle();
+    renderOfflineSyncBar();
+  });
+  window.addEventListener('offline', () => {
+    renderOfflineToggle();
+    renderOfflineSyncBar();
+  });
+
+  bindOfflineSyncButton();
+}
+
+let offlineSyncBound = false;
+
+function bindOfflineSyncButton() {
+  if (offlineSyncBound) return;
+  offlineSyncBound = true;
+
+  document.getElementById('offline-sync-btn')?.addEventListener('click', async () => {
+    const btn = document.getElementById('offline-sync-btn');
+    if (!btn || btn.disabled) return;
+
+    if (!canReachServer()) {
+      const { showToast } = await import('./app.js');
+      showToast('Sem ligação à internet. O relatório continua guardado neste dispositivo.', 'warning', 6000);
+      return;
+    }
+
+    btn.disabled = true;
+    const label = btn.textContent;
+    btn.textContent = 'A sincronizar…';
+
+    try {
+      const { sincronizarTrabalhosOffline } = await import('./trabalhos-offline.js');
+      const { synced, remaining } = await sincronizarTrabalhosOffline();
+      const { showToast } = await import('./app.js');
+
+      if (synced > 0) {
+        showToast(
+          synced === 1
+            ? '1 relatório enviado com sucesso.'
+            : `${synced} relatórios enviados com sucesso.`,
+          'success',
+          5000,
+        );
+        weekJobsCacheKey = null;
+        await refreshTechWeekCalendar();
+      } else if (remaining > 0) {
+        showToast('Não foi possível enviar agora. Tente novamente dentro de momentos.', 'warning', 6000);
+      } else {
+        showToast('Não há relatórios pendentes.', 'info', 3500);
+      }
+    } catch (err) {
+      console.error('[Técnico] Sincronização manual:', err);
+      const { showToast } = await import('./app.js');
+      showToast('Erro ao sincronizar. Os dados continuam guardados neste dispositivo.', 'error', 7000);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = label;
+      renderOfflineSyncBar();
+    }
+  });
+}
+
+function renderOfflineSyncBar() {
+  const bar = document.getElementById('offline-sync-bar');
+  const text = document.getElementById('offline-sync-text');
+  const btn = document.getElementById('offline-sync-btn');
+  if (!bar || !text) return;
+
+  import('./trabalhos-offline.js')
+    .then(({ countTrabalhosPendentes }) => {
+      const count = countTrabalhosPendentes();
+      if (!count) {
+        bar.hidden = true;
+        return;
+      }
+
+      bar.hidden = false;
+      text.textContent =
+        count === 1
+          ? '🔄 Tens 1 relatório pendente para enviar'
+          : `🔄 Tens ${count} relatórios pendentes para enviar`;
+
+      if (btn) {
+        btn.disabled = false;
+        btn.title = canReachServer()
+          ? 'Enviar relatórios guardados neste dispositivo'
+          : 'Sem rede — os relatórios permanecem guardados no tablet';
+      }
+    })
+    .catch(console.error);
 }
 
 function renderHeader() {
@@ -135,15 +239,28 @@ function renderOfflineToggle() {
   const badge = document.getElementById('connection-badge');
   if (!toggle) return;
 
-  const offline = isOffline();
-  toggle.checked = offline;
-  label.textContent = offline ? 'Offline' : 'Online';
-  badge.className = `connection-badge ${offline ? 'offline' : 'online'}`;
-  badge.textContent = offline ? '● Offline' : '● Online';
+  const manualOffline = isOffline();
+  const networkOffline = !isNetworkOnline();
+  const effectivelyOffline = manualOffline || networkOffline;
+
+  toggle.checked = manualOffline;
+  label.textContent = effectivelyOffline ? 'Offline' : 'Online';
+
+  if (badge) {
+    badge.className = `connection-badge ${effectivelyOffline ? 'offline' : 'online'}`;
+    if (networkOffline) {
+      badge.textContent = '● Sem rede';
+    } else if (manualOffline) {
+      badge.textContent = '● Offline (manual)';
+    } else {
+      badge.textContent = '● Online';
+    }
+  }
 
   toggle.onchange = () => {
     setOfflineMode(toggle.checked);
     renderOfflineToggle();
+    renderOfflineSyncBar();
   };
 }
 

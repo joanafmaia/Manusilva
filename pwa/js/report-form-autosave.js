@@ -4,7 +4,7 @@
 
 import { saveReportDraft } from './app.js';
 
-const DEBOUNCE_MS = 1500;
+const DEBOUNCE_MS = 150;
 
 /** Estados em que o formulário pode ser auto-gravado */
 export function canAutosaveReport(existingReport, job) {
@@ -52,8 +52,8 @@ export function initReportFormAutosave({ overlay, job, existingReport, buildRepo
       return;
     }
     statusEl.hidden = false;
-    if (state === 'pending') statusEl.textContent = 'A guardar alterações…';
-    else if (state === 'saved') statusEl.textContent = 'Guardado automaticamente';
+    if (state === 'pending') statusEl.textContent = 'A guardar neste dispositivo…';
+    else if (state === 'saved') statusEl.textContent = 'Guardado neste dispositivo';
     else if (state === 'error') statusEl.textContent = 'Erro ao guardar — tente «Guardar Rascunho»';
   };
 

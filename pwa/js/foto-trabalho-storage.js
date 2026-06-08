@@ -106,3 +106,80 @@ export async function ensureFotoUrlsOnTrabalho(jobId, fotoAntesUrl, fotoDepoisUr
     await patchTrabalho(jobId, patch);
   }
 }
+
+function isHttpFotoUrl(url) {
+  return /^https?:\/\//i.test(String(url || ''));
+}
+
+/** @param {File|Blob} file */
+export function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(reader.error || new Error('Leitura da imagem falhou.'));
+    reader.readAsDataURL(file);
+  });
+}
+
+function dataUrlToBlob(dataUrl) {
+  const match = String(dataUrl).match(/^data:([^;]+);base64,(.+)$/);
+  if (!match) throw new Error('Imagem em base64 inválida.');
+  const mime = match[1];
+  const binary = atob(match[2]);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return new Blob([bytes], { type: mime });
+}
+
+/**
+ * Embute fotos locais em base64 no payload do relatório (submissão offline).
+ */
+export async function attachOfflineFotosToReportData(data, opts = {}) {
+  const out = { ...(data || {}) };
+
+  if (opts.clearAntes) {
+    out.fotoAntesUrl = null;
+    out.fotoAntesBase64 = null;
+  } else if (opts.antesFile) {
+    out.fotoAntesBase64 = await readFileAsDataUrl(opts.antesFile);
+    out.fotoAntesUrl = out.fotoAntesBase64;
+  } else if (opts.fotoAntesUrl) {
+    out.fotoAntesUrl = opts.fotoAntesUrl;
+  }
+
+  if (opts.clearDepois) {
+    out.fotoDepoisUrl = null;
+    out.fotoDepoisBase64 = null;
+  } else if (opts.depoisFile) {
+    out.fotoDepoisBase64 = await readFileAsDataUrl(opts.depoisFile);
+    out.fotoDepoisUrl = out.fotoDepoisBase64;
+  } else if (opts.fotoDepoisUrl) {
+    out.fotoDepoisUrl = opts.fotoDepoisUrl;
+  }
+
+  return out;
+}
+
+/** Envia fotos guardadas em base64 quando a fila offline sincroniza. */
+export async function uploadPendingFotosFromReport(report) {
+  const data = { ...(report?.data || {}) };
+  let changed = false;
+
+  if (data.fotoAntesBase64 && !isHttpFotoUrl(data.fotoAntesUrl)) {
+    const blob = dataUrlToBlob(data.fotoAntesBase64);
+    const uploaded = await uploadFotoTrabalho(blob, `antes_${Date.now()}.jpg`);
+    data.fotoAntesUrl = uploaded.publicUrl;
+    delete data.fotoAntesBase64;
+    changed = true;
+  }
+
+  if (data.fotoDepoisBase64 && !isHttpFotoUrl(data.fotoDepoisUrl)) {
+    const blob = dataUrlToBlob(data.fotoDepoisBase64);
+    const uploaded = await uploadFotoTrabalho(blob, `depois_${Date.now()}.jpg`);
+    data.fotoDepoisUrl = uploaded.publicUrl;
+    delete data.fotoDepoisBase64;
+    changed = true;
+  }
+
+  return changed ? { ...report, data } : report;
+}
