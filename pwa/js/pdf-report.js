@@ -84,7 +84,67 @@ async function resolvePdfClientMeta(report, values = {}) {
   const cp = values.codigo_postal || prod?.['Código postal'] || '';
   const parts = [morada, cp, localidade].filter(Boolean);
   const addressLine = parts.length ? parts.join(', ') : dbClient?.address || '';
-  return { nome, nif, email, addressLine };
+  return { nome, nif, email, addressLine, localidade };
+}
+
+function buildPdfRenderContext(report, job, clientMeta, tech) {
+  return {
+    techName: tech?.name || '',
+    jobDate: job?.date || '',
+    localidade: clientMeta?.localidade || '',
+    clientMeta,
+    values: null,
+  };
+}
+
+function resolvePdfCellToken(val, ctx = {}) {
+  if (val === '$technician') return ctx.techName || '';
+  if (val === '$jobDate') return ctx.jobDate || '';
+  if (val === '$localidade') return ctx.localidade || '';
+  return val;
+}
+
+/** Célula/campo vazio → traço tipográfico */
+function pdfDisplayValue(val) {
+  if (val === undefined || val === null) return '—';
+  const t = cleanPdfText(val);
+  if (!t || t === 'null' || t === 'undefined') return '—';
+  return t;
+}
+
+/** Deslocação legível — localidade do cliente em vez de siglas/tokens internos */
+function formatPdfDeslocacao(raw, ctx = {}) {
+  const localidade =
+    cleanPdfText(ctx.values?.localidade) ||
+    cleanPdfText(ctx.clientMeta?.localidade) ||
+    cleanPdfText(ctx.localidade) ||
+    '';
+
+  let text = cleanPdfText(
+    resolvePdfCellToken(raw, {
+      techName: ctx.techName,
+      jobDate: ctx.jobDate,
+      localidade,
+    }),
+  );
+
+  if (!text || /^\$[a-z_]+$/i.test(text)) {
+    return localidade || '—';
+  }
+
+  if (/^[a-z][a-z0-9]*(_[a-z0-9]+)+$/.test(text) && !text.includes(' ')) {
+    return localidade || '—';
+  }
+
+  if (
+    localidade &&
+    /^[A-ZÁÉÍÓÚÃÕÂÊÔÀÇ]{2,10}$/.test(text) &&
+    text !== localidade.toUpperCase()
+  ) {
+    return localidade;
+  }
+
+  return text;
 }
 
 function getTechnician(id) {
@@ -245,10 +305,12 @@ export async function renderInterventionPDF(report) {
 
   let y = drawTopRow(doc, service, job?.numeroOrdem ?? null);
   y = drawTitleBar(doc, y, title);
-  const values = mapReportValuesForPdf(data, service);
-  const clientMeta = await resolvePdfClientMeta(report, values);
+  const clientMeta = await resolvePdfClientMeta(report, normalizeReportValues(data));
+  const pdfContext = buildPdfRenderContext(report, job, clientMeta, tech);
+  const values = mapReportValuesForPdf(data, service, pdfContext);
+  pdfContext.values = values;
   y = drawMetadataGrid(doc, y, {
-    dateTime: formatReportDateTime(report, job),
+    dateTime: formatReportDateTime(report, job, values),
     technician: tech?.name || '—',
     client: clientMeta.nome,
     clientSub: [clientMeta.nif && `NIF ${clientMeta.nif}`, clientMeta.email, clientMeta.addressLine]
@@ -256,7 +318,7 @@ export async function renderInterventionPDF(report) {
       .join(' · '),
   });
   y = drawDivider(doc, y);
-  y = drawReportFieldsSection(doc, y, service, values);
+  y = drawReportFieldsSection(doc, y, service, values, pdfContext);
   const fotoAntesUrl = data.fotoAntesUrl || job?.fotoAntes || null;
   const fotoDepoisUrl = data.fotoDepoisUrl || job?.fotoDepois || null;
   y = await drawAntesDepoisPolaroidSection(doc, y, fotoAntesUrl, fotoDepoisUrl);
@@ -573,7 +635,7 @@ function cleanPdfText(val) {
 }
 
 /** Normaliza um valor de campo conforme o tipo (evita arrays/strings JSON no PDF) */
-function coercePdfFieldValue(field, raw) {
+function coercePdfFieldValue(field, raw, pdfContext = null) {
   if (raw === undefined || raw === null) return raw;
 
   let value = parseJsonIfString(raw);
@@ -593,11 +655,18 @@ function coercePdfFieldValue(field, raw) {
 
   if (type === 'dynamic_table' || type === 'grandes_identificacao_baterias') {
     if (!Array.isArray(value)) return [];
+    const columnKeys = (field?.columns || getColumnLabels()).map((c) => columnKey(c));
     return value.map((row) => {
-      if (!row || typeof row !== 'object') return {};
+      if (!row || typeof row !== 'object') row = {};
       const out = {};
+      columnKeys.forEach((key) => {
+        const resolved = resolvePdfCellToken(row[key], pdfContext || {});
+        out[key] = pdfDisplayValue(resolved);
+      });
       Object.entries(row).forEach(([key, cell]) => {
-        out[key] = cleanPdfText(cell);
+        if (!(key in out)) {
+          out[key] = pdfDisplayValue(resolvePdfCellToken(cell, pdfContext || {}));
+        }
       });
       return out;
     });
@@ -620,7 +689,7 @@ function coercePdfFieldValue(field, raw) {
 }
 
 /** Aplica coerção a todos os campos do template antes de desenhar */
-function mapReportValuesForPdf(data, service) {
+function mapReportValuesForPdf(data, service, pdfContext = null) {
   const values = { ...normalizeReportValues(data) };
   (service?.fields || []).forEach((field) => {
     if (isMachineTrackingField(field)) {
@@ -628,12 +697,18 @@ function mapReportValuesForPdf(data, service) {
       return;
     }
     if (values[field.id] === undefined) return;
-    values[field.id] = coercePdfFieldValue(field, values[field.id]);
+    values[field.id] = coercePdfFieldValue(field, values[field.id], pdfContext);
   });
+  if (values.deslocacao !== undefined) {
+    values.deslocacao = formatPdfDeslocacao(values.deslocacao, {
+      ...pdfContext,
+      values,
+    });
+  }
   return values;
 }
 
-function drawReportFieldsSection(doc, y, service, values) {
+function drawReportFieldsSection(doc, y, service, values, pdfContext = null) {
   if (!service?.fields?.length) return y;
 
   y = drawSectionTitle(doc, y, 'Conteúdo do Relatório');
@@ -657,7 +732,14 @@ function drawReportFieldsSection(doc, y, service, values) {
     if (!isDl50 && isMachineTrackingField(field)) return;
     if (field.dependency && !isPdfDependencyMet(field, values)) return;
 
-    const value = coercePdfFieldValue(field, values[field.id]);
+    if (field.id === 'deslocacao') {
+      y = ensureSpace(doc, y, 14);
+      const desloc = formatPdfDeslocacao(values.deslocacao, { ...pdfContext, values });
+      y = drawKeyValueLine(doc, y, field.label, desloc, field.type);
+      return;
+    }
+
+    const value = coercePdfFieldValue(field, values[field.id], pdfContext);
     if (isPdfEmptyValue(field, value)) return;
 
     if (field.section && field.section !== currentSection) {
@@ -1001,7 +1083,7 @@ function drawDynamicTableBlock(doc, y, label, columns, rows) {
     doc.setFontSize(7.5);
     doc.setTextColor(...TEXT_DARK);
     colKeys.forEach((key, i) => {
-      const cellVal = pdfSplitText(doc, cleanPdfText(row[key]) || '—', colW - 4);
+      const cellVal = pdfSplitText(doc, pdfDisplayValue(row[key]), colW - 4);
       doc.text(cellVal[0] || '—', MARGIN + i * colW + 2, y + 5);
     });
     y += rowH;
@@ -1016,7 +1098,7 @@ function drawDynamicTableBlock(doc, y, label, columns, rows) {
 }
 
 function drawKeyValueLine(doc, y, label, value, fieldType) {
-  const text = cleanPdfText(value);
+  const text = pdfDisplayValue(value);
   const isConforme = /conforme|ok|bom|limpo|operacional|aprovada/i.test(text);
   const isNegative = /não|nao|danificado|substituir|rejeitada|inoperacional|aviso/i.test(text);
   let symbolKind = 'bullet';
@@ -1405,15 +1487,45 @@ function ensureSpace(doc, y, needed) {
   return y;
 }
 
-function formatReportDateTime(report, job) {
-  const submitted = report.submittedAt ? new Date(report.submittedAt) : new Date();
-  const dateStr = submitted.toLocaleDateString('pt-PT', {
-    day: '2-digit',
-    month: 'long',
-    year: 'numeric',
-  });
-  const timeStr = job?.time || submitted.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' });
-  return `${dateStr} · ${timeStr}`;
+function formatReportDateTime(report, job, values = {}) {
+  if (report?.submittedAt) {
+    const submitted = new Date(report.submittedAt);
+    if (!Number.isNaN(submitted.getTime())) {
+      const dateStr = submitted.toLocaleDateString('pt-PT', {
+        day: '2-digit',
+        month: 'long',
+        year: 'numeric',
+      });
+      const timeStr = submitted.toLocaleTimeString('pt-PT', {
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+      return `${dateStr} · ${timeStr}`;
+    }
+  }
+
+  const dateKey =
+    values.data_de_conclusao ||
+    values.concluido_testado_em ||
+    values.data_1 ||
+    values.data_rececao ||
+    job?.date;
+  let dateStr;
+  if (dateKey) {
+    const iso = String(dateKey).includes('T') ? dateKey : `${dateKey}T12:00:00`;
+    const d = new Date(iso);
+    dateStr = !Number.isNaN(d.getTime())
+      ? d.toLocaleDateString('pt-PT', { day: '2-digit', month: 'long', year: 'numeric' })
+      : String(dateKey);
+  } else {
+    dateStr = new Date().toLocaleDateString('pt-PT', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+    });
+  }
+
+  return `${dateStr} · —`;
 }
 
 function createPlaceholderImage(label) {
