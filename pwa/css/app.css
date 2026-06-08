@@ -3314,97 +3314,366 @@ body {
   flex: 1;
 }
 
+/* ─── Painel RH — cartões premium (SaaS) ─── */
 .rh-review-stack {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 0;
 }
 
 .rh-review-stack-card {
-  display: flex;
-  flex-direction: column;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
-  background: var(--bg-card);
-  padding: 0.85rem 0.9rem 1rem;
-  min-height: auto;
   flex-shrink: 0;
 }
 
 .rh-review-stack-card--highlight {
-  animation: report-row-highlight 2s ease;
+  animation: rh-card-highlight 2.2s ease;
 }
 
-.rh-review-stack-card .rh-review-panel-body {
-  max-height: none;
-  overflow: visible;
+@keyframes rh-card-highlight {
+  0%, 100% { box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05); }
+  35% { box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.28), 0 4px 14px rgba(0, 0, 0, 0.08); }
 }
 
-.rh-review-panel-content {
+.rh-card {
   display: flex;
   flex-direction: column;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
-.rh-review-panel-head {
-  margin-bottom: 0.75rem;
-  padding-bottom: 0.75rem;
-  border-bottom: 1px solid var(--border-subtle);
+.rh-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
 }
 
-.rh-review-panel-ordem {
-  display: block;
-  font-size: 0.75rem;
-  font-weight: 800;
-  color: var(--primary);
-  letter-spacing: 0.03em;
-  margin-bottom: 0.25rem;
+.rh-card__header {
+  margin-bottom: 4px;
 }
 
-.rh-review-panel-client {
-  margin: 0 0 0.35rem;
-  font-size: 1.05rem;
+.rh-card__header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.rh-card__ordem-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  font-size: 11px;
   font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #475569;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
   line-height: 1.3;
-  word-break: break-word;
 }
 
-.rh-review-panel-meta {
-  margin: 0;
-  font-size: 0.75rem;
-  line-height: 1.45;
-}
-
-.rh-review-panel-body {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding-right: 0.15rem;
-}
-
-.rh-review-panel-fields {
-  font-size: 0.8125rem;
-}
-
-.rh-review-panel-signatures {
-  margin: 0.75rem 0 0;
-  font-size: 0.75rem;
-}
-
-.rh-review-panel-footer {
-  margin-top: auto;
-  padding-top: 1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.65rem;
-  border-top: 1px solid var(--border-subtle);
+.rh-card__date {
+  font-size: 12px;
+  font-weight: 500;
+  color: #64748b;
+  white-space: nowrap;
   flex-shrink: 0;
 }
 
-.rh-panel-action-btn {
-  width: 100%;
-  min-height: 46px;
+.rh-card__client {
+  margin: 0 0 4px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.rh-card__meta {
+  margin: 0 0 12px;
+  font-size: 12px;
+  color: #64748b;
+  line-height: 1.45;
+}
+
+.rh-card__meta-sep {
+  margin: 0 4px;
+  opacity: 0.65;
+}
+
+.rh-card__body {
+  min-width: 0;
+}
+
+.rh-card__fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 12px 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #334155;
+}
+
+.rh-card__fields .review-section {
+  grid-column: 1 / -1;
+  margin: 8px 0 0;
+}
+
+.rh-card__fields .review-section:first-child {
+  margin-top: 0;
+}
+
+.rh-card__fields .review-section h5 {
+  margin: 0 0 8px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.rh-card__fields .review-field {
+  margin: 0;
+  min-width: 0;
+}
+
+.rh-card__fields .review-field:has(.review-dynamic-table),
+.rh-card__fields .review-field:has(.review-verification-list),
+.rh-card__fields .review-field:has(.review-matrix-categories),
+.rh-card__fields .review-field:has(.review-tag-list) {
+  grid-column: 1 / -1;
+}
+
+.rh-card__fields .review-field strong {
+  display: block;
+  font-size: 11px;
   font-weight: 600;
+  color: #64748b;
+  margin-bottom: 2px;
+}
+
+.rh-card__fields .review-field p {
+  margin: 0;
+  font-size: 13px;
+  color: #0f172a;
+  font-weight: 500;
+}
+
+.rh-card__fields .review-dynamic-table {
+  font-size: 12px;
+}
+
+.rh-card__fotos {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 12px 0 10px;
+}
+
+.rh-card__foto {
+  margin: 0;
+  min-width: 0;
+}
+
+.rh-card__foto-btn {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 8px;
+  overflow: hidden;
+  line-height: 0;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.rh-card__foto-btn:hover {
+  opacity: 0.92;
+  transform: scale(1.02);
+}
+
+.rh-card__foto-btn:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+.rh-card__foto-img {
+  display: block;
+  width: 100%;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 8px;
+  background: #f1f5f9;
+}
+
+.rh-card__foto-label {
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+  text-align: center;
+}
+
+.rh-card__signatures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin: 0;
+  padding-top: 10px;
+  border-top: 1px solid #f1f5f9;
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.rh-card__sig--ok {
+  color: #16a34a;
+  font-weight: 600;
+}
+
+.rh-card__footer {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.rh-card__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.rh-card__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+}
+
+.rh-card__btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.rh-card__btn-icon {
+  flex-shrink: 0;
+}
+
+.rh-card__btn--approve {
+  flex: 1;
+  min-height: 38px;
+  padding: 0 14px;
+  color: #15803d;
+  background: #f0fdf4;
+  border: 1px solid transparent;
+}
+
+.rh-card__btn--approve:hover:not(:disabled) {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.rh-card__btn--approve:focus-visible {
+  outline: none;
+  border-color: #86efac;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.25);
+}
+
+.rh-card__btn--reject {
+  flex: 0 0 auto;
+  min-height: 38px;
+  padding: 0 10px;
+  color: #dc2626;
+  background: transparent;
+  border: none;
+  font-weight: 500;
+}
+
+.rh-card__btn--reject:hover:not(:disabled) {
+  color: #b91c1c;
+  background: #fef2f2;
+}
+
+.rh-card__btn--reject:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.3);
+  border-radius: 6px;
+}
+
+.rh-card__btn--pdf {
+  flex: 0 0 auto;
+  min-width: 38px;
+  min-height: 38px;
+  padding: 0 10px;
+  color: #475569;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.rh-card__btn--pdf:hover:not(:disabled) {
+  color: #0f172a;
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.rh-card__btn--pdf:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+}
+
+.rh-card__btn-pdf-label {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+body.dark-mode .rh-card {
+  background: #1e293b;
+  border-color: #334155;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+body.dark-mode .rh-card:hover {
+  border-color: #475569;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+body.dark-mode .rh-card__ordem-badge {
+  background: #334155;
+  border-color: #475569;
+  color: #cbd5e1;
+}
+
+body.dark-mode .rh-card__client {
+  color: #f1f5f9;
+}
+
+body.dark-mode .rh-card__fields .review-field p {
+  color: #e2e8f0;
+}
+
+body.dark-mode .rh-card__btn--approve {
+  background: rgba(34, 197, 94, 0.12);
+  color: #4ade80;
+}
+
+body.dark-mode .rh-card__btn--pdf {
+  background: #334155;
+  border-color: #475569;
+  color: #cbd5e1;
 }
 
 .rh-panel-job-detail {

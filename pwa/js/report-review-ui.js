@@ -10,6 +10,26 @@ export function formatOrdemLabel(job) {
   return `OP-2026-${String(job.numeroOrdem).padStart(2, '0')}`;
 }
 
+/** Fotos compactas para cartões do painel RH (lado a lado, 80px). */
+export function renderRhPanelFotos(job, report) {
+  const { antes, depois } = resolveJobFotos(job, report);
+  if (!antes && !depois) return '';
+
+  const thumb = (url, label) => `
+    <figure class="rh-card__foto">
+      <button type="button" class="rh-card__foto-btn" data-foto-url="${escapeHtml(url)}" title="Abrir foto ${escapeHtml(label)}" aria-label="Abrir foto ${escapeHtml(label)}">
+        <img src="${escapeHtml(url)}" alt="Foto ${escapeHtml(label)}" loading="lazy" class="rh-card__foto-img">
+      </button>
+      <figcaption class="rh-card__foto-label">${escapeHtml(label)}</figcaption>
+    </figure>`;
+
+  const blocks = [];
+  if (antes) blocks.push(thumb(antes, 'Antes'));
+  if (depois) blocks.push(thumb(depois, 'Depois'));
+
+  return `<div class="rh-card__fotos" role="group" aria-label="Fotos do trabalho">${blocks.join('')}</div>`;
+}
+
 export function renderReviewFotosSection(job, report) {
   const { antes, depois } = resolveJobFotos(job, report);
 
