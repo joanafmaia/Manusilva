@@ -20,7 +20,6 @@ import {
   getReportForJob,
   statusBadge,
   warmClientsCatalog,
-  warmJobs,
   warmOperacoes,
   getAllTechnicians,
   openModal,
