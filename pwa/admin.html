@@ -50,44 +50,39 @@
 
       <div class="admin-grid">
         <div class="admin-content">
-          <!-- Calendar -->
-          <section class="admin-panel glass-card" id="calendar">
-            <div class="panel-header" style="padding:1.25rem 1.25rem 0">
-              <h2>Calendário de Equipa</h2>
-              <div class="panel-controls">
-                <select class="form-select-sm" id="tech-filter"></select>
-                <div class="view-toggle">
-                  <button data-cal-view="week" class="active">Semana</button>
-                  <button data-cal-view="month">Mês</button>
-                  <button data-cal-view="list">Agenda</button>
+          <!-- Calendário + Revisão (split-screen) -->
+          <div class="admin-split-layout" id="calendar">
+            <section class="admin-panel glass-card admin-split-calendar">
+              <div class="panel-header" style="padding:1.25rem 1.25rem 0">
+                <h2>Calendário de Equipa</h2>
+                <div class="panel-controls">
+                  <select class="form-select-sm" id="tech-filter"></select>
+                  <div class="view-toggle">
+                    <button data-cal-view="week" class="active">Semana</button>
+                    <button data-cal-view="month">Mês</button>
+                    <button data-cal-view="list">Agenda</button>
+                  </div>
                 </div>
               </div>
-            </div>
-            <div class="calendar-container">
-              <div class="calendar-nav">
-                <button id="prev-week" aria-label="Anterior">‹</button>
-                <span id="calendar-title"></span>
-                <button id="next-week" aria-label="Seguinte">›</button>
+              <div class="calendar-container">
+                <div class="calendar-nav">
+                  <button id="prev-week" aria-label="Anterior">‹</button>
+                  <span id="calendar-title"></span>
+                  <button id="next-week" aria-label="Seguinte">›</button>
+                </div>
+                <div id="calendar-grid"></div>
               </div>
-              <div id="calendar-grid"></div>
-            </div>
-          </section>
+            </section>
 
-          <!-- Revisão de Relatórios (RH) — largura total -->
-          <section class="admin-panel glass-card admin-reports-review" id="pending">
-            <div class="panel-header admin-reports-review-header">
-              <h2>Revisão de Relatórios <span class="badge-count" id="pending-count">0</span></h2>
-            </div>
-            <div class="reports-filter-wrap" id="reports-filter-wrap">
-              <div class="reports-filter-bar" id="reports-filter-bar" role="tablist" aria-label="Filtrar relatórios">
-                <button type="button" class="reports-filter-btn active" data-report-filter="all">Todos</button>
-                <button type="button" class="reports-filter-btn" data-report-filter="pending_review">Pendentes 🟡</button>
-                <button type="button" class="reports-filter-btn" data-report-filter="rejected">Recusados 🔴</button>
-                <button type="button" class="reports-filter-btn" data-report-filter="approved">Aprovados 🟢</button>
+            <aside class="admin-review-panel glass-card" id="pending">
+              <div class="admin-review-panel-header">
+                <h2>Revisão do Relatório <span class="badge-count" id="pending-count">0</span></h2>
               </div>
-            </div>
-            <div class="reports-review-container" id="pending-reports"></div>
-          </section>
+              <div class="rh-review-panel" id="rh-review-panel" aria-live="polite">
+                <p class="rh-review-panel-empty">Selecione um relatório no calendário para rever os detalhes.</p>
+              </div>
+            </aside>
+          </div>
 
           <!-- Clientes: métricas + cadastro -->
           <section class="admin-panel" id="clients">

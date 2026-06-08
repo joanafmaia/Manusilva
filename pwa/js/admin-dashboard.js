@@ -10,7 +10,6 @@ import {
   getTechnician,
   getServiceType,
   getPendingReports,
-  getAdminReviewReports,
   getReport,
   approveReport,
   rejectReport,
@@ -49,8 +48,12 @@ import { initArquivoHistoricoPage, refreshArquivoHistoricoPage } from './views/a
 let calendarView = 'week';
 let filterTechId = 'all';
 let currentWeekOffset = 0;
+/** @type {string | null} trabalho selecionado no calendário para revisão */
+let selectedReviewJobId = null;
 
 const AGENDA_SWIPE_OPEN_PX = 88;
+const RH_REVIEW_EMPTY_HTML =
+  '<p class="rh-review-panel-empty">Selecione um relatório no calendário para rever os detalhes.</p>';
 
 function bindAdminNavigation() {
   document.querySelectorAll('.nav-item').forEach((item) => {
@@ -86,17 +89,14 @@ export async function initAdminDashboard() {
     renderCalendar();
     bindViewToggle();
     bindCalendarJobInteractions();
+    bindRhReviewPanel();
     bindAssignWork();
+    updatePendingCount();
+    renderRhReviewPanelEmpty();
   } catch (err) {
     console.error('[Admin] Erro ao iniciar painel:', err);
     showToast('Erro ao carregar o calendário. Veja a consola (F12).', 'error');
   }
-
-  bindReportsFilterBar();
-  bindPendingReportsActions();
-  renderPendingReports().catch((err) => {
-    console.error('[Admin] Relatórios pendentes:', err);
-  });
 
   const { initAdminRealtime, playNotificationBeep } = await import('./admin-realtime.js');
   initAdminRealtime({
@@ -152,7 +152,10 @@ export async function initAdminDashboard() {
     }
     refreshDashboardPanel().catch(console.error);
     refreshArquivoHistoricoPage();
-    renderPendingReports().catch(console.error);
+    updatePendingCount();
+    if (selectedReviewJobId) {
+      renderRhReviewPanel(selectedReviewJobId).catch(console.error);
+    }
   });
 }
 
@@ -282,8 +285,9 @@ function renderCalendarBlock(job, compact = false) {
   const service = getServiceType(job.serviceType);
   const report = getReportForJob(job.id);
   const stateClass = getCalendarEventStateClass(job, report);
+  const selectedClass = job.id === selectedReviewJobId ? ' cal-block--selected' : '';
   const sizeClass = compact ? 'cal-block cal-block-sm' : 'cal-block';
-  const cls = `${sizeClass} cal-block--interactive ${stateClass}`;
+  const cls = `${sizeClass} cal-block--interactive ${stateClass}${selectedClass}`;
   const label = `${job.time} — ${client?.name || 'Cliente'} — ${service?.label || 'Serviço'}`;
   return `
     <button type="button" class="${cls}" data-job-id="${job.id}" style="--tech-color:${tech?.color || '#3b82f6'}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">
@@ -329,6 +333,7 @@ function renderAgendaListItem(job) {
   const service = getServiceType(job.serviceType);
   const report = getReportForJob(job.id);
   const stateClass = getCalendarEventStateClass(job, report);
+  const selectedClass = job.id === selectedReviewJobId ? ' agenda-list-item--selected' : '';
   const serial = job.forkliftSerial ? ` · ${job.forkliftSerial}` : '';
 
   return `
@@ -337,7 +342,7 @@ function renderAgendaListItem(job) {
         <button type="button" class="agenda-swipe-delete" data-delete-job="${job.id}">Eliminar</button>
       </div>
       <div class="agenda-swipe-track">
-        <button type="button" class="agenda-list-item ${stateClass}" data-job-id="${job.id}" style="--tech-color:${tech?.color || '#3b82f6'}">
+        <button type="button" class="agenda-list-item ${stateClass}${selectedClass}" data-job-id="${job.id}" style="--tech-color:${tech?.color || '#3b82f6'}">
           <div class="agenda-list-top">
             <span class="agenda-list-time">${job.time}</span>
             ${statusBadge(job.status)}
@@ -361,7 +366,130 @@ function bindCalendarJobInteractions() {
     const trigger = e.target.closest('[data-job-id]');
     if (!trigger?.dataset.jobId) return;
     e.preventDefault();
-    openJobDetailModal(trigger.dataset.jobId);
+    selectJobForReview(trigger.dataset.jobId);
+  });
+}
+
+function renderRhReviewPanelEmpty() {
+  const panel = document.getElementById('rh-review-panel');
+  if (panel) panel.innerHTML = RH_REVIEW_EMPTY_HTML;
+}
+
+async function selectJobForReview(jobId) {
+  if (!jobId) return;
+  selectedReviewJobId = jobId;
+  renderCalendar();
+  await renderRhReviewPanel(jobId);
+  document.getElementById('pending')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+async function selectReportForReview(reportId) {
+  const report = getReport(reportId);
+  if (!report?.jobId) {
+    showToast('Relatório sem trabalho associado.', 'warning');
+    return;
+  }
+  await selectJobForReview(report.jobId);
+}
+
+async function renderRhReviewPanel(jobId) {
+  const panel = document.getElementById('rh-review-panel');
+  if (!panel) return;
+
+  try {
+    await warmJobs();
+  } catch (err) {
+    console.warn('[Admin] Trabalhos para painel de revisão:', err);
+  }
+
+  const job = getJob(jobId);
+  if (!job) {
+    renderRhReviewPanelEmpty();
+    return;
+  }
+
+  const report = getReportForJob(jobId);
+  if (!report) {
+    panel.innerHTML = `
+      <p class="rh-review-panel-empty">Este trabalho ainda não tem relatório submetido para revisão.</p>
+      <button type="button" class="btn-ghost btn-sm rh-panel-job-detail" data-job-detail="${escapeHtml(jobId)}">Ver detalhes do serviço</button>
+    `;
+    return;
+  }
+
+  const { renderReportValuesForReview } = await import('./form-engine.js');
+  const { buildRhReviewPanelHtml } = await import('./report-review-rh-modal.js');
+  const { bindReviewFotoClicks } = await import('./report-review-ui.js');
+
+  const client = getClient(report.clientId);
+  const tech = getTechnician(report.technicianId);
+  const service = getServiceType(report.serviceType);
+  const fieldsHTML = renderReportValuesForReview(service, report.data?.values || {});
+
+  panel.innerHTML = buildRhReviewPanelHtml({
+    job,
+    report,
+    client,
+    tech,
+    service,
+    fieldsHTML,
+    showWorkflow: report.status === 'pending_review',
+  });
+
+  bindReviewFotoClicks(panel);
+}
+
+let rhReviewPanelBound = false;
+
+function bindRhReviewPanel() {
+  const panel = document.getElementById('rh-review-panel');
+  if (!panel || rhReviewPanelBound) return;
+  rhReviewPanelBound = true;
+
+  panel.addEventListener('click', async (e) => {
+    const detailBtn = e.target.closest('[data-job-detail]');
+    if (detailBtn) {
+      openJobDetailModal(detailBtn.dataset.jobDetail);
+      return;
+    }
+
+    const pdfBtn = e.target.closest('[data-panel-pdf]');
+    if (pdfBtn) {
+      const report = getReport(pdfBtn.dataset.panelPdf);
+      if (!report) return;
+      const job = report.jobId ? getJob(report.jobId) : null;
+      pdfBtn.disabled = true;
+      try {
+        const { previewReportPDF } = await import('./pdf-preview.js');
+        showToast('A gerar pré-visualização do relatório…', 'info', 2500);
+        await previewReportPDF(report);
+      } catch (err) {
+        console.error('[RH] PDF:', err);
+        showToast('Não foi possível gerar a pré-visualização.', 'error');
+      } finally {
+        pdfBtn.disabled = false;
+      }
+      return;
+    }
+
+    const approveBtn = e.target.closest('[data-panel-approve]');
+    if (approveBtn) {
+      approveBtn.disabled = true;
+      const ok = await approveReport(approveBtn.dataset.panelApprove);
+      approveBtn.disabled = false;
+      if (ok) {
+        renderCalendar();
+        updatePendingCount();
+        await renderRhReviewPanel(selectedReviewJobId);
+        refreshDashboardPanel().catch(console.error);
+      }
+      return;
+    }
+
+    const rejectBtn = e.target.closest('[data-panel-reject]');
+    if (rejectBtn) {
+      openRejectDialog(rejectBtn.dataset.panelReject);
+    }
   });
 }
 
@@ -533,24 +661,6 @@ function confirmDeleteJob(jobId) {
   });
 }
 
-let pendingReportsActionsBound = false;
-let reportsFilter = 'all';
-
-const REPORT_STATUS_BADGES = {
-  pending_review: { label: 'Pendente', color: '#78350f', bg: '#fef3c7' },
-  rejected: { label: 'Recusado', color: '#991b1b', bg: '#fee2e2' },
-  approved: { label: 'Aprovado', color: '#166534', bg: '#dcfce7' },
-};
-
-function reportStatusBadge(status) {
-  const s = REPORT_STATUS_BADGES[status] || {
-    label: status || '—',
-    color: '#475569',
-    bg: '#f1f5f9',
-  };
-  return `<span class="status-badge" style="color:${s.color};background:${s.bg}">${escapeHtml(s.label)}</span>`;
-}
-
 function formatOrdemOp2026(numeroOrdem) {
   if (numeroOrdem == null) return 'nova ordem';
   return `Ordem OP-2026-${String(numeroOrdem).padStart(2, '0')}`;
@@ -568,7 +678,7 @@ function showPendingReportNotification(report) {
       icon: '🔔',
       duration: 8000,
       dedupeKey: report.id || report.jobId,
-      onClick: () => openReportReview(report.id),
+      onClick: () => selectReportForReview(report.id),
     },
   );
 }
@@ -580,211 +690,18 @@ async function handleNewPendingReport(report, opts = {}, beep) {
   } catch (err) {
     console.warn('[Admin] Trabalhos para notificação:', err);
   }
-  await prependPendingReport(report);
+  updatePendingCount();
+  renderCalendar();
   showPendingReportNotification(report);
+  if (report.jobId) {
+    await selectJobForReview(report.jobId);
+  }
   if (opts.playSound && beep) beep();
 }
 
 function updatePendingCount() {
   const count = document.getElementById('pending-count');
   if (count) count.textContent = String(getPendingReports().length);
-}
-
-function bindReportsFilterBar() {
-  const bar = document.getElementById('reports-filter-bar');
-  if (!bar || bar.dataset.bound === 'true') return;
-  bar.dataset.bound = 'true';
-
-  bar.addEventListener('click', (e) => {
-    const btn = e.target.closest('[data-report-filter]');
-    if (!btn) return;
-    reportsFilter = btn.dataset.reportFilter || 'all';
-    bar.querySelectorAll('.reports-filter-btn').forEach((el) => {
-      el.classList.toggle('active', el === btn);
-    });
-    renderPendingReports().catch(console.error);
-  });
-}
-
-function bindPendingReportsActions() {
-  if (pendingReportsActionsBound) return;
-  const container = document.getElementById('pending-reports');
-  if (!container) return;
-  pendingReportsActionsBound = true;
-
-  container.addEventListener('click', async (e) => {
-    const reviewBtn = e.target.closest('[data-review]');
-    if (reviewBtn) {
-      openReportReview(reviewBtn.dataset.review);
-      return;
-    }
-    const rejectBtn = e.target.closest('[data-reject]');
-    if (rejectBtn) {
-      openRejectDialog(rejectBtn.dataset.reject);
-      return;
-    }
-    const approveBtn = e.target.closest('[data-approve]');
-    if (approveBtn) {
-      approveBtn.disabled = true;
-      const ok = await approveReport(approveBtn.dataset.approve);
-      approveBtn.disabled = false;
-      if (ok) {
-        renderPendingReports();
-        renderCalendar();
-        refreshDashboardPanel().catch(console.error);
-      }
-    }
-  });
-}
-
-function buildReportRowActions(report) {
-  const id = escapeHtml(report.id);
-  const reviewBtn = `<button type="button" class="btn-outline btn-sm" data-review="${id}">Rever</button>`;
-  if (report.status !== 'pending_review') {
-    return `<div class="reports-table-actions">${reviewBtn}</div>`;
-  }
-  return `
-    <div class="reports-table-actions">
-      ${reviewBtn}
-      <button type="button" class="btn-danger btn-sm" data-reject="${id}">Rejeitar</button>
-      <button type="button" class="btn-success btn-sm" data-approve="${id}">Aprovar</button>
-    </div>`;
-}
-
-function buildReportReviewCard(report, formatOrdemLabel) {
-  const client = getClient(report.clientId);
-  const tech = getTechnician(report.technicianId);
-  const service = getServiceType(report.serviceType);
-  const job = report.jobId ? getJob(report.jobId) : null;
-  const dateStr = (report.submittedAt || report.approvedAt || '').slice(0, 10);
-  const serial = report.forkliftSerial ? ` · ${report.forkliftSerial}` : '';
-  const ordem = formatOrdemLabel(job);
-
-  return `
-    <article class="report-review-card" data-report-id="${escapeHtml(report.id)}">
-      <div class="report-review-card-top">
-        <span class="report-review-card-ordem">${escapeHtml(ordem)}</span>
-        ${reportStatusBadge(report.status)}
-      </div>
-      <h3 class="report-review-card-service">
-        <span aria-hidden="true">${service?.icon || '📋'}</span>
-        ${escapeHtml(service?.label || report.serviceType)}
-      </h3>
-      <p class="report-review-card-client">${escapeHtml(client?.name || '—')}${escapeHtml(serial)}</p>
-      <div class="report-review-card-meta">
-        <span class="report-tech-badge" style="background:${tech?.color || '#3b82f6'}20;color:${tech?.color || '#3b82f6'}">${escapeHtml(tech?.name || '—')}</span>
-        <span class="report-review-card-date">${dateStr ? escapeHtml(formatDate(dateStr)) : '—'}</span>
-      </div>
-      ${buildReportRowActions(report)}
-    </article>`;
-}
-
-async function buildReportsReviewHtml(reports) {
-  if (!reports.length) {
-    const emptyMsg =
-      reportsFilter === 'all'
-        ? 'Nenhum relatório para revisão.'
-        : 'Nenhum relatório neste filtro.';
-    return `<p class="text-muted empty-inline reports-review-empty">${emptyMsg}</p>`;
-  }
-
-  const { formatOrdemLabel } = await import('./report-review-ui.js');
-
-  return `
-    <div class="reports-review-grid">
-      ${reports.map((r) => buildReportReviewCard(r, formatOrdemLabel)).join('')}
-    </div>`;
-}
-
-/** Atualiza lista após evento Realtime */
-async function prependPendingReport(report) {
-  if (!report?.id) return;
-
-  if (reportsFilter !== 'all' && reportsFilter !== 'pending_review') {
-    reportsFilter = 'pending_review';
-    const bar = document.getElementById('reports-filter-bar');
-    bar?.querySelectorAll('.reports-filter-btn').forEach((el) => {
-      el.classList.toggle('active', el.dataset.reportFilter === 'pending_review');
-    });
-  }
-
-  await renderPendingReports();
-  const row = document.querySelector(`[data-report-id="${report.id}"]`);
-  row?.classList.add('report-review-card--new');
-}
-
-async function renderPendingReports() {
-  const container = document.getElementById('pending-reports');
-  if (!container) return;
-
-  try {
-    await warmJobs();
-  } catch (err) {
-    console.warn('[Admin] Trabalhos para fotos:', err);
-  }
-
-  const reports = getAdminReviewReports(reportsFilter);
-  updatePendingCount();
-  container.innerHTML = await buildReportsReviewHtml(reports);
-}
-
-async function openReportReview(reportId) {
-  const report = getReport(reportId);
-  if (!report) return;
-
-  const { renderReportValuesForReview } = await import('./form-engine.js');
-  const { bindReviewFotoClicks, bindReviewPdfButton } = await import('./report-review-ui.js');
-  const { buildRhReviewModalContent } = await import('./report-review-rh-modal.js');
-  const { ensureJobsLoaded } = await import('./trabalhos-db.js');
-
-  try {
-    await ensureJobsLoaded(true);
-  } catch (err) {
-    console.warn('[Admin] Trabalhos para revisão:', err);
-  }
-
-  const client = getClient(report.clientId);
-  const tech = getTechnician(report.technicianId);
-  const service = getServiceType(report.serviceType);
-  const data = report.data || {};
-  const job = report.jobId ? getJob(report.jobId) : null;
-
-  const fieldsHTML = renderReportValuesForReview(service, data.values || {});
-
-  const content = buildRhReviewModalContent({
-    job,
-    report,
-    client,
-    tech,
-    fieldsHTML,
-    showWorkflow: report.status === 'pending_review',
-  });
-
-  const overlay = openModal(`${service?.icon} ${service?.label} — Revisão`, content, '', {
-    review: true,
-  });
-
-  bindReviewFotoClicks(overlay);
-  bindReviewPdfButton(overlay, { job, report });
-
-  overlay.querySelector('#modal-close-review')?.addEventListener('click', closeModal);
-
-  overlay.querySelector('#modal-approve')?.addEventListener('click', async () => {
-    const btn = overlay.querySelector('#modal-approve');
-    btn.disabled = true;
-    const ok = await approveReport(reportId);
-    btn.disabled = false;
-    if (ok) {
-      closeModal();
-      renderPendingReports();
-      renderCalendar();
-      refreshDashboardPanel().catch(console.error);
-    }
-  });
-  overlay.querySelector('#modal-reject')?.addEventListener('click', () => {
-    closeModal();
-    openRejectDialog(reportId);
-  });
 }
 
 function openRejectDialog(reportId) {
@@ -806,10 +723,13 @@ function openRejectDialog(reportId) {
       showToast('Por favor, escreva uma nota de correção.', 'error');
       return;
     }
-    rejectReport(reportId, note).then(() => {
+    rejectReport(reportId, note).then(async () => {
       closeModal();
-      renderPendingReports();
       renderCalendar();
+      updatePendingCount();
+      if (selectedReviewJobId) {
+        await renderRhReviewPanel(selectedReviewJobId);
+      }
     });
   });
 }
