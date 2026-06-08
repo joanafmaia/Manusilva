@@ -120,6 +120,52 @@ export function invalidateJobsCache() {
   jobsLoadPromise = null;
 }
 
+/**
+ * Carrega trabalhos do técnico num intervalo de datas (semana visível no calendário).
+ * Faz merge no cache local sem substituir os restantes trabalhos.
+ */
+export async function ensureTrabalhosSemana(technicianId, startDate, endDate) {
+  if (!technicianId || !startDate || !endDate) return [];
+
+  const supabase = await getSupabaseClient();
+  const { data, error } = await supabase
+    .from('trabalhos')
+    .select('*')
+    .eq('tecnico_id', technicianId)
+    .gte('data', startDate)
+    .lte('data', endDate)
+    .order('data', { ascending: true })
+    .order('hora', { ascending: true });
+
+  if (error) {
+    console.error('[ManuSilva] Erro ao carregar semana de trabalhos:', error);
+    throw new Error(formatTrabalhosError(error));
+  }
+
+  const weekJobs = (data || []).map(mapRowToJob).filter(Boolean);
+  if (!jobsCache) jobsCache = [];
+
+  weekJobs.forEach((job) => {
+    const idx = jobsCache.findIndex((j) => j.id === job.id);
+    if (idx >= 0) jobsCache[idx] = job;
+    else jobsCache.push(job);
+  });
+
+  return weekJobs;
+}
+
+/** Datas (YYYY-MM-DD) com pelo menos um trabalho do técnico na semana indicada */
+export function getTechnicianJobDatesInRange(technicianId, dates) {
+  const allowed = new Set(dates);
+  const out = new Set();
+  getJobsSnapshot().forEach((j) => {
+    if (j.technicianId === technicianId && allowed.has(j.date)) {
+      out.add(j.date);
+    }
+  });
+  return out;
+}
+
 export async function insertTrabalho(jobData) {
   const supabase = await getSupabaseClient();
   const row = mapJobToRow(jobData, { estado: 'scheduled', nota_rejeicao: null });

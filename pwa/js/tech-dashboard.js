@@ -25,9 +25,14 @@ import {
 import { initLogoutButton, renderUserGreeting } from './auth.js';
 import { openJobForm } from './forms.js';
 import { HistoricoClienteView } from './views/historico-cliente.js';
+import {
+  ensureTrabalhosSemana,
+  getTechnicianJobDatesInRange,
+} from './trabalhos-db.js';
 
 let selectedDate = new Date().toISOString().split('T')[0];
 let weekDates = getWeekDates();
+let weekJobsCacheKey = null;
 
 const TECH_JOBS_SHELL_HTML = `
   <section class="jobs-section" data-tech-jobs-shell>
@@ -47,7 +52,7 @@ export function restoreTechDashboard() {
   if (!app) return;
   app.innerHTML = TECH_JOBS_SHELL_HTML;
   renderUserGreeting('user-name');
-  renderJobs();
+  refreshTechWeekCalendar().catch(console.error);
   app.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
@@ -86,13 +91,16 @@ export async function initTechDashboard() {
   initTrabalhosOfflineSync();
   sincronizarTrabalhosOffline().catch(console.error);
 
-  renderCalendarStrip();
-  renderJobs();
+  await refreshTechWeekCalendar();
 
-  window.addEventListener('jobs-updated', renderJobs);
+  window.addEventListener('jobs-updated', () => {
+    weekJobsCacheKey = null;
+    refreshTechWeekCalendar().catch(console.error);
+  });
   window.addEventListener('db-updated', () => {
     renderOfflineToggle();
-    renderJobs();
+    weekJobsCacheKey = null;
+    refreshTechWeekCalendar().catch(console.error);
   });
 }
 
@@ -125,22 +133,66 @@ function renderOfflineToggle() {
   };
 }
 
-function renderCalendarStrip() {
+async function loadWeekJobsFromSupabase() {
+  const session = requireAuth('technician');
+  if (!session?.technicianId) return;
+
   weekDates = getWeekDates(new Date(selectedDate));
+  const startDate = weekDates[0];
+  const endDate = weekDates[weekDates.length - 1];
+  const cacheKey = `${session.technicianId}:${startDate}:${endDate}`;
+
+  if (weekJobsCacheKey === cacheKey) return;
+
+  await ensureTrabalhosSemana(session.technicianId, startDate, endDate);
+  weekJobsCacheKey = cacheKey;
+}
+
+async function refreshTechWeekCalendar() {
+  try {
+    await loadWeekJobsFromSupabase();
+  } catch (err) {
+    console.error('[Técnico] Calendário semanal:', err);
+  }
+  renderCalendarStrip();
+  renderJobs();
+}
+
+function renderCalendarStrip() {
+  const session = requireAuth('technician');
   const strip = document.getElementById('calendar-strip');
   if (!strip) return;
 
-  strip.innerHTML = weekDates.map((date) => {
-    const isSelected = date === selectedDate;
-    const today = isToday(date);
-    return `
-      <button class="cal-day ${isSelected ? 'selected' : ''} ${today ? 'today' : ''}" data-date="${date}">
+  weekDates = getWeekDates(new Date(selectedDate));
+  const jobDates =
+    session?.technicianId
+      ? getTechnicianJobDatesInRange(session.technicianId, weekDates)
+      : new Set();
+
+  strip.innerHTML = weekDates
+    .map((date) => {
+      const isSelected = date === selectedDate;
+      const today = isToday(date);
+      const hasJobs = jobDates.has(date);
+      const classes = [
+        'cal-day',
+        isSelected ? 'selected' : '',
+        today ? 'today' : '',
+        hasJobs ? 'has-jobs' : '',
+      ]
+        .filter(Boolean)
+        .join(' ');
+
+      return `
+      <button type="button" class="${classes}" data-date="${date}" aria-pressed="${isSelected}">
         <span class="cal-day-name">${getDayLabel(date)}</span>
         <span class="cal-day-num">${getDayNumber(date)}</span>
-        ${today ? '<span class="cal-today-dot"></span>' : ''}
+        ${hasJobs ? '<span class="cal-job-dot" aria-hidden="true"></span>' : ''}
+        ${today && !hasJobs ? '<span class="cal-today-dot" aria-hidden="true"></span>' : ''}
       </button>
     `;
-  }).join('');
+    })
+    .join('');
 
   strip.querySelectorAll('.cal-day').forEach((btn) => {
     btn.addEventListener('click', () => {

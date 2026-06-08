@@ -556,16 +556,40 @@ body {
 
 .cal-day.today { border-color: rgba(59, 130, 246, 0.5); }
 
+.cal-day.has-jobs {
+  border-color: rgba(234, 179, 8, 0.55);
+  background: rgba(234, 179, 8, 0.08);
+}
+
+.cal-day.has-jobs.selected {
+  border-color: #eab308;
+  background: rgba(234, 179, 8, 0.16);
+}
+
+.cal-day.has-jobs.today {
+  border-color: rgba(234, 179, 8, 0.75);
+}
+
 .cal-day-name { display: block; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.05em; }
 .cal-day-num { display: block; font-size: 1.125rem; font-weight: 700; margin-top: 0.15rem; }
+
+.cal-job-dot,
 .cal-today-dot {
   position: absolute;
   bottom: 4px;
   left: 50%;
   transform: translateX(-50%);
-  width: 4px;
-  height: 4px;
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
+}
+
+.cal-job-dot {
+  background: #eab308;
+  box-shadow: 0 0 0 2px rgba(234, 179, 8, 0.25);
+}
+
+.cal-today-dot {
   background: var(--primary);
 }
 
