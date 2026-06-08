@@ -7,11 +7,14 @@ import {
   getClient,
   getTechnician,
   getServiceType,
+  getJob,
+  warmJobs,
   escapeHtml,
   openModal,
   closeModal,
   showToast,
 } from './app.js';
+import { renderJobFotosReviewHtml } from './job-fotos.js';
 
 /**
  * @param {string} reportId
@@ -27,25 +30,20 @@ export async function openReportReviewModal(reportId, options = {}) {
   const { renderReportValuesForReview } = await import('./form-engine.js');
   const { previewReportPDF } = await import('./pdf-preview.js');
 
+  try {
+    await warmJobs();
+  } catch (err) {
+    console.warn('[Revisão] Trabalhos para fotos:', err);
+  }
+
   const client = getClient(report.clientId);
   const tech = getTechnician(report.technicianId);
   const service = getServiceType(report.serviceType);
   const data = report.data || {};
   const values = data.values || { ...data.textFields, ...data.dropdowns };
   const fieldsHTML = renderReportValuesForReview(service, values);
-
-  const photosHTML = (data.photos || []).length
-    ? (data.photos || [])
-        .map(
-          (p) => `
-    <div class="photo-thumb review-photo">
-      <div class="photo-placeholder">${escapeHtml(String(p.label || '?').charAt(0))}</div>
-      <span class="photo-label">${escapeHtml(p.label)}</span>
-    </div>
-  `,
-        )
-        .join('')
-    : '<p class="text-muted">Sem fotos anexadas.</p>';
+  const job = report.jobId ? getJob(report.jobId) : null;
+  const photosHTML = renderJobFotosReviewHtml(job, report);
 
   const statusLabel =
     report.status === 'approved'
@@ -65,7 +63,7 @@ export async function openReportReviewModal(reportId, options = {}) {
         <p><strong>Contacto:</strong> ${escapeHtml(client?.email || client?.['E-mail'] || '—')}</p>
       </div>
       <h4>Dados do Relatório</h4>${fieldsHTML}
-      <h4>Fotos</h4><div class="photo-grid">${photosHTML}</div>
+      <h4>Fotos Antes / Depois</h4>${photosHTML}
       <h4>Assinaturas</h4>
       <p>Técnico: ${data.signatures?.technician ? '✓ Assinado' : '✗ Pendente'} · Cliente: ${data.signatures?.client ? '✓ Assinado' : '✗ Pendente'}</p>
     </div>

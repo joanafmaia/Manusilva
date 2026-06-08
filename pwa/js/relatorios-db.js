@@ -46,6 +46,8 @@ export function mapRowToReport(row) {
       values: dados.values || {},
       signatures: dados.signatures || {},
       photos: Array.isArray(dados.photos) ? dados.photos : [],
+      fotoAntesUrl: dados.fotoAntesUrl || null,
+      fotoDepoisUrl: dados.fotoDepoisUrl || null,
     },
   };
 }
@@ -67,6 +69,8 @@ export function mapReportToRow(report) {
       values: data.values || {},
       signatures: data.signatures || {},
       photos: Array.isArray(data.photos) ? data.photos : [],
+      fotoAntesUrl: data.fotoAntesUrl || null,
+      fotoDepoisUrl: data.fotoDepoisUrl || null,
     },
   };
 }

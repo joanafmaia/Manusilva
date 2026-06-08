@@ -2732,6 +2732,40 @@ body {
 }
 
 /* Photos */
+.review-fotos-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.review-foto-thumb {
+  margin: 0;
+  flex: 1 1 140px;
+  max-width: 220px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-muted);
+}
+
+.review-foto-img {
+  display: block;
+  width: 100%;
+  height: 140px;
+  object-fit: cover;
+  background: var(--bg-input);
+}
+
+.review-foto-caption {
+  padding: 0.4rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-align: center;
+  color: var(--text-secondary);
+  border-top: 1px solid var(--border-subtle);
+}
+
 .photo-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

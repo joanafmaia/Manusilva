@@ -95,3 +95,14 @@ export async function syncJobFotosAntesDepois(jobId, opts = {}) {
 
   return { fotoAntes, fotoDepois };
 }
+
+/** Garante URLs nas colunas trabalhos.foto_antes / foto_depois (ex.: após submissão) */
+export async function ensureFotoUrlsOnTrabalho(jobId, fotoAntesUrl, fotoDepoisUrl) {
+  if (!jobId) return;
+  const patch = {};
+  if (fotoAntesUrl) patch.fotoAntes = fotoAntesUrl;
+  if (fotoDepoisUrl) patch.fotoDepois = fotoDepoisUrl;
+  if (Object.keys(patch).length > 0) {
+    await patchTrabalho(jobId, patch);
+  }
+}

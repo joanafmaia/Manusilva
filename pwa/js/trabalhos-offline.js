@@ -3,7 +3,8 @@
  */
 
 import { upsertRelatorio, ensureReportsLoaded } from './relatorios-db.js';
-import { patchTrabalhoStatus } from './trabalhos-db.js';
+import { patchTrabalho, patchTrabalhoStatus } from './trabalhos-db.js';
+import { isValidFotoUrl } from './job-fotos.js';
 
 export const STORAGE_KEY = 'trabalhos_pendentes';
 
@@ -100,6 +101,16 @@ async function syncOnePendingItem(item) {
   if (!report) throw new Error('Item da fila sem dados de relatório.');
 
   const saved = await upsertRelatorio(report);
+
+  if (saved?.jobId) {
+    const fotoPatch = {};
+    const data = report.data || {};
+    if (isValidFotoUrl(data.fotoAntesUrl)) fotoPatch.fotoAntes = data.fotoAntesUrl;
+    if (isValidFotoUrl(data.fotoDepoisUrl)) fotoPatch.fotoDepois = data.fotoDepoisUrl;
+    if (Object.keys(fotoPatch).length) {
+      await patchTrabalho(saved.jobId, fotoPatch);
+    }
+  }
 
   if (item.tipo === 'submit' || report.status === 'pending_review') {
     if (saved?.jobId) {

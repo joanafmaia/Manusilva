@@ -32,7 +32,11 @@ import {
 } from './views/relatorio-grandes.js';
 import { createSignatureBlock, initSignaturePads } from './signatures.js';
 import { initReportFormAutosave } from './report-form-autosave.js';
-import { syncJobFotosAntesDepois, formatFotoStorageError } from './foto-trabalho-storage.js';
+import {
+  syncJobFotosAntesDepois,
+  ensureFotoUrlsOnTrabalho,
+  formatFotoStorageError,
+} from './foto-trabalho-storage.js';
 
 let signaturePads = {};
 /** @type {{ flush: Function, destroy: Function, markDirty: Function } | null} */
@@ -383,8 +387,13 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport) {
   overlay.querySelector('#btn-save-draft').addEventListener('click', async () => {
     formAutosave?.flush();
     try {
-      await saveWithFotos();
+      const fotoResult = await persistJobFotos(job.id);
+      updateFotoPreview(overlay, 'antes');
+      updateFotoPreview(overlay, 'depois');
       const report = buildReportFromForm(overlay, job, existingReport, signaturePads, draftReportId);
+      report.data.fotoAntesUrl = fotoResult.fotoAntes || report.data.fotoAntesUrl || null;
+      report.data.fotoDepoisUrl = fotoResult.fotoDepois || report.data.fotoDepoisUrl || null;
+      await ensureFotoUrlsOnTrabalho(job.id, report.data.fotoAntesUrl, report.data.fotoDepoisUrl);
       await saveReportDraft(report);
     } catch {
       /* toast já mostrado */
@@ -417,12 +426,18 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport) {
     formAutosave = null;
 
     try {
-      await saveWithFotos();
+      const fotoResult = await persistJobFotos(job.id);
+      updateFotoPreview(overlay, 'antes');
+      updateFotoPreview(overlay, 'depois');
       const report = buildReportFromForm(overlay, job, existingReport, signaturePads, draftReportId);
       if (existingReport?.id) report.id = existingReport.id;
+      report.data.fotoAntesUrl = fotoResult.fotoAntes || report.data.fotoAntesUrl || null;
+      report.data.fotoDepoisUrl = fotoResult.fotoDepois || report.data.fotoDepoisUrl || null;
+      await ensureFotoUrlsOnTrabalho(job.id, report.data.fotoAntesUrl, report.data.fotoDepoisUrl);
       await submitReport(report);
       closeForm(overlay);
       window.dispatchEvent(new CustomEvent('jobs-updated'));
+      window.dispatchEvent(new CustomEvent('db-updated'));
     } catch {
       /* toast já mostrado */
     }

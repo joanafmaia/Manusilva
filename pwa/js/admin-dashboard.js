@@ -16,6 +16,7 @@ import {
   assignJob,
   deleteJob,
   getJob,
+  warmJobs,
   getReportForJob,
   statusBadge,
   warmClientsCatalog,
@@ -583,12 +584,15 @@ function bindPendingReportsActions() {
 
 async function buildPendingReportCardHtml(report, { highlight = false } = {}) {
   const { countFilledFields } = await import('./form-engine.js');
+  const { countJobFotos, formatFotoCountLabel } = await import('./job-fotos.js');
   const client = getClient(report.clientId);
   const tech = getTechnician(report.technicianId);
   const service = getServiceType(report.serviceType);
+  const job = report.jobId ? getJob(report.jobId) : null;
   const values = report.data?.values || { ...report.data?.textFields, ...report.data?.dropdowns };
   const checklistCount = countFilledFields(service, values);
-  const photoCount = report.data?.photos?.length || 0;
+  const photoCount = countJobFotos(job, report);
+  const photoLabel = formatFotoCountLabel(photoCount);
   const highlightClass = highlight ? ' report-card--new' : '';
 
   return `
@@ -602,7 +606,7 @@ async function buildPendingReportCardHtml(report, { highlight = false } = {}) {
         </div>
         <div class="report-stats">
           <span>✓ ${checklistCount} itens</span>
-          <span>📷 ${photoCount} fotos</span>
+          <span>📷 ${escapeHtml(photoLabel)}</span>
           <span>${report.data?.signatures?.technician ? '✍ Técnico' : ''} ${report.data?.signatures?.client ? '✍ Cliente' : ''}</span>
         </div>
         <div class="report-actions">
@@ -634,6 +638,12 @@ async function renderPendingReports() {
   const container = document.getElementById('pending-reports');
   if (!container) return;
 
+  try {
+    await warmJobs();
+  } catch (err) {
+    console.warn('[Admin] Trabalhos para fotos:', err);
+  }
+
   const reports = getPendingReports();
   updatePendingCount();
 
@@ -651,20 +661,23 @@ async function openReportReview(reportId) {
   if (!report) return;
 
   const { renderReportValuesForReview } = await import('./form-engine.js');
+  const { renderJobFotosReviewHtml } = await import('./job-fotos.js');
+
+  try {
+    await warmJobs();
+  } catch (err) {
+    console.warn('[Admin] Trabalhos para revisão:', err);
+  }
 
   const client = getClient(report.clientId);
   const tech = getTechnician(report.technicianId);
   const service = getServiceType(report.serviceType);
   const data = report.data || {};
+  const job = report.jobId ? getJob(report.jobId) : null;
 
   const fieldsHTML = renderReportValuesForReview(service, data.values || {});
 
-  const photosHTML = (data.photos || []).map((p) => `
-    <div class="photo-thumb review-photo">
-      <div class="photo-placeholder">${p.label.charAt(0)}</div>
-      <span class="photo-label">${escapeHtml(p.label)}</span>
-    </div>
-  `).join('') || '<p class="text-muted">Sem fotos anexadas.</p>';
+  const photosHTML = renderJobFotosReviewHtml(job, report);
 
   const content = `
     <div class="review-detail">
@@ -674,7 +687,7 @@ async function openReportReview(reportId) {
         <p><strong>Máquina:</strong> ${escapeHtml(report.forkliftSerial)}</p>
       </div>
       <h4>Dados do Relatório</h4>${fieldsHTML}
-      <h4>Fotos</h4><div class="photo-grid">${photosHTML}</div>
+      <h4>Fotos Antes / Depois</h4>${photosHTML}
       <h4>Assinaturas</h4>
       <p>Técnico: ${data.signatures?.technician ? '✓ Assinado' : '✗ Pendente'} · Cliente: ${data.signatures?.client ? '✓ Assinado' : '✗ Pendente'}</p>
     </div>

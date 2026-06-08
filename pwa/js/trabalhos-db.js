@@ -55,6 +55,8 @@ function mapJobToRow(jobData, overrides = {}) {
     hora: jobData.time || null,
     estado: overrides.estado ?? jobData.status ?? 'scheduled',
     nota_rejeicao: overrides.nota_rejeicao ?? jobData.rejectionNote ?? null,
+    foto_antes: overrides.foto_antes ?? jobData.fotoAntes ?? null,
+    foto_depois: overrides.foto_depois ?? jobData.fotoDepois ?? null,
   };
 }
 
