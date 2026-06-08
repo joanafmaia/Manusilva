@@ -298,11 +298,12 @@ export async function drawInspecaoDl50HeaderBlock(doc, y, values, helpers) {
   await loadAutoTable();
   pdfSetFont(doc, 'normal');
   const colW = contentW / 2;
+  const machineBody = buildInspecaoDl50MachineTableBody(machine);
   doc.autoTable({
     startY: y,
     margin: { left: margin, right: margin },
     tableWidth: contentW,
-    body: buildInspecaoDl50MachineTableBody(machine),
+    body: machineBody,
     theme: 'plain',
     styles: {
       font: pdfAutoTableFont(doc),
@@ -313,7 +314,7 @@ export async function drawInspecaoDl50HeaderBlock(doc, y, values, helpers) {
       textColor: PDF_TEXT_DARK,
       fontStyle: 'normal',
       valign: 'middle',
-      overflow: 'linebreak',
+      overflow: 'ellipsize',
     },
     bodyStyles: {
       fillColor: MACHINE_TABLE_FILL,
