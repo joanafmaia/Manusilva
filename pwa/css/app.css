@@ -5978,11 +5978,22 @@ body.light-mode #login-page-wrapper .login-portal-title {
   color: #0f172a;
 }
 
-#login-container .brand-logo-slot,
-#login-page-wrapper .brand-logo-slot {
+.login-brand-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  width: 100%;
+  margin-bottom: 28px;
+}
+
+#login-container .brand-logo-slot.login-brand-logo,
+#login-page-wrapper .brand-logo-slot.login-brand-logo {
   width: 56px;
   height: 56px;
-  margin: 0 auto 16px;
+  margin: 0 0 1rem;
+  padding: 0;
   border-radius: 12px;
   background: var(--bg-input);
   display: flex;
@@ -5991,6 +6002,37 @@ body.light-mode #login-page-wrapper .login-portal-title {
   color: var(--text-muted);
   font-weight: 700;
   font-size: 18px;
+  flex-shrink: 0;
+}
+
+#login-container .brand-logo-slot.login-brand-logo.has-brand-image,
+#login-page-wrapper .brand-logo-slot.login-brand-logo.has-brand-image {
+  width: auto;
+  height: auto;
+  min-height: 0;
+  margin: 0 0 1rem;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#login-container .login-brand-logo .brand-logo-img,
+#login-page-wrapper .login-brand-logo .brand-logo-img,
+#login-container .login-brand-logo .brand-logo-img--lg,
+#login-page-wrapper .login-brand-logo .brand-logo-img--lg {
+  display: block;
+  margin: 0;
+  padding: 0;
+  max-height: 72px;
+  max-width: 220px;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  object-position: center;
 }
 
 .theme-toggle-btn {

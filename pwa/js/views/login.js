@@ -37,8 +37,8 @@ export const LoginView = {
           border-radius: 16px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.15);
           transition: transform 0.2s ease, background-color 0.3s ease;
         ">
-          <div style="text-align: center; margin-bottom: 28px;">
-            <div class="brand-logo-slot" data-brand-logo-lg aria-label="ManuSilva">MS</div>
+          <div class="login-brand-block">
+            <div class="brand-logo-slot login-brand-logo" data-brand-logo-lg aria-label="ManuSilva">MS</div>
             <h2 class="login-portal-title">Portal Interno</h2>
             <p class="login-portal-subtitle">Introduza os seus dados para aceder</p>
           </div>
