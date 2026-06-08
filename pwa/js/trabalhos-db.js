@@ -65,7 +65,7 @@ export function formatTrabalhosError(err) {
     return 'Tabela "trabalhos" não encontrada. Executa pwa/supabase-schema-operacoes.sql no Supabase.';
   }
   if (code === '42501' || /permission denied|row-level security/i.test(msg)) {
-    return 'Sem permissão na tabela trabalhos (RLS). Executa pwa/supabase-schema-operacoes.sql.';
+    return 'Sem permissão na tabela trabalhos (RLS). Executa pwa/supabase-rls-authenticated.sql no Supabase (login Auth usa role authenticated).';
   }
 
   return msg || 'Erro ao aceder aos trabalhos.';

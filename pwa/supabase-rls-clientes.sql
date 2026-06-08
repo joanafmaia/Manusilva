@@ -17,6 +17,20 @@ CREATE POLICY "anon_insert_clientes"
   TO anon
   WITH CHECK (true);
 
+DROP POLICY IF EXISTS "authenticated_read_clientes" ON public.clientes;
+CREATE POLICY "authenticated_read_clientes"
+  ON public.clientes
+  FOR SELECT
+  TO authenticated
+  USING (true);
+
+DROP POLICY IF EXISTS "authenticated_insert_clientes" ON public.clientes;
+CREATE POLICY "authenticated_insert_clientes"
+  ON public.clientes
+  FOR INSERT
+  TO authenticated
+  WITH CHECK (true);
+
 -- A coluna id já é IDENTITY: não uses DEFAULT/SEQUENCE manual.
 -- Após importar ids 1..129, o próximo INSERT deve ser 130, 131, …
 DO $$

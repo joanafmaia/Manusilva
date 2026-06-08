@@ -22,3 +22,11 @@ RH: `"role": "RH"` (sem `technician_id`).
 ## Redirect de redefinição
 
 Authentication → URL Configuration → adicione o URL do site (ex. `https://manusilva.vercel.app/index.html`).
+
+## RLS após login (obrigatório)
+
+Com Supabase Auth, os pedidos à base de dados usam o role **`authenticated`** (não `anon`).
+
+Executa no SQL Editor: **`pwa/supabase-rls-authenticated.sql`**
+
+Sem isto, criar trabalhos/relatórios falha com erro de permissão RLS.

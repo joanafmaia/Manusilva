@@ -48,14 +48,22 @@ CREATE INDEX IF NOT EXISTS relatorios_trabalho_idx ON public.relatorios (trabalh
 CREATE INDEX IF NOT EXISTS relatorios_estado_idx ON public.relatorios (estado);
 CREATE INDEX IF NOT EXISTS relatorios_cliente_idx ON public.relatorios (cliente_id);
 
--- ─── RLS (leitura/escrita pela app com chave anon — ajustar quando tiveres login Supabase Auth) ───
+-- ─── RLS (anon sem login + authenticated com Supabase Auth) ───
 ALTER TABLE public.trabalhos ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.relatorios ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "anon_all_trabalhos" ON public.trabalhos;
 CREATE POLICY "anon_all_trabalhos" ON public.trabalhos FOR ALL TO anon USING (true) WITH CHECK (true);
 
+DROP POLICY IF EXISTS "authenticated_all_trabalhos" ON public.trabalhos;
+CREATE POLICY "authenticated_all_trabalhos" ON public.trabalhos FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
 DROP POLICY IF EXISTS "anon_all_relatorios" ON public.relatorios;
 CREATE POLICY "anon_all_relatorios" ON public.relatorios FOR ALL TO anon USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "authenticated_all_relatorios" ON public.relatorios;
+CREATE POLICY "authenticated_all_relatorios" ON public.relatorios FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+-- Migração em bases já criadas: executa também pwa/supabase-rls-authenticated.sql
 
 -- Fotos grandes: usar Storage bucket "relatorios-fotos" (opcional, fase 2)
