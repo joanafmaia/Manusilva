@@ -14,7 +14,6 @@ import {
   escapeHtml,
   formatDateLong,
   showToast,
-  getDB,
 } from './app.js';
 import {
   renderReportFields,
@@ -33,11 +32,36 @@ import {
 } from './views/relatorio-grandes.js';
 import { createSignatureBlock, initSignaturePads } from './signatures.js';
 import { initReportFormAutosave } from './report-form-autosave.js';
+import { syncJobFotosAntesDepois, formatFotoStorageError } from './foto-trabalho-storage.js';
 
-let currentPhotos = [];
 let signaturePads = {};
 /** @type {{ flush: Function, destroy: Function, markDirty: Function } | null} */
 let formAutosave = null;
+
+/** @type {{ file: File|null, previewUrl: string|null, remoteUrl: string|null, cleared: boolean }} */
+let fotoAntesState = { file: null, previewUrl: null, remoteUrl: null, cleared: false };
+/** @type {{ file: File|null, previewUrl: string|null, remoteUrl: string|null, cleared: boolean }} */
+let fotoDepoisState = { file: null, previewUrl: null, remoteUrl: null, cleared: false };
+
+function resetFotoState(job) {
+  fotoAntesState = {
+    file: null,
+    previewUrl: null,
+    remoteUrl: job?.fotoAntes || null,
+    cleared: false,
+  };
+  fotoDepoisState = {
+    file: null,
+    previewUrl: null,
+    remoteUrl: job?.fotoDepois || null,
+    cleared: false,
+  };
+}
+
+function fotoDisplayUrl(state) {
+  if (state.cleared) return null;
+  return state.previewUrl || state.remoteUrl || null;
+}
 
 export function openJobForm(jobId) {
   const job = getJob(jobId);
@@ -48,7 +72,7 @@ export function openJobForm(jobId) {
   const service = getServiceType(job.serviceType);
   const existingReport = getReportForJob(jobId);
 
-  currentPhotos = existingReport?.data?.photos ? [...existingReport.data.photos] : [];
+  resetFotoState(job);
 
   const overlay = document.createElement('div');
   overlay.id = 'form-overlay';
@@ -82,6 +106,13 @@ function legacyToValues(data) {
   return values;
 }
 
+function renderFotoPreviewHtml(url, label) {
+  if (!url) {
+    return `<div class="foto-antes-depois-placeholder" aria-hidden="true"><span>📷</span><span>${escapeHtml(label)}</span></div>`;
+  }
+  return `<img src="${escapeHtml(url)}" alt="${escapeHtml(label)}" class="foto-antes-depois-img" loading="lazy">`;
+}
+
 function buildFormHTML(job, client, tech, service, existingReport) {
   const saved = getFormValues(existingReport);
   const formContext = {
@@ -105,14 +136,6 @@ function buildFormHTML(job, client, tech, service, existingReport) {
     : '';
   const fieldsHTML = service ? renderReportFields(service, values, formContext) : '';
 
-  const photosHTML = currentPhotos.map((p) => `
-    <div class="photo-thumb" data-photo-id="${p.id}">
-      <div class="photo-placeholder">${p.label.charAt(0)}</div>
-      <span class="photo-label">${escapeHtml(p.label)}</span>
-      <button type="button" class="photo-remove" data-remove-photo="${p.id}">&times;</button>
-    </div>
-  `).join('');
-
   const rejectionBanner = job.status === 'rejected' && job.rejectionNote ? `
     <div class="rejection-banner">
       <div class="rejection-icon">⚠</div>
@@ -122,6 +145,9 @@ function buildFormHTML(job, client, tech, service, existingReport) {
       </div>
     </div>
   ` : '';
+
+  const antesUrl = fotoDisplayUrl(fotoAntesState);
+  const depoisUrl = fotoDisplayUrl(fotoDepoisState);
 
   return `
     <div class="form-panel glass-card">
@@ -150,11 +176,22 @@ function buildFormHTML(job, client, tech, service, existingReport) {
         </section>
 
         <section class="form-section">
-          <h3 class="section-title">Evidências Fotográficas</h3>
-          <div class="photo-grid" id="photo-grid">${photosHTML}</div>
-          <button type="button" class="btn-outline" id="btn-photo">
-            <span class="btn-icon">📷</span> Anexar Foto
-          </button>
+          <h3 class="section-title">Fotos do Trabalho <span class="text-muted" style="font-weight:500;font-size:0.8rem">(opcional)</span></h3>
+          <p class="text-muted foto-antes-depois-hint">Pode anexar só Antes, só Depois, as duas ou nenhuma.</p>
+          <div class="foto-antes-depois-grid">
+            <div class="foto-antes-depois-card">
+              <label class="foto-antes-depois-label" for="foto-antes-input">Foto Antes</label>
+              <div class="foto-antes-depois-preview" id="foto-antes-preview">${renderFotoPreviewHtml(antesUrl, 'Antes')}</div>
+              <input type="file" id="foto-antes-input" class="foto-antes-depois-input" accept="image/*" capture="environment">
+              <button type="button" class="btn-ghost btn-sm foto-antes-depois-clear" data-clear-foto="antes" ${antesUrl ? '' : 'hidden'}>Remover</button>
+            </div>
+            <div class="foto-antes-depois-card">
+              <label class="foto-antes-depois-label" for="foto-depois-input">Foto Depois</label>
+              <div class="foto-antes-depois-preview" id="foto-depois-preview">${renderFotoPreviewHtml(depoisUrl, 'Depois')}</div>
+              <input type="file" id="foto-depois-input" class="foto-antes-depois-input" accept="image/*" capture="environment">
+              <button type="button" class="btn-ghost btn-sm foto-antes-depois-clear" data-clear-foto="depois" ${depoisUrl ? '' : 'hidden'}>Remover</button>
+            </div>
+          </div>
         </section>
 
         <section class="form-section">
@@ -199,10 +236,96 @@ function buildReportFromForm(overlay, job, existingReport, signaturePads, report
         technicianData: signaturePads.technician?.toDataURL?.() || null,
         clientData: signaturePads.client?.toDataURL?.() || null,
       },
-      photos: [...currentPhotos],
+      fotoAntesUrl: fotoDisplayUrl(fotoAntesState),
+      fotoDepoisUrl: fotoDisplayUrl(fotoDepoisState),
     },
     rejectionNote: null,
   };
+}
+
+function updateFotoPreview(overlay, which) {
+  const state = which === 'antes' ? fotoAntesState : fotoDepoisState;
+  const preview = overlay.querySelector(`#foto-${which}-preview`);
+  const clearBtn = overlay.querySelector(`[data-clear-foto="${which}"]`);
+  const url = fotoDisplayUrl(state);
+  if (preview) {
+    preview.innerHTML = renderFotoPreviewHtml(url, which === 'antes' ? 'Antes' : 'Depois');
+  }
+  if (clearBtn) clearBtn.hidden = !url;
+}
+
+function bindFotoInputs(overlay) {
+  const bindOne = (which) => {
+    const input = overlay.querySelector(`#foto-${which}-input`);
+    const state = which === 'antes' ? fotoAntesState : fotoDepoisState;
+
+    input?.addEventListener('change', () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      if (!file.type.startsWith('image/')) {
+        showToast('Selecione um ficheiro de imagem.', 'error');
+        input.value = '';
+        return;
+      }
+      if (state.previewUrl?.startsWith('blob:')) {
+        URL.revokeObjectURL(state.previewUrl);
+      }
+      state.file = file;
+      state.previewUrl = URL.createObjectURL(file);
+      state.cleared = false;
+      updateFotoPreview(overlay, which);
+      formAutosave?.markDirty();
+    });
+  };
+
+  bindOne('antes');
+  bindOne('depois');
+
+  overlay.querySelectorAll('[data-clear-foto]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const which = btn.dataset.clearFoto;
+      const state = which === 'antes' ? fotoAntesState : fotoDepoisState;
+      if (state.previewUrl?.startsWith('blob:')) {
+        URL.revokeObjectURL(state.previewUrl);
+      }
+      state.file = null;
+      state.previewUrl = null;
+      state.cleared = true;
+      const input = overlay.querySelector(`#foto-${which}-input`);
+      if (input) input.value = '';
+      updateFotoPreview(overlay, which);
+      formAutosave?.markDirty();
+    });
+  });
+}
+
+async function persistJobFotos(jobId) {
+  const result = await syncJobFotosAntesDepois(jobId, {
+    antesFile: fotoAntesState.file,
+    depoisFile: fotoDepoisState.file,
+    fotoAntesUrl: fotoAntesState.remoteUrl,
+    fotoDepoisUrl: fotoDepoisState.remoteUrl,
+    clearAntes: fotoAntesState.cleared,
+    clearDepois: fotoDepoisState.cleared,
+  });
+
+  if (result.fotoAntes) {
+    fotoAntesState.remoteUrl = result.fotoAntes;
+    fotoAntesState.file = null;
+    fotoAntesState.cleared = false;
+  } else if (fotoAntesState.cleared) {
+    fotoAntesState.remoteUrl = null;
+  }
+
+  if (result.fotoDepois) {
+    fotoDepoisState.remoteUrl = result.fotoDepois;
+    fotoDepoisState.file = null;
+    fotoDepoisState.cleared = false;
+  } else if (fotoDepoisState.cleared) {
+    fotoDepoisState.remoteUrl = null;
+  }
+
+  return result;
 }
 
 function restoreSignaturesFromReport(existingReport) {
@@ -225,18 +348,7 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport) {
     showToast('Alguns controlos do formulário podem não responder. Recarregue a página.', 'error');
   });
 
-  overlay.querySelector('#btn-photo').addEventListener('click', () => {
-    simulatePhotoCapture(overlay);
-  });
-
-  overlay.addEventListener('click', (e) => {
-    const removeId = e.target.closest('[data-remove-photo]')?.dataset.removePhoto;
-    if (removeId) {
-      currentPhotos = currentPhotos.filter((p) => p.id !== removeId);
-      e.target.closest('.photo-thumb')?.remove();
-      formAutosave?.markDirty();
-    }
-  });
+  bindFotoInputs(overlay);
 
   signaturePads = initSignaturePads(['technician', 'client'], () => {
     formAutosave?.markDirty();
@@ -256,10 +368,27 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport) {
     });
   }
 
+  const saveWithFotos = async () => {
+    try {
+      await persistJobFotos(job.id);
+      updateFotoPreview(overlay, 'antes');
+      updateFotoPreview(overlay, 'depois');
+    } catch (err) {
+      console.error('[Form] Upload fotos:', err);
+      showToast(formatFotoStorageError(err), 'error', 9000);
+      throw err;
+    }
+  };
+
   overlay.querySelector('#btn-save-draft').addEventListener('click', async () => {
     formAutosave?.flush();
-    const report = buildReportFromForm(overlay, job, existingReport, signaturePads, draftReportId);
-    await saveReportDraft(report);
+    try {
+      await saveWithFotos();
+      const report = buildReportFromForm(overlay, job, existingReport, signaturePads, draftReportId);
+      await saveReportDraft(report);
+    } catch {
+      /* toast já mostrado */
+    }
   });
 
   overlay.querySelector('#btn-preview-pdf')?.addEventListener('click', async () => {
@@ -287,41 +416,24 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport) {
     formAutosave?.destroy();
     formAutosave = null;
 
-    const report = buildReportFromForm(overlay, job, existingReport, signaturePads, draftReportId);
-    if (existingReport?.id) report.id = existingReport.id;
-
-    await submitReport(report);
-    closeForm(overlay);
-    window.dispatchEvent(new CustomEvent('jobs-updated'));
+    try {
+      await saveWithFotos();
+      const report = buildReportFromForm(overlay, job, existingReport, signaturePads, draftReportId);
+      if (existingReport?.id) report.id = existingReport.id;
+      await submitReport(report);
+      closeForm(overlay);
+      window.dispatchEvent(new CustomEvent('jobs-updated'));
+    } catch {
+      /* toast já mostrado */
+    }
   });
-}
-
-function simulatePhotoCapture(overlay) {
-  const labels = [
-    'Peça danificada', 'Estado da bateria', 'Placa do carregador',
-    'Display de erros', 'Componente reparado', 'Vista geral',
-  ];
-  const label = labels[currentPhotos.length % labels.length];
-  const photo = { id: `ph-${Date.now()}`, label };
-  currentPhotos.push(photo);
-
-  const grid = overlay.querySelector('#photo-grid');
-  const thumb = document.createElement('div');
-  thumb.className = 'photo-thumb';
-  thumb.dataset.photoId = photo.id;
-  thumb.innerHTML = `
-    <div class="photo-placeholder">${label.charAt(0)}</div>
-    <span class="photo-label">${escapeHtml(label)}</span>
-    <button type="button" class="photo-remove" data-remove-photo="${photo.id}">&times;</button>
-  `;
-  grid.appendChild(thumb);
-  formAutosave?.markDirty();
-  showToast('Foto capturada (simulada).', 'success');
 }
 
 function closeForm(overlay) {
   formAutosave?.destroy();
   formAutosave = null;
+  if (fotoAntesState.previewUrl?.startsWith('blob:')) URL.revokeObjectURL(fotoAntesState.previewUrl);
+  if (fotoDepoisState.previewUrl?.startsWith('blob:')) URL.revokeObjectURL(fotoDepoisState.previewUrl);
   overlay.classList.remove('show');
   document.body.style.overflow = '';
   setTimeout(() => overlay.remove(), 300);

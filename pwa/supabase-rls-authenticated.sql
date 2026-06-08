@@ -51,3 +51,20 @@ DROP POLICY IF EXISTS "authenticated_read_pdfs_trabalhos" ON storage.objects;
 CREATE POLICY "authenticated_read_pdfs_trabalhos"
   ON storage.objects FOR SELECT TO authenticated
   USING (bucket_id = 'pdfs_trabalhos');
+
+-- ─── Storage fotos Antes/Depois ───
+DROP POLICY IF EXISTS "authenticated_upload_fotos_trabalhos" ON storage.objects;
+CREATE POLICY "authenticated_upload_fotos_trabalhos"
+  ON storage.objects FOR INSERT TO authenticated
+  WITH CHECK (bucket_id = 'fotos_trabalhos');
+
+DROP POLICY IF EXISTS "authenticated_update_fotos_trabalhos" ON storage.objects;
+CREATE POLICY "authenticated_update_fotos_trabalhos"
+  ON storage.objects FOR UPDATE TO authenticated
+  USING (bucket_id = 'fotos_trabalhos')
+  WITH CHECK (bucket_id = 'fotos_trabalhos');
+
+DROP POLICY IF EXISTS "authenticated_read_fotos_trabalhos" ON storage.objects;
+CREATE POLICY "authenticated_read_fotos_trabalhos"
+  ON storage.objects FOR SELECT TO authenticated
+  USING (bucket_id = 'fotos_trabalhos');

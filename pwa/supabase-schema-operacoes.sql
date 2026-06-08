@@ -14,6 +14,8 @@ CREATE TABLE IF NOT EXISTS public.trabalhos (
   estado text NOT NULL DEFAULT 'scheduled',
   nota_rejeicao text,
   url_pdf text,
+  foto_antes text,
+  foto_depois text,
   criado_em timestamptz NOT NULL DEFAULT now(),
   atualizado_em timestamptz NOT NULL DEFAULT now()
 );

@@ -2656,6 +2656,81 @@ body {
   pointer-events: none;
 }
 
+/* Fotos Antes / Depois (formulário técnico) */
+.foto-antes-depois-hint {
+  margin: 0 0 0.75rem;
+  font-size: 0.8125rem;
+}
+
+.foto-antes-depois-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+@media (max-width: 520px) {
+  .foto-antes-depois-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.foto-antes-depois-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-muted);
+}
+
+.foto-antes-depois-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.foto-antes-depois-preview {
+  aspect-ratio: 1;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1px dashed var(--border-hover);
+  background: var(--bg-input);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.foto-antes-depois-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.foto-antes-depois-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  padding: 0.5rem;
+  text-align: center;
+}
+
+.foto-antes-depois-placeholder span:first-child {
+  font-size: 1.5rem;
+}
+
+.foto-antes-depois-input {
+  font-size: 0.8125rem;
+  width: 100%;
+}
+
+.foto-antes-depois-clear {
+  align-self: flex-start;
+}
+
 /* Photos */
 .photo-grid {
   display: grid;

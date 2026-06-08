@@ -253,7 +253,12 @@ export async function renderInterventionPDF(report) {
   });
   y = drawDivider(doc, y);
   y = drawReportFieldsSection(doc, y, service, values);
-  y = await drawPhotosAppendix(doc, y, data.photos || []);
+  const fotoAntesUrl = data.fotoAntesUrl || job?.fotoAntes || null;
+  const fotoDepoisUrl = data.fotoDepoisUrl || job?.fotoDepois || null;
+  y = await drawAntesDepoisPolaroidSection(doc, y, fotoAntesUrl, fotoDepoisUrl);
+  if ((data.photos || []).length) {
+    y = await drawPhotosAppendix(doc, y, data.photos || []);
+  }
   y = await drawSignaturesFooter(doc, y, data.signatures || {});
 
   drawPageFooter(doc, report.id);
@@ -1075,6 +1080,93 @@ function drawLongTextBlock(doc, y, label, value) {
   const lines = pdfSplitText(doc,value, CONTENT_W);
   doc.text(lines, MARGIN, y, { lineHeightFactor: 1.45 });
   return y + lines.length * 4.5 + 8;
+}
+
+const POLAROID_MM = 60;
+const POLAROID_FRAME_PAD = 3;
+const POLAROID_CAPTION_H = 6;
+
+async function loadImageForPdf(url) {
+  if (!url) return null;
+  if (url.startsWith('data:')) return url;
+  try {
+    const res = await fetch(url, { mode: 'cors' });
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    return await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch (err) {
+    console.warn('[PDF] Não foi possível carregar imagem:', url, err);
+    return null;
+  }
+}
+
+function detectImageFormat(dataUrl) {
+  if (String(dataUrl).includes('image/png')) return 'PNG';
+  if (String(dataUrl).includes('image/webp')) return 'WEBP';
+  return 'JPEG';
+}
+
+function drawPolaroidFrame(doc, x, y, imgData, caption) {
+  const outerW = POLAROID_MM;
+  const outerH = POLAROID_MM + POLAROID_CAPTION_H;
+  doc.setDrawColor(...SLATE_LINE);
+  doc.setLineWidth(0.35);
+  doc.setFillColor(255, 255, 255);
+  doc.roundedRect(x, y, outerW, outerH, 1.5, 1.5, 'FD');
+
+  const imgPad = POLAROID_FRAME_PAD;
+  const imgSize = POLAROID_MM - imgPad * 2;
+  try {
+    const fmt = detectImageFormat(imgData);
+    doc.addImage(imgData, fmt, x + imgPad, y + imgPad, imgSize, imgSize, undefined, 'FAST');
+  } catch {
+    doc.setFontSize(7);
+    doc.setTextColor(...TEXT_MUTED);
+    doc.text('IMG', x + outerW / 2, y + outerW / 2, { align: 'center' });
+  }
+
+  pdfSetFont(doc, 'normal');
+  doc.setFontSize(7);
+  doc.setTextColor(...TEXT_DARK);
+  doc.text(caption, x + outerW / 2, y + POLAROID_MM + 4, { align: 'center' });
+  return outerH;
+}
+
+/**
+ * Secção Antes/Depois estilo Polaroid — só ocupa espaço se houver foto(s).
+ */
+async function drawAntesDepoisPolaroidSection(doc, y, fotoAntesUrl, fotoDepoisUrl) {
+  const antes = fotoAntesUrl ? await loadImageForPdf(fotoAntesUrl) : null;
+  const depois = fotoDepoisUrl ? await loadImageForPdf(fotoDepoisUrl) : null;
+  if (!antes && !depois) return y;
+
+  const blockH = POLAROID_MM + POLAROID_CAPTION_H + 16;
+  y = ensureSpace(doc, y, blockH);
+  y = drawSectionTitle(doc, y, 'Registo Fotográfico');
+  y = drawDivider(doc, y - 4);
+
+  const frameH = POLAROID_MM + POLAROID_CAPTION_H;
+  y = ensureSpace(doc, y, frameH + 6);
+
+  if (antes && depois) {
+    const gap = 10;
+    const totalW = POLAROID_MM * 2 + gap;
+    const startX = MARGIN + (CONTENT_W - totalW) / 2;
+    drawPolaroidFrame(doc, startX, y, antes, 'Antes');
+    drawPolaroidFrame(doc, startX + POLAROID_MM + gap, y, depois, 'Depois');
+  } else {
+    const single = antes || depois;
+    const caption = antes ? 'Antes' : 'Depois';
+    const startX = MARGIN + (CONTENT_W - POLAROID_MM) / 2;
+    drawPolaroidFrame(doc, startX, y, single, caption);
+  }
+
+  return y + frameH + 10;
 }
 
 async function drawPhotosAppendix(doc, y, photos) {

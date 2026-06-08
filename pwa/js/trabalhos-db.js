@@ -40,6 +40,8 @@ export function mapRowToJob(row) {
     status: row.estado || 'scheduled',
     rejectionNote: row.nota_rejeicao ?? null,
     urlPdf: row.url_pdf || null,
+    fotoAntes: row.foto_antes || null,
+    fotoDepois: row.foto_depois || null,
   };
 }
 
@@ -217,6 +219,8 @@ export async function patchTrabalho(jobId, patch = {}) {
   if (patch.status !== undefined) update.estado = patch.status;
   if (patch.rejectionNote !== undefined) update.nota_rejeicao = patch.rejectionNote;
   if (patch.urlPdf !== undefined) update.url_pdf = patch.urlPdf;
+  if (patch.fotoAntes !== undefined) update.foto_antes = patch.fotoAntes;
+  if (patch.fotoDepois !== undefined) update.foto_depois = patch.fotoDepois;
 
   const supabase = await getSupabaseClient();
   const { error } = await supabase.from('trabalhos').update(update).eq('id', jobId);
@@ -232,6 +236,8 @@ export async function patchTrabalho(jobId, patch = {}) {
       if (patch.status !== undefined) job.status = patch.status;
       if (patch.rejectionNote !== undefined) job.rejectionNote = patch.rejectionNote;
       if (patch.urlPdf !== undefined) job.urlPdf = patch.urlPdf;
+      if (patch.fotoAntes !== undefined) job.fotoAntes = patch.fotoAntes;
+      if (patch.fotoDepois !== undefined) job.fotoDepois = patch.fotoDepois;
     }
   }
 }
