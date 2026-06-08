@@ -44,6 +44,11 @@ body.dark-mode {
   --draft-badge-fg: #93c5fd;
   --color-scheme: dark;
   --border-subtle-rgb: 255, 255, 255;
+  --signature-border: #475569;
+  --signature-label: #f1f5f9;
+  --signature-canvas-bg: #0f172a;
+  --signature-stroke: #e2e8f0;
+  --signature-placeholder: #94a3b8;
 }
 
 body.light-mode {
@@ -88,6 +93,11 @@ body.light-mode {
   --draft-badge-fg: #1e40af;
   --color-scheme: light;
   --border-subtle-rgb: 15, 23, 42;
+  --signature-border: #94a3b8;
+  --signature-label: #1e293b;
+  --signature-canvas-bg: #ffffff;
+  --signature-stroke: #1e3a5f;
+  --signature-placeholder: #64748b;
 }
 
 /* Fallback antes de theme-boot.js */
@@ -133,6 +143,11 @@ body:not(.light-mode):not(.dark-mode) {
   --draft-badge-fg: #93c5fd;
   --color-scheme: dark;
   --border-subtle-rgb: 255, 255, 255;
+  --signature-border: #475569;
+  --signature-label: #f1f5f9;
+  --signature-canvas-bg: #0f172a;
+  --signature-stroke: #e2e8f0;
+  --signature-placeholder: #94a3b8;
 }
 
 body.dark-mode,
@@ -2798,7 +2813,17 @@ body {
 /* Signatures */
 .signatures-grid { display: flex; flex-direction: column; gap: 1rem; }
 
-.signature-block { border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); overflow: hidden; }
+.signature-block {
+  border: 1.5px solid var(--signature-border, #94a3b8);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--signature-canvas-bg, #ffffff);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+}
+
+body.dark-mode .signature-block {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
 
 .signature-header {
   display: flex;
@@ -2806,14 +2831,20 @@ body {
   align-items: center;
   padding: 0.5rem 0.75rem;
   background: var(--surface-1);
+  border-bottom: 1px solid var(--signature-border, #94a3b8);
 }
 
-.signature-label { font-size: 0.8rem; font-weight: 500; color: var(--text-secondary); }
+.signature-label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--signature-label, var(--text-main));
+  letter-spacing: 0.01em;
+}
 
 .signature-canvas-wrap {
   position: relative;
   height: 120px;
-  background: var(--surface-3);
+  background: var(--signature-canvas-bg, #ffffff);
 }
 
 .signature-canvas {
@@ -2821,6 +2852,7 @@ body {
   width: 100%;
   height: 120px;
   touch-action: none;
+  background: var(--signature-canvas-bg, #ffffff);
 }
 
 .signature-placeholder {
@@ -2829,9 +2861,14 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--text-muted);
+  color: var(--signature-placeholder, var(--text-muted));
   font-size: 0.8rem;
+  font-weight: 500;
   pointer-events: none;
+}
+
+.signature-block.has-signature .signature-placeholder {
+  opacity: 0;
 }
 
 /* Fotos Antes / Depois (formulário técnico) */

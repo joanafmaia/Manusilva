@@ -2,33 +2,68 @@
  * Manusilva PWA — Signature Canvas Module
  */
 
+function readThemeVar(name, fallback) {
+  const value = getComputedStyle(document.body).getPropertyValue(name).trim();
+  return value || fallback;
+}
+
+export function getSignatureTheme() {
+  return {
+    stroke: readThemeVar('--signature-stroke', '#1e3a5f'),
+    canvasBg: readThemeVar('--signature-canvas-bg', '#ffffff'),
+  };
+}
+
 export class SignaturePad {
   constructor(canvas, options = {}) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
     this.drawing = false;
     this.hasSignature = false;
-    this.strokeColor = options.color || '#e2e8f0';
+    const theme = getSignatureTheme();
+    this.strokeColor = options.color || theme.stroke;
+    this.canvasBg = options.canvasBg || theme.canvasBg;
     this.lineWidth = options.lineWidth || 2.5;
     this.onChange = options.onChange || (() => {});
+    this._savedImage = null;
 
     this._resize();
     this._bindEvents();
     window.addEventListener('resize', () => this._resize());
   }
 
+  _paintCanvasBackground(width, height) {
+    this.ctx.save();
+    this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+    this.ctx.fillStyle = this.canvasBg;
+    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    this.ctx.restore();
+  }
+
   _resize() {
     const rect = this.canvas.parentElement.getBoundingClientRect();
     const ratio = window.devicePixelRatio || 1;
-    this.canvas.width = rect.width * ratio;
-    this.canvas.height = (rect.height || 120) * ratio;
-    this.canvas.style.width = `${rect.width}px`;
-    this.canvas.style.height = `${rect.height || 120}px`;
-    this.ctx.scale(ratio, ratio);
+    const cssW = rect.width;
+    const cssH = rect.height || 120;
+    this.canvas.width = cssW * ratio;
+    this.canvas.height = cssH * ratio;
+    this.canvas.style.width = `${cssW}px`;
+    this.canvas.style.height = `${cssH}px`;
+    this.ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
     this.ctx.lineCap = 'round';
     this.ctx.lineJoin = 'round';
     this.ctx.strokeStyle = this.strokeColor;
     this.ctx.lineWidth = this.lineWidth;
+
+    const theme = getSignatureTheme();
+    this.strokeColor = theme.stroke;
+    this.canvasBg = theme.canvasBg;
+    this.ctx.strokeStyle = this.strokeColor;
+
+    this._paintCanvasBackground(cssW, cssH);
+    if (this._savedImage) {
+      this.ctx.drawImage(this._savedImage, 0, 0, cssW, cssH);
+    }
   }
 
   _bindEvents() {
@@ -48,11 +83,20 @@ export class SignaturePad {
       this.ctx.stroke();
       if (!this.hasSignature) {
         this.hasSignature = true;
+        this._syncBlockState(true);
         this.onChange(true);
       }
     };
 
-    const end = () => { this.drawing = false; };
+    const end = () => {
+      this.drawing = false;
+      if (!this.hasSignature) return;
+      const snapshot = new Image();
+      snapshot.src = this.canvas.toDataURL('image/png');
+      snapshot.onload = () => {
+        this._savedImage = snapshot;
+      };
+    };
 
     this.canvas.addEventListener('mousedown', start);
     this.canvas.addEventListener('mousemove', move);
@@ -71,10 +115,16 @@ export class SignaturePad {
     return { x: clientX - rect.left, y: clientY - rect.top };
   }
 
+  _syncBlockState(hasSig) {
+    this.canvas.closest('.signature-block')?.classList.toggle('has-signature', Boolean(hasSig));
+  }
+
   clear() {
-    const ratio = window.devicePixelRatio || 1;
-    this.ctx.clearRect(0, 0, this.canvas.width / ratio, this.canvas.height / ratio);
+    const rect = this.canvas.parentElement.getBoundingClientRect();
+    this._savedImage = null;
+    this._paintCanvasBackground(rect.width, rect.height || 120);
     this.hasSignature = false;
+    this._syncBlockState(false);
     this.onChange(false);
   }
 
@@ -86,9 +136,14 @@ export class SignaturePad {
     if (!dataUrl) return;
     const img = new Image();
     img.onload = () => {
-      const ratio = window.devicePixelRatio || 1;
-      this.ctx.drawImage(img, 0, 0, this.canvas.width / ratio, this.canvas.height / ratio);
+      const rect = this.canvas.parentElement.getBoundingClientRect();
+      const cssW = rect.width;
+      const cssH = rect.height || 120;
+      this._paintCanvasBackground(cssW, cssH);
+      this.ctx.drawImage(img, 0, 0, cssW, cssH);
+      this._savedImage = img;
       this.hasSignature = true;
+      this._syncBlockState(true);
       this.onChange(true);
     };
     img.src = dataUrl;
