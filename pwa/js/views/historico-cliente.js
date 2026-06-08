@@ -1,5 +1,5 @@
 /**
- * Histórico do Cliente — ficha da empresa + relatórios de bateria submetidos.
+ * Histórico do Cliente — painel dinâmico com filtros, cartões (mobile/tablet) e tabela (desktop).
  */
 
 import {
@@ -12,7 +12,6 @@ import {
   formatDateLong,
   warmOperacoes,
 } from '../app.js';
-import { getJobsForClient } from '../trabalhos-db.js';
 import { getClientFromCatalog } from '../clients-catalog.js';
 import { mapClientToLegacy } from '../mock_data.js';
 import { openReportReviewModal, downloadReportPDF } from '../report-review-modal.js';
@@ -24,7 +23,27 @@ export const BATTERY_REPORT_SERVICE_TYPES = new Set([
   'manutencao_baterias_grandes',
 ]);
 
-const SUBMITTED_STATUSES = new Set(['pending_review', 'approved']);
+const HISTORY_PAGE_SIZE = 12;
+
+const REPORT_STATUS_LABELS = {
+  approved: 'Aprovado',
+  pending_review: 'Pendente',
+  draft: 'Rascunho',
+  rejected: 'Recusado',
+};
+
+/** @type {{ onBack?: Function, showWorkflowActions?: boolean, batteryOnly?: boolean, onDownloadPDF?: Function } | null} */
+let activeNavOptions = null;
+
+/** Estado dos filtros / paginação (preservado entre re-renders parciais) */
+const historyViewState = {
+  clientId: null,
+  batteryOnly: true,
+  search: '',
+  typeFilter: 'all',
+  statusFilter: 'all',
+  visibleCount: HISTORY_PAGE_SIZE,
+};
 
 function resolveClientMeta(clientId) {
   const legacy = getClient(clientId) || mapClientToLegacy(getClientFromCatalog(clientId) || { id: clientId });
@@ -48,12 +67,17 @@ function reportBelongsToClient(report, clientId) {
   return aliases.has(String(report.clientId));
 }
 
-function filterClientReports(clientId, { batteryOnly = true } = {}) {
+function formatOrdemDisplay(numeroOrdem) {
+  if (numeroOrdem == null || numeroOrdem === '') return '—';
+  const padded = String(numeroOrdem).padStart(2, '0');
+  return `OP-2026-${padded}`;
+}
+
+function getClientHistoryReports(clientId, { batteryOnly = true } = {}) {
   const db = getDB();
   return (db.reports || [])
     .filter((r) => {
       if (!reportBelongsToClient(r, clientId)) return false;
-      if (!SUBMITTED_STATUSES.has(r.status)) return false;
       if (batteryOnly && !BATTERY_REPORT_SERVICE_TYPES.has(r.serviceType)) return false;
       return true;
     })
@@ -61,59 +85,228 @@ function filterClientReports(clientId, { batteryOnly = true } = {}) {
 }
 
 export function getClientBatteryReports(clientId) {
-  return filterClientReports(clientId, { batteryOnly: true });
+  return getClientHistoryReports(clientId, { batteryOnly: true });
 }
 
 export function getClientSubmittedReports(clientId) {
-  return filterClientReports(clientId, { batteryOnly: false });
+  return getClientHistoryReports(clientId, { batteryOnly: false });
 }
 
-function statusBadge(status) {
-  if (status === 'approved') return '<span class="status-pill status-pill--green">Aprovado</span>';
-  if (status === 'pending_review') return '<span class="status-pill status-pill--amber">Pendente RH</span>';
-  return `<span class="status-pill">${escapeHtml(status)}</span>`;
-}
-
-function pdfActionButton(report) {
+function enrichReportRow(report, clientMeta) {
   const job = report.jobId ? getJob(report.jobId) : null;
-  if (job?.urlPdf) {
-    return `<button type="button" class="btn-outline btn-sm client-history-pdf" data-open-pdf-url="${escapeHtml(job.urlPdf)}" title="Ver PDF" aria-label="Ver PDF">👁️</button>`;
-  }
-  return `<button type="button" class="btn-outline btn-sm client-history-pdf" data-download-pdf="${escapeHtml(report.id)}" title="Descarregar PDF" aria-label="Descarregar PDF">PDF</button>`;
+  const service = getServiceType(report.serviceType);
+  const tech = getTechnician(report.technicianId);
+  const dateRaw = report.submittedAt || job?.date || '';
+  const dateStr = dateRaw ? formatDateLong(String(dateRaw).split('T')[0]) : '—';
+  const ordem = formatOrdemDisplay(job?.numeroOrdem);
+  const machine = report.forkliftSerial || job?.forkliftSerial || '—';
+  const serviceLabel = service?.label || report.serviceType || '—';
+  const searchBlob = [clientMeta.nome, ordem, machine, serviceLabel, tech?.name || '']
+    .join(' ')
+    .toLowerCase();
+
+  return {
+    report,
+    job,
+    service,
+    tech,
+    dateStr,
+    dateRaw,
+    ordem,
+    machine,
+    serviceLabel,
+    serviceType: report.serviceType,
+    status: report.status || 'draft',
+    searchBlob,
+  };
 }
 
-function renderTrabalhosPdfSection(clientId) {
-  const jobs = getJobsForClient(clientId)
-    .filter((j) => j.urlPdf)
-    .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-  if (!jobs.length) return '';
+function reportStatusBadge(status) {
+  if (status === 'approved') {
+    return '<span class="client-history-status client-history-status--approved">Aprovado</span>';
+  }
+  if (status === 'pending_review') {
+    return '<span class="client-history-status client-history-status--pending">Pendente</span>';
+  }
+  if (status === 'draft') {
+    return '<span class="client-history-status client-history-status--draft">Rascunho</span>';
+  }
+  if (status === 'rejected') {
+    return '<span class="client-history-status client-history-status--rejected">Recusado</span>';
+  }
+  return `<span class="client-history-status">${escapeHtml(REPORT_STATUS_LABELS[status] || status)}</span>`;
+}
 
-  const listHtml = jobs
-    .map((j) => {
-      const service = getServiceType(j.serviceType);
-      const dateStr = j.date ? formatDateLong(j.date) : '—';
-      return `
-          <li class="client-history-item glass-card">
-            <div class="client-history-item-main client-history-item-main--static">
-              <span class="client-history-date">${escapeHtml(dateStr)}</span>
-              <span class="client-history-service">${escapeHtml(service?.label || j.serviceType)}</span>
-              <span class="client-history-tech text-muted">${escapeHtml(j.forkliftSerial || '—')}</span>
-            </div>
-            <button type="button" class="btn-outline btn-sm client-history-pdf" data-open-pdf-url="${escapeHtml(j.urlPdf)}" title="Ver PDF" aria-label="Ver PDF">👁️</button>
-          </li>`;
+function pdfActionButton(report, job, variant = 'card') {
+  const btnClass =
+    variant === 'table'
+      ? 'btn-outline btn-sm client-history-pdf-btn'
+      : 'btn-primary client-history-pdf-btn client-history-pdf-btn--card';
+  const label = variant === 'table' ? 'Ver PDF' : 'Ver PDF';
+
+  if (job?.urlPdf) {
+    return `<button type="button" class="${btnClass}" data-open-pdf-url="${escapeHtml(job.urlPdf)}">${label}</button>`;
+  }
+  return `<button type="button" class="${btnClass}" data-download-pdf="${escapeHtml(report.id)}">${label}</button>`;
+}
+
+function filterHistoryRows(rows) {
+  const q = historyViewState.search.trim().toLowerCase();
+  return rows.filter((row) => {
+    if (historyViewState.typeFilter !== 'all' && row.serviceType !== historyViewState.typeFilter) {
+      return false;
+    }
+    if (historyViewState.statusFilter !== 'all' && row.status !== historyViewState.statusFilter) {
+      return false;
+    }
+    if (q && !row.searchBlob.includes(q)) return false;
+    return true;
+  });
+}
+
+function buildTypeFilterOptions(rows) {
+  const types = [...new Set(rows.map((r) => r.serviceType).filter(Boolean))];
+  return types
+    .map((id) => {
+      const service = getServiceType(id);
+      const label = service?.label || id;
+      return `<option value="${escapeHtml(id)}"${historyViewState.typeFilter === id ? ' selected' : ''}>${escapeHtml(label)}</option>`;
     })
     .join('');
-
-  return `
-        <section class="client-history-jobs">
-          <h3 class="dashboard-section-title">Trabalhos com PDF</h3>
-          <p class="text-muted client-history-reports-hint">Documentos guardados — clique no ícone para abrir numa nova aba.</p>
-          <ul class="client-history-list" role="list">${listHtml}</ul>
-        </section>`;
 }
 
-/** @type {{ onBack?: () => void, showWorkflowActions?: boolean, batteryOnly?: boolean, onDownloadPDF?: (reportId: string) => void } | null} */
-let activeNavOptions = null;
+function renderToolbar(rows) {
+  const typeOptions = buildTypeFilterOptions(rows);
+  const filtered = filterHistoryRows(rows);
+
+  return `
+    <div class="client-history-toolbar glass-card" data-history-toolbar>
+      <div class="client-history-toolbar-search">
+        <label class="form-label" for="client-history-search">Pesquisa rápida</label>
+        <input type="search" id="client-history-search" class="form-input client-history-search-input"
+          placeholder="Cliente, ordem, n.º série…" value="${escapeHtml(historyViewState.search)}"
+          autocomplete="off" aria-label="Pesquisar no histórico">
+      </div>
+      <div class="client-history-toolbar-filters">
+        <div class="client-history-filter">
+          <label class="form-label" for="client-history-type">Tipo de relatório</label>
+          <select id="client-history-type" class="form-select client-history-filter-select" aria-label="Filtrar por tipo">
+            <option value="all"${historyViewState.typeFilter === 'all' ? ' selected' : ''}>Todos os tipos</option>
+            ${typeOptions}
+          </select>
+        </div>
+        <div class="client-history-filter">
+          <label class="form-label" for="client-history-status">Estado</label>
+          <select id="client-history-status" class="form-select client-history-filter-select" aria-label="Filtrar por estado">
+            <option value="all"${historyViewState.statusFilter === 'all' ? ' selected' : ''}>Todos</option>
+            <option value="approved"${historyViewState.statusFilter === 'approved' ? ' selected' : ''}>Aprovado</option>
+            <option value="pending_review"${historyViewState.statusFilter === 'pending_review' ? ' selected' : ''}>Pendente</option>
+            <option value="draft"${historyViewState.statusFilter === 'draft' ? ' selected' : ''}>Rascunho</option>
+            <option value="rejected"${historyViewState.statusFilter === 'rejected' ? ' selected' : ''}>Recusado</option>
+          </select>
+        </div>
+      </div>
+      <p class="client-history-result-count text-muted" aria-live="polite">
+        ${filtered.length} relatório${filtered.length === 1 ? '' : 's'} encontrado${filtered.length === 1 ? '' : 's'}
+      </p>
+    </div>
+  `;
+}
+
+function renderHistoryCard(row) {
+  const { report } = row;
+
+  return `
+    <article class="client-history-card glass-card" data-report-id="${escapeHtml(report.id)}">
+      <button type="button" class="client-history-card-body" data-open-report="${escapeHtml(report.id)}">
+        <div class="client-history-card-top">
+          <span class="client-history-ordem">${escapeHtml(row.ordem)}</span>
+          ${reportStatusBadge(row.status)}
+        </div>
+        <h4 class="client-history-card-service">${escapeHtml(row.serviceLabel)}</h4>
+        <dl class="client-history-card-meta">
+          <div><dt>Máquina</dt><dd>${escapeHtml(row.machine)}</dd></div>
+          <div><dt>Data</dt><dd>${escapeHtml(row.dateStr)}</dd></div>
+          <div><dt>Técnico</dt><dd>${escapeHtml(row.tech?.name || '—')}</dd></div>
+        </dl>
+      </button>
+      <footer class="client-history-card-footer">
+        ${pdfActionButton(report, row.job, 'card')}
+      </footer>
+    </article>
+  `;
+}
+
+function renderHistoryTableRow(row) {
+  const { report } = row;
+  return `
+    <tr class="client-history-table-row" data-report-id="${escapeHtml(report.id)}">
+      <td><span class="client-history-ordem">${escapeHtml(row.ordem)}</span></td>
+      <td>${escapeHtml(row.serviceLabel)}</td>
+      <td>${escapeHtml(row.machine)}</td>
+      <td>${escapeHtml(row.dateStr)}</td>
+      <td>${reportStatusBadge(row.status)}</td>
+      <td class="client-history-table-actions">
+        <button type="button" class="btn-ghost btn-sm" data-open-report="${escapeHtml(report.id)}" title="Ver detalhe">Detalhe</button>
+        ${pdfActionButton(report, row.job, 'table')}
+      </td>
+    </tr>
+  `;
+}
+
+function renderListSection(rows, { batteryOnly }) {
+  const filtered = filterHistoryRows(rows);
+  const visible = filtered.slice(0, historyViewState.visibleCount);
+  const hasMore = filtered.length > historyViewState.visibleCount;
+  const emptyMsg = batteryOnly
+    ? 'Nenhum relatório de bateria corresponde aos filtros.'
+    : 'Nenhum relatório corresponde aos filtros.';
+
+  if (!filtered.length) {
+    return `
+      <div class="client-history-results" data-history-results>
+        <p class="text-muted client-history-empty">${emptyMsg}</p>
+      </div>
+    `;
+  }
+
+  const cardsHtml = visible.map((row) => renderHistoryCard(row)).join('');
+  const tableRowsHtml = visible.map((row) => renderHistoryTableRow(row)).join('');
+
+  const loadMoreHtml = hasMore
+    ? `<div class="client-history-pagination">
+        <button type="button" class="btn-secondary client-history-load-more" data-history-load-more>
+          Carregar mais (${filtered.length - historyViewState.visibleCount} restantes)
+        </button>
+      </div>`
+    : '';
+
+  return `
+    <div class="client-history-results" data-history-results>
+      <div class="client-history-grid" role="list" aria-label="Relatórios do cliente">
+        ${cardsHtml}
+      </div>
+      <div class="client-history-table-wrap">
+        <div class="client-history-table-scroll">
+          <table class="client-history-table rh-data-table">
+            <thead>
+              <tr>
+                <th scope="col">Ordem</th>
+                <th scope="col">Relatório</th>
+                <th scope="col">Máquina</th>
+                <th scope="col">Data</th>
+                <th scope="col">Estado</th>
+                <th scope="col">Ações</th>
+              </tr>
+            </thead>
+            <tbody>${tableRowsHtml}</tbody>
+          </table>
+        </div>
+      </div>
+      ${loadMoreHtml}
+    </div>
+  `;
+}
 
 export const HistoricoClienteView = {
   /**
@@ -122,45 +315,29 @@ export const HistoricoClienteView = {
    */
   render(clientId, renderOptions = {}) {
     const batteryOnly = renderOptions.batteryOnly !== false;
+    const showWorkflow =
+      renderOptions.showWorkflowActions ?? activeNavOptions?.showWorkflowActions !== false;
     const { nome, nif, contact } = resolveClientMeta(clientId);
-    const reports = batteryOnly ? getClientBatteryReports(clientId) : getClientSubmittedReports(clientId);
-    const reportsTitle = batteryOnly
-      ? 'Relatórios técnicos de bateria'
-      : 'Intervenções anteriores';
-    const reportsHint = batteryOnly
-      ? 'Do mais recente ao mais antigo — clique na linha para rever; use 👁️ para abrir o PDF guardado.'
-      : 'Do mais recente ao mais antigo — consulte o que foi feito em visitas anteriores.';
-    const trabalhosPdfHtml = renderTrabalhosPdfSection(clientId);
-    const emptyMsg = batteryOnly
-      ? 'Ainda não existem relatórios de bateria submetidos para esta empresa.'
-      : 'Ainda não existem relatórios submetidos para esta empresa.';
+    const clientMeta = { nome, nif, contact };
+    const reports = getClientHistoryReports(clientId, { batteryOnly });
+    const rows = reports.map((r) => enrichReportRow(r, clientMeta));
 
-    const listHtml = reports.length
-      ? reports
-          .map((r) => {
-            const service = getServiceType(r.serviceType);
-            const tech = getTechnician(r.technicianId);
-            const dateStr = r.submittedAt ? formatDateLong(String(r.submittedAt).split('T')[0]) : '—';
-            return `
-          <li class="client-history-item glass-card" data-report-id="${escapeHtml(r.id)}">
-            <button type="button" class="client-history-item-main" data-open-report="${escapeHtml(r.id)}">
-              <span class="client-history-date">${escapeHtml(dateStr)}</span>
-              <span class="client-history-service">${escapeHtml(service?.label || r.serviceType)}</span>
-              <span class="client-history-tech text-muted">${escapeHtml(tech?.name || '—')}</span>
-              ${statusBadge(r.status)}
-            </button>
-            ${pdfActionButton(r)}
-          </li>
-        `;
-          })
-          .join('')
-      : `<p class="text-muted client-history-empty">${emptyMsg}</p>`;
+    if (historyViewState.clientId !== clientId) {
+      historyViewState.clientId = clientId;
+      historyViewState.batteryOnly = batteryOnly;
+      historyViewState.search = '';
+      historyViewState.typeFilter = 'all';
+      historyViewState.statusFilter = 'all';
+      historyViewState.visibleCount = HISTORY_PAGE_SIZE;
+    }
+
+    const reportsTitle = batteryOnly ? 'Relatórios técnicos de bateria' : 'Histórico de intervenções';
 
     return `
       <div class="client-history-page" data-client-history data-client-id="${escapeHtml(clientId)}">
         <header class="client-history-header">
           <button type="button" class="btn-ghost client-history-back" data-history-back>&larr; Voltar</button>
-          <h2 class="client-history-title">Histórico do Cliente</h2>
+          <h2 class="client-history-title ms-page-title">Histórico do Cliente</h2>
         </header>
 
         <section class="client-history-company glass-card">
@@ -172,12 +349,10 @@ export const HistoricoClienteView = {
           </dl>
         </section>
 
-        ${trabalhosPdfHtml}
-
         <section class="client-history-reports">
           <h3 class="dashboard-section-title">${escapeHtml(reportsTitle)}</h3>
-          <p class="text-muted client-history-reports-hint">${escapeHtml(reportsHint)}</p>
-          <ul class="client-history-list" role="list">${listHtml}</ul>
+          ${renderToolbar(rows)}
+          ${renderListSection(rows, { batteryOnly })}
         </section>
       </div>
     `;
@@ -201,8 +376,33 @@ export const HistoricoClienteView = {
     if (!root) return;
 
     const showWorkflow = options.showWorkflowActions !== false;
+    const clientMeta = resolveClientMeta(clientId);
+    const rows = getClientHistoryReports(clientId, { batteryOnly }).map((r) =>
+      enrichReportRow(r, clientMeta),
+    );
+
+    const repaintResults = () => {
+      const mount = root.querySelector('[data-history-results]');
+      const countEl = root.querySelector('.client-history-result-count');
+      if (mount) {
+        mount.outerHTML = renderListSection(rows, { batteryOnly });
+        bindListInteractions(root, {
+          showWorkflow,
+          onDownloadPDF,
+          onLoadMore: () => {
+            historyViewState.visibleCount += HISTORY_PAGE_SIZE;
+            repaintResults();
+          },
+        });
+      }
+      if (countEl) {
+        const n = filterHistoryRows(rows).length;
+        countEl.textContent = `${n} relatório${n === 1 ? '' : 's'} encontrado${n === 1 ? '' : 's'}`;
+      }
+    };
 
     root.querySelector('[data-history-back]')?.addEventListener('click', async () => {
+      historyViewState.clientId = null;
       if (typeof options.onBack === 'function') {
         options.onBack();
         return;
@@ -211,37 +411,90 @@ export const HistoricoClienteView = {
       restoreClientsDashboard();
     });
 
-    const refresh = () => {
-      const app = document.getElementById('app');
-      if (!app) return;
-      app.innerHTML = HistoricoClienteView.render(clientId, { batteryOnly });
-      void HistoricoClienteView.init(clientId, activeNavOptions || options);
+    const searchInput = root.querySelector('#client-history-search');
+    searchInput?.addEventListener('input', () => {
+      historyViewState.search = searchInput.value;
+      historyViewState.visibleCount = HISTORY_PAGE_SIZE;
+      repaintResults();
+    });
+
+    root.querySelector('#client-history-type')?.addEventListener('change', (e) => {
+      historyViewState.typeFilter = e.target.value;
+      historyViewState.visibleCount = HISTORY_PAGE_SIZE;
+      repaintResults();
+    });
+
+    root.querySelector('#client-history-status')?.addEventListener('change', (e) => {
+      historyViewState.statusFilter = e.target.value;
+      historyViewState.visibleCount = HISTORY_PAGE_SIZE;
+      repaintResults();
+    });
+
+    const bindActions = () => {
+      bindListInteractions(root, {
+        showWorkflow,
+        onDownloadPDF,
+        onLoadMore: () => {
+          historyViewState.visibleCount += HISTORY_PAGE_SIZE;
+          repaintResults();
+        },
+      });
     };
 
-    root.querySelectorAll('[data-open-report]').forEach((btn) => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        openReportReviewModal(btn.dataset.openReport, {
-          showWorkflowActions: showWorkflow,
-          onApproved: refresh,
-          onRejected: refresh,
-        });
-      });
-    });
-
-    root.querySelectorAll('[data-download-pdf]').forEach((btn) => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        onDownloadPDF(btn.dataset.downloadPdf);
-      });
-    });
-
-    root.querySelectorAll('[data-open-pdf-url]').forEach((btn) => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const url = btn.dataset.openPdfUrl;
-        if (url) window.open(url, '_blank');
-      });
-    });
+    bindActions();
   },
 };
+
+function bindListInteractions(root, { showWorkflow, onDownloadPDF, onLoadMore }) {
+  root.querySelector('[data-history-load-more]')?.addEventListener('click', () => {
+    onLoadMore?.();
+  });
+
+  root.querySelectorAll('[data-open-report]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const reportId = btn.dataset.openReport;
+      if (!reportId) return;
+      openReportReviewModal(reportId, {
+        showWorkflowActions: showWorkflow,
+        onApproved: () => {
+          const app = document.getElementById('app');
+          const clientId = root.dataset.clientId;
+          if (app && clientId) {
+            app.innerHTML = HistoricoClienteView.render(clientId, {
+              batteryOnly: activeNavOptions?.batteryOnly !== false,
+              showWorkflowActions: activeNavOptions?.showWorkflowActions,
+            });
+            void HistoricoClienteView.init(clientId, activeNavOptions || {});
+          }
+        },
+        onRejected: () => {
+          const app = document.getElementById('app');
+          const clientId = root.dataset.clientId;
+          if (app && clientId) {
+            app.innerHTML = HistoricoClienteView.render(clientId, {
+              batteryOnly: activeNavOptions?.batteryOnly !== false,
+              showWorkflowActions: activeNavOptions?.showWorkflowActions,
+            });
+            void HistoricoClienteView.init(clientId, activeNavOptions || {});
+          }
+        },
+      });
+    });
+  });
+
+  root.querySelectorAll('[data-download-pdf]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      onDownloadPDF(btn.dataset.downloadPdf);
+    });
+  });
+
+  root.querySelectorAll('[data-open-pdf-url]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const url = btn.dataset.openPdfUrl;
+      if (url) window.open(url, '_blank');
+    });
+  });
+}

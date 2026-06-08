@@ -69,7 +69,10 @@ export function restoreTechDashboard() {
 export function openTechClientHistory(clientId) {
   const app = document.getElementById('app');
   if (!app || !clientId) return;
-  app.innerHTML = HistoricoClienteView.render(clientId, { batteryOnly: false });
+  app.innerHTML = HistoricoClienteView.render(clientId, {
+    batteryOnly: false,
+    showWorkflowActions: false,
+  });
   HistoricoClienteView.init(clientId, {
     onBack: restoreTechDashboard,
     showWorkflowActions: false,
