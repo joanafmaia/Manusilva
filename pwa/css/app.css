@@ -3386,7 +3386,7 @@ body.dark-mode .rh-filter-chip.is-active {
   flex: 1;
 }
 
-/* ─── Painel RH — cartões premium (SaaS) ─── */
+/* ─── Painel RH — lista compacta + detalhe expandido ─── */
 .rh-review-stack {
   display: flex;
   flex-direction: column;
@@ -3395,6 +3395,152 @@ body.dark-mode .rh-filter-chip.is-active {
 
 .rh-review-stack-card {
   flex-shrink: 0;
+}
+
+.rh-list-item {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-left-width: 4px;
+  border-radius: 10px;
+  margin-bottom: 8px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.rh-list-item.is-expanded {
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
+  margin-bottom: 12px;
+}
+
+.rh-list-item__summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 10px 10px 12px;
+  min-height: 56px;
+  max-height: 100px;
+}
+
+.rh-list-item.is-expanded .rh-list-item__summary {
+  border-bottom: 1px solid #e2e8f0;
+  background: #fafbfc;
+}
+
+.rh-list-item__ordem {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: #475569;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 5px;
+  padding: 4px 6px;
+  line-height: 1.2;
+}
+
+.rh-list-item__info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rh-list-item__client {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+}
+
+.rh-list-item__tech {
+  font-size: 11px;
+  color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+}
+
+.rh-list-item__status {
+  flex-shrink: 0;
+  font-size: 9px !important;
+  padding: 2px 6px !important;
+}
+
+.rh-list-item__open-btn {
+  flex-shrink: 0;
+  padding: 5px 10px;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  color: #2563eb;
+  background: transparent;
+  border: 1px solid #bfdbfe;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.rh-list-item__open-btn:hover {
+  color: #1d4ed8;
+  background: #eff6ff;
+  border-color: #93c5fd;
+}
+
+.rh-list-item__open-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.35);
+}
+
+.rh-list-item__detail {
+  padding: 12px 12px 14px;
+  animation: rh-list-detail-in 0.22s ease;
+}
+
+@keyframes rh-list-detail-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.rh-list-item__detail-meta {
+  margin: 0 0 10px;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.rh-list-item__detail .rh-card__body {
+  padding: 0;
+}
+
+.rh-list-item__detail .rh-card__footer {
+  margin-top: 12px;
+  padding-top: 12px;
+}
+
+body.dark-mode .rh-list-item {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+body.dark-mode .rh-list-item.is-expanded .rh-list-item__summary {
+  background: #0f172a;
+  border-bottom-color: #334155;
+}
+
+body.dark-mode .rh-list-item__client {
+  color: #f1f5f9;
+}
+
+body.dark-mode .rh-list-item__ordem {
+  background: #334155;
+  border-color: #475569;
+  color: #cbd5e1;
 }
 
 .rh-review-stack-card--highlight {
@@ -3419,19 +3565,23 @@ body.dark-mode .rh-filter-chip.is-active {
   transition: box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
-.rh-card--pending {
+.rh-card--pending,
+.rh-list-item.rh-card--pending {
   border-left-color: #fbbf24;
 }
 
-.rh-card--draft {
+.rh-card--draft,
+.rh-list-item.rh-card--draft {
   border-left-color: #94a3b8;
 }
 
-.rh-card--approved {
+.rh-card--approved,
+.rh-list-item.rh-card--approved {
   border-left-color: #22c55e;
 }
 
-.rh-card--rejected {
+.rh-card--rejected,
+.rh-list-item.rh-card--rejected {
   border-left-color: #ef4444;
 }
 
@@ -3463,22 +3613,26 @@ body.dark-mode .rh-filter-chip.is-active {
   border-radius: 4px;
 }
 
-.rh-card--pending .rh-card__status-pill {
+.rh-card--pending .rh-card__status-pill,
+.rh-list-item.rh-card--pending .rh-card__status-pill {
   color: #92400e;
   background: #fef3c7;
 }
 
-.rh-card--draft .rh-card__status-pill {
+.rh-card--draft .rh-card__status-pill,
+.rh-list-item.rh-card--draft .rh-card__status-pill {
   color: #475569;
   background: #f1f5f9;
 }
 
-.rh-card--approved .rh-card__status-pill {
+.rh-card--approved .rh-card__status-pill,
+.rh-list-item.rh-card--approved .rh-card__status-pill {
   color: #166534;
   background: #dcfce7;
 }
 
-.rh-card--rejected .rh-card__status-pill {
+.rh-card--rejected .rh-card__status-pill,
+.rh-list-item.rh-card--rejected .rh-card__status-pill {
   color: #991b1b;
   background: #fee2e2;
 }

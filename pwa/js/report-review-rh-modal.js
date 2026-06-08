@@ -50,15 +50,11 @@ export function buildRhReviewFilterBar(counts, activeFilter = 'pending_review') 
   return `<div class="rh-review-filters" role="tablist" aria-label="Filtrar relatórios">${chips}</div>`;
 }
 
-/**
- * Painel lateral sticky (split-screen) — cartão de revisão RH.
- */
-export function buildRhReviewPanelHtml({
+function buildRhReviewExpandedDetail({
   job,
   report,
-  client,
-  tech,
   service,
+  tech,
   fieldsHTML,
   showWorkflow = true,
 }) {
@@ -66,8 +62,6 @@ export function buildRhReviewPanelHtml({
   const submittedLabel = formatSubmittedShort(
     report?.submittedAt || report?.approvedAt || job?.date,
   );
-  const statusMeta = getReportStatusPanelMeta(report?.status);
-  const statusClass = statusMeta.cardClass;
 
   const workflowHtml = showWorkflow
     ? `
@@ -83,21 +77,12 @@ export function buildRhReviewPanelHtml({
     : '';
 
   return `
-    <article class="rh-card rh-review-stack-card ${statusClass}" data-job-id="${escapeHtml(job?.id || '')}" data-report-id="${escapeHtml(report.id)}" data-report-status="${escapeHtml(report?.status || '')}">
-      <header class="rh-card__header">
-        <div class="rh-card__header-row">
-          <span class="rh-card__ordem-badge">${escapeHtml(formatOrdemLabel(job))}</span>
-          <span class="rh-card__status-pill">${escapeHtml(statusMeta.label)}</span>
-          <time class="rh-card__date" datetime="${escapeHtml(report?.submittedAt || report?.approvedAt || '')}">${escapeHtml(submittedLabel)}</time>
-        </div>
-        <h3 class="rh-card__client">${escapeHtml(client?.name || client?.Nome || '—')}</h3>
-        <p class="rh-card__meta">
-          ${escapeHtml(service?.label || report.serviceType || '—')}
-          <span class="rh-card__meta-sep" aria-hidden="true">·</span>
-          ${escapeHtml(tech?.name || '—')}
-        </p>
-      </header>
-
+    <div class="rh-list-item__detail">
+      <p class="rh-list-item__detail-meta text-muted">
+        ${escapeHtml(service?.label || report.serviceType || '—')}
+        <span class="rh-card__meta-sep" aria-hidden="true">·</span>
+        ${escapeHtml(submittedLabel)}
+      </p>
       <div class="rh-card__body">
         <div class="rh-card__fields review-fields-wrap">${fieldsHTML}</div>
         ${renderRhPanelFotos(job, report)}
@@ -106,7 +91,6 @@ export function buildRhReviewPanelHtml({
           <span class="rh-card__sig${data.signatures?.client ? ' rh-card__sig--ok' : ''}">Cliente ${data.signatures?.client ? '✓' : '—'}</span>
         </p>
       </div>
-
       <footer class="rh-card__footer">
         <div class="rh-card__actions">
           ${workflowHtml}
@@ -116,6 +100,60 @@ export function buildRhReviewPanelHtml({
           </button>
         </div>
       </footer>
+    </div>`;
+}
+
+/**
+ * Item da lista compacta do painel RH — detalhe só quando `expanded`.
+ */
+export function buildRhReviewListItem({
+  job,
+  report,
+  client,
+  tech,
+  service,
+  fieldsHTML = '',
+  expanded = false,
+  showWorkflow = false,
+}) {
+  const statusMeta = getReportStatusPanelMeta(report?.status);
+  const statusClass = statusMeta.cardClass;
+  const clientName = client?.name || client?.Nome || '—';
+  const techName = tech?.name || '—';
+
+  const actionBtn = expanded
+    ? `<button type="button" class="rh-list-item__open-btn" data-panel-close="${escapeHtml(report.id)}">Fechar</button>`
+    : `<button type="button" class="rh-list-item__open-btn" data-panel-open="${escapeHtml(report.id)}">Rever</button>`;
+
+  const detailHtml = expanded
+    ? buildRhReviewExpandedDetail({
+        job,
+        report,
+        service,
+        tech,
+        fieldsHTML,
+        showWorkflow,
+      })
+    : '';
+
+  return `
+    <article
+      class="rh-list-item rh-review-stack-card ${statusClass}${expanded ? ' is-expanded' : ''}"
+      data-job-id="${escapeHtml(job?.id || '')}"
+      data-report-id="${escapeHtml(report.id)}"
+      data-report-status="${escapeHtml(report?.status || '')}"
+      role="listitem"
+    >
+      <div class="rh-list-item__summary">
+        <span class="rh-list-item__ordem">${escapeHtml(formatOrdemLabel(job))}</span>
+        <div class="rh-list-item__info">
+          <span class="rh-list-item__client">${escapeHtml(clientName)}</span>
+          <span class="rh-list-item__tech">${escapeHtml(techName)}</span>
+        </div>
+        <span class="rh-list-item__status rh-card__status-pill">${escapeHtml(statusMeta.label)}</span>
+        ${actionBtn}
+      </div>
+      ${detailHtml}
     </article>
   `;
 }

@@ -52,6 +52,8 @@ let filterTechId = 'all';
 let currentWeekOffset = 0;
 /** Filtro ativo no painel RH — por defeito mostra pendentes */
 let rhReviewFilter = 'pending_review';
+/** Relatório com detalhe expandido no painel RH (null = todos compactos) */
+let relatorioSelecionadoId = null;
 
 const RH_EMPTY_MESSAGES = {
   all: 'Nenhum relatório no histórico.',
@@ -384,6 +386,10 @@ function scrollToReportInPanel(reportId) {
   setTimeout(() => card.classList.remove('rh-review-stack-card--highlight'), 2200);
 }
 
+function clearRhReviewSelection() {
+  relatorioSelecionadoId = null;
+}
+
 /** Renderiza histórico completo de relatórios no painel direito (com filtros rápidos). */
 async function renderRhReviewStack() {
   const panel = document.getElementById('rh-review-panel');
@@ -400,8 +406,15 @@ async function renderRhReviewStack() {
   const counts = getRhPanelReportCounts();
   const reports = getAdminReviewReports(rhReviewFilter);
 
+  if (
+    relatorioSelecionadoId &&
+    !reports.some((r) => r.id === relatorioSelecionadoId)
+  ) {
+    relatorioSelecionadoId = null;
+  }
+
   const { renderReportValuesForReview } = await import('./form-engine.js');
-  const { buildRhReviewPanelHtml, buildRhReviewFilterBar } = await import(
+  const { buildRhReviewListItem, buildRhReviewFilterBar } = await import(
     './report-review-rh-modal.js'
   );
 
@@ -414,19 +427,23 @@ async function renderRhReviewStack() {
   } else {
     const cards = reports
       .map((report) => {
+        const expanded = relatorioSelecionadoId === report.id;
         const job = report.jobId ? getJob(report.jobId) : null;
         const client = getClient(report.clientId);
         const tech = getTechnician(report.technicianId);
         const service = getServiceType(report.serviceType);
-        const fieldsHTML = renderReportValuesForReview(service, report.data?.values || {});
+        const fieldsHTML = expanded
+          ? renderReportValuesForReview(service, report.data?.values || {})
+          : '';
 
-        return buildRhReviewPanelHtml({
+        return buildRhReviewListItem({
           job,
           report,
           client,
           tech,
           service,
           fieldsHTML,
+          expanded,
           showWorkflow: report.status === 'pending_review',
         });
       })
@@ -458,8 +475,24 @@ function bindRhReviewPanel() {
       const next = filterBtn.dataset.rhFilter;
       if (next && next !== rhReviewFilter) {
         rhReviewFilter = next;
+        clearRhReviewSelection();
         await renderRhReviewStack();
       }
+      return;
+    }
+
+    const openBtn = e.target.closest('[data-panel-open]');
+    if (openBtn) {
+      relatorioSelecionadoId = openBtn.dataset.panelOpen || null;
+      await renderRhReviewStack();
+      if (relatorioSelecionadoId) scrollToReportInPanel(relatorioSelecionadoId);
+      return;
+    }
+
+    const closeBtn = e.target.closest('[data-panel-close]');
+    if (closeBtn) {
+      clearRhReviewSelection();
+      await renderRhReviewStack();
       return;
     }
 
@@ -487,6 +520,7 @@ function bindRhReviewPanel() {
       const ok = await approveReport(approveBtn.dataset.panelApprove);
       approveBtn.disabled = false;
       if (ok) {
+        clearRhReviewSelection();
         renderCalendar();
         refreshDashboardPanel().catch(console.error);
         await renderRhReviewStack();
@@ -699,6 +733,7 @@ async function handleNewPendingReport(report, opts = {}, beep) {
     console.warn('[Admin] Trabalhos para notificação:', err);
   }
   rhReviewFilter = 'pending_review';
+  relatorioSelecionadoId = report.id;
   renderCalendar();
   await renderRhReviewStack();
   showPendingReportNotification(report);
@@ -732,6 +767,7 @@ function openRejectDialog(reportId) {
     }
     rejectReport(reportId, note).then(async () => {
       closeModal();
+      clearRhReviewSelection();
       renderCalendar();
       await renderRhReviewStack();
     });
