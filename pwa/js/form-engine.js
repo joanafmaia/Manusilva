@@ -1154,6 +1154,19 @@ function updateMatrixCategoryProgress(catEl) {
   if (progress) progress.textContent = `${filled}/${rows.length}`;
 }
 
+function markMatrixCategoryAllGood(catEl) {
+  if (!catEl) return;
+  catEl.querySelectorAll('.matrix-row').forEach((row) => {
+    const goodBtn = row.querySelector('.matrix-opt[data-value="B"]');
+    if (!goodBtn) return;
+    row.querySelectorAll('.matrix-opt').forEach((btn) => btn.classList.remove('selected'));
+    goodBtn.classList.add('selected');
+    syncMatrixRowState(row);
+  });
+  updateMatrixCategoryProgress(catEl);
+  catEl.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
 function renderMatrix4OptionsField(field, value) {
   const options = field.options || ['B', 'N', 'D', 'N.A.'];
   const states = value && typeof value === 'object' ? value : {};
@@ -1200,13 +1213,17 @@ function renderMatrix4OptionsField(field, value) {
 
       return `
         <div class="matrix-accordion-item ${openClass}" data-matrix-category="${catKey}">
-          <button type="button" class="matrix-accordion-header" aria-expanded="${catIndex === 0}">
-            <span class="matrix-accordion-title">${escapeHtml(cat.name)}</span>
-            <span class="matrix-accordion-meta">
+          <div class="matrix-accordion-toolbar">
+            <button type="button" class="matrix-accordion-header" aria-expanded="${catIndex === 0}">
+              <span class="matrix-accordion-title">${escapeHtml(cat.name)}</span>
+            </button>
+            <div class="matrix-accordion-meta">
               <span class="matrix-cat-progress" data-matrix-progress>${filled}/${cat.items.length}</span>
+              <button type="button" class="matrix-bulk-good-btn" data-matrix-bulk-good
+                aria-label="Marcar todos os pontos de ${escapeHtml(cat.name)} como Bom">✓ Tudo Bom</button>
               <span class="matrix-chevron" aria-hidden="true"></span>
-            </span>
-          </button>
+            </div>
+          </div>
           <div class="matrix-accordion-panel">
             <div class="matrix-legend">
               ${options.map((o) => `<span><strong>${escapeHtml(matrixOptionDisplay(o))}</strong> = ${escapeHtml(matrixLegendLabel(o))}</span>`).join('')}
@@ -1221,7 +1238,7 @@ function renderMatrix4OptionsField(field, value) {
   return `
     <div class="form-group field-block matrix-inspection-field" data-matrix-field="${field.id}">
       <label class="form-label">${escapeHtml(field.label)}</label>
-      <p class="field-hint">Toque numa categoria para expandir. Avalie cada ponto com B, N, D ou NA.</p>
+      <p class="field-hint">Use «✓ Tudo Bom» numa categoria para marcar todos os pontos como B. Toque no nome para expandir.</p>
       <div class="matrix-accordion">${accordion}</div>
     </div>
   `;
@@ -1471,6 +1488,14 @@ export async function bindFormFieldInteractions(overlay) {
       const item = header.closest('.matrix-accordion-item');
       const isOpen = item?.classList.toggle('is-open');
       header.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    });
+  });
+
+  overlay.querySelectorAll('[data-matrix-bulk-good]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const catEl = btn.closest('.matrix-accordion-item');
+      markMatrixCategoryAllGood(catEl);
     });
   });
 
