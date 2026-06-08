@@ -1,16 +1,28 @@
 /**
- * Revisão RH — painel lateral e modal (painel admin)
+ * Revisão RH — lista compacta no painel + modal de detalhe (painel admin)
  */
 
-import { escapeHtml, formatDateLong } from './app.js';
-import { formatOrdemLabel, renderRhPanelFotos, renderReviewFotosSection } from './report-review-ui.js';
-
-function formatSubmittedShort(iso) {
-  if (!iso) return '—';
-  const d = new Date(String(iso).includes('T') ? iso : `${iso}T12:00:00`);
-  if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleDateString('pt-PT', { day: 'numeric', month: 'short', year: 'numeric' });
-}
+import {
+  escapeHtml,
+  formatDateLong,
+  getReport,
+  getClient,
+  getTechnician,
+  getServiceType,
+  getJob,
+  openModal,
+  closeModal,
+  showToast,
+  approveReport,
+  rejectReport,
+} from './app.js';
+import {
+  formatOrdemLabel,
+  renderReviewFotosSection,
+  bindReviewFotoClicks,
+  bindReviewPdfButton,
+} from './report-review-ui.js';
+import { ensureJobsLoaded } from './trabalhos-db.js';
 
 export const REPORT_STATUS_PANEL_META = {
   pending_review: { label: 'Pendente', cardClass: 'rh-card--pending' },
@@ -50,95 +62,18 @@ export function buildRhReviewFilterBar(counts, activeFilter = 'pending_review') 
   return `<div class="rh-review-filters" role="tablist" aria-label="Filtrar relatórios">${chips}</div>`;
 }
 
-function buildRhReviewExpandedDetail({
-  job,
-  report,
-  service,
-  tech,
-  fieldsHTML,
-  showWorkflow = true,
-}) {
-  const data = report?.data || {};
-  const submittedLabel = formatSubmittedShort(
-    report?.submittedAt || report?.approvedAt || job?.date,
-  );
-
-  const workflowHtml = showWorkflow
-    ? `
-        <button type="button" class="rh-card__btn rh-card__btn--approve" data-panel-approve="${escapeHtml(report.id)}">
-          <svg class="rh-card__btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
-          Aprovar
-        </button>
-        <button type="button" class="rh-card__btn rh-card__btn--reject" data-panel-reject="${escapeHtml(report.id)}">
-          <svg class="rh-card__btn-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg>
-          Rejeitar
-        </button>
-      `
-    : '';
-
-  return `
-    <div class="rh-list-item__detail">
-      <p class="rh-list-item__detail-meta text-muted">
-        ${escapeHtml(service?.label || report.serviceType || '—')}
-        <span class="rh-card__meta-sep" aria-hidden="true">·</span>
-        ${escapeHtml(submittedLabel)}
-      </p>
-      <div class="rh-card__body">
-        <div class="rh-card__fields review-fields-wrap">${fieldsHTML}</div>
-        ${renderRhPanelFotos(job, report)}
-        <p class="rh-card__signatures">
-          <span class="rh-card__sig${data.signatures?.technician ? ' rh-card__sig--ok' : ''}">Técnico ${data.signatures?.technician ? '✓' : '—'}</span>
-          <span class="rh-card__sig${data.signatures?.client ? ' rh-card__sig--ok' : ''}">Cliente ${data.signatures?.client ? '✓' : '—'}</span>
-        </p>
-      </div>
-      <footer class="rh-card__footer">
-        <div class="rh-card__actions">
-          ${workflowHtml}
-          <button type="button" class="rh-card__btn rh-card__btn--pdf" data-panel-pdf="${escapeHtml(report.id)}" title="Gerar PDF" aria-label="Gerar PDF">
-            <svg class="rh-card__btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-            <span class="rh-card__btn-pdf-label">PDF</span>
-          </button>
-        </div>
-      </footer>
-    </div>`;
-}
-
 /**
- * Item da lista compacta do painel RH — detalhe só quando `expanded`.
+ * Item compacto da lista RH — detalhe completo abre na modal (`openRhReviewModal`).
  */
-export function buildRhReviewListItem({
-  job,
-  report,
-  client,
-  tech,
-  service,
-  fieldsHTML = '',
-  expanded = false,
-  showWorkflow = false,
-}) {
+export function buildRhReviewListItem({ job, report, client, tech }) {
   const statusMeta = getReportStatusPanelMeta(report?.status);
   const statusClass = statusMeta.cardClass;
   const clientName = client?.name || client?.Nome || '—';
   const techName = tech?.name || '—';
 
-  const actionBtn = expanded
-    ? `<button type="button" class="rh-list-item__open-btn" data-panel-close="${escapeHtml(report.id)}">Fechar</button>`
-    : `<button type="button" class="rh-list-item__open-btn" data-panel-open="${escapeHtml(report.id)}">Rever</button>`;
-
-  const detailHtml = expanded
-    ? buildRhReviewExpandedDetail({
-        job,
-        report,
-        service,
-        tech,
-        fieldsHTML,
-        showWorkflow,
-      })
-    : '';
-
   return `
     <article
-      class="rh-list-item rh-review-stack-card ${statusClass}${expanded ? ' is-expanded' : ''}"
+      class="rh-list-item rh-review-stack-card ${statusClass}"
       data-job-id="${escapeHtml(job?.id || '')}"
       data-report-id="${escapeHtml(report.id)}"
       data-report-status="${escapeHtml(report?.status || '')}"
@@ -151,11 +86,118 @@ export function buildRhReviewListItem({
           <span class="rh-list-item__tech">${escapeHtml(techName)}</span>
         </div>
         <span class="rh-list-item__status rh-card__status-pill">${escapeHtml(statusMeta.label)}</span>
-        ${actionBtn}
+        <button type="button" class="rh-list-item__open-btn" data-panel-open="${escapeHtml(report.id)}">Rever</button>
       </div>
-      ${detailHtml}
     </article>
   `;
+}
+
+function openRhRejectDialog(reportId, onRejected) {
+  const content = `
+    <p class="text-muted mb-4">Escreva uma nota de correção para o técnico:</p>
+    <textarea id="reject-note" class="form-textarea" rows="4" placeholder="Ex: Faltam fotos do componente substituído..."></textarea>
+  `;
+  const actions = `
+    <button type="button" class="btn-ghost" id="cancel-reject">Cancelar</button>
+    <button type="button" class="btn-danger" id="confirm-reject">Enviar Rejeição</button>
+  `;
+  const overlay = openModal('Rejeitar Relatório', content, actions);
+  overlay.querySelector('#cancel-reject')?.addEventListener('click', closeModal);
+  overlay.querySelector('#confirm-reject')?.addEventListener('click', async () => {
+    const note = overlay.querySelector('#reject-note')?.value?.trim();
+    if (!note) {
+      showToast('Por favor, escreva uma nota de correção.', 'error');
+      return;
+    }
+    const btn = overlay.querySelector('#confirm-reject');
+    btn.disabled = true;
+    const ok = await rejectReport(reportId, note);
+    btn.disabled = false;
+    if (ok) {
+      closeModal();
+      onRejected?.();
+    }
+  });
+}
+
+/**
+ * Modal centrada com detalhe completo do relatório (RH).
+ * @param {string} reportId
+ * @param {{ onApproved?: () => void, onRejected?: () => void }} [callbacks]
+ */
+export async function openRhReviewModal(reportId, callbacks = {}) {
+  const report = getReport(reportId);
+  if (!report) {
+    showToast('Relatório não encontrado.', 'error');
+    return;
+  }
+
+  try {
+    await ensureJobsLoaded(true);
+  } catch (err) {
+    console.warn('[RH] Trabalhos para revisão:', err);
+  }
+
+  const { renderReportValuesForReview } = await import('./form-engine.js');
+
+  const job = report.jobId ? getJob(report.jobId) : null;
+  const client = getClient(report.clientId);
+  const tech = getTechnician(report.technicianId);
+  const service = getServiceType(report.serviceType);
+  const fieldsHTML = renderReportValuesForReview(service, report.data?.values || {});
+  const showWorkflow = report.status === 'pending_review';
+
+  const statusLabel =
+    report.status === 'approved'
+      ? 'Aprovado'
+      : report.status === 'pending_review'
+        ? 'Aguarda aprovação'
+        : report.status === 'draft'
+          ? 'Rascunho'
+          : report.status === 'rejected'
+            ? 'Recusado'
+            : report.status || '—';
+
+  const content = buildRhReviewModalContent({
+    job,
+    report,
+    client,
+    tech,
+    fieldsHTML,
+    showWorkflow,
+  });
+
+  const overlay = openModal(
+    `${service?.icon || '📋'} ${escapeHtml(service?.label || 'Relatório')} — ${escapeHtml(statusLabel)}`,
+    content,
+    '',
+    { review: true },
+  );
+
+  bindReviewFotoClicks(overlay);
+  bindReviewPdfButton(overlay, { job, report });
+
+  overlay.querySelector('#modal-close-review')?.addEventListener('click', closeModal);
+
+  if (showWorkflow) {
+    overlay.querySelector('#modal-approve')?.addEventListener('click', async () => {
+      const btn = overlay.querySelector('#modal-approve');
+      btn.disabled = true;
+      const ok = await approveReport(reportId);
+      btn.disabled = false;
+      if (ok) {
+        closeModal();
+        callbacks.onApproved?.();
+      }
+    });
+
+    overlay.querySelector('#modal-reject')?.addEventListener('click', () => {
+      closeModal();
+      openRhRejectDialog(reportId, callbacks.onRejected);
+    });
+  }
+
+  return overlay;
 }
 
 /**

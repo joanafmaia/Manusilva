@@ -5654,8 +5654,8 @@ details[open] .expand-icon { transform: rotate(90deg); }
 }
 
 .modal-overlay--review .modal {
-  max-width: 900px;
-  width: 95%;
+  max-width: min(800px, 96vw);
+  width: 100%;
   max-height: 90vh;
   display: flex;
   flex-direction: column;
