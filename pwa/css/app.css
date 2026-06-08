@@ -981,6 +981,7 @@ body {
   width: 100%;
 }
 
+/* Botão de pré-visualização — template global de relatórios (todos os tipos) */
 .btn-preview {
   display: flex;
   align-items: center;
@@ -990,10 +991,10 @@ body {
   min-height: 48px;
   padding: 14px 1rem;
   font-size: 1rem;
-  font-weight: 700;
-  color: #1e3a8a;
+  font-weight: 800;
+  color: #172554;
   background: #eff6ff;
-  border: 1.5px solid #3b82f6;
+  border: 1.5px solid #2563eb;
   border-radius: var(--radius-sm);
   cursor: pointer;
   box-shadow: 0 2px 10px rgba(37, 99, 235, 0.12);
@@ -1001,21 +1002,23 @@ body {
 }
 
 body.dark-mode .btn-preview {
-  color: #bfdbfe;
-  background: rgba(30, 58, 138, 0.42);
-  border-color: rgba(96, 165, 250, 0.65);
-  box-shadow: 0 4px 18px rgba(37, 99, 235, 0.2);
+  color: #dbeafe;
+  background: #1e3a8a;
+  border-color: #3b82f6;
+  box-shadow: 0 4px 18px rgba(37, 99, 235, 0.25);
 }
 
 .btn-preview:hover:not(:disabled) {
   transform: translateY(-1px);
+  color: #172554;
   background: #dbeafe;
   box-shadow: 0 4px 16px rgba(37, 99, 235, 0.22);
 }
 
 body.dark-mode .btn-preview:hover:not(:disabled) {
-  background: rgba(30, 64, 175, 0.55);
-  box-shadow: 0 6px 22px rgba(37, 99, 235, 0.28);
+  color: #f8fafc;
+  background: #1d4ed8;
+  box-shadow: 0 6px 22px rgba(37, 99, 235, 0.32);
 }
 
 .btn-preview:disabled {
@@ -1712,16 +1715,27 @@ body.dark-mode .btn-preview:hover:not(:disabled) {
   text-decoration: underline;
 }
 
+/* Título dinâmico do relatório — template global (Avarias, Baterias, DL50, etc.) */
 .form-report-title {
-  margin: 0.35rem 0 1.35rem;
+  margin: 0.35rem 0 1rem;
   padding: 0.75rem 0.5rem 0.85rem;
   border-bottom: 1px solid var(--border-subtle);
-  font-size: 1.2rem;
+  font-size: 1.25rem;
   font-weight: 700;
   line-height: 1.35;
   letter-spacing: -0.02em;
   text-align: center;
-  color: var(--text-primary);
+  color: #1e293b;
+}
+
+body.dark-mode .form-report-title {
+  color: #f1f5f9;
+}
+
+/* Formulário técnico: cliente já vem do trabalho — esconder pesquisa duplicada */
+.form-overlay .header-client-picker,
+.form-overlay [data-client-combobox][data-field-id="cliente"] {
+  display: none !important;
 }
 
 .form-fixed-header--compact .header-grid {

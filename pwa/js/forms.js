@@ -182,7 +182,7 @@ function buildFormHTML(job, client, tech, service, existingReport) {
   }
   const official = isOfficialTemplate(service);
   const clientHeader = renderJobClientHeader(client);
-  const lockedClientFields = official ? renderLockedClientHiddenFields(client, values) : '';
+  const lockedClientFields = renderLockedClientHiddenFields(client, values);
   const formTitle = getServiceFormTitle(service);
   const fieldsHTML = service ? renderReportFields(service, values, formContext) : '';
 

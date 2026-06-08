@@ -400,7 +400,8 @@ function isClientPickerField(field) {
 }
 
 function renderField(field, value = '', context = {}) {
-  if (context.lockClient && isClientPickerField(field)) {
+  const lockClient = context.lockClient ?? Boolean(context.job);
+  if (lockClient && isClientPickerField(field)) {
     return '';
   }
 
