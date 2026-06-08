@@ -1154,6 +1154,25 @@ function updateMatrixCategoryProgress(catEl) {
   if (progress) progress.textContent = `${filled}/${rows.length}`;
 }
 
+function isMatrixCategoryAllGood(catEl) {
+  const rows = catEl?.querySelectorAll('.matrix-row');
+  if (!rows?.length) return false;
+  return Array.from(rows).every(
+    (row) => row.querySelector('.matrix-opt.selected')?.dataset.value === 'B',
+  );
+}
+
+function clearMatrixCategorySelection(catEl) {
+  if (!catEl) return;
+  catEl.querySelectorAll('.matrix-row').forEach((row) => {
+    row.querySelectorAll('.matrix-opt').forEach((btn) => btn.classList.remove('selected'));
+    syncMatrixRowState(row);
+  });
+  updateMatrixCategoryProgress(catEl);
+  updateMatrixBulkGoodBtnState(catEl);
+  catEl.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
 function markMatrixCategoryAllGood(catEl) {
   if (!catEl) return;
   catEl.querySelectorAll('.matrix-row').forEach((row) => {
@@ -1164,7 +1183,32 @@ function markMatrixCategoryAllGood(catEl) {
     syncMatrixRowState(row);
   });
   updateMatrixCategoryProgress(catEl);
+  updateMatrixBulkGoodBtnState(catEl);
   catEl.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+function toggleMatrixCategoryAllGood(catEl) {
+  if (!catEl) return;
+  if (isMatrixCategoryAllGood(catEl)) {
+    clearMatrixCategorySelection(catEl);
+  } else {
+    markMatrixCategoryAllGood(catEl);
+  }
+}
+
+function updateMatrixBulkGoodBtnState(catEl) {
+  const bulkBtn = catEl?.querySelector('[data-matrix-bulk-good]');
+  if (!bulkBtn) return;
+  const allGood = isMatrixCategoryAllGood(catEl);
+  bulkBtn.classList.toggle('matrix-bulk-good-btn--active', allGood);
+  bulkBtn.setAttribute('aria-pressed', allGood ? 'true' : 'false');
+}
+
+function toggleMatrixAccordionItem(item) {
+  if (!item) return;
+  const isOpen = item.classList.toggle('is-open');
+  const toolbar = item.querySelector('.matrix-accordion-toolbar');
+  toolbar?.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
 }
 
 function renderMatrix4OptionsField(field, value) {
@@ -1213,14 +1257,15 @@ function renderMatrix4OptionsField(field, value) {
 
       return `
         <div class="matrix-accordion-item ${openClass}" data-matrix-category="${catKey}">
-          <div class="matrix-accordion-toolbar">
-            <button type="button" class="matrix-accordion-header" aria-expanded="${catIndex === 0}">
-              <span class="matrix-accordion-title">${escapeHtml(cat.name)}</span>
-            </button>
+          <div class="matrix-accordion-toolbar" role="button" tabindex="0"
+            aria-expanded="${catIndex === 0 ? 'true' : 'false'}"
+            aria-label="Expandir ou recolher ${escapeHtml(cat.name)}">
+            <span class="matrix-accordion-title">${escapeHtml(cat.name)}</span>
             <div class="matrix-accordion-meta">
               <span class="matrix-cat-progress" data-matrix-progress>${filled}/${cat.items.length}</span>
               <button type="button" class="matrix-bulk-good-btn" data-matrix-bulk-good
-                aria-label="Marcar todos os pontos de ${escapeHtml(cat.name)} como Bom">✓ Tudo Bom</button>
+                aria-pressed="false"
+                aria-label="Marcar ou limpar todos os pontos de ${escapeHtml(cat.name)} como Bom">✓ Tudo Bom</button>
               <span class="matrix-chevron" aria-hidden="true"></span>
             </div>
           </div>
@@ -1238,7 +1283,7 @@ function renderMatrix4OptionsField(field, value) {
   return `
     <div class="form-group field-block matrix-inspection-field" data-matrix-field="${field.id}">
       <label class="form-label">${escapeHtml(field.label)}</label>
-      <p class="field-hint">Use «✓ Tudo Bom» numa categoria para marcar todos os pontos como B. Toque no nome para expandir.</p>
+      <p class="field-hint">Toque na barra da categoria para expandir. «✓ Tudo Bom» marca todos como B; volte a clicar para limpar.</p>
       <div class="matrix-accordion">${accordion}</div>
     </div>
   `;
@@ -1483,19 +1528,29 @@ export async function bindFormFieldInteractions(overlay) {
 
   evaluateFieldDependencies(overlay);
 
-  overlay.querySelectorAll('.matrix-accordion-header').forEach((header) => {
-    header.addEventListener('click', () => {
-      const item = header.closest('.matrix-accordion-item');
-      const isOpen = item?.classList.toggle('is-open');
-      header.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+  overlay.querySelectorAll('.matrix-accordion-toolbar').forEach((toolbar) => {
+    const toggle = () => {
+      toggleMatrixAccordionItem(toolbar.closest('.matrix-accordion-item'));
+    };
+    toolbar.addEventListener('click', (e) => {
+      if (e.target.closest('[data-matrix-bulk-good]')) return;
+      toggle();
+    });
+    toolbar.addEventListener('keydown', (e) => {
+      if (e.target.closest('[data-matrix-bulk-good]')) return;
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        toggle();
+      }
     });
   });
 
   overlay.querySelectorAll('[data-matrix-bulk-good]').forEach((btn) => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
+      e.preventDefault();
       const catEl = btn.closest('.matrix-accordion-item');
-      markMatrixCategoryAllGood(catEl);
+      toggleMatrixCategoryAllGood(catEl);
     });
   });
 
@@ -1508,11 +1563,17 @@ export async function bindFormFieldInteractions(overlay) {
           btn.classList.add('selected');
           syncMatrixRowState(row);
           const catEl = row.closest('.matrix-accordion-item');
-          if (catEl) updateMatrixCategoryProgress(catEl);
+          if (catEl) {
+            updateMatrixCategoryProgress(catEl);
+            updateMatrixBulkGoodBtnState(catEl);
+          }
         });
       });
     });
-    wrap.querySelectorAll('.matrix-accordion-item').forEach(updateMatrixCategoryProgress);
+    wrap.querySelectorAll('.matrix-accordion-item').forEach((catEl) => {
+      updateMatrixCategoryProgress(catEl);
+      updateMatrixBulkGoodBtnState(catEl);
+    });
   });
 
   overlay.querySelectorAll('[data-legal-verdict]').forEach((group) => {

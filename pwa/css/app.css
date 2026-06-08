@@ -2037,40 +2037,36 @@ body.dark-mode .form-report-title {
 .matrix-accordion-toolbar {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 0.35rem;
   padding: 0.5rem 0.5rem 0.5rem 0.65rem;
   min-height: 52px;
   border-bottom: 1px solid transparent;
+  cursor: pointer;
+  user-select: none;
+  transition: background var(--transition);
+}
+
+.matrix-accordion-toolbar:hover {
+  background: rgba(59, 130, 246, 0.08);
+}
+
+.matrix-accordion-toolbar:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
 }
 
 .matrix-accordion-item.is-open .matrix-accordion-toolbar {
   border-bottom-color: var(--border-subtle);
 }
 
-.matrix-accordion-header {
+.matrix-accordion-title {
   flex: 1;
   min-width: 0;
-  display: flex;
-  align-items: center;
-  padding: 0.4rem 0.35rem;
-  min-height: 40px;
-  background: transparent;
-  border: none;
-  color: var(--text-primary);
-  cursor: pointer;
-  text-align: left;
-  border-radius: var(--radius-sm);
-  transition: background var(--transition);
-}
-
-.matrix-accordion-header:hover {
-  background: rgba(59, 130, 246, 0.08);
-}
-
-.matrix-accordion-title {
   font-size: 0.9rem;
   font-weight: 700;
   letter-spacing: 0.02em;
+  padding: 0.25rem 0.15rem;
 }
 
 .matrix-accordion-meta {
@@ -2107,6 +2103,18 @@ body.dark-mode .matrix-bulk-good-btn {
   color: #bbf7d0;
   background: rgba(22, 163, 74, 0.22);
   border-color: rgba(74, 222, 128, 0.45);
+}
+
+.matrix-bulk-good-btn--active {
+  color: #fff;
+  background: #16a34a;
+  border-color: #15803d;
+}
+
+body.dark-mode .matrix-bulk-good-btn--active {
+  color: #f0fdf4;
+  background: #15803d;
+  border-color: #22c55e;
 }
 
 .matrix-cat-progress {
