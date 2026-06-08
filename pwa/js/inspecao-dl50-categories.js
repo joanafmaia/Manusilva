@@ -124,14 +124,10 @@ export const INSPECAO_DL50_LEGAL_OPTIONS = [
 
 /* ─── PDF: cabeçalho (Informações da Máquina → Periodicidade) ─── */
 
-const PDF_MARGIN = 14;
-const PDF_CONTENT_W = 210 - PDF_MARGIN * 2;
 const PDF_TEXT_DARK = [30, 41, 59];
-const PDF_TEXT_MUTED = [100, 116, 139];
 
 /** Alturas (mm) — estrutura Y do cabeçalho no PDF */
 const INSPECAO_DL50_PDF_Y = {
-  ROW_H: 11,
   AFTER_CONCLUSAO: 3,
   SECTION_TITLE: 6,
   DIVIDER: 7,
@@ -139,29 +135,127 @@ const INSPECAO_DL50_PDF_Y = {
   PERIODICITY_BLOCK: 12,
 };
 
-/** Campos desenhados no bloco dedicado (o loop genérico do PDF ignora-os) */
-export const INSPECAO_DL50_PDF_SKIP_FIELD_IDS = new Set([
-  'data_de_conclusao',
+/** Campos da grelha «Informações da Máquina» no PDF DL50 */
+export const INSPECAO_DL50_MACHINE_FIELD_IDS = new Set([
   'marca',
   'modelo',
   'numero_de_serie',
   'data_fabrico',
+]);
+
+/** Campos desenhados no bloco dedicado (o loop genérico do PDF ignora-os) */
+export const INSPECAO_DL50_PDF_SKIP_FIELD_IDS = new Set([
+  'data_de_conclusao',
+  ...INSPECAO_DL50_MACHINE_FIELD_IDS,
   'periodicidade_inspecao',
   'declaracao_seguranca',
 ]);
 
-function drawPdfLabelValueCell(doc, x, y, colW, label, value) {
-  pdfSetFont(doc, 'normal');
-  doc.setFontSize(6.5);
-  doc.setTextColor(...PDF_TEXT_MUTED);
-  doc.text(String(label).toUpperCase(), x, y);
+const MACHINE_TABLE_LINE = [226, 232, 240];
+const MACHINE_TABLE_FILL = [248, 250, 252];
 
-  pdfSetFont(doc, 'bold');
-  doc.setFontSize(8.5);
-  doc.setTextColor(...PDF_TEXT_DARK);
+function pickFirstNonEmpty(...candidates) {
+  for (const raw of candidates) {
+    if (raw === undefined || raw === null) continue;
+    const text = String(raw).trim();
+    if (text && text !== 'null' && text !== 'undefined') return text;
+  }
+  return '';
+}
+
+function pickFromPools(pools, key, altKeys = []) {
+  for (const pool of pools) {
+    if (!pool || typeof pool !== 'object') continue;
+    const hit = pickFirstNonEmpty(
+      pool[key],
+      ...altKeys.map((alt) => pool[alt]),
+    );
+    if (hit) return hit;
+  }
+  return '';
+}
+
+function formatDl50PdfDate(raw) {
+  const text = pickFirstNonEmpty(raw);
+  if (!text) return '—';
+  const iso = text.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return `${iso[3]}/${iso[2]}/${iso[1]}`;
+  return text;
+}
+
+function machinePdfCell(label, value) {
   const text = pdfSafeText(value) || '—';
-  const lines = pdfSplitText(doc, text, colW - 2);
-  doc.text(lines, x, y + 3.8, { lineHeightFactor: 1.25 });
+  return `${label}: ${text}`;
+}
+
+/**
+ * Resolve marca/modelo/série/data — mesmas fontes que o ecrã de revisão.
+ * @param {Record<string, unknown>} values
+ * @param {{ forkliftSerial?: string, report?: object, data?: object }} [ctx]
+ */
+export function resolveInspecaoDl50MachineFields(values = {}, ctx = {}) {
+  const report = ctx.report || {};
+  const data = ctx.data || report.data || {};
+  const storedValues =
+    data.values && typeof data.values === 'object' ? data.values : {};
+
+  const nestedPools = [
+    values.maquina,
+    values.machine,
+    values.informacoes_maquina,
+    storedValues.maquina,
+    storedValues.machine,
+    data.maquina,
+    data.machine,
+    report.maquina,
+    report.machine,
+  ].filter((pool) => pool && typeof pool === 'object');
+
+  const flatPools = [values, storedValues, data, report];
+
+  const marca = pickFromPools(flatPools, 'marca', ['Marca']) ||
+    pickFromPools(nestedPools, 'marca', ['Marca']) ||
+    '—';
+
+  const modelo = pickFromPools(flatPools, 'modelo', ['Modelo']) ||
+    pickFromPools(nestedPools, 'modelo', ['Modelo']) ||
+    '—';
+
+  const numeroSerie =
+    pickFromPools(flatPools, 'numero_de_serie', [
+      'num_serie',
+      'numero_serie',
+      'n_serie',
+      'nº_serie',
+      'serie',
+    ]) ||
+    pickFromPools(nestedPools, 'numero_de_serie', [
+      'num_serie',
+      'numero_serie',
+      'n_serie',
+      'nº_serie',
+      'serie',
+    ]) ||
+    ctx.forkliftSerial ||
+    '—';
+
+  const dataFabrico = formatDl50PdfDate(
+    pickFromPools(flatPools, 'data_fabrico', ['data_de_fabrico', 'data_fabricacao']) ||
+      pickFromPools(nestedPools, 'data_fabrico', ['data_de_fabrico', 'data_fabricacao']),
+  );
+
+  return { marca, modelo, numero_de_serie: numeroSerie, data_fabrico: dataFabrico };
+}
+
+/** Corpo da tabela autoTable — 2 colunas × 2 linhas */
+export function buildInspecaoDl50MachineTableBody(machine) {
+  return [
+    [machinePdfCell('Marca', machine.marca), machinePdfCell('Modelo', machine.modelo)],
+    [
+      machinePdfCell('N.º Série', machine.numero_de_serie),
+      machinePdfCell('Data Fabrico', machine.data_fabrico),
+    ],
+  ];
 }
 
 /**
@@ -169,13 +263,23 @@ function drawPdfLabelValueCell(doc, x, y, colW, label, value) {
  * @param {import('jspdf').jsPDF} doc
  * @param {number} y
  * @param {Record<string, unknown>} values
- * @param {{ ensureSpace: Function, drawSectionTitle: Function, drawDivider: Function, drawKeyValueLine: Function }} helpers
+ * @param {{ ensureSpace: Function, drawSectionTitle: Function, drawDivider: Function, drawKeyValueLine: Function, loadAutoTable: Function, margin: number, contentW: number, pdfContext?: object }} helpers
  */
-export function drawInspecaoDl50HeaderBlock(doc, y, values, helpers) {
-  const { ensureSpace, drawSectionTitle, drawDivider, drawKeyValueLine } = helpers;
+export async function drawInspecaoDl50HeaderBlock(doc, y, values, helpers) {
+  const {
+    ensureSpace,
+    drawSectionTitle,
+    drawDivider,
+    drawKeyValueLine,
+    loadAutoTable,
+    margin,
+    contentW,
+    pdfContext = {},
+  } = helpers;
   const Y = INSPECAO_DL50_PDF_Y;
+  const machine = resolveInspecaoDl50MachineFields(values, pdfContext);
 
-  const machineBlockH = Y.SECTION_TITLE + Y.DIVIDER + Y.ROW_H * 2 + Y.AFTER_MACHINE_BLOCK;
+  const machineBlockH = Y.SECTION_TITLE + Y.DIVIDER + 16 + Y.AFTER_MACHINE_BLOCK;
   const headerBlockH =
     (values.data_de_conclusao && String(values.data_de_conclusao).trim() ? 10 + Y.AFTER_CONCLUSAO : 0) +
     machineBlockH +
@@ -191,16 +295,35 @@ export function drawInspecaoDl50HeaderBlock(doc, y, values, helpers) {
   y = drawSectionTitle(doc, y, 'Informações da Máquina', { skipEnsure: true });
   y = drawDivider(doc, y - 4);
 
-  const colW = (PDF_CONTENT_W - 8) / 2;
-  const row1Y = y;
-  const row2Y = y + Y.ROW_H;
+  await loadAutoTable();
+  pdfSetFont(doc, 'normal');
+  const colW = contentW / 2;
+  doc.autoTable({
+    startY: y,
+    margin: { left: margin, right: margin },
+    tableWidth: contentW,
+    body: buildInspecaoDl50MachineTableBody(machine),
+    theme: 'plain',
+    styles: {
+      fontSize: 8,
+      cellPadding: { top: 3, right: 3, bottom: 3, left: 3 },
+      lineColor: MACHINE_TABLE_LINE,
+      lineWidth: 0.12,
+      textColor: PDF_TEXT_DARK,
+      fontStyle: 'bold',
+      valign: 'middle',
+      overflow: 'linebreak',
+    },
+    bodyStyles: {
+      fillColor: MACHINE_TABLE_FILL,
+    },
+    columnStyles: {
+      0: { cellWidth: colW },
+      1: { cellWidth: colW },
+    },
+  });
 
-  drawPdfLabelValueCell(doc, PDF_MARGIN, row1Y, colW, 'Marca', values.marca);
-  drawPdfLabelValueCell(doc, PDF_MARGIN + colW + 8, row1Y, colW, 'Modelo', values.modelo);
-  drawPdfLabelValueCell(doc, PDF_MARGIN, row2Y, colW, 'N.º Série', values.numero_de_serie);
-  drawPdfLabelValueCell(doc, PDF_MARGIN + colW + 8, row2Y, colW, 'Data Fabrico', values.data_fabrico);
-
-  y = row2Y + Y.ROW_H + Y.AFTER_MACHINE_BLOCK;
+  y = doc.lastAutoTable.finalY + Y.AFTER_MACHINE_BLOCK;
 
   if (values.periodicidade_inspecao && String(values.periodicidade_inspecao).trim()) {
     y = drawKeyValueLine(doc, y, 'Periodicidade Inspeção', values.periodicidade_inspecao, 'status_pills');

@@ -32,7 +32,9 @@ import { isMachineTrackingField } from './form-engine.js';
 import { getColumnLabels } from './views/relatorio-grandes.js';
 import {
   drawInspecaoDl50HeaderBlock,
+  INSPECAO_DL50_MACHINE_FIELD_IDS,
   INSPECAO_DL50_PDF_SKIP_FIELD_IDS,
+  resolveInspecaoDl50MachineFields,
 } from './inspecao-dl50-categories.js';
 
 const DB_KEY = 'manusilva_db';
@@ -92,6 +94,9 @@ function buildPdfRenderContext(report, job, clientMeta, tech) {
     techName: tech?.name || '',
     jobDate: job?.date || '',
     localidade: clientMeta?.localidade || '',
+    forkliftSerial: report?.forkliftSerial || job?.forkliftSerial || '',
+    report,
+    data: report?.data || {},
     clientMeta,
     values: null,
   };
@@ -382,7 +387,10 @@ export async function renderInterventionPDF(report) {
     : drawTopRow(doc, service, job?.numeroOrdem ?? null);
   y = drawTitleBar(doc, y, title);
   const pdfContext = buildPdfRenderContext(report, job, clientMeta, tech);
-  const values = mapReportValuesForPdf(data, service, pdfContext);
+  let values = mapReportValuesForPdf(data, service, pdfContext);
+  if (isDl50Pdf) {
+    values = { ...values, ...resolveInspecaoDl50MachineFields(values, pdfContext) };
+  }
   pdfContext.values = values;
   y = drawMetadataGrid(
     doc,
@@ -739,13 +747,32 @@ function drawSectionTitle(doc, y, title, options = {}) {
 }
 
 function normalizeReportValues(data) {
-  if (data.values && typeof data.values === 'object') return data.values;
   const values = {};
+  if (data.values && typeof data.values === 'object') {
+    Object.assign(values, data.values);
+  }
   Object.assign(values, data.textFields || {});
   Object.assign(values, data.dropdowns || {});
   Object.entries(data.checklists || {}).forEach(([id, v]) => {
     values[id] = typeof v === 'boolean' ? (v ? 'Sim' : 'Não') : v;
   });
+
+  const machineKeys = ['marca', 'modelo', 'numero_de_serie', 'num_serie', 'data_fabrico'];
+  machineKeys.forEach((key) => {
+    if (data[key] !== undefined && values[key] === undefined) values[key] = data[key];
+  });
+
+  const nested = data.maquina || data.machine;
+  if (nested && typeof nested === 'object') {
+    machineKeys.forEach((key) => {
+      if (nested[key] !== undefined && values[key] === undefined) values[key] = nested[key];
+    });
+    values.maquina = nested;
+  }
+
+  if (values.num_serie && !values.numero_de_serie) values.numero_de_serie = values.num_serie;
+  if (values.numero_de_serie && !values.num_serie) values.num_serie = values.numero_de_serie;
+
   return values;
 }
 
@@ -858,10 +885,15 @@ function coercePdfFieldValue(field, raw, pdfContext = null) {
 /** Aplica coerção a todos os campos do template antes de desenhar */
 function mapReportValuesForPdf(data, service, pdfContext = null) {
   const values = { ...normalizeReportValues(data) };
+  const isDl50 = service?.id === 'inspecao_dl50_2005';
+
   (service?.fields || []).forEach((field) => {
     if (isMachineTrackingField(field)) {
-      delete values[field.id];
-      return;
+      const keepForDl50 = isDl50 && INSPECAO_DL50_MACHINE_FIELD_IDS.has(field.id);
+      if (!keepForDl50) {
+        delete values[field.id];
+        return;
+      }
     }
     if (values[field.id] === undefined) return;
     values[field.id] = coercePdfFieldValue(field, values[field.id], pdfContext);
@@ -884,11 +916,15 @@ async function drawReportFieldsSection(doc, y, service, values, pdfContext = nul
   const isDl50 = service.id === 'inspecao_dl50_2005';
 
   if (isDl50) {
-    y = drawInspecaoDl50HeaderBlock(doc, y, values, {
+    y = await drawInspecaoDl50HeaderBlock(doc, y, values, {
       ensureSpace,
       drawSectionTitle,
       drawDivider,
       drawKeyValueLine,
+      pdfContext,
+      loadAutoTable: loadJsPdfAutoTable,
+      margin: MARGIN,
+      contentW: CONTENT_W,
     });
   }
 
