@@ -51,6 +51,10 @@ import {
   deleteRelatoriosByTrabalho,
   formatRelatoriosError,
 } from './relatorios-db.js';
+import {
+  jobMatchesTechnician,
+  splitTechnicianStoredValue,
+} from './job-technician-utils.js';
 export { MANUSILVA_LOGO, applyBrandLogo, isLogoConfigured, getPdfLogoFormat } from './brand-ui.js';
 
 import {
@@ -274,6 +278,40 @@ export function getTechnician(id) {
   return getAllTechnicians().find((t) => t.id === id) || null;
 }
 
+/** Nomes de técnicos guardados no trabalho (id único legado ou «Hugo, Filipe»). */
+export function parseTechnicianNamesFromJob(technicianId) {
+  if (!technicianId) return [];
+  const stored = String(technicianId);
+  const byId = getTechnician(stored);
+  if (byId?.name) return [byId.name];
+  return splitTechnicianStoredValue(stored);
+}
+
+export function getJobTechnicianLabel(technicianId) {
+  const names = parseTechnicianNamesFromJob(technicianId);
+  return names.length ? names.join(', ') : '—';
+}
+
+/** Primeiro técnico do trabalho (cor no calendário, etc.). */
+export function getPrimaryTechnicianForJob(job) {
+  if (!job?.technicianId) return null;
+  const byId = getTechnician(job.technicianId);
+  if (byId) return byId;
+  const names = parseTechnicianNamesFromJob(job.technicianId);
+  if (!names.length) return null;
+  return getAllTechnicians().find((t) => t.name === names[0]) || null;
+}
+
+/** Trabalho atribuído ao técnico (id de sessão ou nome na string CSV). */
+export function jobAssignedToTechnician(job, techId) {
+  if (!job || !techId) return false;
+  const tech = getTechnician(techId);
+  return jobMatchesTechnician(job.technicianId, {
+    techId,
+    techName: tech?.name,
+  });
+}
+
 function nextTechnicianId() {
   const ids = getAllTechnicians().map((t) => {
     const m = /^tech-(\d+)$/.exec(t.id || '');
@@ -461,9 +499,7 @@ export function getReportForJob(jobId) {
 }
 
 export function getJobsForTechnician(techId, date) {
-  return getJobsSnapshot().filter(
-    (j) => j.technicianId === techId && j.date === date,
-  );
+  return getJobsSnapshot().filter((j) => j.date === date && jobAssignedToTechnician(j, techId));
 }
 
 export function getAllJobs() {

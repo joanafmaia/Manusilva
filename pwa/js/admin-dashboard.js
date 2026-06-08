@@ -24,6 +24,9 @@ import {
   warmClientsCatalog,
   warmOperacoes,
   getAllTechnicians,
+  getJobTechnicianLabel,
+  getPrimaryTechnicianForJob,
+  jobAssignedToTechnician,
   openModal,
   closeModal,
   escapeHtml,
@@ -316,7 +319,9 @@ function renderCalendar() {
   if (!grid) return;
 
   const dates = getCalendarDates();
-  const jobs = getAllJobs().filter((j) => filterTechId === 'all' || j.technicianId === filterTechId);
+  const jobs = getAllJobs().filter(
+    (j) => filterTechId === 'all' || jobAssignedToTechnician(j, filterTechId),
+  );
 
   const firstDate = new Date(dates[0] + 'T00:00:00');
   if (calendarView === 'list') {
@@ -370,7 +375,8 @@ function renderCalendar() {
 }
 
 function renderCalendarBlock(job, compact = false) {
-  const tech = getTechnician(job.technicianId);
+  const tech = getPrimaryTechnicianForJob(job);
+  const techLabel = getJobTechnicianLabel(job.technicianId);
   const client = getClient(job.clientId);
   const service = getServiceType(job.serviceType);
   const report = getReportForJob(job.id);
@@ -382,7 +388,7 @@ function renderCalendarBlock(job, compact = false) {
     <button type="button" class="${cls}" data-job-id="${job.id}" style="--tech-color:${tech?.color || '#3b82f6'}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">
       <span class="cal-block-time">${job.time}</span>
       <span class="cal-block-client">${escapeHtml(compact ? client?.name?.split(' ')[0] : client?.name)}</span>
-      ${!compact ? `<span class="cal-block-tech">${escapeHtml(tech?.name?.split(' ')[0])}</span>` : ''}
+      ${!compact ? `<span class="cal-block-tech">${escapeHtml(techLabel.split(',')[0]?.trim() || tech?.name?.split(' ')[0] || '—')}</span>` : ''}
     </button>
   `;
 }
@@ -417,7 +423,8 @@ function renderAgendaList(jobs, dates) {
 }
 
 function renderAgendaListItem(job) {
-  const tech = getTechnician(job.technicianId);
+  const tech = getPrimaryTechnicianForJob(job);
+  const techLabel = getJobTechnicianLabel(job.technicianId);
   const client = getClient(job.clientId);
   const service = getServiceType(job.serviceType);
   const report = getReportForJob(job.id);
@@ -436,7 +443,7 @@ function renderAgendaListItem(job) {
             ${statusBadge(job.status)}
           </div>
           <p class="agenda-list-client">${escapeHtml(client?.name || 'Cliente')}</p>
-          <p class="agenda-list-meta">${service?.icon || '🔧'} ${escapeHtml(service?.label || job.serviceType)} · ${escapeHtml(tech?.name || '—')}${escapeHtml(serial)}</p>
+          <p class="agenda-list-meta">${service?.icon || '🔧'} ${escapeHtml(service?.label || job.serviceType)} · ${escapeHtml(techLabel)}${escapeHtml(serial)}</p>
         </button>
       </div>
     </div>
@@ -702,7 +709,7 @@ function bindAgendaSwipeRows(container) {
 }
 
 function buildJobDetailContent(job) {
-  const tech = getTechnician(job.technicianId);
+  const techLabel = getJobTechnicianLabel(job.technicianId);
   const client = getClient(job.clientId);
   const service = getServiceType(job.serviceType);
   const report = getReportForJob(job.id);
@@ -721,7 +728,7 @@ function buildJobDetailContent(job) {
   return `
     <dl class="job-detail-grid">
       <div><dt>Cliente</dt><dd>${escapeHtml(client?.name || '—')}</dd></div>
-      <div><dt>Técnico</dt><dd>${escapeHtml(tech?.name || '—')}</dd></div>
+      <div><dt>Técnico</dt><dd>${escapeHtml(techLabel)}</dd></div>
       <div><dt>Serviço</dt><dd>${service?.icon || ''} ${escapeHtml(service?.label || job.serviceType)}</dd></div>
       <div><dt>Data e hora</dt><dd>${escapeHtml(formatDateLong(job.date))} · ${escapeHtml(job.time)}</dd></div>
       <div><dt>N.º série</dt><dd>${escapeHtml(job.forkliftSerial || '—')}</dd></div>
@@ -869,6 +876,8 @@ function bindAssignWork() {
   });
 }
 
+const ASSIGN_TEAM_TECHS = ['Hugo', 'Filipe', 'Adelton'];
+
 async function openAssignModal() {
   try {
     await ensureProductionCatalog();
@@ -878,15 +887,26 @@ async function openAssignModal() {
     return;
   }
 
-  const techOptions = getAllTechnicians()
-    .map((t) => `<option value="${t.id}">${escapeHtml(t.name)}</option>`)
-    .join('');
+  const techCheckboxes = ASSIGN_TEAM_TECHS.map(
+    (name) => `
+      <label class="flex items-center gap-2 cursor-pointer">
+        <input
+          type="checkbox"
+          class="assign-tech-checkbox rounded text-blue-600 focus:ring-blue-500"
+          name="assign-tech"
+          value="${escapeHtml(name)}"
+        >
+        ${escapeHtml(name)}
+      </label>
+    `,
+  ).join('');
 
   const content = `
     <form id="assign-form" class="assign-form">
       <div class="form-group">
-        <label class="form-label">Técnico</label>
-        <select class="form-select" id="assign-tech" required>${techOptions}</select>
+        <label class="form-label">Técnicos <span class="text-muted">(escolha 1 a 3)</span></label>
+        <div class="flex gap-4 mt-2" id="assign-tech-options">${techCheckboxes}</div>
+        <p class="assign-tech-hint text-muted" id="assign-tech-hint" hidden>Selecione pelo menos um técnico.</p>
       </div>
       ${renderClientCombobox({ fieldId: 'assign-client', label: 'Cliente / Empresa' })}
       <div class="form-group">
@@ -909,8 +929,8 @@ async function openAssignModal() {
   `;
 
   const actions = `
-    <button class="btn-ghost" id="cancel-assign">Cancelar</button>
-    <button class="btn-primary" id="confirm-assign">Atribuir Trabalho</button>
+    <button type="button" class="btn-ghost" id="cancel-assign">Cancelar</button>
+    <button type="button" class="btn-primary" id="confirm-assign">Atribuir Trabalho</button>
   `;
 
   const overlay = openModal('Atribuir Trabalho', content, actions);
@@ -919,9 +939,24 @@ async function openAssignModal() {
   const dateInput = overlay.querySelector('#assign-date');
   dateInput.value = new Date().toISOString().split('T')[0];
 
-  overlay.querySelector('#cancel-assign').addEventListener('click', closeModal);
-  overlay.querySelector('#confirm-assign').addEventListener('click', async () => {
-    const techId = overlay.querySelector('#assign-tech').value;
+  const techHint = overlay.querySelector('#assign-tech-hint');
+  const assignForm = overlay.querySelector('#assign-form');
+
+  overlay.querySelectorAll('.assign-tech-checkbox').forEach((cb) => {
+    cb.addEventListener('change', () => {
+      const checked = overlay.querySelectorAll('.assign-tech-checkbox:checked');
+      if (checked.length > 3) {
+        cb.checked = false;
+        showToast('Pode selecionar no máximo 3 técnicos.', 'warning');
+      }
+      if (techHint) techHint.hidden = checked.length >= 1;
+    });
+  });
+
+  const submitAssignForm = async () => {
+    const selectedTechs = [...overlay.querySelectorAll('.assign-tech-checkbox:checked')].map(
+      (el) => el.value.trim(),
+    ).filter(Boolean);
     const clientId = overlay.querySelector(
       '[data-client-combobox][data-field-id="assign-client"] .client-combobox-id',
     )?.value;
@@ -929,13 +964,22 @@ async function openAssignModal() {
     const date = overlay.querySelector('#assign-date').value;
     const time = overlay.querySelector('#assign-time').value;
 
-    if (!techId || !clientId || !date || !time) {
+    if (selectedTechs.length < 1) {
+      if (techHint) techHint.hidden = false;
+      showToast('Selecione pelo menos um técnico.', 'error');
+      return;
+    }
+    if (selectedTechs.length > 3) {
+      showToast('Pode selecionar no máximo 3 técnicos.', 'error');
+      return;
+    }
+    if (!clientId || !date || !time) {
       showToast('Preencha todos os campos.', 'error');
       return;
     }
 
     const id = await assignJob({
-      technicianId: techId,
+      technicianId: selectedTechs.join(', '),
       clientId,
       forkliftSerial: '',
       serviceType,
@@ -945,5 +989,17 @@ async function openAssignModal() {
     if (!id) return;
     closeModal();
     renderCalendar();
+  };
+
+  overlay.querySelector('#cancel-assign')?.addEventListener('click', closeModal);
+  overlay.querySelector('#confirm-assign')?.addEventListener('click', () => {
+    submitAssignForm().catch((err) => {
+      console.error('[Admin] Atribuir trabalho:', err);
+      showToast('Erro ao atribuir trabalho.', 'error');
+    });
+  });
+  assignForm?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    overlay.querySelector('#confirm-assign')?.click();
   });
 }

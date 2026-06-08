@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/app.css">
+  <link rel="stylesheet" href="css/app.css?v=assign-multi-tech">
 </head>
 <body>
   <script src="js/theme-boot.js"></script>
@@ -120,9 +120,9 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/vendor/jspdf.umd.min.js" data-jspdf defer></script>
   <script type="module">
-    import { seedDatabase } from './js/mock_data.js';
-    import { initAdminDashboard } from './js/admin-dashboard.js';
-    import { applyThemeToDocument, themeToggleLabel, toggleTheme } from './js/theme.js';
+    import { seedDatabase } from './js/mock_data.js?v=assign-multi-tech';
+    import { initAdminDashboard } from './js/admin-dashboard.js?v=assign-multi-tech';
+    import { applyThemeToDocument, themeToggleLabel, toggleTheme } from './js/theme.js?v=assign-multi-tech';
 
     applyThemeToDocument();
     const themeBtn = document.getElementById('theme-toggle');

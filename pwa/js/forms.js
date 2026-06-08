@@ -2,9 +2,11 @@
  * Manusilva PWA — Formulários dinâmicos (8 relatórios reais)
  */
 
+import { getSession } from './session.js';
 import {
   getClient,
   getTechnician,
+  getPrimaryTechnicianForJob,
   getServiceType,
   getJob,
   getReportForJob,
@@ -92,7 +94,9 @@ export function openJobForm(jobId, options = {}) {
   if (!job) return;
 
   const client = getClient(job.clientId);
-  const tech = getTechnician(job.technicianId);
+  const session = getSession();
+  const tech =
+    getTechnician(session?.technicianId) || getPrimaryTechnicianForJob(job);
   const service = getServiceType(job.serviceType);
   const existingReport = getReportForJob(jobId);
 
@@ -278,7 +282,10 @@ function buildReportFromForm(overlay, job, existingReport, signaturePads, report
   return {
     id: relatorioIdEmEdicao || reportId || existingReport?.id || null,
     jobId: job.id,
-    technicianId: job.technicianId,
+    technicianId:
+      getSession()?.technicianId ||
+      getPrimaryTechnicianForJob(job)?.id ||
+      job.technicianId,
     clientId: job.clientId,
     forkliftSerial: job.forkliftSerial,
     serviceType: job.serviceType,

@@ -131,11 +131,15 @@ export function invalidateJobsCache() {
 export async function ensureTrabalhosSemana(technicianId, startDate, endDate) {
   if (!technicianId || !startDate || !endDate) return [];
 
+  const { getTechnician } = await import('./app.js');
+  const tech = getTechnician(technicianId);
+  const techName = tech?.name || String(technicianId);
+
   const supabase = await getSupabaseClient();
   const { data, error } = await supabase
     .from('trabalhos')
     .select('*')
-    .eq('tecnico_id', technicianId)
+    .ilike('tecnico_id', `%${techName}%`)
     .gte('data', startDate)
     .lte('data', endDate)
     .order('data', { ascending: true })
@@ -163,7 +167,8 @@ export function getTechnicianJobDatesInRange(technicianId, dates) {
   const allowed = new Set(dates);
   const out = new Set();
   getJobsSnapshot().forEach((j) => {
-    if (j.technicianId === technicianId && allowed.has(j.date)) {
+    if (!allowed.has(j.date)) return;
+    if (String(j.technicianId) === String(technicianId)) {
       out.add(j.date);
     }
   });
