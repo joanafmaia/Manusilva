@@ -10,56 +10,8 @@ function compactFotosSection(job, report) {
   return full.replace('review-fotos-grid', 'review-fotos-grid review-fotos-grid--compact');
 }
 
-/** Lista compacta de relatórios pendentes (estado inicial do painel RH). */
-export function buildRhPendingListHtml(reports, formatOrdemLabel, getJob, getClient, escapeHtml) {
-  if (!reports.length) {
-    return `
-      <div class="rh-pending-list-wrap">
-        <p class="rh-review-panel-empty">Nenhum relatório pendente de aprovação neste momento.</p>
-      </div>`;
-  }
-
-  const items = reports
-    .map((report) => {
-      const job = report.jobId ? getJob(report.jobId) : null;
-      const client = getClient(report.clientId);
-      const jobId = report.jobId || '';
-
-      return `
-        <li class="rh-pending-list-item">
-          <div class="rh-pending-list-main">
-            <span class="rh-pending-list-ordem">${escapeHtml(formatOrdemLabel(job))}</span>
-            <span class="rh-pending-list-client">${escapeHtml(client?.name || client?.Nome || '—')}</span>
-          </div>
-          <button type="button" class="btn-outline btn-sm rh-pending-open-btn" data-pending-open="${escapeHtml(jobId)}" ${jobId ? '' : 'disabled'}>
-            Rever
-          </button>
-        </li>`;
-    })
-    .join('');
-
-  return `
-    <div class="rh-pending-list-wrap">
-      <p class="rh-pending-list-hint">${reports.length} relatório(s) aguardam aprovação</p>
-      <ul class="rh-pending-list" role="list">${items}</ul>
-    </div>`;
-}
-
-/** Detalhe do relatório com barra «Voltar à lista». */
-export function wrapRhReviewDetailHtml(innerHtml) {
-  return `
-    <div class="rh-review-panel-detail">
-      <div class="rh-review-panel-toolbar">
-        <button type="button" class="rh-panel-back" data-panel-back aria-label="Voltar à lista de pendentes">
-          ← Voltar à lista
-        </button>
-      </div>
-      ${innerHtml}
-    </div>`;
-}
-
 /**
- * Painel lateral sticky (split-screen) — coluna direita do calendário RH.
+ * Painel lateral sticky (split-screen) — cartão de revisão RH.
  */
 export function buildRhReviewPanelHtml({
   job,
@@ -84,7 +36,7 @@ export function buildRhReviewPanelHtml({
     : '';
 
   return `
-    <article class="rh-review-panel-content" data-job-id="${escapeHtml(job?.id || '')}" data-report-id="${escapeHtml(report.id)}">
+    <article class="rh-review-panel-content rh-review-stack-card" data-job-id="${escapeHtml(job?.id || '')}" data-report-id="${escapeHtml(report.id)}">
       <header class="rh-review-panel-head">
         <span class="rh-review-panel-ordem">${escapeHtml(formatOrdemLabel(job))}</span>
         <h3 class="rh-review-panel-client">${escapeHtml(client?.name || client?.Nome || '—')}</h3>

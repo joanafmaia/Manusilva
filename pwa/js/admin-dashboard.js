@@ -48,8 +48,6 @@ import { initArquivoHistoricoPage, refreshArquivoHistoricoPage } from './views/a
 let calendarView = 'week';
 let filterTechId = 'all';
 let currentWeekOffset = 0;
-/** @type {string | null} trabalho selecionado no calendário para revisão */
-let selectedReviewJobId = null;
 
 const AGENDA_SWIPE_OPEN_PX = 88;
 
@@ -90,7 +88,7 @@ export async function initAdminDashboard() {
     bindRhReviewPanel();
     bindAssignWork();
     updatePendingCount();
-    renderRhPendingListPanel().catch(console.error);
+    renderRhReviewStack().catch(console.error);
   } catch (err) {
     console.error('[Admin] Erro ao iniciar painel:', err);
     showToast('Erro ao carregar o calendário. Veja a consola (F12).', 'error');
@@ -151,11 +149,7 @@ export async function initAdminDashboard() {
     refreshDashboardPanel().catch(console.error);
     refreshArquivoHistoricoPage();
     updatePendingCount();
-    if (selectedReviewJobId) {
-      renderRhReviewPanel(selectedReviewJobId).catch(console.error);
-    } else {
-      renderRhPendingListPanel().catch(console.error);
-    }
+    renderRhReviewStack().catch(console.error);
   });
 }
 
@@ -285,9 +279,8 @@ function renderCalendarBlock(job, compact = false) {
   const service = getServiceType(job.serviceType);
   const report = getReportForJob(job.id);
   const stateClass = getCalendarEventStateClass(job, report);
-  const selectedClass = job.id === selectedReviewJobId ? ' cal-block--selected' : '';
   const sizeClass = compact ? 'cal-block cal-block-sm' : 'cal-block';
-  const cls = `${sizeClass} cal-block--interactive ${stateClass}${selectedClass}`;
+  const cls = `${sizeClass} cal-block--interactive ${stateClass}`;
   const label = `${job.time} — ${client?.name || 'Cliente'} — ${service?.label || 'Serviço'}`;
   return `
     <button type="button" class="${cls}" data-job-id="${job.id}" style="--tech-color:${tech?.color || '#3b82f6'}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">
@@ -333,7 +326,6 @@ function renderAgendaListItem(job) {
   const service = getServiceType(job.serviceType);
   const report = getReportForJob(job.id);
   const stateClass = getCalendarEventStateClass(job, report);
-  const selectedClass = job.id === selectedReviewJobId ? ' agenda-list-item--selected' : '';
   const serial = job.forkliftSerial ? ` · ${job.forkliftSerial}` : '';
 
   return `
@@ -342,7 +334,7 @@ function renderAgendaListItem(job) {
         <button type="button" class="agenda-swipe-delete" data-delete-job="${job.id}">Eliminar</button>
       </div>
       <div class="agenda-swipe-track">
-        <button type="button" class="agenda-list-item ${stateClass}${selectedClass}" data-job-id="${job.id}" style="--tech-color:${tech?.color || '#3b82f6'}">
+        <button type="button" class="agenda-list-item ${stateClass}" data-job-id="${job.id}" style="--tech-color:${tech?.color || '#3b82f6'}">
           <div class="agenda-list-top">
             <span class="agenda-list-time">${job.time}</span>
             ${statusBadge(job.status)}
@@ -366,62 +358,22 @@ function bindCalendarJobInteractions() {
     const trigger = e.target.closest('[data-job-id]');
     if (!trigger?.dataset.jobId) return;
     e.preventDefault();
-    selectJobForReview(trigger.dataset.jobId);
+    openJobDetailModal(trigger.dataset.jobId);
   });
 }
 
-function backToPendingList() {
-  selectedReviewJobId = null;
-  renderCalendar();
-  renderRhPendingListPanel().catch(console.error);
-}
-
-async function renderRhPendingListPanel() {
-  const panel = document.getElementById('rh-review-panel');
-  if (!panel) return;
-
-  try {
-    await warmJobs();
-  } catch (err) {
-    console.warn('[Admin] Trabalhos para lista pendente:', err);
-  }
-
-  updatePendingCount();
-
-  const pending = getPendingReports().sort((a, b) =>
-    String(b.submittedAt || '').localeCompare(String(a.submittedAt || '')),
-  );
-
-  const { buildRhPendingListHtml } = await import('./report-review-rh-modal.js');
-  const { formatOrdemLabel } = await import('./report-review-ui.js');
-
-  panel.innerHTML = buildRhPendingListHtml(
-    pending,
-    formatOrdemLabel,
-    getJob,
-    getClient,
-    escapeHtml,
-  );
-}
-
-async function selectJobForReview(jobId) {
-  if (!jobId) return;
-  selectedReviewJobId = jobId;
-  renderCalendar();
-  await renderRhReviewPanel(jobId);
+function scrollToReportInPanel(reportId) {
+  if (!reportId) return;
   document.getElementById('pending')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  const card = document.querySelector(`#rh-review-panel [data-report-id="${reportId}"]`);
+  if (!card) return;
+  card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  card.classList.add('rh-review-stack-card--highlight');
+  setTimeout(() => card.classList.remove('rh-review-stack-card--highlight'), 2200);
 }
 
-async function selectReportForReview(reportId) {
-  const report = getReport(reportId);
-  if (!report?.jobId) {
-    showToast('Relatório sem trabalho associado.', 'warning');
-    return;
-  }
-  await selectJobForReview(report.jobId);
-}
-
-async function renderRhReviewPanel(jobId) {
+/** Renderiza todos os relatórios pendentes no painel direito (scroll vertical interno). */
+async function renderRhReviewStack() {
   const panel = document.getElementById('rh-review-panel');
   if (!panel) return;
 
@@ -431,45 +383,44 @@ async function renderRhReviewPanel(jobId) {
     console.warn('[Admin] Trabalhos para painel de revisão:', err);
   }
 
-  const { wrapRhReviewDetailHtml } = await import('./report-review-rh-modal.js');
+  updatePendingCount();
 
-  const job = getJob(jobId);
-  if (!job) {
-    panel.innerHTML = wrapRhReviewDetailHtml(
-      '<p class="rh-review-panel-empty">Trabalho não encontrado.</p>',
-    );
-    return;
-  }
+  const pending = getPendingReports().sort((a, b) =>
+    String(b.submittedAt || '').localeCompare(String(a.submittedAt || '')),
+  );
 
-  const report = getReportForJob(jobId);
-  if (!report) {
-    panel.innerHTML = wrapRhReviewDetailHtml(`
-      <p class="rh-review-panel-empty">Este trabalho ainda não tem relatório submetido para revisão.</p>
-      <button type="button" class="btn-ghost btn-sm rh-panel-job-detail" data-job-detail="${escapeHtml(jobId)}">Ver detalhes do serviço</button>
-    `);
+  if (!pending.length) {
+    panel.innerHTML =
+      '<p class="rh-review-panel-empty">Nenhum relatório pendente de aprovação neste momento.</p>';
     return;
   }
 
   const { renderReportValuesForReview } = await import('./form-engine.js');
   const { buildRhReviewPanelHtml } = await import('./report-review-rh-modal.js');
+
+  const cards = pending
+    .map((report) => {
+      const job = report.jobId ? getJob(report.jobId) : null;
+      const client = getClient(report.clientId);
+      const tech = getTechnician(report.technicianId);
+      const service = getServiceType(report.serviceType);
+      const fieldsHTML = renderReportValuesForReview(service, report.data?.values || {});
+
+      return buildRhReviewPanelHtml({
+        job,
+        report,
+        client,
+        tech,
+        service,
+        fieldsHTML,
+        showWorkflow: true,
+      });
+    })
+    .join('');
+
+  panel.innerHTML = `<div class="rh-review-stack" role="list">${cards}</div>`;
+
   const { bindReviewFotoClicks } = await import('./report-review-ui.js');
-
-  const client = getClient(report.clientId);
-  const tech = getTechnician(report.technicianId);
-  const service = getServiceType(report.serviceType);
-  const fieldsHTML = renderReportValuesForReview(service, report.data?.values || {});
-
-  const detailHtml = buildRhReviewPanelHtml({
-    job,
-    report,
-    client,
-    tech,
-    service,
-    fieldsHTML,
-    showWorkflow: report.status === 'pending_review',
-  });
-
-  panel.innerHTML = wrapRhReviewDetailHtml(detailHtml);
   bindReviewFotoClicks(panel);
 }
 
@@ -481,28 +432,10 @@ function bindRhReviewPanel() {
   rhReviewPanelBound = true;
 
   panel.addEventListener('click', async (e) => {
-    if (e.target.closest('[data-panel-back]')) {
-      backToPendingList();
-      return;
-    }
-
-    const openPendingBtn = e.target.closest('[data-pending-open]');
-    if (openPendingBtn?.dataset.pendingOpen) {
-      await selectJobForReview(openPendingBtn.dataset.pendingOpen);
-      return;
-    }
-
-    const detailBtn = e.target.closest('[data-job-detail]');
-    if (detailBtn) {
-      openJobDetailModal(detailBtn.dataset.jobDetail);
-      return;
-    }
-
     const pdfBtn = e.target.closest('[data-panel-pdf]');
     if (pdfBtn) {
       const report = getReport(pdfBtn.dataset.panelPdf);
       if (!report) return;
-      const job = report.jobId ? getJob(report.jobId) : null;
       pdfBtn.disabled = true;
       try {
         const { previewReportPDF } = await import('./pdf-preview.js');
@@ -525,7 +458,7 @@ function bindRhReviewPanel() {
       if (ok) {
         renderCalendar();
         refreshDashboardPanel().catch(console.error);
-        backToPendingList();
+        await renderRhReviewStack();
       }
       return;
     }
@@ -722,7 +655,7 @@ function showPendingReportNotification(report) {
       icon: '🔔',
       duration: 8000,
       dedupeKey: report.id || report.jobId,
-      onClick: () => selectReportForReview(report.id),
+      onClick: () => scrollToReportInPanel(report.id),
     },
   );
 }
@@ -735,12 +668,9 @@ async function handleNewPendingReport(report, opts = {}, beep) {
     console.warn('[Admin] Trabalhos para notificação:', err);
   }
   renderCalendar();
+  await renderRhReviewStack();
   showPendingReportNotification(report);
-  if (report.jobId) {
-    await selectJobForReview(report.jobId);
-  } else {
-    await renderRhPendingListPanel();
-  }
+  scrollToReportInPanel(report.id);
   if (opts.playSound && beep) beep();
 }
 
@@ -768,10 +698,10 @@ function openRejectDialog(reportId) {
       showToast('Por favor, escreva uma nota de correção.', 'error');
       return;
     }
-    rejectReport(reportId, note).then(() => {
+    rejectReport(reportId, note).then(async () => {
       closeModal();
       renderCalendar();
-      backToPendingList();
+      await renderRhReviewStack();
     });
   });
 }
