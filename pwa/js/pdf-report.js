@@ -408,20 +408,21 @@ export async function generateReportPdfByServiceType(report) {
 
 /* ─── Layout blocks ─── */
 
-/** Altura/largura do logo no PDF (mm) — proporção 1:1 para não distorcer */
-const PDF_LOGO_SIZE_MM = 20;
+/** Logo no cabeçalho PDF (mm) — largura × altura, proporção do wordmark MS + MANUSILVA */
+const PDF_LOGO_WIDTH_MM = 54;
+const PDF_LOGO_HEIGHT_MM = 38;
 
-function drawLogoPlaceholder(doc, x, y, sizeMm) {
+function drawLogoPlaceholder(doc, x, y, widthMm, heightMm = widthMm) {
   doc.setDrawColor(...SLATE_LINE);
   doc.setLineWidth(0.35);
   doc.setFillColor(241, 245, 249);
-  doc.roundedRect(x, y, sizeMm, sizeMm, 2, 2, 'FD');
+  doc.roundedRect(x, y, widthMm, heightMm, 2, 2, 'FD');
   doc.setFillColor(...CORPORATE_BLUE);
-  doc.roundedRect(x + 1.5, y + 1.5, sizeMm - 3, sizeMm - 3, 1.5, 1.5, 'F');
+  doc.roundedRect(x + 1.5, y + 1.5, widthMm - 3, heightMm - 3, 1.5, 1.5, 'F');
   doc.setTextColor(255, 255, 255);
   pdfSetFont(doc, 'bold');
-  doc.setFontSize(12);
-  doc.text(COMPANY.logo || 'MS', x + sizeMm / 2, y + sizeMm / 2 + 1.5, { align: 'center' });
+  doc.setFontSize(Math.min(18, 8 + widthMm * 0.22));
+  doc.text(COMPANY.logo || 'MS', x + widthMm / 2, y + heightMm / 2 + 1.5, { align: 'center' });
 }
 
 function sanitizePdfTitle(title) {
@@ -449,7 +450,8 @@ function buildInstitutionalFooterLines() {
 
 function drawTopRow(doc, _service, numeroOrdem = null) {
   const topY = MARGIN;
-  const logoSize = PDF_LOGO_SIZE_MM;
+  const logoW = PDF_LOGO_WIDTH_MM;
+  const logoH = PDF_LOGO_HEIGHT_MM;
 
   if (isLogoConfigured()) {
     try {
@@ -458,27 +460,29 @@ function drawTopRow(doc, _service, numeroOrdem = null) {
         getPdfLogoFormat(),
         MARGIN,
         topY,
-        logoSize,
-        logoSize,
+        logoW,
+        logoH,
         undefined,
         'FAST',
       );
     } catch {
-      drawLogoPlaceholder(doc, MARGIN, topY, logoSize);
+      drawLogoPlaceholder(doc, MARGIN, topY, logoW, logoH);
     }
   } else {
-    drawLogoPlaceholder(doc, MARGIN, topY, logoSize);
+    drawLogoPlaceholder(doc, MARGIN, topY, logoW, logoH);
   }
 
   if (numeroOrdem != null) {
     doc.setTextColor(...TEXT_DARK);
     pdfSetFont(doc, 'normal');
     doc.setFontSize(9);
-    doc.text(formatOrdemDisplay(numeroOrdem), PAGE_W - MARGIN, topY + 4, { align: 'right' });
+    doc.text(formatOrdemDisplay(numeroOrdem), PAGE_W - MARGIN, topY + logoH * 0.35, {
+      align: 'right',
+    });
   }
 
   touchPdfContentPage(doc);
-  return topY + logoSize + 6;
+  return topY + logoH + 6;
 }
 
 function drawTitleBar(doc, y, title) {
