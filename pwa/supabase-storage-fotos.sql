@@ -12,9 +12,7 @@
 -- 1) Bucket público
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 VALUES ('fotos_trabalhos', 'fotos_trabalhos', true, 10485760, NULL)
-ON CONFLICT (id) DO UPDATE SET
-  public = true,
-  file_size_limit = COALESCE(storage.buckets.file_size_limit, 10485760);
+ON CONFLICT (id) DO UPDATE SET public = true;
 
 -- 2) RLS em storage.objects (já vem ativo no Supabase; garantir)
 ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
