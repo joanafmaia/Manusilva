@@ -661,10 +661,17 @@ async function openReportReview(reportId) {
   if (!report) return;
 
   const { renderReportValuesForReview } = await import('./form-engine.js');
-  const { renderJobFotosReviewHtml } = await import('./job-fotos.js');
+  const {
+    renderReviewFotosSection,
+    renderReviewPdfSection,
+    buildReviewModalActions,
+    bindReviewFotoClicks,
+    bindReviewPdfButton,
+  } = await import('./report-review-ui.js');
+  const { ensureJobsLoaded } = await import('./trabalhos-db.js');
 
   try {
-    await warmJobs();
+    await ensureJobsLoaded(true);
   } catch (err) {
     console.warn('[Admin] Trabalhos para revisão:', err);
   }
@@ -677,8 +684,6 @@ async function openReportReview(reportId) {
 
   const fieldsHTML = renderReportValuesForReview(service, data.values || {});
 
-  const photosHTML = renderJobFotosReviewHtml(job, report);
-
   const content = `
     <div class="review-detail">
       <div class="review-header-info">
@@ -686,19 +691,22 @@ async function openReportReview(reportId) {
         <p><strong>Técnico:</strong> ${escapeHtml(tech?.name)}</p>
         <p><strong>Máquina:</strong> ${escapeHtml(report.forkliftSerial)}</p>
       </div>
-      <h4>Dados do Relatório</h4>${fieldsHTML}
-      <h4>Fotos Antes / Depois</h4>${photosHTML}
-      <h4>Assinaturas</h4>
+      <h4 class="review-section-title">Dados do Relatório</h4>${fieldsHTML}
+      ${renderReviewFotosSection(job, report)}
+      ${renderReviewPdfSection(job)}
+      <h4 class="review-section-title">Assinaturas</h4>
       <p>Técnico: ${data.signatures?.technician ? '✓ Assinado' : '✗ Pendente'} · Cliente: ${data.signatures?.client ? '✓ Assinado' : '✗ Pendente'}</p>
     </div>
   `;
 
-  const actions = `
-    <button class="btn-danger" id="modal-reject">Rejeitar</button>
-    <button class="btn-success" id="modal-approve">Aprovar</button>
-  `;
+  const actions = buildReviewModalActions({ showWorkflow: true });
 
   const overlay = openModal(`${service?.icon} ${service?.label} — Revisão`, content, actions);
+
+  bindReviewFotoClicks(overlay);
+  bindReviewPdfButton(overlay, { job, report });
+
+  overlay.querySelector('#modal-close-review')?.addEventListener('click', closeModal);
 
   overlay.querySelector('#modal-approve').addEventListener('click', async () => {
     const btn = overlay.querySelector('#modal-approve');

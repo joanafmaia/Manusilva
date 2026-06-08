@@ -2732,38 +2732,87 @@ body {
 }
 
 /* Photos */
+.review-section {
+  margin: 1.25rem 0;
+}
+
+.review-section-title {
+  margin: 0 0 0.65rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.review-empty-hint,
+.review-pdf-status {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.review-pdf-status--ok {
+  color: var(--text-secondary);
+}
+
+.review-foto-hint {
+  margin: 0.5rem 0 0;
+  font-size: 0.75rem;
+}
+
 .review-fotos-grid {
   display: flex;
   flex-wrap: wrap;
   gap: 1rem;
-  margin-bottom: 0.75rem;
+  align-items: flex-start;
 }
 
 .review-foto-thumb {
   margin: 0;
-  flex: 1 1 140px;
-  max-width: 220px;
-  border-radius: var(--radius-sm);
-  overflow: hidden;
-  border: 1px solid var(--border-subtle);
-  background: var(--surface-muted);
+  flex: 0 1 auto;
+  text-align: center;
+}
+
+.review-foto-open {
+  display: block;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 6px;
+  line-height: 0;
+}
+
+.review-foto-open:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 
 .review-foto-img {
   display: block;
+  max-width: 200px;
   width: 100%;
-  height: 140px;
+  height: auto;
+  max-height: 200px;
   object-fit: cover;
+  border-radius: 6px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   background: var(--bg-input);
 }
 
 .review-foto-caption {
-  padding: 0.4rem 0.5rem;
-  font-size: 0.75rem;
+  margin-top: 0.4rem;
+  font-size: 0.8125rem;
   font-weight: 600;
-  text-align: center;
   color: var(--text-secondary);
-  border-top: 1px solid var(--border-subtle);
+}
+
+.modal-actions .review-btn-pdf {
+  margin-right: auto;
+}
+
+.review-detail .modal-actions,
+.modal-footer {
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
 
 .photo-grid {

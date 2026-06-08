@@ -8,13 +8,19 @@ import {
   getTechnician,
   getServiceType,
   getJob,
-  warmJobs,
   escapeHtml,
   openModal,
   closeModal,
   showToast,
 } from './app.js';
-import { renderJobFotosReviewHtml } from './job-fotos.js';
+import {
+  renderReviewFotosSection,
+  renderReviewPdfSection,
+  buildReviewModalActions,
+  bindReviewFotoClicks,
+  bindReviewPdfButton,
+} from './report-review-ui.js';
+import { ensureJobsLoaded } from './trabalhos-db.js';
 
 /**
  * @param {string} reportId
@@ -28,10 +34,9 @@ export async function openReportReviewModal(reportId, options = {}) {
   }
 
   const { renderReportValuesForReview } = await import('./form-engine.js');
-  const { previewReportPDF } = await import('./pdf-preview.js');
 
   try {
-    await warmJobs();
+    await ensureJobsLoaded(true);
   } catch (err) {
     console.warn('[Revisão] Trabalhos para fotos:', err);
   }
@@ -43,7 +48,6 @@ export async function openReportReviewModal(reportId, options = {}) {
   const values = data.values || { ...data.textFields, ...data.dropdowns };
   const fieldsHTML = renderReportValuesForReview(service, values);
   const job = report.jobId ? getJob(report.jobId) : null;
-  const photosHTML = renderJobFotosReviewHtml(job, report);
 
   const statusLabel =
     report.status === 'approved'
@@ -62,9 +66,10 @@ export async function openReportReviewModal(reportId, options = {}) {
         <p><strong>Técnico:</strong> ${escapeHtml(tech?.name || '—')}</p>
         <p><strong>Contacto:</strong> ${escapeHtml(client?.email || client?.['E-mail'] || '—')}</p>
       </div>
-      <h4>Dados do Relatório</h4>${fieldsHTML}
-      <h4>Fotos Antes / Depois</h4>${photosHTML}
-      <h4>Assinaturas</h4>
+      <h4 class="review-section-title">Dados do Relatório</h4>${fieldsHTML}
+      ${renderReviewFotosSection(job, report)}
+      ${renderReviewPdfSection(job)}
+      <h4 class="review-section-title">Assinaturas</h4>
       <p>Técnico: ${data.signatures?.technician ? '✓ Assinado' : '✗ Pendente'} · Cliente: ${data.signatures?.client ? '✓ Assinado' : '✗ Pendente'}</p>
     </div>
   `;
@@ -72,12 +77,7 @@ export async function openReportReviewModal(reportId, options = {}) {
   const showWorkflow =
     options.showWorkflowActions !== false && report.status === 'pending_review';
 
-  const actions = `
-    <button type="button" class="btn-outline" id="modal-pdf-preview">Ver PDF</button>
-    ${showWorkflow ? '<button type="button" class="btn-danger" id="modal-reject">Rejeitar</button>' : ''}
-    ${showWorkflow ? '<button type="button" class="btn-success" id="modal-approve">Aprovar</button>' : ''}
-    <button type="button" class="btn-secondary" id="modal-close-review">Fechar</button>
-  `;
+  const actions = buildReviewModalActions({ showWorkflow });
 
   const overlay = openModal(
     `${service?.icon || '📋'} ${escapeHtml(service?.label || 'Relatório')} — Revisão`,
@@ -86,16 +86,8 @@ export async function openReportReviewModal(reportId, options = {}) {
   );
 
   overlay.querySelector('#modal-close-review')?.addEventListener('click', closeModal);
-
-  overlay.querySelector('#modal-pdf-preview')?.addEventListener('click', async () => {
-    const btn = overlay.querySelector('#modal-pdf-preview');
-    btn.disabled = true;
-    try {
-      await previewReportPDF(report);
-    } finally {
-      btn.disabled = false;
-    }
-  });
+  bindReviewFotoClicks(overlay);
+  bindReviewPdfButton(overlay, { job, report });
 
   if (showWorkflow) {
     const { approveReport, rejectReport } = await import('./app.js');

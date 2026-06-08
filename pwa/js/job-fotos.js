@@ -44,7 +44,7 @@ export function formatFotoCountLabel(count) {
 export function renderJobFotosReviewHtml(job, report) {
   const { antes, depois } = resolveJobFotos(job, report);
   if (!antes && !depois) {
-    return '<p class="text-muted">Sem fotos anexadas.</p>';
+    return '<p class="review-empty-hint">Nenhuma foto anexada.</p>';
   }
 
   const blocks = [];
