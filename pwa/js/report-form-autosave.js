@@ -52,8 +52,8 @@ export function initReportFormAutosave({ overlay, job, existingReport, buildRepo
       return;
     }
     statusEl.hidden = false;
-    if (state === 'pending') statusEl.textContent = 'A guardar neste dispositivo…';
-    else if (state === 'saved') statusEl.textContent = 'Guardado neste dispositivo';
+    if (state === 'pending') statusEl.textContent = 'A guardar localmente…';
+    else if (state === 'saved') statusEl.textContent = 'Guardado localmente';
     else if (state === 'error') statusEl.textContent = 'Erro ao guardar — tente «Guardar Rascunho»';
   };
 

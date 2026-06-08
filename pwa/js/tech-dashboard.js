@@ -157,8 +157,10 @@ function bindOfflineSyncButton() {
     }
 
     btn.disabled = true;
-    const label = btn.textContent;
-    btn.textContent = 'A sincronizar…';
+    document.getElementById('offline-sync-bar')?.classList.add('is-syncing');
+    const labelEl = btn.querySelector('.offline-sync-banner__action-label');
+    const prevLabel = labelEl?.textContent || 'Sincronizar agora';
+    if (labelEl) labelEl.textContent = 'A sincronizar…';
 
     try {
       const { sincronizarTrabalhosOffline } = await import('./trabalhos-offline.js');
@@ -186,7 +188,8 @@ function bindOfflineSyncButton() {
       showToast('Erro ao sincronizar. Os dados continuam guardados neste dispositivo.', 'error', 7000);
     } finally {
       btn.disabled = false;
-      btn.textContent = label;
+      document.getElementById('offline-sync-bar')?.classList.remove('is-syncing');
+      if (labelEl) labelEl.textContent = prevLabel;
       renderOfflineSyncBar();
     }
   });
@@ -194,9 +197,10 @@ function bindOfflineSyncButton() {
 
 function renderOfflineSyncBar() {
   const bar = document.getElementById('offline-sync-bar');
-  const text = document.getElementById('offline-sync-text');
+  const desc = document.getElementById('offline-sync-desc');
+  const countEl = document.getElementById('offline-sync-count');
   const btn = document.getElementById('offline-sync-btn');
-  if (!bar || !text) return;
+  if (!bar || !desc) return;
 
   import('./trabalhos-offline.js')
     .then(({ countTrabalhosPendentes }) => {
@@ -207,10 +211,23 @@ function renderOfflineSyncBar() {
       }
 
       bar.hidden = false;
-      text.textContent =
-        count === 1
-          ? '🔄 Tens 1 relatório pendente para enviar'
-          : `🔄 Tens ${count} relatórios pendentes para enviar`;
+
+      if (countEl) {
+        countEl.hidden = false;
+        countEl.textContent = String(count);
+      }
+
+      if (canReachServer()) {
+        desc.textContent =
+          count === 1
+            ? '1 relatório guardado neste dispositivo está pronto para enviar.'
+            : `${count} relatórios guardados neste dispositivo estão prontos para enviar.`;
+      } else {
+        desc.textContent =
+          count === 1
+            ? '1 relatório em segurança no tablet. Envie quando recuperar ligação à internet.'
+            : `${count} relatórios em segurança no tablet. Envie quando recuperar ligação à internet.`;
+      }
 
       if (btn) {
         btn.disabled = false;
@@ -246,14 +263,17 @@ function renderOfflineToggle() {
   toggle.checked = manualOffline;
   label.textContent = effectivelyOffline ? 'Offline' : 'Online';
 
+  const badgeLabel = document.getElementById('connection-badge-label');
   if (badge) {
-    badge.className = `connection-badge ${effectivelyOffline ? 'offline' : 'online'}`;
+    badge.className = `connection-badge tech-navbar__badge ${effectivelyOffline ? 'offline' : 'online'}`;
+  }
+  if (badgeLabel) {
     if (networkOffline) {
-      badge.textContent = '● Sem rede';
+      badgeLabel.textContent = 'Sem rede';
     } else if (manualOffline) {
-      badge.textContent = '● Offline (manual)';
+      badgeLabel.textContent = 'Modo offline';
     } else {
-      badge.textContent = '● Online';
+      badgeLabel.textContent = 'Online';
     }
   }
 

@@ -18,13 +18,6 @@
   <div class="bg-mesh"></div>
 
   <div class="tech-app">
-    <div id="offline-sync-bar" class="offline-sync-bar" hidden role="status" aria-live="polite">
-      <p class="offline-sync-bar__text" id="offline-sync-text"></p>
-      <button type="button" class="btn-primary btn-sm offline-sync-bar__btn" id="offline-sync-btn">
-        Sincronizar Agora
-      </button>
-    </div>
-
     <header class="tech-header tech-navbar">
       <div class="header-top tech-navbar__top">
         <div class="brand-compact tech-navbar__brand">
@@ -35,7 +28,10 @@
           </div>
         </div>
         <div class="header-actions tech-navbar__actions">
-          <span class="connection-badge online tech-navbar__badge" id="connection-badge">● Online</span>
+          <span class="connection-badge online tech-navbar__badge" id="connection-badge">
+            <span class="connection-badge__dot" aria-hidden="true"></span>
+            <span class="connection-badge__label" id="connection-badge-label">Online</span>
+          </span>
           <button type="button" id="theme-toggle" class="theme-toggle-btn theme-toggle-btn--inline tech-navbar__theme" aria-label="Alternar tema" title="Alternar tema">
             <span id="theme-icon" aria-hidden="true"></span>
           </button>
@@ -56,6 +52,30 @@
           <input type="checkbox" id="offline-toggle">
           <span class="toggle-track"></span>
         </label>
+      </div>
+
+      <div id="offline-sync-bar" class="offline-sync-banner" hidden role="status" aria-live="polite">
+        <div class="offline-sync-banner__icon" aria-hidden="true">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+            <path d="M3 3v5h5"/>
+            <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
+            <path d="M16 16h5v5"/>
+          </svg>
+        </div>
+        <div class="offline-sync-banner__body">
+          <p class="offline-sync-banner__title" id="offline-sync-title">Relatórios pendentes</p>
+          <p class="offline-sync-banner__desc" id="offline-sync-desc"></p>
+        </div>
+        <span class="offline-sync-banner__count" id="offline-sync-count" hidden></span>
+        <button type="button" class="offline-sync-banner__action" id="offline-sync-btn">
+          <svg class="offline-sync-banner__action-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" x2="12" y1="3" y2="15"/>
+          </svg>
+          <span class="offline-sync-banner__action-label">Sincronizar agora</span>
+        </button>
       </div>
 
       <div class="calendar-nav tech-calendar-nav">
