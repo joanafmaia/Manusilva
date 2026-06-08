@@ -1208,20 +1208,28 @@ body {
   position: relative;
   display: flex;
   align-items: center;
+  width: 100%;
 }
 
 .client-combobox-icon {
   position: absolute;
-  left: 0.85rem;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-size: 1rem;
+  line-height: 1;
   color: var(--primary-light);
   pointer-events: none;
   opacity: 0.85;
+  z-index: 1;
 }
 
 .client-combobox-input {
-  padding-left: 2.35rem !important;
-  padding-right: 2.25rem !important;
+  width: 100%;
+  padding: 12px 2.5rem 12px 2.35rem !important;
   background: var(--bg-input);
   color: var(--text-main);
   transition: border-color 0.25s ease, box-shadow 0.25s ease, transform 0.2s ease, background-color 0.3s ease, color 0.3s ease;
@@ -1254,9 +1262,15 @@ body {
 
 .client-combobox-clear {
   position: absolute;
-  right: 0.65rem;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 28px;
   height: 28px;
+  padding: 0;
   border: none;
   border-radius: 8px;
   background: rgba(248, 113, 113, 0.12);
@@ -1265,6 +1279,7 @@ body {
   line-height: 1;
   cursor: pointer;
   transition: background 0.2s ease;
+  z-index: 1;
 }
 
 .client-combobox-clear:hover {
@@ -4932,13 +4947,23 @@ body.dark-mode .rh-card__btn--pdf {
 .client-history-header {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  flex-wrap: wrap;
+  gap: 16px;
+  flex-wrap: nowrap;
+  width: 100%;
+}
+
+.client-history-back {
+  flex-shrink: 0;
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  white-space: nowrap;
 }
 
 .client-history-title {
   margin: 0;
   font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1.25;
 }
 
 .client-history-company {
@@ -4947,23 +4972,43 @@ body.dark-mode .rh-card__btn--pdf {
 
 .client-history-dl {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
-  gap: 0.75rem 1.25rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
   margin: 0;
 }
 
+.client-history-dl > div {
+  min-width: 0;
+}
+
 .client-history-dl dt {
-  font-size: 0.7rem;
+  display: block;
+  font-size: 0.6875rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
   color: var(--text-secondary);
-  margin: 0 0 0.2rem;
+  margin: 0 0 0.35rem;
 }
 
 .client-history-dl dd {
   margin: 0;
-  font-weight: 500;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+@media (max-width: 640px) {
+  .client-history-dl {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .client-history-header {
+    flex-wrap: wrap;
+  }
 }
 
 .client-history-reports-hint {
@@ -4982,18 +5027,20 @@ body.dark-mode .rh-card__btn--pdf {
 
 .client-history-item {
   display: flex;
-  align-items: stretch;
-  gap: 0.5rem;
-  padding: 0;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
   overflow: hidden;
 }
 
 .client-history-item-main {
   flex: 1;
+  min-width: 0;
   display: grid;
   grid-template-columns: 1fr;
   gap: 0.2rem;
-  padding: 0.85rem 1rem;
+  padding: 0;
   border: none;
   background: transparent;
   color: inherit;
@@ -5032,7 +5079,7 @@ body.dark-mode .rh-card__btn--pdf {
 
 .client-history-pdf {
   align-self: center;
-  margin-right: 0.5rem;
+  margin: 0;
   flex-shrink: 0;
 }
 
@@ -5198,6 +5245,18 @@ body.dark-mode .rh-card__btn--pdf {
   font-size: 0.8125rem;
 }
 
+.rh-register-form {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+}
+
+.rh-register-form .form-group,
+.rh-register-form .form-row {
+  width: 100%;
+}
+
 .rh-register-form .form-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -5211,7 +5270,10 @@ body.dark-mode .rh-card__btn--pdf {
 }
 
 .rh-register-submit {
-  width: 100%;
+  width: auto;
+  max-width: 200px;
+  min-width: 10rem;
+  align-self: flex-start;
   margin-top: 0.35rem;
 }
 
