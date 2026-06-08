@@ -12,6 +12,44 @@ function formatSubmittedShort(iso) {
   return d.toLocaleDateString('pt-PT', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
+export const REPORT_STATUS_PANEL_META = {
+  pending_review: { label: 'Pendente', cardClass: 'rh-card--pending' },
+  draft: { label: 'Rascunho', cardClass: 'rh-card--draft' },
+  approved: { label: 'Aprovado', cardClass: 'rh-card--approved' },
+  rejected: { label: 'Recusado', cardClass: 'rh-card--rejected' },
+};
+
+export function getReportStatusPanelMeta(status) {
+  return REPORT_STATUS_PANEL_META[status] || { label: status || '—', cardClass: 'rh-card--draft' };
+}
+
+const RH_FILTER_TABS = [
+  { id: 'all', label: 'Todos' },
+  { id: 'pending_review', label: 'Pendentes', icon: '🟡' },
+  { id: 'draft', label: 'Rascunhos', icon: '⚪' },
+  { id: 'approved', label: 'Aprovados', icon: '🟢' },
+  { id: 'rejected', label: 'Recusados', icon: '🔴' },
+];
+
+/** Barra de filtros rápidos no topo do painel RH */
+export function buildRhReviewFilterBar(counts, activeFilter = 'pending_review') {
+  const chips = RH_FILTER_TABS.map(({ id, label, icon }) => {
+    const count = counts[id] ?? 0;
+    const isActive = activeFilter === id;
+    const text = id === 'all' ? `${label} (${count})` : `${label} ${icon || ''} (${count})`.trim();
+    return `
+      <button
+        type="button"
+        class="rh-filter-chip${isActive ? ' is-active' : ''}"
+        data-rh-filter="${escapeHtml(id)}"
+        role="tab"
+        aria-selected="${isActive ? 'true' : 'false'}"
+      >${escapeHtml(text)}</button>`;
+  }).join('');
+
+  return `<div class="rh-review-filters" role="tablist" aria-label="Filtrar relatórios">${chips}</div>`;
+}
+
 /**
  * Painel lateral sticky (split-screen) — cartão de revisão RH.
  */
@@ -25,7 +63,11 @@ export function buildRhReviewPanelHtml({
   showWorkflow = true,
 }) {
   const data = report?.data || {};
-  const submittedLabel = formatSubmittedShort(report?.submittedAt || job?.date);
+  const submittedLabel = formatSubmittedShort(
+    report?.submittedAt || report?.approvedAt || job?.date,
+  );
+  const statusMeta = getReportStatusPanelMeta(report?.status);
+  const statusClass = statusMeta.cardClass;
 
   const workflowHtml = showWorkflow
     ? `
@@ -41,11 +83,12 @@ export function buildRhReviewPanelHtml({
     : '';
 
   return `
-    <article class="rh-card rh-review-stack-card" data-job-id="${escapeHtml(job?.id || '')}" data-report-id="${escapeHtml(report.id)}">
+    <article class="rh-card rh-review-stack-card ${statusClass}" data-job-id="${escapeHtml(job?.id || '')}" data-report-id="${escapeHtml(report.id)}" data-report-status="${escapeHtml(report?.status || '')}">
       <header class="rh-card__header">
         <div class="rh-card__header-row">
           <span class="rh-card__ordem-badge">${escapeHtml(formatOrdemLabel(job))}</span>
-          <time class="rh-card__date" datetime="${escapeHtml(report?.submittedAt || '')}">${escapeHtml(submittedLabel)}</time>
+          <span class="rh-card__status-pill">${escapeHtml(statusMeta.label)}</span>
+          <time class="rh-card__date" datetime="${escapeHtml(report?.submittedAt || report?.approvedAt || '')}">${escapeHtml(submittedLabel)}</time>
         </div>
         <h3 class="rh-card__client">${escapeHtml(client?.name || client?.Nome || '—')}</h3>
         <p class="rh-card__meta">

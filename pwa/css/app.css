@@ -3205,7 +3205,79 @@ body {
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 0 1.25rem 1.25rem;
+  padding: 0 1rem 1rem;
+}
+
+.rh-review-panel-inner {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  gap: 0;
+}
+
+.rh-review-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 0 12px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid #e2e8f0;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--bg-card, #ffffff);
+  padding-top: 2px;
+}
+
+.rh-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 10px;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.25;
+  color: #64748b;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.rh-filter-chip:hover {
+  color: #334155;
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.rh-filter-chip.is-active {
+  color: #0f172a;
+  background: #ffffff;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+}
+
+.rh-review-stack-wrap {
+  min-width: 0;
+}
+
+body.dark-mode .rh-review-filters {
+  background: var(--bg-card);
+  border-bottom-color: #334155;
+}
+
+body.dark-mode .rh-filter-chip {
+  background: #334155;
+  border-color: #475569;
+  color: #cbd5e1;
+}
+
+body.dark-mode .rh-filter-chip.is-active {
+  background: #1e293b;
+  color: #f1f5f9;
+  border-color: #60a5fa;
 }
 
 .rh-review-panel-empty {
@@ -3339,11 +3411,28 @@ body {
   flex-direction: column;
   background: #ffffff;
   border: 1px solid #e2e8f0;
+  border-left-width: 4px;
   border-radius: 12px;
   padding: 16px;
   margin-bottom: 16px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.rh-card--pending {
+  border-left-color: #fbbf24;
+}
+
+.rh-card--draft {
+  border-left-color: #94a3b8;
+}
+
+.rh-card--approved {
+  border-left-color: #22c55e;
+}
+
+.rh-card--rejected {
+  border-left-color: #ef4444;
 }
 
 .rh-card:hover {
@@ -3358,9 +3447,40 @@ body {
 .rh-card__header-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 6px 8px;
   margin-bottom: 10px;
+}
+
+.rh-card__status-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  border-radius: 4px;
+}
+
+.rh-card--pending .rh-card__status-pill {
+  color: #92400e;
+  background: #fef3c7;
+}
+
+.rh-card--draft .rh-card__status-pill {
+  color: #475569;
+  background: #f1f5f9;
+}
+
+.rh-card--approved .rh-card__status-pill {
+  color: #166534;
+  background: #dcfce7;
+}
+
+.rh-card--rejected .rh-card__status-pill {
+  color: #991b1b;
+  background: #fee2e2;
 }
 
 .rh-card__ordem-badge {
@@ -3378,11 +3498,11 @@ body {
 }
 
 .rh-card__date {
+  margin-left: auto;
   font-size: 12px;
   font-weight: 500;
   color: #64748b;
   white-space: nowrap;
-  flex-shrink: 0;
 }
 
 .rh-card__client {

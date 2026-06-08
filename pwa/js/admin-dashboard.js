@@ -10,6 +10,8 @@ import {
   getTechnician,
   getServiceType,
   getPendingReports,
+  getAdminReviewReports,
+  getRhPanelReportCounts,
   getReport,
   approveReport,
   rejectReport,
@@ -48,6 +50,16 @@ import { initArquivoHistoricoPage, refreshArquivoHistoricoPage } from './views/a
 let calendarView = 'week';
 let filterTechId = 'all';
 let currentWeekOffset = 0;
+/** Filtro ativo no painel RH — por defeito mostra pendentes */
+let rhReviewFilter = 'pending_review';
+
+const RH_EMPTY_MESSAGES = {
+  all: 'Nenhum relatório no histórico.',
+  pending_review: 'Nenhum relatório pendente de aprovação neste momento.',
+  draft: 'Nenhum rascunho em curso.',
+  approved: 'Nenhum relatório aprovado.',
+  rejected: 'Nenhum relatório recusado.',
+};
 
 const AGENDA_SWIPE_OPEN_PX = 88;
 
@@ -372,53 +384,62 @@ function scrollToReportInPanel(reportId) {
   setTimeout(() => card.classList.remove('rh-review-stack-card--highlight'), 2200);
 }
 
-/** Renderiza todos os relatórios pendentes no painel direito (scroll vertical interno). */
+/** Renderiza histórico completo de relatórios no painel direito (com filtros rápidos). */
 async function renderRhReviewStack() {
   const panel = document.getElementById('rh-review-panel');
   if (!panel) return;
 
   try {
-    await warmJobs();
+    await warmOperacoes();
   } catch (err) {
-    console.warn('[Admin] Trabalhos para painel de revisão:', err);
+    console.warn('[Admin] Dados para painel de relatórios:', err);
   }
 
   updatePendingCount();
 
-  const pending = getPendingReports().sort((a, b) =>
-    String(b.submittedAt || '').localeCompare(String(a.submittedAt || '')),
-  );
-
-  if (!pending.length) {
-    panel.innerHTML =
-      '<p class="rh-review-panel-empty">Nenhum relatório pendente de aprovação neste momento.</p>';
-    return;
-  }
+  const counts = getRhPanelReportCounts();
+  const reports = getAdminReviewReports(rhReviewFilter);
 
   const { renderReportValuesForReview } = await import('./form-engine.js');
-  const { buildRhReviewPanelHtml } = await import('./report-review-rh-modal.js');
+  const { buildRhReviewPanelHtml, buildRhReviewFilterBar } = await import(
+    './report-review-rh-modal.js'
+  );
 
-  const cards = pending
-    .map((report) => {
-      const job = report.jobId ? getJob(report.jobId) : null;
-      const client = getClient(report.clientId);
-      const tech = getTechnician(report.technicianId);
-      const service = getServiceType(report.serviceType);
-      const fieldsHTML = renderReportValuesForReview(service, report.data?.values || {});
+  const filterBar = buildRhReviewFilterBar(counts, rhReviewFilter);
 
-      return buildRhReviewPanelHtml({
-        job,
-        report,
-        client,
-        tech,
-        service,
-        fieldsHTML,
-        showWorkflow: true,
-      });
-    })
-    .join('');
+  let stackHtml;
+  if (!reports.length) {
+    const emptyMsg = RH_EMPTY_MESSAGES[rhReviewFilter] || RH_EMPTY_MESSAGES.all;
+    stackHtml = `<p class="rh-review-panel-empty">${escapeHtml(emptyMsg)}</p>`;
+  } else {
+    const cards = reports
+      .map((report) => {
+        const job = report.jobId ? getJob(report.jobId) : null;
+        const client = getClient(report.clientId);
+        const tech = getTechnician(report.technicianId);
+        const service = getServiceType(report.serviceType);
+        const fieldsHTML = renderReportValuesForReview(service, report.data?.values || {});
 
-  panel.innerHTML = `<div class="rh-review-stack" role="list">${cards}</div>`;
+        return buildRhReviewPanelHtml({
+          job,
+          report,
+          client,
+          tech,
+          service,
+          fieldsHTML,
+          showWorkflow: report.status === 'pending_review',
+        });
+      })
+      .join('');
+
+    stackHtml = `<div class="rh-review-stack" role="list">${cards}</div>`;
+  }
+
+  panel.innerHTML = `
+    <div class="rh-review-panel-inner">
+      ${filterBar}
+      <div class="rh-review-stack-wrap">${stackHtml}</div>
+    </div>`;
 
   const { bindReviewFotoClicks } = await import('./report-review-ui.js');
   bindReviewFotoClicks(panel);
@@ -432,6 +453,16 @@ function bindRhReviewPanel() {
   rhReviewPanelBound = true;
 
   panel.addEventListener('click', async (e) => {
+    const filterBtn = e.target.closest('[data-rh-filter]');
+    if (filterBtn) {
+      const next = filterBtn.dataset.rhFilter;
+      if (next && next !== rhReviewFilter) {
+        rhReviewFilter = next;
+        await renderRhReviewStack();
+      }
+      return;
+    }
+
     const pdfBtn = e.target.closest('[data-panel-pdf]');
     if (pdfBtn) {
       const report = getReport(pdfBtn.dataset.panelPdf);
@@ -667,6 +698,7 @@ async function handleNewPendingReport(report, opts = {}, beep) {
   } catch (err) {
     console.warn('[Admin] Trabalhos para notificação:', err);
   }
+  rhReviewFilter = 'pending_review';
   renderCalendar();
   await renderRhReviewStack();
   showPendingReportNotification(report);

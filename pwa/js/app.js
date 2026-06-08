@@ -474,18 +474,37 @@ export function getPendingReports() {
   return getReportsSnapshot().filter((r) => r.status === 'pending_review');
 }
 
-const ADMIN_REVIEW_STATUSES = new Set(['pending_review', 'rejected', 'approved']);
+/** Estados de relatório exibidos no painel RH (histórico completo) */
+export const RH_PANEL_REPORT_STATUSES = new Set([
+  'pending_review',
+  'draft',
+  'approved',
+  'rejected',
+]);
+
+function sortReportsForRhPanel(a, b) {
+  return String(b.submittedAt || b.approvedAt || '').localeCompare(
+    String(a.submittedAt || a.approvedAt || ''),
+  );
+}
 
 /** Relatórios visíveis no painel RH (com filtro opcional por estado) */
 export function getAdminReviewReports(filter = 'all') {
-  const list = getReportsSnapshot().filter((r) => ADMIN_REVIEW_STATUSES.has(r.status));
-  const filtered =
-    filter === 'all' ? list : list.filter((r) => r.status === filter);
-  return filtered.sort((a, b) =>
-    String(b.submittedAt || b.approvedAt || '').localeCompare(
-      String(a.submittedAt || a.approvedAt || ''),
-    ),
-  );
+  const list = getReportsSnapshot().filter((r) => RH_PANEL_REPORT_STATUSES.has(r.status));
+  const filtered = filter === 'all' ? list : list.filter((r) => r.status === filter);
+  return filtered.sort(sortReportsForRhPanel);
+}
+
+/** Contagens por estado para filtros rápidos do painel RH */
+export function getRhPanelReportCounts() {
+  const list = getReportsSnapshot().filter((r) => RH_PANEL_REPORT_STATUSES.has(r.status));
+  return {
+    all: list.length,
+    pending_review: list.filter((r) => r.status === 'pending_review').length,
+    draft: list.filter((r) => r.status === 'draft').length,
+    approved: list.filter((r) => r.status === 'approved').length,
+    rejected: list.filter((r) => r.status === 'rejected').length,
+  };
 }
 
 /* ─── Offline Mode ─── */

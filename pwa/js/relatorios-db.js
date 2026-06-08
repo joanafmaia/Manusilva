@@ -110,7 +110,7 @@ async function loadReportsFromSupabase() {
   const { data, error } = await supabase
     .from('relatorios')
     .select('*')
-    .order('submetido_em', { ascending: false, nullsFirst: false });
+    .order('atualizado_em', { ascending: false, nullsFirst: false });
 
   if (error) {
     console.error('[ManuSilva] Erro ao carregar relatórios:', error);
