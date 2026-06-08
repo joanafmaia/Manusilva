@@ -741,9 +741,7 @@ async function openReportReview(reportId) {
 
   const { renderReportValuesForReview } = await import('./form-engine.js');
   const {
-    renderReviewFotosSection,
-    renderReviewPdfSection,
-    buildReviewModalActions,
+    buildReviewModalContent,
     bindReviewFotoClicks,
     bindReviewPdfButton,
   } = await import('./report-review-ui.js');
@@ -763,24 +761,16 @@ async function openReportReview(reportId) {
 
   const fieldsHTML = renderReportValuesForReview(service, data.values || {});
 
-  const content = `
-    <div class="review-detail">
-      <div class="review-header-info">
-        <p><strong>Cliente:</strong> ${escapeHtml(client?.name)} (${escapeHtml(client?.email)})</p>
-        <p><strong>Técnico:</strong> ${escapeHtml(tech?.name)}</p>
-        <p><strong>Máquina:</strong> ${escapeHtml(report.forkliftSerial)}</p>
-      </div>
-      <h4 class="review-section-title">Dados do Relatório</h4>${fieldsHTML}
-      ${renderReviewFotosSection(job, report)}
-      ${renderReviewPdfSection(job)}
-      <h4 class="review-section-title">Assinaturas</h4>
-      <p>Técnico: ${data.signatures?.technician ? '✓ Assinado' : '✗ Pendente'} · Cliente: ${data.signatures?.client ? '✓ Assinado' : '✗ Pendente'}</p>
-    </div>
-  `;
+  const content = buildReviewModalContent({
+    job,
+    report,
+    client,
+    tech,
+    fieldsHTML,
+    showWorkflow: true,
+  });
 
-  const actions = buildReviewModalActions({ showWorkflow: true });
-
-  const overlay = openModal(`${service?.icon} ${service?.label} — Revisão`, content, actions, {
+  const overlay = openModal(`${service?.icon} ${service?.label} — Revisão`, content, '', {
     review: true,
   });
 

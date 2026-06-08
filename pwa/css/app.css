@@ -2905,20 +2905,22 @@ body {
 }
 
 .review-fotos-grid {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1rem;
-  align-items: flex-start;
+  align-items: start;
+  width: 100%;
 }
 
 .review-foto-thumb {
   margin: 0;
-  flex: 0 1 auto;
+  min-width: 0;
   text-align: center;
 }
 
 .review-foto-open {
   display: block;
+  width: 100%;
   padding: 0;
   border: none;
   background: transparent;
@@ -2934,10 +2936,9 @@ body {
 
 .review-foto-img {
   display: block;
-  max-width: 200px;
   width: 100%;
+  max-height: 250px;
   height: auto;
-  max-height: 200px;
   object-fit: cover;
   border-radius: 6px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
@@ -2951,11 +2952,6 @@ body {
   color: var(--text-secondary);
 }
 
-.modal-actions .review-btn-pdf {
-  margin-right: auto;
-}
-
-.review-detail .modal-actions,
 .modal-footer {
   flex-wrap: wrap;
   gap: 0.5rem;
@@ -4357,7 +4353,161 @@ details[open] .expand-icon { transform: rotate(90deg); }
   content: '● ';
 }
 
-/* Review Detail */
+/* Review Detail — modal RH (2 colunas) */
+.review-detail--grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  align-items: start;
+  min-width: 0;
+}
+
+.review-col {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.review-col--info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.review-col--media {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.review-meta-card {
+  padding: 1rem 1.125rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-muted);
+  margin-bottom: 0.5rem;
+}
+
+.review-ordem-block {
+  margin-bottom: 0.65rem;
+  padding-bottom: 0.65rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.review-ordem-kicker {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.review-ordem-num {
+  display: block;
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--primary);
+  margin-top: 0.15rem;
+}
+
+.review-meta-row {
+  margin: 0.2rem 0;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+.review-block {
+  margin: 0.75rem 0 0;
+}
+
+.review-block--compact {
+  margin-top: 0.5rem;
+}
+
+.review-fields-wrap {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.review-fields-wrap .review-dynamic-table {
+  width: 100%;
+  max-width: 100%;
+  table-layout: fixed;
+}
+
+.review-fields-wrap .review-dynamic-table th,
+.review-fields-wrap .review-dynamic-table td {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  font-size: 0.8125rem;
+}
+
+.review-signatures {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.review-col-footer {
+  margin-top: auto;
+  padding-top: 1rem;
+}
+
+.review-col-footer .review-btn-pdf {
+  width: 100%;
+}
+
+.review-workflow-actions {
+  margin-top: auto;
+  padding-top: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.review-action-btn {
+  width: 100%;
+  min-height: 48px;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.review-col--media .review-section--fotos {
+  flex: 1;
+  margin-top: 0;
+}
+
+@media (max-width: 768px) {
+  .review-detail--grid {
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+  }
+
+  .review-col--media {
+    min-height: auto;
+  }
+
+  .modal-overlay--review .modal {
+    width: 100%;
+    max-height: 92vh;
+  }
+
+  .review-workflow-actions {
+    margin-top: 1rem;
+    padding-top: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .review-fotos-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .review-detail h4 {
   font-size: 0.8rem;
   color: var(--text-secondary);
@@ -4410,6 +4560,24 @@ details[open] .expand-icon { transform: rotate(90deg); }
   background-color: rgba(0, 0, 0, 0.4);
   backdrop-filter: blur(5px);
   -webkit-backdrop-filter: blur(5px);
+  padding: 1rem;
+}
+
+.modal-overlay--review .modal {
+  max-width: 900px;
+  width: 95%;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.modal-overlay--review .modal-body {
+  flex: 1;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 1.25rem 1.5rem;
 }
 
 .modal {
