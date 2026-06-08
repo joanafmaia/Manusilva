@@ -392,7 +392,18 @@ function renderDynamicTableCell(field, col, key, row) {
     value="${escapeHtml(String(val))}" placeholder="${escapeHtml(placeholder)}">`;
 }
 
+function isClientPickerField(field) {
+  if (!field) return false;
+  if (field.type === 'client_combobox') return true;
+  if (field.id === 'cliente') return true;
+  return field.label === 'Cliente' && String(field.section || '').includes('Cliente');
+}
+
 function renderField(field, value = '', context = {}) {
+  if (context.lockClient && isClientPickerField(field)) {
+    return '';
+  }
+
   let html = '';
   switch (field.type) {
     case 'client_combobox':

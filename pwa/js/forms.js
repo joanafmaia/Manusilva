@@ -26,7 +26,6 @@ import {
   buildFormPrefill,
   mergeFormValues,
   isOfficialTemplate,
-  renderHeaderClientCombobox,
 } from './form-engine.js';
 import {
   migrateLegacyBatteryRows,
@@ -151,6 +150,15 @@ function legacyToValues(data) {
   return values;
 }
 
+function renderLockedClientHiddenFields(client, values) {
+  const nome = values.cliente || client?.Nome || client?.name || '';
+  const id = values.cliente_id || client?.NIF || client?.id || '';
+  return `
+    <input type="hidden" data-field-id="cliente" data-field-kind="text" value="${escapeHtml(nome)}">
+    <input type="hidden" data-field-id="cliente_id" data-field-kind="text" value="${escapeHtml(id)}">
+  `;
+}
+
 function renderFotoPreviewHtml(url, label) {
   if (!url) {
     return `<div class="foto-antes-depois-placeholder" aria-hidden="true"><span>📷</span><span>${escapeHtml(label)}</span></div>`;
@@ -165,6 +173,7 @@ function buildFormHTML(job, client, tech, service, existingReport) {
     client,
     job,
     selectedClientId: saved.cliente_id || client.NIF || client.id,
+    lockClient: true,
   };
   const prefill = buildFormPrefill(service, job, null, formContext);
   const values = mergeFormValues(saved, prefill);
@@ -173,13 +182,8 @@ function buildFormHTML(job, client, tech, service, existingReport) {
   }
   const official = isOfficialTemplate(service);
   const clientHeader = renderJobClientHeader(client);
+  const lockedClientFields = official ? renderLockedClientHiddenFields(client, values) : '';
   const formTitle = getServiceFormTitle(service);
-  const clientPickerHtml = official
-    ? renderHeaderClientCombobox({
-        value: values.cliente || client.Nome || client.name,
-        selectedId: values.cliente_id || client.NIF || client.id,
-      })
-    : '';
   const fieldsHTML = service ? renderReportFields(service, values, formContext) : '';
 
   const rejectionBanner = job.status === 'rejected' && job.rejectionNote ? `
@@ -216,6 +220,7 @@ function buildFormHTML(job, client, tech, service, existingReport) {
         ${editPendingBanner}
 
         ${clientHeader}
+        ${lockedClientFields}
 
         <h2 class="form-report-title">${service?.icon || '📋'} ${escapeHtml(formTitle)}</h2>
 
@@ -223,7 +228,6 @@ function buildFormHTML(job, client, tech, service, existingReport) {
           <div class="header-grid">
             <div class="header-field"><span class="hf-label">Data do Serviço</span><span class="hf-value">${formatDateLong(job.date)}</span></div>
             <div class="header-field"><span class="hf-label">Técnico</span><span class="hf-value">${escapeHtml(tech.name)}</span></div>
-            ${official ? clientPickerHtml : ''}
           </div>
         </div>
 
