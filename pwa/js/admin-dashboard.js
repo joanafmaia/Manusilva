@@ -858,11 +858,11 @@ async function openAssignModal() {
       <div class="form-row">
         <div class="form-group">
           <label class="form-label">Data</label>
-          <input type="date" class="form-input" id="assign-date" required>
+          <input type="date" class="form-input form-input-date" id="assign-date" required autocomplete="off">
         </div>
         <div class="form-group">
           <label class="form-label">Hora</label>
-          <input type="time" class="form-input" id="assign-time" required value="09:00">
+          <input type="time" class="form-input form-input-time" id="assign-time" required value="09:00" autocomplete="off">
         </div>
       </div>
     </form>

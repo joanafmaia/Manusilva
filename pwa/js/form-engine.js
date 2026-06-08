@@ -67,6 +67,90 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
+const DATE_FIELD_ID_RE =
+  /^(data_|data_de_|data_fabrico|data_fabricacao|data_rececao|concluido_testado_em|data_1|data_2)/i;
+const TIME_FIELD_ID_RE = /^(hora_|hora_inicio|hora_fim|hora_de_)/i;
+const DATETIME_FIELD_ID_RE = /^(data_hora|datetime)/i;
+
+/** Valor para input type="date" (YYYY-MM-DD) */
+export function toHtmlDateValue(val) {
+  const text = String(val ?? '').trim();
+  if (!text) return '';
+  if (/^\d{4}-\d{2}-\d{2}/.test(text)) return text.slice(0, 10);
+  const dmy = text.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})/);
+  if (dmy) {
+    const [, d, m, y] = dmy;
+    return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+  }
+  const parsed = new Date(text.includes('T') ? text : `${text}T12:00:00`);
+  if (!Number.isNaN(parsed.getTime())) {
+    const y = parsed.getFullYear();
+    const m = String(parsed.getMonth() + 1).padStart(2, '0');
+    const d = String(parsed.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+  return '';
+}
+
+/** Valor guardado — data ISO (YYYY-MM-DD) */
+export function normalizeDateForStorage(val) {
+  return toHtmlDateValue(val) || String(val ?? '').trim();
+}
+
+/** Valor para input type="time" (HH:mm) */
+export function toHtmlTimeValue(val) {
+  const text = String(val ?? '').trim();
+  if (!text) return '';
+  const hm = text.match(/(\d{1,2}):(\d{2})/);
+  if (hm) return `${String(hm[1]).padStart(2, '0')}:${hm[2]}`;
+  return '';
+}
+
+export function normalizeTimeForStorage(val) {
+  return toHtmlTimeValue(val) || String(val ?? '').trim();
+}
+
+/** Valor para input type="datetime-local" (YYYY-MM-DDTHH:mm) */
+export function toHtmlDatetimeLocalValue(val) {
+  const text = String(val ?? '').trim();
+  if (!text) return '';
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(text)) return text.slice(0, 16);
+  const iso = text.match(/^(\d{4}-\d{2}-\d{2})[T ](\d{1,2}:\d{2})/);
+  if (iso) {
+    const hm = iso[2].match(/(\d{1,2}):(\d{2})/);
+    const time = hm ? `${String(hm[1]).padStart(2, '0')}:${hm[2]}` : '00:00';
+    return `${iso[1]}T${time}`;
+  }
+  const datePart = toHtmlDateValue(text);
+  const timePart = toHtmlTimeValue(text);
+  if (datePart && timePart) return `${datePart}T${timePart}`;
+  if (datePart) return `${datePart}T00:00`;
+  return '';
+}
+
+export function normalizeDatetimeForStorage(val) {
+  return toHtmlDatetimeLocalValue(val) || String(val ?? '').trim();
+}
+
+function resolveFieldInputType(field) {
+  const type = field?.type;
+  if (type === 'date' || type === 'time' || type === 'datetime' || type === 'datetime-local') {
+    return type === 'datetime' ? 'datetime-local' : type;
+  }
+  const id = field?.id || '';
+  if (DATETIME_FIELD_ID_RE.test(id)) return 'datetime-local';
+  if (TIME_FIELD_ID_RE.test(id)) return 'time';
+  if (DATE_FIELD_ID_RE.test(id) || /fabrico|rececao|conclusao/i.test(id)) return 'date';
+  return type;
+}
+
+function normalizeDynamicCellValue(inputType, val) {
+  if (inputType === 'date') return normalizeDateForStorage(val);
+  if (inputType === 'time') return normalizeTimeForStorage(val);
+  if (inputType === 'datetime-local' || inputType === 'datetime') return normalizeDatetimeForStorage(val);
+  return String(val ?? '').trim();
+}
+
 export function isOfficialTemplate(service) {
   return Boolean(service?.companyName && (service?.title || service?.label));
 }
@@ -282,9 +366,89 @@ export function mergeFormValues(existing = {}, prefill = {}) {
   return merged;
 }
 
-export function renderReportFields(service, values = {}, context = {}) {
+const REPORT_TAB_CHECKLIST_TYPES = new Set(['verification_toggles', 'matrix_4options']);
+const REPORT_TAB_FINAL_TYPES = new Set(['legal_verdict']);
+
+/** Secção do formulário em abas — Geral | Checklist | Finalização */
+export function getReportFieldTab(field) {
+  if (REPORT_TAB_FINAL_TYPES.has(field?.type)) return 'finalizacao';
+  if (REPORT_TAB_CHECKLIST_TYPES.has(field?.type)) return 'checklist';
+  return 'geral';
+}
+
+export function analyzeReportFormTabs(service) {
   const fields = filterReportFields(service?.fields, service);
-  if (!fields.length) return '<p class="text-muted">Sem campos definidos.</p>';
+  const tabs = { geral: true, checklist: false, finalizacao: true };
+  fields.forEach((field) => {
+    const tab = getReportFieldTab(field);
+    if (tab === 'checklist') tabs.checklist = true;
+    if (tab === 'finalizacao') tabs.finalizacao = true;
+  });
+  return tabs;
+}
+
+export function renderReportFormTabsNav(service, activeTab = 'geral') {
+  const tabs = analyzeReportFormTabs(service);
+  const items = [
+    { id: 'geral', label: 'Geral', icon: '📋' },
+    { id: 'checklist', label: 'Checklist', icon: '🔧' },
+    { id: 'finalizacao', label: 'Finalização', icon: '📸' },
+  ].filter((item) => tabs[item.id]);
+
+  return `
+    <nav class="report-form-tabs" role="tablist" aria-label="Secções do relatório">
+      ${items
+        .map(
+          (item) => `
+        <button type="button" class="report-form-tab${activeTab === item.id ? ' is-active' : ''}"
+          role="tab" data-report-tab="${item.id}" aria-selected="${activeTab === item.id ? 'true' : 'false'}"
+          id="report-tab-${item.id}" aria-controls="report-panel-${item.id}" tabindex="${activeTab === item.id ? '0' : '-1'}">
+          <span class="report-form-tab-icon" aria-hidden="true">${item.icon}</span>
+          <span class="report-form-tab-label">${item.label}</span>
+        </button>`,
+        )
+        .join('')}
+    </nav>
+  `;
+}
+
+export function bindReportFormTabs(overlay) {
+  const tabButtons = overlay.querySelectorAll('[data-report-tab]');
+  const panels = overlay.querySelectorAll('[data-report-panel]');
+  if (!tabButtons.length || !panels.length) return;
+
+  const activate = (tabId) => {
+    tabButtons.forEach((btn) => {
+      const active = btn.dataset.reportTab === tabId;
+      btn.classList.toggle('is-active', active);
+      btn.setAttribute('aria-selected', active ? 'true' : 'false');
+      btn.tabIndex = active ? 0 : -1;
+    });
+    panels.forEach((panel) => {
+      const active = panel.dataset.reportPanel === tabId;
+      panel.classList.toggle('is-active', active);
+      panel.hidden = !active;
+    });
+  };
+
+  tabButtons.forEach((btn) => {
+    btn.addEventListener('click', () => activate(btn.dataset.reportTab));
+  });
+}
+
+export function renderReportFields(service, values = {}, context = {}, options = {}) {
+  const tabFilter = options.tab || null;
+  let fields = filterReportFields(service?.fields, service);
+  if (tabFilter) {
+    fields = fields.filter((field) => getReportFieldTab(field) === tabFilter);
+  }
+  if (!fields.length) {
+    if (tabFilter === 'checklist') {
+      return '<p class="report-tab-empty text-muted">Este relatório não inclui checklist de inspeção estruturada.</p>';
+    }
+    if (tabFilter === 'finalizacao') return '';
+    return '<p class="text-muted">Sem campos definidos.</p>';
+  }
 
   const groups = groupFieldsBySection(fields).filter(({ fields: sectionFields }) => sectionFields.length);
   return groups
@@ -355,7 +519,12 @@ function resolveDynamicRowDefaults(field, context = {}) {
 }
 
 function getDynamicColumnInputType(field, key) {
-  if (field?.columnTypes?.[key]) return field.columnTypes[key];
+  if (field?.columnTypes?.[key]) {
+    const t = field.columnTypes[key];
+    return t === 'datetime' ? 'datetime-local' : t;
+  }
+  if (key.includes('data_hora') || key.includes('datetime')) return 'datetime-local';
+  if (key === 'hora' || key.startsWith('hora_') || key.endsWith('_hora')) return 'time';
   if (key.includes('data') || key.startsWith('data_')) return 'date';
   if (key === 'horas' || key === 'quantidade' || key === 'tensao_v' || key === 'densidade') return 'number';
   return 'text';
@@ -381,7 +550,15 @@ function renderDynamicTableCell(field, col, key, row) {
 
   if (inputType === 'date') {
     return `<input type="date" class="form-input form-input-sm form-input-date" data-col="${key}"
-      value="${escapeHtml(String(val))}">`;
+      value="${escapeHtml(toHtmlDateValue(val))}">`;
+  }
+  if (inputType === 'time') {
+    return `<input type="time" class="form-input form-input-sm form-input-time" data-col="${key}"
+      value="${escapeHtml(toHtmlTimeValue(val))}">`;
+  }
+  if (inputType === 'datetime-local') {
+    return `<input type="datetime-local" class="form-input form-input-sm form-input-datetime" data-col="${key}"
+      value="${escapeHtml(toHtmlDatetimeLocalValue(val))}">`;
   }
   if (inputType === 'number') {
     const step = key === 'horas' ? '0.5' : '1';
@@ -415,7 +592,7 @@ function renderField(field, value = '', context = {}) {
         selectedId: context.selectedClientId || context.client?.NIF || context.client?.id || '',
       });
       break;
-    case 'text':
+    case 'text': {
       if (field.id === 'cliente' || (field.label === 'Cliente' && field.section?.includes('Cliente'))) {
         html = renderClientCombobox({
           fieldId: field.id,
@@ -425,8 +602,22 @@ function renderField(field, value = '', context = {}) {
         });
         break;
       }
+      const resolved = resolveFieldInputType(field);
+      if (resolved === 'date') {
+        html = renderDateField(field, value);
+        break;
+      }
+      if (resolved === 'time') {
+        html = renderTimeField(field, value);
+        break;
+      }
+      if (resolved === 'datetime-local') {
+        html = renderDatetimeField(field, value);
+        break;
+      }
       html = renderTextField(field, value);
       break;
+    }
     case 'textarea':
     case 'longtext':
       html = renderTextareaField(field, value);
@@ -436,6 +627,13 @@ function renderField(field, value = '', context = {}) {
       break;
     case 'date':
       html = renderDateField(field, value);
+      break;
+    case 'time':
+      html = renderTimeField(field, value);
+      break;
+    case 'datetime':
+    case 'datetime-local':
+      html = renderDatetimeField(field, value);
       break;
     case 'dropdown':
       html = renderDropdownField(field, value);
@@ -494,8 +692,14 @@ export function collectReportValues(overlay) {
   overlay.querySelectorAll('[data-field-id]').forEach((el) => {
     const id = el.dataset.fieldId;
     const kind = el.dataset.fieldKind;
-    if (['text', 'textarea', 'longtext', 'number', 'date', 'dropdown', 'grid'].includes(kind)) {
+    if (['text', 'textarea', 'longtext', 'number', 'dropdown', 'grid'].includes(kind)) {
       values[id] = el.value;
+    } else if (kind === 'date') {
+      values[id] = normalizeDateForStorage(el.value);
+    } else if (kind === 'time') {
+      values[id] = normalizeTimeForStorage(el.value);
+    } else if (kind === 'datetime' || kind === 'datetime-local') {
+      values[id] = normalizeDatetimeForStorage(el.value);
     }
   });
 
@@ -529,11 +733,19 @@ export function collectReportValues(overlay) {
     const fieldId = wrap.dataset.dynamicTable;
     const columns = JSON.parse(wrap.dataset.columns || '[]');
     const rows = [];
+    const fieldDef = { columnTypes: {} };
+    columns.forEach((col) => {
+      const key = columnKey(col);
+      fieldDef.columnTypes[key] = getDynamicColumnInputType(fieldDef, key);
+    });
+
     wrap.querySelectorAll('.dynamic-table-row').forEach((rowEl) => {
       const row = {};
       columns.forEach((col) => {
         const key = columnKey(col);
-        row[key] = rowEl.querySelector(`[data-col="${key}"]`)?.value?.trim() || '';
+        const inputType = fieldDef.columnTypes[key];
+        const raw = rowEl.querySelector(`[data-col="${key}"]`)?.value ?? '';
+        row[key] = normalizeDynamicCellValue(inputType, raw);
       });
       if (Object.values(row).some((v) => v)) rows.push(row);
     });
@@ -859,7 +1071,27 @@ function renderDateField(field, value = '') {
     <div class="form-group field-block">
       <label class="form-label">${escapeHtml(field.label)}</label>
       <input type="date" class="form-input form-input-date" data-field-id="${field.id}" data-field-kind="date"
-        value="${escapeHtml(String(value))}">
+        value="${escapeHtml(toHtmlDateValue(value))}" autocomplete="off">
+    </div>
+  `;
+}
+
+function renderTimeField(field, value = '') {
+  return `
+    <div class="form-group field-block">
+      <label class="form-label">${escapeHtml(field.label)}</label>
+      <input type="time" class="form-input form-input-time" data-field-id="${field.id}" data-field-kind="time"
+        value="${escapeHtml(toHtmlTimeValue(value))}" autocomplete="off">
+    </div>
+  `;
+}
+
+function renderDatetimeField(field, value = '') {
+  return `
+    <div class="form-group field-block">
+      <label class="form-label">${escapeHtml(field.label)}</label>
+      <input type="datetime-local" class="form-input form-input-datetime" data-field-id="${field.id}"
+        data-field-kind="datetime-local" value="${escapeHtml(toHtmlDatetimeLocalValue(value))}" autocomplete="off">
     </div>
   `;
 }
@@ -1461,10 +1693,8 @@ export async function bindFormFieldInteractions(overlay) {
     const tbody = wrap.querySelector('.dynamic-table-body');
     const fieldId = wrap.dataset.dynamicTable;
     const fieldDef = { id: fieldId, columnTypes: {}, columns };
-    colKeys.forEach((key, i) => {
-      const colLabel = columns[i];
-      if (key.includes('data') || key.startsWith('data_')) fieldDef.columnTypes[key] = 'date';
-      else if (key === 'horas' || key === 'quantidade') fieldDef.columnTypes[key] = 'number';
+    colKeys.forEach((key) => {
+      fieldDef.columnTypes[key] = getDynamicColumnInputType(fieldDef, key);
     });
 
     const buildRow = (rowData = defaultRow) => {

@@ -887,6 +887,87 @@ body {
   transition: opacity 0.3s;
 }
 
+/* ─── Relatório premium (tablet/desktop) ─── */
+.form-workspace {
+  width: 100%;
+  margin: 0 auto;
+}
+
+.form-panel--premium {
+  background: #ffffff;
+}
+
+.report-form-tabs {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.65rem 1rem;
+  background: var(--surface-sticky);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border-subtle);
+  position: sticky;
+  top: 52px;
+  z-index: 9;
+}
+
+.report-form-tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.15rem;
+  min-height: 52px;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 0.65rem;
+  background: var(--surface-raised, #f8fafc);
+  color: var(--text-secondary, #64748b);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s;
+}
+
+.report-form-tab-icon {
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+.report-form-tab.is-active {
+  background: #ffffff;
+  border-color: var(--primary);
+  color: var(--primary);
+  box-shadow: 0 1px 3px rgba(30, 64, 115, 0.12);
+}
+
+.report-tab-panels {
+  display: block;
+}
+
+.report-tab-panel {
+  display: none;
+}
+
+.report-tab-panel.is-active {
+  display: block;
+}
+
+.report-tab-empty {
+  padding: 1.5rem 0.5rem;
+  text-align: center;
+  font-size: 0.9rem;
+}
+
+.report-fields-section--checklist .matrix-accordion,
+.report-fields-section--checklist .verification-accordion {
+  margin-top: 0.25rem;
+}
+
+.section-title-hint {
+  font-weight: 500;
+  font-size: 0.8rem;
+}
+
 .form-overlay.show { opacity: 1; }
 
 .form-panel {
@@ -1649,9 +1730,21 @@ body.dark-mode .btn-preview:hover:not(:disabled) {
   margin: 0;
 }
 
-.form-input-date {
+.form-input-date,
+.form-input-time,
+.form-input-datetime {
   color-scheme: var(--color-scheme);
   min-height: 48px;
+  /* Mantém seletor nativo de calendário/relógio no telemóvel */
+  -webkit-appearance: auto;
+  appearance: auto;
+}
+
+.form-input-date::-webkit-calendar-picker-indicator,
+.form-input-time::-webkit-calendar-picker-indicator,
+.form-input-datetime::-webkit-calendar-picker-indicator {
+  opacity: 1;
+  cursor: pointer;
 }
 
 /* Cabeçalho do formulário técnico — dados do cliente */
@@ -6248,5 +6341,41 @@ body:not(:has(.theme-toggle-btn:not(.theme-toggle-btn--inline))) .toast-containe
     min-height: auto;
     max-height: 90vh;
     overflow-y: auto;
+  }
+}
+
+@media (min-width: 768px) {
+  .form-overlay {
+    background: #f8fafc;
+    backdrop-filter: none;
+    padding: 1.5rem 1.25rem 2rem;
+  }
+
+  .form-workspace {
+    max-width: 64rem;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .form-panel--premium {
+    border-radius: 0.75rem;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06), 0 8px 24px rgba(15, 23, 42, 0.04);
+    max-height: calc(100dvh - 3rem);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .form-panel--premium .form-panel-body {
+    overflow-y: auto;
+    flex: 1;
+  }
+
+  .report-form-tab {
+    flex-direction: row;
+    gap: 0.45rem;
+    min-height: 48px;
+    font-size: 0.85rem;
   }
 }

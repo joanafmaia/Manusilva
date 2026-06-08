@@ -19,6 +19,8 @@ import {
 } from './app.js';
 import {
   renderReportFields,
+  renderReportFormTabsNav,
+  bindReportFormTabs,
   collectReportValues,
   bindFormFieldInteractions,
   renderJobClientHeader,
@@ -184,7 +186,10 @@ function buildFormHTML(job, client, tech, service, existingReport) {
   const clientHeader = renderJobClientHeader(client);
   const lockedClientFields = renderLockedClientHiddenFields(client, values);
   const formTitle = getServiceFormTitle(service);
-  const fieldsHTML = service ? renderReportFields(service, values, formContext) : '';
+  const tabsNav = service ? renderReportFormTabsNav(service) : '';
+  const fieldsGeral = service ? renderReportFields(service, values, formContext, { tab: 'geral' }) : '';
+  const fieldsChecklist = service ? renderReportFields(service, values, formContext, { tab: 'checklist' }) : '';
+  const fieldsFinalizacao = service ? renderReportFields(service, values, formContext, { tab: 'finalizacao' }) : '';
 
   const rejectionBanner = job.status === 'rejected' && job.rejectionNote ? `
     <div class="rejection-banner">
@@ -209,71 +214,90 @@ function buildFormHTML(job, client, tech, service, existingReport) {
   const antesUrl = fotoDisplayUrl(fotoAntesState);
   const depoisUrl = fotoDisplayUrl(fotoDepoisState);
 
-  return `
-    <div class="form-panel glass-card">
-      <div class="form-panel-header form-panel-header--minimal">
-        <button type="button" class="btn-ghost" id="close-form">&larr; Voltar</button>
+  const fotoSection = `
+    <section class="form-section form-section--final">
+      <h3 class="section-title">Fotos do Trabalho <span class="text-muted section-title-hint">(opcional)</span></h3>
+      <p class="text-muted foto-antes-depois-hint">Pode anexar só Antes, só Depois, as duas ou nenhuma.</p>
+      <div class="foto-antes-depois-grid">
+        <div class="foto-antes-depois-card">
+          <span class="foto-antes-depois-label">Foto Antes</span>
+          <div class="foto-antes-depois-preview" id="foto-antes-preview">${renderFotoPreviewHtml(antesUrl, 'Antes')}</div>
+          <input type="file" id="foto-antes-input" class="foto-antes-depois-input" accept="image/*" capture="environment" hidden>
+          <label for="foto-antes-input" class="btn-foto">📷 Tirar Foto</label>
+          <button type="button" class="btn-ghost btn-sm foto-antes-depois-clear" data-clear-foto="antes" ${antesUrl ? '' : 'hidden'}>Remover</button>
+        </div>
+        <div class="foto-antes-depois-card">
+          <span class="foto-antes-depois-label">Foto Depois</span>
+          <div class="foto-antes-depois-preview" id="foto-depois-preview">${renderFotoPreviewHtml(depoisUrl, 'Depois')}</div>
+          <input type="file" id="foto-depois-input" class="foto-antes-depois-input" accept="image/*" capture="environment" hidden>
+          <label for="foto-depois-input" class="btn-foto">📷 Tirar Foto</label>
+          <button type="button" class="btn-ghost btn-sm foto-antes-depois-clear" data-clear-foto="depois" ${depoisUrl ? '' : 'hidden'}>Remover</button>
+        </div>
       </div>
+    </section>
+    <section class="form-section form-section--final">
+      <h3 class="section-title">Assinaturas Digitais</h3>
+      <div class="signatures-grid">
+        ${createSignatureBlock('Assinatura do Técnico', 'technician')}
+        ${createSignatureBlock('Assinatura do Cliente', 'client')}
+      </div>
+    </section>
+  `;
 
-      <div class="form-panel-body">
-        ${rejectionBanner}
-        ${editPendingBanner}
+  return `
+    <div class="form-workspace">
+      <div class="form-panel form-panel--premium glass-card">
+        <div class="form-panel-header form-panel-header--minimal">
+          <button type="button" class="btn-ghost" id="close-form">&larr; Voltar</button>
+        </div>
 
-        ${clientHeader}
-        ${lockedClientFields}
+        ${tabsNav}
 
-        <h2 class="form-report-title">${service?.icon || '📋'} ${escapeHtml(formTitle)}</h2>
+        <div class="form-panel-body">
+          ${rejectionBanner}
+          ${editPendingBanner}
 
-        <div class="form-fixed-header glass-card-inner ${official ? 'form-fixed-header--compact' : ''}">
-          <div class="header-grid">
-            <div class="header-field"><span class="hf-label">Data do Serviço</span><span class="hf-value">${formatDateLong(job.date)}</span></div>
-            <div class="header-field"><span class="hf-label">Técnico</span><span class="hf-value">${escapeHtml(tech.name)}</span></div>
+          <div class="report-tab-panels">
+            <div class="report-tab-panel is-active" data-report-panel="geral" id="report-panel-geral" role="tabpanel" aria-labelledby="report-tab-geral">
+              ${clientHeader}
+              ${lockedClientFields}
+              <h2 class="form-report-title">${service?.icon || '📋'} ${escapeHtml(formTitle)}</h2>
+              <div class="form-fixed-header glass-card-inner ${official ? 'form-fixed-header--compact' : ''}">
+                <div class="header-grid">
+                  <div class="header-field"><span class="hf-label">Data do Serviço</span><span class="hf-value">${formatDateLong(job.date)}</span></div>
+                  <div class="header-field"><span class="hf-label">Técnico</span><span class="hf-value">${escapeHtml(tech.name)}</span></div>
+                </div>
+              </div>
+              <section class="form-section report-fields-section">
+                ${official ? '' : '<h3 class="section-title">Dados do Relatório</h3>'}
+                <div class="report-fields">${fieldsGeral}</div>
+              </section>
+            </div>
+
+            <div class="report-tab-panel" data-report-panel="checklist" id="report-panel-checklist" role="tabpanel" aria-labelledby="report-tab-checklist" hidden>
+              <section class="form-section report-fields-section report-fields-section--checklist">
+                <div class="report-fields">${fieldsChecklist}</div>
+              </section>
+            </div>
+
+            <div class="report-tab-panel" data-report-panel="finalizacao" id="report-panel-finalizacao" role="tabpanel" aria-labelledby="report-tab-finalizacao" hidden>
+              <section class="form-section report-fields-section">
+                <div class="report-fields">${fieldsFinalizacao}</div>
+              </section>
+              ${fotoSection}
+            </div>
           </div>
         </div>
 
-        <section class="form-section report-fields-section">
-          ${official ? '' : '<h3 class="section-title">Dados do Relatório</h3>'}
-          <div class="report-fields">${fieldsHTML}</div>
-        </section>
-
-        <section class="form-section">
-          <h3 class="section-title">Fotos do Trabalho <span class="text-muted" style="font-weight:500;font-size:0.8rem">(opcional)</span></h3>
-          <p class="text-muted foto-antes-depois-hint">Pode anexar só Antes, só Depois, as duas ou nenhuma.</p>
-          <div class="foto-antes-depois-grid">
-            <div class="foto-antes-depois-card">
-              <span class="foto-antes-depois-label">Foto Antes</span>
-              <div class="foto-antes-depois-preview" id="foto-antes-preview">${renderFotoPreviewHtml(antesUrl, 'Antes')}</div>
-              <input type="file" id="foto-antes-input" class="foto-antes-depois-input" accept="image/*" capture="environment" hidden>
-              <label for="foto-antes-input" class="btn-foto">📷 Tirar Foto</label>
-              <button type="button" class="btn-ghost btn-sm foto-antes-depois-clear" data-clear-foto="antes" ${antesUrl ? '' : 'hidden'}>Remover</button>
-            </div>
-            <div class="foto-antes-depois-card">
-              <span class="foto-antes-depois-label">Foto Depois</span>
-              <div class="foto-antes-depois-preview" id="foto-depois-preview">${renderFotoPreviewHtml(depoisUrl, 'Depois')}</div>
-              <input type="file" id="foto-depois-input" class="foto-antes-depois-input" accept="image/*" capture="environment" hidden>
-              <label for="foto-depois-input" class="btn-foto">📷 Tirar Foto</label>
-              <button type="button" class="btn-ghost btn-sm foto-antes-depois-clear" data-clear-foto="depois" ${depoisUrl ? '' : 'hidden'}>Remover</button>
-            </div>
+        <div class="form-panel-footer form-panel-footer--stacked">
+          <button type="button" class="btn-preview" id="btn-preview-pdf">
+            <span class="btn-preview-icon" aria-hidden="true">👁️</span>
+            Pré-visualizar Relatório
+          </button>
+          <div class="form-panel-footer-row">
+            ${trabalhoIdEmEdicao ? '' : '<button type="button" class="btn-secondary btn-touch" id="btn-save-draft">Gravar Rascunho</button>'}
+            <button type="button" class="btn-primary btn-touch" id="btn-submit-report">${trabalhoIdEmEdicao ? 'Guardar alterações' : 'Submeter Relatório'}</button>
           </div>
-        </section>
-
-        <section class="form-section">
-          <h3 class="section-title">Assinaturas Digitais</h3>
-          <div class="signatures-grid">
-            ${createSignatureBlock('Assinatura do Técnico', 'technician')}
-            ${createSignatureBlock('Assinatura do Cliente', 'client')}
-          </div>
-        </section>
-      </div>
-
-      <div class="form-panel-footer form-panel-footer--stacked">
-        <button type="button" class="btn-preview" id="btn-preview-pdf">
-          <span class="btn-preview-icon" aria-hidden="true">👁️</span>
-          Pré-visualizar Relatório
-        </button>
-        <div class="form-panel-footer-row">
-          ${trabalhoIdEmEdicao ? '' : '<button type="button" class="btn-secondary btn-touch" id="btn-save-draft">Gravar Rascunho</button>'}
-          <button type="button" class="btn-primary btn-touch" id="btn-submit-report">${trabalhoIdEmEdicao ? 'Guardar alterações' : 'Submeter Relatório'}</button>
         </div>
       </div>
     </div>
@@ -414,6 +438,7 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport) {
     console.error('[Form] Interações dos campos:', err);
     showToast('Alguns controlos do formulário podem não responder. Recarregue a página.', 'error');
   });
+  bindReportFormTabs(overlay);
 
   bindFotoInputs(overlay);
 
