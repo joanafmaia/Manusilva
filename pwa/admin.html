@@ -49,7 +49,7 @@
       </div>
 
       <div class="admin-grid">
-        <div class="admin-left">
+        <div class="admin-content">
           <!-- Calendar -->
           <section class="admin-panel glass-card" id="calendar">
             <div class="panel-header" style="padding:1.25rem 1.25rem 0">
@@ -71,6 +71,22 @@
               </div>
               <div id="calendar-grid"></div>
             </div>
+          </section>
+
+          <!-- Revisão de Relatórios (RH) — largura total -->
+          <section class="admin-panel glass-card admin-reports-review" id="pending">
+            <div class="panel-header admin-reports-review-header">
+              <h2>Revisão de Relatórios <span class="badge-count" id="pending-count">0</span></h2>
+            </div>
+            <div class="reports-filter-wrap" id="reports-filter-wrap">
+              <div class="reports-filter-bar" id="reports-filter-bar" role="tablist" aria-label="Filtrar relatórios">
+                <button type="button" class="reports-filter-btn active" data-report-filter="all">Todos</button>
+                <button type="button" class="reports-filter-btn" data-report-filter="pending_review">Pendentes 🟡</button>
+                <button type="button" class="reports-filter-btn" data-report-filter="rejected">Recusados 🔴</button>
+                <button type="button" class="reports-filter-btn" data-report-filter="approved">Aprovados 🟢</button>
+              </div>
+            </div>
+            <div class="reports-review-container" id="pending-reports"></div>
           </section>
 
           <!-- Clientes: métricas + cadastro -->
@@ -97,24 +113,6 @@
             <div id="employees-panel" class="rh-employees-panel-wrap"></div>
           </section>
         </div>
-
-        <!-- Pending Reports Sidebar -->
-        <aside class="admin-right" id="pending">
-          <section class="admin-panel glass-card" style="position:sticky;top:1.5rem">
-            <div class="panel-header" style="padding:1.25rem 1.25rem 0">
-              <h2>Revisão de Relatórios <span class="badge-count" id="pending-count">0</span></h2>
-            </div>
-            <div class="reports-filter-wrap" id="reports-filter-wrap">
-              <div class="reports-filter-bar" id="reports-filter-bar" role="tablist" aria-label="Filtrar relatórios">
-                <button type="button" class="reports-filter-btn active" data-report-filter="all">Todos</button>
-                <button type="button" class="reports-filter-btn" data-report-filter="pending_review">Pendentes 🟡</button>
-                <button type="button" class="reports-filter-btn" data-report-filter="rejected">Recusados 🔴</button>
-                <button type="button" class="reports-filter-btn" data-report-filter="approved">Aprovados 🟢</button>
-              </div>
-            </div>
-            <div class="reports-table-container" id="pending-reports"></div>
-          </section>
-        </aside>
       </div>
     </main>
   </div>

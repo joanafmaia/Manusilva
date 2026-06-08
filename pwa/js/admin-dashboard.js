@@ -651,55 +651,48 @@ function buildReportRowActions(report) {
     </div>`;
 }
 
-function buildReportTableRow(report) {
+function buildReportReviewCard(report, formatOrdemLabel) {
   const client = getClient(report.clientId);
   const tech = getTechnician(report.technicianId);
   const service = getServiceType(report.serviceType);
+  const job = report.jobId ? getJob(report.jobId) : null;
   const dateStr = (report.submittedAt || report.approvedAt || '').slice(0, 10);
   const serial = report.forkliftSerial ? ` · ${report.forkliftSerial}` : '';
+  const ordem = formatOrdemLabel(job);
 
   return `
-    <tr class="reports-table-row" data-report-id="${escapeHtml(report.id)}">
-      <td class="reports-table-service">
-        <span class="reports-table-service-icon" aria-hidden="true">${service?.icon || '📋'}</span>
-        <span>${escapeHtml(service?.label || report.serviceType)}</span>
-      </td>
-      <td>${escapeHtml(client?.name || '—')}${escapeHtml(serial)}</td>
-      <td>
+    <article class="report-review-card" data-report-id="${escapeHtml(report.id)}">
+      <div class="report-review-card-top">
+        <span class="report-review-card-ordem">${escapeHtml(ordem)}</span>
+        ${reportStatusBadge(report.status)}
+      </div>
+      <h3 class="report-review-card-service">
+        <span aria-hidden="true">${service?.icon || '📋'}</span>
+        ${escapeHtml(service?.label || report.serviceType)}
+      </h3>
+      <p class="report-review-card-client">${escapeHtml(client?.name || '—')}${escapeHtml(serial)}</p>
+      <div class="report-review-card-meta">
         <span class="report-tech-badge" style="background:${tech?.color || '#3b82f6'}20;color:${tech?.color || '#3b82f6'}">${escapeHtml(tech?.name || '—')}</span>
-      </td>
-      <td>${reportStatusBadge(report.status)}</td>
-      <td class="reports-table-date">${dateStr ? escapeHtml(formatDate(dateStr)) : '—'}</td>
-      <td class="reports-table-actions-cell">${buildReportRowActions(report)}</td>
-    </tr>`;
+        <span class="report-review-card-date">${dateStr ? escapeHtml(formatDate(dateStr)) : '—'}</span>
+      </div>
+      ${buildReportRowActions(report)}
+    </article>`;
 }
 
-function buildReportsTableHtml(reports) {
+async function buildReportsReviewHtml(reports) {
   if (!reports.length) {
     const emptyMsg =
       reportsFilter === 'all'
         ? 'Nenhum relatório para revisão.'
         : 'Nenhum relatório neste filtro.';
-    return `<p class="text-muted empty-inline reports-table-empty">${emptyMsg}</p>`;
+    return `<p class="text-muted empty-inline reports-review-empty">${emptyMsg}</p>`;
   }
 
+  const { formatOrdemLabel } = await import('./report-review-ui.js');
+
   return `
-    <div class="reports-table-wrap">
-      <table class="admin-zebra-table reports-table">
-        <thead>
-          <tr>
-            <th scope="col">Serviço</th>
-            <th scope="col">Cliente</th>
-            <th scope="col">Técnico</th>
-            <th scope="col">Estado</th>
-            <th scope="col">Data</th>
-            <th scope="col">Ações</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${reports.map((r) => buildReportTableRow(r)).join('')}
-        </tbody>
-      </table>
+    <div class="reports-review-grid">
+      ${reports.map((r) => buildReportReviewCard(r, formatOrdemLabel)).join('')}
     </div>`;
 }
 
@@ -717,7 +710,7 @@ async function prependPendingReport(report) {
 
   await renderPendingReports();
   const row = document.querySelector(`[data-report-id="${report.id}"]`);
-  row?.classList.add('reports-table-row--new');
+  row?.classList.add('report-review-card--new');
 }
 
 async function renderPendingReports() {
@@ -732,7 +725,7 @@ async function renderPendingReports() {
 
   const reports = getAdminReviewReports(reportsFilter);
   updatePendingCount();
-  container.innerHTML = buildReportsTableHtml(reports);
+  container.innerHTML = await buildReportsReviewHtml(reports);
 }
 
 async function openReportReview(reportId) {
@@ -767,7 +760,7 @@ async function openReportReview(reportId) {
     client,
     tech,
     fieldsHTML,
-    showWorkflow: true,
+    showWorkflow: report.status === 'pending_review',
   });
 
   const overlay = openModal(`${service?.icon} ${service?.label} — Revisão`, content, '', {
@@ -779,7 +772,7 @@ async function openReportReview(reportId) {
 
   overlay.querySelector('#modal-close-review')?.addEventListener('click', closeModal);
 
-  overlay.querySelector('#modal-approve').addEventListener('click', async () => {
+  overlay.querySelector('#modal-approve')?.addEventListener('click', async () => {
     const btn = overlay.querySelector('#modal-approve');
     btn.disabled = true;
     const ok = await approveReport(reportId);
@@ -791,7 +784,7 @@ async function openReportReview(reportId) {
       refreshDashboardPanel().catch(console.error);
     }
   });
-  overlay.querySelector('#modal-reject').addEventListener('click', () => {
+  overlay.querySelector('#modal-reject')?.addEventListener('click', () => {
     closeModal();
     openRejectDialog(reportId);
   });

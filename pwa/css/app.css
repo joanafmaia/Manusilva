@@ -3155,9 +3155,24 @@ body {
 }
 
 .admin-grid {
-  display: grid;
-  grid-template-columns: 1fr 380px;
+  display: block;
+  max-width: 1200px;
+}
+
+.admin-content {
+  display: flex;
+  flex-direction: column;
   gap: 1.5rem;
+  min-width: 0;
+}
+
+.admin-reports-review {
+  scroll-margin-top: 1rem;
+}
+
+.admin-reports-review-header {
+  padding: 1.25rem 1.25rem 0;
+  margin-bottom: 0;
 }
 
 .admin-panel { margin-bottom: 1.5rem; }
@@ -3638,6 +3653,95 @@ body {
   background: rgba(59, 130, 246, 0.12);
   border-color: rgba(59, 130, 246, 0.35);
   color: var(--primary);
+}
+
+.reports-review-container {
+  padding: 0 1.25rem 1.25rem;
+  min-width: 0;
+  overflow-x: hidden;
+}
+
+.reports-review-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+  width: 100%;
+}
+
+.report-review-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1rem 1.125rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  min-width: 0;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.report-review-card:hover {
+  border-color: rgba(59, 130, 246, 0.35);
+  box-shadow: 0 4px 18px rgba(15, 23, 42, 0.06);
+}
+
+.report-review-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.report-review-card-ordem {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: var(--primary);
+  letter-spacing: 0.02em;
+}
+
+.report-review-card-service {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.35;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+  word-break: break-word;
+}
+
+.report-review-card-client {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  word-break: break-word;
+}
+
+.report-review-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+}
+
+.report-review-card-date {
+  color: var(--text-muted);
+}
+
+.report-review-card .reports-table-actions {
+  margin-top: 0.35rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.reports-review-empty {
+  padding: 1.25rem 0;
+}
+
+.report-review-card--new {
+  animation: report-row-highlight 1.4s ease;
 }
 
 .reports-table-container {
@@ -4811,7 +4915,9 @@ body:not(:has(.theme-toggle-btn)) .toast-container {
     border-right: none;
     border-bottom: 1px solid var(--border-subtle);
   }
-  .admin-grid { grid-template-columns: 1fr; }
+  .reports-review-grid {
+    grid-template-columns: 1fr;
+  }
   .calendar-week { grid-template-columns: repeat(4, 1fr); }
 }
 
