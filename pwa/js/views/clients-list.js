@@ -1,14 +1,14 @@
 /**
- * Lista de clientes (pesquisa paginada) — clique abre histórico.
+ * Lista de clientes (pesquisa paginada) — ficha cadastral + histórico.
  */
 
 import {
   ensureProductionCatalog,
   getProductionClientsCatalog,
   searchClients,
-  MAX_DROPDOWN_RESULTS,
 } from '../clients-catalog.js';
 import { escapeHtml } from '../app.js';
+import { openClientProfilePanel } from './client-profile-drawer.js';
 
 const LIST_PAGE_SIZE = 25;
 
@@ -20,38 +20,116 @@ export function renderClientsListSection() {
   return `
     <section class="clients-list-section glass-card" data-clients-list-section aria-labelledby="clients-list-title">
       <h3 id="clients-list-title" class="dashboard-section-title">Lista de clientes</h3>
-      <p class="text-muted clients-list-hint">Pesquise e clique numa empresa para ver o histórico de relatórios de bateria.</p>
+      <p class="text-muted clients-list-hint">
+        Clique no nome para consultar a ficha cadastral (NIF, morada, contacto). Use «Histórico» para ver relatórios.
+      </p>
       <div class="clients-list-toolbar">
         <input type="search"
           class="form-input clients-list-search"
-          placeholder="Filtrar por nome ou NIF…"
+          placeholder="Filtrar por nome, NIF ou e-mail…"
           autocomplete="off"
           spellcheck="false"
           aria-label="Filtrar lista de clientes">
         <span class="clients-list-count text-muted" data-clients-list-count></span>
       </div>
-      <ul class="clients-list" role="list" data-clients-list-ul></ul>
+
+      <div class="clients-list-cards" data-clients-list-cards role="list"></div>
+
+      <div class="clients-list-table-wrap">
+        <div class="clients-list-table-scroll">
+          <table class="clients-list-table rh-data-table">
+            <thead>
+              <tr>
+                <th scope="col">Cliente</th>
+                <th scope="col">NIF</th>
+                <th scope="col">E-mail</th>
+                <th scope="col">Localidade</th>
+                <th scope="col">Ações</th>
+              </tr>
+            </thead>
+            <tbody data-clients-list-tbody></tbody>
+          </table>
+        </div>
+      </div>
+
       <p class="text-muted clients-list-more" data-clients-list-more hidden></p>
     </section>
   `;
 }
 
+function renderClientCard(c) {
+  return `
+    <article class="clients-list-card glass-card" role="listitem">
+      <button type="button" class="clients-list-card-name" data-client-profile="${escapeAttr(c.id)}">
+        ${escapeHtml(c.Nome)}
+      </button>
+      <dl class="clients-list-card-meta">
+        <div><dt>NIF</dt><dd>${escapeHtml(c.NIF || '—')}</dd></div>
+        <div><dt>E-mail</dt><dd>${escapeHtml(c['E-mail'] || '—')}</dd></div>
+      </dl>
+      <div class="clients-list-card-actions">
+        <button type="button" class="btn-ghost btn-sm" data-client-profile="${escapeAttr(c.id)}">Ficha</button>
+        <button type="button" class="btn-primary btn-sm" data-client-history="${escapeAttr(c.id)}">Histórico</button>
+      </div>
+    </article>
+  `;
+}
+
+function renderClientTableRow(c) {
+  return `
+    <tr class="clients-list-table-row">
+      <td>
+        <button type="button" class="clients-list-name-btn" data-client-profile="${escapeAttr(c.id)}">
+          ${escapeHtml(c.Nome)}
+        </button>
+      </td>
+      <td>${escapeHtml(c.NIF || '—')}</td>
+      <td>${escapeHtml(c['E-mail'] || '—')}</td>
+      <td>${escapeHtml(c.Localidade || '—')}</td>
+      <td class="clients-list-table-actions">
+        <button type="button" class="btn-ghost btn-sm" data-client-profile="${escapeAttr(c.id)}">Ficha</button>
+        <button type="button" class="btn-primary btn-sm" data-client-history="${escapeAttr(c.id)}">Histórico</button>
+      </td>
+    </tr>
+  `;
+}
+
+function bindClientListActions(root, { onClientHistory }) {
+  root.querySelectorAll('[data-client-profile]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const id = btn.dataset.clientProfile;
+      openClientProfilePanel(id, { onHistory: onClientHistory });
+    });
+  });
+
+  root.querySelectorAll('[data-client-history]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      onClientHistory?.(btn.dataset.clientHistory);
+    });
+  });
+}
+
 /**
  * @param {HTMLElement} root
- * @param {(clientId: string) => void} onClientClick
+ * @param {{ onClientHistory?: (clientId: string) => void }} [options]
  */
-export async function mountClientsList(root, onClientClick) {
+export async function mountClientsList(root, options = {}) {
   if (!root) return;
+
+  const onClientHistory = options.onClientHistory || options.onClientClick;
 
   root.innerHTML = renderClientsListSection();
 
   const section = root.querySelector('[data-clients-list-section]');
   const input = section?.querySelector('.clients-list-search');
-  const ul = section?.querySelector('[data-clients-list-ul]');
+  const cardsMount = section?.querySelector('[data-clients-list-cards]');
+  const tbody = section?.querySelector('[data-clients-list-tbody]');
   const countEl = section?.querySelector('[data-clients-list-count]');
   const moreEl = section?.querySelector('[data-clients-list-more]');
 
-  if (!input || !ul) return;
+  if (!input || !cardsMount || !tbody) return;
 
   await ensureProductionCatalog();
   let catalog = getProductionClientsCatalog({ warn: false });
@@ -76,33 +154,14 @@ export async function mountClientsList(root, onClientClick) {
     }
 
     if (!items.length) {
-      ul.innerHTML =
-        '<li class="clients-list-empty text-muted">Nenhum cliente corresponde à pesquisa.</li>';
+      cardsMount.innerHTML = '<p class="clients-list-empty text-muted">Nenhum cliente corresponde à pesquisa.</p>';
+      tbody.innerHTML = `<tr><td colspan="5" class="clients-list-empty text-muted">Nenhum cliente corresponde à pesquisa.</td></tr>`;
       return;
     }
 
-    ul.innerHTML = items
-      .map(
-        (c) => `
-      <li>
-        <button type="button"
-          class="clients-list-item"
-          data-client-id="${escapeAttr(c.id)}"
-          data-client-nome="${escapeAttr(c.Nome)}">
-          <span class="clients-list-item-name">${escapeHtml(c.Nome)}</span>
-          <span class="clients-list-item-meta">${escapeHtml(c.NIF || '—')} · ${escapeHtml(c.Localidade || '—')}</span>
-        </button>
-      </li>
-    `,
-      )
-      .join('');
-
-    ul.querySelectorAll('.clients-list-item').forEach((item) => {
-      item.addEventListener('click', () => {
-        const idCliente = item.dataset.clientId;
-        onClientClick?.(idCliente);
-      });
-    });
+    cardsMount.innerHTML = items.map((c) => renderClientCard(c)).join('');
+    tbody.innerHTML = items.map((c) => renderClientTableRow(c)).join('');
+    bindClientListActions(section, { onClientHistory });
   };
 
   let debounceTimer;

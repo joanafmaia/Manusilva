@@ -15,6 +15,7 @@ import {
 import { getClientFromCatalog } from '../clients-catalog.js';
 import { mapClientToLegacy } from '../mock_data.js';
 import { openReportReviewModal, downloadReportPDF } from '../report-review-modal.js';
+import { openClientProfilePanel } from './client-profile-drawer.js';
 
 /** Tipos de relatório técnico de bateria (MS. 061) */
 export const BATTERY_REPORT_SERVICE_TYPES = new Set([
@@ -341,7 +342,12 @@ export const HistoricoClienteView = {
         </header>
 
         <section class="client-history-company glass-card">
-          <h3 class="dashboard-section-title">Dados da empresa</h3>
+          <div class="client-history-company-head">
+            <h3 class="dashboard-section-title">Dados da empresa</h3>
+            <button type="button" class="btn-secondary btn-sm" data-client-ficha="${escapeHtml(clientId)}">
+              Ver ficha completa
+            </button>
+          </div>
           <dl class="client-history-dl">
             <div><dt>Nome</dt><dd>${escapeHtml(nome)}</dd></div>
             <div><dt>NIF</dt><dd>${escapeHtml(nif)}</dd></div>
@@ -400,6 +406,14 @@ export const HistoricoClienteView = {
         countEl.textContent = `${n} relatório${n === 1 ? '' : 's'} encontrado${n === 1 ? '' : 's'}`;
       }
     };
+
+    root.querySelector('[data-client-ficha]')?.addEventListener('click', () => {
+      openClientProfilePanel(clientId, {
+        onHistory: () => {
+          root.querySelector('.client-history-reports')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        },
+      });
+    });
 
     root.querySelector('[data-history-back]')?.addEventListener('click', async () => {
       historyViewState.clientId = null;

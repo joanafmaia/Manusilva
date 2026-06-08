@@ -6,6 +6,7 @@ import { ensureProductionCatalog } from '../clients-catalog.js';
 import { showToast, getReport } from '../app.js';
 import { renderSearchSection, mountClientSearch } from './dashboard-client-search.js';
 import { HistoricoClienteView } from './historico-cliente.js';
+import { mountClientsList } from './clients-list.js';
 
 let mountRoot = null;
 let teardownSearch = null;
@@ -61,10 +62,19 @@ async function downloadArquivoPdf(reportId) {
   }
 }
 
-function paintSelectedClient(clientId) {
-  const historyMount = mountRoot?.querySelector('[data-client-history-content]');
+export function paintClientHistory(rootOrId, maybeClientId) {
+  let root = mountRoot;
+  let clientId = rootOrId;
+
+  if (typeof rootOrId === 'object' && rootOrId?.querySelector) {
+    root = rootOrId;
+    clientId = maybeClientId;
+  }
+
+  const historyMount = root?.querySelector('[data-client-history-content]');
   if (!historyMount || !clientId) return;
 
+  selectedClientId = clientId;
   historyMount.innerHTML = HistoricoClienteView.render(clientId, { batteryOnly: false });
   HistoricoClienteView.init(clientId, {
     batteryOnly: false,
@@ -75,6 +85,11 @@ function paintSelectedClient(clientId) {
       historyMount.innerHTML = renderEmptyState();
     },
   });
+  historyMount.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function paintSelectedClient(clientId) {
+  paintClientHistory(mountRoot, clientId);
 }
 
 async function paint() {
@@ -82,10 +97,16 @@ async function paint() {
 
   mountRoot.innerHTML = `
     <div class="dashboard-panel-inner">
+      <div data-clients-list-mount></div>
       <div data-dashboard-search-mount>${renderSearchSection()}</div>
       <div data-client-history-content>${renderEmptyState()}</div>
     </div>
   `;
+
+  const listMount = mountRoot.querySelector('[data-clients-list-mount]');
+  await mountClientsList(listMount, {
+    onClientHistory: (clientId) => paintSelectedClient(clientId),
+  });
 
   teardownSearch?.();
   const searchMount = mountRoot.querySelector('[data-dashboard-search-mount]');
@@ -94,6 +115,7 @@ async function paint() {
     if (!selectedClientId) return;
     paintSelectedClient(selectedClientId);
   });
+
 
   if (selectedClientId) {
     paintSelectedClient(selectedClientId);

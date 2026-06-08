@@ -5,6 +5,7 @@
 import { ensureProductionCatalog } from '../clients-catalog.js';
 import { computeDashboardMetrics, renderMetricsSection } from './dashboard-metrics.js';
 import { renderClientRegistryBlock, mountClientRegistry } from './rh-registry.js';
+import { mountClientsList } from './clients-list.js';
 
 let metricsRoot = null;
 
@@ -39,6 +40,7 @@ export async function initClientsHubPanel(root) {
 
   clientsRoot.innerHTML = `
     <div class="clients-hub" data-clients-hub>
+      <div data-clients-list-mount></div>
       ${renderClientRegistryBlock()}
     </div>
   `;
@@ -46,6 +48,17 @@ export async function initClientsHubPanel(root) {
   mountClientRegistry(clientsRoot, {
     onClientAdded: () => {
       refreshMetricsPanel().catch(console.error);
+    },
+  });
+
+  const listMount = clientsRoot.querySelector('[data-clients-list-mount]');
+  await mountClientsList(listMount, {
+    onClientHistory: async (clientId) => {
+      const { setAdminTab } = await import('../admin-dashboard.js');
+      setAdminTab('clientes');
+      document.getElementById('client-history')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const { paintClientHistory } = await import('./arquivo-historico.js');
+      paintClientHistory(clientId);
     },
   });
 }
