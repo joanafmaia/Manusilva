@@ -401,7 +401,7 @@ export async function renderInterventionPDF(report) {
   const clientMeta = await resolvePdfClientMeta(report, normalizeReportValues(data));
   const isDl50Pdf = report.serviceType === 'inspecao_dl50_2005';
 
-  let y = await drawTopRowWithClientBlock(doc, clientMeta, job?.numeroOrdem ?? null);
+  let y = drawTopRowWithClientBlock(doc, clientMeta, job?.numeroOrdem ?? null);
   y = drawTitleBar(doc, y, title);
   const pdfContext = buildPdfRenderContext(report, job, clientMeta, tech);
   let values = mapReportValuesForPdf(data, service, pdfContext);
@@ -715,14 +715,11 @@ function drawTopRow(doc, _service, numeroOrdem = null) {
   return topY + logoH + 6;
 }
 
-/** Cabeçalho unificado — logótipo à esquerda, grelha do cliente à direita, ordem no topo */
-async function drawTopRowWithClientBlock(doc, clientMeta, numeroOrdem = null) {
+/** Cabeçalho DL 50/2005 — logótipo à esquerda, dados do cliente à direita */
+function drawTopRowWithClientBlock(doc, clientMeta, numeroOrdem = null) {
   const topY = MARGIN;
   const logoW = PDF_LOGO_WIDTH_MM;
   const logoH = PDF_LOGO_HEIGHT_MM;
-  const clientGap = 6;
-  const clientGridX = MARGIN + logoW + clientGap;
-  const clientGridW = PAGE_W - MARGIN - clientGridX;
 
   if (isLogoConfigured()) {
     try {
@@ -743,38 +740,47 @@ async function drawTopRowWithClientBlock(doc, clientMeta, numeroOrdem = null) {
     drawLogoPlaceholder(doc, MARGIN, topY, logoW, logoH);
   }
 
+  const blockW = 84;
+  const blockX = PAGE_W - MARGIN - blockW;
+  let lineY = topY + 2;
+
   if (numeroOrdem != null) {
     pdfSetFont(doc, 'normal');
     doc.setFontSize(7.5);
     doc.setTextColor(...TEXT_MUTED);
-    doc.text(formatOrdemDisplay(numeroOrdem), PAGE_W - MARGIN, topY + 2, { align: 'right' });
+    doc.text(formatOrdemDisplay(numeroOrdem), PAGE_W - MARGIN, lineY, { align: 'right' });
+    lineY += 5;
   }
 
-  const clientPairs = [
-    { label: 'Cliente', value: clientMeta.nome },
+  const clientLines = [
+    { label: 'Cliente', value: clientMeta.nome, prominent: true },
     clientMeta.nif ? { label: 'NIF', value: clientMeta.nif } : null,
     clientMeta.email ? { label: 'Email', value: clientMeta.email } : null,
     clientMeta.addressLine ? { label: 'Morada', value: clientMeta.addressLine } : null,
   ].filter(Boolean);
 
-  const body = buildTwoColumnGridBody(clientPairs);
-  let clientBottom = topY;
-  if (body.length) {
-    const gridY = numeroOrdem != null ? topY + 7 : topY;
-    clientBottom = await drawPdfGridTable(doc, gridY, {
-      body,
-      marginLeft: clientGridX,
-      marginRight: MARGIN,
-      tableWidth: clientGridW,
-      columnStyles: {
-        0: { cellWidth: clientGridW / 2 },
-        1: { cellWidth: clientGridW / 2 },
-      },
-    });
-  }
+  clientLines.forEach((line) => {
+    pdfSetFont(doc, 'normal');
+    doc.setFontSize(6);
+    doc.setTextColor(...TEXT_MUTED);
+    doc.text(line.label.toUpperCase(), blockX, lineY);
+
+    pdfSetFont(doc, line.prominent ? 'bold' : 'normal');
+    doc.setFontSize(line.prominent ? 8.5 : 7.5);
+    doc.setTextColor(...TEXT_DARK);
+    const wrapped = pdfSplitText(doc, pdfSafeText(line.value), blockW - 2);
+    doc.text(wrapped[0], blockX, lineY + 3.6);
+    lineY += line.prominent ? 9.5 : wrapped.length > 1 ? 10.5 : 8.5;
+    if (wrapped.length > 1) {
+      pdfSetFont(doc, 'normal');
+      doc.setFontSize(7);
+      doc.text(wrapped.slice(1, 3).join(' '), blockX, lineY - 3);
+      lineY += 3.5;
+    }
+  });
 
   touchPdfContentPage(doc);
-  return Math.max(topY + logoH + 4, clientBottom);
+  return Math.max(topY + logoH, lineY + 2) + 6;
 }
 
 function drawTitleBar(doc, y, title) {
