@@ -22,6 +22,7 @@ import MANUSILVA_LOGO from './logo_data.js';
 import { isLogoConfigured, getPdfLogoFormat } from './brand-ui.js';
 import {
   ensurePdfFonts,
+  pdfAutoTableFont,
   pdfSetFont,
   pdfSafeText,
   pdfSplitText,
@@ -1155,15 +1156,18 @@ async function drawMatrixInspectionBlock(doc, y, field, matrixValue) {
       body,
       theme: 'plain',
       styles: {
+        font: pdfAutoTableFont(doc),
         fontSize: 7,
         cellPadding: { top: 1.6, right: 2, bottom: 1.6, left: 2 },
         lineColor: MATRIX_TABLE_LINE,
         lineWidth: 0.12,
         textColor: TEXT_DARK,
+        fontStyle: 'normal',
         valign: 'middle',
         overflow: 'linebreak',
       },
       headStyles: {
+        font: pdfAutoTableFont(doc),
         fillColor: MATRIX_TABLE_HEAD_FILL,
         textColor: CORPORATE_BLUE_DARK,
         fontStyle: 'bold',
@@ -1182,6 +1186,7 @@ async function drawMatrixInspectionBlock(doc, y, field, matrixValue) {
         1: {
           cellWidth: MATRIX_STATE_COL_W,
           halign: 'center',
+          font: pdfAutoTableFont(doc),
           fontStyle: 'bold',
           fontSize: 7.5,
         },

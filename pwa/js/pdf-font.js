@@ -109,6 +109,11 @@ export async function ensurePdfFonts(doc) {
   }
 }
 
+/** Família de fonte para autoTable — Roboto quando disponível, senão Helvetica */
+export function pdfAutoTableFont(doc) {
+  return doc.__manusilvaPdfFonts ? FONT_FAMILY : 'helvetica';
+}
+
 /** @param {import('jspdf').jsPDF} doc @param {'normal'|'bold'|'italic'} style */
 export function pdfSetFont(doc, style = 'normal') {
   if (doc.__manusilvaPdfFonts) {

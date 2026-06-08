@@ -1,4 +1,4 @@
-import { pdfSetFont, pdfSafeText, pdfSplitText } from './pdf-font.js';
+import { pdfAutoTableFont, pdfSetFont, pdfSafeText, pdfSplitText } from './pdf-font.js';
 
 /** Pontos de inspeção DL 50/2005 — MS. 061 */
 export const INSPECAO_DL50_CATEGORIES = [
@@ -305,12 +305,13 @@ export async function drawInspecaoDl50HeaderBlock(doc, y, values, helpers) {
     body: buildInspecaoDl50MachineTableBody(machine),
     theme: 'plain',
     styles: {
-      fontSize: 8,
+      font: pdfAutoTableFont(doc),
+      fontSize: 8.5,
       cellPadding: { top: 3, right: 3, bottom: 3, left: 3 },
       lineColor: MACHINE_TABLE_LINE,
       lineWidth: 0.12,
       textColor: PDF_TEXT_DARK,
-      fontStyle: 'bold',
+      fontStyle: 'normal',
       valign: 'middle',
       overflow: 'linebreak',
     },
