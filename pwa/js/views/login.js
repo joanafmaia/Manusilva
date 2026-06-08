@@ -1,6 +1,6 @@
 import { AuthService, resolveLoginEmail } from '../auth.js';
 import { ROLE_UI_TO_DB } from '../mock_data.js';
-import { toggleTheme, themeToggleLabel, getStoredTheme } from '../theme.js';
+import { toggleTheme, themeToggleIcon } from '../theme.js';
 
 const MAX_FAILED_ATTEMPTS = 5;
 const LOGIN_LOCK_MS = 120_000;
@@ -20,16 +20,16 @@ function resetFailedCount() {
 
 export const LoginView = {
   render() {
-    const isDark = getStoredTheme() === 'dark';
-
     return `
-      <div id="login-container" style="
-        position: relative; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      <div id="login-container" class="login-shell" style="
+        position: relative; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center;
         padding: 20px;
       ">
-        <button type="button" id="theme-toggle" class="theme-toggle-btn" aria-label="Alternar tema">
-          <span id="theme-icon">${isDark ? '☀️ Modo Claro' : '🌙 Modo Escuro'}</span>
-        </button>
+        <div class="login-shell-top">
+          <button type="button" id="theme-toggle" class="theme-toggle-btn theme-toggle-btn--inline btn-ghost btn-sm" aria-label="Alternar tema" title="Alternar tema">
+            <span id="theme-icon" aria-hidden="true">${themeToggleIcon()}</span>
+          </button>
+        </div>
 
         <div id="login-card" style="
           background-color: var(--bg-card); color: var(--text-main);
@@ -171,7 +171,7 @@ export const LoginView = {
 
     themeToggle?.addEventListener('click', () => {
       const next = toggleTheme();
-      themeIcon.textContent = themeToggleLabel(next);
+      themeIcon.textContent = themeToggleIcon(next);
     });
 
     roleButtons.forEach((btn) => {

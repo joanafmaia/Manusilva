@@ -13,9 +13,6 @@
 </head>
 <body>
   <script src="js/theme-boot.js"></script>
-  <button type="button" id="theme-toggle" class="theme-toggle-btn" aria-label="Alternar tema">
-    <span id="theme-icon"></span>
-  </button>
   <div class="bg-mesh"></div>
 
   <div class="admin-app">
@@ -46,7 +43,12 @@
       <div class="admin-page">
         <header class="admin-header">
           <h1>Painel de Administração</h1>
-          <button class="btn-primary" id="btn-assign-work" style="width:auto">+ Atribuir Trabalho</button>
+          <div class="admin-header-actions">
+            <button type="button" id="theme-toggle" class="theme-toggle-btn theme-toggle-btn--inline btn-ghost btn-sm" aria-label="Alternar tema" title="Alternar tema">
+              <span id="theme-icon" aria-hidden="true"></span>
+            </button>
+            <button class="btn-primary" id="btn-assign-work" style="width:auto">+ Atribuir Trabalho</button>
+          </div>
         </header>
 
         <!-- Aba: Calendário + Relatórios -->
@@ -122,15 +124,15 @@
   <script type="module">
     import { seedDatabase } from './js/mock_data.js?v=assign-multi-tech';
     import { initAdminDashboard } from './js/admin-dashboard.js?v=assign-multi-tech';
-    import { applyThemeToDocument, themeToggleLabel, toggleTheme } from './js/theme.js?v=assign-multi-tech';
+    import { applyThemeToDocument, themeToggleIcon, toggleTheme } from './js/theme.js?v=assign-multi-tech';
 
     applyThemeToDocument();
     const themeBtn = document.getElementById('theme-toggle');
     const themeIcon = document.getElementById('theme-icon');
-    if (themeIcon) themeIcon.textContent = themeToggleLabel();
+    if (themeIcon) themeIcon.textContent = themeToggleIcon();
     themeBtn?.addEventListener('click', () => {
       const next = toggleTheme();
-      if (themeIcon) themeIcon.textContent = themeToggleLabel(next);
+      if (themeIcon) themeIcon.textContent = themeToggleIcon(next);
     });
 
     seedDatabase();
