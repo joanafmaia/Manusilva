@@ -669,7 +669,8 @@ export async function approveReport(reportId) {
     }
 
     showToast('A gerar folha de intervenção em PDF...', 'info', 2500);
-    const { renderInterventionPDF } = await import('./pdf-report.js');
+    const { importPdfReport } = await import('./pdf-loader.js');
+    const { renderInterventionPDF } = await importPdfReport();
 
     const doc = await renderInterventionPDF(reportForPdf);
     const filename = buildOrdemPdfStorageFilename(job, reportForPdf, service?.label);

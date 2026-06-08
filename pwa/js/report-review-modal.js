@@ -163,7 +163,8 @@ export async function downloadReportPDF(reportId) {
   showPdfPreviewLoading(true, 'A gerar PDF…');
 
   try {
-    const { generateInterventionPDF } = await import('./pdf-report.js');
+    const { importPdfReport } = await import('./pdf-loader.js');
+    const { generateInterventionPDF } = await importPdfReport();
     await generateInterventionPDF({
       ...report,
       submittedAt: report.submittedAt || new Date().toISOString(),

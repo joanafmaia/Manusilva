@@ -182,7 +182,8 @@ export async function previewReportPDF(report) {
   showPdfPreviewLoading(true);
   try {
     const work = (async () => {
-      const { generateInterventionPDFBlob } = await import('./pdf-report.js');
+      const { importPdfReport } = await import('./pdf-loader.js');
+      const { generateInterventionPDFBlob } = await importPdfReport();
       return generateInterventionPDFBlob({
         ...report,
         submittedAt: report.submittedAt || new Date().toISOString(),

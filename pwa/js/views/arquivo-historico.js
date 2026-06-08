@@ -40,8 +40,8 @@ async function downloadArquivoPdf(reportId) {
         submittedAt: report.submittedAt || new Date().toISOString(),
       };
 
-      const { generateManutencaoBateriasGrandesPDF, generateInspecaoDl50PDF } =
-        await import('../pdf-report.js');
+      const { importPdfReport } = await import('../pdf-loader.js');
+      const { generateManutencaoBateriasGrandesPDF, generateInspecaoDl50PDF } = await importPdfReport();
 
       if (payload.serviceType === 'manutencao_baterias_grandes') {
         await generateManutencaoBateriasGrandesPDF(payload);

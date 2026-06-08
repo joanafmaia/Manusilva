@@ -41,7 +41,7 @@ export function renderReviewPdfSection(job) {
   if (urlPdf) {
     return `
       <section class="review-section review-section--pdf">
-        <p class="review-pdf-status review-pdf-status--ok">PDF oficial disponível para consulta.</p>
+        <p class="review-pdf-status review-pdf-status--ok">PDF oficial já aprovado no arquivo. «Pré-visualizar PDF» gera sempre uma versão atualizada com o layout mais recente.</p>
       </section>`;
   }
   return `
@@ -77,13 +77,6 @@ export function bindReviewPdfButton(overlay, { job, report }) {
   if (!btn) return;
 
   btn.addEventListener('click', async () => {
-    const urlPdf = job?.urlPdf && isValidFotoUrl(job.urlPdf) ? job.urlPdf : null;
-
-    if (urlPdf) {
-      window.open(urlPdf, '_blank', 'noopener,noreferrer');
-      return;
-    }
-
     btn.disabled = true;
     try {
       const { previewReportPDF } = await import('./pdf-preview.js');

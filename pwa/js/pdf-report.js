@@ -232,14 +232,12 @@ export async function renderInterventionPDF(report) {
   const job = report.jobId ? getJob(report.jobId) : null;
   const data = report.data || {};
 
-  const title =
+  const title = sanitizePdfTitle(
     PDF_DOCUMENT_TITLES[report.serviceType] ||
-    `FOLHA DE INTERVENÇÃO — ${(service?.label || 'SERVIÇO TÉCNICO').toUpperCase()}`;
+      `FOLHA DE INTERVENÇÃO — ${(service?.label || 'SERVIÇO TÉCNICO').toUpperCase()}`,
+  );
 
-  let y = drawTopRow(doc, service);
-  if (job?.numeroOrdem != null) {
-    y = drawOrdemNumberLine(doc, y, job.numeroOrdem);
-  }
+  let y = drawTopRow(doc, service, job?.numeroOrdem ?? null);
   y = drawTitleBar(doc, y, title);
   const values = mapReportValuesForPdf(data, service);
   const clientMeta = await resolvePdfClientMeta(report, values);
@@ -356,7 +354,20 @@ function drawLogoPlaceholder(doc, x, y, sizeMm) {
   doc.text(COMPANY.logo || 'MS', x + sizeMm / 2, y + sizeMm / 2 + 1.5, { align: 'center' });
 }
 
-function drawTopRow(doc, service) {
+function sanitizePdfTitle(title) {
+  return String(title)
+    .replace(/\s*[—–-]\s*MS[.:]?\s*061\s*/gi, '')
+    .replace(/\s*MS[.:]?\s*061\s*/gi, '')
+    .replace(/Código:\s*MS[.:]?\s*061\s*/gi, '')
+    .trim();
+}
+
+function formatOrdemDisplay(numeroOrdem) {
+  const padded = String(numeroOrdem).padStart(2, '0');
+  return `Ordem No: OP-2026-${padded}`;
+}
+
+function drawTopRow(doc, service, numeroOrdem = null) {
   const topY = MARGIN;
   const logoSize = PDF_LOGO_SIZE_MM;
   const companyName = service?.companyName || COMPANY.name;
@@ -383,6 +394,15 @@ function drawTopRow(doc, service) {
 
   const metaX = PAGE_W - MARGIN;
   let metaY = topY + 2;
+
+  if (numeroOrdem != null) {
+    doc.setTextColor(...TEXT_MUTED);
+    pdfSetFont(doc, 'normal');
+    doc.setFontSize(7);
+    doc.text(formatOrdemDisplay(numeroOrdem), metaX, metaY, { align: 'right' });
+    metaY += 4;
+  }
+
   doc.setTextColor(...TEXT_DARK);
   pdfSetFont(doc, 'bold');
   doc.setFontSize(8);
@@ -409,20 +429,6 @@ function drawTopRow(doc, service) {
 
   const blockH = Math.max(logoSize, metaY - topY);
   return topY + blockH + 6;
-}
-
-function formatOrdemDisplay(numeroOrdem) {
-  const padded = String(numeroOrdem).padStart(2, '0');
-  return `Ordem No: OP-2026-${padded}`;
-}
-
-/** Referência de ordem discreta, alinhada à direita após o cabeçalho */
-function drawOrdemNumberLine(doc, y, numeroOrdem) {
-  doc.setTextColor(...TEXT_MUTED);
-  pdfSetFont(doc, 'normal');
-  doc.setFontSize(7.5);
-  doc.text(formatOrdemDisplay(numeroOrdem), PAGE_W - MARGIN, y, { align: 'right' });
-  return y + 5;
 }
 
 function drawTitleBar(doc, y, title) {
