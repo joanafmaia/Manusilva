@@ -470,7 +470,7 @@ export function renderReportFields(service, values = {}, context = {}, options =
         fieldsHtml = `<div class="diagnostic-section-highlight">${fieldsHtml}</div>`;
       }
       return `
-        <div class="form-field-section${section === 'Substituição de Material' ? ' form-field-section--material' : ''}${section === 'Diagnóstico Técnico' ? ' form-field-section--diagnostic' : ''}">
+        <div class="form-field-section form-section-card${section === 'Substituição de Material' ? ' form-field-section--material' : ''}${section === 'Diagnóstico Técnico' ? ' form-field-section--diagnostic' : ''}">
           ${sectionTitle}
           ${fieldsHtml}
         </div>
@@ -996,9 +996,14 @@ export function countFilledFields(service, values = {}) {
   }).length;
 }
 
+function gridEligibleFieldBlockClass(extraClasses = '') {
+  const base = 'form-group field-block field-block--grid-eligible';
+  return extraClasses ? `${base} ${extraClasses}` : base;
+}
+
 function renderTextField(field, value = '') {
   return `
-    <div class="form-group field-block">
+    <div class="${gridEligibleFieldBlockClass()}">
       <label class="form-label">${escapeHtml(field.label)}</label>
       <input type="text" class="form-input" data-field-id="${field.id}" data-field-kind="text"
         value="${escapeHtml(String(value))}" placeholder="${escapeHtml(field.placeholder || '')}">
@@ -1044,7 +1049,7 @@ function renderNumberField(field, value = '') {
 
   if (!material) {
     return `
-      <div class="form-group field-block">
+      <div class="${gridEligibleFieldBlockClass()}">
         <label class="form-label">${escapeHtml(field.label)}</label>
         <input type="number" class="form-input" data-field-id="${field.id}" data-field-kind="number"
           value="${escapeHtml(String(value))}" placeholder="${escapeHtml(field.placeholder || '0')}"
@@ -1054,7 +1059,7 @@ function renderNumberField(field, value = '') {
   }
 
   return `
-    <div class="form-group field-block ${materialClasses}">
+    <div class="${gridEligibleFieldBlockClass(materialClasses)}">
       <label class="form-label">${escapeHtml(field.label)}</label>
       <div class="material-qty-input-wrap">
         <input type="number" class="form-input material-qty-input" data-field-id="${field.id}" data-field-kind="number"
@@ -1068,7 +1073,7 @@ function renderNumberField(field, value = '') {
 
 function renderDateField(field, value = '') {
   return `
-    <div class="form-group field-block">
+    <div class="${gridEligibleFieldBlockClass()}">
       <label class="form-label">${escapeHtml(field.label)}</label>
       <input type="date" class="form-input form-input-date" data-field-id="${field.id}" data-field-kind="date"
         value="${escapeHtml(toHtmlDateValue(value))}" autocomplete="off">
@@ -1078,7 +1083,7 @@ function renderDateField(field, value = '') {
 
 function renderTimeField(field, value = '') {
   return `
-    <div class="form-group field-block">
+    <div class="${gridEligibleFieldBlockClass()}">
       <label class="form-label">${escapeHtml(field.label)}</label>
       <input type="time" class="form-input form-input-time" data-field-id="${field.id}" data-field-kind="time"
         value="${escapeHtml(toHtmlTimeValue(value))}" autocomplete="off">
@@ -1088,7 +1093,7 @@ function renderTimeField(field, value = '') {
 
 function renderDatetimeField(field, value = '') {
   return `
-    <div class="form-group field-block">
+    <div class="${gridEligibleFieldBlockClass()}">
       <label class="form-label">${escapeHtml(field.label)}</label>
       <input type="datetime-local" class="form-input form-input-datetime" data-field-id="${field.id}"
         data-field-kind="datetime-local" value="${escapeHtml(toHtmlDatetimeLocalValue(value))}" autocomplete="off">
@@ -1104,7 +1109,7 @@ function renderDropdownField(field, value = '') {
     )
     .join('');
   return `
-    <div class="form-group field-block">
+    <div class="${gridEligibleFieldBlockClass()}">
       <label class="form-label">${escapeHtml(field.label)}</label>
       <select class="form-select" data-field-id="${field.id}" data-field-kind="dropdown">
         <option value="">Selecionar...</option>

@@ -931,6 +931,10 @@ body {
   margin: 0 auto;
 }
 
+.form-section-card {
+  margin-bottom: 1.5rem;
+}
+
 .form-panel--premium {
   background: #ffffff;
 }
@@ -6837,5 +6841,157 @@ body:not(:has(.theme-toggle-btn:not(.theme-toggle-btn--inline))) .toast-containe
     gap: 0.45rem;
     min-height: 48px;
     font-size: 0.85rem;
+  }
+}
+
+/* Formulário técnico — tablet (md: 768px–1023px; mobile e PC inalterados) */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .form-overlay {
+    background: #f8fafc;
+    padding: 1.5rem 1rem 2rem;
+  }
+
+  body.dark-mode .form-overlay {
+    background: var(--bg-deep);
+  }
+
+  .form-workspace--report {
+    width: 100%;
+    max-width: 64rem;
+    margin-left: auto;
+    margin-right: auto;
+    padding: 1.5rem 1rem;
+    box-sizing: border-box;
+  }
+
+  .form-panel--premium {
+    max-width: 100%;
+    width: 100%;
+    min-height: auto;
+    max-height: calc(100dvh - 3rem);
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    border-radius: 0;
+  }
+
+  .form-panel--premium .form-panel-header,
+  .form-panel--premium .report-form-tabs {
+    background: #ffffff;
+    border: 1px solid #f1f5f9;
+    border-radius: 0.75rem 0.75rem 0 0;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  }
+
+  .form-panel--premium .report-form-tabs {
+    border-top: none;
+    border-radius: 0;
+    position: sticky;
+    top: 52px;
+  }
+
+  .form-panel--premium .form-panel-body {
+    padding: 1rem 0 1.5rem;
+    background: transparent;
+  }
+
+  .form-section-card,
+  .form-section-card--intro {
+    background: #ffffff;
+    border: 1px solid #f1f5f9;
+    border-radius: 0.75rem;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+
+  body.dark-mode .form-section-card,
+  body.dark-mode .form-section-card--intro {
+    background: var(--glass-bg);
+    border-color: var(--border-color);
+    box-shadow: none;
+  }
+
+  .form-section-card--intro .job-client-header {
+    margin-bottom: 1rem;
+    border-left: none;
+    padding: 0;
+    background: transparent;
+  }
+
+  .form-section-card--intro .form-report-title {
+    margin-top: 0;
+    border-bottom-color: #f1f5f9;
+  }
+
+  .form-section-card--intro .form-fixed-header {
+    margin-bottom: 0;
+    padding: 0;
+    background: transparent;
+    border: none;
+  }
+
+  .report-fields-section .report-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .form-field-section.form-section-card {
+    margin-bottom: 0;
+  }
+
+  .form-field-section {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+    align-items: start;
+  }
+
+  .form-section-subtitle,
+  .material-substitution-grid,
+  .diagnostic-section-highlight,
+  .field-block:not(.field-block--grid-eligible) {
+    grid-column: 1 / -1;
+  }
+
+  .form-panel-footer.form-panel-footer--stacked {
+    padding: 1rem 1.5rem;
+    gap: 0.75rem;
+    background: #ffffff;
+    border: 1px solid #f1f5f9;
+    border-radius: 0 0 0.75rem 0.75rem;
+    box-shadow: 0 -1px 3px rgba(15, 23, 42, 0.04);
+  }
+
+  body.dark-mode .form-panel-footer.form-panel-footer--stacked {
+    background: var(--glass-bg);
+    border-color: var(--border-color);
+  }
+
+  .form-panel-footer-row {
+    flex-direction: row;
+    gap: 0.75rem;
+  }
+
+  .form-panel-footer .btn-preview,
+  .form-panel-footer .btn-touch {
+    min-height: 48px;
+    padding: 0.75rem 1.5rem;
+    font-size: 1rem;
+  }
+
+  .form-panel-footer-row .btn-primary,
+  .form-panel-footer-row .btn-secondary {
+    flex: 1;
+    width: auto;
+    min-height: 48px;
+    padding: 0.75rem 1.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .form-field-section {
+    display: block;
   }
 }

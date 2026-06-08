@@ -215,7 +215,7 @@ function buildFormHTML(job, client, tech, service, existingReport) {
   const depoisUrl = fotoDisplayUrl(fotoDepoisState);
 
   const fotoSection = `
-    <section class="form-section form-section--final">
+    <section class="form-section form-section--final form-section-card">
       <h3 class="section-title">Fotos do Trabalho <span class="text-muted section-title-hint">(opcional)</span></h3>
       <p class="text-muted foto-antes-depois-hint">Pode anexar só Antes, só Depois, as duas ou nenhuma.</p>
       <div class="foto-antes-depois-grid">
@@ -235,7 +235,7 @@ function buildFormHTML(job, client, tech, service, existingReport) {
         </div>
       </div>
     </section>
-    <section class="form-section form-section--final">
+    <section class="form-section form-section--final form-section-card">
       <h3 class="section-title">Assinaturas Digitais</h3>
       <div class="signatures-grid">
         ${createSignatureBlock('Assinatura do Técnico', 'technician')}
@@ -245,7 +245,7 @@ function buildFormHTML(job, client, tech, service, existingReport) {
   `;
 
   return `
-    <div class="form-workspace">
+    <div class="form-workspace form-workspace--report">
       <div class="form-panel form-panel--premium glass-card">
         <div class="form-panel-header form-panel-header--minimal">
           <button type="button" class="btn-ghost" id="close-form">&larr; Voltar</button>
@@ -259,13 +259,15 @@ function buildFormHTML(job, client, tech, service, existingReport) {
 
           <div class="report-tab-panels">
             <div class="report-tab-panel is-active" data-report-panel="geral" id="report-panel-geral" role="tabpanel" aria-labelledby="report-tab-geral">
-              ${clientHeader}
-              ${lockedClientFields}
-              <h2 class="form-report-title">${service?.icon || '📋'} ${escapeHtml(formTitle)}</h2>
-              <div class="form-fixed-header glass-card-inner ${official ? 'form-fixed-header--compact' : ''}">
-                <div class="header-grid">
-                  <div class="header-field"><span class="hf-label">Data do Serviço</span><span class="hf-value">${formatDateLong(job.date)}</span></div>
-                  <div class="header-field"><span class="hf-label">Técnico</span><span class="hf-value">${escapeHtml(tech.name)}</span></div>
+              <div class="form-section-card form-section-card--intro">
+                ${clientHeader}
+                ${lockedClientFields}
+                <h2 class="form-report-title">${service?.icon || '📋'} ${escapeHtml(formTitle)}</h2>
+                <div class="form-fixed-header glass-card-inner ${official ? 'form-fixed-header--compact' : ''}">
+                  <div class="header-grid">
+                    <div class="header-field"><span class="hf-label">Data do Serviço</span><span class="hf-value">${formatDateLong(job.date)}</span></div>
+                    <div class="header-field"><span class="hf-label">Técnico</span><span class="hf-value">${escapeHtml(tech.name)}</span></div>
+                  </div>
                 </div>
               </div>
               <section class="form-section report-fields-section">
