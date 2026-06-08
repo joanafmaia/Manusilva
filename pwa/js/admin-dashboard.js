@@ -65,6 +65,40 @@ const RH_EMPTY_MESSAGES = {
 
 const AGENDA_SWIPE_OPEN_PX = 88;
 
+let reviewPanelHeightObserver = null;
+
+/** Iguala a altura do painel de relatórios à do calendário (scroll interno isolado). */
+function syncReviewPanelHeight() {
+  const cal = document.querySelector('.admin-split-calendar');
+  const panel = document.querySelector('.admin-review-panel');
+  if (!cal || !panel) return;
+
+  if (window.matchMedia('(max-width: 1024px)').matches) {
+    panel.style.removeProperty('height');
+    panel.style.removeProperty('max-height');
+    return;
+  }
+
+  const h = cal.offsetHeight;
+  if (h > 0) {
+    panel.style.height = `${h}px`;
+    panel.style.maxHeight = `${h}px`;
+  }
+}
+
+function bindReviewPanelHeightSync() {
+  if (reviewPanelHeightObserver) return;
+  const cal = document.querySelector('.admin-split-calendar');
+  if (!cal) return;
+
+  reviewPanelHeightObserver = new ResizeObserver(() => {
+    syncReviewPanelHeight();
+  });
+  reviewPanelHeightObserver.observe(cal);
+
+  window.addEventListener('resize', syncReviewPanelHeight, { passive: true });
+}
+
 function bindAdminNavigation() {
   document.querySelectorAll('.nav-item').forEach((item) => {
     item.addEventListener('click', (e) => {
@@ -97,6 +131,7 @@ export async function initAdminDashboard() {
   try {
     renderSidebar();
     renderCalendar();
+    bindReviewPanelHeightSync();
     bindViewToggle();
     bindCalendarJobInteractions();
     bindRhReviewPanel();
@@ -285,6 +320,8 @@ function renderCalendar() {
     });
     grid.innerHTML = html;
   }
+
+  requestAnimationFrame(() => syncReviewPanelHeight());
 }
 
 function renderCalendarBlock(job, compact = false) {
@@ -460,6 +497,8 @@ async function renderRhReviewStack() {
 
   const { bindReviewFotoClicks } = await import('./report-review-ui.js');
   bindReviewFotoClicks(panel);
+
+  requestAnimationFrame(() => syncReviewPanelHeight());
 }
 
 let rhReviewPanelBound = false;

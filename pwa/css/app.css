@@ -3177,15 +3177,20 @@ body {
 
 .admin-split-calendar {
   min-width: 0;
+  align-self: start;
 }
 
 .admin-review-panel {
-  position: sticky;
-  top: 20px;
-  max-height: calc(100dvh - 40px);
+  position: relative;
+  align-self: start;
+  /* Fallback antes do JS; altura real = calendário (syncReviewPanelHeight) */
+  height: min(720px, calc(100dvh - 200px));
+  max-height: min(720px, calc(100dvh - 200px));
+  min-height: 0;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  min-width: 0;
+  overflow: hidden;
   scroll-margin-top: 1rem;
 }
 
@@ -3201,11 +3206,13 @@ body {
 }
 
 .rh-review-panel {
-  flex: 1;
+  flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
+  overscroll-behavior: contain;
   padding: 0 1rem 1rem;
+  -webkit-overflow-scrolling: touch;
 }
 
 .rh-review-panel-inner {
@@ -3261,6 +3268,7 @@ body {
 
 .rh-review-stack-wrap {
   min-width: 0;
+  min-height: 0;
 }
 
 body.dark-mode .rh-review-filters {
@@ -5718,7 +5726,13 @@ body:not(:has(.theme-toggle-btn)) .toast-container {
   .admin-review-panel {
     position: relative;
     top: auto;
-    max-height: none;
+    height: min(520px, 55dvh) !important;
+    max-height: min(520px, 55dvh) !important;
+    overflow: hidden;
+  }
+
+  .rh-review-panel {
+    overflow-y: auto;
   }
 
   .rh-review-panel-content {
