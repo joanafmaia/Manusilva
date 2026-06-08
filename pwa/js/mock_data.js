@@ -502,14 +502,14 @@ export const reportTemplates = [
 ];
 
 export const PDF_DOCUMENT_TITLES = {
-  folha_intervencao_avarias: 'FOLHA DE INTERVENÇÃO DE AVARIAS — MS. 061',
-  reparacao_avarias_bateria: 'RELATÓRIO REPARAÇÃO AVARIAS BATERIA — MS. 061',
-  reparacao_carregador: 'RELATÓRIO REPARAÇÃO CARREGADOR — MS. 061',
-  manutencao_preventiva_empilhadores: 'RELATÓRIO MANUTENÇÃO PREVENTIVA EMPILHADORES — MS. 061',
-  inspecao_dl50_2005: 'INSPEÇÃO DA MÁQUINA DECRETO-LEI 50-2005 — MS. 061',
-  manutencao_preventiva_bateria: 'RELATÓRIO MANUTENÇÃO PREVENTIVA BATERIA — MS. 061',
-  manutencao_baterias_grandes: 'FORMULÁRIO MANUTENÇÃO BATERIAS CLIENTES GRANDES — MS. 061',
-  manutencao_corretiva_maquinas: 'FOLHA MANUTENÇÃO CORRETIVA DE MÁQUINAS — MS. 061',
+  folha_intervencao_avarias: 'FOLHA DE INTERVENÇÃO DE AVARIAS',
+  reparacao_avarias_bateria: 'RELATÓRIO REPARAÇÃO AVARIAS BATERIA',
+  reparacao_carregador: 'RELATÓRIO REPARAÇÃO CARREGADOR',
+  manutencao_preventiva_empilhadores: 'RELATÓRIO MANUTENÇÃO PREVENTIVA EMPILHADORES',
+  inspecao_dl50_2005: 'INSPEÇÃO DA MÁQUINA DECRETO-LEI 50-2005',
+  manutencao_preventiva_bateria: 'RELATÓRIO MANUTENÇÃO PREVENTIVA BATERIA',
+  manutencao_baterias_grandes: 'FORMULÁRIO MANUTENÇÃO BATERIAS CLIENTES GRANDES',
+  manutencao_corretiva_maquinas: 'FOLHA MANUTENÇÃO CORRETIVA DE MÁQUINAS',
 };
 
 /** Tabela `utilizadores` — roles: `Tecnico` | `RH` */

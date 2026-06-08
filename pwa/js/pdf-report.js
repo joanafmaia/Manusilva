@@ -238,7 +238,7 @@ export async function renderInterventionPDF(report) {
 
   let y = drawTopRow(doc, service);
   if (job?.numeroOrdem != null) {
-    y = drawOrdemNumberBanner(doc, y, job.numeroOrdem);
+    y = drawOrdemNumberLine(doc, y, job.numeroOrdem);
   }
   y = drawTitleBar(doc, y, title);
   const values = mapReportValuesForPdf(data, service);
@@ -402,9 +402,6 @@ function drawTopRow(doc, service) {
     COMPANY.email,
     COMPANY.website,
   ];
-  if (service?.code) {
-    lines.unshift(`Código: ${service.code}`);
-  }
   lines.forEach((line) => {
     doc.text(line, metaX, metaY, { align: 'right' });
     metaY += 3.8;
@@ -414,16 +411,18 @@ function drawTopRow(doc, service) {
   return topY + blockH + 6;
 }
 
-/** Faixa destacada com o número de ordem sequencial */
-function drawOrdemNumberBanner(doc, y, numeroOrdem) {
-  const barH = 11;
-  doc.setFillColor(...CORPORATE_BLUE_DARK);
-  doc.rect(MARGIN, y, CONTENT_W, barH, 'F');
-  doc.setTextColor(255, 255, 255);
-  pdfSetFont(doc, 'bold');
-  doc.setFontSize(13);
-  doc.text(`Ordem Nº: ${numeroOrdem}`, PAGE_W / 2, y + barH / 2 + 1.2, { align: 'center' });
-  return y + barH + 4;
+function formatOrdemDisplay(numeroOrdem) {
+  const padded = String(numeroOrdem).padStart(2, '0');
+  return `Ordem No: OP-2026-${padded}`;
+}
+
+/** Referência de ordem discreta, alinhada à direita após o cabeçalho */
+function drawOrdemNumberLine(doc, y, numeroOrdem) {
+  doc.setTextColor(...TEXT_MUTED);
+  pdfSetFont(doc, 'normal');
+  doc.setFontSize(7.5);
+  doc.text(formatOrdemDisplay(numeroOrdem), PAGE_W - MARGIN, y, { align: 'right' });
+  return y + 5;
 }
 
 function drawTitleBar(doc, y, title) {
