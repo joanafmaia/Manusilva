@@ -631,11 +631,11 @@ export const CLIENTS = [];
 export const SERVICE_TYPES = [...reportTemplates];
 
 export const JOB_STATUSES = {
-  scheduled: { label: 'Agendado', color: '#3b82f6', bg: 'rgba(59,130,246,0.15)', border: 'rgba(59,130,246,0.4)' },
-  in_progress: { label: 'Em Progresso', color: '#a855f7', bg: 'rgba(168,85,247,0.15)', border: 'rgba(168,85,247,0.4)' },
-  pending_parts: { label: 'Pendente Peças', color: '#f59e0b', bg: 'rgba(245,158,11,0.15)', border: 'rgba(245,158,11,0.4)' },
-  rejected: { label: 'Rejeitado', color: '#f87171', bg: 'rgba(248,113,113,0.2)', border: 'rgba(248,113,113,0.5)' },
-  completed: { label: 'Concluído', color: '#10b981', bg: 'rgba(16,185,129,0.15)', border: 'rgba(16,185,129,0.4)' },
+  scheduled: { label: 'Pendente', color: '#78350f', bg: '#fef3c7' },
+  in_progress: { label: 'Em Progresso', color: '#78350f', bg: '#fef3c7' },
+  pending_parts: { label: 'Pendente Peças', color: '#78350f', bg: '#fef3c7' },
+  rejected: { label: 'Rejeitado', color: '#991b1b', bg: '#fee2e2' },
+  completed: { label: 'Aprovado', color: '#166534', bg: '#dcfce7' },
 };
 
 function getWeekDates(baseDate = new Date()) {

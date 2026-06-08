@@ -671,12 +671,13 @@ body {
 }
 
 .status-badge {
-  font-size: 0.7rem;
+  display: inline-block;
+  font-size: 0.75rem;
   font-weight: 600;
-  padding: 0.2rem 0.6rem;
-  border-radius: 20px;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
+  padding: 4px 10px;
+  border-radius: 12px;
+  line-height: 1.25;
+  white-space: nowrap;
 }
 
 .job-client { font-size: 1.05rem; font-weight: 600; margin: 0 0 0.5rem; }
@@ -700,23 +701,35 @@ body {
 
 .job-action-btn {
   width: 100%;
-  padding: 0.7rem;
+  min-height: 48px;
+  padding: 14px 1rem;
   background: rgba(59, 130, 246, 0.1);
   border: 1px solid rgba(59, 130, 246, 0.25);
   border-radius: var(--radius-sm);
   color: var(--primary);
   font-weight: 600;
-  font-size: 0.875rem;
+  font-size: 1rem;
   cursor: pointer;
   transition: all var(--transition);
 }
 
 .job-action-btn:hover { background: rgba(59, 130, 246, 0.2); }
 
-.job-rejected .job-action-btn {
-  background: rgba(248, 113, 113, 0.1);
-  border-color: rgba(248, 113, 113, 0.3);
-  color: var(--danger);
+.job-action-btn--primary {
+  background: linear-gradient(135deg, var(--primary), #2563eb);
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 4px 16px var(--primary-glow);
+}
+
+.job-action-btn--primary:hover {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+}
+
+.job-rejected .job-action-btn--primary {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  box-shadow: 0 4px 16px rgba(239, 68, 68, 0.35);
+  color: #fff;
 }
 
 .empty-state {
@@ -814,12 +827,23 @@ body {
 
 .form-panel-footer-row {
   display: flex;
-  gap: 0.75rem;
+  flex-direction: column;
+  gap: 0.65rem;
   width: 100%;
 }
 
 .form-panel-footer-row .btn-primary,
-.form-panel-footer-row .btn-secondary { flex: 1; width: auto; }
+.form-panel-footer-row .btn-secondary {
+  flex: none;
+  width: 100%;
+}
+
+.btn-touch {
+  min-height: 48px;
+  padding: 14px 1rem;
+  font-size: 1rem;
+  width: 100%;
+}
 
 .btn-preview {
   display: flex;
@@ -827,8 +851,9 @@ body {
   justify-content: center;
   gap: 0.5rem;
   width: 100%;
-  padding: 0.85rem 1rem;
-  font-size: 0.9375rem;
+  min-height: 48px;
+  padding: 14px 1rem;
+  font-size: 1rem;
   font-weight: 600;
   color: #e8f4ff;
   background: linear-gradient(135deg, rgba(37, 99, 235, 0.45), rgba(14, 165, 233, 0.35));
@@ -2753,13 +2778,38 @@ body {
   font-size: 1.5rem;
 }
 
-.foto-antes-depois-input {
-  font-size: 0.8125rem;
+.foto-antes-depois-input[hidden] {
+  display: none;
+}
+
+.btn-foto {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
   width: 100%;
+  min-height: 48px;
+  padding: 14px 1rem;
+  border-radius: var(--radius-sm);
+  font-size: 1rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  color: #fff;
+  background: linear-gradient(135deg, var(--primary), #2563eb);
+  border: none;
+  box-shadow: 0 4px 14px var(--primary-glow);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.btn-foto:active {
+  transform: scale(0.98);
 }
 
 .foto-antes-depois-clear {
-  align-self: flex-start;
+  align-self: stretch;
+  min-height: 40px;
+  padding: 10px 14px;
 }
 
 /* Photos */

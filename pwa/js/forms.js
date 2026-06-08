@@ -186,15 +186,17 @@ function buildFormHTML(job, client, tech, service, existingReport) {
           <p class="text-muted foto-antes-depois-hint">Pode anexar só Antes, só Depois, as duas ou nenhuma.</p>
           <div class="foto-antes-depois-grid">
             <div class="foto-antes-depois-card">
-              <label class="foto-antes-depois-label" for="foto-antes-input">Foto Antes</label>
+              <span class="foto-antes-depois-label">Foto Antes</span>
               <div class="foto-antes-depois-preview" id="foto-antes-preview">${renderFotoPreviewHtml(antesUrl, 'Antes')}</div>
-              <input type="file" id="foto-antes-input" class="foto-antes-depois-input" accept="image/*" capture="environment">
+              <input type="file" id="foto-antes-input" class="foto-antes-depois-input" accept="image/*" capture="environment" hidden>
+              <label for="foto-antes-input" class="btn-foto">📷 Tirar Foto</label>
               <button type="button" class="btn-ghost btn-sm foto-antes-depois-clear" data-clear-foto="antes" ${antesUrl ? '' : 'hidden'}>Remover</button>
             </div>
             <div class="foto-antes-depois-card">
-              <label class="foto-antes-depois-label" for="foto-depois-input">Foto Depois</label>
+              <span class="foto-antes-depois-label">Foto Depois</span>
               <div class="foto-antes-depois-preview" id="foto-depois-preview">${renderFotoPreviewHtml(depoisUrl, 'Depois')}</div>
-              <input type="file" id="foto-depois-input" class="foto-antes-depois-input" accept="image/*" capture="environment">
+              <input type="file" id="foto-depois-input" class="foto-antes-depois-input" accept="image/*" capture="environment" hidden>
+              <label for="foto-depois-input" class="btn-foto">📷 Tirar Foto</label>
               <button type="button" class="btn-ghost btn-sm foto-antes-depois-clear" data-clear-foto="depois" ${depoisUrl ? '' : 'hidden'}>Remover</button>
             </div>
           </div>
@@ -215,8 +217,8 @@ function buildFormHTML(job, client, tech, service, existingReport) {
           Pré-visualizar Relatório
         </button>
         <div class="form-panel-footer-row">
-          <button type="button" class="btn-secondary" id="btn-save-draft">Guardar Rascunho</button>
-          <button type="button" class="btn-primary" id="btn-submit-report">Submeter Relatório</button>
+          <button type="button" class="btn-secondary btn-touch" id="btn-save-draft">Gravar Rascunho</button>
+          <button type="button" class="btn-primary btn-touch" id="btn-submit-report">Submeter Relatório</button>
         </div>
       </div>
     </div>

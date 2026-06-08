@@ -878,7 +878,7 @@ export function getDayNumber(iso) {
 
 export function statusBadge(status) {
   const s = JOB_STATUSES[status] || JOB_STATUSES.scheduled;
-  return `<span class="status-badge" style="color:${s.color};background:${s.bg};border:1px solid ${s.border}">${s.label}</span>`;
+  return `<span class="status-badge" style="color:${s.color};background:${s.bg}">${s.label}</span>`;
 }
 
 export function escapeHtml(str) {

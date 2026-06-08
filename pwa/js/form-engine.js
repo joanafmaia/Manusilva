@@ -357,8 +357,21 @@ function resolveDynamicRowDefaults(field, context = {}) {
 function getDynamicColumnInputType(field, key) {
   if (field?.columnTypes?.[key]) return field.columnTypes[key];
   if (key.includes('data') || key.startsWith('data_')) return 'date';
-  if (key === 'horas' || key === 'quantidade') return 'number';
+  if (key === 'horas' || key === 'quantidade' || key === 'tensao_v' || key === 'densidade') return 'number';
   return 'text';
+}
+
+function numberInputMode(step = 1) {
+  const n = Number(step);
+  return n === 1 || Number.isInteger(n) ? 'numeric' : 'decimal';
+}
+
+function numberInputAttrs(field = {}, stepOverride) {
+  const step = stepOverride ?? field.step ?? 1;
+  const attrs = [`step="${step}"`, `inputmode="${numberInputMode(step)}"`];
+  if (field.min != null) attrs.push(`min="${field.min}"`);
+  if (field.max != null) attrs.push(`max="${field.max}"`);
+  return attrs.join(' ');
 }
 
 function renderDynamicTableCell(field, col, key, row) {
@@ -371,8 +384,9 @@ function renderDynamicTableCell(field, col, key, row) {
       value="${escapeHtml(String(val))}">`;
   }
   if (inputType === 'number') {
+    const step = key === 'horas' ? '0.5' : '1';
     return `<input type="number" class="form-input form-input-sm" data-col="${key}"
-      value="${escapeHtml(String(val))}" placeholder="0" min="0" step="${key === 'horas' ? '0.5' : '1'}">`;
+      value="${escapeHtml(String(val))}" placeholder="0" min="0" ${numberInputAttrs({}, step)}>`;
   }
   return `<input type="text" class="form-input form-input-sm" data-col="${key}"
     value="${escapeHtml(String(val))}" placeholder="${escapeHtml(placeholder)}">`;
@@ -810,8 +824,7 @@ function renderNumberField(field, value = '') {
         <label class="form-label">${escapeHtml(field.label)}</label>
         <input type="number" class="form-input" data-field-id="${field.id}" data-field-kind="number"
           value="${escapeHtml(String(value))}" placeholder="${escapeHtml(field.placeholder || '0')}"
-          ${field.min != null ? `min="${field.min}"` : ''} ${field.max != null ? `max="${field.max}"` : ''}
-          ${field.step != null ? `step="${field.step}"` : ''}>
+          ${numberInputAttrs(field)}>
       </div>
     `;
   }
@@ -822,8 +835,7 @@ function renderNumberField(field, value = '') {
       <div class="material-qty-input-wrap">
         <input type="number" class="form-input material-qty-input" data-field-id="${field.id}" data-field-kind="number"
           value="${escapeHtml(String(value))}" placeholder="0"
-          ${field.min != null ? `min="${field.min}"` : ''} ${field.max != null ? `max="${field.max}"` : ''}
-          ${field.step != null ? `step="${field.step}"` : ''}>
+          ${numberInputAttrs(field)}>
         ${unit ? `<span class="material-qty-unit">${escapeHtml(unit)}</span>` : ''}
       </div>
     </div>

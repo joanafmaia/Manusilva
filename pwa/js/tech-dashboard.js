@@ -259,8 +259,8 @@ function renderJobs() {
           <span class="job-type">${service?.icon || '🔧'} ${escapeHtml(service?.label || job.serviceType)}</span>
           ${job.forkliftSerial ? `<span class="job-serial">${escapeHtml(job.forkliftSerial)}</span>` : ''}
         </div>
-        <button class="job-action-btn" data-open-job="${job.id}">
-          ${isRejected ? 'Corrigir e Reenviar' : job.status === 'completed' ? 'Ver Relatório' : 'Abrir Relatório'}
+        <button class="job-action-btn job-action-btn--primary" data-open-job="${job.id}">
+          ${isRejected ? 'Corrigir e Reenviar' : job.status === 'completed' ? 'Ver Relatório' : 'Iniciar'}
         </button>
       </article>
     `;
