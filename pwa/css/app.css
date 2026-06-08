@@ -5784,19 +5784,69 @@ button.toast-notification:hover {
 #login-page-wrapper .role-pick {
   padding: 12px;
   border-radius: 10px;
-  border: 1px solid var(--border-color);
+  border: 2px solid var(--border-color);
   background: var(--bg-input);
   color: var(--text-main);
   cursor: pointer;
   font-size: 13px;
   text-align: left;
-  transition: border-color 0.2s, background 0.2s;
+  transition: border-color 0.25s ease, background 0.25s ease, opacity 0.25s ease, box-shadow 0.25s ease;
+  opacity: 0.62;
+}
+
+#login-container .role-pick:not(.is-selected):hover,
+#login-page-wrapper .role-pick:not(.is-selected):hover {
+  opacity: 0.82;
+  border-color: #94a3b8;
 }
 
 #login-container .role-pick.is-selected,
 #login-page-wrapper .role-pick.is-selected {
+  opacity: 1;
   border-color: #2563eb;
-  background: rgba(37, 99, 235, 0.12);
+  background: rgba(37, 99, 235, 0.1);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.28);
+}
+
+#login-container .login-submit-btn,
+#login-page-wrapper .login-submit-btn {
+  width: 100%;
+  padding: 14px;
+  margin-top: 12px;
+  background: #2563eb;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.28);
+  transition: all 0.3s ease;
+}
+
+#login-container .login-submit-btn:hover:not(:disabled),
+#login-page-wrapper .login-submit-btn:hover:not(:disabled) {
+  background: #1d4ed8;
+  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.4);
+  transform: translateY(-1px);
+}
+
+#login-container .login-submit-btn:active:not(:disabled),
+#login-page-wrapper .login-submit-btn:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+}
+
+#login-container .login-submit-btn:disabled,
+#login-page-wrapper .login-submit-btn:disabled {
+  background: #94a3b8;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
 }
 
 #login-container .role-pick-hint,

@@ -1,5 +1,4 @@
-import { AuthService, resolveLoginEmail, resolveDisplayNameForHint } from '../auth.js';
-import { buildInitialPasswordHint } from '../auth-password.js';
+import { AuthService, resolveLoginEmail } from '../auth.js';
 import { ROLE_UI_TO_DB } from '../mock_data.js';
 import { toggleTheme, themeToggleLabel, getStoredTheme } from '../theme.js';
 
@@ -40,8 +39,9 @@ export const LoginView = {
         ">
           <div style="text-align: center; margin-bottom: 28px;">
             <div class="brand-logo-slot" data-brand-logo-lg aria-label="ManuSilva">MS</div>
-            <h2 style="margin: 0 0 8px 0; font-size: 24px; font-weight: 700; letter-spacing: -0.5px;">Gestão de Frota</h2>
-            <p style="color: var(--text-muted); margin: 0; font-size: 15px; font-weight: 500;">Introduza os seus dados para aceder</p>
+            <h2 class="login-title" style="margin: 0 0 6px 0; font-size: 26px; font-weight: 800; letter-spacing: -0.5px;">ManuSilva</h2>
+            <p class="login-subtitle" style="color: var(--text-muted); margin: 0 0 4px 0; font-size: 14px; font-weight: 600;">Manutenção Industrial</p>
+            <p style="color: var(--text-muted); margin: 0; font-size: 14px; font-weight: 500;">Introduza os seus dados para aceder</p>
           </div>
 
           <p style="margin: 0 0 10px 0; font-size: 13px; font-weight: 600; color: var(--text-muted);">Entrar como</p>
@@ -72,12 +72,7 @@ export const LoginView = {
                 width: 100%; padding: 14px; border-radius: 8px; font-size: 16px; box-sizing: border-box; outline: none;
                 background-color: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-main);
                 transition: border-color 0.2s;
-              " placeholder="Ex.: Tecnico.2026">
-              <p id="password-format-hint" class="login-password-hint" style="
-                margin: 8px 0 0; font-size: 12px; color: var(--text-muted); line-height: 1.4;
-              ">
-                Primeiro acesso: primeira letra do nome em maiúscula + <code>.2026</code> (ex.: <span id="password-hint-example">Tecnico.2026</span>).
-              </p>
+              " placeholder="Introduza a palavra-passe">
             </div>
 
             <div id="login-error" style="
@@ -92,12 +87,7 @@ export const LoginView = {
               border: 1px solid rgba(37, 99, 235, 0.2); text-align: center; font-weight: 500;
             "></div>
 
-            <button type="submit" id="btn-submit" style="
-              width: 100%; padding: 14px; background: #2563eb; color: #ffffff;
-              border: none; border-radius: 8px; font-size: 16px; font-weight: 600;
-              cursor: pointer; transition: background 0.2s; display: flex; justify-content: center; align-items: center;
-              box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);
-            ">
+            <button type="submit" id="btn-submit" class="login-submit-btn">
               <span id="btn-text">Entrar no Sistema</span>
             </button>
           </form>
@@ -120,7 +110,6 @@ export const LoginView = {
     const roleButtons = document.querySelectorAll('.role-pick');
     const identifierInput = document.getElementById('identifier');
     const passwordInput = document.getElementById('password');
-    const hintExample = document.getElementById('password-hint-example');
 
     let selectedUiRole = 'technician';
     let lockTimer = null;
@@ -129,15 +118,6 @@ export const LoginView = {
       technician: { identifier: 'Hugo' },
       admin: { identifier: 'Joana' },
     };
-
-    function refreshPasswordPlaceholder() {
-      const term = identifierInput.value.trim();
-      const roleFiltro = ROLE_UI_TO_DB[selectedUiRole];
-      const displayName = resolveDisplayNameForHint(term, roleFiltro) || term;
-      const hint = buildInitialPasswordHint(displayName);
-      passwordInput.placeholder = hint;
-      if (hintExample) hintExample.textContent = hint;
-    }
 
     function setLoginLocked(locked, message = '') {
       btnSubmit.disabled = locked;
@@ -206,12 +186,8 @@ export const LoginView = {
         const defaults = loginDefaults[selectedUiRole] || loginDefaults.technician;
         identifierInput.value = defaults.identifier;
         passwordInput.value = '';
-        refreshPasswordPlaceholder();
       });
     });
-
-    identifierInput.addEventListener('input', refreshPasswordPlaceholder);
-    identifierInput.addEventListener('blur', refreshPasswordPlaceholder);
 
     form.querySelectorAll('#identifier, #password').forEach((input) => {
       input.addEventListener('focus', () => {
@@ -221,8 +197,6 @@ export const LoginView = {
         input.style.borderColor = '';
       });
     });
-
-    refreshPasswordPlaceholder();
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
