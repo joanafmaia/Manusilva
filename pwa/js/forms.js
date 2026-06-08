@@ -19,7 +19,8 @@ import {
   renderReportFields,
   collectReportValues,
   bindFormFieldInteractions,
-  renderOfficialTemplateHeader,
+  renderJobClientHeader,
+  getServiceFormTitle,
   buildFormPrefill,
   mergeFormValues,
   isOfficialTemplate,
@@ -131,7 +132,8 @@ function buildFormHTML(job, client, tech, service, existingReport) {
     values[GRANDES_BATTERY_FIELD_ID] = migrateLegacyBatteryRows(values);
   }
   const official = isOfficialTemplate(service);
-  const officialHeader = renderOfficialTemplateHeader(service);
+  const clientHeader = renderJobClientHeader(client);
+  const formTitle = getServiceFormTitle(service);
   const clientPickerHtml = official
     ? renderHeaderClientCombobox({
         value: values.cliente || client.Nome || client.name,
@@ -155,21 +157,21 @@ function buildFormHTML(job, client, tech, service, existingReport) {
 
   return `
     <div class="form-panel glass-card">
-      <div class="form-panel-header">
+      <div class="form-panel-header form-panel-header--minimal">
         <button type="button" class="btn-ghost" id="close-form">&larr; Voltar</button>
-        <h2>${service?.icon || '📋'} ${escapeHtml(service?.label || service?.title || 'Relatório')}</h2>
       </div>
 
       <div class="form-panel-body">
         ${rejectionBanner}
 
-        ${officialHeader}
+        ${clientHeader}
+
+        <h2 class="form-report-title">${service?.icon || '📋'} ${escapeHtml(formTitle)}</h2>
 
         <div class="form-fixed-header glass-card-inner ${official ? 'form-fixed-header--compact' : ''}">
           <div class="header-grid">
             <div class="header-field"><span class="hf-label">Data do Serviço</span><span class="hf-value">${formatDateLong(job.date)}</span></div>
             <div class="header-field"><span class="hf-label">Técnico</span><span class="hf-value">${escapeHtml(tech.name)}</span></div>
-            ${official ? '' : `<div class="header-field header-field-full"><span class="hf-label">Cliente</span><span class="hf-value">${escapeHtml(client.name)}</span></div>`}
             ${official ? clientPickerHtml : ''}
           </div>
         </div>

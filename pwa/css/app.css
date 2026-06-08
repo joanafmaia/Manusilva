@@ -1462,42 +1462,73 @@ body {
   min-height: 48px;
 }
 
-/* Official template MS. 061 */
-.official-form-header {
-  margin-bottom: 1rem;
+/* Cabeçalho do formulário técnico — dados do cliente */
+.form-panel-header--minimal {
+  justify-content: flex-start;
+}
+
+.form-panel-header--minimal h2 {
+  display: none;
+}
+
+.job-client-header {
+  margin-bottom: 0.85rem;
+  padding: 0.9rem 1rem;
   border-left: 3px solid var(--primary);
-  padding-left: 1rem;
 }
 
-.official-form-code {
-  display: inline-block;
-  font-size: 0.7rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  color: var(--primary);
-  background: rgba(59, 130, 246, 0.12);
-  padding: 0.25rem 0.6rem;
-  border-radius: 6px;
-  margin-bottom: 0.5rem;
-}
-
-.official-form-title {
+.job-client-header-name {
   margin: 0 0 0.35rem;
   font-size: 1.05rem;
   font-weight: 700;
-}
-
-.official-form-company {
-  margin: 0;
-  font-size: 0.8rem;
-  font-weight: 600;
+  line-height: 1.35;
   color: var(--text-primary);
 }
 
-.official-form-address {
-  margin: 0.15rem 0 0;
-  font-size: 0.75rem;
+.job-client-header-address {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--text-secondary, var(--text-muted));
+}
+
+.job-client-header-address--muted {
+  font-style: italic;
+}
+
+.job-client-header-contact {
+  margin: 0.45rem 0 0;
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+.job-client-header-label {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   color: var(--text-muted);
+  margin-bottom: 0.1rem;
+}
+
+.job-client-header-link {
+  color: var(--primary);
+  font-weight: 600;
+  text-decoration: none;
+  word-break: break-word;
+}
+
+.job-client-header-link:hover {
+  text-decoration: underline;
+}
+
+.form-report-title {
+  margin: 0 0 0.85rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--text-primary);
 }
 
 .form-fixed-header--compact .header-grid {
