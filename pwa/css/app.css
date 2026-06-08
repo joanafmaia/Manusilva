@@ -49,6 +49,18 @@ body.dark-mode {
   --signature-canvas-bg: #0f172a;
   --signature-stroke: #e2e8f0;
   --signature-placeholder: #94a3b8;
+  --ms-page-bg: #0f172a;
+  --ms-card-bg: #1e293b;
+  --ms-border: #334155;
+  --ms-border-md: #475569;
+  --ms-text-800: #f8fafc;
+  --ms-text-700: #e2e8f0;
+  --ms-text-600: #cbd5e1;
+  --ms-text-500: #94a3b8;
+  --ms-table-head-bg: rgba(30, 41, 59, 0.95);
+  --ms-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.22);
+  --ms-red-50: rgba(220, 38, 38, 0.14);
+  --ms-red-100: rgba(248, 113, 113, 0.22);
 }
 
 body.light-mode {
@@ -98,6 +110,18 @@ body.light-mode {
   --signature-canvas-bg: #ffffff;
   --signature-stroke: #1e3a5f;
   --signature-placeholder: #64748b;
+  --ms-page-bg: #f8fafc;
+  --ms-card-bg: #ffffff;
+  --ms-border: #f1f5f9;
+  --ms-border-md: #e2e8f0;
+  --ms-text-800: #1e293b;
+  --ms-text-700: #334155;
+  --ms-text-600: #475569;
+  --ms-text-500: #64748b;
+  --ms-table-head-bg: #f1f5f9;
+  --ms-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
+  --ms-red-50: #fef2f2;
+  --ms-red-100: #fee2e2;
 }
 
 /* Fallback antes de theme-boot.js */
@@ -148,6 +172,18 @@ body:not(.light-mode):not(.dark-mode) {
   --signature-canvas-bg: #0f172a;
   --signature-stroke: #e2e8f0;
   --signature-placeholder: #94a3b8;
+  --ms-page-bg: #0f172a;
+  --ms-card-bg: #1e293b;
+  --ms-border: #334155;
+  --ms-border-md: #475569;
+  --ms-text-800: #f8fafc;
+  --ms-text-700: #e2e8f0;
+  --ms-text-600: #cbd5e1;
+  --ms-text-500: #94a3b8;
+  --ms-table-head-bg: rgba(30, 41, 59, 0.95);
+  --ms-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.22);
+  --ms-red-50: rgba(220, 38, 38, 0.14);
+  --ms-red-100: rgba(248, 113, 113, 0.22);
 }
 
 body.dark-mode,
@@ -162,25 +198,13 @@ body:not(.light-mode):not(.dark-mode) {
 }
 
 :root {
-  /* Manusilva Design System — equivalente Tailwind slate */
-  --ms-page-bg: #f8fafc;
-  --ms-card-bg: #ffffff;
-  --ms-border: #f1f5f9;
-  --ms-border-md: #e2e8f0;
+  /* Manusilva Design System — cores por tema em body.{dark,light}-mode */
   --ms-radius-xl: 0.75rem;
   --ms-radius-lg: 0.5rem;
-  --ms-text-800: #1e293b;
-  --ms-text-700: #334155;
-  --ms-text-600: #475569;
-  --ms-text-500: #64748b;
-  --ms-table-head-bg: #f1f5f9;
-  --ms-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
   --ms-primary: #2563eb;
   --ms-primary-hover: #1d4ed8;
   --ms-red-600: #dc2626;
   --ms-red-700: #b91c1c;
-  --ms-red-50: #fef2f2;
-  --ms-red-100: #fee2e2;
 
   --primary: #2563eb;
   --primary-glow: rgba(37, 99, 235, 0.22);
@@ -239,7 +263,8 @@ body {
 }
 
 body.light-mode .glass-card,
-body.tech-dashboard-page:not(.dark-mode) .glass-card {
+body.tech-dashboard-page:not(.dark-mode) .glass-card,
+body.dark-mode .glass-card {
   background: var(--ms-card-bg);
   border-color: var(--ms-border-md);
   box-shadow: var(--ms-shadow-sm);
@@ -3571,9 +3596,10 @@ body.light-mode .rh-section {
   border-color: var(--ms-border-md, #e2e8f0);
 }
 
-body.dark-mode .admin-panel .rh-section {
-  background: var(--surface-2, rgba(15, 23, 42, 0.35));
-  border-color: var(--border-color);
+body.dark-mode .admin-panel .rh-section,
+body.dark-mode .rh-section {
+  background: var(--ms-page-bg);
+  border-color: var(--ms-border-md);
 }
 
 .admin-panel .rh-section .form-input,
@@ -5094,9 +5120,9 @@ body.dark-mode .rh-card__btn--pdf {
 
 .reports-table-wrap {
   overflow-x: auto;
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--ms-border-md, var(--border-subtle));
   border-radius: var(--radius-sm);
-  background: #fff;
+  background: var(--ms-card-bg);
 }
 
 .admin-zebra-table {
@@ -5112,9 +5138,9 @@ body.dark-mode .rh-card__btn--pdf {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--text-muted);
-  border-bottom: 1px solid var(--border-subtle);
-  background: #f8fafc;
+  color: var(--ms-text-600, var(--text-muted));
+  border-bottom: 1px solid var(--ms-border-md, var(--border-subtle));
+  background: var(--ms-table-head-bg);
   white-space: nowrap;
 }
 
@@ -5123,15 +5149,15 @@ body.dark-mode .rh-card__btn--pdf {
 }
 
 .admin-zebra-table tbody tr:nth-child(even) {
-  background: #f8fafc;
+  background: var(--ms-page-bg);
 }
 
 .admin-zebra-table tbody tr:nth-child(odd) {
-  background: #ffffff;
+  background: var(--ms-card-bg);
 }
 
 .admin-zebra-table tbody tr:hover {
-  background: #f1f5f9;
+  background: rgba(59, 130, 246, 0.08);
 }
 
 .admin-zebra-table td {
@@ -7605,7 +7631,7 @@ body:not(:has(.theme-toggle-btn:not(.theme-toggle-btn--inline))) .toast-containe
   }
 
   .rh-admin-tab.is-active {
-    background: #ffffff;
+    background: var(--ms-card-bg);
     border-color: var(--primary);
     color: var(--primary);
     box-shadow: 0 1px 3px rgba(30, 64, 115, 0.1);
@@ -7688,7 +7714,7 @@ body:not(:has(.theme-toggle-btn:not(.theme-toggle-btn--inline))) .toast-containe
 
 @media (min-width: 768px) {
   .form-overlay {
-    background: #f8fafc;
+    background: var(--ms-page-bg);
     backdrop-filter: none;
     padding: 1.5rem 1.25rem 2rem;
   }
@@ -7701,8 +7727,8 @@ body:not(:has(.theme-toggle-btn:not(.theme-toggle-btn--inline))) .toast-containe
 
   .form-panel--premium {
     border-radius: 0.75rem;
-    border: 1px solid #e2e8f0;
-    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06), 0 8px 24px rgba(15, 23, 42, 0.04);
+    border: 1px solid var(--ms-border-md);
+    box-shadow: var(--ms-shadow-sm);
     max-height: calc(100dvh - 3rem);
     overflow: hidden;
     display: flex;
@@ -7725,12 +7751,8 @@ body:not(:has(.theme-toggle-btn:not(.theme-toggle-btn--inline))) .toast-containe
 /* Formulário técnico — tablet (md: 768px–1023px; mobile e PC inalterados) */
 @media (min-width: 768px) and (max-width: 1023px) {
   .form-overlay {
-    background: #f8fafc;
+    background: var(--ms-page-bg);
     padding: 1.5rem 1rem 2rem;
-  }
-
-  body.dark-mode .form-overlay {
-    background: var(--bg-deep);
   }
 
   .form-workspace--report {
@@ -7755,10 +7777,10 @@ body:not(:has(.theme-toggle-btn:not(.theme-toggle-btn--inline))) .toast-containe
 
   .form-panel--premium .form-panel-header,
   .form-panel--premium .report-form-tabs {
-    background: #ffffff;
-    border: 1px solid #f1f5f9;
+    background: var(--ms-card-bg);
+    border: 1px solid var(--ms-border);
     border-radius: 0.75rem 0.75rem 0 0;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    box-shadow: var(--ms-shadow-sm);
   }
 
   .form-panel--premium .report-form-tabs {
@@ -7775,19 +7797,12 @@ body:not(:has(.theme-toggle-btn:not(.theme-toggle-btn--inline))) .toast-containe
 
   .form-section-card,
   .form-section-card--intro {
-    background: #ffffff;
-    border: 1px solid #f1f5f9;
+    background: var(--ms-card-bg);
+    border: 1px solid var(--ms-border);
     border-radius: 0.75rem;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+    box-shadow: var(--ms-shadow-sm);
     padding: 1.5rem;
     margin-bottom: 1.5rem;
-  }
-
-  body.dark-mode .form-section-card,
-  body.dark-mode .form-section-card--intro {
-    background: var(--glass-bg);
-    border-color: var(--border-color);
-    box-shadow: none;
   }
 
   .form-section-card--intro .job-client-header {
@@ -7836,15 +7851,10 @@ body:not(:has(.theme-toggle-btn:not(.theme-toggle-btn--inline))) .toast-containe
   .form-panel-footer.form-panel-footer--stacked {
     padding: 1rem 1.5rem;
     gap: 0.75rem;
-    background: #ffffff;
-    border: 1px solid #f1f5f9;
+    background: var(--ms-card-bg);
+    border: 1px solid var(--ms-border);
     border-radius: 0 0 0.75rem 0.75rem;
-    box-shadow: 0 -1px 3px rgba(15, 23, 42, 0.04);
-  }
-
-  body.dark-mode .form-panel-footer.form-panel-footer--stacked {
-    background: var(--glass-bg);
-    border-color: var(--border-color);
+    box-shadow: var(--ms-shadow-sm);
   }
 
   .form-panel-footer-row {
@@ -8042,4 +8052,84 @@ body.dark-mode .rh-data-table td {
 
 body.dark-mode .dynamic-table th {
   background: var(--surface-2);
+}
+
+/* Dark mode — espelho do design system global */
+body.dark-mode .admin-main,
+body:not(.light-mode):not(.dark-mode) .admin-main {
+  background-color: var(--ms-page-bg);
+}
+
+body.dark-mode .bg-mesh {
+  background: var(--ms-page-bg);
+}
+
+body.dark-mode .text-muted {
+  color: var(--ms-text-500);
+}
+
+body.dark-mode .admin-panel.glass-card,
+body.dark-mode .dashboard-metric-card,
+body.dark-mode .employee-card.glass-card,
+body.dark-mode .client-card.glass-card,
+body.dark-mode .form-section-card,
+body.dark-mode .form-panel--premium {
+  background: var(--ms-card-bg);
+  border: 1px solid var(--ms-border-md);
+  border-radius: var(--ms-radius-xl);
+  box-shadow: var(--ms-shadow-sm);
+}
+
+body.dark-mode .dashboard-metric-card {
+  border-color: var(--ms-border-md);
+}
+
+body.dark-mode .form-overlay {
+  background: var(--ms-page-bg);
+}
+
+body.dark-mode .form-panel--premium {
+  border-color: var(--ms-border-md);
+}
+
+body.dark-mode .report-form-tab {
+  border-radius: var(--ms-radius-lg);
+  border-color: var(--ms-border-md);
+}
+
+body.dark-mode .report-form-tab.is-active {
+  border-color: var(--ms-primary);
+}
+
+body.dark-mode .rh-admin-tab {
+  border-radius: var(--ms-radius-lg);
+  border-color: var(--ms-border-md);
+}
+
+body.dark-mode .rh-admin-tab.is-active {
+  background: var(--ms-card-bg);
+  border-color: var(--ms-primary);
+  color: var(--primary-light);
+}
+
+body.dark-mode .btn-danger {
+  background: var(--ms-red-50);
+  color: #f87171;
+  border-color: var(--ms-red-100);
+}
+
+body.dark-mode .btn-danger:hover {
+  background: var(--ms-red-100);
+  color: #fca5a5;
+}
+
+body.dark-mode .rh-data-table-row:hover,
+body.dark-mode .rh-data-table-row:focus-visible,
+body.dark-mode .clients-list-table-row:hover {
+  background: rgba(59, 130, 246, 0.1);
+}
+
+body.dark-mode .glass-card-inner {
+  background: var(--ms-card-bg);
+  border-color: var(--ms-border-md);
 }
