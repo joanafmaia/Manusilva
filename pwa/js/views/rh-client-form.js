@@ -25,6 +25,10 @@ export function renderClientFormSection() {
           </div>
         </div>
         <div class="form-group">
+          <label class="form-label" for="rh-client-telemovel">Telemóvel / Contacto</label>
+          <input type="tel" class="form-input" id="rh-client-telemovel" autocomplete="tel">
+        </div>
+        <div class="form-group">
           <label class="form-label" for="rh-client-morada">Morada</label>
           <input type="text" class="form-input" id="rh-client-morada" autocomplete="street-address">
         </div>
@@ -72,6 +76,7 @@ export function mountClientForm(root, callbacks = {}) {
         Nome: form.querySelector('#rh-client-nome')?.value,
         NIF: form.querySelector('#rh-client-nif')?.value,
         'E-mail': form.querySelector('#rh-client-email')?.value,
+        telemovel: form.querySelector('#rh-client-telemovel')?.value,
         Morada: form.querySelector('#rh-client-morada')?.value,
         'Código postal': form.querySelector('#rh-client-cp')?.value,
         Localidade: form.querySelector('#rh-client-localidade')?.value,

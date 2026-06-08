@@ -20,20 +20,24 @@ CREATE POLICY "authenticated_all_relatorios"
   USING (true)
   WITH CHECK (true);
 
--- ─── clientes (leitura + inserção) ───
+-- ─── clientes (leitura + escrita só RH) — ver também pwa/supabase-rls-clientes.sql ───
 DROP POLICY IF EXISTS "authenticated_read_clientes" ON public.clientes;
 CREATE POLICY "authenticated_read_clientes"
-  ON public.clientes
-  FOR SELECT
-  TO authenticated
-  USING (true);
+  ON public.clientes FOR SELECT TO authenticated USING (true);
 
 DROP POLICY IF EXISTS "authenticated_insert_clientes" ON public.clientes;
-CREATE POLICY "authenticated_insert_clientes"
-  ON public.clientes
-  FOR INSERT
-  TO authenticated
-  WITH CHECK (true);
+DROP POLICY IF EXISTS "authenticated_update_clientes" ON public.clientes;
+DROP POLICY IF EXISTS "rh_insert_clientes" ON public.clientes;
+DROP POLICY IF EXISTS "rh_update_clientes" ON public.clientes;
+
+CREATE POLICY "rh_insert_clientes"
+  ON public.clientes FOR INSERT TO authenticated
+  WITH CHECK ((auth.jwt() -> 'user_metadata' ->> 'role') = 'RH');
+
+CREATE POLICY "rh_update_clientes"
+  ON public.clientes FOR UPDATE TO authenticated
+  USING ((auth.jwt() -> 'user_metadata' ->> 'role') = 'RH')
+  WITH CHECK ((auth.jwt() -> 'user_metadata' ->> 'role') = 'RH');
 
 -- ─── Storage PDFs ───
 DROP POLICY IF EXISTS "authenticated_upload_pdfs_trabalhos" ON storage.objects;

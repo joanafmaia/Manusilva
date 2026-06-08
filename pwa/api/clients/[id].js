@@ -1,5 +1,5 @@
 /**
- * PUT /api/clients/[id] — atualiza dados cadastrais do cliente (Supabase).
+ * PUT /api/clients/[id] — atualiza dados cadastrais (requer JWT Supabase de RH).
  */
 
 const SUPABASE_URL =
@@ -11,30 +11,49 @@ const SUPABASE_KEY =
 
 const ALLOWED_FIELDS = ['email', 'morada', 'telemovel', 'codigo_postal', 'localidade'];
 
+function getBearerToken(req) {
+  const auth = String(req.headers.authorization || '');
+  const match = /^Bearer\s+(.+)$/i.exec(auth);
+  return match ? match[1].trim() : '';
+}
+
 function normalizePatch(body = {}) {
   const patch = {};
-  if (body.email !== undefined) {
-    patch.email = String(body.email ?? '').trim() || null;
-  }
-  if (body.morada !== undefined) {
-    patch.morada = String(body.morada ?? '').trim() || null;
-  }
-  if (body.telemovel !== undefined) {
-    patch.telemovel = String(body.telemovel ?? '').trim() || null;
-  }
+  if (body.email !== undefined) patch.email = String(body.email ?? '').trim() || null;
+  if (body.morada !== undefined) patch.morada = String(body.morada ?? '').trim() || null;
+  if (body.telemovel !== undefined) patch.telemovel = String(body.telemovel ?? '').trim() || null;
   if (body.codigo_postal !== undefined) {
     patch.codigo_postal = String(body.codigo_postal ?? '').trim() || null;
   }
-  if (body.localidade !== undefined) {
-    patch.localidade = String(body.localidade ?? '').trim() || null;
-  }
+  if (body.localidade !== undefined) patch.localidade = String(body.localidade ?? '').trim() || null;
   return patch;
+}
+
+async function verifyRhUser(token) {
+  if (!token) return null;
+  const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+    headers: {
+      apikey: SUPABASE_KEY,
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  if (!res.ok) return null;
+  const user = await res.json();
+  const role = user?.user_metadata?.role;
+  if (role !== 'RH') return null;
+  return user;
 }
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'PUT') {
     res.setHeader('Allow', 'PUT');
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  const token = getBearerToken(req);
+  const rhUser = await verifyRhUser(token);
+  if (!rhUser) {
+    return res.status(403).json({ error: 'Acesso reservado a Recursos Humanos autenticados.' });
   }
 
   const id = String(req.query?.id || '').trim();
@@ -62,7 +81,7 @@ module.exports = async function handler(req, res) {
         method: 'PATCH',
         headers: {
           apikey: SUPABASE_KEY,
-          Authorization: `Bearer ${SUPABASE_KEY}`,
+          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
           Prefer: 'return=representation',
         },

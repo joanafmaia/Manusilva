@@ -261,7 +261,7 @@ export function getClientFromCatalog(idOrNif, catalog = null) {
 }
 
 /**
- * Pesquisa por Nome ou NIF — percorre o array completo, devolve no máximo 10 linhas.
+ * Pesquisa por Nome, NIF ou E-mail — percorre o array completo, devolve no máximo 10 linhas.
  */
 export function searchClients(query, catalog = null) {
   const list = resolveCatalog(catalog);
@@ -281,10 +281,12 @@ export function searchClients(query, catalog = null) {
     const c = list[i];
     const nome = c.Nome.toLowerCase();
     const nif = c.NIF.toLowerCase();
+    const email = String(c['E-mail'] || '').toLowerCase();
     const nifCompact = nif.replace(/\s+/g, '');
     if (
       !nome.includes(q) &&
       !nif.includes(q) &&
+      !email.includes(q) &&
       !(qCompact && nifCompact.includes(qCompact))
     ) {
       continue;

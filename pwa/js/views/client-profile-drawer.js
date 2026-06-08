@@ -54,10 +54,28 @@ function enrichLegacyClient(clientId, catalogRecord) {
     phone: phone || '—',
     morada: fullAddress,
     moradaRaw: morada || '',
+    cpRaw: cp || '',
+    localidadeRaw: localidade || '',
     emailRaw: email,
     phoneRaw: phone,
     forklifts: legacy?.forklifts || [],
   };
+}
+
+function renderLoadingPanel() {
+  return `
+    <div class="client-ficha-panel client-ficha-panel--loading" role="dialog" aria-busy="true" aria-label="A carregar ficha">
+      <header class="client-ficha-header">
+        <div class="client-ficha-skeleton client-ficha-skeleton--title"></div>
+        <button type="button" class="btn-ghost client-ficha-close" data-client-ficha-close aria-label="Fechar">&times;</button>
+      </header>
+      <div class="client-ficha-body">
+        <div class="client-ficha-skeleton"></div>
+        <div class="client-ficha-skeleton"></div>
+        <div class="client-ficha-skeleton client-ficha-skeleton--short"></div>
+      </div>
+    </div>
+  `;
 }
 
 export async function resolveClientProfile(clientId) {
@@ -111,9 +129,19 @@ function renderEditableField(label, inputId, value, inputType = 'text') {
   `;
 }
 
+function renderAddressEditBlock(profile) {
+  return `
+    ${renderEditableField('Morada', 'client-ficha-morada', profile.moradaRaw, 'text')}
+    <div class="client-ficha-edit-row">
+      ${renderEditableField('Código postal', 'client-ficha-cp', profile.cpRaw, 'text')}
+      ${renderEditableField('Localidade', 'client-ficha-localidade', profile.localidadeRaw, 'text')}
+    </div>
+  `;
+}
+
 export function renderClientProfilePanel(profile, { editing = false } = {}) {
   const moradaBlock = editing
-    ? renderEditableField('Morada', 'client-ficha-morada', profile.moradaRaw, 'text')
+    ? renderAddressEditBlock(profile)
     : `
         <section class="client-ficha-block">
           <h3 class="client-ficha-label">Morada completa</h3>
@@ -213,13 +241,34 @@ function closeClientProfilePanel() {
 function readEditForm(shell) {
   return {
     morada: shell.querySelector('#client-ficha-morada')?.value?.trim() ?? '',
+    codigo_postal: shell.querySelector('#client-ficha-cp')?.value?.trim() ?? '',
+    localidade: shell.querySelector('#client-ficha-localidade')?.value?.trim() ?? '',
     email: shell.querySelector('#client-ficha-email')?.value?.trim() ?? '',
     telemovel: shell.querySelector('#client-ficha-phone')?.value?.trim() ?? '',
   };
 }
 
+function editFormDirty(shell, snapshot) {
+  if (!snapshot) return false;
+  const current = readEditForm(shell);
+  return Object.keys(snapshot).some((k) => String(snapshot[k] ?? '') !== String(current[k] ?? ''));
+}
+
+async function confirmDiscardEdits() {
+  return window.confirm('Existem alterações por guardar. Deseja descartá-las?');
+}
+
 function bindClientProfilePanel(shell, profile, options = {}) {
   const clientId = profile.id;
+  const state = shell._fichaState || (shell._fichaState = { editSnapshot: null });
+
+  const snapshotFromProfile = (p) => ({
+    morada: p.moradaRaw || '',
+    codigo_postal: p.cpRaw || '',
+    localidade: p.localidadeRaw || '',
+    email: p.emailRaw || '',
+    telemovel: p.phoneRaw || '',
+  });
 
   const repaint = async (editing) => {
     const fresh = editing ? profile : await resolveClientProfile(clientId);
@@ -228,11 +277,23 @@ function bindClientProfilePanel(shell, profile, options = {}) {
     if (panel) {
       panel.outerHTML = renderClientProfilePanel(fresh, { editing });
     }
+    state.editSnapshot = editing ? snapshotFromProfile(fresh) : null;
     bindClientProfilePanel(shell, fresh, options);
   };
 
+  const tryClose = async () => {
+    const isEditing = shell.querySelector('.client-ficha-panel')?.dataset.editing === 'true';
+    if (isEditing && editFormDirty(shell, state.editSnapshot)) {
+      const discard = await confirmDiscardEdits();
+      if (!discard) return;
+    }
+    closeClientProfilePanel();
+  };
+
   shell.querySelectorAll('[data-client-ficha-close]').forEach((el) => {
-    el.addEventListener('click', closeClientProfilePanel);
+    el.addEventListener('click', () => {
+      tryClose();
+    });
   });
 
   shell.querySelectorAll('[data-copy-value]').forEach((btn) => {
@@ -251,8 +312,12 @@ function bindClientProfilePanel(shell, profile, options = {}) {
     repaint(true);
   });
 
-  shell.querySelector('[data-client-ficha-cancel]')?.addEventListener('click', () => {
-    repaint(false);
+  shell.querySelector('[data-client-ficha-cancel]')?.addEventListener('click', async () => {
+    if (editFormDirty(shell, state.editSnapshot)) {
+      const discard = await confirmDiscardEdits();
+      if (!discard) return;
+    }
+    await repaint(false);
   });
 
   shell.querySelector('[data-client-ficha-save]')?.addEventListener('click', async () => {
@@ -284,13 +349,12 @@ export async function openClientProfilePanel(clientId, options = {}) {
   if (!clientId) return;
 
   closeClientProfilePanel();
-  const profile = await resolveClientProfile(clientId);
 
   const shell = document.createElement('div');
   shell.className = 'client-ficha-drawer';
   shell.innerHTML = `
     <div class="client-ficha-backdrop" data-client-ficha-close tabindex="-1" aria-hidden="true"></div>
-    ${renderClientProfilePanel(profile)}
+    ${renderLoadingPanel()}
   `;
 
   document.body.appendChild(shell);
@@ -298,11 +362,30 @@ export async function openClientProfilePanel(clientId, options = {}) {
   document.body.classList.add('client-ficha-open');
   document.body.style.overflow = 'hidden';
 
+  shell.querySelectorAll('[data-client-ficha-close]').forEach((el) => {
+    el.addEventListener('click', closeClientProfilePanel);
+  });
+
+  let profile;
+  try {
+    profile = await resolveClientProfile(clientId);
+  } catch (err) {
+    console.error('[Ficha Cliente]', err);
+    showToast('Não foi possível carregar a ficha do cliente.', 'error');
+    closeClientProfilePanel();
+    return;
+  }
+
+  const panel = shell.querySelector('.client-ficha-panel');
+  if (panel) {
+    panel.outerHTML = renderClientProfilePanel(profile);
+  }
+
   bindClientProfilePanel(shell, profile, options);
 
   const onKey = (e) => {
     if (e.key === 'Escape') {
-      closeClientProfilePanel();
+      shell.querySelector('[data-client-ficha-close]')?.click();
       document.removeEventListener('keydown', onKey);
     }
   };

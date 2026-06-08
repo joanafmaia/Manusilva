@@ -5814,6 +5814,72 @@ body.dark-mode .client-ficha-machine {
   margin: 0;
 }
 
+.client-ficha-skeleton {
+  height: 3.5rem;
+  border-radius: var(--ms-radius-lg, 0.5rem);
+  background: linear-gradient(
+    90deg,
+    var(--ms-border, #f1f5f9) 25%,
+    var(--ms-page-bg, #f8fafc) 50%,
+    var(--ms-border, #f1f5f9) 75%
+  );
+  background-size: 200% 100%;
+  animation: client-ficha-shimmer 1.2s ease-in-out infinite;
+}
+
+.client-ficha-skeleton--title {
+  height: 1.75rem;
+  width: 70%;
+  margin-bottom: 0.35rem;
+}
+
+.client-ficha-skeleton--short {
+  height: 2.5rem;
+  width: 55%;
+}
+
+@keyframes client-ficha-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.client-ficha-edit-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+}
+
+@media (min-width: 768px) {
+  .client-ficha-edit-row {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.clients-history-nav {
+  padding: 0.85rem 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.clients-history-nav-text {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+
+.clients-history-nav-link {
+  color: var(--ms-primary, #2563eb);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.clients-history-nav-link:hover {
+  text-decoration: underline;
+}
+
 .client-history-page {
   display: flex;
   flex-direction: column;

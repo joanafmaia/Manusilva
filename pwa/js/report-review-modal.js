@@ -18,6 +18,7 @@ import {
   renderReviewPdfSection,
   renderReviewClientEmailField,
   readReviewClientEmail,
+  validateReviewClientEmail,
   buildReviewModalActions,
   bindReviewFotoClicks,
   bindReviewPdfButton,
@@ -98,6 +99,11 @@ export async function openReportReviewModal(reportId, options = {}) {
 
     overlay.querySelector('#modal-approve')?.addEventListener('click', async () => {
       const btn = overlay.querySelector('#modal-approve');
+      const emailErr = await validateReviewClientEmail(overlay);
+      if (emailErr) {
+        showToast(emailErr, 'error');
+        return;
+      }
       btn.disabled = true;
       const clientEmail = readReviewClientEmail(overlay);
       const ok = await approveReport(reportId, { clientEmail });

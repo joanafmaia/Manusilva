@@ -6,8 +6,6 @@ import { ensureProductionCatalog } from '../clients-catalog.js';
 import { showToast, getReport } from '../app.js';
 import { renderSearchSection, mountClientSearch } from './dashboard-client-search.js';
 import { HistoricoClienteView } from './historico-cliente.js';
-import { mountClientsList } from './clients-list.js';
-
 let mountRoot = null;
 let teardownSearch = null;
 let selectedClientId = null;
@@ -97,15 +95,22 @@ async function paint() {
 
   mountRoot.innerHTML = `
     <div class="dashboard-panel-inner">
-      <div data-clients-list-mount></div>
+      <div class="clients-history-nav glass-card" data-clients-history-nav>
+        <p class="clients-history-nav-text text-muted">
+          Para consultar ou editar dados cadastrais (NIF, morada, contacto), use a lista em
+          <a href="#clients" class="clients-history-nav-link" data-goto-clients-list>Clientes / Empresas</a>.
+        </p>
+      </div>
       <div data-dashboard-search-mount>${renderSearchSection()}</div>
       <div data-client-history-content>${renderEmptyState()}</div>
     </div>
   `;
 
-  const listMount = mountRoot.querySelector('[data-clients-list-mount]');
-  await mountClientsList(listMount, {
-    onClientHistory: (clientId) => paintSelectedClient(clientId),
+  mountRoot.querySelector('[data-goto-clients-list]')?.addEventListener('click', async (e) => {
+    e.preventDefault();
+    const { setAdminTab } = await import('../admin-dashboard.js');
+    setAdminTab('clientes');
+    document.getElementById('clients')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
 
   teardownSearch?.();

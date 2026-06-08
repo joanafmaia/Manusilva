@@ -1,11 +1,21 @@
 /**
- * API de clientes — PUT /api/clients/[id] com fallback Supabase direto.
+ * API de clientes — PUT /api/clients/[id] com fallback Supabase direto (sessão RH).
  */
 
 import { updateClient, updateDB } from './app.js';
 import { normalizeClientRecord, registerClientInCatalog } from './clients-catalog.js';
+import { getSession } from './session.js';
 
-const SUPABASE_URL = 'https://zhfbezrevosmbmcbyskw.supabase.co';
+function requireRhSession() {
+  const session = getSession();
+  if (!session || session.role !== 'admin') {
+    throw new Error('Acesso reservado a Recursos Humanos.');
+  }
+  if (!session.token) {
+    throw new Error('Sessão expirada. Volte a iniciar sessão.');
+  }
+  return session;
+}
 
 function persistClientRecord(raw) {
   const record = normalizeClientRecord(raw);
@@ -21,18 +31,31 @@ function persistClientRecord(raw) {
   return record;
 }
 
+function buildApiHeaders(session) {
+  return {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${session.token}`,
+  };
+}
+
 /**
  * @param {string|number} clientId
- * @param {{ email?: string, morada?: string, telemovel?: string }} patch
+ * @param {{ email?: string, morada?: string, telemovel?: string, codigo_postal?: string, localidade?: string }} patch
  */
 export async function putClient(clientId, patch) {
+  const session = requireRhSession();
   const id = encodeURIComponent(String(clientId ?? '').trim());
   if (!id) throw new Error('Cliente inválido.');
+
+  const { isValidEmail } = await import('./validators.js');
+  if (patch.email !== undefined && patch.email && !isValidEmail(patch.email)) {
+    throw new Error('E-mail inválido.');
+  }
 
   try {
     const res = await fetch(`/api/clients/${id}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: buildApiHeaders(session),
       body: JSON.stringify(patch),
     });
 
@@ -40,6 +63,11 @@ export async function putClient(clientId, patch) {
       const body = await res.json().catch(() => ({}));
       if (body.record) return persistClientRecord(body.record);
       return body.record || body;
+    }
+
+    if (res.status === 401 || res.status === 403) {
+      const errBody = await res.json().catch(() => ({}));
+      throw new Error(errBody.error || 'Sem permissão para atualizar clientes.');
     }
 
     if (res.status !== 404 && res.status !== 405) {
@@ -52,11 +80,9 @@ export async function putClient(clientId, patch) {
     }
   }
 
-  const record = await updateClient(clientId, patch);
+  const record = await updateClient(clientId, patch, { origem: 'rh_ficha' });
   if (!record) {
     throw new Error('Não foi possível guardar as alterações do cliente.');
   }
   return record;
 }
-
-export { SUPABASE_URL };

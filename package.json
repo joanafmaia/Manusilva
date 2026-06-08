@@ -2,6 +2,9 @@
   "name": "manusilva",
   "private": true,
   "version": "1.0.0",
+  "scripts": {
+    "test": "node --test pwa/tests/*.test.mjs"
+  },
   "dependencies": {
     "nodemailer": "^7.0.13"
   }

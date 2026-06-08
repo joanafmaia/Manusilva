@@ -31,6 +31,15 @@ export function readReviewClientEmail(root, inputId = 'review-client-email') {
   return root?.querySelector(`#${CSS.escape(inputId)}`)?.value?.trim() || '';
 }
 
+/** Valida e-mail antes de aprovar; devolve mensagem de erro ou null. */
+export async function validateReviewClientEmail(root, inputId = 'review-client-email') {
+  const { isValidEmail } = await import('./validators.js');
+  const email = readReviewClientEmail(root, inputId);
+  if (!email) return null;
+  if (!isValidEmail(email)) return 'Introduza um e-mail de cliente válido antes de aprovar.';
+  return null;
+}
+
 export function formatOrdemLabel(job) {
   if (job?.numeroOrdem == null) return '—';
   return `OP-2026-${String(job.numeroOrdem).padStart(2, '0')}`;

@@ -21,6 +21,7 @@ import {
   renderReviewFotosSection,
   renderReviewClientEmailField,
   readReviewClientEmail,
+  validateReviewClientEmail,
   bindReviewFotoClicks,
   bindReviewPdfButton,
 } from './report-review-ui.js';
@@ -184,6 +185,11 @@ export async function openRhReviewModal(reportId, callbacks = {}) {
   if (showWorkflow) {
     overlay.querySelector('#modal-approve')?.addEventListener('click', async () => {
       const btn = overlay.querySelector('#modal-approve');
+      const emailErr = await validateReviewClientEmail(overlay);
+      if (emailErr) {
+        showToast(emailErr, 'error');
+        return;
+      }
       btn.disabled = true;
       const clientEmail = readReviewClientEmail(overlay);
       const ok = await approveReport(reportId, { clientEmail });

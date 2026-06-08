@@ -427,6 +427,9 @@ export async function addClient(payload) {
         ).trim() || null,
       localidade:
         String(payload?.localidade ?? payload?.Localidade ?? '').trim() || null,
+      telemovel:
+        String(payload?.telemovel ?? payload?.Telemovel ?? payload?.phone ?? '').trim() ||
+        null,
     };
 
     const supabase = await getSupabaseClient();
@@ -481,9 +484,10 @@ export async function addClient(payload) {
 /**
  * Atualiza dados cadastrais de um cliente no Supabase.
  * @param {string|number} clientId
- * @param {{ email?: string, morada?: string, telemovel?: string }} patch
+ * @param {{ email?: string, morada?: string, telemovel?: string, codigo_postal?: string, localidade?: string }} patch
+ * @param {{ origem?: string, silent?: boolean }} [options]
  */
-export async function updateClient(clientId, patch = {}) {
+export async function updateClient(clientId, patch = {}, options = {}) {
   const id = String(clientId ?? '').trim();
   if (!id) {
     showToast('Cliente inválido.', 'error');
@@ -500,14 +504,29 @@ export async function updateClient(clientId, patch = {}) {
   if (patch.telemovel !== undefined) {
     row.telemovel = String(patch.telemovel ?? '').trim() || null;
   }
+  if (patch.codigo_postal !== undefined) {
+    row.codigo_postal = String(patch.codigo_postal ?? '').trim() || null;
+  }
+  if (patch.localidade !== undefined) {
+    row.localidade = String(patch.localidade ?? '').trim() || null;
+  }
 
   if (!Object.keys(row).length) {
-    showToast('Nenhum dado para atualizar.', 'warning');
+    if (!options.silent) showToast('Nenhum dado para atualizar.', 'warning');
     return null;
   }
 
   try {
     await ensureProductionCatalog();
+    const existing = getClientFromCatalog(id);
+    const before = {
+      email: existing?.['E-mail'] || '',
+      morada: existing?.Morada || '',
+      telemovel: existing?.Telemovel || '',
+      codigo_postal: existing?.['Código postal'] || '',
+      localidade: existing?.Localidade || '',
+    };
+
     const supabase = await getSupabaseClient();
     const numericId = /^\d+$/.test(id) ? Number(id) : id;
     const { data, error } = await supabase
@@ -529,10 +548,23 @@ export async function updateClient(clientId, patch = {}) {
     }
 
     const record = normalizeClientRecord(updated);
-    const existing = getClientFromCatalog(id);
     if (existing?.forklifts?.length) {
       record.forklifts = existing.forklifts;
     }
+
+    const { logClientChanges } = await import('./client-audit.js');
+    await logClientChanges(
+      id,
+      before,
+      {
+        email: record['E-mail'] || '',
+        morada: record.Morada || '',
+        telemovel: record.Telemovel || '',
+        codigo_postal: record['Código postal'] || '',
+        localidade: record.Localidade || '',
+      },
+      { origem: options.origem || 'rh_ficha' },
+    );
 
     registerClientInCatalog(record);
 
@@ -560,19 +592,19 @@ export async function updateClient(clientId, patch = {}) {
  * @returns {Promise<boolean>} true se houve update na base de dados
  */
 export async function syncClientEmailIfChanged(clientId, newEmail) {
+  const { isValidEmail, normalizeEmail } = await import('./validators.js');
   const email = String(newEmail ?? '').trim();
   if (!email || !clientId) return false;
+  if (!isValidEmail(email)) return false;
 
   await ensureProductionCatalog();
   const catalog = getProductionClientsCatalog({ warn: false });
   const record = getClientFromCatalog(clientId, catalog);
-  const current = String(record?.['E-mail'] || record?.email || '')
-    .trim()
-    .toLowerCase();
+  const current = normalizeEmail(record?.['E-mail'] || record?.email || '');
 
-  if (current === email.toLowerCase()) return false;
+  if (current === normalizeEmail(email)) return false;
 
-  const updated = await updateClient(clientId, { email });
+  const updated = await updateClient(clientId, { email }, { origem: 'aprovacao_relatorio', silent: true });
   return !!updated;
 }
 
@@ -834,15 +866,15 @@ export async function approveReport(reportId, options = {}) {
     return null;
   }
 
-  let client = getClient(report.clientId);
+  const client = getClient(report.clientId);
   const service = getServiceType(report.serviceType);
   const clientEmailInput = String(options.clientEmail ?? '').trim();
-  let emailSynced = false;
 
-  if (clientEmailInput && report.clientId) {
-    emailSynced = await syncClientEmailIfChanged(report.clientId, clientEmailInput);
-    if (emailSynced) {
-      client = getClient(report.clientId);
+  if (clientEmailInput) {
+    const { isValidEmail } = await import('./validators.js');
+    if (!isValidEmail(clientEmailInput)) {
+      showToast('Introduza um e-mail de cliente válido antes de aprovar.', 'error');
+      return null;
     }
   }
 
@@ -905,6 +937,11 @@ export async function approveReport(reportId, options = {}) {
     }
 
     window.dispatchEvent(new CustomEvent('db-updated'));
+
+    let emailSynced = false;
+    if (clientEmailInput && report.clientId) {
+      emailSynced = await syncClientEmailIfChanged(report.clientId, clientEmailInput);
+    }
 
     const recipientEmail =
       clientEmailInput || client?.email || client?.['E-mail'] || '';
