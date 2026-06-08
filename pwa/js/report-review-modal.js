@@ -16,6 +16,8 @@ import {
 import {
   renderReviewFotosSection,
   renderReviewPdfSection,
+  renderReviewClientEmailField,
+  readReviewClientEmail,
   buildReviewModalActions,
   bindReviewFotoClicks,
   bindReviewPdfButton,
@@ -61,13 +63,15 @@ export async function openReportReviewModal(reportId, options = {}) {
   const showWorkflow =
     options.showWorkflowActions !== false && report.status === 'pending_review';
 
+  const contactField = renderReviewClientEmailField(client, { editable: showWorkflow });
+
   const content = `
     <div class="review-detail">
       <div class="review-header-info">
         <p><strong>Estado:</strong> ${escapeHtml(statusLabel)}</p>
         <p><strong>Cliente:</strong> ${escapeHtml(client?.name || client?.Nome || '—')}</p>
         <p><strong>Técnico:</strong> ${escapeHtml(tech?.name || '—')}</p>
-        <p><strong>Contacto:</strong> ${escapeHtml(client?.email || client?.['E-mail'] || '—')}</p>
+        ${contactField}
       </div>
       <h4 class="review-section-title">Dados do Relatório</h4>${fieldsHTML}
       ${renderReviewFotosSection(job, report)}
@@ -95,7 +99,8 @@ export async function openReportReviewModal(reportId, options = {}) {
     overlay.querySelector('#modal-approve')?.addEventListener('click', async () => {
       const btn = overlay.querySelector('#modal-approve');
       btn.disabled = true;
-      const ok = await approveReport(reportId);
+      const clientEmail = readReviewClientEmail(overlay);
+      const ok = await approveReport(reportId, { clientEmail });
       btn.disabled = false;
       if (ok) {
         closeModal();

@@ -605,11 +605,13 @@ export function mapClientToLegacy(record) {
   const nome = record.Nome ?? record.name ?? record.nome_empresa ?? '';
   const nif = record.NIF ?? record.nif ?? '';
   const email = record['E-mail'] ?? record.email ?? '';
+  const telemovel = record.Telemovel ?? record.telemovel ?? record.phone ?? '';
   return {
     id: record.id,
     Nome: nome,
     NIF: nif,
     'E-mail': email,
+    Telemovel: telemovel,
     Morada: morada,
     'Código postal': cp,
     Localidade: loc,
@@ -617,6 +619,9 @@ export function mapClientToLegacy(record) {
     name: nome,
     nif,
     email,
+    phone: telemovel,
+    telemovel,
+    Telemovel: telemovel,
     address,
     morada,
     codigoPostal: cp,

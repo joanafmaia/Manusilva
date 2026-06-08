@@ -5704,8 +5704,58 @@ body.dark-mode .rh-card__btn--pdf {
   border-top: 1px solid var(--ms-border-md, #e2e8f0);
 }
 
+.client-ficha-footer--actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.client-ficha-edit-btn,
+.client-ficha-save-btn,
+.client-ficha-cancel-btn,
 .client-ficha-history-btn {
   width: 100%;
+}
+
+.client-profile-edit-input {
+  width: 100%;
+  border-radius: var(--ms-radius-lg, 0.5rem);
+  border: 1px solid var(--ms-border-md, #e2e8f0);
+  color: var(--ms-text-700, #334155);
+  background: var(--ms-card-bg, #fff);
+}
+
+.client-ficha-block .client-profile-edit-input {
+  margin-top: 0.15rem;
+}
+
+.review-email-field {
+  margin: 0.5rem 0 0.75rem;
+}
+
+.review-email-hint {
+  margin: 0.35rem 0 0;
+  font-size: 0.75rem;
+  line-height: 1.35;
+}
+
+@media (min-width: 768px) {
+  .client-ficha-footer--actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .client-ficha-edit-btn,
+  .client-ficha-save-btn,
+  .client-ficha-cancel-btn {
+    width: auto;
+    flex: 1;
+    min-width: 8rem;
+  }
+
+  .client-ficha-history-btn {
+    width: 100%;
+  }
 }
 
 @media (min-width: 768px) {

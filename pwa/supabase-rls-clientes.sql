@@ -31,6 +31,25 @@ CREATE POLICY "authenticated_insert_clientes"
   TO authenticated
   WITH CHECK (true);
 
+-- Telemóvel (contacto) — opcional na ficha RH
+ALTER TABLE public.clientes ADD COLUMN IF NOT EXISTS telemovel text;
+
+DROP POLICY IF EXISTS "anon_update_clientes" ON public.clientes;
+CREATE POLICY "anon_update_clientes"
+  ON public.clientes
+  FOR UPDATE
+  TO anon
+  USING (true)
+  WITH CHECK (true);
+
+DROP POLICY IF EXISTS "authenticated_update_clientes" ON public.clientes;
+CREATE POLICY "authenticated_update_clientes"
+  ON public.clientes
+  FOR UPDATE
+  TO authenticated
+  USING (true)
+  WITH CHECK (true);
+
 -- A coluna id já é IDENTITY: não uses DEFAULT/SEQUENCE manual.
 -- Após importar ids 1..129, o próximo INSERT deve ser 130, 131, …
 DO $$

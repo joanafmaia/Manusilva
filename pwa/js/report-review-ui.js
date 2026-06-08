@@ -5,6 +5,32 @@
 import { escapeHtml } from './app.js';
 import { resolveJobFotos, isValidFotoUrl } from './job-fotos.js';
 
+function escapeAttr(str) {
+  return String(str ?? '').replace(/"/g, '&quot;');
+}
+
+/**
+ * Campo de e-mail do cliente na revisão — editável antes da aprovação.
+ */
+export function renderReviewClientEmailField(client, { editable = false, inputId = 'review-client-email' } = {}) {
+  const email = client?.email || client?.['E-mail'] || '';
+  if (!editable) {
+    return `<p class="review-meta-row"><strong>Contacto:</strong> ${escapeHtml(email || '—')}</p>`;
+  }
+  return `
+    <div class="review-email-field form-group">
+      <label class="form-label" for="${escapeHtml(inputId)}">E-mail do Cliente</label>
+      <input type="email" class="form-input client-profile-edit-input" id="${escapeHtml(inputId)}" name="review-client-email"
+        value="${escapeAttr(email)}" autocomplete="email" placeholder="email@empresa.pt">
+      <p class="text-muted review-email-hint">Se alterar o e-mail, a base de dados do cliente será atualizada na aprovação.</p>
+    </div>
+  `;
+}
+
+export function readReviewClientEmail(root, inputId = 'review-client-email') {
+  return root?.querySelector(`#${CSS.escape(inputId)}`)?.value?.trim() || '';
+}
+
 export function formatOrdemLabel(job) {
   if (job?.numeroOrdem == null) return '—';
   return `OP-2026-${String(job.numeroOrdem).padStart(2, '0')}`;

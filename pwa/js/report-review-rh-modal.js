@@ -19,6 +19,8 @@ import {
 import {
   formatOrdemLabel,
   renderReviewFotosSection,
+  renderReviewClientEmailField,
+  readReviewClientEmail,
   bindReviewFotoClicks,
   bindReviewPdfButton,
 } from './report-review-ui.js';
@@ -183,7 +185,8 @@ export async function openRhReviewModal(reportId, callbacks = {}) {
     overlay.querySelector('#modal-approve')?.addEventListener('click', async () => {
       const btn = overlay.querySelector('#modal-approve');
       btn.disabled = true;
-      const ok = await approveReport(reportId);
+      const clientEmail = readReviewClientEmail(overlay);
+      const ok = await approveReport(reportId, { clientEmail });
       btn.disabled = false;
       if (ok) {
         closeModal();
@@ -216,7 +219,7 @@ export function buildRhReviewModalContent({
     ? String(report.submittedAt).split('T')[0]
     : job?.date || '';
   const dateLabel = submittedDate ? formatDateLong(submittedDate) : '—';
-  const contact = client?.email || client?.['E-mail'] || '—';
+  const contactField = renderReviewClientEmailField(client, { editable: showWorkflow });
 
   const workflowHtml = showWorkflow
     ? `
@@ -235,7 +238,7 @@ export function buildRhReviewModalContent({
           </div>
           <p class="review-meta-row"><strong>Cliente:</strong> ${escapeHtml(client?.name || client?.Nome || '—')}</p>
           <p class="review-meta-row"><strong>Técnico:</strong> ${escapeHtml(tech?.name || '—')}</p>
-          <p class="review-meta-row"><strong>Contacto:</strong> ${escapeHtml(contact)}</p>
+          ${contactField}
           <p class="review-meta-row"><strong>Data:</strong> ${escapeHtml(dateLabel)}</p>
           ${report?.forkliftSerial ? `<p class="review-meta-row"><strong>Máquina:</strong> ${escapeHtml(report.forkliftSerial)}</p>` : ''}
         </header>

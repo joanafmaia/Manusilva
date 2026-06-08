@@ -26,6 +26,7 @@ import {
   registerClientInCatalog,
   normalizeClientRecord,
   formatClientInsertError,
+  formatClientUpdateError,
   resetProductionCatalogCache,
 } from './clients-catalog.js';
 import {
@@ -477,6 +478,104 @@ export async function addClient(payload) {
   }
 }
 
+/**
+ * Atualiza dados cadastrais de um cliente no Supabase.
+ * @param {string|number} clientId
+ * @param {{ email?: string, morada?: string, telemovel?: string }} patch
+ */
+export async function updateClient(clientId, patch = {}) {
+  const id = String(clientId ?? '').trim();
+  if (!id) {
+    showToast('Cliente inválido.', 'error');
+    return null;
+  }
+
+  const row = {};
+  if (patch.email !== undefined) {
+    row.email = String(patch.email ?? '').trim() || null;
+  }
+  if (patch.morada !== undefined) {
+    row.morada = String(patch.morada ?? '').trim() || null;
+  }
+  if (patch.telemovel !== undefined) {
+    row.telemovel = String(patch.telemovel ?? '').trim() || null;
+  }
+
+  if (!Object.keys(row).length) {
+    showToast('Nenhum dado para atualizar.', 'warning');
+    return null;
+  }
+
+  try {
+    await ensureProductionCatalog();
+    const supabase = await getSupabaseClient();
+    const numericId = /^\d+$/.test(id) ? Number(id) : id;
+    const { data, error } = await supabase
+      .from('clientes')
+      .update(row)
+      .eq('id', numericId)
+      .select();
+
+    if (error) {
+      console.error('[ManuSilva] Erro ao atualizar cliente no Supabase:', error);
+      showToast(formatClientUpdateError(error), 'error', 9000);
+      return null;
+    }
+
+    const updated = Array.isArray(data) ? data[0] : data;
+    if (!updated) {
+      showToast('Cliente não encontrado na base de dados.', 'error');
+      return null;
+    }
+
+    const record = normalizeClientRecord(updated);
+    const existing = getClientFromCatalog(id);
+    if (existing?.forklifts?.length) {
+      record.forklifts = existing.forklifts;
+    }
+
+    registerClientInCatalog(record);
+
+    updateDB((d) => {
+      if (!Array.isArray(d.clients)) d.clients = [];
+      const idx = d.clients.findIndex((c) => String(c.id) === id);
+      if (idx >= 0) {
+        Object.assign(d.clients[idx], record);
+      } else {
+        d.clients.push(record);
+      }
+    });
+
+    window.dispatchEvent(new CustomEvent('db-updated'));
+    return record;
+  } catch (err) {
+    console.error('[ManuSilva] updateClient:', err);
+    showToast(formatClientUpdateError(err), 'error', 9000);
+    return null;
+  }
+}
+
+/**
+ * Atualiza o e-mail do cliente se o valor do formulário de aprovação for diferente.
+ * @returns {Promise<boolean>} true se houve update na base de dados
+ */
+export async function syncClientEmailIfChanged(clientId, newEmail) {
+  const email = String(newEmail ?? '').trim();
+  if (!email || !clientId) return false;
+
+  await ensureProductionCatalog();
+  const catalog = getProductionClientsCatalog({ warn: false });
+  const record = getClientFromCatalog(clientId, catalog);
+  const current = String(record?.['E-mail'] || record?.email || '')
+    .trim()
+    .toLowerCase();
+
+  if (current === email.toLowerCase()) return false;
+
+  const updated = await updateClient(clientId, { email });
+  return !!updated;
+}
+
 export function getServiceType(id) {
   return reportTemplates.find((s) => s.id === id) || SERVICE_TYPES.find((s) => s.id === id);
 }
@@ -724,15 +823,28 @@ export async function submitReport(report, options = {}) {
 
 export { sincronizarTrabalhosOffline, initTrabalhosOfflineSync } from './trabalhos-offline.js';
 
-export async function approveReport(reportId) {
+/**
+ * @param {string} reportId
+ * @param {{ clientEmail?: string }} [options] — e-mail editável na revisão RH
+ */
+export async function approveReport(reportId, options = {}) {
   const report = getReport(reportId);
   if (!report) {
     showToast('Relatório não encontrado.', 'error');
     return null;
   }
 
-  const client = getClient(report.clientId);
+  let client = getClient(report.clientId);
   const service = getServiceType(report.serviceType);
+  const clientEmailInput = String(options.clientEmail ?? '').trim();
+  let emailSynced = false;
+
+  if (clientEmailInput && report.clientId) {
+    emailSynced = await syncClientEmailIfChanged(report.clientId, clientEmailInput);
+    if (emailSynced) {
+      client = getClient(report.clientId);
+    }
+  }
 
   try {
     await ensureJobsLoaded(true);
@@ -794,13 +906,23 @@ export async function approveReport(reportId) {
 
     window.dispatchEvent(new CustomEvent('db-updated'));
 
-    showToast(
-      `Relatório aprovado! PDF guardado no Storage. A enviar e-mail para ${client?.email || 'N/A'}...`,
-      'success',
-      7000,
-    );
+    const recipientEmail =
+      clientEmailInput || client?.email || client?.['E-mail'] || '';
 
-    const recipientEmail = client?.email || client?.['E-mail'] || '';
+    if (emailSynced) {
+      showToast(
+        'Relatório aprovado e email do cliente atualizado na base de dados!',
+        'success',
+        6000,
+      );
+    } else if (recipientEmail) {
+      showToast(
+        `Relatório aprovado! PDF guardado no Storage. A enviar e-mail para ${recipientEmail}...`,
+        'success',
+        7000,
+      );
+    }
+
     if (recipientEmail) {
       const values = report?.data?.values || {};
       const tipoRelatorio =
@@ -834,7 +956,7 @@ export async function approveReport(reportId) {
           8000,
         );
       });
-    } else {
+    } else if (!emailSynced) {
       showToast('Relatório aprovado, mas o cliente não tem e-mail registado.', 'warning');
     }
 

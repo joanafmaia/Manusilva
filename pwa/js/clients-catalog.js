@@ -34,6 +34,7 @@ export function normalizeClientRecord(raw, index = 0) {
     'Código postal': raw.codigo_postal ?? raw['Código postal'] ?? raw.codigoPostal ?? '',
     Localidade: raw.localidade ?? raw.Localidade ?? '',
     'País/Região': raw['País/Região'] ?? raw.pais ?? 'Portugal',
+    Telemovel: raw.telemovel ?? raw.Telemovel ?? raw.phone ?? '',
     forklifts: raw.forklifts || [],
   };
 }
@@ -104,6 +105,24 @@ export function formatClientInsertError(err) {
     return (
       'A coluna id está vazia no INSERT. Executa pwa/supabase-rls-clientes.sql no Supabase (RESTART WITH).'
     );
+  }
+
+  return msg || formatClientsLoadError(err);
+}
+
+/** Mensagens para falhas ao atualizar cliente no Supabase */
+export function formatClientUpdateError(err) {
+  if (!err) return 'Não foi possível atualizar o cliente.';
+  const msg = String(err.message || err.details || err.hint || '').trim();
+  const code = err.code || '';
+
+  if (code === '42501' || /permission denied|row-level security/i.test(msg)) {
+    return (
+      'Sem permissão para atualizar (RLS). Executa pwa/supabase-rls-clientes.sql no SQL Editor do Supabase.'
+    );
+  }
+  if (code === 'PGRST116' || /0 rows/i.test(msg)) {
+    return 'Cliente não encontrado na base de dados.';
   }
 
   return msg || formatClientsLoadError(err);
