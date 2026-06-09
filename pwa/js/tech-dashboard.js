@@ -159,7 +159,7 @@ function bindOfflineSyncButton() {
     btn.disabled = true;
     document.getElementById('offline-sync-bar')?.classList.add('is-syncing');
     const labelEl = btn.querySelector('.offline-sync-banner__action-label');
-    const prevLabel = labelEl?.textContent || 'Sincronizar agora';
+    const prevLabel = labelEl?.textContent || 'Sincronizar Agora';
     if (labelEl) labelEl.textContent = 'A sincronizar…';
 
     try {
@@ -197,10 +197,11 @@ function bindOfflineSyncButton() {
 
 function renderOfflineSyncBar() {
   const bar = document.getElementById('offline-sync-bar');
+  const title = document.getElementById('offline-sync-title');
   const desc = document.getElementById('offline-sync-desc');
   const countEl = document.getElementById('offline-sync-count');
   const btn = document.getElementById('offline-sync-btn');
-  if (!bar || !desc) return;
+  if (!bar) return;
 
   import('./trabalhos-offline.js')
     .then(({ countTrabalhosPendentes }) => {
@@ -212,21 +213,22 @@ function renderOfflineSyncBar() {
 
       bar.hidden = false;
 
+      if (title) {
+        title.textContent =
+          count === 1
+            ? '🔄 Tens 1 relatório pendente.'
+            : `🔄 Tens ${count} relatórios pendentes.`;
+      }
+
       if (countEl) {
         countEl.hidden = false;
         countEl.textContent = String(count);
       }
 
-      if (canReachServer()) {
-        desc.textContent =
-          count === 1
-            ? '1 relatório guardado neste dispositivo está pronto para enviar.'
-            : `${count} relatórios guardados neste dispositivo estão prontos para enviar.`;
-      } else {
-        desc.textContent =
-          count === 1
-            ? '1 relatório em segurança no tablet. Envie quando recuperar ligação à internet.'
-            : `${count} relatórios em segurança no tablet. Envie quando recuperar ligação à internet.`;
+      if (desc) {
+        desc.textContent = canReachServer()
+          ? 'Pronto para enviar ao servidor.'
+          : 'Em segurança no tablet até recuperar ligação à internet.';
       }
 
       if (btn) {

@@ -771,6 +771,10 @@ export async function saveReportDraft(report, options = {}) {
   mergeReportInCache(draft);
   window.dispatchEvent(new CustomEvent('db-updated'));
 
+  if (silent) {
+    return draft;
+  }
+
   if (!canReachServer()) {
     if (!silent) {
       showToast('Rascunho guardado neste dispositivo.', 'info', 3500);

@@ -6,6 +6,7 @@ import { upsertRelatorio, ensureReportsLoaded, mergeReportInCache } from './rela
 import { patchTrabalho, patchTrabalhoStatus } from './trabalhos-db.js';
 import { isValidFotoUrl } from './job-fotos.js';
 import { uploadPendingFotosFromReport } from './foto-trabalho-storage.js';
+import { removeLocalReportDraft } from './report-local-storage.js';
 
 export const STORAGE_KEY = 'trabalhos_pendentes';
 
@@ -13,7 +14,7 @@ export const MSG_SAVED_ON_DEVICE =
   'Relatório guardado no dispositivo. Será sincronizado automaticamente assim que tiver rede.';
 
 export const MSG_OFFLINE_SUBMIT =
-  'Sem ligação à internet. O seu relatório ficou guardado em segurança no tablet. Assim que tiver rede, clique em «Sincronizar Agora» no painel.';
+  'Sem ligação à internet. O relatório está seguro no tablet. Assim que tiver rede, clique para sincronizar.';
 
 let syncInProgress = false;
 let listenerRegistered = false;
@@ -115,6 +116,7 @@ async function syncOnePendingItem(item) {
   mergeReportInCache(saved || report);
 
   if (saved?.jobId) {
+    removeLocalReportDraft(saved.jobId);
     const fotoPatch = {};
     const data = report.data || {};
     if (isValidFotoUrl(data.fotoAntesUrl)) fotoPatch.fotoAntes = data.fotoAntesUrl;

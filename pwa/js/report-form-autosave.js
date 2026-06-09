@@ -1,17 +1,17 @@
 /**
- * Auto-save modular — formulários de relatório técnico (localStorage / manusilva_db)
+ * Auto-save modular — formulários de relatório técnico (localStorage, sem rede)
  */
 
-import { saveReportDraft } from './app.js';
+import { saveLocalReportDraft } from './report-local-storage.js';
+import { mergeReportInCache } from './relatorios-db.js';
 
-const DEBOUNCE_MS = 150;
+const DEBOUNCE_MS = 80;
 
 /** Estados em que o formulário pode ser auto-gravado */
 export function canAutosaveReport(existingReport, job) {
   if (job?.status === 'completed') return false;
-  if (job?.status === 'rejected') return true;
-  if (!existingReport) return true;
-  return existingReport.status === 'draft';
+  if (existingReport?.status === 'approved') return false;
+  return true;
 }
 
 /**
@@ -32,16 +32,7 @@ export function initReportFormAutosave({ overlay, job, existingReport, buildRepo
   const reportId = existingReport?.id || `rep-draft-${job.id}`;
   let debounceTimer = null;
   let destroyed = false;
-  let statusEl = overlay.querySelector('#form-autosave-status');
-
-  if (!statusEl) {
-    statusEl = document.createElement('span');
-    statusEl.id = 'form-autosave-status';
-    statusEl.className = 'form-autosave-status';
-    statusEl.setAttribute('aria-live', 'polite');
-    const header = overlay.querySelector('.form-panel-header h2');
-    header?.insertAdjacentElement('afterend', statusEl);
-  }
+  const statusEl = overlay.querySelector('#form-autosave-status');
 
   const setStatus = (state) => {
     if (!statusEl || destroyed) return;
@@ -52,8 +43,8 @@ export function initReportFormAutosave({ overlay, job, existingReport, buildRepo
       return;
     }
     statusEl.hidden = false;
-    if (state === 'pending') statusEl.textContent = 'A guardar localmente…';
-    else if (state === 'saved') statusEl.textContent = 'Guardado localmente';
+    if (state === 'pending') statusEl.textContent = '🔄 A gravar alterações…';
+    else if (state === 'saved') statusEl.textContent = '✓ Guardado no tablet';
     else if (state === 'error') statusEl.textContent = 'Erro ao guardar — tente «Guardar Rascunho»';
   };
 
@@ -62,7 +53,11 @@ export function initReportFormAutosave({ overlay, job, existingReport, buildRepo
     try {
       const report = buildReport();
       report.id = reportId;
-      saveReportDraft(report, { silent: true });
+      if (report.status !== 'pending_review') {
+        report.status = 'draft';
+      }
+      saveLocalReportDraft(report);
+      mergeReportInCache(report);
       setStatus('saved');
     } catch (err) {
       console.error('[Auto-save]', err);

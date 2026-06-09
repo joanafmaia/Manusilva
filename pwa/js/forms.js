@@ -161,7 +161,7 @@ export function openJobForm(jobId, options = {}) {
   if (trabalhoIdEmEdicao) {
     showToast('Pode editar o relatório enquanto aguarda aprovação do RH.', 'info', 4000);
   } else if (existingReport?.status === 'draft' || existingReport?._localSavedAt) {
-    showToast('Rascunho guardado neste dispositivo recuperado automaticamente.', 'info', 4000);
+    showToast('Rascunho recuperado automaticamente da memória do tablet.', 'info', 4000);
   }
 }
 
@@ -278,6 +278,7 @@ function buildFormHTML(job, client, tech, service, existingReport) {
       <div class="form-panel form-panel--premium glass-card">
         <div class="form-panel-header form-panel-header--minimal">
           <button type="button" class="btn-ghost" id="close-form">&larr; Voltar</button>
+          <span id="form-autosave-status" class="form-autosave-status" hidden aria-live="polite"></span>
         </div>
 
         ${tabsNav}
