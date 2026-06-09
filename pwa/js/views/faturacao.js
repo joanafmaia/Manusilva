@@ -19,21 +19,19 @@ import {
 } from '../app.js';
 import { formatOrdemLabel } from '../report-review-ui.js';
 import { PAYMENT_CONDITION_OPTIONS } from './client-profile-drawer.js';
+import {
+  FATURA_CONDICAO_OPCOES,
+  STATUS_RECEBIMENTO_OPCOES,
+  labelFaturaCondicao,
+  labelStatusRecebimento,
+  condicaoFromClientCatalog,
+} from '../billing-constants.js';
 
 const URGENT_PAYMENT_TERMS = new Set(['pronto pagamento', 'semanal']);
 const URGENT_DAYS = 3;
 const DEFAULT_ESTIMATE_EUR = 120;
 
-const PRAZO_PAGAMENTO_OPCOES = [
-  { value: 'pendente', label: 'Pendente (A receber)' },
-  { value: 'pronto', label: 'Pago (Pronto-pagamento)' },
-  { value: '30_dias', label: '30 Dias' },
-  { value: '60_dias', label: '60 Dias' },
-];
-
-const PRAZO_LABELS = Object.fromEntries(
-  PRAZO_PAGAMENTO_OPCOES.map((o) => [o.value, o.label]),
-);
+const VENCIMENTO_ALERT_DAYS = 7;
 
 const ESTIMATE_EUR_BY_SERVICE = {
   folha_intervencao_avarias: 95,
@@ -92,10 +90,27 @@ function daysSince(isoDate) {
   return Math.floor((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
 }
 
-function isPastDue(isoDate) {
-  if (!isoDate) return false;
-  const due = new Date(`${isoDate}T23:59:59`);
-  return !Number.isNaN(due.getTime()) && due < new Date();
+function daysUntil(isoDate) {
+  if (!isoDate) return null;
+  const due = new Date(`${isoDate}T12:00:00`);
+  if (Number.isNaN(due.getTime())) return null;
+  const today = new Date();
+  today.setHours(12, 0, 0, 0);
+  return Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+/** @returns {'none' | 'ok' | 'soon' | 'overdue'} */
+function vencimentoUrgency(isoDate) {
+  const days = daysUntil(isoDate);
+  if (days == null) return 'none';
+  if (days < 0) return 'overdue';
+  if (days <= VENCIMENTO_ALERT_DAYS) return 'soon';
+  return 'ok';
+}
+
+function vencimentoCellClass(urgency) {
+  if (urgency === 'overdue' || urgency === 'soon') return 'faturacao-vencimento--alert';
+  return '';
 }
 
 export function isBillingUrgent(report, client) {
@@ -158,6 +173,7 @@ function buildReceivableRows(reports) {
     const meta = resolveClientMeta(report.clientId);
     const valor = Number(report.valorFaturado) || 0;
     const vencimento = report.dataVencimento || null;
+    const vencimentoUrg = vencimentoUrgency(vencimento);
     return {
       report,
       ...meta,
@@ -165,9 +181,11 @@ function buildReceivableRows(reports) {
       valor,
       valorLabel: formatCurrencyEur(valor),
       emissaoLabel: report.dataFatura ? formatDate(report.dataFatura) : '—',
+      condicaoLabel: labelFaturaCondicao(report.faturaCondicaoPagamento),
+      statusLabel: labelStatusRecebimento(report.statusRecebimento),
       vencimentoLabel: vencimento ? formatDate(vencimento) : '—',
-      prazoLabel: PRAZO_LABELS[report.prazoPagamento] || report.prazoPagamento || '—',
-      overdue: isPastDue(vencimento),
+      vencimentoClass: vencimentoCellClass(vencimentoUrg),
+      vencimentoUrg,
     };
   });
 }
@@ -279,9 +297,9 @@ function renderReceivablesTable(rows) {
               <th scope="col">NIF</th>
               <th scope="col">Nº Fatura</th>
               <th scope="col">Valor</th>
-              <th scope="col">Emissão</th>
-              <th scope="col">Vencimento</th>
-              <th scope="col">Prazo</th>
+              <th scope="col">Data de Emissão</th>
+              <th scope="col">Condição de Pagamento</th>
+              <th scope="col">Data de Vencimento</th>
               <th scope="col" class="faturacao-col-action">Ação</th>
             </tr>
           </thead>
@@ -289,14 +307,14 @@ function renderReceivablesTable(rows) {
             ${rows
               .map(
                 (row) => `
-              <tr class="rh-data-table-row${row.overdue ? ' faturacao-row--urgent' : ''}" data-invoice-id="${escapeHtml(row.report.id)}">
-                <td>${escapeHtml(row.nome)}${row.overdue ? ' <span class="faturacao-urgent-badge">Vencida</span>' : ''}</td>
+              <tr class="rh-data-table-row${row.vencimentoUrg === 'overdue' ? ' faturacao-row--urgent' : ''}" data-invoice-id="${escapeHtml(row.report.id)}">
+                <td>${escapeHtml(row.nome)}${row.vencimentoUrg === 'overdue' ? ' <span class="faturacao-urgent-badge">Vencida</span>' : ''}${row.vencimentoUrg === 'soon' ? ' <span class="faturacao-urgent-badge faturacao-urgent-badge--soon">A vencer</span>' : ''}</td>
                 <td>${escapeHtml(row.nif)}</td>
                 <td><code class="faturacao-ordem">${escapeHtml(row.numeroFatura)}</code></td>
                 <td class="faturacao-col-valor">${escapeHtml(row.valorLabel)}</td>
                 <td>${escapeHtml(row.emissaoLabel)}</td>
-                <td>${escapeHtml(row.vencimentoLabel)}</td>
-                <td>${escapeHtml(row.prazoLabel)}</td>
+                <td>${escapeHtml(row.condicaoLabel)}</td>
+                <td class="${escapeHtml(row.vencimentoClass)}">${escapeHtml(row.vencimentoLabel)}</td>
                 <td class="faturacao-col-action">
                   <button type="button" class="btn-success btn-sm" data-confirm-payment="${escapeHtml(row.report.id)}">
                     Confirmar Recebimento
@@ -430,8 +448,19 @@ function openRegisterInvoiceModal(reportId) {
   const report = getReport(reportId);
   const defaultValor = estimateReportValue(report);
   const today = new Date().toISOString().split('T')[0];
+  const client = report?.clientId ? getClient(report.clientId) : null;
+  const defaultCondicao = condicaoFromClientCatalog(
+    client?.condicao_pagamento ||
+      client?.condicaoPagamento ||
+      client?.['Condição de pagamento'],
+  );
 
-  const prazoOptions = PRAZO_PAGAMENTO_OPCOES.map(
+  const condicaoOptions = FATURA_CONDICAO_OPCOES.map(
+    (opt) =>
+      `<option value="${opt.value}"${opt.value === defaultCondicao ? ' selected' : ''}>${escapeHtml(opt.label)}</option>`,
+  ).join('');
+
+  const statusOptions = STATUS_RECEBIMENTO_OPCOES.map(
     (opt) =>
       `<option value="${opt.value}"${opt.value === 'pendente' ? ' selected' : ''}>${escapeHtml(opt.label)}</option>`,
   ).join('');
@@ -453,13 +482,19 @@ function openRegisterInvoiceModal(reportId) {
         <input type="date" class="form-input" id="invoice-data" name="data" required value="${today}">
       </div>
       <div class="form-group">
-        <label class="form-label" for="invoice-prazo">Estado do Pagamento</label>
-        <select class="form-input" id="invoice-prazo" name="prazo" required>
-          ${prazoOptions}
+        <label class="form-label" for="invoice-condicao">Condição de Pagamento</label>
+        <select class="form-input" id="invoice-condicao" name="condicao" required>
+          ${condicaoOptions}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="invoice-status">Estado de Recebimento</label>
+        <select class="form-input" id="invoice-status" name="status" required>
+          ${statusOptions}
         </select>
       </div>
       <p class="text-muted faturacao-invoice-hint">
-        A fatura legal é emitida no programa externo. Este registo controla contas a receber e fluxo de caixa.
+        A fatura legal é emitida no programa externo. «30 Dias» / «60 Dias» calculam a data de vencimento automaticamente.
       </p>
     </form>
   `;
@@ -477,7 +512,8 @@ function openRegisterInvoiceModal(reportId) {
     const numero = document.getElementById('invoice-numero')?.value?.trim();
     const data = document.getElementById('invoice-data')?.value?.trim();
     const valor = Number(document.getElementById('invoice-valor')?.value);
-    const prazo = document.getElementById('invoice-prazo')?.value;
+    const condicao = document.getElementById('invoice-condicao')?.value;
+    const statusRecebimento = document.getElementById('invoice-status')?.value;
     const btn = document.getElementById('btn-save-invoice');
 
     if (!numero || !data) {
@@ -495,7 +531,8 @@ function openRegisterInvoiceModal(reportId) {
         numeroFatura: numero,
         dataFatura: data,
         valorFaturado: valor,
-        prazoPagamento: prazo,
+        condicaoPagamento: condicao,
+        statusRecebimento,
       });
       closeModal();
       showToast('Fatura registada. Controlo financeiro atualizado.', 'success');

@@ -67,6 +67,10 @@ import {
 import { applyThemeToDocument } from './theme.js';
 import { LoginView } from './views/login.js';
 import { AuthService } from './auth.js';
+import {
+  normalizeFaturaCondicao,
+  normalizeStatusRecebimento,
+} from './billing-constants.js';
 
 export { APP_SESSION_KEY, clearSession, getSession, normalizeSession };
 
@@ -819,8 +823,6 @@ export function getPendingBillingReports() {
     );
 }
 
-const PRAZO_PAGAMENTO_VALIDOS = new Set(['pendente', 'pronto', '30_dias', '60_dias']);
-
 function addDaysToIsoDate(isoDate, days) {
   const base = new Date(`${isoDate}T12:00:00`);
   if (Number.isNaN(base.getTime())) return null;
@@ -828,29 +830,24 @@ function addDaysToIsoDate(isoDate, days) {
   return base.toISOString().split('T')[0];
 }
 
-/** Resolve pagamento_status e data_vencimento a partir do prazo escolhido na faturação. */
-export function resolveInvoicePaymentFields(prazoPagamento, dataEmissao) {
-  const prazo = String(prazoPagamento || 'pendente').trim();
-  if (!PRAZO_PAGAMENTO_VALIDOS.has(prazo)) {
-    throw new Error('Prazo de pagamento inválido.');
-  }
+/**
+ * Calcula data_vencimento a partir da condição de pagamento e data de emissão.
+ */
+export function resolveInvoiceDueDate(condicaoPagamento, dataEmissao) {
+  const condicao = normalizeFaturaCondicao(condicaoPagamento);
+  if (condicao === '30_dias') return addDaysToIsoDate(dataEmissao, 30);
+  if (condicao === '60_dias') return addDaysToIsoDate(dataEmissao, 60);
+  return dataEmissao;
+}
 
-  if (prazo === 'pronto') {
-    return {
-      prazoPagamento: prazo,
-      pagamentoStatus: 'pago',
-      dataVencimento: null,
-    };
-  }
-
-  let dataVencimento = null;
-  if (prazo === '30_dias') dataVencimento = addDaysToIsoDate(dataEmissao, 30);
-  if (prazo === '60_dias') dataVencimento = addDaysToIsoDate(dataEmissao, 60);
-
+/** Campos financeiros da fatura (condição + recebimento independentes). */
+export function resolveInvoiceBillingFields(condicaoPagamento, statusRecebimento, dataEmissao) {
+  const faturaCondicaoPagamento = normalizeFaturaCondicao(condicaoPagamento);
+  const status = normalizeStatusRecebimento(statusRecebimento);
   return {
-    prazoPagamento: prazo,
-    pagamentoStatus: 'pendente',
-    dataVencimento,
+    faturaCondicaoPagamento,
+    statusRecebimento: status,
+    dataVencimento: resolveInvoiceDueDate(faturaCondicaoPagamento, dataEmissao),
   };
 }
 
@@ -858,7 +855,7 @@ export function resolveInvoicePaymentFields(prazoPagamento, dataEmissao) {
 export function getPendingPaymentInvoices() {
   return getReportsSnapshot()
     .filter(
-      (r) => r.faturacaoStatus === 'faturado' && r.pagamentoStatus === 'pendente',
+      (r) => r.faturacaoStatus === 'faturado' && r.statusRecebimento === 'pendente',
     )
     .sort((a, b) =>
       String(a.dataVencimento || a.dataFatura || '').localeCompare(
@@ -878,8 +875,8 @@ export function getBillingFinancialMetrics() {
     const valor = Number(r.valorFaturado);
     if (!Number.isFinite(valor) || valor <= 0) return;
     totalFaturado += valor;
-    if (r.pagamentoStatus === 'pago') totalRecebido += valor;
-    else if (r.pagamentoStatus === 'pendente') totalDivida += valor;
+    if (r.statusRecebimento === 'pago') totalRecebido += valor;
+    else if (r.statusRecebimento === 'pendente') totalDivida += valor;
   });
 
   return { totalFaturado, totalRecebido, totalDivida };
@@ -888,7 +885,7 @@ export function getBillingFinancialMetrics() {
 /** Regista fatura emitida externamente — contas a receber */
 export async function registerReportInvoice(
   reportId,
-  { numeroFatura, dataFatura, valorFaturado, prazoPagamento },
+  { numeroFatura, dataFatura, valorFaturado, condicaoPagamento, statusRecebimento },
 ) {
   const report = getReport(reportId);
   if (!report) throw new Error('Relatório não encontrado.');
@@ -905,16 +902,16 @@ export async function registerReportInvoice(
     throw new Error('Indique um valor total faturado válido.');
   }
 
-  const payment = resolveInvoicePaymentFields(prazoPagamento, data);
+  const billing = resolveInvoiceBillingFields(condicaoPagamento, statusRecebimento, data);
 
   await updateRelatorio(reportId, {
     faturacaoStatus: 'faturado',
     numeroFatura: numero,
     dataFatura: data,
     valorFaturado: Math.round(valor * 100) / 100,
-    pagamentoStatus: payment.pagamentoStatus,
-    prazoPagamento: payment.prazoPagamento,
-    dataVencimento: payment.dataVencimento,
+    faturaCondicaoPagamento: billing.faturaCondicaoPagamento,
+    statusRecebimento: billing.statusRecebimento,
+    dataVencimento: billing.dataVencimento,
   });
   window.dispatchEvent(new CustomEvent('db-updated'));
   return true;
@@ -927,12 +924,12 @@ export async function confirmInvoicePayment(reportId) {
   if (report.faturacaoStatus !== 'faturado') {
     throw new Error('Este relatório ainda não foi faturado.');
   }
-  if (report.pagamentoStatus === 'pago') {
+  if (report.statusRecebimento === 'pago') {
     throw new Error('Este recebimento já foi confirmado.');
   }
 
   await updateRelatorio(reportId, {
-    pagamentoStatus: 'pago',
+    statusRecebimento: 'pago',
   });
   window.dispatchEvent(new CustomEvent('db-updated'));
   return true;

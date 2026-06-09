@@ -8,6 +8,7 @@ import {
   getJobsSnapshot,
   insertTrabalhoFromReport,
 } from './trabalhos-db.js';
+import { legacyPrazoToCondicao } from './billing-constants.js';
 
 let reportsCache = null;
 let reportsLoadPromise = null;
@@ -49,8 +50,11 @@ export function mapRowToReport(row) {
       row.valor_faturado != null && row.valor_faturado !== ''
         ? Number(row.valor_faturado)
         : null,
-    pagamentoStatus: row.pagamento_status || null,
-    prazoPagamento: row.prazo_pagamento || null,
+    faturaCondicaoPagamento:
+      row.condicao_pagamento ||
+      legacyPrazoToCondicao(row.prazo_pagamento) ||
+      null,
+    statusRecebimento: row.status_recebimento || row.pagamento_status || null,
     dataVencimento: row.data_vencimento || null,
     data: {
       values: dados.values || {},
@@ -82,8 +86,8 @@ export function mapReportToRow(report) {
       report.valorFaturado != null && Number.isFinite(Number(report.valorFaturado))
         ? Number(report.valorFaturado)
         : null,
-    pagamento_status: report.pagamentoStatus || null,
-    prazo_pagamento: report.prazoPagamento || null,
+    condicao_pagamento: report.faturaCondicaoPagamento || null,
+    status_recebimento: report.statusRecebimento || null,
     data_vencimento: report.dataVencimento || null,
     dados: {
       values: data.values || {},

@@ -8738,6 +8738,16 @@ body.dark-mode .client-ficha-value {
   vertical-align: middle;
 }
 
+.faturacao-urgent-badge--soon {
+  color: #dc2626;
+  background: rgba(220, 38, 38, 0.12);
+}
+
+.faturacao-vencimento--alert {
+  color: #dc2626;
+  font-weight: 700;
+}
+
 .faturacao-invoice-form .form-group + .form-group {
   margin-top: 0.85rem;
 }
