@@ -315,7 +315,7 @@ async function fetchClientAddressDirectFromSupabase(clientId, nifHint = '') {
   try {
     await ensureSupabaseAuthSession();
     const supabase = await getSupabaseClient();
-    let query = supabase.from('clientes').select('morada, codigo_postal');
+    let query = supabase.from('clientes').select('morada, codigo_postal, localidade');
 
     if (/^\d+$/.test(id)) {
       query = query.eq('id', Number(id));
@@ -330,9 +330,10 @@ async function fetchClientAddressDirectFromSupabase(clientId, nifHint = '') {
 
     const morada = String(data.morada || '').trim();
     const codigo_postal = String(data.codigo_postal || '').trim();
+    const localidade = String(data.localidade || '').trim();
     if (!morada) return null;
 
-    return { morada, codigo_postal };
+    return { morada, codigo_postal, localidade };
   } catch (err) {
     console.warn('[Deslocação] Leitura direta do cliente falhou:', err);
     return null;
@@ -342,7 +343,7 @@ async function fetchClientAddressDirectFromSupabase(clientId, nifHint = '') {
 /**
  * Garante catálogo + morada do cliente antes do cálculo de deslocação.
  * @param {string} clientId — `cliente_id` da ordem de trabalho (Supabase)
- * @returns {Promise<{ morada: string, codigo_postal: string } | null>}
+ * @returns {Promise<{ morada: string, codigo_postal: string, localidade: string } | null>}
  */
 export async function ensureClientAddressForDeslocacao(clientId) {
   const id = String(clientId ?? '').trim();
@@ -361,9 +362,10 @@ export async function ensureClientAddressForDeslocacao(clientId) {
   const record = getClientFromCatalog(id);
   let morada = String(record?.Morada || '').trim();
   let codigo_postal = String(record?.['Código postal'] || '').trim();
+  let localidade = String(record?.Localidade || '').trim();
 
   if (morada) {
-    return { morada, codigo_postal };
+    return { morada, codigo_postal, localidade };
   }
 
   const direct = await fetchClientAddressDirectFromSupabase(id, record?.NIF || '');

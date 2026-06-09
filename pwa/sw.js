@@ -14,11 +14,8 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  if (
-    event.request.url.includes('nominatim.openstreetmap.org') ||
-    event.request.url.includes('router.project-osrm.org')
-  ) {
-    return;
+  if (event.request.url.includes('openstreetmap.org') || event.request.url.includes('project-osrm.org')) {
+    return; // Não faz cache, não interpõe, deixa passar direto para a internet
   }
 
   event.respondWith(fetch(event.request));

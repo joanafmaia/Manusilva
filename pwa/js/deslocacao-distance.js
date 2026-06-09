@@ -8,6 +8,7 @@ import { reportIncludesDeslocacao } from './deslocacao-field.js';
 
 const HQ_ADDRESS =
   'Rua São Mamede, Lote Nº1-Fração D, 4760-725 Ribeirão VNF, Portugal';
+const HQ_LOCALIDADE = 'Ribeirão VNF';
 
 const NOMINATIM_SEARCH_URL = 'https://nominatim.openstreetmap.org/search';
 const OSRM_ROUTE_URL = 'https://router.project-osrm.org/route/v1/driving';
@@ -28,26 +29,35 @@ function extractMainStreet(morada) {
   return raw.split(',')[0].trim();
 }
 
-/** Primeiros 4 dígitos do CP português (ex.: 4785-228 → 4785) */
-function extractPostalDistrict4(codigoPostal, moradaFallback = '') {
-  for (const src of [codigoPostal, moradaFallback]) {
-    const match = String(src || '').match(/\b(\d{4})\b/);
-    if (match) return match[1];
+/** Localidade de reserva — último segmento da morada que não seja CP nem número */
+function extractLocalidadeFromMorada(morada) {
+  const parts = String(morada || '')
+    .split(',')
+    .map((p) => p.trim())
+    .filter(Boolean);
+
+  for (let i = parts.length - 1; i >= 1; i--) {
+    const part = parts[i];
+    if (/^\d{4}(-\d{3})?$/.test(part)) continue;
+    if (/^\d+[ºª]?\s*(esquerdo|direito|dto|esq)?$/i.test(part)) continue;
+    if (/^\d+$/.test(part)) continue;
+    if (part.length > 2) return part;
   }
   return '';
 }
 
 /**
- * Morada limpa para Nominatim — só rua + distrito postal (4 dígitos) + Portugal.
- * Ex.: "Rua Barca da Trofa, 31, 2Esquerdo, 4785-228, Trofa" → "Rua Barca da Trofa, 4785, Portugal"
+ * Morada limpa para Nominatim — rua + localidade por extenso + Portugal.
+ * Ex.: "Rua Barca da Trofa, 31, 2Esquerdo, 4785-228, Trofa" + "Trofa"
+ *   → "Rua Barca da Trofa, Trofa, Portugal"
  */
-export function buildClientMapSearchQuery(morada, codigoPostal) {
+export function buildClientMapSearchQuery(morada, localidade = '') {
   const street = extractMainStreet(morada);
   if (!street) return '';
 
-  const cp4 = extractPostalDistrict4(codigoPostal, morada);
-  const parts = cp4 ? [street, cp4, 'Portugal'] : [street, 'Portugal'];
-  return parts.join(', ');
+  const loc = String(localidade || '').trim() || extractLocalidadeFromMorada(morada);
+  if (loc) return `${street}, ${loc}, Portugal`;
+  return `${street}, Portugal`;
 }
 
 async function waitNominatimSlot() {
@@ -59,7 +69,7 @@ async function waitNominatimSlot() {
 }
 
 /**
- * Traduz texto (morada + CP) em coordenadas GPS via Nominatim.
+ * Traduz texto (morada + localidade) em coordenadas GPS via Nominatim.
  * @param {string} pesquisaMorada
  * @returns {Promise<{ lat: number, lon: number } | null>}
  */
@@ -114,7 +124,7 @@ export async function geocodeAddressToCoords(pesquisaMorada) {
 
 async function getHqPoint() {
   if (cachedHqPoint) return cachedHqPoint;
-  const hqQuery = buildClientMapSearchQuery(HQ_ADDRESS, '4760-725');
+  const hqQuery = buildClientMapSearchQuery(HQ_ADDRESS, HQ_LOCALIDADE);
   cachedHqPoint = await geocodeAddressToCoords(hqQuery);
   return cachedHqPoint;
 }
@@ -163,11 +173,11 @@ async function drivingDistanceKmOneWay(from, to) {
 /**
  * Ida e volta (×2), arredondada a 1 casa decimal.
  * @param {string} morada
- * @param {string} codigoPostal
+ * @param {string} localidade
  * @returns {Promise<number | null>}
  */
-export async function calculateDeslocacaoRoundTripKm(morada, codigoPostal) {
-  const pesquisaMorada = buildClientMapSearchQuery(morada, codigoPostal);
+export async function calculateDeslocacaoRoundTripKm(morada, localidade = '') {
+  const pesquisaMorada = buildClientMapSearchQuery(morada, localidade);
   if (!pesquisaMorada) return null;
 
   console.log('A calcular rota para:', pesquisaMorada);
@@ -225,6 +235,15 @@ export function setDeslocacaoFormValue(overlay, km) {
   return true;
 }
 
+/** Fallback silencioso — sem internet ou geocoder indisponível */
+function applyDeslocacaoFallbackZero(overlay) {
+  try {
+    setDeslocacaoFormValue(overlay, 0);
+  } catch {
+    /* não bloquear o formulário */
+  }
+}
+
 /**
  * Preenche o input «Deslocação» após abrir o relatório (não bloqueia o técnico).
  * @param {HTMLElement} overlay
@@ -250,16 +269,13 @@ export async function applyAutoDeslocacaoToForm(overlay, ctx) {
 
   try {
     if (!job?.clientId) {
-      console.warn('[Deslocação] Trabalho sem cliente atribuído pelos RH:', job?.id);
+      applyDeslocacaoFallbackZero(overlay);
       return;
     }
 
     const address = await ensureClientAddressForDeslocacao(job.clientId);
     if (!address?.morada) {
-      console.warn('[Deslocação] Morada do cliente ainda indisponível — cálculo ignorado.', {
-        jobId: job.id,
-        clientId: job.clientId,
-      });
+      applyDeslocacaoFallbackZero(overlay);
       return;
     }
 
@@ -267,12 +283,13 @@ export async function applyAutoDeslocacaoToForm(overlay, ctx) {
       jobId: job.id,
       clientId: job.clientId,
       morada: address.morada,
+      localidade: address.localidade || '(vazio)',
       codigo_postal: address.codigo_postal || '(vazio)',
     });
 
-    const km = await calculateDeslocacaoRoundTripKm(address.morada, address.codigo_postal);
+    const km = await calculateDeslocacaoRoundTripKm(address.morada, address.localidade);
     if (km == null || km <= 0) {
-      console.warn('[Deslocação] OSRM não devolveu distância válida.');
+      applyDeslocacaoFallbackZero(overlay);
       return;
     }
 
@@ -280,8 +297,8 @@ export async function applyAutoDeslocacaoToForm(overlay, ctx) {
       console.log('[Deslocação] Km aplicados ao formulário:', km);
       onValueSet?.();
     }
-  } catch (err) {
-    console.warn('[Deslocação] Auto-preenchimento ignorado:', err);
+  } catch {
+    applyDeslocacaoFallbackZero(overlay);
   } finally {
     wrap?.classList.remove('is-calculating');
   }
