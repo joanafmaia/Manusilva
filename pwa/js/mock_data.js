@@ -7,8 +7,9 @@ import {
   VERIFICACOES_EXTERNAS_ITEMS,
   VERIFICACOES_INTERNAS_ITEMS,
 } from './preventiva-empilhadores-items.js';
+import { createMaterialTableField } from './material-table-field.js';
 
-export const SCHEMA_VERSION = 17;
+export const SCHEMA_VERSION = 18;
 
 export const COMPANY = {
   name: 'ManuSilva Manutenção Industrial, Unipessoal, Lda',
@@ -42,7 +43,7 @@ export const FOLHA_INTERVENCAO_AVARIAS = {
     { type: 'number', id: 'horas', label: 'Horas', section: 'Informações da Máquina', min: 0, step: 1 },
     { type: 'textarea', id: 'detecao_de_avaria', label: 'Deteção de Avaria' },
     { type: 'textarea', id: 'resolucao_da_avaria', label: 'Resolução da Avaria' },
-    { type: 'textarea', id: 'material_utilizado', label: 'Material Utilizado' },
+    createMaterialTableField({ id: 'material_utilizado', label: 'Material Utilizado' }),
     { type: 'number', id: 'horas_gastas', label: 'Horas Gastas', min: 0, step: 0.5 },
     {
       type: 'status_pills',
@@ -69,13 +70,11 @@ export const MANUTENCAO_BATERIAS_GRANDES = {
       label: 'Identificação Bateria',
       section: 'Identificação Bateria',
     },
-    {
-      type: 'dynamic_table',
+    createMaterialTableField({
       id: 'consumiveis_utilizados',
       label: 'Consumíveis Utilizados',
       section: 'Consumíveis',
-      columns: ['Material', 'Quantidade', 'Tipo'],
-    },
+    }),
     { type: 'textarea', id: 'observacoes', label: 'Observações' },
   ],
 };
@@ -193,15 +192,11 @@ export const MANUTENCAO_PREVENTIVA_BATERIA = {
       section: 'Componentes',
       options: ['Operacional', 'Danificados'],
     },
-    {
-      type: 'dynamic_table',
+    createMaterialTableField({
       id: 'consumiveis',
       label: 'Consumíveis',
       section: 'Consumíveis',
-      columns: ['Material', 'Quantidade'],
-      tableVariant: 'consumables',
-      addButtonLabel: 'Adicionar Material',
-    },
+    }),
     { type: 'text', id: 'deslocacao', label: 'Deslocação', section: 'Deslocação e Tempo' },
     { type: 'number', id: 'horas', label: 'Horas', section: 'Deslocação e Tempo', min: 0, step: 0.5 },
     { type: 'textarea', id: 'observacao', label: 'Observação' },
@@ -369,6 +364,11 @@ export const MANUTENCAO_PREVENTIVA_EMPILHADORES = {
       step: 1,
       uiVariant: 'material',
     },
+    createMaterialTableField({
+      id: 'material_utilizado',
+      label: 'Material Utilizado',
+      section: 'Substituição de Material',
+    }),
     { type: 'textarea', id: 'observacoes', label: 'Observações' },
     {
       type: 'toggle',
@@ -428,16 +428,11 @@ export const REPARACAO_CARREGADOR = {
       section: 'Resultado do Teste',
       placeholder: 'Ex: 75 A',
     },
-    {
-      type: 'dynamic_table',
+    createMaterialTableField({
       id: 'consumiveis_material',
       label: 'Consumíveis (Material Colocado)',
       section: 'Consumíveis',
-      columns: ['Equipamento', 'Quantidade'],
-      columnTypes: { quantidade: 'number' },
-      addButtonLabel: 'Adicionar Material',
-      tableVariant: 'consumables',
-    },
+    }),
   ],
 };
 
@@ -460,16 +455,11 @@ export const REPARACAO_AVARIAS_BATERIA = {
       placeholder:
         'Descreva sintomas, elementos danificados, voltagem do banco, densidade do eletrólito, ligações/pontes e diagnóstico técnico...',
     },
-    {
-      type: 'dynamic_table',
+    createMaterialTableField({
       id: 'consumiveis',
       label: 'Consumíveis',
       section: 'Material Aplicado',
-      columns: ['Material', 'Quantidade'],
-      columnTypes: { quantidade: 'number' },
-      addButtonLabel: 'Adicionar Material',
-      tableVariant: 'consumables',
-    },
+    }),
     { type: 'text', id: 'deslocacao', label: 'Deslocação', section: 'Deslocação e Tempo' },
     { type: 'number', id: 'horas', label: 'Horas', section: 'Deslocação e Tempo', min: 0, step: 0.5 },
     { type: 'textarea', id: 'observacao', label: 'Observação', rows: 4 },
@@ -709,7 +699,10 @@ export const INITIAL_REPORTS = [
         numero_de_serie: 'FL-2020-0078',
         detecao_de_avaria: 'Falha no contactor principal do circuito de elevação. Máquina parada.',
         resolucao_da_avaria: 'Substituição do contactor e testes de funcionamento do elevador.',
-        material_utilizado: 'Contactor 48V, bornes, cabo de comando 2m',
+        material_utilizado: [
+          { artigo: 'Contactor 48V', qtd: '1' },
+          { artigo: 'Bornes e cabo de comando 2m', qtd: '1' },
+        ],
         horas_gastas: 3.5,
         estado_maquina: 'Aguardar Intervenção',
       },
@@ -745,7 +738,7 @@ export const INITIAL_REPORTS = [
           },
         ],
         valor_amperagem_debitado: '',
-        consumiveis_material: [{ equipamento: 'Cabo de carga', quantidade: '1' }],
+        consumiveis_material: [{ artigo: 'Cabo de carga', qtd: '1' }],
       },
       signatures: { technician: true, client: true },
       photos: [],

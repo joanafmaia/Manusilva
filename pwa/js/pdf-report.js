@@ -31,6 +31,15 @@ import {
 } from './pdf-font.js';
 import { getColumnLabels } from './views/relatorio-grandes.js';
 import {
+  columnKey as materialColumnKey,
+  columnLabel as materialColumnLabel,
+  findPairedObservationsField,
+  isMaterialTableField,
+  isObservationsField,
+  MATERIAL_UTILIZADO_COLUMNS,
+  normalizeMaterialRows,
+} from './material-table-field.js';
+import {
   buildInspecaoDl50MachineTableBody,
   drawInspecaoDl50HeaderBlock,
   INSPECAO_DL50_MACHINE_FIELD_IDS,
@@ -164,12 +173,7 @@ function getServiceType(id) {
 }
 
 function columnKey(col) {
-  return col
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^\w]+/g, '_')
-    .replace(/^_|_$/g, '');
+  return materialColumnKey(col);
 }
 
 function getJob(id) {
@@ -990,6 +994,9 @@ function mapReportValuesForPdf(data, service, pdfContext = null) {
 
   (service?.fields || []).forEach((field) => {
     if (values[field.id] === undefined) return;
+    if (isMaterialTableField(field)) {
+      values[field.id] = normalizeMaterialRows(values[field.id]);
+    }
     values[field.id] = coercePdfFieldValue(field, values[field.id], pdfContext);
   });
   if (values.deslocacao !== undefined) {
@@ -1038,9 +1045,11 @@ async function drawReportFieldsSection(doc, y, service, values, pdfContext = nul
   }
 
   let currentSection = null;
+  const pairedObservationsRendered = new Set();
 
   for (const field of service.fields) {
     if (scalarRenderedIds.has(field.id)) continue;
+    if (pairedObservationsRendered.has(field.id)) continue;
     if (field.id === 'declaracao_seguranca') continue;
     if (field.dependency && !isPdfDependencyMet(field, values)) continue;
 
@@ -1055,8 +1064,17 @@ async function drawReportFieldsSection(doc, y, service, values, pdfContext = nul
       continue;
     }
 
-    const value = coercePdfFieldValue(field, values[field.id], pdfContext);
-    if (isPdfEmptyValue(field, value)) continue;
+    let value = coercePdfFieldValue(field, values[field.id], pdfContext);
+    let hasPairedObservations = false;
+    if (isMaterialTableField(field)) {
+      if (!Array.isArray(value)) value = normalizeMaterialRows(value ?? '');
+      const obsField = findPairedObservationsField(service, field);
+      if (obsField && isPdfDependencyMet(obsField, values)) {
+        const obsValue = coercePdfFieldValue(obsField, values[obsField.id], pdfContext);
+        hasPairedObservations = !isPdfEmptyValue(obsField, obsValue);
+      }
+    }
+    if (isPdfEmptyValue(field, value) && !hasPairedObservations) continue;
 
     if (field.section && field.section !== currentSection) {
       currentSection = field.section;
@@ -1089,7 +1107,29 @@ async function drawReportFieldsSection(doc, y, service, values, pdfContext = nul
       continue;
     }
 
-    if (field.type === 'dynamic_table' && Array.isArray(value)) {
+    if (field.type === 'dynamic_table' && (Array.isArray(value) || isMaterialTableField(field))) {
+      if (isMaterialTableField(field)) {
+        const rows = Array.isArray(value) ? value : [];
+        const obsField = findPairedObservationsField(service, field);
+        let obsValue = null;
+        if (obsField && isPdfDependencyMet(obsField, values)) {
+          obsValue = coercePdfFieldValue(obsField, values[obsField.id], pdfContext);
+          if (isPdfEmptyValue(obsField, obsValue)) obsValue = null;
+        }
+        const sectionRendered = Boolean(field.section && field.section === currentSection);
+        y = await drawMaterialAndObservationsBlock(
+          doc,
+          y,
+          field,
+          rows,
+          obsField,
+          obsValue,
+          sectionRendered,
+        );
+        if (obsField && obsValue !== null) pairedObservationsRendered.add(obsField.id);
+        continue;
+      }
+
       const sectionRendered = Boolean(field.section && field.section === currentSection);
       y = await drawDynamicTableBlock(
         doc,
@@ -1131,6 +1171,8 @@ async function drawReportFieldsSection(doc, y, service, values, pdfContext = nul
     }
 
     if (field.type === 'longtext' || field.type === 'textarea' || field.type === 'grid') {
+      if (isObservationsField(field)) continue;
+
       if (field.prominent) {
         const sectionRendered = Boolean(field.section && field.section === currentSection);
         y = drawDiagnosticAnalysisBlock(
@@ -1630,9 +1672,72 @@ async function drawVerificationBlock(doc, y, label, items, states) {
   });
 }
 
-async function drawDynamicTableBlock(doc, y, label, columns, rows) {
+function estimateDynamicTableBlockHeight(columns, rows) {
+  const rowCount = Array.isArray(rows) ? rows.length : 0;
+  const titleH = 18;
+  const tableH = rowCount > 0 ? 12 + rowCount * 7 + 8 : 0;
+  return titleH + tableH;
+}
+
+function estimateLongTextBlockHeight(doc, value) {
+  const lines = pdfParagraphLines(doc, value, CONTENT_W);
+  return 18 + Math.max(1, lines.length) * 4.5 + 8;
+}
+
+function pdfParagraphLines(doc, text, maxWidth) {
+  const cleaned = cleanPdfText(text);
+  if (!cleaned) return [];
+  const paragraphs = cleaned.split('\n');
+  const lines = [];
+  paragraphs.forEach((para, index) => {
+    if (index > 0) lines.push('');
+    const wrapped = para.trim() ? pdfSplitText(doc, para, maxWidth) : [''];
+    lines.push(...wrapped);
+  });
+  return lines;
+}
+
+async function drawMaterialAndObservationsBlock(
+  doc,
+  y,
+  materialField,
+  materialRows,
+  obsField,
+  obsValue,
+  sectionRendered,
+) {
+  const materialEmpty = isPdfEmptyValue(materialField, materialRows);
+  const obsEmpty = !obsField || obsValue === null || isPdfEmptyValue(obsField, obsValue);
+  if (materialEmpty && obsEmpty) return y;
+
+  const columns = materialField.columns?.length ? materialField.columns : MATERIAL_UTILIZADO_COLUMNS;
+  const blockH =
+    (materialEmpty ? 0 : estimateDynamicTableBlockHeight(columns, materialRows)) +
+    (obsEmpty ? 0 : estimateLongTextBlockHeight(doc, obsValue));
+
+  y = ensureBlockFitsPage(doc, y, blockH, 36);
+
+  if (!materialEmpty) {
+    y = await drawDynamicTableBlock(
+      doc,
+      y,
+      pdfBlockTitle(materialField, sectionRendered),
+      columns,
+      materialRows,
+      { skipLeadingPageCheck: true },
+    );
+  }
+
+  if (!obsEmpty) {
+    y = drawLongTextBlock(doc, y, obsField.label, obsValue, { skipLeadingPageCheck: true });
+  }
+
+  return y;
+}
+
+async function drawDynamicTableBlock(doc, y, label, columns, rows, options = {}) {
   if (label) {
-    y = ensureSpace(doc, y, 12);
+    if (!options.skipLeadingPageCheck) y = ensureSpace(doc, y, 12);
     pdfSetFont(doc, 'bold');
     doc.setFontSize(8.5);
     doc.setTextColor(...CORPORATE_BLUE);
@@ -1643,6 +1748,7 @@ async function drawDynamicTableBlock(doc, y, label, columns, rows) {
   if (!rows?.length || !columns?.length) return y;
 
   const colKeys = columns.map((c) => columnKey(c));
+  const headLabels = columns.map((c) => materialColumnLabel(c));
   const colCount = columns.length;
   const colW = CONTENT_W / colCount;
   const columnStyles = {};
@@ -1652,9 +1758,9 @@ async function drawDynamicTableBlock(doc, y, label, columns, rows) {
 
   const body = rows.map((row) => colKeys.map((key) => pdfDisplayValue(row[key])));
 
-  y = ensureSpace(doc, y, 14);
+  if (!options.skipLeadingPageCheck) y = ensureSpace(doc, y, 14);
   return drawPdfGridTable(doc, y, {
-    head: [columns],
+    head: [headLabels],
     body,
     columnStyles,
     gapAfter: 6,
@@ -1740,8 +1846,8 @@ function drawDiagnosticAnalysisBlock(doc, y, label, section, value) {
   return y + boxH + 8;
 }
 
-function drawLongTextBlock(doc, y, label, value) {
-  y = ensureSpace(doc, y, 18);
+function drawLongTextBlock(doc, y, label, value, options = {}) {
+  if (!options.skipLeadingPageCheck) y = ensureSpace(doc, y, 18);
   pdfSetFont(doc, 'bold');
   doc.setFontSize(8.5);
   doc.setTextColor(...CORPORATE_BLUE);
@@ -1752,11 +1858,11 @@ function drawLongTextBlock(doc, y, label, value) {
   pdfSetFont(doc, 'normal');
   doc.setFontSize(8.5);
   doc.setTextColor(...TEXT_DARK);
-  const lines = pdfSplitText(doc, value, CONTENT_W);
+  const lines = pdfParagraphLines(doc, value, CONTENT_W);
   lines.forEach((line) => {
     y = ensureSpace(doc, y, 5);
-    doc.text(line, MARGIN, y);
-    y += 4.5;
+    if (line) doc.text(line, MARGIN, y);
+    y += line ? 4.5 : 2.5;
   });
 
   touchPdfContentPage(doc);

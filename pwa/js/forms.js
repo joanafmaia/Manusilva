@@ -216,7 +216,7 @@ function buildFormHTML(job, client, tech, service, existingReport) {
     lockClient: true,
   };
   const prefill = buildFormPrefill(service, job, null, formContext);
-  const values = mergeFormValues(saved, prefill);
+  const values = mergeFormValues(saved, prefill, service);
   if (service?.id === 'manutencao_baterias_grandes') {
     values[GRANDES_BATTERY_FIELD_ID] = migrateLegacyBatteryRows(values);
   }

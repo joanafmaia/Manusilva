@@ -9,6 +9,13 @@ import {
   collectClientComboboxValues,
 } from './client-combobox.js';
 import {
+  columnKey,
+  columnLabel,
+  isMaterialTableField,
+  normalizeMaterialRows,
+  MATERIAL_FIELD_IDS,
+} from './material-table-field.js';
+import {
   renderGrandesBatterySection,
   collect as collectGrandesBatteryRows,
   GRANDES_BATTERY_FIELD_ID,
@@ -282,6 +289,7 @@ export function buildFormPrefill(service, job, _forklift, context = {}) {
   if (service.id === 'folha_intervencao_avarias') {
     return {
       data_1: job?.date || '',
+      material_utilizado: [{}],
     };
   }
 
@@ -289,6 +297,7 @@ export function buildFormPrefill(service, job, _forklift, context = {}) {
     return {
       data_de_conclusao: job?.date || '',
       [GRANDES_BATTERY_FIELD_ID]: [{}],
+      consumiveis_utilizados: [{}],
     };
   }
 
@@ -301,6 +310,7 @@ export function buildFormPrefill(service, job, _forklift, context = {}) {
       });
     return {
       data_de_conclusao: job?.date || '',
+      consumiveis: [{}],
       ...toggles,
     };
   }
@@ -351,7 +361,7 @@ function normalizeVerifyItem(item) {
   return { id: item.id || columnKey(item.label), label: item.label };
 }
 
-export function mergeFormValues(existing = {}, prefill = {}) {
+export function mergeFormValues(existing = {}, prefill = {}, service = null) {
   const merged = { ...prefill };
   Object.entries(existing).forEach(([key, val]) => {
     if (val === undefined || val === null) return;
@@ -361,6 +371,13 @@ export function mergeFormValues(existing = {}, prefill = {}) {
     }
     if (Array.isArray(val) ? val.length > 0 : String(val).trim() !== '') {
       merged[key] = val;
+    }
+  });
+
+  (service?.fields || []).forEach((field) => {
+    if (!isMaterialTableField(field)) return;
+    if (merged[field.id] !== undefined) {
+      merged[field.id] = normalizeMaterialRows(merged[field.id]);
     }
   });
   return merged;
@@ -498,15 +515,6 @@ function groupFieldsBySection(fields) {
   });
   if (bucket.length) groups.push({ section: currentSection, fields: bucket });
   return groups;
-}
-
-function columnKey(col) {
-  return col
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^\w]+/g, '_')
-    .replace(/^_|_$/g, '');
 }
 
 function resolveDynamicRowDefaults(field, context = {}) {
@@ -752,7 +760,7 @@ export function collectReportValues(overlay) {
       });
       if (Object.values(row).some((v) => v)) rows.push(row);
     });
-    values[fieldId] = rows;
+    values[fieldId] = MATERIAL_FIELD_IDS.has(fieldId) ? normalizeMaterialRows(rows) : rows;
   });
 
   if (overlay.querySelector('[data-grandes-baterias]')) {
@@ -920,7 +928,7 @@ export function renderReportValuesForReview(service, values = {}) {
               field.type === 'grandes_identificacao_baterias'
                 ? getColumnKeys()
                 : labels.map((c) => columnKey(c));
-            const head = labels.map((c) => `<th>${escapeHtml(c)}</th>`).join('');
+            const head = labels.map((c) => `<th>${escapeHtml(columnLabel(c))}</th>`).join('');
             const body = val
               .map(
                 (row) =>
@@ -1338,7 +1346,7 @@ function renderDynamicTableField(field, value, context = {}) {
     ? `dynamic-table-field--${field.tableVariant}`
     : '';
   const addLabel = field.addButtonLabel || 'Adicionar Material';
-  const headerCells = columns.map((c) => `<th>${escapeHtml(c)}</th>`).join('');
+  const headerCells = columns.map((c) => `<th>${escapeHtml(columnLabel(c))}</th>`).join('');
 
   const bodyRows = rows
     .map((row, idx) => {
