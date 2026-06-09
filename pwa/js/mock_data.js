@@ -9,7 +9,7 @@ import {
 } from './preventiva-empilhadores-items.js';
 import { createMaterialTableField } from './material-table-field.js';
 
-export const SCHEMA_VERSION = 19;
+export const SCHEMA_VERSION = 20;
 
 export const COMPANY = {
   name: 'ManuSilva Manutenção Industrial, Unipessoal, Lda',
@@ -88,10 +88,11 @@ export const MANUTENCAO_CORRETIVA_MAQUINAS = {
     { type: 'text', id: 'marca', label: 'Marca', section: 'Informações da Máquina' },
     { type: 'text', id: 'modelo', label: 'Modelo', section: 'Informações da Máquina' },
     { type: 'text', id: 'numero_de_serie', label: 'Número de Série', section: 'Informações da Máquina' },
+    { type: 'date', id: 'data_fabrico', label: 'Data Fabrico', section: 'Informações da Máquina' },
     {
       type: 'verification_toggles',
       id: 'lista_de_verificacoes',
-      label: 'Lista de Verificações',
+      label: 'Verificações Efetuadas',
       section: 'Verificações',
       items: [
         'Chassis',

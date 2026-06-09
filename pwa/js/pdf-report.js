@@ -194,9 +194,12 @@ const WHITE = [255, 255, 255];
 
 /** Design system — tipografia (pt) */
 const PDF_FONT_TITLE = 16;
+const PDF_FONT_SECTION = 14;
 const PDF_FONT_SUBTITLE = 12;
 const PDF_FONT_BODY = 10;
 const PDF_FONT_CAPTION = 8;
+
+const PDF_VERIFICATION_SECTION_TITLE = 'Verificações Efetuadas';
 
 const MARGIN = 15;
 const PAGE_W = 210;
@@ -937,7 +940,7 @@ function drawDivider(doc, y) {
 }
 
 function drawSectionTitle(doc, y, title, options = {}) {
-  const bandH = 11;
+  const bandH = 12;
   if (!options.skipEnsure) {
     y = ensureSpace(doc, y, bandH + 4);
   }
@@ -949,11 +952,28 @@ function drawSectionTitle(doc, y, title, options = {}) {
   doc.line(MARGIN, y - 2, PAGE_W - MARGIN, y - 2);
 
   pdfSetFont(doc, 'bold');
-  doc.setFontSize(PDF_FONT_SUBTITLE);
+  doc.setFontSize(PDF_FONT_SECTION);
   doc.setTextColor(...CORPORATE_BLUE_DARK);
-  doc.text(title.toUpperCase(), MARGIN + 3, y + 5.5);
+  doc.text(title.toUpperCase(), MARGIN + 3, y + 6);
   touchPdfContentPage(doc);
   return y + bandH + 3;
+}
+
+function isMachineInfoSection(section) {
+  return pdfNormalizeHeading(section) === pdfNormalizeHeading(PDF_MACHINE_SECTION);
+}
+
+/** Secção só com verification_toggles — evita «Verificações» + «Lista de Verificações» */
+function isVerificationOnlySection(section, service) {
+  if (!section) return false;
+  const norm = pdfNormalizeHeading(section);
+  if (!norm.includes('verific')) return false;
+  const inSection = (service?.fields || []).filter((f) => f.section === section);
+  return inSection.length > 0 && inSection.every((f) => f.type === 'verification_toggles');
+}
+
+function getVerificationPdfTitle(field) {
+  return field?.pdfTitle || field?.label || PDF_VERIFICATION_SECTION_TITLE;
 }
 
 function normalizeReportValues(data) {
@@ -1137,7 +1157,12 @@ async function drawReportFieldsSection(doc, y, service, values, pdfContext = nul
     y = await drawMachineInfoBlock(doc, y, values, pdfContext);
     INSPECAO_DL50_MACHINE_FIELD_IDS.forEach((id) => scalarRenderedIds.add(id));
     gridRenderedSections.add(PDF_MACHINE_SECTION);
+    service.fields
+      ?.filter((f) => f.section && isMachineInfoSection(f.section))
+      .forEach((f) => gridRenderedSections.add(f.section));
   }
+
+  const machineBlockRendered = reportHasPdfMachineBlock(service);
 
   const headerScalars = collectPdfScalarFields(service, values, pdfContext, {
     section: null,
@@ -1154,6 +1179,7 @@ async function drawReportFieldsSection(doc, y, service, values, pdfContext = nul
 
   for (const field of service.fields) {
     if (scalarRenderedIds.has(field.id)) continue;
+    if (machineBlockRendered && INSPECAO_DL50_MACHINE_FIELD_IDS.has(field.id)) continue;
     if (pairedObservationsRendered.has(field.id)) continue;
     if (field.id === 'declaracao_seguranca') continue;
     if (field.dependency && !isPdfDependencyMet(field, values)) continue;
@@ -1184,15 +1210,20 @@ async function drawReportFieldsSection(doc, y, service, values, pdfContext = nul
     if (field.section && field.section !== currentSection) {
       currentSection = field.section;
       const skipMaterialSectionHeader = isMaterialOnlySection(currentSection, service);
+      const skipVerificationSectionHeader = isVerificationOnlySection(currentSection, service);
+      const skipMachineSectionHeader =
+        machineBlockRendered && isMachineInfoSection(currentSection);
+      const skipSectionHeader =
+        skipMaterialSectionHeader || skipVerificationSectionHeader || skipMachineSectionHeader;
 
-      if (!skipMaterialSectionHeader) {
+      if (!skipSectionHeader) {
         y = ensureSpace(doc, y, 10);
         y = drawSectionTitle(doc, y, currentSection);
         y = drawDivider(doc, y - 4);
       }
 
       if (!gridRenderedSections.has(currentSection)) {
-        if (!skipMaterialSectionHeader) {
+        if (!skipSectionHeader) {
           const sectionScalars = collectPdfScalarFields(service, values, pdfContext, {
             section: currentSection,
             isDl50,
@@ -1213,7 +1244,11 @@ async function drawReportFieldsSection(doc, y, service, values, pdfContext = nul
 
     if (field.type === 'verification_toggles' && value && typeof value === 'object') {
       const sectionRendered = Boolean(field.section && field.section === currentSection);
-      const blockTitle = pdfBlockTitle(field, sectionRendered);
+      const verificationOnly =
+        field.section && isVerificationOnlySection(field.section, service);
+      const blockTitle = verificationOnly
+        ? getVerificationPdfTitle(field)
+        : pdfBlockTitle(field, sectionRendered);
       y = await drawVerificationBlock(doc, y, blockTitle, field.items || [], value);
       continue;
     }
