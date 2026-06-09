@@ -48,16 +48,41 @@ function extractLocalidadeFromMorada(morada) {
 
 /**
  * Morada limpa para Nominatim — rua + localidade por extenso + Portugal.
- * Ex.: "Rua Barca da Trofa, 31, 2Esquerdo, 4785-228, Trofa" + "Trofa"
- *   → "Rua Barca da Trofa, Trofa, Portugal"
  */
 export function buildClientMapSearchQuery(morada, localidade = '') {
-  const street = extractMainStreet(morada);
-  if (!street) return '';
+  const candidates = buildNominatimSearchCandidates(morada, localidade, '');
+  return candidates[0] || '';
+}
 
+/**
+ * Várias pesquisas por ordem de precisão (se a rua não existir no OSM, cai para CP/localidade).
+ */
+export function buildNominatimSearchCandidates(morada, localidade = '', codigoPostal = '') {
+  const street = extractMainStreet(morada);
   const loc = String(localidade || '').trim() || extractLocalidadeFromMorada(morada);
-  if (loc) return `${street}, ${loc}, Portugal`;
-  return `${street}, Portugal`;
+  const cpRaw = String(codigoPostal || '').trim();
+  const cpFromMorada = String(morada || '').match(/\b(\d{4}-\d{3})\b/)?.[1] || '';
+  const cpFull = cpRaw.match(/\d{4}-\d{3}/)?.[0] || cpFromMorada;
+  const cp4 = cpRaw.match(/\d{4}/)?.[0] || cpFull.slice(0, 4) || cpFromMorada.slice(0, 4);
+
+  const seen = new Set();
+  const out = [];
+  const add = (q) => {
+    const s = String(q || '').trim();
+    if (!s || seen.has(s)) return;
+    seen.add(s);
+    out.push(s);
+  };
+
+  if (street && loc) add(`${street}, ${loc}, Portugal`);
+  if (street && cpFull) add(`${street}, ${cpFull}, Portugal`);
+  if (street && cp4 && loc) add(`${street}, ${cp4} ${loc}, Portugal`);
+  if (loc && cpFull) add(`${cpFull} ${loc}, Portugal`);
+  if (loc && cp4) add(`${loc}, ${cp4}, Portugal`);
+  if (loc) add(`${loc}, Portugal`);
+  if (street) add(`${street}, Portugal`);
+
+  return out;
 }
 
 async function waitNominatimSlot() {
@@ -73,16 +98,16 @@ async function waitNominatimSlot() {
  * @param {string} pesquisaMorada
  * @returns {Promise<{ lat: number, lon: number } | null>}
  */
-export async function geocodeAddressToCoords(pesquisaMorada) {
-  const q = String(pesquisaMorada || '').trim();
-  if (!q) return null;
+async function nominatimSearchOnce(q, { logMiss = true } = {}) {
+  const query = String(q || '').trim();
+  if (!query) return null;
 
   await waitNominatimSlot();
 
   const url =
-    `${NOMINATIM_SEARCH_URL}?format=json&q=${encodeURIComponent(q)}&limit=1&countrycodes=pt`;
+    `${NOMINATIM_SEARCH_URL}?format=json&q=${encodeURIComponent(query)}&limit=1&countrycodes=pt`;
 
-  console.log('[Deslocação] Nominatim — a traduzir morada:', q);
+  console.log('[Deslocação] Nominatim — a traduzir morada:', query);
 
   let res;
   try {
@@ -110,7 +135,7 @@ export async function geocodeAddressToCoords(pesquisaMorada) {
   const rows = await res.json();
   const hit = rows?.[0];
   if (!hit) {
-    console.warn('[Deslocação] Nominatim sem resultados para:', q);
+    if (logMiss) console.warn('[Deslocação] Nominatim sem resultados para:', query);
     return null;
   }
 
@@ -120,6 +145,28 @@ export async function geocodeAddressToCoords(pesquisaMorada) {
 
   console.log('[Deslocação] Coordenadas obtidas:', { lat, lon, display_name: hit.display_name });
   return { lat, lon };
+}
+
+export async function geocodeAddressToCoords(pesquisaMorada) {
+  return nominatimSearchOnce(pesquisaMorada);
+}
+
+async function geocodeClientAddress(morada, localidade = '', codigoPostal = '') {
+  const candidates = buildNominatimSearchCandidates(morada, localidade, codigoPostal);
+  if (!candidates.length) return null;
+
+  for (let i = 0; i < candidates.length; i++) {
+    const point = await nominatimSearchOnce(candidates[i], {
+      logMiss: i === candidates.length - 1,
+    });
+    if (point) {
+      if (i > 0) {
+        console.log('[Deslocação] Nominatim — fallback aceite:', candidates[i]);
+      }
+      return point;
+    }
+  }
+  return null;
 }
 
 async function getHqPoint() {
@@ -176,14 +223,14 @@ async function drivingDistanceKmOneWay(from, to) {
  * @param {string} localidade
  * @returns {Promise<number | null>}
  */
-export async function calculateDeslocacaoRoundTripKm(morada, localidade = '') {
-  const pesquisaMorada = buildClientMapSearchQuery(morada, localidade);
-  if (!pesquisaMorada) return null;
+export async function calculateDeslocacaoRoundTripKm(morada, localidade = '', codigoPostal = '') {
+  const candidates = buildNominatimSearchCandidates(morada, localidade, codigoPostal);
+  if (!candidates.length) return null;
 
-  console.log('A calcular rota para:', pesquisaMorada);
+  console.log('A calcular rota para:', candidates[0], candidates.length > 1 ? `(+${candidates.length - 1} fallbacks)` : '');
 
   try {
-    const clientPoint = await geocodeAddressToCoords(pesquisaMorada);
+    const clientPoint = await geocodeClientAddress(morada, localidade, codigoPostal);
     if (!clientPoint) return null;
 
     const hqPoint = await getHqPoint();
@@ -287,7 +334,11 @@ export async function applyAutoDeslocacaoToForm(overlay, ctx) {
       codigo_postal: address.codigo_postal || '(vazio)',
     });
 
-    const km = await calculateDeslocacaoRoundTripKm(address.morada, address.localidade);
+    const km = await calculateDeslocacaoRoundTripKm(
+      address.morada,
+      address.localidade,
+      address.codigo_postal,
+    );
     if (km == null || km <= 0) {
       applyDeslocacaoFallbackZero(overlay);
       return;

@@ -1,9 +1,10 @@
 /**
  * Manusilva PWA — Service Worker
  *
- * APIs externas de mapas (deslocação Km): bypass total — rede direta, sem cache offline.
+ * Não interceta pedidos de rede — evita TypeError: Failed to fetch em navegação/assets.
+ * Mapas (Nominatim/OSRM) passam diretamente pelo browser.
  */
-const CACHE_VERSION = 'v4';
+const CACHE_VERSION = 'v5';
 
 self.addEventListener('install', (event) => {
   event.waitUntil(self.skipWaiting());
@@ -19,11 +20,8 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // BYPASS TOTAL PARA MAPAS E ROTAS (Ignora o cache e o service worker)
+  // BYPASS TOTAL — sem respondWith: mapas, HTML, JS e API passam pela rede normal
   if (event.request.url.includes('openstreetmap') || event.request.url.includes('project-osrm')) {
-    event.respondWith(fetch(event.request));
     return;
   }
-
-  event.respondWith(fetch(event.request));
 });
