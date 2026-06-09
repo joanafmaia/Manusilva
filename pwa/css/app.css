@@ -1832,6 +1832,18 @@ body.dark-mode .btn-preview:hover:not(:disabled) {
   margin-bottom: 0;
 }
 
+.form-intro-deslocacao.is-calculating .form-input-unit-input {
+  opacity: 0.65;
+}
+
+.form-intro-deslocacao.is-calculating::after {
+  content: 'A calcular Km…';
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
 .header-field-full { grid-column: 1 / -1; }
 
 .hf-label { display: block; font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }

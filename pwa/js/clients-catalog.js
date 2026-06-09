@@ -308,52 +308,28 @@ export function searchClients(query, catalog = null) {
   };
 }
 
-/**
- * Morada e código postal do cliente (Supabase) — para cálculo automático de deslocação.
- * @param {string} clientId
- * @returns {Promise<{ morada: string, codigo_postal: string } | null>}
- */
-export async function fetchClientAddressForDeslocacao(clientId) {
+async function fetchClientAddressDirectFromSupabase(clientId, nifHint = '') {
   const id = String(clientId ?? '').trim();
   if (!id) return null;
 
   try {
-    await ensureProductionCatalog();
-  } catch (err) {
-    console.warn('[Deslocação] Não foi possível carregar clientes:', err);
-    return null;
-  }
-
-  const record = getClientFromCatalog(id);
-  if (!record) return null;
-
-  let morada = String(record.Morada || '').trim();
-  let codigo_postal = String(record['Código postal'] || '').trim();
-
-  if (morada) {
-    return { morada, codigo_postal };
-  }
-
-  try {
     await ensureSupabaseAuthSession();
     const supabase = await getSupabaseClient();
-    const nif = String(record.NIF || '').trim();
-
     let query = supabase.from('clientes').select('morada, codigo_postal');
 
     if (/^\d+$/.test(id)) {
-      query = query.eq('id', id);
-    } else if (nif) {
-      query = query.eq('nif', nif);
+      query = query.eq('id', Number(id));
     } else {
-      return null;
+      const nif = String(nifHint || '').trim();
+      if (!nif) return null;
+      query = query.eq('nif', nif);
     }
 
     const { data, error } = await query.maybeSingle();
     if (error || !data) return null;
 
-    morada = String(data.morada || '').trim();
-    codigo_postal = String(data.codigo_postal || '').trim();
+    const morada = String(data.morada || '').trim();
+    const codigo_postal = String(data.codigo_postal || '').trim();
     if (!morada) return null;
 
     return { morada, codigo_postal };
@@ -361,4 +337,46 @@ export async function fetchClientAddressForDeslocacao(clientId) {
     console.warn('[Deslocação] Leitura direta do cliente falhou:', err);
     return null;
   }
+}
+
+/**
+ * Garante catálogo + morada do cliente antes do cálculo de deslocação.
+ * @param {string} clientId — `cliente_id` da ordem de trabalho (Supabase)
+ * @returns {Promise<{ morada: string, codigo_postal: string } | null>}
+ */
+export async function ensureClientAddressForDeslocacao(clientId) {
+  const id = String(clientId ?? '').trim();
+  if (!id) {
+    console.warn('[Deslocação] Ordem de trabalho sem cliente_id.');
+    return null;
+  }
+
+  try {
+    await ensureProductionCatalog();
+  } catch (err) {
+    console.warn('[Deslocação] Não foi possível carregar clientes:', err);
+    return fetchClientAddressDirectFromSupabase(id);
+  }
+
+  const record = getClientFromCatalog(id);
+  let morada = String(record?.Morada || '').trim();
+  let codigo_postal = String(record?.['Código postal'] || '').trim();
+
+  if (morada) {
+    return { morada, codigo_postal };
+  }
+
+  const direct = await fetchClientAddressDirectFromSupabase(id, record?.NIF || '');
+  if (direct?.morada) return direct;
+
+  console.warn('[Deslocação] Morada ou código postal indisponíveis para o cliente:', id, {
+    morada: morada || undefined,
+    codigo_postal: codigo_postal || undefined,
+  });
+  return null;
+}
+
+/** @deprecated Alias — usar ensureClientAddressForDeslocacao */
+export async function fetchClientAddressForDeslocacao(clientId) {
+  return ensureClientAddressForDeslocacao(clientId);
 }

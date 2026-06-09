@@ -45,6 +45,8 @@ import {
 } from './signatures.js';
 import { initReportFormAutosave } from './report-form-autosave.js';
 import { applyAutoDeslocacaoToForm } from './deslocacao-distance.js';
+import { ensureProductionCatalog } from './clients-catalog.js';
+import { ensureJobsLoaded } from './trabalhos-db.js';
 import {
   syncJobFotosAntesDepois,
   ensureFotoUrlsOnTrabalho,
@@ -125,6 +127,13 @@ function fotoPersistPayload(state) {
  * @param {{ editPending?: boolean }} [options]
  */
 export async function openJobForm(jobId, options = {}) {
+  try {
+    await ensureJobsLoaded();
+    await ensureProductionCatalog();
+  } catch (err) {
+    console.warn('[Form] Pré-carga Supabase antes do relatório:', err);
+  }
+
   const job = getJob(jobId);
   if (!job) return;
 
@@ -169,8 +178,15 @@ export async function openJobForm(jobId, options = {}) {
 
   bindFormEvents(overlay, job, client, tech, service, existingReport);
 
+  await bindFormFieldInteractions(overlay);
+
   const savedValues = getFormValues(existingReport);
-  void applyAutoDeslocacaoToForm(overlay, { job, service, savedValues });
+  await applyAutoDeslocacaoToForm(overlay, {
+    job,
+    service,
+    savedValues,
+    onValueSet: () => formAutosave?.markDirty?.(),
+  });
 
   if (trabalhoIdEmEdicao) {
     showToast('Pode editar o relatório enquanto aguarda aprovação do RH.', 'info', 4000);
@@ -563,10 +579,6 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport) {
     closeForm(overlay);
   });
 
-  bindFormFieldInteractions(overlay).catch((err) => {
-    console.error('[Form] Interações dos campos:', err);
-    showToast('Alguns controlos do formulário podem não responder. Recarregue a página.', 'error');
-  });
   bindReportFormTabs(overlay, { onTabActivate: onReportTabActivated });
 
   bindFotoInputs(overlay);

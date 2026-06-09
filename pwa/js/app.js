@@ -190,6 +190,7 @@ export async function warmOperacoes() {
   await ensureSupabaseAuthSession();
   await ensureJobsLoaded();
   await ensureReportsLoaded();
+  await ensureProductionCatalog();
 }
 
 function normalizeStoredClient(record) {

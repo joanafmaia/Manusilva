@@ -4,7 +4,7 @@
  */
 
 import { COMPANY } from './mock_data.js';
-import { fetchClientAddressForDeslocacao } from './clients-catalog.js';
+import { ensureClientAddressForDeslocacao } from './clients-catalog.js';
 import { reportIncludesDeslocacao } from './deslocacao-field.js';
 
 const HQ_ADDRESS =
@@ -109,6 +109,8 @@ export async function calculateDeslocacaoRoundTripKm(morada, codigoPostal) {
   const pesquisaMorada = buildClientMapSearchQuery(morada, codigoPostal);
   if (!pesquisaMorada) return null;
 
+  console.log('A calcular rota para:', pesquisaMorada);
+
   try {
     const hqPoint = await geocodeAddress(HQ_ADDRESS);
     const clientPoint = await geocodeAddress(pesquisaMorada);
@@ -133,12 +135,37 @@ function savedDeslocacaoHasValue(savedValues) {
 }
 
 /**
+ * Atualiza o input e força o redesenho visual no tablet.
+ * @param {HTMLElement} overlay
+ * @param {number|string} km
+ * @returns {boolean}
+ */
+export function setDeslocacaoFormValue(overlay, km) {
+  const input = overlay?.querySelector('[data-field-id="deslocacao"]');
+  if (!input) return false;
+
+  const text = String(km);
+  input.value = text;
+  input.setAttribute('value', text);
+
+  const fieldWrap = input.closest('.form-input-unit-field');
+  fieldWrap?.classList.toggle('has-value', text.trim() !== '');
+
+  requestAnimationFrame(() => {
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+
+  return true;
+}
+
+/**
  * Preenche o input «Deslocação» após abrir o relatório (não bloqueia o técnico).
  * @param {HTMLElement} overlay
- * @param {{ job: object, service: object, savedValues?: object }} ctx
+ * @param {{ job: object, service: object, savedValues?: object, onValueSet?: () => void }} ctx
  */
 export async function applyAutoDeslocacaoToForm(overlay, ctx) {
-  const { job, service, savedValues = {} } = ctx;
+  const { job, service, savedValues = {}, onValueSet } = ctx;
   if (!serviceHasDeslocacaoField(service)) return;
 
   const input = overlay.querySelector('[data-field-id="deslocacao"]');
@@ -152,17 +179,44 @@ export async function applyAutoDeslocacaoToForm(overlay, ctx) {
     if (Number.isFinite(n) && n > 0) return;
   }
 
+  const wrap = overlay.querySelector('.form-intro-deslocacao');
+  wrap?.classList.add('is-calculating');
+
   try {
-    const address = await fetchClientAddressForDeslocacao(job?.clientId);
-    if (!address?.morada) return;
+    if (!job?.clientId) {
+      console.warn('[Deslocação] Trabalho sem cliente atribuído pelos RH:', job?.id);
+      return;
+    }
+
+    const address = await ensureClientAddressForDeslocacao(job.clientId);
+    if (!address?.morada) {
+      console.warn('[Deslocação] Morada do cliente ainda indisponível — cálculo ignorado.', {
+        jobId: job.id,
+        clientId: job.clientId,
+      });
+      return;
+    }
+
+    console.log('[Deslocação] Dados do cliente prontos:', {
+      jobId: job.id,
+      clientId: job.clientId,
+      morada: address.morada,
+      codigo_postal: address.codigo_postal || '(vazio)',
+    });
 
     const km = await calculateDeslocacaoRoundTripKm(address.morada, address.codigo_postal);
-    if (km == null || km <= 0) return;
+    if (km == null || km <= 0) {
+      console.warn('[Deslocação] OSRM não devolveu distância válida.');
+      return;
+    }
 
-    input.value = String(km);
-    input.dispatchEvent(new Event('input', { bubbles: true }));
-    input.dispatchEvent(new Event('change', { bubbles: true }));
+    if (setDeslocacaoFormValue(overlay, km)) {
+      console.log('[Deslocação] Km aplicados ao formulário:', km);
+      onValueSet?.();
+    }
   } catch (err) {
     console.warn('[Deslocação] Auto-preenchimento ignorado:', err);
+  } finally {
+    wrap?.classList.remove('is-calculating');
   }
 }
