@@ -1,0 +1,27 @@
+---
+description: Permissões RH/Admin — Joana e Filipa têm acesso total ao painel
+alwaysApply: true
+---
+
+# Dar permissão de Admin às contas da Joana e da Filipa
+
+Joana e Filipa são **RH e Administração**. Devem ter acesso total sem bloqueios:
+
+- Gerir clientes (incl. condição de pagamento)
+- Revisão e aprovação de relatórios
+- Aba Faturação
+- Calendário, funcionários, histórico
+
+## Supabase Auth
+
+- `user_metadata.role` deve ser **`RH`** (também aceite: `admin`, `Admin`)
+- Joana: `joanamaia97@gmail.com` — migração `006_rh_admin_roles.sql`
+- Filipa: **sem e-mail pessoal** — entra com nome `Filipa` + palavra-passe; identificador interno `filipa@rh.manusilva.internal` só no Supabase
+
+## Código
+
+- Verificações: `pwa/js/auth-roles.js` e `pwa/api/lib/auth-roles.js`
+- API clientes: `isRhOrAdminAuthUser`, não apenas `role === 'RH'`
+- RLS Postgres: função `public.is_rh_admin()`
+
+Ao adicionar nova administradora RH, atualizar `UTILIZADORES`, `RH_ADMIN_EMAILS` e a migração SQL.

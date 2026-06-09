@@ -5,10 +5,12 @@
 import { updateClient, updateDB } from './app.js';
 import { normalizeClientRecord, registerClientInCatalog } from './clients-catalog.js';
 import { getSession } from './session.js';
+import { isRhOrAdminSession } from './auth-roles.js';
+import { ensureSupabaseAuthSession } from './supabase-client.js';
 
 function requireRhSession() {
   const session = getSession();
-  if (!session || session.role !== 'admin') {
+  if (!isRhOrAdminSession(session)) {
     throw new Error('Acesso reservado a Recursos Humanos.');
   }
   if (!session.token) {
@@ -52,6 +54,8 @@ export async function putClient(clientId, patch) {
     throw new Error('E-mail inválido.');
   }
 
+  await ensureSupabaseAuthSession();
+
   try {
     const res = await fetch(`/api/clients/${id}`, {
       method: 'PUT',
@@ -66,6 +70,8 @@ export async function putClient(clientId, patch) {
     }
 
     if (res.status === 401 || res.status === 403) {
+      const record = await updateClient(clientId, patch, { origem: 'rh_ficha', silent: true });
+      if (record) return record;
       const errBody = await res.json().catch(() => ({}));
       throw new Error(errBody.error || 'Sem permissão para atualizar clientes.');
     }

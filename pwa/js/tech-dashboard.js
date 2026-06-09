@@ -29,7 +29,6 @@ import {
   resolveCalendarEventState,
 } from './calendar-event-state.js';
 import { initLogoutButton, renderUserGreeting } from './auth.js';
-import { openJobForm } from './forms.js';
 import { HistoricoClienteView } from './views/historico-cliente.js';
 import { ensureTrabalhosSemana } from './trabalhos-db.js';
 
@@ -39,6 +38,21 @@ let selectedDate = new Date().toISOString().split('T')[0];
 let weekDates = getWeekDates(currentWeekDate);
 let weekJobsCacheKey = null;
 let weekNavBound = false;
+
+/** Carrega `forms.js` (+ `form-engine.js`) só ao abrir um relatório no tablet. */
+let formsModulePromise = null;
+
+function loadFormsModule() {
+  if (!formsModulePromise) {
+    formsModulePromise = import('./forms.js');
+  }
+  return formsModulePromise;
+}
+
+async function openJobFormLazy(jobId, options = {}) {
+  const { openJobForm } = await loadFormsModule();
+  return openJobForm(jobId, options);
+}
 
 function startOfLocalDay(date) {
   const d = new Date(date);
@@ -52,7 +66,7 @@ const TECH_JOBS_SHELL_HTML = `
       <h2>Trabalhos do Dia</h2>
       <span class="date-label" id="selected-date-label"></span>
     </div>
-    <p class="text-muted tech-greeting" style="font-size:0.8rem;margin:-0.5rem 0 1rem">
+    <p class="text-muted tech-greeting">
       Olá, <strong id="user-name"></strong>
     </p>
     <div class="jobs-list" id="jobs-list"></div>
@@ -451,14 +465,14 @@ function renderJobs() {
           <div class="job-time">${job.time}</div>
           <div class="job-card-badges">
             ${hasDraft ? '<span class="draft-badge">Rascunho</span>' : ''}
-            ${isPendingReview ? '<span class="status-badge" style="color:#78350f;background:#fef3c7">Pendente RH</span>' : statusBadge(job.status)}
+            ${isPendingReview ? '<span class="status-badge status-badge--pending">Pendente RH</span>' : statusBadge(job.status)}
           </div>
         </div>
         <div class="job-client-row">
           <button type="button" class="job-client job-client-link" data-client-history="${escapeHtml(job.clientId)}" title="Ver histórico de intervenções">
             ${escapeHtml(client?.name || 'Cliente')}
           </button>
-          <button type="button" class="btn-outline btn-sm job-history-btn" data-client-history="${escapeHtml(job.clientId)}">
+          <button type="button" class="btn-outline job-history-btn" data-client-history="${escapeHtml(job.clientId)}">
             Histórico
           </button>
         </div>
@@ -474,14 +488,14 @@ function renderJobs() {
   container.querySelectorAll('[data-open-job]').forEach((btn) => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
-      openJobForm(btn.dataset.openJob);
+      openJobFormLazy(btn.dataset.openJob).catch(console.error);
     });
   });
 
   container.querySelectorAll('[data-edit-pending-job]').forEach((btn) => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
-      openJobForm(btn.dataset.editPendingJob, { editPending: true });
+      openJobFormLazy(btn.dataset.editPendingJob, { editPending: true }).catch(console.error);
     });
   });
 
@@ -498,10 +512,10 @@ function renderJobs() {
       if (e.target.closest('[data-edit-pending-job], [data-open-job]')) return;
       const report = getReportForJob(card.dataset.jobId);
       if (report?.status === 'pending_review') {
-        openJobForm(card.dataset.jobId, { editPending: true });
+        openJobFormLazy(card.dataset.jobId, { editPending: true }).catch(console.error);
         return;
       }
-      openJobForm(card.dataset.jobId);
+      openJobFormLazy(card.dataset.jobId).catch(console.error);
     });
   });
 }

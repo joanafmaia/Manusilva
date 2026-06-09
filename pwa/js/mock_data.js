@@ -505,13 +505,26 @@ export const PDF_DOCUMENT_TITLES = {
   manutencao_corretiva_maquinas: 'FOLHA MANUTENÇÃO CORRETIVA DE MÁQUINAS',
 };
 
+/**
+ * Identificador interno Supabase Auth — a Filipa entra só com o nome «Filipa» + palavra-passe.
+ * Não é um e-mail real; não usa recuperação por e-mail.
+ */
+export const FILIPA_AUTH_EMAIL = 'filipa@rh.manusilva.internal';
+
 /** Tabela `utilizadores` — roles: `Tecnico` | `RH` */
 export const UTILIZADORES = [
   { nome: 'Hugo', nif: '236465767', telemovel: '917715182', email: 'filipasilvahugo2013@gmail.com', role: 'Tecnico', technicianId: 'tech-1' },
   { nome: 'Filipe', nif: '231912250', telemovel: '910858928', email: 'filipeg409@gmail.com', role: 'Tecnico', technicianId: 'tech-2' },
   { nome: 'Adelton', nif: '323438199', telemovel: '937123479', email: 'adeltonair@gmail.com', role: 'Tecnico', technicianId: 'tech-3' },
   { nome: 'Joana', nif: '240563077', telemovel: '910587126', email: 'joanamaia97@gmail.com', role: 'RH' },
-  { nome: 'Filipa', nif: null, telemovel: '910249947', email: 'filipasilvahugo2013@gmail.com', role: 'RH' },
+  {
+    nome: 'Filipa',
+    nif: null,
+    telemovel: '910249947',
+    email: FILIPA_AUTH_EMAIL,
+    role: 'RH',
+    semEmailPessoal: true,
+  },
 ];
 
 export const ROLE_UI_TO_DB = { technician: 'Tecnico', admin: 'RH' };
@@ -638,11 +651,11 @@ export const CLIENTS = [];
 export const SERVICE_TYPES = [...reportTemplates];
 
 export const JOB_STATUSES = {
-  scheduled: { label: 'Pendente', color: '#78350f', bg: '#fef3c7' },
-  in_progress: { label: 'Em Progresso', color: '#78350f', bg: '#fef3c7' },
-  pending_parts: { label: 'Pendente Peças', color: '#78350f', bg: '#fef3c7' },
-  rejected: { label: 'Rejeitado', color: '#991b1b', bg: '#fee2e2' },
-  completed: { label: 'Aprovado', color: '#166534', bg: '#dcfce7' },
+  scheduled: { label: 'Pendente', badgeVariant: 'pending' },
+  in_progress: { label: 'Em Progresso', badgeVariant: 'pending' },
+  pending_parts: { label: 'Pendente Peças', badgeVariant: 'pending' },
+  rejected: { label: 'Rejeitado', badgeVariant: 'rejected' },
+  completed: { label: 'Aprovado', badgeVariant: 'approved' },
 };
 
 function getWeekDates(baseDate = new Date()) {
@@ -803,4 +816,7 @@ export function seedDatabase() {
 export function resetDatabase() {
   localStorage.removeItem('manusilva_db');
   seedDatabase();
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('manusilva-db-reset'));
+  }
 }

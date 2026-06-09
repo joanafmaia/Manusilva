@@ -9,6 +9,8 @@ const SUPABASE_KEY =
   process.env.SUPABASE_KEY ||
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpoZmJlenJldm9zbWJtY2J5c2t3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzOTQxMTMsImV4cCI6MjA5NTk3MDExM30.eUXiUiBVxoULll4LICBLLmEtBWZ0zqBHuW_W7-nB4Wc';
 
+const { isRhOrAdminAuthUser } = require('../lib/auth-roles');
+
 const ALLOWED_FIELDS = [
   'email',
   'morada',
@@ -49,8 +51,7 @@ async function verifyRhUser(token) {
   });
   if (!res.ok) return null;
   const user = await res.json();
-  const role = user?.user_metadata?.role;
-  if (role !== 'RH') return null;
+  if (!isRhOrAdminAuthUser(user)) return null;
   return user;
 }
 

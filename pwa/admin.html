@@ -28,6 +28,7 @@
       <nav class="sidebar-nav" aria-label="Secções do painel">
         <a href="#calendar" class="nav-item active" data-admin-tab="calendario">📅 Calendário de Equipa</a>
         <a href="#pending" class="nav-item" data-admin-tab="relatorios">📋 Revisão de Relatórios</a>
+        <a href="#billing" class="nav-item" data-admin-tab="faturacao">💶 Faturação</a>
         <a href="#clients" class="nav-item" data-admin-tab="clientes">🏢 Clientes / Empresas</a>
         <a href="#client-history" class="nav-item" data-admin-tab="clientes">🗂 Histórico de Clientes</a>
         <a href="#employees" class="nav-item" data-admin-tab="funcionarios">👷 Funcionários</a>
@@ -92,6 +93,13 @@
           </div>
         </div>
 
+        <!-- Aba: Faturação -->
+        <div class="admin-tab-view" data-admin-tab="faturacao" id="admin-tab-faturacao">
+          <section class="admin-panel glass-card" id="billing">
+            <div id="faturacao-panel-root" class="admin-panel-body admin-form-shell"></div>
+          </section>
+        </div>
+
         <!-- Aba: Clientes -->
         <div class="admin-tab-view" data-admin-tab="clientes" id="admin-tab-clientes">
           <section class="admin-panel glass-card" id="clients">
@@ -126,7 +134,7 @@
   <script src="js/vendor/jspdf.umd.min.js" data-jspdf defer></script>
   <script src="js/vendor/jspdf.plugin.autotable.min.js" data-jspdf-autotable defer></script>
   <script type="module">
-    import { seedDatabase } from './js/mock_data.js?v=assign-multi-tech';
+    import { initLocalDatabase } from './js/app.js?v=assign-multi-tech';
     import { initAdminDashboard } from './js/admin-dashboard.js?v=assign-multi-tech';
     import { applyThemeToDocument, themeToggleIcon, toggleTheme } from './js/theme.js?v=assign-multi-tech';
 
@@ -139,7 +147,7 @@
       if (themeIcon) themeIcon.textContent = themeToggleIcon(next);
     });
 
-    seedDatabase();
+    initLocalDatabase();
     await initAdminDashboard();
   </script>
 </body>

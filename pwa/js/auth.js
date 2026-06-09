@@ -5,7 +5,7 @@
 import { getSupabaseClient } from './supabase-client.js';
 import { APP_SESSION_KEY, clearSession, normalizeSession, setRawSession } from './session.js';
 import { UTILIZADORES } from './mock_data.js';
-import { buildInitialPasswordHint } from './auth-password.js';
+import { isRhOrAdminRole, normalizeDbRole } from './auth-roles.js';
 
 export const AUTH_BUILD = '2026-06-03-supabase-auth';
 
@@ -76,6 +76,20 @@ export function resolveLoginEmail(identifier, roleFiltro = null) {
   return matches[0].email.toLowerCase();
 }
 
+/** Utilizador RH sem e-mail pessoal — login só por nome; sem recuperação por e-mail. */
+export function userUsesNameOnlyLogin(identifier, roleFiltro = null) {
+  const email = resolveLoginEmail(identifier, roleFiltro);
+  if (!email) return false;
+  const pool = buildLoginPool();
+  const match = pool.find(
+    (u) =>
+      u.email?.toLowerCase() === email &&
+      (!roleFiltro || u.role === roleFiltro) &&
+      u.semEmailPessoal === true,
+  );
+  return Boolean(match);
+}
+
 export function resolveDisplayNameForHint(identifier, roleFiltro = null) {
   const term = String(identifier || '').trim();
   if (!term) return '';
@@ -92,12 +106,15 @@ function profileFromAuthUser(user, roleFiltro) {
   const email = (user.email || '').toLowerCase();
   const fromPool = buildLoginPool().find((u) => u.email.toLowerCase() === email);
 
-  const role = meta.role || fromPool?.role;
+  const rawRole = meta.role || fromPool?.role;
+  const role = normalizeDbRole(rawRole) || rawRole;
   const nome = meta.nome || meta.name || fromPool?.nome || email;
   const technicianId =
     meta.technician_id || meta.technicianId || fromPool?.technicianId || null;
 
-  if (roleFiltro && role && role !== roleFiltro) {
+  if (roleFiltro === 'RH' && isRhOrAdminRole(rawRole)) {
+    /* RH/Admin — OK */
+  } else if (roleFiltro && role && role !== roleFiltro) {
     return {
       error:
         roleFiltro === 'RH'
@@ -176,6 +193,7 @@ export const AuthService = {
       role: profile.role,
       technicianId: profile.technicianId,
       token: data.session?.access_token || '',
+      refreshToken: data.session?.refresh_token || '',
       loginAt: new Date().toISOString(),
       authBuild: AUTH_BUILD,
     };
@@ -226,7 +244,6 @@ export const AuthService = {
   },
 
   buildLoginPool,
-  buildInitialPasswordHint,
 };
 
 export function initLogoutButton() {

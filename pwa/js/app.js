@@ -73,11 +73,89 @@ export { APP_SESSION_KEY, clearSession, getSession, normalizeSession };
 const DB_KEY = 'manusilva_db';
 const REPORT_EMAIL_SUBJECT_PREFIX = '[ManuSilva] Relatório de Intervenção';
 
-/* ─── Storage Layer ─── */
+/* ─── Storage Layer (cache em memória — evita parse repetido do localStorage) ─── */
+
+/** Cache do objeto persistido (sem jobs/reports vindos do Supabase). */
+let dbMemoryCache = null;
+let dbSeedChecked = false;
+
+function ensureSeededOnce() {
+  if (dbSeedChecked) return;
+  seedDatabase();
+  dbSeedChecked = true;
+}
+
+function recoverCorruptedDbStorage(reason) {
+  console.warn('[ManuSilva] localStorage manusilva_db inválido; a repor base de dados.', reason);
+  invalidateDbMemoryCache();
+  try {
+    localStorage.removeItem(DB_KEY);
+  } catch {
+    /* ignore */
+  }
+  seedDatabase();
+  dbSeedChecked = true;
+  try {
+    return JSON.parse(localStorage.getItem(DB_KEY) || '{}');
+  } catch {
+    return {
+      clients: [],
+      technicians: [],
+      utilizadores: [],
+      offlineQueue: [],
+      settings: { offline: false },
+    };
+  }
+}
+
+function readPersistedDbFromStorage() {
+  ensureSeededOnce();
+  const raw = localStorage.getItem(DB_KEY);
+  if (!raw) {
+    seedDatabase();
+    dbSeedChecked = true;
+    try {
+      return JSON.parse(localStorage.getItem(DB_KEY));
+    } catch (err) {
+      return recoverCorruptedDbStorage(err);
+    }
+  }
+  try {
+    return JSON.parse(raw);
+  } catch (err) {
+    return recoverCorruptedDbStorage(err);
+  }
+}
+
+function ensureMemoryCache() {
+  if (!dbMemoryCache) {
+    dbMemoryCache = readPersistedDbFromStorage();
+    if (stripPasswordsFromDb(dbMemoryCache)) {
+      const payload = { ...dbMemoryCache, jobs: [], reports: [] };
+      localStorage.setItem(DB_KEY, JSON.stringify(payload));
+    }
+  }
+  return dbMemoryCache;
+}
+
+/** Limpa a cache — usar após reset externo do localStorage (`resetDatabase`). */
+export function invalidateDbMemoryCache() {
+  dbMemoryCache = null;
+  dbSeedChecked = false;
+}
+
+if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+  window.addEventListener('manusilva-db-reset', invalidateDbMemoryCache);
+}
+
+/** Garante schema seed + cache quente (arranque da app). */
+export function initLocalDatabase() {
+  ensureSeededOnce();
+  ensureMemoryCache();
+}
 
 export function getDB() {
-  seedDatabase();
-  const db = JSON.parse(localStorage.getItem(DB_KEY));
+  const db = ensureMemoryCache();
   db.jobs = getJobsSnapshot();
   db.reports = getReportsSnapshot();
   return db;
@@ -158,9 +236,30 @@ export async function getAllClientsList() {
   );
 }
 
+function sanitizeUtilizadores(list) {
+  if (!Array.isArray(list)) return list;
+  return list.map((u) => {
+    if (!u || typeof u !== 'object') return u;
+    const { password: _pwd, ...rest } = u;
+    return rest;
+  });
+}
+
+function stripPasswordsFromDb(db) {
+  if (!db?.utilizadores?.length) return false;
+  const hadPasswords = db.utilizadores.some((u) => u && Object.prototype.hasOwnProperty.call(u, 'password'));
+  if (!hadPasswords) return false;
+  db.utilizadores = sanitizeUtilizadores(db.utilizadores);
+  return true;
+}
+
 export function saveDB(db) {
   const payload = { ...db, jobs: [], reports: [] };
+  if (Array.isArray(payload.utilizadores)) {
+    payload.utilizadores = sanitizeUtilizadores(payload.utilizadores);
+  }
   localStorage.setItem(DB_KEY, JSON.stringify(payload));
+  dbMemoryCache = { ...payload };
   window.dispatchEvent(new CustomEvent('db-updated'));
 }
 
@@ -170,7 +269,9 @@ export function updateDB(updater) {
   db.jobs = [];
   db.reports = [];
   saveDB(db);
-  return db;
+  dbMemoryCache.jobs = getJobsSnapshot();
+  dbMemoryCache.reports = getReportsSnapshot();
+  return dbMemoryCache;
 }
 
 /**
@@ -178,6 +279,11 @@ export function updateDB(updater) {
  * @param {{ tipoRelatorio?: string, reportId?: string, clienteNome?: string, nome_empresa?: string, tecnico?: string, dataConclusao?: string, to?: string, serieFrota?: string, pdfUrl?: string, pdfFilename?: string, pdfBase64?: string }} [meta]
  */
 export async function sendOfficialReportEmail(meta = {}) {
+  const session = getSession();
+  if (!session?.token) {
+    throw new Error('Sessão expirada. Inicie sessão novamente para enviar o e-mail.');
+  }
+
   const dateStamp =
     meta.dataConclusao ||
     new Date().toLocaleDateString('pt-PT', { year: 'numeric', month: '2-digit', day: '2-digit' });
@@ -188,7 +294,10 @@ export async function sendOfficialReportEmail(meta = {}) {
 
   const response = await fetch('/api/enviar-email', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${session.token}`,
+    },
     body: JSON.stringify({
       to: meta.to,
       reportId: meta.reportId,
@@ -230,7 +339,7 @@ export function requireAuth(role) {
 /* ─── Lookups ─── */
 
 export function getClient(id) {
-  const raw = getDB().clients.find((c) => c.id === id);
+  const raw = (getDB().clients || []).find((c) => c.id === id);
   if (raw) {
     const legacy = raw.name ? raw : mapClientToLegacy(raw);
     const demo = DEMO_CLIENT_FORKLIFTS[id];
@@ -322,10 +431,10 @@ function nextTechnicianId() {
 }
 
 /**
- * Novo técnico — push em `technicians` e `utilizadores` (login).
- * @returns {object|null} registo do técnico
+ * Novo técnico — cria conta Supabase Auth + registo local (`technicians` / `utilizadores`).
+ * @returns {Promise<object|null>} registo do técnico
  */
-export function addTechnician({ nome, email, telemovel, nif, password }) {
+export async function addTechnician({ nome, email, telemovel, nif }) {
   const name = String(nome || '').trim();
   const mail = String(email || '').trim();
   const phone = String(telemovel || '').trim();
@@ -345,7 +454,20 @@ export function addTechnician({ nome, email, telemovel, nif, password }) {
   const id = nextTechnicianId();
   const storedTechs = db.technicians || [];
   const color = TECHNICIAN_COLORS[storedTechs.length % TECHNICIAN_COLORS.length];
-  const pwd = String(password || '').trim() || '12345';
+
+  try {
+    const { createTechnicianAuthAccount } = await import('./technicians-api.js');
+    await createTechnicianAuthAccount({
+      nome: name,
+      email: mail,
+      technicianId: id,
+      telemovel: phone,
+      nif: String(nif || '').trim(),
+    });
+  } catch (err) {
+    showToast(err?.message || 'Não foi possível criar a conta de login do técnico.', 'error', 8000);
+    return null;
+  }
 
   const technician = {
     id,
@@ -363,7 +485,6 @@ export function addTechnician({ nome, email, telemovel, nif, password }) {
     email: mail,
     role: 'Tecnico',
     technicianId: id,
-    password: pwd,
   };
 
   updateDB((d) => {
@@ -374,9 +495,9 @@ export function addTechnician({ nome, email, telemovel, nif, password }) {
   });
 
   showToast(
-    `Técnico «${name}» criado. Login: ${mail} · palavra-passe: ${pwd}`,
+    `Técnico «${name}» adicionado. Conta de login criada no Supabase Auth.`,
     'success',
-    6500,
+    5500,
   );
   return technician;
 }
@@ -520,6 +641,8 @@ export async function updateClient(clientId, patch = {}, options = {}) {
   }
 
   try {
+    const { ensureSupabaseAuthSession } = await import('./supabase-client.js');
+    await ensureSupabaseAuthSession();
     await ensureProductionCatalog();
     const existing = getClientFromCatalog(id);
     const before = {
@@ -677,6 +800,43 @@ export function getRhPanelReportCounts() {
     approved: list.filter((r) => r.status === 'approved').length,
     rejected: list.filter((r) => r.status === 'rejected').length,
   };
+}
+
+/** Relatório aprovado ainda por faturar (controlo interno) */
+export function isPendingBilling(report) {
+  if (!report || report.status !== 'approved') return false;
+  const fs = report.faturacaoStatus;
+  return fs === 'pendente' || !fs;
+}
+
+export function getPendingBillingReports() {
+  return getReportsSnapshot()
+    .filter(isPendingBilling)
+    .sort((a, b) =>
+      String(a.approvedAt || '').localeCompare(String(b.approvedAt || '')),
+    );
+}
+
+/** Regista fatura emitida externamente — remove da fila de pendentes */
+export async function registerReportInvoice(reportId, { numeroFatura, dataFatura }) {
+  const report = getReport(reportId);
+  if (!report) throw new Error('Relatório não encontrado.');
+  if (!isPendingBilling(report)) {
+    throw new Error('Este relatório já não está pendente de faturação.');
+  }
+
+  const numero = String(numeroFatura ?? '').trim();
+  const data = String(dataFatura ?? '').trim();
+  if (!numero) throw new Error('Indique o número da fatura.');
+  if (!data) throw new Error('Indique a data da fatura.');
+
+  await updateRelatorio(reportId, {
+    faturacaoStatus: 'faturado',
+    numeroFatura: numero,
+    dataFatura: data,
+  });
+  window.dispatchEvent(new CustomEvent('db-updated'));
+  return true;
 }
 
 /* ─── Offline Mode ─── */
@@ -958,6 +1118,7 @@ export async function approveReport(reportId, options = {}) {
       status: 'approved',
       approvedAt: new Date().toISOString(),
       pdfFilename: filename,
+      faturacaoStatus: 'pendente',
     });
 
     if (reportForPdf.jobId) {
@@ -1155,7 +1316,8 @@ export function getDayNumber(iso) {
 
 export function statusBadge(status) {
   const s = JOB_STATUSES[status] || JOB_STATUSES.scheduled;
-  return `<span class="status-badge" style="color:${s.color};background:${s.bg}">${s.label}</span>`;
+  const variant = s.badgeVariant || 'pending';
+  return `<span class="status-badge status-badge--${variant}">${s.label}</span>`;
 }
 
 export function escapeHtml(str) {
@@ -1317,7 +1479,7 @@ export function initAppTheme() {
  */
 export function bootstrapApp(containerId = 'app') {
   initAppTheme();
-  seedDatabase();
+  initLocalDatabase();
 
   const appContainer =
     document.getElementById(containerId) || document.getElementById('app-root');

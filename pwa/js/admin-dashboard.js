@@ -49,6 +49,7 @@ import { initMetricsPanel, refreshMetricsPanel } from './views/dashboard.js';
 import { initClientsApp } from './views/clients-app.js';
 import { initEmployeesPanel, refreshTechniciansList } from './views/rh-registry.js';
 import { initArquivoHistoricoPage, refreshArquivoHistoricoPage } from './views/arquivo-historico.js';
+import { initFaturacaoPanel, refreshFaturacaoPanel } from './views/faturacao.js';
 
 /** Aba ativa do painel admin (controlada pela sidebar) */
 let currentTab = 'calendario';
@@ -56,6 +57,7 @@ let currentTab = 'calendario';
 const ADMIN_TAB_BY_NAV = {
   '#calendar': 'calendario',
   '#pending': 'relatorios',
+  '#billing': 'faturacao',
   '#clients': 'clientes',
   '#client-history': 'clientes',
   '#employees': 'funcionarios',
@@ -77,6 +79,93 @@ const RH_EMPTY_MESSAGES = {
 const AGENDA_SWIPE_OPEN_PX = 88;
 
 let reviewPanelHeightObserver = null;
+
+/** Secções fora do ecrã — refresh adiado até o utilizador abrir a aba. */
+const adminTabDirty = {
+  ops: false,
+  faturacao: false,
+  clientes: false,
+  funcionarios: false,
+};
+
+function isOpsTabActive() {
+  return currentTab === 'calendario' || currentTab === 'relatorios';
+}
+
+function refreshOpsTab() {
+  renderCalendar();
+  renderSidebar();
+  updatePendingCount();
+  renderRhReviewStack().catch(console.error);
+  if (currentTab === 'calendario') {
+    refreshMetricsPanel().catch(console.error);
+  }
+}
+
+function refreshClientesTab() {
+  refreshArquivoHistoricoPage();
+}
+
+function refreshFuncionariosTab() {
+  refreshTechniciansList(document.getElementById('employees-panel'));
+  renderSidebar();
+}
+
+function flushDirtyAdminTab(tab) {
+  if ((tab === 'calendario' || tab === 'relatorios') && adminTabDirty.ops) {
+    adminTabDirty.ops = false;
+    refreshOpsTab();
+    return;
+  }
+  if (tab === 'faturacao' && adminTabDirty.faturacao) {
+    adminTabDirty.faturacao = false;
+    refreshFaturacaoPanel().catch(console.error);
+    return;
+  }
+  if (tab === 'clientes' && adminTabDirty.clientes) {
+    adminTabDirty.clientes = false;
+    refreshClientesTab();
+    return;
+  }
+  if (tab === 'funcionarios' && adminTabDirty.funcionarios) {
+    adminTabDirty.funcionarios = false;
+    refreshFuncionariosTab();
+  }
+}
+
+function handleAdminDbUpdated() {
+  try {
+    if (isOpsTabActive()) {
+      adminTabDirty.ops = false;
+      refreshOpsTab();
+    } else {
+      adminTabDirty.ops = true;
+    }
+
+    if (currentTab === 'faturacao') {
+      adminTabDirty.faturacao = false;
+      refreshFaturacaoPanel({ soft: true }).catch(console.error);
+    } else {
+      adminTabDirty.faturacao = true;
+    }
+
+    if (currentTab === 'clientes') {
+      adminTabDirty.clientes = false;
+      refreshClientesTab();
+    } else {
+      adminTabDirty.clientes = true;
+    }
+
+    if (currentTab === 'funcionarios') {
+      adminTabDirty.funcionarios = false;
+      refreshFuncionariosTab();
+    } else {
+      adminTabDirty.funcionarios = true;
+    }
+  } catch (err) {
+    console.error('[Admin] Atualização:', err);
+  }
+}
 
 /** Iguala a altura do painel de relatórios à do calendário (scroll interno isolado). */
 function syncReviewPanelHeight() {
@@ -114,6 +203,7 @@ export function setAdminTab(tab) {
   if (!tab) return;
   currentTab = tab;
   updateAdminTabUI();
+  flushDirtyAdminTab(tab);
   document.querySelector('.admin-main')?.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -186,7 +276,11 @@ export async function initAdminDashboard() {
   initAdminRealtime({
     onTrabalhoInserted: () => {
       try {
-        renderCalendar();
+        if (isOpsTabActive()) {
+          renderCalendar();
+        } else {
+          adminTabDirty.ops = true;
+        }
       } catch (e) {
         console.error('[Admin] Calendário após trabalho realtime:', e);
       }
@@ -206,6 +300,7 @@ export async function initAdminDashboard() {
 
   const historyRoot = document.getElementById('client-history-app');
   const metricsRoot = document.getElementById('admin-metrics-root');
+  const faturacaoRoot = document.getElementById('faturacao-panel-root');
 
   await Promise.all([
     metricsRoot
@@ -223,6 +318,12 @@ export async function initAdminDashboard() {
           showToast(formatClientsLoadError(err), 'error', 9000);
         })
       : Promise.resolve(),
+    faturacaoRoot
+      ? initFaturacaoPanel(faturacaoRoot).catch((err) => {
+          console.error('[Admin] Faturação:', err);
+          showToast('Erro ao carregar o painel de faturação.', 'error');
+        })
+      : Promise.resolve(),
   ]);
 
   try {
@@ -232,19 +333,7 @@ export async function initAdminDashboard() {
     showToast('Erro ao carregar cadastro de técnicos.', 'error');
   }
 
-  window.addEventListener('db-updated', () => {
-    try {
-      renderCalendar();
-      renderSidebar();
-      refreshTechniciansList(document.getElementById('employees-panel'));
-    } catch (err) {
-      console.error('[Admin] Atualização:', err);
-    }
-    refreshMetricsPanel().catch(console.error);
-    refreshArquivoHistoricoPage();
-    updatePendingCount();
-    renderRhReviewStack().catch(console.error);
-  });
+  window.addEventListener('db-updated', handleAdminDbUpdated);
 }
 
 function renderSidebar() {
@@ -529,13 +618,24 @@ async function renderRhReviewStack() {
 function rhReviewModalCallbacks() {
   return {
     onApproved: async () => {
-      renderCalendar();
-      refreshMetricsPanel().catch(console.error);
-      await renderRhReviewStack();
+      if (isOpsTabActive()) {
+        refreshOpsTab();
+      } else {
+        adminTabDirty.ops = true;
+      }
+      adminTabDirty.faturacao = true;
+      if (currentTab === 'faturacao') {
+        adminTabDirty.faturacao = false;
+        await refreshFaturacaoPanel({ soft: true });
+      }
     },
     onRejected: async () => {
-      renderCalendar();
-      await renderRhReviewStack();
+      if (isOpsTabActive()) {
+        renderCalendar();
+        await renderRhReviewStack();
+      } else {
+        adminTabDirty.ops = true;
+      }
     },
   };
 }

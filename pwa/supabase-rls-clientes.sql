@@ -33,8 +33,6 @@ CREATE POLICY "authenticated_read_cliente_alteracoes"
 ALTER TABLE public.clientes ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "anon_read_clientes" ON public.clientes;
-CREATE POLICY "anon_read_clientes"
-  ON public.clientes FOR SELECT TO anon USING (true);
 
 DROP POLICY IF EXISTS "authenticated_read_clientes" ON public.clientes;
 CREATE POLICY "authenticated_read_clientes"
@@ -45,16 +43,35 @@ DROP POLICY IF EXISTS "anon_update_clientes" ON public.clientes;
 DROP POLICY IF EXISTS "authenticated_insert_clientes" ON public.clientes;
 DROP POLICY IF EXISTS "authenticated_update_clientes" ON public.clientes;
 
+CREATE OR REPLACE FUNCTION public.is_rh_admin()
+RETURNS boolean
+LANGUAGE sql
+STABLE
+AS $$
+  SELECT CASE
+    WHEN auth.jwt() IS NULL THEN false
+    ELSE
+      COALESCE(auth.jwt() -> 'user_metadata' ->> 'role', '') IN (
+        'RH', 'rh', 'admin', 'Admin', 'ADMIN', 'administracao', 'Administracao'
+      )
+      OR lower(COALESCE(auth.jwt() -> 'user_metadata' ->> 'nome', '')) IN ('joana', 'filipa')
+      OR lower(COALESCE(auth.jwt() ->> 'email', '')) IN (
+        'joanamaia97@gmail.com',
+        'filipa@rh.manusilva.internal'
+      )
+  END;
+$$;
+
 DROP POLICY IF EXISTS "rh_insert_clientes" ON public.clientes;
 CREATE POLICY "rh_insert_clientes"
   ON public.clientes FOR INSERT TO authenticated
-  WITH CHECK ((auth.jwt() -> 'user_metadata' ->> 'role') = 'RH');
+  WITH CHECK (public.is_rh_admin());
 
 DROP POLICY IF EXISTS "rh_update_clientes" ON public.clientes;
 CREATE POLICY "rh_update_clientes"
   ON public.clientes FOR UPDATE TO authenticated
-  USING ((auth.jwt() -> 'user_metadata' ->> 'role') = 'RH')
-  WITH CHECK ((auth.jwt() -> 'user_metadata' ->> 'role') = 'RH');
+  USING (public.is_rh_admin())
+  WITH CHECK (public.is_rh_admin());
 
 DO $$
 DECLARE

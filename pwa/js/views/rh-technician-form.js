@@ -1,5 +1,5 @@
 /**
- * Formulário RH — novo técnico (equipa + login)
+ * Formulário RH — novo técnico (equipa + metadados de login)
  */
 
 import { addTechnician, escapeHtml } from '../app.js';
@@ -10,6 +10,8 @@ export function renderTechnicianFormSection() {
       <h3 id="rh-tech-form-title" class="dashboard-section-title">Novo técnico</h3>
       <p class="rh-register-hint text-muted">
         O técnico passa a aparecer no calendário, nas atribuições e no ecrã de login (perfil Técnico).
+        A conta Supabase Auth é criada automaticamente com o mesmo e-mail; a palavra-passe inicial segue o formato interno
+        <strong>Nome.2026</strong> (primeira letra maiúscula). Comunique-a ao técnico em canal seguro — nunca por e-mail em massa.
       </p>
       <form id="rh-tech-form" class="rh-register-form" novalidate>
         <div class="form-group">
@@ -26,15 +28,9 @@ export function renderTechnicianFormSection() {
             <input type="tel" class="form-input" id="rh-tech-phone" required autocomplete="tel">
           </div>
         </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label class="form-label" for="rh-tech-nif">NIF</label>
-            <input type="text" class="form-input" id="rh-tech-nif" inputmode="numeric">
-          </div>
-          <div class="form-group">
-            <label class="form-label" for="rh-tech-password">Palavra-passe inicial</label>
-            <input type="text" class="form-input" id="rh-tech-password" value="12345" autocomplete="new-password">
-          </div>
+        <div class="form-group">
+          <label class="form-label" for="rh-tech-nif">NIF</label>
+          <input type="text" class="form-input" id="rh-tech-nif" inputmode="numeric">
         </div>
         <button type="submit" class="btn-primary rh-register-submit">Adicionar técnico</button>
       </form>
@@ -128,27 +124,29 @@ export function mountTechnicianForm(root, callbacks = {}) {
   if (!form || form.dataset.bound === 'true') return;
   form.dataset.bound = 'true';
 
-  form.addEventListener('submit', (e) => {
+  form.addEventListener('submit', async (e) => {
     e.preventDefault();
 
     const btn = form.querySelector('.rh-register-submit');
+    const defaultLabel = btn.textContent;
     btn.disabled = true;
+    btn.textContent = 'A criar conta…';
 
-    const tech = addTechnician({
-      nome: form.querySelector('#rh-tech-nome')?.value,
-      email: form.querySelector('#rh-tech-email')?.value,
-      telemovel: form.querySelector('#rh-tech-phone')?.value,
-      nif: form.querySelector('#rh-tech-nif')?.value,
-      password: form.querySelector('#rh-tech-password')?.value,
-    });
+    try {
+      const tech = await addTechnician({
+        nome: form.querySelector('#rh-tech-nome')?.value,
+        email: form.querySelector('#rh-tech-email')?.value,
+        telemovel: form.querySelector('#rh-tech-phone')?.value,
+        nif: form.querySelector('#rh-tech-nif')?.value,
+      });
 
-    btn.disabled = false;
-
-    if (tech) {
-      form.reset();
-      const pwd = form.querySelector('#rh-tech-password');
-      if (pwd) pwd.value = '12345';
-      callbacks.onSuccess?.();
+      if (tech) {
+        form.reset();
+        callbacks.onSuccess?.();
+      }
+    } finally {
+      btn.disabled = false;
+      btn.textContent = defaultLabel;
     }
   });
 }

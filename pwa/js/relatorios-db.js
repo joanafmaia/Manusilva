@@ -42,6 +42,9 @@ export function mapRowToReport(row) {
     approvedAt: row.aprovado_em || null,
     pdfFilename: row.nome_pdf || null,
     rejectionNote: row.nota_rejeicao ?? null,
+    faturacaoStatus: row.faturacao_status || null,
+    numeroFatura: row.numero_fatura || null,
+    dataFatura: row.data_fatura || null,
     data: {
       values: dados.values || {},
       signatures: dados.signatures || {},
@@ -65,6 +68,9 @@ export function mapReportToRow(report) {
     aprovado_em: report.approvedAt || null,
     nome_pdf: report.pdfFilename || null,
     nota_rejeicao: report.rejectionNote ?? null,
+    faturacao_status: report.faturacaoStatus || null,
+    numero_fatura: report.numeroFatura || null,
+    data_fatura: report.dataFatura || null,
     dados: {
       values: data.values || {},
       signatures: data.signatures || {},

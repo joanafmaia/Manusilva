@@ -11,10 +11,25 @@ const TECHNICIAN_IDS = {
   'adeltonair@gmail.com': 'tech-3',
 };
 
+function mapRoleToUi(role) {
+  if (role === 'Tecnico' || role === 'technician') return 'technician';
+  if (
+    role === 'RH' ||
+    role === 'rh' ||
+    role === 'admin' ||
+    role === 'Admin' ||
+    role === 'ADMIN' ||
+    role === 'administracao' ||
+    role === 'Administracao'
+  ) {
+    return 'admin';
+  }
+  return role;
+}
+
 export function normalizeSession(sessao) {
   if (!sessao) return null;
-  const role =
-    sessao.role === 'Tecnico' ? 'technician' : sessao.role === 'RH' ? 'admin' : sessao.role;
+  const role = mapRoleToUi(sessao.role);
   const email = (sessao.email || '').toLowerCase();
   return {
     username: sessao.email,
@@ -27,9 +42,21 @@ export function normalizeSession(sessao) {
   };
 }
 
-export function getSession() {
+export function getRawSession() {
   const raw = localStorage.getItem(APP_SESSION_KEY);
-  return raw ? normalizeSession(JSON.parse(raw)) : null;
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch (err) {
+    console.warn('[ManuSilva] Sessão corrompida no localStorage; a limpar.', err);
+    clearSession();
+    return null;
+  }
+}
+
+export function getSession() {
+  const parsed = getRawSession();
+  return parsed ? normalizeSession(parsed) : null;
 }
 
 export function clearSession() {

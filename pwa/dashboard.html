@@ -92,7 +92,7 @@
           <h2>Trabalhos do Dia</h2>
           <span class="date-label" id="selected-date-label"></span>
         </div>
-        <p class="text-muted tech-greeting" style="font-size:0.8rem;margin:-0.5rem 0 1rem">
+        <p class="text-muted tech-greeting">
           Olá, <strong id="user-name"></strong>
         </p>
         <div class="jobs-list" id="jobs-list"></div>
@@ -104,8 +104,7 @@
   <script src="js/vendor/jspdf.umd.min.js" data-jspdf defer></script>
   <script src="js/vendor/jspdf.plugin.autotable.min.js" data-jspdf-autotable defer></script>
   <script type="module">
-    import { seedDatabase } from './js/mock_data.js';
-    import { warmClientsCatalog, warmOperacoes } from './js/app.js';
+    import { initLocalDatabase, warmClientsCatalog, warmOperacoes } from './js/app.js';
     import { initTechDashboard } from './js/tech-dashboard.js';
     import { applyThemeToDocument, themeToggleIcon, toggleTheme } from './js/theme.js';
 
@@ -118,7 +117,7 @@
       if (themeIcon) themeIcon.textContent = themeToggleIcon(next);
     });
 
-    seedDatabase();
+    initLocalDatabase();
     await warmClientsCatalog();
     await warmOperacoes();
     initTechDashboard();

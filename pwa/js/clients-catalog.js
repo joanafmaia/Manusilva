@@ -2,7 +2,7 @@
  * Catálogo de clientes — Supabase (tabela `clientes`)
  */
 
-import { getSupabaseClient } from './supabase-client.js';
+import { ensureSupabaseAuthSession, getSupabaseClient } from './supabase-client.js';
 
 const MAX_DROPDOWN_RESULTS = 10;
 
@@ -73,8 +73,8 @@ export function formatClientsLoadError(err) {
     /permission denied|row-level security|RLS/i.test(msg)
   ) {
     return (
-      'Sem permissão na tabela clientes (RLS). No Supabase → SQL Editor, permite SELECT para anon: ' +
-      'CREATE POLICY "anon_read_clientes" ON public.clientes FOR SELECT TO anon USING (true);'
+      'Sem permissão na tabela clientes (RLS). Inicia sessão na app e confirma que executaste ' +
+      'pwa/supabase/migrations/007_lockdown_anon.sql (SELECT só para authenticated).'
     );
   }
   if (code === 'PGRST205' || /relation.*does not exist|Could not find the table/i.test(msg)) {
@@ -131,6 +131,7 @@ export function formatClientUpdateError(err) {
 }
 
 async function fetchClientsFromSupabase() {
+  await ensureSupabaseAuthSession();
   const supabase = await getSupabaseClient();
   const { data, error } = await supabase
     .from('clientes')
@@ -147,7 +148,7 @@ async function fetchClientsFromSupabase() {
   const rows = data || [];
   if (!rows.length) {
     console.warn(
-      '[ManuSilva] Supabase devolveu 0 clientes. Confirma dados na tabela public.clientes e executa pwa/supabase-rls-clientes.sql (políticas RLS para anon).',
+      '[ManuSilva] Supabase devolveu 0 clientes. Confirma dados na tabela public.clientes e sessão authenticated (007_lockdown_anon.sql).',
     );
   } else {
     console.info(`[ManuSilva] ${rows.length} clientes carregados do Supabase.`);

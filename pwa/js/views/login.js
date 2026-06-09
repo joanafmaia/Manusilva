@@ -1,4 +1,4 @@
-import { AuthService, resolveLoginEmail } from '../auth.js';
+import { AuthService, resolveLoginEmail, userUsesNameOnlyLogin } from '../auth.js';
 import { ROLE_UI_TO_DB } from '../mock_data.js';
 import { toggleTheme, themeToggleIcon } from '../theme.js';
 
@@ -21,70 +21,45 @@ function resetFailedCount() {
 export const LoginView = {
   render() {
     return `
-      <div id="login-container" class="login-shell" style="
-        position: relative; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center;
-        padding: 20px;
-      ">
+      <div id="login-container" class="login-shell">
         <div class="login-shell-top">
           <button type="button" id="theme-toggle" class="theme-toggle-btn theme-toggle-btn--inline btn-ghost btn-sm" aria-label="Alternar tema" title="Alternar tema">
             <span id="theme-icon" aria-hidden="true">${themeToggleIcon()}</span>
           </button>
         </div>
 
-        <div id="login-card" style="
-          background-color: var(--bg-card); color: var(--text-main);
-          width: 100%; max-width: 420px; padding: 40px 30px;
-          border-radius: 16px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.15);
-          transition: transform 0.2s ease, background-color 0.3s ease;
-        ">
+        <div id="login-card" class="login-card">
           <div class="login-brand-block">
             <div class="brand-logo-slot login-brand-logo" data-brand-logo-lg aria-label="ManuSilva">MS</div>
             <h2 class="login-portal-title">Portal Interno</h2>
             <p class="login-portal-subtitle">Introduza os seus dados para aceder</p>
           </div>
 
-          <p style="margin: 0 0 10px 0; font-size: 13px; font-weight: 600; color: var(--text-muted);">Entrar como</p>
-          <div id="role-selector" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 22px;">
+          <p class="login-role-label">Entrar como</p>
+          <div id="role-selector" class="role-selector">
             <button type="button" class="role-pick is-selected" data-role="technician" aria-pressed="true">
-              <strong style="display:block;font-size:14px;">Técnico</strong>
+              <strong class="role-pick-title">Técnico</strong>
               <span class="role-pick-hint">Campo · Mobile</span>
             </button>
             <button type="button" class="role-pick" data-role="admin" aria-pressed="false">
-              <strong style="display:block;font-size:14px;">Recursos Humanos</strong>
+              <strong class="role-pick-title">Recursos Humanos</strong>
               <span class="role-pick-hint">Admin · Desktop</span>
             </button>
           </div>
 
-          <form id="login-form" autocomplete="on">
-            <div style="margin-bottom: 20px;">
-              <label for="identifier" style="display: block; margin-bottom: 8px; font-size: 14px; font-weight: 600; color: var(--text-muted);">Nome ou e-mail</label>
-              <input type="text" id="identifier" class="form-input" required autocomplete="username" style="
-                width: 100%; padding: 14px; border-radius: 8px; font-size: 16px; box-sizing: border-box; outline: none;
-                background-color: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-main);
-                transition: border-color 0.2s;
-              " placeholder="Nome ou exemplo@empresa.com">
+          <form id="login-form" class="login-form" autocomplete="on">
+            <div class="form-group">
+              <label for="identifier" class="form-label">Nome ou e-mail</label>
+              <input type="text" id="identifier" class="form-input" required autocomplete="username" placeholder="Nome ou exemplo@empresa.com">
             </div>
 
-            <div style="margin-bottom: 8px;">
-              <label for="password" style="display: block; margin-bottom: 8px; font-size: 14px; font-weight: 600; color: var(--text-muted);">Palavra-passe</label>
-              <input type="password" id="password" class="form-input" required autocomplete="current-password" style="
-                width: 100%; padding: 14px; border-radius: 8px; font-size: 16px; box-sizing: border-box; outline: none;
-                background-color: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-main);
-                transition: border-color 0.2s;
-              " placeholder="">
+            <div class="form-group form-group--compact">
+              <label for="password" class="form-label">Palavra-passe</label>
+              <input type="password" id="password" class="form-input" required autocomplete="current-password">
             </div>
 
-            <div id="login-error" style="
-              color: #dc2626; background: rgba(220, 38, 38, 0.08); padding: 12px;
-              border-radius: 8px; margin: 20px 0; font-size: 14px; display: none;
-              border: 1px solid rgba(220, 38, 38, 0.2); text-align: center; font-weight: 500;
-            "></div>
-
-            <div id="login-info" style="
-              color: #1d4ed8; background: rgba(37, 99, 235, 0.08); padding: 12px;
-              border-radius: 8px; margin-bottom: 20px; font-size: 14px; display: none;
-              border: 1px solid rgba(37, 99, 235, 0.2); text-align: center; font-weight: 500;
-            "></div>
+            <div id="login-error" class="login-message login-message--error" role="alert"></div>
+            <div id="login-info" class="login-message login-message--info" role="status"></div>
 
             <button type="submit" id="btn-submit" class="login-submit-btn">
               <span id="btn-text">Entrar no Sistema</span>
@@ -120,37 +95,42 @@ export const LoginView = {
 
     function setLoginLocked(locked, message = '') {
       btnSubmit.disabled = locked;
-      if (locked) {
-        btnSubmit.style.background = '#94a3b8';
-        btnSubmit.style.cursor = 'not-allowed';
-        if (message) btnText.textContent = message;
-      } else {
-        btnSubmit.style.background = '#2563eb';
-        btnSubmit.style.cursor = 'pointer';
+      btnSubmit.classList.toggle('is-loading', locked && !message);
+      if (message) {
+        btnText.textContent = message;
+      } else if (!locked) {
         btnText.textContent = 'Entrar no Sistema';
       }
     }
 
+    function hideMessages() {
+      errorDiv.classList.remove('is-visible');
+      infoDiv.classList.remove('is-visible');
+    }
+
     function showError(msg) {
-      infoDiv.style.display = 'none';
+      infoDiv.classList.remove('is-visible');
       errorDiv.textContent = msg;
-      errorDiv.style.display = 'block';
+      errorDiv.classList.add('is-visible');
     }
 
     function showInfo(msg) {
-      errorDiv.style.display = 'none';
+      errorDiv.classList.remove('is-visible');
       infoDiv.textContent = msg;
-      infoDiv.style.display = 'block';
+      infoDiv.classList.add('is-visible');
     }
 
     function shakeCard() {
-      card.style.transform = 'translateX(-8px)';
-      setTimeout(() => {
-        card.style.transform = 'translateX(8px)';
-      }, 80);
-      setTimeout(() => {
-        card.style.transform = 'translateX(0)';
-      }, 160);
+      card.classList.remove('is-shake');
+      void card.offsetWidth;
+      card.classList.add('is-shake');
+      card.addEventListener(
+        'animationend',
+        () => {
+          card.classList.remove('is-shake');
+        },
+        { once: true },
+      );
     }
 
     async function triggerLockoutAndReset(email) {
@@ -188,24 +168,13 @@ export const LoginView = {
       });
     });
 
-    form.querySelectorAll('#identifier, #password').forEach((input) => {
-      input.addEventListener('focus', () => {
-        input.style.borderColor = '#2563eb';
-      });
-      input.addEventListener('blur', () => {
-        input.style.borderColor = '';
-      });
-    });
-
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       if (btnSubmit.disabled && getFailedCount() >= MAX_FAILED_ATTEMPTS) return;
 
-      errorDiv.style.display = 'none';
-      infoDiv.style.display = 'none';
+      hideMessages();
 
       setLoginLocked(true);
-      btnSubmit.style.background = '#1d4ed8';
       btnText.textContent = 'A verificar...';
 
       const identifier = identifierInput.value.trim();
@@ -226,7 +195,16 @@ export const LoginView = {
       setFailedCount(failures);
 
       if (failures >= MAX_FAILED_ATTEMPTS) {
-        await triggerLockoutAndReset(email);
+        if (userUsesNameOnlyLogin(identifier, roleFiltro)) {
+          showInfo(
+            'Demasiadas tentativas incorretas. Contacte a administração para redefinir a palavra-passe.',
+          );
+          setLoginLocked(true, 'Login bloqueado temporariamente');
+          clearTimeout(lockTimer);
+          lockTimer = setTimeout(() => setLoginLocked(false), LOGIN_LOCK_MS);
+        } else {
+          await triggerLockoutAndReset(email);
+        }
         shakeCard();
         return;
       }

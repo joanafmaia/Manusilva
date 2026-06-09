@@ -14,7 +14,7 @@ INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_typ
 VALUES ('fotos_trabalhos', 'fotos_trabalhos', true, 10485760, NULL)
 ON CONFLICT (id) DO UPDATE SET public = true;
 
--- ─── 2) Políticas Storage (anon + authenticated) ───
+-- ─── 2) Políticas Storage (apenas authenticated — ver migrations/007_lockdown_anon.sql) ───
 DROP POLICY IF EXISTS "anon_upload_fotos_trabalhos" ON storage.objects;
 DROP POLICY IF EXISTS "anon_update_fotos_trabalhos" ON storage.objects;
 DROP POLICY IF EXISTS "anon_read_fotos_trabalhos" ON storage.objects;
@@ -25,13 +25,6 @@ DROP POLICY IF EXISTS "authenticated_update_fotos_trabalhos" ON storage.objects;
 DROP POLICY IF EXISTS "authenticated_read_fotos_trabalhos" ON storage.objects;
 DROP POLICY IF EXISTS "authenticated_delete_fotos_trabalhos" ON storage.objects;
 DROP POLICY IF EXISTS "authenticated_all_fotos_trabalhos" ON storage.objects;
-
-CREATE POLICY "anon_all_fotos_trabalhos"
-  ON storage.objects
-  FOR ALL
-  TO anon
-  USING (bucket_id = 'fotos_trabalhos')
-  WITH CHECK (bucket_id = 'fotos_trabalhos');
 
 CREATE POLICY "authenticated_all_fotos_trabalhos"
   ON storage.objects
@@ -44,7 +37,7 @@ CREATE POLICY "authenticated_all_fotos_trabalhos"
 ALTER TABLE public.trabalhos ADD COLUMN IF NOT EXISTS foto_antes text;
 ALTER TABLE public.trabalhos ADD COLUMN IF NOT EXISTS foto_depois text;
 
--- ─── 4) Verificação (deve listar 2 políticas) ───
+-- ─── 4) Verificação (deve listar 1 política authenticated) ───
 SELECT policyname, roles, cmd
 FROM pg_policies
 WHERE schemaname = 'storage'
