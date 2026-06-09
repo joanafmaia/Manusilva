@@ -12,7 +12,6 @@ import {
   escapeHtml,
   formatDate,
   showToast,
-  formatRelatoriosError,
 } from '../app.js';
 import { formatOrdemLabel } from '../report-review-ui.js';
 import { PAYMENT_CONDITION_OPTIONS } from './client-profile-drawer.js';
@@ -395,7 +394,7 @@ function openRegisterInvoiceModal(reportId) {
       await refreshFaturacaoPanel({ soft: true });
     } catch (err) {
       console.error('[Faturação] Registo:', err);
-      showToast(formatRelatoriosError(err) || err?.message || 'Erro ao registar fatura.', 'error');
+      showToast(err?.message || 'Erro ao registar fatura.', 'error');
       btn.disabled = false;
     }
   });
