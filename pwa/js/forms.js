@@ -28,6 +28,7 @@ import {
   buildFormPrefill,
   mergeFormValues,
   isOfficialTemplate,
+  renderDeslocacaoIntroField,
 } from './form-engine.js';
 import {
   migrateLegacyBatteryRows,
@@ -43,6 +44,7 @@ import {
   commitSignatureSnapshot,
 } from './signatures.js';
 import { initReportFormAutosave } from './report-form-autosave.js';
+import { applyAutoDeslocacaoToForm } from './deslocacao-distance.js';
 import {
   syncJobFotosAntesDepois,
   ensureFotoUrlsOnTrabalho,
@@ -166,6 +168,9 @@ export async function openJobForm(jobId, options = {}) {
   requestAnimationFrame(() => overlay.classList.add('show'));
 
   bindFormEvents(overlay, job, client, tech, service, existingReport);
+
+  const savedValues = getFormValues(existingReport);
+  void applyAutoDeslocacaoToForm(overlay, { job, service, savedValues });
 
   if (trabalhoIdEmEdicao) {
     showToast('Pode editar o relatório enquanto aguarda aprovação do RH.', 'info', 4000);
@@ -303,9 +308,11 @@ function buildFormHTML(job, client, tech, service, existingReport) {
                 ${lockedClientFields}
                 <h2 class="form-report-title">${service?.icon || '📋'} ${escapeHtml(formTitle)}</h2>
                 <div class="form-fixed-header glass-card-inner ${official ? 'form-fixed-header--compact' : ''}">
-                  <div class="header-grid">
+                  ${official ? '<p class="form-intro-block-label">Dados da Intervenção</p>' : ''}
+                  <div class="header-grid ${official ? 'header-grid--intervention' : ''}">
                     <div class="header-field"><span class="hf-label">Data do Serviço</span><span class="hf-value">${formatDateLong(job.date)}</span></div>
                     <div class="header-field"><span class="hf-label">Técnico</span><span class="hf-value">${escapeHtml(tech.name)}</span></div>
+                    ${official ? `<div class="form-intro-deslocacao">${renderDeslocacaoIntroField(values, formContext)}</div>` : ''}
                   </div>
                 </div>
               </div>

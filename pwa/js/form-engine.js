@@ -23,6 +23,10 @@ import {
   getColumnLabels,
   getColumnKeys,
 } from './views/relatorio-grandes.js';
+import {
+  isDeslocacaoField,
+  STANDARD_DESLOCACAO_FIELD,
+} from './deslocacao-field.js';
 
 export { renderClientCombobox, renderHeaderClientCombobox, bindClientComboboxes, collectClientComboboxValues };
 
@@ -177,11 +181,17 @@ export function isMachineTrackingField(field) {
 
 function filterReportFields(fields, service) {
   return (fields || []).filter((f) => {
+    if (isDeslocacaoField(f)) return false;
     if (service?.id === 'inspecao_dl50_2005' && f.section === 'Informações da Máquina') {
       return true;
     }
     return !isMachineTrackingField(f);
   });
+}
+
+/** Deslocação (Km) no bloco intro — Informações Gerais / Dados da Intervenção */
+export function renderDeslocacaoIntroField(values = {}, context = {}) {
+  return renderField(STANDARD_DESLOCACAO_FIELD, values.deslocacao, context);
 }
 
 const SERVICE_FORM_TITLES = {

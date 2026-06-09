@@ -1812,6 +1812,26 @@ body.dark-mode .btn-preview:hover:not(:disabled) {
   gap: 0.75rem;
 }
 
+.form-intro-block-label {
+  margin: 0 0 0.65rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.form-intro-deslocacao {
+  grid-column: 1 / -1;
+  margin-top: 0.15rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--ms-border, var(--border-subtle));
+}
+
+.form-intro-deslocacao .form-group {
+  margin-bottom: 0;
+}
+
 .header-field-full { grid-column: 1 / -1; }
 
 .hf-label { display: block; font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }

@@ -145,7 +145,13 @@ export function isScalarCompactSection(section, service) {
     return true;
   }
   if (norm.includes('logistica') || norm.includes('datas de intervencao')) return true;
-  if (norm.includes('analise da bateria') || norm.includes('deslocacao e tempo')) return true;
+  if (
+    norm.includes('analise da bateria') ||
+    norm.includes('deslocacao e tempo') ||
+    norm.includes('tempo de intervencao')
+  ) {
+    return true;
+  }
   if (norm.includes('resultado do teste') || norm.includes('periodicidade')) return true;
   return false;
 }

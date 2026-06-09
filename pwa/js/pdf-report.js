@@ -30,6 +30,7 @@ import {
   pdfStatusGlyph,
 } from './pdf-font.js';
 import { getColumnLabels } from './views/relatorio-grandes.js';
+import { reportIncludesDeslocacao } from './deslocacao-field.js';
 import {
   buildPdfAutoTableStyles,
   getBlockPdfTitle,
@@ -451,6 +452,7 @@ export async function renderInterventionPDF(report) {
   y = await drawMetadataGrid(doc, y, {
     dateTime: formatReportDateTimeCompact(report, job, values),
     technician: tech?.name || '—',
+    deslocacao: reportIncludesDeslocacao(service) ? (values.deslocacao || '—') : null,
   });
   y = drawDivider(doc, y);
   y = await drawReportFieldsSection(doc, y, service, values, pdfContext);
@@ -860,13 +862,20 @@ function drawTitleBar(doc, y, title) {
 async function drawMetadataGrid(doc, y, meta) {
   y = ensureSpace(doc, y, 14);
   const colW = CONTENT_W / 2;
-  return drawPdfGridTable(doc, y, {
-    body: [
-      [
-        pdfGridCell('Data / Hora', meta.dateTime),
-        pdfGridCell('Nome do Técnico', meta.technician),
-      ],
+  const body = [
+    [
+      pdfGridCell('Data / Hora', meta.dateTime),
+      pdfGridCell('Nome do Técnico', meta.technician),
     ],
+  ];
+  if (meta.deslocacao != null) {
+    body.push([
+      pdfGridCell('Deslocação', meta.deslocacao),
+      pdfGridCell('', ''),
+    ]);
+  }
+  return drawPdfGridTable(doc, y, {
+    body,
     columnStyles: {
       0: { cellWidth: colW, overflow: 'ellipsize' },
       1: { cellWidth: colW, overflow: 'ellipsize' },
@@ -1107,12 +1116,6 @@ async function drawReportFieldsSection(doc, y, service, values, pdfContext = nul
     if (field.dependency && !isPdfDependencyMet(field, values)) continue;
 
     if (field.id === 'deslocacao') {
-      y = ensureSpace(doc, y, 14);
-      const desloc = formatPdfDeslocacao(values.deslocacao, { ...pdfContext, values });
-      y = await drawSectionScalarGrid(doc, y, [{ id: 'deslocacao', label: field.label, type: field.type }], {
-        ...values,
-        deslocacao: desloc,
-      }, pdfContext);
       scalarRenderedIds.add('deslocacao');
       continue;
     }
