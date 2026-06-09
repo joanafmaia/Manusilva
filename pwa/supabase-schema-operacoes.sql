@@ -44,6 +44,10 @@ CREATE TABLE IF NOT EXISTS public.relatorios (
   faturacao_status text,
   numero_fatura text,
   data_fatura date,
+  valor_faturado numeric(12, 2),
+  pagamento_status text,
+  prazo_pagamento text,
+  data_vencimento date,
   dados jsonb NOT NULL DEFAULT '{}'::jsonb,
   criado_em timestamptz NOT NULL DEFAULT now(),
   atualizado_em timestamptz NOT NULL DEFAULT now()

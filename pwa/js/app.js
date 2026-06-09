@@ -819,8 +819,77 @@ export function getPendingBillingReports() {
     );
 }
 
-/** Regista fatura emitida externamente — remove da fila de pendentes */
-export async function registerReportInvoice(reportId, { numeroFatura, dataFatura }) {
+const PRAZO_PAGAMENTO_VALIDOS = new Set(['pendente', 'pronto', '30_dias', '60_dias']);
+
+function addDaysToIsoDate(isoDate, days) {
+  const base = new Date(`${isoDate}T12:00:00`);
+  if (Number.isNaN(base.getTime())) return null;
+  base.setDate(base.getDate() + days);
+  return base.toISOString().split('T')[0];
+}
+
+/** Resolve pagamento_status e data_vencimento a partir do prazo escolhido na faturação. */
+export function resolveInvoicePaymentFields(prazoPagamento, dataEmissao) {
+  const prazo = String(prazoPagamento || 'pendente').trim();
+  if (!PRAZO_PAGAMENTO_VALIDOS.has(prazo)) {
+    throw new Error('Prazo de pagamento inválido.');
+  }
+
+  if (prazo === 'pronto') {
+    return {
+      prazoPagamento: prazo,
+      pagamentoStatus: 'pago',
+      dataVencimento: null,
+    };
+  }
+
+  let dataVencimento = null;
+  if (prazo === '30_dias') dataVencimento = addDaysToIsoDate(dataEmissao, 30);
+  if (prazo === '60_dias') dataVencimento = addDaysToIsoDate(dataEmissao, 60);
+
+  return {
+    prazoPagamento: prazo,
+    pagamentoStatus: 'pendente',
+    dataVencimento,
+  };
+}
+
+/** Relatórios já faturados com cobrança em aberto */
+export function getPendingPaymentInvoices() {
+  return getReportsSnapshot()
+    .filter(
+      (r) => r.faturacaoStatus === 'faturado' && r.pagamentoStatus === 'pendente',
+    )
+    .sort((a, b) =>
+      String(a.dataVencimento || a.dataFatura || '').localeCompare(
+        String(b.dataVencimento || b.dataFatura || ''),
+      ),
+    );
+}
+
+/** Métricas de fluxo de caixa (faturas emitidas na app) */
+export function getBillingFinancialMetrics() {
+  const invoiced = getReportsSnapshot().filter((r) => r.faturacaoStatus === 'faturado');
+  let totalFaturado = 0;
+  let totalRecebido = 0;
+  let totalDivida = 0;
+
+  invoiced.forEach((r) => {
+    const valor = Number(r.valorFaturado);
+    if (!Number.isFinite(valor) || valor <= 0) return;
+    totalFaturado += valor;
+    if (r.pagamentoStatus === 'pago') totalRecebido += valor;
+    else if (r.pagamentoStatus === 'pendente') totalDivida += valor;
+  });
+
+  return { totalFaturado, totalRecebido, totalDivida };
+}
+
+/** Regista fatura emitida externamente — contas a receber */
+export async function registerReportInvoice(
+  reportId,
+  { numeroFatura, dataFatura, valorFaturado, prazoPagamento },
+) {
   const report = getReport(reportId);
   if (!report) throw new Error('Relatório não encontrado.');
   if (!isPendingBilling(report)) {
@@ -829,13 +898,41 @@ export async function registerReportInvoice(reportId, { numeroFatura, dataFatura
 
   const numero = String(numeroFatura ?? '').trim();
   const data = String(dataFatura ?? '').trim();
+  const valor = Number(valorFaturado);
   if (!numero) throw new Error('Indique o número da fatura.');
-  if (!data) throw new Error('Indique a data da fatura.');
+  if (!data) throw new Error('Indique a data de emissão da fatura.');
+  if (!Number.isFinite(valor) || valor <= 0) {
+    throw new Error('Indique um valor total faturado válido.');
+  }
+
+  const payment = resolveInvoicePaymentFields(prazoPagamento, data);
 
   await updateRelatorio(reportId, {
     faturacaoStatus: 'faturado',
     numeroFatura: numero,
     dataFatura: data,
+    valorFaturado: Math.round(valor * 100) / 100,
+    pagamentoStatus: payment.pagamentoStatus,
+    prazoPagamento: payment.prazoPagamento,
+    dataVencimento: payment.dataVencimento,
+  });
+  window.dispatchEvent(new CustomEvent('db-updated'));
+  return true;
+}
+
+/** Confirma recebimento de uma fatura pendente */
+export async function confirmInvoicePayment(reportId) {
+  const report = getReport(reportId);
+  if (!report) throw new Error('Fatura não encontrada.');
+  if (report.faturacaoStatus !== 'faturado') {
+    throw new Error('Este relatório ainda não foi faturado.');
+  }
+  if (report.pagamentoStatus === 'pago') {
+    throw new Error('Este recebimento já foi confirmado.');
+  }
+
+  await updateRelatorio(reportId, {
+    pagamentoStatus: 'pago',
   });
   window.dispatchEvent(new CustomEvent('db-updated'));
   return true;

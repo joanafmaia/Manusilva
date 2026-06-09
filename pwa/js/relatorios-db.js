@@ -45,6 +45,13 @@ export function mapRowToReport(row) {
     faturacaoStatus: row.faturacao_status || null,
     numeroFatura: row.numero_fatura || null,
     dataFatura: row.data_fatura || null,
+    valorFaturado:
+      row.valor_faturado != null && row.valor_faturado !== ''
+        ? Number(row.valor_faturado)
+        : null,
+    pagamentoStatus: row.pagamento_status || null,
+    prazoPagamento: row.prazo_pagamento || null,
+    dataVencimento: row.data_vencimento || null,
     data: {
       values: dados.values || {},
       signatures: dados.signatures || {},
@@ -71,6 +78,13 @@ export function mapReportToRow(report) {
     faturacao_status: report.faturacaoStatus || null,
     numero_fatura: report.numeroFatura || null,
     data_fatura: report.dataFatura || null,
+    valor_faturado:
+      report.valorFaturado != null && Number.isFinite(Number(report.valorFaturado))
+        ? Number(report.valorFaturado)
+        : null,
+    pagamento_status: report.pagamentoStatus || null,
+    prazo_pagamento: report.prazoPagamento || null,
+    data_vencimento: report.dataVencimento || null,
     dados: {
       values: data.values || {},
       signatures: data.signatures || {},

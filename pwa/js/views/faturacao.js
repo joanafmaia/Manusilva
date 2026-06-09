@@ -1,12 +1,16 @@
 /**
- * Painel de Faturação — controlo interno pós-aprovação (emissão legal fora da app).
+ * Painel de Faturação — contas a receber e fluxo de caixa (controlo interno).
  */
 
 import {
   getPendingBillingReports,
+  getPendingPaymentInvoices,
+  getBillingFinancialMetrics,
+  getReport,
   getClient,
   getJob,
   registerReportInvoice,
+  confirmInvoicePayment,
   openModal,
   closeModal,
   escapeHtml,
@@ -20,7 +24,17 @@ const URGENT_PAYMENT_TERMS = new Set(['pronto pagamento', 'semanal']);
 const URGENT_DAYS = 3;
 const DEFAULT_ESTIMATE_EUR = 120;
 
-/** Valores indicativos por tipo de serviço (até existir preço real no relatório) */
+const PRAZO_PAGAMENTO_OPCOES = [
+  { value: 'pendente', label: 'Pendente (A receber)' },
+  { value: 'pronto', label: 'Pago (Pronto-pagamento)' },
+  { value: '30_dias', label: '30 Dias' },
+  { value: '60_dias', label: '60 Dias' },
+];
+
+const PRAZO_LABELS = Object.fromEntries(
+  PRAZO_PAGAMENTO_OPCOES.map((o) => [o.value, o.label]),
+);
+
 const ESTIMATE_EUR_BY_SERVICE = {
   folha_intervencao_avarias: 95,
   manutencao_preventiva_empilhadores: 145,
@@ -75,8 +89,13 @@ function daysSince(isoDate) {
   const start = new Date(isoDate);
   if (Number.isNaN(start.getTime())) return 0;
   const now = new Date();
-  const diff = now.getTime() - start.getTime();
-  return Math.floor(diff / (1000 * 60 * 60 * 24));
+  return Math.floor((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+function isPastDue(isoDate) {
+  if (!isoDate) return false;
+  const due = new Date(`${isoDate}T23:59:59`);
+  return !Number.isNaN(due.getTime()) && due < new Date();
 }
 
 export function isBillingUrgent(report, client) {
@@ -101,17 +120,14 @@ function formatCurrencyEur(value) {
   return new Intl.NumberFormat('pt-PT', {
     style: 'currency',
     currency: 'EUR',
-    maximumFractionDigits: 0,
-  }).format(value);
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(Number(value) || 0);
 }
 
 function resolveClientMeta(clientId) {
   const client = getClient(clientId);
-  const nome =
-    client?.name ||
-    client?.Nome ||
-    client?.nome ||
-    '—';
+  const nome = client?.name || client?.Nome || client?.nome || '—';
   const nif = client?.NIF || client?.nif || '—';
   const condicao = normalizePaymentTerm(
     client?.condicao_pagamento ||
@@ -122,7 +138,7 @@ function resolveClientMeta(clientId) {
   return { client, nome, nif, condicao };
 }
 
-function buildRows(reports) {
+function buildBillingRows(reports) {
   return reports.map((report) => {
     const meta = resolveClientMeta(report.clientId);
     const job = report.jobId ? getJob(report.jobId) : null;
@@ -137,50 +153,43 @@ function buildRows(reports) {
   });
 }
 
-function groupByPaymentCondition(rows) {
-  const counts = new Map();
-  PAYMENT_CONDITION_OPTIONS.forEach((opt) => counts.set(opt, 0));
-  counts.set('Não definida', 0);
-
-  rows.forEach((row) => {
-    const key = row.condicao;
-    counts.set(key, (counts.get(key) || 0) + 1);
+function buildReceivableRows(reports) {
+  return reports.map((report) => {
+    const meta = resolveClientMeta(report.clientId);
+    const valor = Number(report.valorFaturado) || 0;
+    const vencimento = report.dataVencimento || null;
+    return {
+      report,
+      ...meta,
+      numeroFatura: report.numeroFatura || '—',
+      valor,
+      valorLabel: formatCurrencyEur(valor),
+      emissaoLabel: report.dataFatura ? formatDate(report.dataFatura) : '—',
+      vencimentoLabel: vencimento ? formatDate(vencimento) : '—',
+      prazoLabel: PRAZO_LABELS[report.prazoPagamento] || report.prazoPagamento || '—',
+      overdue: isPastDue(vencimento),
+    };
   });
-
-  const labels = [];
-  const values = [];
-  for (const [label, count] of counts.entries()) {
-    if (count > 0) {
-      labels.push(label);
-      values.push(count);
-    }
-  }
-
-  if (!labels.length) {
-    labels.push('Sem pendentes');
-    values.push(0);
-  }
-
-  return { labels, values };
 }
 
-function renderKpis(rows) {
-  const total = rows.length;
-  const totalEstimate = rows.reduce((sum, r) => sum + r.estimate, 0);
-  const urgentCount = rows.filter((r) => r.urgent).length;
-
+function renderKpis(metrics) {
   return `
-    <section class="faturacao-kpis rh-section" aria-label="Indicadores de faturação">
-      <div class="dashboard-metrics-grid faturacao-kpis-grid">
-        <article class="dashboard-metric-card dashboard-metric-card--warning">
-          <p class="dashboard-metric-value">${total}</p>
-          <p class="dashboard-metric-label">Aguardar Faturação</p>
-          <p class="faturacao-kpi-sub">${formatCurrencyEur(totalEstimate)} estimado</p>
-        </article>
+    <section class="faturacao-kpis rh-section" aria-label="Indicadores financeiros">
+      <div class="dashboard-metrics-grid faturacao-kpis-grid faturacao-kpis-grid--3">
         <article class="dashboard-metric-card dashboard-metric-card--primary">
-          <p class="dashboard-metric-value">${urgentCount}</p>
-          <p class="dashboard-metric-label">Fora do Prazo / Urgente</p>
-          <p class="faturacao-kpi-sub">Pronto pagamento ou semanal · &gt; ${URGENT_DAYS} dias</p>
+          <p class="dashboard-metric-value">${formatCurrencyEur(metrics.totalFaturado)}</p>
+          <p class="dashboard-metric-label">Total Faturado Global</p>
+          <p class="faturacao-kpi-sub">Receita emitida (pagas + pendentes)</p>
+        </article>
+        <article class="dashboard-metric-card dashboard-metric-card--success">
+          <p class="dashboard-metric-value">${formatCurrencyEur(metrics.totalRecebido)}</p>
+          <p class="dashboard-metric-label">Total Recebido</p>
+          <p class="faturacao-kpi-sub">Dinheiro já em caixa</p>
+        </article>
+        <article class="dashboard-metric-card dashboard-metric-card--warning">
+          <p class="dashboard-metric-value">${formatCurrencyEur(metrics.totalDivida)}</p>
+          <p class="dashboard-metric-label">Total em Dívida (Na Rua)</p>
+          <p class="faturacao-kpi-sub">Faturado e ainda por receber</p>
         </article>
       </div>
     </section>
@@ -189,19 +198,19 @@ function renderKpis(rows) {
 
 function renderChartSection() {
   return `
-    <section class="faturacao-chart-section rh-section glass-card" aria-label="Gráfico por condição de pagamento">
-      <h3 class="ms-h2 faturacao-section-title">Pendentes por condição de pagamento</h3>
+    <section class="faturacao-chart-section rh-section glass-card" aria-label="Gráfico de fluxo de caixa">
+      <h3 class="ms-h2 faturacao-section-title">Fluxo de caixa</h3>
       <div class="faturacao-chart-wrap">
-        <canvas id="faturacao-chart-canvas" aria-label="Gráfico de barras — relatórios pendentes por condição de pagamento"></canvas>
+        <canvas id="faturacao-chart-canvas" aria-label="Gráfico — total faturado, recebido e em dívida"></canvas>
       </div>
     </section>
   `;
 }
 
-function renderTable(rows) {
+function renderBillingTable(rows) {
   if (!rows.length) {
     return `
-      <section class="faturacao-table-section rh-section glass-card">
+      <section class="faturacao-table-section faturacao-table-section--billing rh-section glass-card">
         <h3 class="ms-h2 faturacao-section-title">Relatórios por faturar</h3>
         <p class="text-muted faturacao-empty">Nenhum relatório aprovado aguarda faturação.</p>
       </section>
@@ -209,7 +218,7 @@ function renderTable(rows) {
   }
 
   return `
-    <section class="faturacao-table-section rh-section glass-card">
+    <section class="faturacao-table-section faturacao-table-section--billing rh-section glass-card">
       <h3 class="ms-h2 faturacao-section-title">Relatórios por faturar <span class="badge-count">${rows.length}</span></h3>
       <div class="rh-table-scroll">
         <table class="rh-data-table faturacao-table">
@@ -219,7 +228,7 @@ function renderTable(rows) {
               <th scope="col">NIF</th>
               <th scope="col">Nº Relatório</th>
               <th scope="col">Data de Aprovação</th>
-              <th scope="col">Condição de Pagamento</th>
+              <th scope="col">Condição Cadastro</th>
               <th scope="col" class="faturacao-col-action">Ação</th>
             </tr>
           </thead>
@@ -235,7 +244,62 @@ function renderTable(rows) {
                 <td>${escapeHtml(row.condicao)}</td>
                 <td class="faturacao-col-action">
                   <button type="button" class="btn-primary btn-sm" data-register-invoice="${escapeHtml(row.report.id)}">
-                    Registar Fatura
+                    Marcar como Faturado
+                  </button>
+                </td>
+              </tr>
+            `,
+              )
+              .join('')}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  `;
+}
+
+function renderReceivablesTable(rows) {
+  if (!rows.length) {
+    return `
+      <section class="faturacao-receivables-section rh-section glass-card">
+        <h3 class="ms-h2 faturacao-section-title">Faturas Pendentes de Pagamento</h3>
+        <p class="text-muted faturacao-empty">Nenhuma fatura em aberto — tudo recebido.</p>
+      </section>
+    `;
+  }
+
+  return `
+    <section class="faturacao-receivables-section rh-section glass-card">
+      <h3 class="ms-h2 faturacao-section-title">Faturas Pendentes de Pagamento <span class="badge-count">${rows.length}</span></h3>
+      <div class="rh-table-scroll">
+        <table class="rh-data-table faturacao-table faturacao-table--receivables">
+          <thead>
+            <tr>
+              <th scope="col">Cliente</th>
+              <th scope="col">NIF</th>
+              <th scope="col">Nº Fatura</th>
+              <th scope="col">Valor</th>
+              <th scope="col">Emissão</th>
+              <th scope="col">Vencimento</th>
+              <th scope="col">Prazo</th>
+              <th scope="col" class="faturacao-col-action">Ação</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows
+              .map(
+                (row) => `
+              <tr class="rh-data-table-row${row.overdue ? ' faturacao-row--urgent' : ''}" data-invoice-id="${escapeHtml(row.report.id)}">
+                <td>${escapeHtml(row.nome)}${row.overdue ? ' <span class="faturacao-urgent-badge">Vencida</span>' : ''}</td>
+                <td>${escapeHtml(row.nif)}</td>
+                <td><code class="faturacao-ordem">${escapeHtml(row.numeroFatura)}</code></td>
+                <td class="faturacao-col-valor">${escapeHtml(row.valorLabel)}</td>
+                <td>${escapeHtml(row.emissaoLabel)}</td>
+                <td>${escapeHtml(row.vencimentoLabel)}</td>
+                <td>${escapeHtml(row.prazoLabel)}</td>
+                <td class="faturacao-col-action">
+                  <button type="button" class="btn-success btn-sm" data-confirm-payment="${escapeHtml(row.report.id)}">
+                    Confirmar Recebimento
                   </button>
                 </td>
               </tr>
@@ -252,7 +316,9 @@ function renderTable(rows) {
 function getChartThemeColors() {
   const styles = getComputedStyle(document.body);
   return {
-    barColor: styles.getPropertyValue('--ms-accent').trim() || '#2563eb',
+    primary: styles.getPropertyValue('--ms-accent').trim() || '#2563eb',
+    success: styles.getPropertyValue('--ms-emerald-600').trim() || '#059669',
+    warning: styles.getPropertyValue('--ms-amber-600').trim() || '#d97706',
     gridColor: styles.getPropertyValue('--ms-border').trim() || 'rgba(148,163,184,0.25)',
     textColor: styles.getPropertyValue('--ms-text-muted').trim() || '#64748b',
   };
@@ -266,25 +332,33 @@ function buildChartOptions(textColor, gridColor) {
       legend: { display: false },
       tooltip: {
         callbacks: {
-          label: (ctx) => `${ctx.parsed.y} relatório(s)`,
+          label: (ctx) => formatCurrencyEur(ctx.parsed.y),
         },
       },
     },
     scales: {
       x: {
-        ticks: { color: textColor, maxRotation: 45, minRotation: 0 },
+        ticks: { color: textColor, maxRotation: 0 },
         grid: { display: false },
       },
       y: {
         beginAtZero: true,
         ticks: {
           color: textColor,
-          stepSize: 1,
-          precision: 0,
+          callback: (v) => formatCurrencyEur(v),
         },
         grid: { color: gridColor },
       },
     },
+  };
+}
+
+function financialChartDataset(metrics) {
+  const colors = getChartThemeColors();
+  return {
+    labels: ['Total Faturado', 'Total Recebido', 'Em Dívida'],
+    values: [metrics.totalFaturado, metrics.totalRecebido, metrics.totalDivida],
+    colors: [colors.primary, colors.success, colors.warning],
   };
 }
 
@@ -299,11 +373,11 @@ function replaceMountedSection(selector, html) {
   return true;
 }
 
-async function updateChartData(rows) {
+async function updateChartData(metrics) {
   const canvas = mountRoot?.querySelector('#faturacao-chart-canvas');
   if (!canvas) return;
 
-  const { labels, values } = groupByPaymentCondition(rows);
+  const { labels, values, colors } = financialChartDataset(metrics);
 
   try {
     const Chart = await loadChartJs();
@@ -311,22 +385,23 @@ async function updateChartData(rows) {
     if (billingChart) {
       billingChart.data.labels = labels;
       billingChart.data.datasets[0].data = values;
+      billingChart.data.datasets[0].backgroundColor = colors;
       billingChart.update('active');
       return;
     }
 
-    const { barColor, gridColor, textColor } = getChartThemeColors();
+    const { gridColor, textColor } = getChartThemeColors();
     billingChart = new Chart(canvas, {
       type: 'bar',
       data: {
         labels,
         datasets: [
           {
-            label: 'Relatórios pendentes',
+            label: 'Fluxo de caixa (EUR)',
             data: values,
-            backgroundColor: barColor,
+            backgroundColor: colors,
             borderRadius: 6,
-            maxBarThickness: 48,
+            maxBarThickness: 56,
           },
         ],
       },
@@ -340,16 +415,27 @@ async function updateChartData(rows) {
 async function softRefreshFaturacaoPanel() {
   if (!mountRoot) return;
 
-  const rows = buildRows(getPendingBillingReports());
+  const metrics = getBillingFinancialMetrics();
+  const billingRows = buildBillingRows(getPendingBillingReports());
+  const receivableRows = buildReceivableRows(getPendingPaymentInvoices());
 
-  replaceMountedSection('.faturacao-kpis', renderKpis(rows));
-  replaceMountedSection('.faturacao-table-section', renderTable(rows));
+  replaceMountedSection('.faturacao-kpis', renderKpis(metrics));
+  replaceMountedSection('.faturacao-table-section--billing', renderBillingTable(billingRows));
+  replaceMountedSection('.faturacao-receivables-section', renderReceivablesTable(receivableRows));
   bindTableActions();
-  await updateChartData(rows);
+  await updateChartData(metrics);
 }
 
 function openRegisterInvoiceModal(reportId) {
+  const report = getReport(reportId);
+  const defaultValor = estimateReportValue(report);
   const today = new Date().toISOString().split('T')[0];
+
+  const prazoOptions = PRAZO_PAGAMENTO_OPCOES.map(
+    (opt) =>
+      `<option value="${opt.value}"${opt.value === 'pendente' ? ' selected' : ''}>${escapeHtml(opt.label)}</option>`,
+  ).join('');
+
   const content = `
     <form id="register-invoice-form" class="faturacao-invoice-form">
       <div class="form-group">
@@ -358,18 +444,29 @@ function openRegisterInvoiceModal(reportId) {
           placeholder="ex: FT 2026/123" autocomplete="off">
       </div>
       <div class="form-group">
-        <label class="form-label" for="invoice-data">Data da Fatura</label>
+        <label class="form-label" for="invoice-valor">Valor Total Faturado (€)</label>
+        <input type="number" class="form-input" id="invoice-valor" name="valor" required
+          min="0.01" step="0.01" value="${defaultValor.toFixed(2)}">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="invoice-data">Data de Emissão</label>
         <input type="date" class="form-input" id="invoice-data" name="data" required value="${today}">
       </div>
+      <div class="form-group">
+        <label class="form-label" for="invoice-prazo">Estado do Pagamento</label>
+        <select class="form-input" id="invoice-prazo" name="prazo" required>
+          ${prazoOptions}
+        </select>
+      </div>
       <p class="text-muted faturacao-invoice-hint">
-        A fatura é emitida no programa externo. Este registo apenas fecha o controlo interno.
+        A fatura legal é emitida no programa externo. Este registo controla contas a receber e fluxo de caixa.
       </p>
     </form>
   `;
 
   const actions = `
     <button type="button" class="btn-outline" data-modal-cancel>Cancelar</button>
-    <button type="button" class="btn-primary" id="btn-save-invoice">Guardar</button>
+    <button type="button" class="btn-primary" id="btn-save-invoice">Marcar como Faturado</button>
   `;
 
   openModal('Registar Fatura', content, actions);
@@ -379,18 +476,29 @@ function openRegisterInvoiceModal(reportId) {
   document.getElementById('btn-save-invoice')?.addEventListener('click', async () => {
     const numero = document.getElementById('invoice-numero')?.value?.trim();
     const data = document.getElementById('invoice-data')?.value?.trim();
+    const valor = Number(document.getElementById('invoice-valor')?.value);
+    const prazo = document.getElementById('invoice-prazo')?.value;
     const btn = document.getElementById('btn-save-invoice');
 
     if (!numero || !data) {
-      showToast('Preencha o número e a data da fatura.', 'warning');
+      showToast('Preencha o número e a data de emissão.', 'warning');
+      return;
+    }
+    if (!Number.isFinite(valor) || valor <= 0) {
+      showToast('Indique um valor total faturado válido.', 'warning');
       return;
     }
 
     btn.disabled = true;
     try {
-      await registerReportInvoice(reportId, { numeroFatura: numero, dataFatura: data });
+      await registerReportInvoice(reportId, {
+        numeroFatura: numero,
+        dataFatura: data,
+        valorFaturado: valor,
+        prazoPagamento: prazo,
+      });
       closeModal();
-      showToast('Fatura registada. Relatório removido da fila de pendentes.', 'success');
+      showToast('Fatura registada. Controlo financeiro atualizado.', 'success');
       await refreshFaturacaoPanel({ soft: true });
     } catch (err) {
       console.error('[Faturação] Registo:', err);
@@ -407,31 +515,48 @@ function bindTableActions() {
       if (reportId) openRegisterInvoiceModal(reportId);
     });
   });
+
+  mountRoot?.querySelectorAll('[data-confirm-payment]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const reportId = btn.getAttribute('data-confirm-payment');
+      if (!reportId) return;
+      btn.disabled = true;
+      try {
+        await confirmInvoicePayment(reportId);
+        showToast('Recebimento confirmado. Valor movido para caixa.', 'success');
+        await refreshFaturacaoPanel({ soft: true });
+      } catch (err) {
+        console.error('[Faturação] Confirmar recebimento:', err);
+        showToast(err?.message || 'Erro ao confirmar recebimento.', 'error');
+        btn.disabled = false;
+      }
+    });
+  });
 }
 
 function renderPanel() {
-  const reports = getPendingBillingReports();
-  const rows = buildRows(reports);
+  const metrics = getBillingFinancialMetrics();
+  const billingRows = buildBillingRows(getPendingBillingReports());
+  const receivableRows = buildReceivableRows(getPendingPaymentInvoices());
 
   return `
     <div class="faturacao-panel dashboard-panel-inner">
       <header class="faturacao-header rh-section">
         <h2 class="ms-h2">Controlo de Faturação</h2>
         <p class="text-muted faturacao-lead">
-          Relatórios aprovados aguardam registo da fatura emitida no programa externo.
-          Nenhum relatório aprovado deve ficar por faturar.
+          Emita faturas no programa externo e registe aqui o valor, prazo e recebimentos para acompanhar o fluxo de caixa.
         </p>
       </header>
-      ${renderKpis(rows)}
+      ${renderKpis(metrics)}
       ${renderChartSection()}
-      ${renderTable(rows)}
+      ${renderBillingTable(billingRows)}
+      ${renderReceivablesTable(receivableRows)}
     </div>
   `;
 }
 
 /**
  * @param {{ soft?: boolean }} [options]
- * soft=true — atualiza KPIs/tabela e usa chart.update() (sem destruir o gráfico)
  */
 export async function refreshFaturacaoPanel(options = {}) {
   if (!mountRoot) return;
@@ -451,8 +576,7 @@ export async function refreshFaturacaoPanel(options = {}) {
 
   mountRoot.innerHTML = renderPanel();
   bindTableActions();
-  const rows = buildRows(getPendingBillingReports());
-  await updateChartData(rows);
+  await updateChartData(getBillingFinancialMetrics());
 }
 
 export function initFaturacaoPanel(root) {

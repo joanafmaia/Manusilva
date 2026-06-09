@@ -8662,6 +8662,23 @@ body.dark-mode .client-ficha-value {
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
+.faturacao-kpis-grid--3 {
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.faturacao-receivables-section {
+  padding: 1.25rem 1.5rem;
+}
+
+.faturacao-col-valor {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.faturacao-table--receivables .btn-success {
+  font-weight: 600;
+}
+
 .faturacao-kpi-sub {
   margin: 0.35rem 0 0;
   font-size: 0.78rem;
