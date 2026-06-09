@@ -1,6 +1,6 @@
 {
-  "buildCommand": "node scripts/write-mapbox-config.js",
-  "outputDirectory": ".",
+  "buildCommand": "node pwa/scripts/write-mapbox-config.js",
+  "outputDirectory": "pwa",
   "cleanUrls": true,
   "routes": [
     { "handle": "filesystem" }
