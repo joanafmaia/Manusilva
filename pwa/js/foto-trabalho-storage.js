@@ -4,6 +4,7 @@
 
 import { getSupabaseClient } from './supabase-client.js';
 import { patchTrabalho } from './trabalhos-db.js';
+import { compressImageFile } from './image-compress.js';
 
 export const FOTOS_BUCKET = 'fotos_trabalhos';
 
@@ -111,14 +112,10 @@ function isHttpFotoUrl(url) {
   return /^https?:\/\//i.test(String(url || ''));
 }
 
-/** @param {File|Blob} file */
-export function readFileAsDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ''));
-    reader.onerror = () => reject(reader.error || new Error('Leitura da imagem falhou.'));
-    reader.readAsDataURL(file);
-  });
+/** @param {File|Blob} file — comprime para JPEG antes de devolver data URL */
+export async function readFileAsDataUrl(file) {
+  const { dataUrl } = await compressImageFile(file, { filename: file.name || 'foto' });
+  return dataUrl;
 }
 
 function dataUrlToBlob(dataUrl) {
@@ -141,8 +138,9 @@ export async function attachOfflineFotosToReportData(data, opts = {}) {
     out.fotoAntesUrl = null;
     out.fotoAntesBase64 = null;
   } else if (opts.antesFile) {
-    out.fotoAntesBase64 = await readFileAsDataUrl(opts.antesFile);
-    out.fotoAntesUrl = out.fotoAntesBase64;
+    const { dataUrl } = await compressImageFile(opts.antesFile, { filename: 'antes' });
+    out.fotoAntesBase64 = dataUrl;
+    out.fotoAntesUrl = dataUrl;
   } else if (opts.fotoAntesUrl) {
     out.fotoAntesUrl = opts.fotoAntesUrl;
   }
@@ -151,8 +149,9 @@ export async function attachOfflineFotosToReportData(data, opts = {}) {
     out.fotoDepoisUrl = null;
     out.fotoDepoisBase64 = null;
   } else if (opts.depoisFile) {
-    out.fotoDepoisBase64 = await readFileAsDataUrl(opts.depoisFile);
-    out.fotoDepoisUrl = out.fotoDepoisBase64;
+    const { dataUrl } = await compressImageFile(opts.depoisFile, { filename: 'depois' });
+    out.fotoDepoisBase64 = dataUrl;
+    out.fotoDepoisUrl = dataUrl;
   } else if (opts.fotoDepoisUrl) {
     out.fotoDepoisUrl = opts.fotoDepoisUrl;
   }

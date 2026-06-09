@@ -1,5 +1,5 @@
 /**
- * Auto-save modular — formulários de relatório técnico (localStorage, sem rede)
+ * Auto-save modular — formulários de relatório técnico (IndexedDB, sem rede)
  */
 
 import { saveLocalReportDraft } from './report-local-storage.js';
@@ -48,7 +48,7 @@ export function initReportFormAutosave({ overlay, job, existingReport, buildRepo
     else if (state === 'error') statusEl.textContent = 'Erro ao guardar — tente «Guardar Rascunho»';
   };
 
-  const persist = () => {
+  const persist = async () => {
     if (destroyed) return;
     try {
       const report = buildReport();
@@ -56,7 +56,7 @@ export function initReportFormAutosave({ overlay, job, existingReport, buildRepo
       if (report.status !== 'pending_review') {
         report.status = 'draft';
       }
-      saveLocalReportDraft(report);
+      await saveLocalReportDraft(report);
       mergeReportInCache(report);
       setStatus('saved');
     } catch (err) {
@@ -69,7 +69,9 @@ export function initReportFormAutosave({ overlay, job, existingReport, buildRepo
     if (destroyed) return;
     setStatus('pending');
     clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(persist, DEBOUNCE_MS);
+    debounceTimer = setTimeout(() => {
+      void persist();
+    }, DEBOUNCE_MS);
   };
 
   const onActivity = (e) => {
@@ -91,13 +93,13 @@ export function initReportFormAutosave({ overlay, job, existingReport, buildRepo
 
   const onBeforeUnload = () => {
     clearTimeout(debounceTimer);
-    persist();
+    void persist();
   };
 
   const onVisibility = () => {
     if (document.visibilityState === 'hidden') {
       clearTimeout(debounceTimer);
-      persist();
+      void persist();
     }
   };
 
@@ -111,7 +113,7 @@ export function initReportFormAutosave({ overlay, job, existingReport, buildRepo
     markDirty: scheduleSave,
     flush: () => {
       clearTimeout(debounceTimer);
-      persist();
+      void persist();
     },
     destroy: () => {
       if (destroyed) return;

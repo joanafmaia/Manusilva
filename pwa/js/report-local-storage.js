@@ -1,116 +1,206 @@
 /**
- * Rascunhos de relatório no localStorage do tablet (offline em caves / zonas remotas).
- * Chave agregada por jobId — independente do Supabase e do painel RH (PC).
+ * Rascunhos de relatório — IndexedDB (fotos como Blob, metadados leves).
+ * Migra automaticamente rascunhos antigos de localStorage.
  */
 
 import { mergeReportInCache } from './relatorios-db.js';
+import {
+  STORE_REPORT_DRAFTS,
+  idbDelete,
+  idbGet,
+  idbGetAll,
+  idbPut,
+} from './indexed-db.js';
+import { compressDataUrl, dataUrlToBlob } from './image-compress.js';
 
+/** Chave legada — apenas para migração única */
 export const DRAFTS_STORAGE_KEY = 'manusilva_rascunhos';
 
-function readDraftMap() {
+let legacyMigrationDone = false;
+
+function cloneJson(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+async function blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(reader.error || new Error('Leitura da foto falhou.'));
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function resolveDraftPhotoBlob(slot, data, existing) {
+  const base64Key = slot === 'antes' ? 'fotoAntesBase64' : 'fotoDepoisBase64';
+  const urlKey = slot === 'antes' ? 'fotoAntesUrl' : 'fotoDepoisUrl';
+  const blobKey = slot === 'antes' ? 'photoAntes' : 'photoDepois';
+  const inline = data[base64Key] || data[urlKey];
+
+  if (inline && String(inline).startsWith('data:image')) {
+    return photoInputToBlob(inline);
+  }
+  if (inline && /^https?:\/\//i.test(String(inline))) {
+    return null;
+  }
+  if (data[urlKey] === null && data[base64Key] == null) {
+    return null;
+  }
+  return existing?.[blobKey] instanceof Blob ? existing[blobKey] : null;
+}
+
+async function photoInputToBlob(value) {
+  if (!value) return null;
+  if (value instanceof Blob) return value;
+  const text = String(value);
+  if (!text.startsWith('data:image')) return null;
   try {
-    const raw = localStorage.getItem(DRAFTS_STORAGE_KEY);
-    const map = raw ? JSON.parse(raw) : {};
-    return map && typeof map === 'object' && !Array.isArray(map) ? map : {};
-  } catch (err) {
-    console.warn('[ManuSilva] Rascunhos locais inválidos:', err);
-    return {};
+    const compressed = await compressDataUrl(text);
+    return compressed.blob;
+  } catch {
+    return dataUrlToBlob(text);
   }
 }
 
-function writeDraftMap(map) {
-  try {
-    localStorage.setItem(DRAFTS_STORAGE_KEY, JSON.stringify(map));
-    return true;
-  } catch (err) {
-    if (err?.name === 'QuotaExceededError') {
-      const errQuota = new Error(
-        'Memória do tablet cheia. Remova fotos grandes ou rascunhos antigos e tente novamente.',
-      );
-      errQuota.code = 'QUOTA_EXCEEDED';
-      throw errQuota;
-    }
-    throw err;
-  }
-}
-
-/** Reduz payload para localStorage — mantém assinaturas, evita duplicar fotos em base64. */
-function sanitizeReportForLocalStorage(report) {
-  let copy;
-  try {
-    copy = JSON.parse(JSON.stringify(report));
-  } catch (err) {
-    console.warn('[ManuSilva] Rascunho não serializável:', err);
-    throw new Error('Não foi possível preparar o rascunho para gravação local.');
-  }
-
+/** Separa fotos pesadas do JSON do relatório. */
+function stripPhotosFromReport(report) {
+  const copy = cloneJson(report);
   const data = copy.data || {};
-  const antesUrl = data.fotoAntesUrl || data.fotoAntesBase64 || null;
-  const depoisUrl = data.fotoDepoisUrl || data.fotoDepoisBase64 || null;
-
-  if (data.fotoAntesBase64 && antesUrl && !String(antesUrl).startsWith('data:')) {
-    delete data.fotoAntesBase64;
-  }
-  if (data.fotoDepoisBase64 && depoisUrl && !String(depoisUrl).startsWith('data:')) {
-    delete data.fotoDepoisBase64;
-  }
-
+  delete data.fotoAntesBase64;
+  delete data.fotoDepoisBase64;
   copy.data = data;
   return copy;
 }
 
+async function mergePhotosIntoReport(record) {
+  if (!record?.report) return null;
+  const report = cloneJson(record.report);
+  const data = report.data || {};
+
+  if (record.photoAntes instanceof Blob) {
+    const dataUrl = await blobToDataUrl(record.photoAntes);
+    data.fotoAntesBase64 = dataUrl;
+    if (!data.fotoAntesUrl || !/^https?:\/\//i.test(String(data.fotoAntesUrl))) {
+      data.fotoAntesUrl = dataUrl;
+    }
+  }
+
+  if (record.photoDepois instanceof Blob) {
+    const dataUrl = await blobToDataUrl(record.photoDepois);
+    data.fotoDepoisBase64 = dataUrl;
+    if (!data.fotoDepoisUrl || !/^https?:\/\//i.test(String(data.fotoDepoisUrl))) {
+      data.fotoDepoisUrl = dataUrl;
+    }
+  }
+
+  report.data = data;
+  return report;
+}
+
+async function migrateLegacyLocalStorageDrafts() {
+  if (legacyMigrationDone || typeof localStorage === 'undefined') return;
+  legacyMigrationDone = true;
+
+  try {
+    const raw = localStorage.getItem(DRAFTS_STORAGE_KEY);
+    if (!raw) return;
+
+    const map = JSON.parse(raw);
+    if (!map || typeof map !== 'object' || Array.isArray(map)) {
+      localStorage.removeItem(DRAFTS_STORAGE_KEY);
+      return;
+    }
+
+    const entries = Object.values(map);
+    for (const draft of entries) {
+      if (draft?.jobId) {
+        await saveLocalReportDraft(draft);
+      }
+    }
+
+    localStorage.removeItem(DRAFTS_STORAGE_KEY);
+    if (entries.length) {
+      console.info(`[ManuSilva] ${entries.length} rascunho(s) migrados para IndexedDB.`);
+    }
+  } catch (err) {
+    console.warn('[ManuSilva] Migração de rascunhos localStorage → IndexedDB:', err);
+  }
+}
+
+async function ensureMigrated() {
+  await migrateLegacyLocalStorageDrafts();
+}
+
 /**
- * Grava rascunho completo no dispositivo (auto-save / gravar rascunho).
+ * Grava rascunho no IndexedDB (auto-save / gravar rascunho).
  * @param {object} report
  */
-export function saveLocalReportDraft(report) {
+export async function saveLocalReportDraft(report) {
+  await ensureMigrated();
+
   if (!report?.jobId) {
     throw new Error('Rascunho sem identificador do trabalho (jobId).');
   }
 
-  const entry = sanitizeReportForLocalStorage(report);
+  const data = report.data || {};
+  const existing = await idbGet(STORE_REPORT_DRAFTS, report.jobId);
+
+  const photoAntes = await resolveDraftPhotoBlob('antes', data, existing);
+  const photoDepois = await resolveDraftPhotoBlob('depois', data, existing);
+
+  const entry = stripPhotosFromReport(report);
   entry._localSavedAt = new Date().toISOString();
   if (entry.status !== 'pending_review') {
     entry.status = 'draft';
   }
 
-  const map = readDraftMap();
-  map[report.jobId] = entry;
-  writeDraftMap(map);
+  await idbPut(STORE_REPORT_DRAFTS, {
+    jobId: report.jobId,
+    report: entry,
+    photoAntes,
+    photoDepois,
+  });
 
   window.dispatchEvent(
     new CustomEvent('report-draft-saved', { detail: { jobId: report.jobId } }),
   );
+
   return entry;
 }
 
 /** @param {string} jobId */
-export function getLocalReportDraft(jobId) {
+export async function getLocalReportDraft(jobId) {
+  await ensureMigrated();
   if (!jobId) return null;
-  return readDraftMap()[jobId] || null;
+
+  const record = await idbGet(STORE_REPORT_DRAFTS, jobId);
+  if (!record) return null;
+  return mergePhotosIntoReport(record);
 }
 
-/** @param {string} jobId */
-export function removeLocalReportDraft(jobId) {
+/** Apaga rascunho e fotos locais desse trabalho. */
+export async function removeLocalReportDraft(jobId) {
+  await ensureMigrated();
   if (!jobId) return;
-  const map = readDraftMap();
-  if (!map[jobId]) return;
-  delete map[jobId];
-  writeDraftMap(map);
+  await idbDelete(STORE_REPORT_DRAFTS, jobId);
 }
 
-export function getAllLocalReportDrafts() {
-  return Object.values(readDraftMap());
+export async function getAllLocalReportDrafts() {
+  await ensureMigrated();
+  const records = await idbGetAll(STORE_REPORT_DRAFTS);
+  const drafts = [];
+  for (const record of records) {
+    const merged = await mergePhotosIntoReport(record);
+    if (merged) drafts.push(merged);
+  }
+  return drafts;
 }
 
 /**
  * Escolhe o relatório mais recente para abrir o formulário (local vs servidor).
- * @param {string} jobId
- * @param {object|null} serverReport
- * @param {{ editPending?: boolean }} [options]
  */
-export function resolveReportForJob(jobId, serverReport, options = {}) {
-  const local = getLocalReportDraft(jobId);
+export async function resolveReportForJob(jobId, serverReport, options = {}) {
+  const local = await getLocalReportDraft(jobId);
   if (!local) return serverReport || null;
   if (!serverReport) return local;
   if (serverReport.status === 'approved') return serverReport;
@@ -138,11 +228,13 @@ export function resolveReportForJob(jobId, serverReport, options = {}) {
  * Repõe rascunhos locais e submissões em fila no cache em memória (dashboard técnico offline).
  */
 export async function hydrateLocalReportsIntoCache() {
-  getAllLocalReportDrafts().forEach((draft) => mergeReportInCache(draft));
+  const drafts = await getAllLocalReportDrafts();
+  drafts.forEach((draft) => mergeReportInCache(draft));
 
   try {
     const { getTrabalhosPendentes } = await import('./trabalhos-offline.js');
-    getTrabalhosPendentes().forEach((item) => {
+    const pending = await getTrabalhosPendentes();
+    pending.forEach((item) => {
       if (item?.report) mergeReportInCache(item.report);
     });
   } catch (err) {

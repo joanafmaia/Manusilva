@@ -910,7 +910,7 @@ export async function syncOfflineQueue() {
 /* ─── Report Actions ─── */
 
 /**
- * Guarda progresso do relatório no localStorage (`manusilva_db.reports`).
+ * Guarda progresso do relatório no IndexedDB (rascunhos locais do tablet).
  * Não gera ficheiro PDF — apenas os dados do formulário.
  */
 /**
@@ -934,7 +934,7 @@ export async function saveReportDraft(report, options = {}) {
   const { saveLocalReportDraft } = await import('./report-local-storage.js');
   const { mergeReportInCache } = await import('./relatorios-db.js');
 
-  saveLocalReportDraft(draft);
+  await saveLocalReportDraft(draft);
   mergeReportInCache(draft);
   window.dispatchEvent(new CustomEvent('db-updated'));
 
@@ -1005,7 +1005,7 @@ export async function submitReport(report, options = {}) {
 
   let pendingId;
   try {
-    pendingId = addTrabalhoPendente({ report: final, tipo: 'submit' });
+    pendingId = await addTrabalhoPendente({ report: final, tipo: 'submit' });
   } catch (err) {
     console.error('[ManuSilva] Guardar relatório local:', err);
     showToast('Não foi possível guardar o relatório no dispositivo.', 'error');
@@ -1013,7 +1013,6 @@ export async function submitReport(report, options = {}) {
   }
 
   mergeReportInCache(final);
-  removeLocalReportDraft(final.jobId);
 
   if (!canSyncToServer()) {
     showToast(MSG_OFFLINE_SUBMIT, 'warning', 10000);
@@ -1025,7 +1024,8 @@ export async function submitReport(report, options = {}) {
   try {
     await sincronizarTrabalhosOffline({ notify: false });
 
-    if (!hasTrabalhoPendente(pendingId)) {
+    if (!(await hasTrabalhoPendente(pendingId))) {
+      await removeLocalReportDraft(final.jobId);
       window.dispatchEvent(new CustomEvent('db-updated'));
       showToast(
         isCorrection

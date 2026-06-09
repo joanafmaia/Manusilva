@@ -50,6 +50,7 @@ import {
   attachOfflineFotosToReportData,
   readFileAsDataUrl,
 } from './foto-trabalho-storage.js';
+import { compressImageFile } from './image-compress.js';
 import { resolveReportForJob } from './report-local-storage.js';
 import { canReachServer } from './app.js';
 
@@ -121,7 +122,7 @@ function fotoPersistPayload(state) {
  * @param {string} jobId
  * @param {{ editPending?: boolean }} [options]
  */
-export function openJobForm(jobId, options = {}) {
+export async function openJobForm(jobId, options = {}) {
   const job = getJob(jobId);
   if (!job) return;
 
@@ -134,7 +135,7 @@ export function openJobForm(jobId, options = {}) {
   const editPendingOpt =
     options.editPending === true ||
     (options.editPending !== false && serverReport?.status === 'pending_review');
-  const existingReport = resolveReportForJob(jobId, serverReport, {
+  const existingReport = await resolveReportForJob(jobId, serverReport, {
     editPending: editPendingOpt,
   });
 
@@ -422,14 +423,25 @@ function bindFotoInputs(overlay) {
       if (state.previewUrl?.startsWith('blob:')) {
         URL.revokeObjectURL(state.previewUrl);
       }
-      state.file = file;
-      state.previewUrl = URL.createObjectURL(file);
       state.cleared = false;
       try {
-        state.base64 = await readFileAsDataUrl(file);
+        const compressed = await compressImageFile(file, { filename: which });
+        state.file = compressed.file;
+        state.base64 = compressed.dataUrl;
+        state.previewUrl = URL.createObjectURL(compressed.file);
       } catch (err) {
-        console.error('[Form] Foto base64:', err);
-        state.base64 = null;
+        console.error('[Form] Foto compressão:', err);
+        try {
+          state.file = file;
+          state.base64 = await readFileAsDataUrl(file);
+          state.previewUrl = URL.createObjectURL(file);
+        } catch (fallbackErr) {
+          console.error('[Form] Foto base64:', fallbackErr);
+          state.file = null;
+          state.base64 = null;
+          state.previewUrl = null;
+          showToast('Não foi possível processar a imagem.', 'error');
+        }
       }
       updateFotoPreview(overlay, which);
       formAutosave?.markDirty();

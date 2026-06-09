@@ -1,5 +1,5 @@
 /**
- * Contingência offline — fila local `trabalhos_pendentes` e sincronização com Supabase
+ * Contingência offline — fila IndexedDB `trabalhos_pendentes` e sincronização com Supabase
  */
 
 import { upsertRelatorio, ensureReportsLoaded, mergeReportInCache } from './relatorios-db.js';
@@ -7,6 +7,13 @@ import { patchTrabalho, patchTrabalhoStatus } from './trabalhos-db.js';
 import { isValidFotoUrl } from './job-fotos.js';
 import { uploadPendingFotosFromReport } from './foto-trabalho-storage.js';
 import { removeLocalReportDraft } from './report-local-storage.js';
+import {
+  STORE_PENDING_SUBMISSIONS,
+  idbDelete,
+  idbGet,
+  idbGetAll,
+  idbPut,
+} from './indexed-db.js';
 
 export const STORAGE_KEY = 'trabalhos_pendentes';
 
@@ -18,6 +25,7 @@ export const MSG_OFFLINE_SUBMIT =
 
 let syncInProgress = false;
 let listenerRegistered = false;
+let legacyPendingMigrationDone = false;
 
 function newPendingId() {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
@@ -26,20 +34,66 @@ function newPendingId() {
   return `pend-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
-/** @returns {Array<object>} */
-export function getTrabalhosPendentes() {
+async function migrateLegacyPendingLocalStorage() {
+  if (legacyPendingMigrationDone || typeof localStorage === 'undefined') return;
+  legacyPendingMigrationDone = true;
+
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    const list = raw ? JSON.parse(raw) : [];
+    if (!raw) return;
+
+    const list = JSON.parse(raw);
+    if (!Array.isArray(list) || !list.length) {
+      localStorage.removeItem(STORAGE_KEY);
+      return;
+    }
+
+    for (const item of list) {
+      if (item?.id) {
+        await idbPut(STORE_PENDING_SUBMISSIONS, item);
+      }
+    }
+
+    localStorage.removeItem(STORAGE_KEY);
+    console.info(`[ManuSilva] ${list.length} item(ns) da fila offline migrados para IndexedDB.`);
+  } catch (err) {
+    console.warn('[ManuSilva] Migração trabalhos_pendentes → IndexedDB:', err);
+  }
+}
+
+async function ensurePendingMigrated() {
+  await migrateLegacyPendingLocalStorage();
+}
+
+/** @returns {Promise<Array<object>>} */
+export async function getTrabalhosPendentes() {
+  await ensurePendingMigrated();
+  try {
+    const list = await idbGetAll(STORE_PENDING_SUBMISSIONS);
     return Array.isArray(list) ? list : [];
   } catch (err) {
-    console.warn('[ManuSilva] trabalhos_pendentes inválido:', err);
+    console.warn('[ManuSilva] trabalhos_pendentes (IndexedDB) inválido:', err);
     return [];
   }
 }
 
-function setTrabalhosPendentes(list) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+async function setTrabalhosPendentes(list) {
+  await ensurePendingMigrated();
+  const current = await idbGetAll(STORE_PENDING_SUBMISSIONS);
+  const nextIds = new Set((list || []).map((item) => item.id));
+
+  for (const item of current) {
+    if (!nextIds.has(item.id)) {
+      await idbDelete(STORE_PENDING_SUBMISSIONS, item.id);
+    }
+  }
+
+  for (const item of list || []) {
+    if (item?.id) {
+      await idbPut(STORE_PENDING_SUBMISSIONS, item);
+    }
+  }
+
   notifyPendingChange();
 }
 
@@ -52,11 +106,11 @@ function notifyPendingChange() {
  * Guarda relatório (e opcionalmente PDF em base64) na fila local.
  * @param {{ report: object, tipo?: string, pdfBase64?: string, pdfFilename?: string, queuedAt?: string, id?: string }} entry
  */
-export function addTrabalhoPendente(entry) {
+export async function addTrabalhoPendente(entry) {
   const report = entry.report ? JSON.parse(JSON.stringify(entry.report)) : null;
   if (!report) throw new Error('Relatório inválido para fila offline.');
 
-  const list = getTrabalhosPendentes();
+  const list = await getTrabalhosPendentes();
   const tipo = entry.tipo || 'submit';
   const existingIdx = list.findIndex(
     (i) => i.tipo === tipo && i.report?.jobId && i.report.jobId === report.jobId,
@@ -77,20 +131,23 @@ export function addTrabalhoPendente(entry) {
     list.push(item);
   }
 
-  setTrabalhosPendentes(list);
+  await setTrabalhosPendentes(list);
   return item.id;
 }
 
-export function removeTrabalhoPendente(id) {
-  setTrabalhosPendentes(getTrabalhosPendentes().filter((i) => i.id !== id));
+export async function removeTrabalhoPendente(id) {
+  await idbDelete(STORE_PENDING_SUBMISSIONS, id);
+  notifyPendingChange();
 }
 
-export function hasTrabalhoPendente(id) {
-  return getTrabalhosPendentes().some((i) => i.id === id);
+export async function hasTrabalhoPendente(id) {
+  const item = await idbGet(STORE_PENDING_SUBMISSIONS, id);
+  return Boolean(item);
 }
 
-export function countTrabalhosPendentes() {
-  return getTrabalhosPendentes().length;
+export async function countTrabalhosPendentes() {
+  const list = await getTrabalhosPendentes();
+  return list.length;
 }
 
 function isManualOfflineMode() {
@@ -116,7 +173,7 @@ async function syncOnePendingItem(item) {
   mergeReportInCache(saved || report);
 
   if (saved?.jobId) {
-    removeLocalReportDraft(saved.jobId);
+    await removeLocalReportDraft(saved.jobId);
     const fotoPatch = {};
     const data = report.data || {};
     if (isValidFotoUrl(data.fotoAntesUrl)) fotoPatch.fotoAntes = data.fotoAntesUrl;
@@ -145,10 +202,10 @@ async function syncOnePendingItem(item) {
 export async function sincronizarTrabalhosOffline(options = {}) {
   const { notify = true } = options;
   if (!canSyncToServer()) {
-    return { synced: 0, remaining: countTrabalhosPendentes() };
+    return { synced: 0, remaining: await countTrabalhosPendentes() };
   }
 
-  const pending = getTrabalhosPendentes();
+  const pending = await getTrabalhosPendentes();
   if (!pending.length) {
     return { synced: 0, remaining: 0 };
   }
@@ -164,7 +221,7 @@ export async function sincronizarTrabalhosOffline(options = {}) {
     for (const item of pending) {
       try {
         await syncOnePendingItem(item);
-        removeTrabalhoPendente(item.id);
+        await removeTrabalhoPendente(item.id);
         synced++;
       } catch (err) {
         console.error('[ManuSilva] Falha ao sincronizar item offline:', item.id, err);
@@ -185,11 +242,11 @@ export async function sincronizarTrabalhosOffline(options = {}) {
     syncInProgress = false;
   }
 
-  return { synced, remaining: countTrabalhosPendentes() };
+  return { synced, remaining: await countTrabalhosPendentes() };
 }
 
 /** Migra submissões antigas de `manusilva_db.offlineQueue` para `trabalhos_pendentes` */
-export function migrateLegacyOfflineQueue(getDB, updateDB) {
+export async function migrateLegacyOfflineQueue(getDB, updateDB) {
   const db = getDB();
   const queue = db.offlineQueue || [];
   if (!queue.length) return;
@@ -199,7 +256,7 @@ export function migrateLegacyOfflineQueue(getDB, updateDB) {
 
   for (const action of queue) {
     if (action.type === 'submit_report' && action.report) {
-      addTrabalhoPendente({
+      await addTrabalhoPendente({
         report: action.report,
         tipo: 'submit',
         queuedAt: action.queuedAt,

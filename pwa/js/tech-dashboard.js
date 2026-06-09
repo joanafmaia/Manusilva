@@ -122,7 +122,7 @@ export async function initTechDashboard() {
     await import('./trabalhos-offline.js');
   const { getDB, updateDB } = await import('./app.js');
 
-  migrateLegacyOfflineQueue(getDB, updateDB);
+  await migrateLegacyOfflineQueue(getDB, updateDB);
   initTrabalhosOfflineSync();
   sincronizarTrabalhosOffline().catch(console.error);
   renderOfflineSyncBar();
@@ -218,8 +218,8 @@ function renderOfflineSyncBar() {
   if (!bar) return;
 
   import('./trabalhos-offline.js')
-    .then(({ countTrabalhosPendentes }) => {
-      const count = countTrabalhosPendentes();
+    .then(async ({ countTrabalhosPendentes }) => {
+      const count = await countTrabalhosPendentes();
       if (!count) {
         bar.hidden = true;
         return;
