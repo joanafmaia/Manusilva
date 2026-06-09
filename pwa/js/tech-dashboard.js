@@ -52,19 +52,10 @@ const TECH_MONTH_WEEKDAYS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
 const TECH_MONTH_JOBS_VISIBLE = 4;
 
 const TECH_JOBS_TABS = {
-  em_curso: { id: 'em_curso', label: 'Em Curso / Pendentes', subtitle: 'Hoje' },
-  agendados: { id: 'agendados', label: 'Agendados', subtitle: 'Próximos trabalhos' },
+  em_curso: { id: 'em_curso', label: 'Em Curso / Pendentes', subtitle: 'Relatórios em aberto' },
+  agendados: { id: 'agendados', label: 'Agendados', subtitle: 'Dia selecionado' },
   realizados: { id: 'realizados', label: 'Histórico de Realizados', subtitle: 'Concluídos' },
 };
-
-const SCHEDULED_JOB_STATUSES = new Set([
-  'scheduled',
-  'agendado',
-  'atribuido',
-  'atribuído',
-  'in_progress',
-  'pending_parts',
-]);
 
 let techJobsTab = 'em_curso';
 let techJobsTabsBound = false;
@@ -116,10 +107,6 @@ function reportAssignedToTechnician(report, techId) {
   });
 }
 
-function isScheduledJobStatus(status) {
-  return SCHEDULED_JOB_STATUSES.has(String(status || '').toLowerCase());
-}
-
 function setTechJobsTab(tabId) {
   if (!TECH_JOBS_TABS[tabId] || techJobsTab === tabId) return;
   techJobsTab = tabId;
@@ -153,19 +140,18 @@ async function loadTechTabData() {
   if (!session?.technicianId) return;
 
   const today = getTodayIso();
-  const cacheKey = `${session.technicianId}:${techJobsTab}:${today}`;
+  const cacheKey = `${session.technicianId}:${techJobsTab}:${techJobsTab === 'agendados' ? selectedDate : today}`;
   if (techTabDataCacheKey === cacheKey) return;
 
   await loadPeriodJobsFromSupabase();
 
   if (techJobsTab === 'em_curso') {
-    const pastStart = addDaysToIso(today, -60);
-    await ensureTrabalhosSemana(session.technicianId, pastStart, today);
     const { ensureReportsLoaded } = await import('./relatorios-db.js');
+    const { ensureJobsLoaded } = await import('./trabalhos-db.js');
     await ensureReportsLoaded();
+    await ensureJobsLoaded();
   } else if (techJobsTab === 'agendados') {
-    const futureEnd = addDaysToIso(today, 120);
-    await ensureTrabalhosSemana(session.technicianId, addDaysToIso(today, 1), futureEnd);
+    await ensureTrabalhosSemana(session.technicianId, selectedDate, selectedDate);
   } else if (techJobsTab === 'realizados') {
     const { ensureReportsLoaded } = await import('./relatorios-db.js');
     const { ensureJobsLoaded } = await import('./trabalhos-db.js');
@@ -176,38 +162,46 @@ async function loadTechTabData() {
   techTabDataCacheKey = cacheKey;
 }
 
+function jobFromDraftReport(report) {
+  const job = report.jobId ? getJob(report.jobId) : null;
+  if (job) return job;
+  if (!report.jobId) return null;
+  return {
+    id: report.jobId,
+    clientId: report.clientId,
+    serviceType: report.serviceType,
+    forkliftSerial: report.forkliftSerial || '',
+    date: report.submittedAt?.split('T')[0] || '',
+    time: '',
+    technicianId: report.technicianId,
+    status: 'scheduled',
+    rejectionNote: null,
+  };
+}
+
+/** Apenas relatórios «Em aberto» (rascunho), incluindo dias anteriores. */
 function getEmCursoJobs(techId) {
-  const today = getTodayIso();
   const byId = new Map();
 
   getReportsSnapshot().forEach((report) => {
     if (report.status !== 'draft' || !reportAssignedToTechnician(report, techId)) return;
-    const job = report.jobId ? getJob(report.jobId) : null;
-    if (job && jobAssignedToTechnician(job, techId)) byId.set(job.id, job);
-  });
-
-  getJobsSnapshot().forEach((job) => {
-    if (!jobAssignedToTechnician(job, techId)) return;
-    if (job.date !== today) return;
-    const report = getReportForJob(job.id);
-    if (report?.status === 'approved') return;
+    const job = jobFromDraftReport(report);
+    if (!job) return;
+    if (job.technicianId && !jobAssignedToTechnician(job, techId)) return;
     byId.set(job.id, job);
   });
 
-  return [...byId.values()].sort(sortJobsByDateTime);
+  return [...byId.values()].sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
 }
 
+/** Trabalhos «Agendados» do dia selecionado no calendário (ainda não iniciados). */
 function getAgendadosJobs(techId) {
-  const today = getTodayIso();
-
   return getJobsSnapshot()
     .filter((job) => {
       if (!jobAssignedToTechnician(job, techId)) return false;
-      if (job.date <= today) return false;
+      if (job.date !== selectedDate) return false;
       const report = getReportForJob(job.id);
-      if (report?.status === 'approved' || report?.status === 'draft') return false;
-      if (resolveCalendarEventState(job, report) !== 'scheduled') return false;
-      return isScheduledJobStatus(job.status);
+      return resolveCalendarEventState(job, report) === 'scheduled';
     })
     .sort(sortJobsByDateTime);
 }
@@ -678,8 +672,13 @@ function bindTechMonthCalendarEvents(container) {
     cell.addEventListener('click', (e) => {
       if (e.target.closest('[data-tech-month-job]')) return;
       selectedDate = cell.dataset.techMonthDay;
+      if (techJobsTab === 'agendados') techTabDataCacheKey = null;
       renderMonthCalendar();
-      renderJobs();
+      if (techJobsTab === 'agendados') {
+        loadTechTabData().then(() => renderJobs()).catch(console.error);
+      } else {
+        renderJobs();
+      }
     });
   });
 }
@@ -782,8 +781,13 @@ function renderCalendarStrip() {
   strip.querySelectorAll('.cal-day').forEach((btn) => {
     btn.addEventListener('click', () => {
       selectedDate = btn.dataset.date;
+      if (techJobsTab === 'agendados') techTabDataCacheKey = null;
       renderCalendarStrip();
-      renderJobs();
+      if (techJobsTab === 'agendados') {
+        loadTechTabData().then(() => renderJobs()).catch(console.error);
+      } else {
+        renderJobs();
+      }
     });
   });
 }
@@ -796,7 +800,7 @@ function renderJobCard(job, { actionMode = 'em_curso' } = {}) {
   const stateClass = getCalendarEventStateClass(job, savedReport);
   const stateBadge = renderWorkStateBadge(job, savedReport);
   const dateLine =
-    techJobsTab === 'agendados' && job.date
+    techJobsTab === 'em_curso' && job.date
       ? `<span class="job-date-chip">${escapeHtml(formatDateLong(job.date))}</span>`
       : '';
 
@@ -880,8 +884,8 @@ function openContinueJob(jobId) {
 }
 
 const TECH_TAB_EMPTY_MESSAGES = {
-  em_curso: 'Sem relatórios em aberto nem trabalhos para hoje.',
-  agendados: 'Sem trabalhos agendados nos próximos dias.',
+  em_curso: 'Não tem relatórios em aberto. Os rascunhos guardados aparecem aqui.',
+  agendados: 'Sem trabalhos agendados neste dia.',
   realizados: 'Ainda não tem relatórios concluídos.',
 };
 
@@ -894,9 +898,13 @@ function updateJobsSectionHeader() {
   if (!dateLabel) return;
 
   if (techJobsTab === 'em_curso') {
-    dateLabel.textContent = `Hoje — ${formatDate(getTodayIso())}`;
+    const techSession = requireAuth('technician');
+    const count = techSession ? getEmCursoJobs(techSession.technicianId).length : 0;
+    dateLabel.textContent = count
+      ? `${count} relatório${count === 1 ? '' : 's'} em aberto`
+      : tabMeta.subtitle;
   } else if (techJobsTab === 'agendados') {
-    dateLabel.textContent = tabMeta.subtitle;
+    dateLabel.textContent = formatDate(selectedDate);
   } else {
     const session = requireAuth('technician');
     const count = session ? getRealizadosItems(session.technicianId).length : 0;
