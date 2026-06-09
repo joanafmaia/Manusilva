@@ -10,6 +10,11 @@ export const MATERIAL_UTILIZADO_COLUMNS = [
   { id: 'qtd', label: 'Quantidade' },
 ];
 
+/** Linha vazia padronizada — evita [{}] e [object Object] nos inputs */
+export function emptyMaterialRow() {
+  return { artigo: '', qtd: '' };
+}
+
 const LEGACY_MATERIAL_KEYS = {
   material: 'artigo',
   equipamento: 'artigo',
@@ -136,7 +141,11 @@ export function normalizeMaterialRows(value) {
   if (!Array.isArray(value)) return value;
 
   return value.map((row) => {
-    if (!row || typeof row !== 'object') return row;
+    if (!row || typeof row !== 'object' || Array.isArray(row)) {
+      const text = row == null ? '' : String(row).trim();
+      return text && text !== '[object Object]' ? { artigo: text, qtd: '' } : emptyMaterialRow();
+    }
+
     const out = { ...row };
 
     Object.entries(LEGACY_MATERIAL_KEYS).forEach(([legacyKey, canonicalKey]) => {
@@ -147,14 +156,38 @@ export function normalizeMaterialRows(value) {
     });
 
     if (row.tipo) {
-      const base = String(out.artigo || '').trim();
+      const base = materialCellText(out.artigo);
       const tipo = String(row.tipo).trim();
       out.artigo = base && tipo ? `${base} (${tipo})` : base || tipo;
       delete out.tipo;
     }
 
-    return out;
+    return {
+      artigo: materialCellText(out.artigo),
+      qtd: materialCellText(out.qtd),
+    };
   });
+}
+
+function materialCellText(val) {
+  if (val === undefined || val === null) return '';
+  if (typeof val === 'object') {
+    const nested =
+      val.artigo ??
+      val.descricao ??
+      val.material ??
+      val.equipamento ??
+      val.label ??
+      val.value ??
+      val.qtd ??
+      val.quantidade;
+    if (nested !== undefined && nested !== null && typeof nested !== 'object') {
+      return String(nested).trim();
+    }
+    return '';
+  }
+  const text = String(val).trim();
+  return text === '[object Object]' ? '' : text;
 }
 
 /** Observações associadas ao material — primeira textarea de observações após o campo */

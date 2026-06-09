@@ -1247,6 +1247,9 @@ body.dark-mode .offline-sync-banner__icon {
   overflow-y: auto;
   opacity: 0;
   transition: opacity 0.3s;
+  padding: 1rem max(1rem, env(safe-area-inset-right)) max(1rem, env(safe-area-inset-bottom))
+    max(1rem, env(safe-area-inset-left));
+  box-sizing: border-box;
 }
 
 /* ─── Relatório premium — alinhado ao painel de Faturação ─── */
@@ -1256,8 +1259,17 @@ body.dark-mode .offline-sync-banner__icon {
 }
 
 .form-workspace--report {
-  padding: 0;
+  width: 100%;
+  max-width: 64rem;
+  margin: 0 auto;
+  padding: 0.25rem 0;
   box-sizing: border-box;
+}
+
+.form-overlay .form-panel--premium {
+  width: 100%;
+  max-width: 64rem;
+  margin: 0 auto;
 }
 
 /* Cartão de secção — mesmo padrão dos KPIs / painéis admin */
@@ -3335,7 +3347,8 @@ body.dark-mode .matrix-bulk-good-btn--active {
   flex: 1;
 }
 
-.material-qty-unit {
+.material-qty-unit,
+.form-input-unit {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3348,6 +3361,34 @@ body.dark-mode .matrix-bulk-good-btn--active {
   background: rgba(59, 130, 246, 0.08);
   border-left: 1px solid var(--border-subtle);
   transition: color 0.25s ease, transform 0.25s ease;
+}
+
+.form-input-unit-wrap {
+  display: flex;
+  align-items: stretch;
+  border-radius: var(--ms-radius-lg, var(--radius-md));
+  border: 1px solid var(--ms-border-md, var(--border-subtle));
+  background: var(--surface-panel-strong);
+  overflow: hidden;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.form-input-unit-field.is-focused .form-input-unit-wrap,
+.form-input-unit-field.has-value .form-input-unit-wrap {
+  border-color: rgba(59, 130, 246, 0.55);
+  box-shadow: var(--shadow-material);
+}
+
+.form-input-unit-field.has-value .form-input-unit {
+  color: var(--primary-light);
+}
+
+.form-input-unit-input {
+  border: none !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  flex: 1;
 }
 
 /* Verification toggles — MS. 061 corretiva */
@@ -8325,7 +8366,7 @@ body:not(:has(.theme-toggle-btn:not(.theme-toggle-btn--inline))) .toast-containe
   }
 
   .form-panel--premium .form-panel-body {
-    padding: 0 0 1.5rem;
+    padding: 0 0.25rem 1.5rem;
     background: transparent;
   }
 

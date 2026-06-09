@@ -205,6 +205,10 @@ function formatPdfDeslocacao(raw, ctx = {}) {
     return localidade;
   }
 
+  if (/^\d+([.,]\d+)?$/.test(text)) {
+    return `${text.replace(',', '.')} Km`;
+  }
+
   return text;
 }
 

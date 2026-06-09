@@ -11,6 +11,7 @@ import {
 import {
   columnKey,
   columnLabel,
+  emptyMaterialRow,
   isMaterialTableField,
   normalizeMaterialRows,
   MATERIAL_FIELD_IDS,
@@ -261,7 +262,7 @@ export function buildFormPrefill(service, job, _forklift, context = {}) {
     return {
       data_de_conclusao: job?.date || '',
       estado_final: 'Reparação Concluída',
-      consumiveis: [{}],
+      consumiveis: [emptyMaterialRow()],
     };
   }
 
@@ -282,14 +283,14 @@ export function buildFormPrefill(service, job, _forklift, context = {}) {
       etiqueta: '',
       responsavel: '',
       registo_intervencao: [interventionRow],
-      consumiveis_material: [{}],
+      consumiveis_material: [emptyMaterialRow()],
     };
   }
 
   if (service.id === 'folha_intervencao_avarias') {
     return {
       data_1: job?.date || '',
-      material_utilizado: [{}],
+      material_utilizado: [emptyMaterialRow()],
     };
   }
 
@@ -297,7 +298,7 @@ export function buildFormPrefill(service, job, _forklift, context = {}) {
     return {
       data_de_conclusao: job?.date || '',
       [GRANDES_BATTERY_FIELD_ID]: [{}],
-      consumiveis_utilizados: [{}],
+      consumiveis_utilizados: [emptyMaterialRow()],
     };
   }
 
@@ -310,7 +311,7 @@ export function buildFormPrefill(service, job, _forklift, context = {}) {
       });
     return {
       data_de_conclusao: job?.date || '',
-      consumiveis: [{}],
+      consumiveis: [emptyMaterialRow()],
       ...toggles,
     };
   }
@@ -554,10 +555,41 @@ function numberInputAttrs(field = {}, stepOverride) {
   return attrs.join(' ');
 }
 
+function formatDynamicCellDisplayValue(val) {
+  if (val === undefined || val === null) return '';
+  if (typeof val === 'object') {
+    const nested =
+      val.artigo ??
+      val.descricao ??
+      val.material ??
+      val.equipamento ??
+      val.label ??
+      val.value ??
+      val.qtd ??
+      val.quantidade;
+    if (nested !== undefined && nested !== null && typeof nested !== 'object') {
+      return String(nested).trim();
+    }
+    return '';
+  }
+  const text = String(val).trim();
+  return text === '[object Object]' ? '' : text;
+}
+
+function getFieldUnit(field) {
+  if (field?.unit) return String(field.unit);
+  if (field?.id === 'deslocacao') return 'Km';
+  if (field?.id === 'tensao' || field?.id === 'tensao_media_elementos' || field?.id === 'tensao_v') {
+    return 'V';
+  }
+  return '';
+}
+
 function renderDynamicTableCell(field, col, key, row) {
-  const val = row[key] ?? '';
+  const val = formatDynamicCellDisplayValue(row[key]);
   const inputType = getDynamicColumnInputType(field, key);
-  const placeholder = col;
+  const colLabel = typeof col === 'object' ? columnLabel(col) : String(col);
+  const placeholder = colLabel;
 
   if (inputType === 'date') {
     return `<input type="date" class="form-input form-input-sm form-input-date" data-col="${key}"
@@ -572,12 +604,12 @@ function renderDynamicTableCell(field, col, key, row) {
       value="${escapeHtml(toHtmlDatetimeLocalValue(val))}">`;
   }
   if (inputType === 'number') {
-    const step = key === 'horas' ? '0.5' : '1';
+    const step = key === 'horas' ? '0.5' : key === 'densidade' ? '0.01' : '1';
     return `<input type="number" class="form-input form-input-sm" data-col="${key}"
-      value="${escapeHtml(String(val))}" placeholder="0" min="0" ${numberInputAttrs({}, step)}>`;
+      value="${escapeHtml(val)}" placeholder="0" min="0" ${numberInputAttrs({}, step)}>`;
   }
   return `<input type="text" class="form-input form-input-sm" data-col="${key}"
-    value="${escapeHtml(String(val))}" placeholder="${escapeHtml(placeholder)}">`;
+    value="${escapeHtml(val)}" placeholder="${escapeHtml(placeholder)}">`;
 }
 
 function isClientPickerField(field) {
@@ -1052,19 +1084,35 @@ function isMaterialQtyField(field) {
 
 function renderNumberField(field, value = '') {
   const material = isMaterialQtyField(field);
-  const unit = material ? getMaterialUnit(field.label) : '';
+  const unit = material ? getMaterialUnit(field.label) : getFieldUnit(field);
   const hasValue = value !== '' && value !== null && value !== undefined;
   const materialClasses = material
     ? `material-qty-field${hasValue ? ' has-value' : ''}`
     : '';
+  const unitClasses = unit && !material ? `form-input-unit-field${hasValue ? ' has-value' : ''}` : '';
+  const displayValue = formatDynamicCellDisplayValue(value);
 
-  if (!material) {
+  if (!material && !unit) {
     return `
       <div class="${gridEligibleFieldBlockClass()}">
         <label class="form-label">${escapeHtml(field.label)}</label>
         <input type="number" class="form-input" data-field-id="${field.id}" data-field-kind="number"
-          value="${escapeHtml(String(value))}" placeholder="${escapeHtml(field.placeholder || '0')}"
+          value="${escapeHtml(displayValue)}" placeholder="${escapeHtml(field.placeholder || '0')}"
           ${numberInputAttrs(field)}>
+      </div>
+    `;
+  }
+
+  if (!material && unit) {
+    return `
+      <div class="${gridEligibleFieldBlockClass(unitClasses)}">
+        <label class="form-label">${escapeHtml(field.label)}</label>
+        <div class="form-input-unit-wrap">
+          <input type="number" class="form-input form-input-unit-input" data-field-id="${field.id}" data-field-kind="number"
+            value="${escapeHtml(displayValue)}" placeholder="${escapeHtml(field.placeholder || '0')}"
+            ${numberInputAttrs(field)}>
+          <span class="form-input-unit">${escapeHtml(unit)}</span>
+        </div>
       </div>
     `;
   }
@@ -1337,10 +1385,12 @@ function renderDynamicTableField(field, value, context = {}) {
   const columns = field.columns || [];
   const colKeys = columns.map((c) => columnKey(c));
   const defaultRow = resolveDynamicRowDefaults(field, context);
-  const rows =
-    Array.isArray(value) && value.length
-      ? value
-      : [Object.keys(defaultRow).length ? { ...defaultRow } : {}];
+  let rows = Array.isArray(value) && value.length ? value : [];
+  if (isMaterialTableField(field)) {
+    rows = normalizeMaterialRows(rows.length ? rows : [emptyMaterialRow()]);
+  } else if (!rows.length) {
+    rows = [Object.keys(defaultRow).length ? { ...defaultRow } : {}];
+  }
 
   const variantClass = field.tableVariant
     ? `dynamic-table-field--${field.tableVariant}`
@@ -1370,6 +1420,7 @@ function renderDynamicTableField(field, value, context = {}) {
     <div class="form-group field-block dynamic-table-field ${variantClass}"
       data-dynamic-table="${field.id}"
       data-columns='${JSON.stringify(columns)}'
+      data-column-types='${JSON.stringify(field.columnTypes || {})}'
       data-default-row='${JSON.stringify(defaultRow)}'>
       <label class="form-label">${escapeHtml(field.label)}</label>
       <div class="dynamic-table-wrap glass-card-inner">
@@ -1702,15 +1753,29 @@ export async function bindFormFieldInteractions(overlay) {
     syncMaterial();
   });
 
+  overlay.querySelectorAll('.form-input-unit-input').forEach((input) => {
+    const fieldWrap = input.closest('.form-input-unit-field');
+    const syncUnit = () => {
+      fieldWrap?.classList.toggle('has-value', String(input.value).trim() !== '');
+    };
+    input.addEventListener('focus', () => fieldWrap?.classList.add('is-focused'));
+    input.addEventListener('blur', () => fieldWrap?.classList.remove('is-focused'));
+    input.addEventListener('input', syncUnit);
+    syncUnit();
+  });
+
   overlay.querySelectorAll('[data-dynamic-table]').forEach((wrap) => {
     const columns = JSON.parse(wrap.dataset.columns || '[]');
     const colKeys = columns.map((c) => columnKey(c));
     const defaultRow = JSON.parse(wrap.dataset.defaultRow || '{}');
+    const storedColumnTypes = JSON.parse(wrap.dataset.columnTypes || '{}');
     const tbody = wrap.querySelector('.dynamic-table-body');
     const fieldId = wrap.dataset.dynamicTable;
-    const fieldDef = { id: fieldId, columnTypes: {}, columns };
+    const fieldDef = { id: fieldId, columnTypes: { ...storedColumnTypes }, columns };
     colKeys.forEach((key) => {
-      fieldDef.columnTypes[key] = getDynamicColumnInputType(fieldDef, key);
+      if (!fieldDef.columnTypes[key]) {
+        fieldDef.columnTypes[key] = getDynamicColumnInputType(fieldDef, key);
+      }
     });
 
     const buildRow = (rowData = defaultRow) => {
@@ -1735,7 +1800,8 @@ export async function bindFormFieldInteractions(overlay) {
     };
 
     const addRow = () => {
-      tbody.appendChild(buildRow({ ...defaultRow }));
+      const seed = MATERIAL_FIELD_IDS.has(fieldId) ? emptyMaterialRow() : { ...defaultRow };
+      tbody.appendChild(buildRow(seed));
     };
 
     wrap.querySelector('.dynamic-table-add')?.addEventListener('click', (e) => {
