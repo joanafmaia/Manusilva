@@ -3,19 +3,19 @@
  * Geocoding: Nominatim (OSM) · Rota: OSRM público.
  */
 
-import { COMPANY } from './mock_data.js';
 import { ensureClientAddressForDeslocacao } from './clients-catalog.js';
 import { reportIncludesDeslocacao } from './deslocacao-field.js';
 
 const HQ_ADDRESS =
   'Rua São Mamede, Lote Nº1-Fração D, 4760-725 Ribeirão VNF, Portugal';
 
-const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search';
+const NOMINATIM_SEARCH_URL = 'https://nominatim.openstreetmap.org/search';
 const OSRM_ROUTE_URL = 'https://router.project-osrm.org/route/v1/driving';
 const REQUEST_TIMEOUT_MS = 14_000;
 const NOMINATIM_DELAY_MS = 1_100;
 
 let lastNominatimAt = 0;
+let cachedHqPoint = null;
 
 export function serviceHasDeslocacaoField(service) {
   return reportIncludesDeslocacao(service);
@@ -39,41 +39,63 @@ async function waitNominatimSlot() {
 }
 
 /**
- * @param {string} query
+ * Traduz texto (morada + CP) em coordenadas GPS via Nominatim.
+ * @param {string} pesquisaMorada
  * @returns {Promise<{ lat: number, lon: number } | null>}
  */
-async function geocodeAddress(query) {
-  const q = String(query || '').trim();
+export async function geocodeAddressToCoords(pesquisaMorada) {
+  const q = String(pesquisaMorada || '').trim();
   if (!q) return null;
 
   await waitNominatimSlot();
 
-  const url = new URL(NOMINATIM_URL);
-  url.searchParams.set('q', q);
-  url.searchParams.set('format', 'json');
-  url.searchParams.set('limit', '1');
-  url.searchParams.set('countrycodes', 'pt');
+  const url =
+    `${NOMINATIM_SEARCH_URL}?format=json&q=${encodeURIComponent(q)}&limit=1&countrycodes=pt`;
 
-  const res = await fetch(url.toString(), {
-    headers: {
-      Accept: 'application/json',
-      'Accept-Language': 'pt-PT,pt',
-      'User-Agent': `ManusilvaPWA/1.0 (${COMPANY.email || 'contact'})`,
-    },
-    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-  });
+  console.log('[Deslocação] Nominatim — a traduzir morada:', q);
 
-  if (!res.ok) return null;
+  let res;
+  try {
+    res = await fetch(url, {
+      method: 'GET',
+      mode: 'cors',
+      cache: 'no-store',
+      credentials: 'omit',
+      headers: {
+        Accept: 'application/json',
+        'Accept-Language': 'pt-PT,pt',
+      },
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
+  } catch (err) {
+    console.warn('[Deslocação] Nominatim Failed to fetch:', err);
+    return null;
+  }
+
+  if (!res.ok) {
+    console.warn('[Deslocação] Nominatim HTTP', res.status);
+    return null;
+  }
 
   const rows = await res.json();
   const hit = rows?.[0];
-  if (!hit) return null;
+  if (!hit) {
+    console.warn('[Deslocação] Nominatim sem resultados para:', q);
+    return null;
+  }
 
   const lat = Number.parseFloat(hit.lat);
   const lon = Number.parseFloat(hit.lon);
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
 
+  console.log('[Deslocação] Coordenadas obtidas:', { lat, lon, display_name: hit.display_name });
   return { lat, lon };
+}
+
+async function getHqPoint() {
+  if (cachedHqPoint) return cachedHqPoint;
+  cachedHqPoint = await geocodeAddressToCoords(HQ_ADDRESS);
+  return cachedHqPoint;
 }
 
 /**
@@ -85,16 +107,34 @@ async function drivingDistanceKmOneWay(from, to) {
   const path = `${from.lon},${from.lat};${to.lon},${to.lat}`;
   const url = `${OSRM_ROUTE_URL}/${path}?overview=false`;
 
-  const res = await fetch(url, {
-    headers: { Accept: 'application/json' },
-    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-  });
+  console.log('[Deslocação] OSRM — a calcular rota:', url);
 
-  if (!res.ok) return null;
+  let res;
+  try {
+    res = await fetch(url, {
+      method: 'GET',
+      mode: 'cors',
+      cache: 'no-store',
+      credentials: 'omit',
+      headers: { Accept: 'application/json' },
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
+  } catch (err) {
+    console.warn('[Deslocação] OSRM Failed to fetch:', err);
+    return null;
+  }
+
+  if (!res.ok) {
+    console.warn('[Deslocação] OSRM HTTP', res.status);
+    return null;
+  }
 
   const data = await res.json();
   const meters = data?.routes?.[0]?.distance;
-  if (data?.code !== 'Ok' || !Number.isFinite(meters) || meters <= 0) return null;
+  if (data?.code !== 'Ok' || !Number.isFinite(meters) || meters <= 0) {
+    console.warn('[Deslocação] OSRM resposta inválida:', data?.code);
+    return null;
+  }
 
   return meters / 1000;
 }
@@ -112,15 +152,19 @@ export async function calculateDeslocacaoRoundTripKm(morada, codigoPostal) {
   console.log('A calcular rota para:', pesquisaMorada);
 
   try {
-    const hqPoint = await geocodeAddress(HQ_ADDRESS);
-    const clientPoint = await geocodeAddress(pesquisaMorada);
-    if (!hqPoint || !clientPoint) return null;
+    const clientPoint = await geocodeAddressToCoords(pesquisaMorada);
+    if (!clientPoint) return null;
+
+    const hqPoint = await getHqPoint();
+    if (!hqPoint) return null;
 
     const oneWayKm = await drivingDistanceKmOneWay(hqPoint, clientPoint);
     if (oneWayKm == null || oneWayKm <= 0) return null;
 
     const roundTrip = oneWayKm * 2;
-    return Math.round(roundTrip * 10) / 10;
+    const km = Math.round(roundTrip * 10) / 10;
+    console.log('[Deslocação] Ida e volta (Km):', km, '(só ida:', Math.round(oneWayKm * 10) / 10, ')');
+    return km;
   } catch (err) {
     console.warn('[Deslocação] Cálculo automático falhou:', err);
     return null;
@@ -147,6 +191,7 @@ export function setDeslocacaoFormValue(overlay, km) {
   const text = String(km);
   input.value = text;
   input.setAttribute('value', text);
+  input.defaultValue = text;
 
   const fieldWrap = input.closest('.form-input-unit-field');
   fieldWrap?.classList.toggle('has-value', text.trim() !== '');
