@@ -152,7 +152,10 @@ export const INSPECAO_DL50_PDF_SKIP_FIELD_IDS = new Set([
 ]);
 
 const MACHINE_TABLE_LINE = [226, 232, 240];
-const MACHINE_TABLE_FILL = [248, 250, 252];
+const MACHINE_TABLE_FILL = [255, 255, 255];
+const MACHINE_TABLE_ALT_FILL = [248, 249, 250];
+const MACHINE_TABLE_HEAD_FILL = [30, 64, 115];
+const MACHINE_TABLE_HEAD_TEXT = [255, 255, 255];
 
 function pickFirstNonEmpty(...candidates) {
   for (const raw of candidates) {
@@ -307,21 +310,29 @@ export async function drawInspecaoDl50HeaderBlock(doc, y, values, helpers) {
     theme: 'plain',
     styles: {
       font: pdfAutoTableFont(doc),
-      fontSize: 8.5,
-      cellPadding: { top: 3, right: 3, bottom: 3, left: 3 },
+      fontSize: 10,
+      cellPadding: { top: 3.5, right: 4, bottom: 3.5, left: 4 },
       lineColor: MACHINE_TABLE_LINE,
-      lineWidth: 0.12,
+      lineWidth: 0.15,
       textColor: PDF_TEXT_DARK,
       fontStyle: 'normal',
       valign: 'middle',
-      overflow: 'ellipsize',
+      overflow: 'linebreak',
     },
     bodyStyles: {
       fillColor: MACHINE_TABLE_FILL,
     },
+    alternateRowStyles: {
+      fillColor: MACHINE_TABLE_ALT_FILL,
+    },
     columnStyles: {
-      0: { cellWidth: colW },
-      1: { cellWidth: colW },
+      0: { cellWidth: colW, overflow: 'linebreak' },
+      1: { cellWidth: colW, overflow: 'linebreak' },
+    },
+    didParseCell: (data) => {
+      if (data.section === 'body' && data.row.index % 2 === 1) {
+        data.cell.styles.fillColor = MACHINE_TABLE_ALT_FILL;
+      }
     },
   });
 

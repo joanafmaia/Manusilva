@@ -2,6 +2,9 @@
  * Tabela dinâmica de material — formato unificado [{ artigo, qtd }]
  */
 
+/** Título único no PDF e formulários — evita duplicar «Consumíveis» + subtítulo */
+export const MATERIAL_TABLE_PDF_LABEL = 'Consumíveis Utilizados';
+
 export const MATERIAL_UTILIZADO_COLUMNS = [
   { id: 'artigo', label: 'Artigo / Descrição' },
   { id: 'qtd', label: 'Quantidade' },
@@ -47,13 +50,60 @@ export function createMaterialTableField(overrides = {}) {
   return {
     type: 'dynamic_table',
     id: 'material_utilizado',
-    label: 'Material Utilizado',
+    label: MATERIAL_TABLE_PDF_LABEL,
     columns: MATERIAL_UTILIZADO_COLUMNS,
     columnTypes: { qtd: 'number' },
     tableVariant: 'material',
     addButtonLabel: 'Adicionar linha',
     ...overrides,
   };
+}
+
+export function getMaterialTablePdfLabel() {
+  return MATERIAL_TABLE_PDF_LABEL;
+}
+
+function normalizeSectionName(section) {
+  return String(section || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
+/** Secções só com tabela de material — não repetir título genérico «Consumíveis» no PDF */
+export function isMaterialOnlySection(section, service) {
+  if (!section) return false;
+  const norm = normalizeSectionName(section);
+  const isMaterialSection =
+    norm.includes('consumiveis') ||
+    norm.includes('material aplicado') ||
+    norm === 'consumiveis';
+  if (!isMaterialSection) return false;
+
+  const inSection = (service?.fields || []).filter((f) => f.section === section);
+  return inSection.length > 0 && inSection.every((f) => isMaterialTableField(f));
+}
+
+const TRAILING_PDF_SKIP_TYPES = new Set(['status_pills', 'legal_verdict']);
+
+/** Observações / material no fim do relatório — ancora fecho (fotos + assinaturas) */
+export function fieldAnchorsReportClosing(service, field) {
+  const fields = service?.fields || [];
+  if (!fields.length) return false;
+
+  let anchorField = null;
+  if (isObservationsField(field)) anchorField = field;
+  else if (isMaterialTableField(field)) anchorField = findPairedObservationsField(service, field);
+
+  if (!anchorField) return false;
+
+  for (let i = fields.length - 1; i >= 0; i -= 1) {
+    const f = fields[i];
+    if (TRAILING_PDF_SKIP_TYPES.has(f.type)) continue;
+    if (f.id === 'declaracao_seguranca') continue;
+    return f.id === anchorField.id || (isMaterialTableField(f) && f.id === field.id);
+  }
+  return false;
 }
 
 export function isMaterialTableField(field) {

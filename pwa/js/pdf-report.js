@@ -33,7 +33,10 @@ import { getColumnLabels } from './views/relatorio-grandes.js';
 import {
   columnKey as materialColumnKey,
   columnLabel as materialColumnLabel,
+  fieldAnchorsReportClosing,
   findPairedObservationsField,
+  getMaterialTablePdfLabel,
+  isMaterialOnlySection,
   isMaterialTableField,
   isObservationsField,
   MATERIAL_UTILIZADO_COLUMNS,
@@ -439,6 +442,8 @@ export async function renderInterventionPDF(report) {
 
   const clientMeta = await resolvePdfClientMeta(report, normalizeReportValues(data));
   const isDl50Pdf = report.serviceType === 'inspecao_dl50_2005';
+  const fotoAntesUrl = data.fotoAntesUrl || job?.fotoAntes || null;
+  const fotoDepoisUrl = data.fotoDepoisUrl || job?.fotoDepois || null;
 
   let y = drawTopRowWithClientBlock(doc, clientMeta, job?.numeroOrdem ?? null);
   y = drawTitleBar(doc, y, title);
@@ -446,14 +451,19 @@ export async function renderInterventionPDF(report) {
   let values = mapReportValuesForPdf(data, service, pdfContext);
   values = { ...values, ...resolveInspecaoDl50MachineFields(values, pdfContext) };
   pdfContext.values = values;
+  pdfContext.service = service;
+  pdfContext.closingOpts = {
+    fotoAntesUrl,
+    fotoDepoisUrl,
+    simplePhotoLegend: true,
+    legalValue: isDl50Pdf ? values.declaracao_seguranca : null,
+  };
   y = await drawMetadataGrid(doc, y, {
     dateTime: formatReportDateTimeCompact(report, job, values),
     technician: tech?.name || '—',
   });
   y = drawDivider(doc, y);
   y = await drawReportFieldsSection(doc, y, service, values, pdfContext);
-  const fotoAntesUrl = data.fotoAntesUrl || job?.fotoAntes || null;
-  const fotoDepoisUrl = data.fotoDepoisUrl || job?.fotoDepois || null;
   y = await drawReportClosingSection(doc, y, {
     legalLabel: isDl50Pdf ? 'Declaração de Segurança' : null,
     legalValue: isDl50Pdf ? values.declaracao_seguranca : null,
@@ -1173,19 +1183,25 @@ async function drawReportFieldsSection(doc, y, service, values, pdfContext = nul
 
     if (field.section && field.section !== currentSection) {
       currentSection = field.section;
-      y = ensureSpace(doc, y, 10);
-      y = drawSectionTitle(doc, y, currentSection);
-      y = drawDivider(doc, y - 4);
+      const skipMaterialSectionHeader = isMaterialOnlySection(currentSection, service);
+
+      if (!skipMaterialSectionHeader) {
+        y = ensureSpace(doc, y, 10);
+        y = drawSectionTitle(doc, y, currentSection);
+        y = drawDivider(doc, y - 4);
+      }
 
       if (!gridRenderedSections.has(currentSection)) {
-        const sectionScalars = collectPdfScalarFields(service, values, pdfContext, {
-          section: currentSection,
-          isDl50,
-          skipIds: scalarRenderedIds,
-        });
-        if (sectionScalars.length) {
-          y = await drawSectionScalarGrid(doc, y, sectionScalars, values, pdfContext);
-          sectionScalars.forEach((f) => scalarRenderedIds.add(f.id));
+        if (!skipMaterialSectionHeader) {
+          const sectionScalars = collectPdfScalarFields(service, values, pdfContext, {
+            section: currentSection,
+            isDl50,
+            skipIds: scalarRenderedIds,
+          });
+          if (sectionScalars.length) {
+            y = await drawSectionScalarGrid(doc, y, sectionScalars, values, pdfContext);
+            sectionScalars.forEach((f) => scalarRenderedIds.add(f.id));
+          }
         }
         gridRenderedSections.add(currentSection);
       }
@@ -1220,6 +1236,7 @@ async function drawReportFieldsSection(doc, y, service, values, pdfContext = nul
           obsField,
           obsValue,
           sectionRendered,
+          pdfContext,
         );
         if (obsField && obsValue !== null) pairedObservationsRendered.add(obsField.id);
         continue;
@@ -1272,7 +1289,10 @@ async function drawReportFieldsSection(doc, y, service, values, pdfContext = nul
           (f) => isMaterialTableField(f) && findPairedObservationsField(service, f)?.id === field.id,
         );
         if (pairedWithMaterial) continue;
-        y = drawLongTextBlock(doc, y, field.label, value);
+        y = drawLongTextBlock(doc, y, field.label, value, {
+          closingAnchor: fieldAnchorsReportClosing(service, field),
+          pdfContext,
+        });
         continue;
       }
 
@@ -1437,12 +1457,7 @@ function estimateMatrixAutoTableHeight(doc, body) {
 async function drawMatrixInspectionBlock(doc, y, field, matrixValue) {
   await loadJsPdfAutoTable();
 
-  y = ensureSpace(doc, y, 16);
-  pdfSetFont(doc, 'bold');
-  doc.setFontSize(8.5);
-  doc.setTextColor(...CORPORATE_BLUE);
-  doc.text((field.label || 'Pontos de Inspeção').toUpperCase(), MARGIN, y);
-  y += 7;
+  y = drawSectionTitle(doc, y, field.label || 'Pontos de Inspeção');
 
   (field.categories || []).forEach((cat) => {
     const catKey = columnKey(cat.name);
@@ -1485,17 +1500,17 @@ async function drawMatrixInspectionBlock(doc, y, field, matrixValue) {
       headStyles: {
         font: pdfAutoTableFont(doc),
         fillColor: PDF_TABLE_HEAD_FILL,
-        textColor: CORPORATE_BLUE_DARK,
+        textColor: PDF_TABLE_HEAD_TEXT,
         fontStyle: 'bold',
-        fontSize: 7.5,
-        lineColor: PDF_TABLE_LINE,
-        lineWidth: 0.12,
+        fontSize: PDF_FONT_BODY,
+        lineColor: CORPORATE_BLUE_DARK,
+        lineWidth: 0.15,
       },
       bodyStyles: {
-        fillColor: [255, 255, 255],
+        fillColor: PDF_TABLE_BODY_FILL,
       },
       alternateRowStyles: {
-        fillColor: [248, 250, 252],
+        fillColor: PDF_TABLE_ALT_ROW_FILL,
       },
       columnStyles: {
         0: { cellWidth: MATRIX_POINT_COL_W },
@@ -1523,38 +1538,9 @@ async function drawMatrixInspectionBlock(doc, y, field, matrixValue) {
   return y + 4;
 }
 
-function collectMatrixPhotoHints(matrixValue, service) {
-  const field = service?.fields?.find((f) => f.type === 'matrix_4options');
-  if (!field || !matrixValue || typeof matrixValue !== 'object') return [];
-
-  const hints = [];
-  (field.categories || []).forEach((cat) => {
-    const catKey = columnKey(cat.name);
-    cat.items.forEach((item) => {
-      const opt = matrixValue[catKey]?.[columnKey(item)];
-      if (opt === 'D' || opt === 'N') {
-        hints.push(`${cat.name}: ${item}`);
-      }
-    });
-  });
-  return hints;
-}
-
-function buildFotoRegistoLegenda(service, values) {
-  if (service?.id === 'inspecao_dl50_2005') {
-    const hints = collectMatrixPhotoHints(values.pontos_inspecao, service);
-    if (hints.length) return hints.slice(0, 2).join(' · ');
-    return 'Registo visual da inspeção DL 50/2005';
-  }
-
-  const detecao = pdfSafeText(values.detecao_de_avaria || values.detecao_avaria || '');
-  if (detecao) return detecao.length > 90 ? `${detecao.slice(0, 87)}…` : detecao;
-
-  const resolucao = pdfSafeText(values.resolucao_da_avaria || '');
-  if (resolucao) return resolucao.length > 90 ? `${resolucao.slice(0, 87)}…` : resolucao;
-
-  return pdfSafeText(service?.label || 'Intervenção técnica');
-}
+const PDF_FOTO_LABEL_ANTES = 'Antes';
+const PDF_FOTO_LABEL_DEPOIS = 'Depois';
+const PDF_FOTO_SECTION_TITLE = 'Registo Fotográfico';
 
 function drawLegalVerdictBlock(doc, y, label, value, opts = {}) {
   const gapAfter = opts.gapAfter ?? 8;
@@ -1600,6 +1586,11 @@ function drawLegalVerdictBlock(doc, y, label, value, opts = {}) {
   return y + boxH + gapAfter;
 }
 
+const POLAROID_MM = 60;
+const POLAROID_FRAME_PAD = 3;
+const POLAROID_CAPTION_H = 9;
+const POLAROID_DESC_H = 10;
+
 const REPORT_CLOSING_PROFILES = [
   {
     polaroidMm: 60,
@@ -1641,11 +1632,23 @@ function estimatePolaroidSectionHeight(hasFotos, profile, opts = {}) {
   if (!hasFotos) return 0;
   const headerH = profile.sectionHeader ? 17 : 0;
   const descH = opts.simpleLegend ? 0 : profile.descH;
-  return headerH + descH + profile.polaroidMm + 6 + profile.polaroidBottom;
+  return headerH + descH + profile.polaroidMm + POLAROID_CAPTION_H + profile.polaroidBottom;
 }
 
 function estimateSignaturesHeight(profile) {
-  return profile.sigTop + profile.sigImg + 12;
+  return profile.sigTop + profile.sigImg + SIGNATURE_LABEL_GAP_MM + 10;
+}
+
+function estimateReportClosingHeight(doc, y, opts = {}) {
+  const hasFotos = Boolean(opts.fotoAntesUrl || opts.fotoDepoisUrl);
+  const hasLegal = Boolean(opts.legalValue && String(opts.legalValue).trim());
+  const polaroidOpts = { simpleLegend: Boolean(opts.simplePhotoLegend) };
+  const profile = planReportClosingProfile(doc, y, opts);
+  return (
+    (hasLegal ? estimateLegalVerdictHeight(doc, opts.legalValue, profile) : 0) +
+    estimatePolaroidSectionHeight(hasFotos, profile, polaroidOpts) +
+    estimateSignaturesHeight(profile)
+  );
 }
 
 function planReportClosingProfile(doc, y, opts) {
@@ -1678,14 +1681,9 @@ async function drawReportClosingSection(doc, y, opts) {
     estimateSignaturesHeight(closingProfile);
 
   let closingHeight = estimateClosingHeight(profile);
-  if (y + closingHeight > pdfContentBottomY()) {
-    doc.addPage();
-    touchPdfContentPage(doc);
-    y = PDF_PAGE_CONTENT_START_Y;
-    profile = planReportClosingProfile(doc, y, opts);
-    closingHeight = estimateClosingHeight(profile);
-    y = ensureBlockFitsSafeZone(doc, y, closingHeight);
-  }
+  y = ensureKeepTogetherBlock(doc, y, Math.min(closingHeight, pdfMaxContentHeight()));
+  profile = planReportClosingProfile(doc, y, opts);
+  closingHeight = estimateClosingHeight(profile);
 
   if (hasLegal) {
     const legalH = estimateLegalVerdictHeight(doc, opts.legalValue, profile);
@@ -1699,8 +1697,10 @@ async function drawReportClosingSection(doc, y, opts) {
   }
 
   if (hasFotos) {
-    const fotoH = estimatePolaroidSectionHeight(hasFotos, profile, polaroidOpts);
-    y = ensureBlockFitsSafeZone(doc, y, fotoH);
+    const photosAndSigsH =
+      estimatePolaroidSectionHeight(hasFotos, profile, polaroidOpts) +
+      estimateSignaturesHeight(profile);
+    y = ensureKeepTogetherBlock(doc, y, Math.min(photosAndSigsH, pdfMaxContentHeight()));
     y = await drawAntesDepoisPolaroidSection(
       doc,
       y,
@@ -1847,42 +1847,52 @@ async function drawMaterialAndObservationsBlock(
   obsField,
   obsValue,
   sectionRendered,
+  pdfContext = null,
 ) {
   const materialEmpty = isPdfEmptyValue(materialField, materialRows);
   const obsEmpty = !obsField || obsValue === null || isPdfEmptyValue(obsField, obsValue);
   if (materialEmpty && obsEmpty) return y;
 
   const columns = materialField.columns?.length ? materialField.columns : MATERIAL_UTILIZADO_COLUMNS;
-  const blockH =
+  const materialTitle = getMaterialTablePdfLabel();
+  let blockH =
     (materialEmpty ? 0 : estimateDynamicTableBlockHeight(columns, materialRows)) +
     (obsEmpty ? 0 : estimateLongTextBlockHeight(doc, obsValue));
 
-  y = ensureBlockFitsPage(doc, y, blockH, 36);
+  const anchorsClosing = fieldAnchorsReportClosing(pdfContext?.service, materialField);
+  if (anchorsClosing && pdfContext?.closingOpts) {
+    blockH += estimateReportClosingHeight(doc, y, pdfContext.closingOpts);
+  }
+
+  y = ensureKeepTogetherBlock(doc, y, Math.min(blockH, pdfMaxContentHeight()));
 
   if (!materialEmpty) {
     y = await drawDynamicTableBlock(
       doc,
       y,
-      pdfBlockTitle(materialField, sectionRendered),
+      materialTitle,
       columns,
       materialRows,
-      { skipLeadingPageCheck: true },
+      { skipLeadingPageCheck: true, isMaterialTable: true },
     );
   }
 
   if (!obsEmpty) {
-    const obsBlockH = measureObservationsBlockHeight(doc, obsValue, true);
-    y = ensureKeepTogetherBlock(doc, y, Math.min(obsBlockH, pdfMaxContentHeight()));
-    y = drawLongTextBlock(doc, y, obsField.label, obsValue, { keepTogetherApplied: true });
+    y = drawLongTextBlock(doc, y, obsField.label, obsValue, {
+      keepTogetherApplied: true,
+      closingAnchor: anchorsClosing,
+      pdfContext,
+    });
   }
 
   return y;
 }
 
 async function drawDynamicTableBlock(doc, y, label, columns, rows, options = {}) {
-  if (label) {
+  const displayLabel = options.isMaterialTable ? getMaterialTablePdfLabel() : label;
+  if (displayLabel) {
     if (!options.skipLeadingPageCheck) y = ensureSpace(doc, y, 14);
-    y = drawSectionTitle(doc, y, label, { skipEnsure: true });
+    y = drawSectionTitle(doc, y, displayLabel, { skipEnsure: true });
   }
 
   if (!rows?.length || !columns?.length) return y;
@@ -1979,7 +1989,11 @@ function drawDiagnosticAnalysisBlock(doc, y, label, section, value) {
 function drawLongTextBlock(doc, y, label, value, options = {}) {
   prepareObservationsTypography(doc);
   const paragraphs = pdfObservationParagraphs(doc, value, CONTENT_W);
-  const blockHeight = measureObservationsBlockHeight(doc, value, true);
+  let blockHeight = measureObservationsBlockHeight(doc, value, true);
+
+  if (options.closingAnchor && options.pdfContext?.closingOpts) {
+    blockHeight += estimateReportClosingHeight(doc, y, options.pdfContext.closingOpts);
+  }
 
   if (!options.keepTogetherApplied) {
     y = ensureKeepTogetherBlock(doc, y, Math.min(blockHeight, pdfMaxContentHeight()));
@@ -2009,11 +2023,6 @@ function drawLongTextBlock(doc, y, label, value, options = {}) {
   touchPdfContentPage(doc);
   return y + OBS_BOTTOM_PAD;
 }
-
-const POLAROID_MM = 60;
-const POLAROID_FRAME_PAD = 3;
-const POLAROID_CAPTION_H = 6;
-const POLAROID_DESC_H = 10;
 
 const PDF_IMAGE_MAX_PX = 900;
 const PDF_IMAGE_JPEG_QUALITY = 0.72;
@@ -2115,10 +2124,14 @@ function drawPolaroidFrame(doc, x, y, imgData, phaseLabel, description = '', lay
     doc.text('IMG', x + outerW / 2, frameY + outerW / 2, { align: 'center' });
   }
 
+  const safeLabel = pdfSafeText(phaseLabel);
+  const captionY = frameY + polaroidMm + POLAROID_CAPTION_H / 2 + 1;
   pdfSetFont(doc, 'bold');
-  doc.setFontSize(PDF_FONT_CAPTION + 0.5);
+  doc.setFontSize(PDF_FONT_BODY);
   doc.setTextColor(...CORPORATE_BLUE);
-  doc.text(phaseLabel, x + outerW / 2, frameY + polaroidMm + 4.5, { align: 'center' });
+  if (safeLabel) {
+    doc.text(safeLabel, x + outerW / 2, captionY, { align: 'center' });
+  }
   return cursorY - y + outerH;
 }
 
@@ -2144,43 +2157,34 @@ async function drawAntesDepoisPolaroidSection(doc, y, fotoAntesUrl, fotoDepoisUr
   }
 
   if (showSectionHeader) {
-    y = drawSectionTitle(doc, y, 'Registo Fotográfico');
+    y = drawSectionTitle(doc, y, PDF_FOTO_SECTION_TITLE);
     y = drawDivider(doc, y - 4);
     if (!opts.skipEnsure) {
       y = ensureSpace(doc, y, frameStackH + 6);
     }
   }
 
-  const simpleLegend = Boolean(opts.simpleLegend);
-
   if (antes && depois) {
     const gap = polaroidMm <= 48 ? 8 : 10;
     const totalW = polaroidMm * 2 + gap;
     const startX = MARGIN + (CONTENT_W - totalW) / 2;
-    const antesDesc = simpleLegend
-      ? ''
-      : legenda
-        ? `Antes da intervenção — ${legenda}`
-        : 'Antes da intervenção';
-    const depoisDesc = simpleLegend
-      ? ''
-      : legenda
-        ? `Depois da intervenção — ${legenda}`
-        : 'Depois da intervenção';
-    const h1 = drawPolaroidFrame(doc, startX, y, antes, 'Antes', antesDesc, frameLayout);
-    const h2 = drawPolaroidFrame(doc, startX + polaroidMm + gap, y, depois, 'Depois', depoisDesc, frameLayout);
+    const h1 = drawPolaroidFrame(doc, startX, y, antes, PDF_FOTO_LABEL_ANTES, '', frameLayout);
+    const h2 = drawPolaroidFrame(
+      doc,
+      startX + polaroidMm + gap,
+      y,
+      depois,
+      PDF_FOTO_LABEL_DEPOIS,
+      '',
+      frameLayout,
+    );
     return y + Math.max(h1, h2) + bottomGap;
   }
 
   const single = antes || depois;
-  const phaseLabel = antes ? 'Antes' : 'Depois';
-  const desc = simpleLegend
-    ? ''
-    : legenda
-      ? `${phaseLabel} da intervenção — ${legenda}`
-      : `${phaseLabel} da intervenção`;
+  const phaseLabel = antes ? PDF_FOTO_LABEL_ANTES : PDF_FOTO_LABEL_DEPOIS;
   const startX = MARGIN + (CONTENT_W - polaroidMm) / 2;
-  const frameH = drawPolaroidFrame(doc, startX, y, single, phaseLabel, desc, frameLayout);
+  const frameH = drawPolaroidFrame(doc, startX, y, single, phaseLabel, '', frameLayout);
   return y + frameH + bottomGap;
 }
 

@@ -9,7 +9,7 @@ import {
 } from './preventiva-empilhadores-items.js';
 import { createMaterialTableField } from './material-table-field.js';
 
-export const SCHEMA_VERSION = 18;
+export const SCHEMA_VERSION = 19;
 
 export const COMPANY = {
   name: 'ManuSilva Manutenção Industrial, Unipessoal, Lda',
@@ -43,7 +43,7 @@ export const FOLHA_INTERVENCAO_AVARIAS = {
     { type: 'number', id: 'horas', label: 'Horas', section: 'Informações da Máquina', min: 0, step: 1 },
     { type: 'textarea', id: 'detecao_de_avaria', label: 'Deteção de Avaria' },
     { type: 'textarea', id: 'resolucao_da_avaria', label: 'Resolução da Avaria' },
-    createMaterialTableField({ id: 'material_utilizado', label: 'Material Utilizado' }),
+    createMaterialTableField({ id: 'material_utilizado' }),
     { type: 'number', id: 'horas_gastas', label: 'Horas Gastas', min: 0, step: 0.5 },
     {
       type: 'status_pills',
@@ -70,11 +70,7 @@ export const MANUTENCAO_BATERIAS_GRANDES = {
       label: 'Identificação Bateria',
       section: 'Identificação Bateria',
     },
-    createMaterialTableField({
-      id: 'consumiveis_utilizados',
-      label: 'Consumíveis Utilizados',
-      section: 'Consumíveis',
-    }),
+    createMaterialTableField({ id: 'consumiveis_utilizados' }),
     { type: 'textarea', id: 'observacoes', label: 'Observações' },
   ],
 };
@@ -192,11 +188,7 @@ export const MANUTENCAO_PREVENTIVA_BATERIA = {
       section: 'Componentes',
       options: ['Operacional', 'Danificados'],
     },
-    createMaterialTableField({
-      id: 'consumiveis',
-      label: 'Consumíveis',
-      section: 'Consumíveis',
-    }),
+    createMaterialTableField({ id: 'consumiveis' }),
     { type: 'text', id: 'deslocacao', label: 'Deslocação', section: 'Deslocação e Tempo' },
     { type: 'number', id: 'horas', label: 'Horas', section: 'Deslocação e Tempo', min: 0, step: 0.5 },
     { type: 'textarea', id: 'observacao', label: 'Observação' },
@@ -366,7 +358,6 @@ export const MANUTENCAO_PREVENTIVA_EMPILHADORES = {
     },
     createMaterialTableField({
       id: 'material_utilizado',
-      label: 'Material Utilizado',
       section: 'Substituição de Material',
     }),
     { type: 'textarea', id: 'observacoes', label: 'Observações' },
@@ -428,11 +419,7 @@ export const REPARACAO_CARREGADOR = {
       section: 'Resultado do Teste',
       placeholder: 'Ex: 75 A',
     },
-    createMaterialTableField({
-      id: 'consumiveis_material',
-      label: 'Consumíveis (Material Colocado)',
-      section: 'Consumíveis',
-    }),
+    createMaterialTableField({ id: 'consumiveis_material' }),
   ],
 };
 
@@ -455,11 +442,7 @@ export const REPARACAO_AVARIAS_BATERIA = {
       placeholder:
         'Descreva sintomas, elementos danificados, voltagem do banco, densidade do eletrólito, ligações/pontes e diagnóstico técnico...',
     },
-    createMaterialTableField({
-      id: 'consumiveis',
-      label: 'Consumíveis',
-      section: 'Material Aplicado',
-    }),
+    createMaterialTableField({ id: 'consumiveis' }),
     { type: 'text', id: 'deslocacao', label: 'Deslocação', section: 'Deslocação e Tempo' },
     { type: 'number', id: 'horas', label: 'Horas', section: 'Deslocação e Tempo', min: 0, step: 0.5 },
     { type: 'textarea', id: 'observacao', label: 'Observação', rows: 4 },
