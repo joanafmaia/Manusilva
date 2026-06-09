@@ -19,7 +19,44 @@ function readDraftMap() {
 }
 
 function writeDraftMap(map) {
-  localStorage.setItem(DRAFTS_STORAGE_KEY, JSON.stringify(map));
+  try {
+    localStorage.setItem(DRAFTS_STORAGE_KEY, JSON.stringify(map));
+    return true;
+  } catch (err) {
+    if (err?.name === 'QuotaExceededError') {
+      const errQuota = new Error(
+        'Memória do tablet cheia. Remova fotos grandes ou rascunhos antigos e tente novamente.',
+      );
+      errQuota.code = 'QUOTA_EXCEEDED';
+      throw errQuota;
+    }
+    throw err;
+  }
+}
+
+/** Reduz payload para localStorage — mantém assinaturas, evita duplicar fotos em base64. */
+function sanitizeReportForLocalStorage(report) {
+  let copy;
+  try {
+    copy = JSON.parse(JSON.stringify(report));
+  } catch (err) {
+    console.warn('[ManuSilva] Rascunho não serializável:', err);
+    throw new Error('Não foi possível preparar o rascunho para gravação local.');
+  }
+
+  const data = copy.data || {};
+  const antesUrl = data.fotoAntesUrl || data.fotoAntesBase64 || null;
+  const depoisUrl = data.fotoDepoisUrl || data.fotoDepoisBase64 || null;
+
+  if (data.fotoAntesBase64 && antesUrl && !String(antesUrl).startsWith('data:')) {
+    delete data.fotoAntesBase64;
+  }
+  if (data.fotoDepoisBase64 && depoisUrl && !String(depoisUrl).startsWith('data:')) {
+    delete data.fotoDepoisBase64;
+  }
+
+  copy.data = data;
+  return copy;
 }
 
 /**
@@ -27,9 +64,11 @@ function writeDraftMap(map) {
  * @param {object} report
  */
 export function saveLocalReportDraft(report) {
-  if (!report?.jobId) return null;
+  if (!report?.jobId) {
+    throw new Error('Rascunho sem identificador do trabalho (jobId).');
+  }
 
-  const entry = JSON.parse(JSON.stringify(report));
+  const entry = sanitizeReportForLocalStorage(report);
   entry._localSavedAt = new Date().toISOString();
   if (entry.status !== 'pending_review') {
     entry.status = 'draft';

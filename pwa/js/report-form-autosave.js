@@ -60,7 +60,7 @@ export function initReportFormAutosave({ overlay, job, existingReport, buildRepo
       mergeReportInCache(report);
       setStatus('saved');
     } catch (err) {
-      console.error('[Auto-save]', err);
+      console.error('[Auto-save] Erro ao guardar rascunho:', err);
       setStatus('error');
     }
   };

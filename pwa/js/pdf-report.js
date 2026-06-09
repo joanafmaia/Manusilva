@@ -194,8 +194,12 @@ const PDF_PAGE_CONTENT_START_Y = 20;
 const PDF_CONTENT_SAFE_BOTTOM_MM = 35;
 /** Margem inferior autoTable — impede tabelas na zona do rodapé */
 const PDF_AUTOTABLE_MARGIN_BOTTOM_MM = 30;
-/** Ancora fixa do rodapé institucional (mm desde o topo da página) */
-const PDF_FOOTER_BASELINE_Y = PAGE_H - 15;
+/** Topo do bloco institucional (linha + dados da empresa) */
+const PDF_FOOTER_BLOCK_TOP = PAGE_H - 32;
+/** Numeração de página — abaixo do texto comercial, sem sobreposição */
+const PDF_PAGE_NUMBER_Y = PAGE_H - 7;
+/** @deprecated usar PDF_FOOTER_BLOCK_TOP */
+const PDF_FOOTER_BASELINE_Y = PDF_FOOTER_BLOCK_TOP;
 /** @deprecated usar PDF_CONTENT_SAFE_BOTTOM_MM — mantido para compatibilidade interna */
 const PDF_FOOTER_RESERVE_MM = PDF_CONTENT_SAFE_BOTTOM_MM;
 const PDF_FOOTER_TEXT_RGB = [148, 163, 184];
@@ -2035,8 +2039,7 @@ async function drawSignaturesFooter(doc, y, signatures, opts = {}) {
 function drawInstitutionalPageFooter(doc, pageNumber, totalPages) {
   doc.setPage(pageNumber);
 
-  const footerAnchorY = PDF_FOOTER_BASELINE_Y;
-  const footerTop = footerAnchorY - 11;
+  const footerTop = PDF_FOOTER_BLOCK_TOP;
   const footerLines = buildInstitutionalFooterLines();
 
   doc.setDrawColor(226, 232, 240);
@@ -2056,8 +2059,9 @@ function drawInstitutionalPageFooter(doc, pageNumber, totalPages) {
     });
   });
 
+  const pageNumY = Math.max(PDF_PAGE_NUMBER_Y, textY + 4);
   doc.setFontSize(7);
-  doc.text(`Pág. ${pageNumber} / ${totalPages}`, PAGE_W / 2, footerAnchorY, { align: 'center' });
+  doc.text(`Pág. ${pageNumber} / ${totalPages}`, PAGE_W / 2, pageNumY, { align: 'center' });
 }
 
 /** Hook autoTable — reserva páginas; rodapé desenhado no fecho do documento */

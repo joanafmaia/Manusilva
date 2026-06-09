@@ -34,7 +34,14 @@ import {
   GRANDES_BATTERY_FIELD_ID,
   init as initGrandesBatteryTable,
 } from './views/relatorio-grandes.js';
-import { createSignatureBlock, initSignaturePads, refreshSignaturePads } from './signatures.js';
+import {
+  createSignatureBlock,
+  initSignaturePads,
+  refreshSignaturePads,
+  technicianSignatureReady,
+  padHasSignature,
+  commitSignatureSnapshot,
+} from './signatures.js';
 import { initReportFormAutosave } from './report-form-autosave.js';
 import {
   syncJobFotosAntesDepois,
@@ -47,6 +54,7 @@ import { resolveReportForJob } from './report-local-storage.js';
 import { canReachServer } from './app.js';
 
 let signaturePads = {};
+let signaturePadsReady = false;
 /** @type {{ flush: Function, destroy: Function, markDirty: Function } | null} */
 let formAutosave = null;
 
@@ -336,6 +344,24 @@ function buildFormHTML(job, client, tech, service, existingReport) {
   `;
 }
 
+function resolveFormSignatures(existingReport) {
+  const stored = existingReport?.data?.signatures || {};
+  const techData =
+    signaturePads.technician?.toDataURL?.() ||
+    stored.technicianData ||
+    null;
+  const clientData =
+    signaturePads.client?.toDataURL?.() ||
+    stored.clientData ||
+    null;
+  return {
+    technician: padHasSignature(signaturePads.technician) || Boolean(stored.technicianData),
+    client: padHasSignature(signaturePads.client) || Boolean(stored.clientData),
+    technicianData: techData,
+    clientData: clientData,
+  };
+}
+
 function buildReportFromForm(overlay, job, existingReport, signaturePads, reportId) {
   const values = collectReportValues(overlay);
   const editingPending = isEdicaoPendenteAtiva(job.id);
@@ -353,12 +379,7 @@ function buildReportFromForm(overlay, job, existingReport, signaturePads, report
     submittedAt: existingReport?.submittedAt || new Date().toISOString(),
     data: {
       values,
-      signatures: {
-        technician: signaturePads.technician?.hasSignature || false,
-        client: signaturePads.client?.hasSignature || false,
-        technicianData: signaturePads.technician?.toDataURL?.() || null,
-        clientData: signaturePads.client?.toDataURL?.() || null,
-      },
+      signatures: resolveFormSignatures(existingReport),
       ...(() => {
         const antes = fotoPersistPayload(fotoAntesState);
         const depois = fotoPersistPayload(fotoDepoisState);
@@ -480,10 +501,19 @@ function restoreSignaturesFromReport(existingReport) {
   signaturesRestoredFromReport = true;
 }
 
-function onReportTabActivated(tabId) {
-  if (tabId !== 'finalizacao') return;
+function ensureSignaturePadsInitialized() {
+  if (signaturePadsReady && signaturePads.technician) return;
+  signaturePads = initSignaturePads(['technician', 'client'], () => {
+    formAutosave?.markDirty();
+  });
+  signaturePadsReady = true;
   refreshSignaturePads(signaturePads);
   restoreSignaturesFromReport(existingReportRef);
+}
+
+function onReportTabActivated(tabId) {
+  if (tabId !== 'finalizacao') return;
+  ensureSignaturePadsInitialized();
 }
 
 let existingReportRef = null;
@@ -497,6 +527,8 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport) {
   const draftReportId = existingReport?.id || null;
   existingReportRef = existingReport;
   signaturesRestoredFromReport = false;
+  signaturePadsReady = false;
+  signaturePads = {};
 
   overlay.querySelector('#close-form').addEventListener('click', () => {
     formAutosave?.flush();
@@ -510,10 +542,6 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport) {
   bindReportFormTabs(overlay, { onTabActivate: onReportTabActivated });
 
   bindFotoInputs(overlay);
-
-  signaturePads = initSignaturePads(['technician', 'client'], () => {
-    formAutosave?.markDirty();
-  });
 
   formAutosave = initReportFormAutosave({
     overlay,
@@ -565,8 +593,9 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport) {
       report.data.fotoDepoisUrl = fotoResult.fotoDepois || report.data.fotoDepoisUrl || null;
       await ensureFotoUrlsOnTrabalho(job.id, report.data.fotoAntesUrl, report.data.fotoDepoisUrl);
       await saveReportDraft(report);
-    } catch {
-      /* toast já mostrado */
+    } catch (err) {
+      console.error('[Form] Gravar rascunho:', err);
+      showToast(err?.message || 'Não foi possível guardar o rascunho.', 'error', 7000);
     }
   });
 
@@ -587,13 +616,16 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport) {
   });
 
   overlay.querySelector('#btn-submit-report').addEventListener('click', async () => {
-    if (!signaturePads.technician?.hasSignature) {
+    ensureSignaturePadsInitialized();
+    const storedSigs = existingReport?.data?.signatures;
+    if (!technicianSignatureReady(signaturePads, storedSigs)) {
       activateReportTab(overlay, 'finalizacao');
       refreshSignaturePads(signaturePads);
       showToast('A assinatura do técnico é obrigatória. Assine na aba Finalização.', 'error');
       overlay.querySelector('#sig-technician')?.focus?.();
       return;
     }
+    commitSignatureSnapshot(signaturePads.technician);
 
     formAutosave?.flush();
     formAutosave?.destroy();
@@ -664,6 +696,8 @@ function closeForm(overlay) {
   clearEdicaoState();
   existingReportRef = null;
   signaturesRestoredFromReport = false;
+  signaturePadsReady = false;
+  signaturePads = {};
   formAutosave?.destroy();
   formAutosave = null;
   if (fotoAntesState.previewUrl?.startsWith('blob:')) URL.revokeObjectURL(fotoAntesState.previewUrl);

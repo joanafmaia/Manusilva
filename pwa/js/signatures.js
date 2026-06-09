@@ -113,11 +113,7 @@ export class SignaturePad {
     const end = () => {
       this.drawing = false;
       if (!this.hasSignature) return;
-      const snapshot = new Image();
-      snapshot.src = this.canvas.toDataURL('image/png');
-      snapshot.onload = () => {
-        this._savedImage = snapshot;
-      };
+      commitSignatureSnapshot(this);
     };
 
     this.canvas.addEventListener('mousedown', start);
@@ -199,9 +195,46 @@ export function initSignaturePads(ids, onUpdate) {
   return pads;
 }
 
+/** Persiste o bitmap atual do canvas (evita perda após resize / troca de aba). */
+export function commitSignatureSnapshot(pad) {
+  if (!pad?.canvas || !pad.hasSignature) return null;
+  const dataUrl = pad.toDataURL();
+  if (!dataUrl) return null;
+  const snapshot = new Image();
+  snapshot.src = dataUrl;
+  pad._savedImage = snapshot;
+  return dataUrl;
+}
+
+function isDataUrlSignature(value) {
+  return typeof value === 'string' && value.startsWith('data:image') && value.length > 80;
+}
+
+/** Verifica se o pad tem traço válido (flag ou bitmap). */
+export function padHasSignature(pad) {
+  if (!pad) return false;
+  commitSignatureSnapshot(pad);
+  if (pad.hasSignature) return true;
+  return isDataUrlSignature(pad.toDataURL?.());
+}
+
+/**
+ * Técnico assinou — pad ativo, dados no rascunho ou imagem restaurada.
+ * @param {Record<string, SignaturePad>} pads
+ * @param {object} [storedSignatures]
+ */
+export function technicianSignatureReady(pads, storedSignatures = null) {
+  Object.values(pads || {}).forEach(commitSignatureSnapshot);
+  if (padHasSignature(pads?.technician)) return true;
+  const sig = storedSignatures || {};
+  return isDataUrlSignature(sig.technicianData);
+}
+
 /** Recalcula dimensões dos canvas — necessário quando a aba Finalização fica visível */
 export function refreshSignaturePads(pads = {}) {
   Object.values(pads).forEach((pad) => {
-    if (pad && typeof pad.resize === 'function') pad.resize();
+    if (!pad || typeof pad.resize !== 'function') return;
+    commitSignatureSnapshot(pad);
+    pad.resize();
   });
 }
