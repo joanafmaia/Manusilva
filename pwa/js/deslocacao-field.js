@@ -14,6 +14,18 @@ export const OFFICIAL_REPORT_SERVICE_IDS = new Set([
   'reparacao_avarias_bateria',
 ]);
 
+export const VISITAS_FIELD_ID = 'visitas_realizadas';
+export const DESLOCACAO_BASE_FIELD_ID = 'deslocacao_base_km';
+
+export const STANDARD_VISITAS_FIELD = {
+  type: 'number',
+  id: VISITAS_FIELD_ID,
+  label: 'Visitas realizadas',
+  min: 1,
+  step: 1,
+  placeholder: '1',
+};
+
 export const STANDARD_DESLOCACAO_FIELD = {
   type: 'number',
   id: 'deslocacao',
@@ -26,6 +38,14 @@ export const STANDARD_DESLOCACAO_FIELD = {
 
 export function isDeslocacaoField(field) {
   return field?.id === 'deslocacao';
+}
+
+export function isVisitasField(field) {
+  return field?.id === VISITAS_FIELD_ID;
+}
+
+export function isDeslocacaoMetaField(field) {
+  return field?.id === DESLOCACAO_BASE_FIELD_ID;
 }
 
 /** Relatórios oficiais incluem sempre o campo Deslocação no topo do formulário */

@@ -25,7 +25,12 @@ import {
 } from './views/relatorio-grandes.js';
 import {
   isDeslocacaoField,
+  isDeslocacaoMetaField,
+  isVisitasField,
   STANDARD_DESLOCACAO_FIELD,
+  STANDARD_VISITAS_FIELD,
+  VISITAS_FIELD_ID,
+  DESLOCACAO_BASE_FIELD_ID,
 } from './deslocacao-field.js';
 
 export { renderClientCombobox, renderHeaderClientCombobox, bindClientComboboxes, collectClientComboboxValues };
@@ -181,7 +186,7 @@ export function isMachineTrackingField(field) {
 
 function filterReportFields(fields, service) {
   return (fields || []).filter((f) => {
-    if (isDeslocacaoField(f)) return false;
+    if (isDeslocacaoField(f) || isVisitasField(f) || isDeslocacaoMetaField(f)) return false;
     if (service?.id === 'inspecao_dl50_2005' && f.section === 'Informações da Máquina') {
       return true;
     }
@@ -189,9 +194,23 @@ function filterReportFields(fields, service) {
   });
 }
 
-/** Deslocação (Km) no bloco intro — Informações Gerais / Dados da Intervenção */
+/** Visitas + Deslocação no bloco intro — Informações Gerais / Dados da Intervenção */
+export function renderDeslocacaoIntroBlock(values = {}, context = {}) {
+  const visitas = values[VISITAS_FIELD_ID] ?? values.visitas ?? 1;
+  const baseKm = values[DESLOCACAO_BASE_FIELD_ID] ?? '';
+  return `
+    <div class="form-intro-deslocacao-grid">
+      <div class="form-intro-visitas">${renderField(STANDARD_VISITAS_FIELD, visitas, context)}</div>
+      <div class="form-intro-deslocacao-km">${renderField(STANDARD_DESLOCACAO_FIELD, values.deslocacao, context)}</div>
+    </div>
+    <input type="hidden" data-field-id="${DESLOCACAO_BASE_FIELD_ID}" data-field-kind="number"
+      value="${escapeHtml(String(baseKm))}">
+  `;
+}
+
+/** @deprecated — usar renderDeslocacaoIntroBlock */
 export function renderDeslocacaoIntroField(values = {}, context = {}) {
-  return renderField(STANDARD_DESLOCACAO_FIELD, values.deslocacao, context);
+  return renderDeslocacaoIntroBlock(values, context);
 }
 
 const SERVICE_FORM_TITLES = {

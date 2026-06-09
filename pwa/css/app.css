@@ -910,8 +910,48 @@ body.dark-mode .offline-sync-banner__icon {
   transform: translateX(20px);
 }
 
-.tech-calendar-nav {
+.tech-calendar-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
   margin: 0.65rem 0 0.35rem;
+}
+
+.tech-cal-view-toggle {
+  display: flex;
+  gap: 0.35rem;
+  padding: 0.2rem;
+  border-radius: 10px;
+  background: var(--surface-muted);
+  border: 1px solid var(--border-subtle);
+}
+
+.tech-cal-view-btn {
+  flex: 1;
+  padding: 0.45rem 0.75rem;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition);
+}
+
+.tech-cal-view-btn.is-active {
+  background: var(--surface-elevated, #fff);
+  color: var(--text-primary);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+}
+
+.tech-cal-view-btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.tech-calendar-nav {
+  margin: 0;
 }
 
 .tech-calendar-nav #tech-calendar-title {
@@ -995,10 +1035,79 @@ body.dark-mode .offline-sync-banner__icon {
   flex-shrink: 0;
 }
 
+.cal-status-dot--scheduled { background: #60a5fa; }
 .cal-status-dot--draft { background: #94a3b8; }
 .cal-status-dot--pending { background: #fbbf24; }
 .cal-status-dot--rejected { background: #f87171; }
 .cal-status-dot--approved { background: #4ade80; }
+
+.tech-month-calendar {
+  margin-top: 0.35rem;
+}
+
+.tech-month-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.tech-month-weekday {
+  font-size: 0.625rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.tech-month-grid.calendar-month {
+  margin-top: 0;
+}
+
+.tech-month-grid .cal-cell {
+  min-height: 108px;
+  padding: 0.3rem;
+}
+
+.tech-month-cell {
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color var(--transition), background var(--transition);
+}
+
+.tech-month-cell.selected-cell {
+  border-color: var(--primary);
+  background: var(--primary-glow);
+}
+
+.tech-month-cell.has-jobs:not(.selected-cell) {
+  border-color: rgba(234, 179, 8, 0.45);
+}
+
+.tech-month-jobs {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 0;
+}
+
+.tech-month-job {
+  border-left-width: 3px;
+  border-left-style: solid;
+}
+
+.tech-month-job-state {
+  display: block;
+  font-size: 0.55rem;
+  font-weight: 600;
+  opacity: 0.9;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
 .cal-today-dot {
   position: absolute;
@@ -1046,6 +1155,11 @@ body.dark-mode .offline-sync-banner__icon {
 }
 
 .job-card:active { transform: scale(0.98); }
+
+.job-card.cal-event--scheduled {
+  border-color: rgba(96, 165, 250, 0.45);
+  background: linear-gradient(135deg, rgba(219, 234, 254, 0.35), transparent 55%);
+}
 
 .job-card.cal-event--draft {
   background: #e2e8f0;
@@ -1828,8 +1942,27 @@ body.dark-mode .btn-preview:hover:not(:disabled) {
   border-top: 1px solid var(--ms-border, var(--border-subtle));
 }
 
-.form-intro-deslocacao .form-group {
+.form-intro-deslocacao-grid {
+  display: grid;
+  grid-template-columns: minmax(6.5rem, 0.42fr) 1fr;
+  gap: 0.75rem;
+  align-items: end;
+}
+
+.form-intro-visitas .form-label {
+  font-size: 0.8rem;
+}
+
+.form-intro-deslocacao .form-group,
+.form-intro-deslocacao-grid .form-group {
   margin-bottom: 0;
+}
+
+.form-footer-hint {
+  margin: 0 0 0.65rem;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  text-align: center;
 }
 
 .form-intro-deslocacao.is-calculating .form-input-unit-input {
@@ -5103,6 +5236,12 @@ body.dark-mode .rh-card__btn--pdf {
 }
 
 /* Estados do calendário — cores por relatório / trabalho */
+.cal-event--scheduled {
+  background: #dbeafe;
+  color: #1e40af;
+  border-left-color: #60a5fa;
+}
+
 .cal-event--draft {
   background: #e2e8f0;
   color: #334155;
@@ -5127,6 +5266,7 @@ body.dark-mode .rh-card__btn--pdf {
   border-left-color: #4ade80;
 }
 
+.cal-block.cal-event--scheduled .cal-block-time,
 .cal-block.cal-event--draft .cal-block-time,
 .cal-block.cal-event--pending .cal-block-time,
 .cal-block.cal-event--rejected .cal-block-time,
@@ -5134,6 +5274,7 @@ body.dark-mode .rh-card__btn--pdf {
   color: inherit;
 }
 
+.cal-block.cal-event--scheduled .cal-block-client,
 .cal-block.cal-event--draft .cal-block-client,
 .cal-block.cal-event--pending .cal-block-client,
 .cal-block.cal-event--rejected .cal-block-client,
@@ -5141,6 +5282,7 @@ body.dark-mode .rh-card__btn--pdf {
   color: inherit;
 }
 
+.cal-block.cal-event--scheduled .cal-block-tech,
 .cal-block.cal-event--draft .cal-block-tech,
 .cal-block.cal-event--pending .cal-block-tech,
 .cal-block.cal-event--rejected .cal-block-tech,
@@ -5148,12 +5290,18 @@ body.dark-mode .rh-card__btn--pdf {
   color: color-mix(in srgb, currentColor 72%, transparent);
 }
 
+.cal-block--interactive.cal-event--scheduled,
 .cal-block--interactive.cal-event--draft,
 .cal-block--interactive.cal-event--pending,
 .cal-block--interactive.cal-event--rejected,
 .cal-block--interactive.cal-event--approved {
   border-left-width: 3px;
   border-left-style: solid;
+}
+
+.cal-block--interactive.cal-event--scheduled:hover,
+.cal-block--interactive.cal-event--scheduled:focus-visible {
+  outline-color: #60a5fa;
 }
 
 .cal-block--interactive.cal-event--draft:hover,

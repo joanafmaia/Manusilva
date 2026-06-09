@@ -1039,7 +1039,7 @@ export async function saveReportDraft(report, options = {}) {
 
   if (!canReachServer()) {
     if (!silent) {
-      showToast('Rascunho guardado neste dispositivo.', 'info', 3500);
+      showToast('Relatório em aberto guardado neste dispositivo.', 'info', 3500);
     }
     return draft;
   }
@@ -1050,7 +1050,7 @@ export async function saveReportDraft(report, options = {}) {
     window.dispatchEvent(new CustomEvent('db-updated'));
     if (!silent) {
       showToast(
-        'Rascunho guardado na base de dados. Use «Pré-visualizar» para ver o PDF.',
+        'Relatório guardado em aberto. Pode continuar amanhã e somar novas visitas.',
         'success',
         5000,
       );
@@ -1124,8 +1124,8 @@ export async function submitReport(report, options = {}) {
       window.dispatchEvent(new CustomEvent('db-updated'));
       showToast(
         isCorrection
-          ? 'Relatório atualizado com sucesso!'
-          : 'Relatório submetido para aprovação!',
+          ? 'Relatório concluído e reenviado para aprovação do RH.'
+          : 'Relatório concluído e enviado para aprovação do RH.',
         'success',
       );
       return { queued: false, updated: isCorrection };

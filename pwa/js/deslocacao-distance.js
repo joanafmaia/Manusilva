@@ -1,10 +1,14 @@
 /**
- * Deslocação (Km) — cálculo automático ida e volta (sede → cliente).
+ * Deslocação (Km) — cálculo automático ida e volta (sede → cliente) × visitas.
  * Geocoding: Mapbox · Rota: OSRM público.
  */
 
 import { ensureClientAddressForDeslocacao } from './clients-catalog.js';
-import { reportIncludesDeslocacao } from './deslocacao-field.js';
+import {
+  DESLOCACAO_BASE_FIELD_ID,
+  reportIncludesDeslocacao,
+  VISITAS_FIELD_ID,
+} from './deslocacao-field.js';
 import { MAPBOX_ACCESS_TOKEN } from './mapbox-config.js';
 
 const HQ_ADDRESS =
@@ -20,10 +24,6 @@ export function serviceHasDeslocacaoField(service) {
   return reportIncludesDeslocacao(service);
 }
 
-/**
- * Morada completa do Supabase — Mapbox resolve números, andares e CP.
- * Enriquece com localidade/CP/Portugal só se faltarem no texto original.
- */
 export function buildMapboxSearchQuery(morada, localidade = '', codigoPostal = '') {
   const base = String(morada || '').trim();
   if (!base) return '';
@@ -44,11 +44,6 @@ export function buildClientMapSearchQuery(morada, localidade = '', codigoPostal 
   return buildMapboxSearchQuery(morada, localidade, codigoPostal);
 }
 
-/**
- * Geocoding Mapbox — morada → coordenadas GPS.
- * @param {string} searchText
- * @returns {Promise<{ lat: number, lon: number } | null>}
- */
 async function mapboxGeocodeToCoords(searchText) {
   const q = String(searchText || '').trim();
   if (!q) return null;
@@ -102,10 +97,6 @@ async function mapboxGeocodeToCoords(searchText) {
   return { lat, lon };
 }
 
-export async function geocodeAddressToCoords(searchText) {
-  return mapboxGeocodeToCoords(searchText);
-}
-
 async function geocodeClientAddress(morada, localidade = '', codigoPostal = '') {
   const query = buildMapboxSearchQuery(morada, localidade, codigoPostal);
   if (!query) return null;
@@ -118,11 +109,6 @@ async function getHqPoint() {
   return cachedHqPoint;
 }
 
-/**
- * @param {{ lat: number, lon: number }} from
- * @param {{ lat: number, lon: number }} to
- * @returns {Promise<number | null>} distância só ida (km)
- */
 async function drivingDistanceKmOneWay(from, to) {
   const path = `${from.lon},${from.lat};${to.lon},${to.lat}`;
   const url = `${OSRM_ROUTE_URL}/${path}?overview=false`;
@@ -160,10 +146,7 @@ async function drivingDistanceKmOneWay(from, to) {
 }
 
 /**
- * Ida e volta (×2), arredondada a 1 casa decimal.
- * @param {string} morada
- * @param {string} localidade
- * @param {string} codigoPostal
+ * Ida e volta (×2), arredondada a 1 casa decimal — uma visita.
  * @returns {Promise<number | null>}
  */
 export async function calculateDeslocacaoRoundTripKm(morada, localidade = '', codigoPostal = '') {
@@ -192,6 +175,64 @@ export async function calculateDeslocacaoRoundTripKm(morada, localidade = '', co
   }
 }
 
+function parsePositiveNumber(raw, fallback = 0) {
+  const n = Number(String(raw ?? '').replace(',', '.'));
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+}
+
+function getVisitasInput(overlay) {
+  return overlay?.querySelector(`[data-field-id="${VISITAS_FIELD_ID}"]`);
+}
+
+function getDeslocacaoBaseInput(overlay) {
+  return overlay?.querySelector(`[data-field-id="${DESLOCACAO_BASE_FIELD_ID}"]`);
+}
+
+export function getVisitasCount(overlay) {
+  const input = getVisitasInput(overlay);
+  const n = parsePositiveNumber(input?.value, 1);
+  return Math.max(1, Math.round(n));
+}
+
+export function getDeslocacaoBaseKm(overlay, savedValues = {}) {
+  const hidden = getDeslocacaoBaseInput(overlay);
+  const fromHidden = parsePositiveNumber(hidden?.value, 0);
+  if (fromHidden > 0) return fromHidden;
+
+  const fromSaved = parsePositiveNumber(savedValues?.[DESLOCACAO_BASE_FIELD_ID], 0);
+  if (fromSaved > 0) return fromSaved;
+
+  const total = parsePositiveNumber(
+    overlay?.querySelector('[data-field-id="deslocacao"]')?.value ??
+      savedValues?.deslocacao,
+    0,
+  );
+  const visitas = parsePositiveNumber(
+    savedValues?.[VISITAS_FIELD_ID] ?? savedValues?.visitas,
+    getVisitasCount(overlay),
+  );
+  if (total > 0 && visitas > 0) return Math.round((total / visitas) * 10) / 10;
+  return 0;
+}
+
+export function setDeslocacaoBaseKm(overlay, baseKm) {
+  const hidden = getDeslocacaoBaseInput(overlay);
+  if (!hidden) return;
+  const text = String(baseKm);
+  hidden.value = text;
+  hidden.setAttribute('value', text);
+}
+
+/** Total Km = base ida/volta × número de visitas */
+export function applyDeslocacaoTotalFromVisitas(overlay, { silent = false } = {}) {
+  const base = getDeslocacaoBaseKm(overlay);
+  if (base <= 0) return false;
+
+  const visitas = getVisitasCount(overlay);
+  const total = Math.round(base * visitas * 10) / 10;
+  return setDeslocacaoFormValue(overlay, total, { silent });
+}
+
 function savedDeslocacaoHasValue(savedValues) {
   const raw = savedValues?.deslocacao;
   if (raw === undefined || raw === null || raw === '') return false;
@@ -200,12 +241,11 @@ function savedDeslocacaoHasValue(savedValues) {
 }
 
 /**
- * Atualiza o input e força o redesenho visual no tablet.
  * @param {HTMLElement} overlay
  * @param {number|string} km
- * @returns {boolean}
+ * @param {{ silent?: boolean }} [opts]
  */
-export function setDeslocacaoFormValue(overlay, km) {
+export function setDeslocacaoFormValue(overlay, km, { silent = false } = {}) {
   const input = overlay?.querySelector('[data-field-id="deslocacao"]');
   if (!input) return false;
 
@@ -215,40 +255,114 @@ export function setDeslocacaoFormValue(overlay, km) {
   input.defaultValue = text;
 
   const fieldWrap = input.closest('.form-input-unit-field');
-  fieldWrap?.classList.toggle('has-value', text.trim() !== '');
+  fieldWrap?.classList.toggle('has-value', text.trim() !== '' && text !== '0');
 
-  requestAnimationFrame(() => {
-    input.dispatchEvent(new Event('input', { bubbles: true }));
-    input.dispatchEvent(new Event('change', { bubbles: true }));
-  });
+  if (!silent) {
+    requestAnimationFrame(() => {
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+  }
 
   return true;
 }
 
-/** Fallback silencioso — sem internet ou geocoder indisponível */
 function applyDeslocacaoFallbackZero(overlay) {
   try {
+    setDeslocacaoBaseKm(overlay, 0);
     setDeslocacaoFormValue(overlay, 0);
   } catch {
     /* não bloquear o formulário */
   }
 }
 
+/** Sincroniza base Km quando o técnico edita o total manualmente */
+function syncBaseFromManualDeslocacao(overlay) {
+  const total = parsePositiveNumber(
+    overlay.querySelector('[data-field-id="deslocacao"]')?.value,
+    0,
+  );
+  const visitas = getVisitasCount(overlay);
+  if (total > 0 && visitas > 0) {
+    setDeslocacaoBaseKm(overlay, Math.round((total / visitas) * 10) / 10);
+  }
+}
+
 /**
- * Preenche o input «Deslocação» após abrir o relatório (não bloqueia o técnico).
+ * Recalcula Deslocação quando mudam as visitas (ou após auto-preenchimento).
  * @param {HTMLElement} overlay
- * @param {{ job: object, service: object, savedValues?: object, onValueSet?: () => void }} ctx
+ * @param {{ onDirty?: () => void }} [opts]
+ */
+export function bindDeslocacaoVisitasRecalc(overlay, opts = {}) {
+  const visitasInput = getVisitasInput(overlay);
+  const deslocacaoInput = overlay.querySelector('[data-field-id="deslocacao"]');
+  if (!visitasInput || !deslocacaoInput) return;
+
+  const onVisitasChange = () => {
+    let visitas = getVisitasCount(overlay);
+    if (visitas < 1) {
+      visitas = 1;
+      visitasInput.value = '1';
+    }
+    applyDeslocacaoTotalFromVisitas(overlay);
+    opts.onDirty?.();
+  };
+
+  visitasInput.addEventListener('input', onVisitasChange);
+  visitasInput.addEventListener('change', onVisitasChange);
+
+  deslocacaoInput.addEventListener('change', () => {
+    syncBaseFromManualDeslocacao(overlay);
+    opts.onDirty?.();
+  });
+}
+
+function ensureDefaultVisitas(overlay, savedValues = {}) {
+  const input = getVisitasInput(overlay);
+  if (!input) return;
+  const saved = savedValues[VISITAS_FIELD_ID] ?? savedValues.visitas;
+  if (saved !== undefined && saved !== null && saved !== '') {
+    input.value = String(Math.max(1, Math.round(parsePositiveNumber(saved, 1))));
+    return;
+  }
+  if (!String(input.value ?? '').trim()) {
+    input.value = '1';
+  }
+}
+
+/**
+ * Preenche Deslocação após abrir o relatório.
  */
 export async function applyAutoDeslocacaoToForm(overlay, ctx) {
   const { job, service, savedValues = {}, onValueSet } = ctx;
   if (!serviceHasDeslocacaoField(service)) return;
 
-  const input = overlay.querySelector('[data-field-id="deslocacao"]');
-  if (!input) return;
+  const deslocacaoInput = overlay.querySelector('[data-field-id="deslocacao"]');
+  if (!deslocacaoInput) return;
 
-  if (savedDeslocacaoHasValue(savedValues)) return;
+  ensureDefaultVisitas(overlay, savedValues);
 
-  const existing = String(input.value ?? '').trim();
+  const existingBase = getDeslocacaoBaseKm(overlay, savedValues);
+  if (existingBase > 0) {
+    setDeslocacaoBaseKm(overlay, existingBase);
+    applyDeslocacaoTotalFromVisitas(overlay);
+    return;
+  }
+
+  if (savedDeslocacaoHasValue(savedValues)) {
+    const visitas = Math.max(
+      1,
+      Math.round(parsePositiveNumber(savedValues[VISITAS_FIELD_ID] ?? savedValues.visitas, 1)),
+    );
+    const total = parsePositiveNumber(savedValues.deslocacao, 0);
+    if (total > 0) {
+      setDeslocacaoBaseKm(overlay, Math.round((total / visitas) * 10) / 10);
+      applyDeslocacaoTotalFromVisitas(overlay);
+    }
+    return;
+  }
+
+  const existing = String(deslocacaoInput.value ?? '').trim();
   if (existing) {
     const n = Number(existing.replace(',', '.'));
     if (Number.isFinite(n) && n > 0) return;
@@ -277,18 +391,20 @@ export async function applyAutoDeslocacaoToForm(overlay, ctx) {
       codigo_postal: address.codigo_postal || '(vazio)',
     });
 
-    const km = await calculateDeslocacaoRoundTripKm(
+    const baseKm = await calculateDeslocacaoRoundTripKm(
       address.morada,
       address.localidade,
       address.codigo_postal,
     );
-    if (km == null || km <= 0) {
+    if (baseKm == null || baseKm <= 0) {
       applyDeslocacaoFallbackZero(overlay);
       return;
     }
 
-    if (setDeslocacaoFormValue(overlay, km)) {
-      console.log('[Deslocação] Km aplicados ao formulário:', km);
+    setDeslocacaoBaseKm(overlay, baseKm);
+    if (applyDeslocacaoTotalFromVisitas(overlay)) {
+      const visitas = getVisitasCount(overlay);
+      console.log('[Deslocação] Km aplicados:', baseKm, '×', visitas, '=', baseKm * visitas);
       onValueSet?.();
     }
   } catch {

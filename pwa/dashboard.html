@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/app.css?v=form-layout-v4">
+  <link rel="stylesheet" href="css/app.css?v=form-layout-v5">
 </head>
 <body class="tech-dashboard-page">
   <script src="js/theme-boot.js"></script>
@@ -78,12 +78,21 @@
         </button>
       </div>
 
-      <div class="calendar-nav tech-calendar-nav">
-        <button type="button" id="tech-prev-week" aria-label="Semana anterior">‹</button>
-        <span id="tech-calendar-title"></span>
-        <button type="button" id="tech-next-week" aria-label="Semana seguinte">›</button>
+      <div class="tech-calendar-toolbar">
+        <div class="tech-cal-view-toggle" role="tablist" aria-label="Vista do calendário">
+          <button type="button" class="tech-cal-view-btn is-active" data-tech-cal-view="week" role="tab" aria-selected="true">Semana</button>
+          <button type="button" class="tech-cal-view-btn" data-tech-cal-view="month" role="tab" aria-selected="false">Mês</button>
+        </div>
+        <div class="calendar-nav tech-calendar-nav">
+          <button type="button" id="tech-prev-period" aria-label="Período anterior">‹</button>
+          <span id="tech-calendar-title"></span>
+          <button type="button" id="tech-next-period" aria-label="Período seguinte">›</button>
+        </div>
       </div>
-      <div class="calendar-strip calendar-strip--week" id="calendar-strip" role="group" aria-label="Dias da semana"></div>
+      <div class="tech-calendar-body">
+        <div class="calendar-strip calendar-strip--week" id="calendar-strip" role="group" aria-label="Dias da semana"></div>
+        <div class="tech-month-calendar" id="tech-month-calendar" hidden aria-label="Calendário mensal"></div>
+      </div>
     </header>
 
     <main id="app" class="tech-main">

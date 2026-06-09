@@ -28,7 +28,7 @@ import {
   buildFormPrefill,
   mergeFormValues,
   isOfficialTemplate,
-  renderDeslocacaoIntroField,
+  renderDeslocacaoIntroBlock,
 } from './form-engine.js';
 import {
   migrateLegacyBatteryRows,
@@ -44,7 +44,10 @@ import {
   commitSignatureSnapshot,
 } from './signatures.js';
 import { initReportFormAutosave } from './report-form-autosave.js';
-import { applyAutoDeslocacaoToForm } from './deslocacao-distance.js';
+import {
+  applyAutoDeslocacaoToForm,
+  bindDeslocacaoVisitasRecalc,
+} from './deslocacao-distance.js';
 import { ensureProductionCatalog } from './clients-catalog.js';
 import { ensureJobsLoaded } from './trabalhos-db.js';
 import {
@@ -188,6 +191,10 @@ export async function openJobForm(jobId, options = {}) {
     onValueSet: () => formAutosave?.markDirty?.(),
   });
 
+  bindDeslocacaoVisitasRecalc(overlay, {
+    onDirty: () => formAutosave?.markDirty?.(),
+  });
+
   if (trabalhoIdEmEdicao) {
     showToast('Pode editar o relatório enquanto aguarda aprovação do RH.', 'info', 4000);
   } else if (existingReport?.status === 'draft' || existingReport?._localSavedAt) {
@@ -328,7 +335,7 @@ function buildFormHTML(job, client, tech, service, existingReport) {
                   <div class="header-grid ${official ? 'header-grid--intervention' : ''}">
                     <div class="header-field"><span class="hf-label">Data do Serviço</span><span class="hf-value">${formatDateLong(job.date)}</span></div>
                     <div class="header-field"><span class="hf-label">Técnico</span><span class="hf-value">${escapeHtml(tech.name)}</span></div>
-                    ${official ? `<div class="form-intro-deslocacao">${renderDeslocacaoIntroField(values, formContext)}</div>` : ''}
+                    ${official ? `<div class="form-intro-deslocacao">${renderDeslocacaoIntroBlock(values, formContext)}</div>` : ''}
                   </div>
                 </div>
               </div>
@@ -358,9 +365,10 @@ function buildFormHTML(job, client, tech, service, existingReport) {
             <span class="btn-preview-icon" aria-hidden="true">👁️</span>
             Pré-visualizar Relatório
           </button>
+          <p class="form-footer-hint text-muted">Gravar Rascunho mantém o relatório <strong>em aberto</strong> para novas visitas. Concluir envia-o para aprovação do RH.</p>
           <div class="form-panel-footer-row">
-            ${trabalhoIdEmEdicao ? '' : '<button type="button" class="btn-secondary btn-touch" id="btn-save-draft">Gravar Rascunho</button>'}
-            <button type="button" class="btn-primary btn-touch" id="btn-submit-report">${trabalhoIdEmEdicao ? 'Guardar alterações' : 'Submeter Relatório'}</button>
+            <button type="button" class="btn-secondary btn-touch" id="btn-save-draft">Gravar Rascunho</button>
+            <button type="button" class="btn-primary btn-touch" id="btn-submit-report">Concluir Relatório</button>
           </div>
         </div>
       </div>
@@ -610,8 +618,14 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport) {
 
   overlay.querySelector('#btn-save-draft')?.addEventListener('click', async () => {
     await formAutosave?.flush?.();
+    const draftBtn = overlay.querySelector('#btn-save-draft');
+    if (draftBtn) draftBtn.disabled = true;
     try {
       let report = buildReportFromForm(overlay, job, existingReport, signaturePads, draftReportId);
+      report.status = 'draft';
+      if (trabalhoIdEmEdicao) {
+        clearEdicaoState();
+      }
 
       if (!canReachServer()) {
         report.data = await attachOfflineFotosToReportData(report.data, {
@@ -623,6 +637,11 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport) {
           clearDepois: fotoDepoisState.cleared,
         });
         await saveReportDraft(report);
+        formAutosave?.destroy();
+        formAutosave = null;
+        closeForm(overlay);
+        window.dispatchEvent(new CustomEvent('jobs-updated'));
+        window.dispatchEvent(new CustomEvent('db-updated'));
         return;
       }
 
@@ -633,9 +652,16 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport) {
       report.data.fotoDepoisUrl = fotoResult.fotoDepois || report.data.fotoDepoisUrl || null;
       await ensureFotoUrlsOnTrabalho(job.id, report.data.fotoAntesUrl, report.data.fotoDepoisUrl);
       await saveReportDraft(report);
+      formAutosave?.destroy();
+      formAutosave = null;
+      closeForm(overlay);
+      window.dispatchEvent(new CustomEvent('jobs-updated'));
+      window.dispatchEvent(new CustomEvent('db-updated'));
     } catch (err) {
       console.error('[Form] Gravar rascunho:', err);
       showToast(err?.message || 'Não foi possível guardar o rascunho.', 'error', 7000);
+    } finally {
+      if (draftBtn) draftBtn.disabled = false;
     }
   });
 

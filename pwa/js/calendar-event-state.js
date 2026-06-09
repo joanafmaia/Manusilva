@@ -3,6 +3,12 @@
  */
 
 export const CALENDAR_EVENT_STATES = {
+  scheduled: {
+    className: 'cal-event--scheduled',
+    bg: '#dbeafe',
+    color: '#1e40af',
+    border: '#60a5fa',
+  },
   draft: {
     className: 'cal-event--draft',
     bg: '#e2e8f0',
@@ -33,7 +39,7 @@ export const CALENDAR_EVENT_STATES = {
  * Resolve o estado visual do evento (prioridade: relatório → trabalho → pendente).
  * @param {object | null | undefined} job
  * @param {object | null | undefined} report
- * @returns {'draft' | 'pending' | 'rejected' | 'approved'}
+ * @returns {'scheduled' | 'draft' | 'pending' | 'rejected' | 'approved'}
  */
 export function resolveCalendarEventState(job, report) {
   const reportStatus = report?.status;
@@ -43,8 +49,23 @@ export function resolveCalendarEventState(job, report) {
   if (reportStatus === 'pending_review') return 'pending';
 
   if (job?.status === 'rejected') return 'rejected';
+  if (job?.status === 'completed') return 'approved';
 
-  return 'pending';
+  return 'scheduled';
+}
+
+const CALENDAR_STATE_LABELS = {
+  scheduled: 'Agendado',
+  draft: 'Em aberto',
+  pending: 'Pendente RH',
+  rejected: 'Rejeitado',
+  approved: 'Concluído',
+};
+
+/** Etiqueta curta para calendário mensal / listas */
+export function getCalendarEventStateLabel(job, report) {
+  const state = resolveCalendarEventState(job, report);
+  return CALENDAR_STATE_LABELS[state] || state;
 }
 
 /** @param {'draft' | 'pending' | 'rejected' | 'approved'} state */
