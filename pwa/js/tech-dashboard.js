@@ -15,7 +15,6 @@ import {
   canReachServer,
   setOfflineMode,
   warmOperacoes,
-  statusBadge,
   formatDate,
   getDayLabel,
   getDayNumber,
@@ -26,7 +25,7 @@ import {
 } from './app.js';
 import {
   getCalendarEventStateClass,
-  getCalendarEventStateLabel,
+  renderWorkStateBadge,
   resolveCalendarEventState,
 } from './calendar-event-state.js';
 import { initLogoutButton, renderUserGreeting } from './auth.js';
@@ -481,8 +480,7 @@ function renderTechMonthJobBlock(job) {
   const service = getServiceType(job.serviceType);
   const report = getReportForJob(job.id);
   const stateClass = getCalendarEventStateClass(job, report);
-  const stateLabel = getCalendarEventStateLabel(job, report);
-  const label = `${job.time} — ${client?.name || 'Cliente'} — ${service?.label || 'Serviço'} — ${stateLabel}`;
+  const label = `${job.time} — ${client?.name || 'Cliente'} — ${service?.label || 'Serviço'}`;
 
   return `
     <button type="button"
@@ -492,7 +490,7 @@ function renderTechMonthJobBlock(job) {
       aria-label="${escapeHtml(label)}">
       <span class="cal-block-time">${job.time}</span>
       <span class="cal-block-client">${escapeHtml(client?.name?.split(' ')[0] || 'Cliente')}</span>
-      <span class="tech-month-job-state">${escapeHtml(stateLabel)}</span>
+      ${renderWorkStateBadge(job, report)}
     </button>
   `;
 }
@@ -647,6 +645,7 @@ function renderJobs() {
     const isApproved = savedReport?.status === 'approved';
     const hasDraft = savedReport?.status === 'draft';
     const stateClass = getCalendarEventStateClass(job, savedReport);
+    const stateBadge = renderWorkStateBadge(job, savedReport);
 
     let actionBtn = '';
     if (isPendingReview) {
@@ -674,10 +673,7 @@ function renderJobs() {
         ` : ''}
         <div class="job-card-top">
           <div class="job-time">${job.time}</div>
-          <div class="job-card-badges">
-            ${hasDraft ? '<span class="draft-badge">Em aberto</span>' : ''}
-            ${isPendingReview ? '<span class="status-badge status-badge--pending">Pendente RH</span>' : statusBadge(job.status)}
-          </div>
+          <div class="job-card-badges">${stateBadge}</div>
         </div>
         <div class="job-client-row">
           <button type="button" class="job-client job-client-link" data-client-history="${escapeHtml(job.clientId)}" title="Ver histórico de intervenções">

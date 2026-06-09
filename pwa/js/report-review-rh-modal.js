@@ -26,24 +26,48 @@ import {
   bindReviewPdfButton,
 } from './report-review-ui.js';
 import { ensureJobsLoaded } from './trabalhos-db.js';
+import {
+  getCalendarEventStateMeta,
+  renderReportWorkStateBadge,
+  resolveWorkStateFromReport,
+} from './calendar-event-state.js';
 
+/** @deprecated Preferir `resolveWorkStateFromReport` + `getCalendarEventStateMeta` */
 export const REPORT_STATUS_PANEL_META = {
-  pending_review: { label: 'Pendente', cardClass: 'rh-card--pending' },
-  draft: { label: 'Rascunho', cardClass: 'rh-card--draft' },
-  approved: { label: 'Aprovado', cardClass: 'rh-card--approved' },
-  rejected: { label: 'Recusado', cardClass: 'rh-card--rejected' },
+  pending_review: { label: 'Pendente RH', cardClass: 'rh-card--pending work-state-card--pending' },
+  draft: { label: 'Em aberto', cardClass: 'rh-card--draft work-state-card--draft' },
+  approved: { label: 'Concluído', cardClass: 'rh-card--approved work-state-card--approved' },
+  rejected: { label: 'Rejeitado', cardClass: 'rh-card--rejected work-state-card--rejected' },
 };
 
 export function getReportStatusPanelMeta(status) {
-  return REPORT_STATUS_PANEL_META[status] || { label: status || '—', cardClass: 'rh-card--draft' };
+  const stateMap = {
+    pending_review: 'pending',
+    draft: 'draft',
+    approved: 'approved',
+    rejected: 'rejected',
+  };
+  const state = stateMap[status] || 'draft';
+  const meta = getCalendarEventStateMeta(state);
+  const rhLegacy = {
+    pending: 'rh-card--pending',
+    draft: 'rh-card--draft',
+    approved: 'rh-card--approved',
+    rejected: 'rh-card--rejected',
+    scheduled: 'rh-card--draft',
+  };
+  return {
+    label: meta.label,
+    cardClass: `${rhLegacy[state] || rhLegacy.draft} ${meta.cardClass}`,
+  };
 }
 
 const RH_FILTER_TABS = [
   { id: 'all', label: 'Todos' },
-  { id: 'pending_review', label: 'Pendentes', icon: '🟡' },
-  { id: 'draft', label: 'Rascunhos', icon: '⚪' },
-  { id: 'approved', label: 'Aprovados', icon: '🟢' },
-  { id: 'rejected', label: 'Recusados', icon: '🔴' },
+  { id: 'pending_review', label: 'Pendente RH', icon: '🟡' },
+  { id: 'draft', label: 'Em aberto', icon: '⚪' },
+  { id: 'approved', label: 'Concluído', icon: '🟢' },
+  { id: 'rejected', label: 'Rejeitado', icon: '🔴' },
 ];
 
 /** Barra de filtros rápidos no topo do painel RH */
@@ -69,6 +93,7 @@ export function buildRhReviewFilterBar(counts, activeFilter = 'pending_review') 
  * Item compacto da lista RH — detalhe completo abre na modal (`openRhReviewModal`).
  */
 export function buildRhReviewListItem({ job, report, client, tech }) {
+  const workState = resolveWorkStateFromReport(report, job);
   const statusMeta = getReportStatusPanelMeta(report?.status);
   const statusClass = statusMeta.cardClass;
   const clientName = client?.name || client?.Nome || '—';
@@ -80,6 +105,7 @@ export function buildRhReviewListItem({ job, report, client, tech }) {
       data-job-id="${escapeHtml(job?.id || '')}"
       data-report-id="${escapeHtml(report.id)}"
       data-report-status="${escapeHtml(report?.status || '')}"
+      data-work-state="${escapeHtml(workState)}"
       role="listitem"
     >
       <div class="rh-list-item__summary">
@@ -88,7 +114,7 @@ export function buildRhReviewListItem({ job, report, client, tech }) {
           <span class="rh-list-item__client">${escapeHtml(clientName)}</span>
           <span class="rh-list-item__tech">${escapeHtml(techName)}</span>
         </div>
-        <span class="rh-list-item__status rh-card__status-pill">${escapeHtml(statusMeta.label)}</span>
+        <span class="rh-list-item__status">${renderReportWorkStateBadge(report, job)}</span>
         <button type="button" class="rh-list-item__open-btn" data-panel-open="${escapeHtml(report.id)}">Rever</button>
       </div>
     </article>
@@ -150,16 +176,7 @@ export async function openRhReviewModal(reportId, callbacks = {}) {
   const fieldsHTML = renderReportValuesForReview(service, report.data?.values || {});
   const showWorkflow = report.status === 'pending_review';
 
-  const statusLabel =
-    report.status === 'approved'
-      ? 'Aprovado'
-      : report.status === 'pending_review'
-        ? 'Aguarda aprovação'
-        : report.status === 'draft'
-          ? 'Rascunho'
-          : report.status === 'rejected'
-            ? 'Recusado'
-            : report.status || '—';
+  const statusLabel = getCalendarEventStateMeta(resolveWorkStateFromReport(report, job)).label;
 
   const content = buildRhReviewModalContent({
     job,

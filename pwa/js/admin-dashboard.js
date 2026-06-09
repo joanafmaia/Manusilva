@@ -41,7 +41,10 @@ import {
   showToast,
   showNotificationToast,
 } from './app.js';
-import { getCalendarEventStateClass } from './calendar-event-state.js';
+import {
+  getCalendarEventStateClass,
+  renderWorkStateBadge,
+} from './calendar-event-state.js';
 import { ensureProductionCatalog, formatClientsLoadError } from './clients-catalog.js';
 import { renderClientCombobox, bindClientComboboxes } from './client-combobox.js';
 import { forceLogout, renderUserGreeting } from './auth.js';
@@ -300,6 +303,25 @@ export async function initAdminDashboard() {
     onPendingReport: (report, opts = {}) => {
       handleNewPendingReport(report, opts, playNotificationBeep).catch(console.error);
     },
+    onReportUpdated: (report, oldRow) => {
+      const becamePending =
+        report?.status === 'pending_review' &&
+        !isPendingReviewEstado(oldRow?.estado);
+      try {
+        if (isOpsTabActive()) {
+          renderCalendar();
+          renderRhReviewStack()
+            .then(() => {
+              if (becamePending && report?.id) flashPendingReportInPanel(report.id);
+            })
+            .catch(console.error);
+        } else {
+          adminTabDirty.ops = true;
+        }
+      } catch (e) {
+        console.error('[Admin] Atualização visual após relatório:', e);
+      }
+    },
   }).catch((err) => {
     console.error('[Admin] Realtime:', err);
   });
@@ -532,7 +554,7 @@ function renderAgendaListItem(job) {
         <button type="button" class="agenda-list-item ${stateClass}" data-job-id="${job.id}" style="--tech-color:${tech?.color || '#3b82f6'}">
           <div class="agenda-list-top">
             <span class="agenda-list-time">${job.time}</span>
-            ${statusBadge(job.status)}
+            ${renderWorkStateBadge(job, report)}
           </div>
           <p class="agenda-list-client">${escapeHtml(client?.name || 'Cliente')}</p>
           <p class="agenda-list-meta">${service?.icon || '🔧'} ${escapeHtml(service?.label || job.serviceType)} · ${escapeHtml(techLabel)}${escapeHtml(serial)}</p>
@@ -557,14 +579,30 @@ function bindCalendarJobInteractions() {
   });
 }
 
+function isPendingReviewEstado(estado) {
+  const e = String(estado || '').toLowerCase();
+  return e === 'pending_review' || e === 'pendente' || e === 'pending';
+}
+
+function flashPendingReportInPanel(reportId) {
+  if (!reportId) return;
+  const card = document.querySelector(`#rh-review-panel [data-report-id="${reportId}"]`);
+  if (!card) return;
+  card.classList.add('rh-review-stack-card--highlight', 'work-state-card--flash');
+  card.querySelector('.work-state-badge--pending')?.classList.add('work-state-badge--flash');
+  setTimeout(() => {
+    card.classList.remove('rh-review-stack-card--highlight', 'work-state-card--flash');
+    card.querySelector('.work-state-badge--pending')?.classList.remove('work-state-badge--flash');
+  }, 5000);
+}
+
 function scrollToReportInPanel(reportId) {
   if (!reportId) return;
   setAdminTab('relatorios');
   const card = document.querySelector(`#rh-review-panel [data-report-id="${reportId}"]`);
   if (!card) return;
   card.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  card.classList.add('rh-review-stack-card--highlight');
-  setTimeout(() => card.classList.remove('rh-review-stack-card--highlight'), 2200);
+  flashPendingReportInPanel(reportId);
 }
 
 /** Renderiza histórico completo de relatórios no painel direito (com filtros rápidos). */

@@ -244,6 +244,23 @@ body:not(.light-mode):not(.dark-mode) {
   --app-top-inset: max(1rem, env(safe-area-inset-top, 0px));
   --app-side-inset: max(1rem, env(safe-area-inset-right, 0px));
   --theme-toggle-height: 2.75rem;
+
+  /* Estados oficiais dos trabalhos / relatórios */
+  --ws-scheduled: #3b82f6;
+  --ws-draft: #6b7280;
+  --ws-pending: #eab308;
+  --ws-rejected: #ef4444;
+  --ws-approved: #10b981;
+  --ws-scheduled-bg: color-mix(in srgb, var(--ws-scheduled) 16%, transparent);
+  --ws-draft-bg: color-mix(in srgb, var(--ws-draft) 16%, transparent);
+  --ws-pending-bg: color-mix(in srgb, var(--ws-pending) 22%, transparent);
+  --ws-rejected-bg: color-mix(in srgb, var(--ws-rejected) 16%, transparent);
+  --ws-approved-bg: color-mix(in srgb, var(--ws-approved) 16%, transparent);
+  --ws-scheduled-text: #1d4ed8;
+  --ws-draft-text: #374151;
+  --ws-pending-text: #713f12;
+  --ws-rejected-text: #991b1b;
+  --ws-approved-text: #065f46;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -1035,11 +1052,11 @@ body.dark-mode .offline-sync-banner__icon {
   flex-shrink: 0;
 }
 
-.cal-status-dot--scheduled { background: #60a5fa; }
-.cal-status-dot--draft { background: #94a3b8; }
-.cal-status-dot--pending { background: #fbbf24; }
-.cal-status-dot--rejected { background: #f87171; }
-.cal-status-dot--approved { background: #4ade80; }
+.cal-status-dot--scheduled { background: var(--ws-scheduled); }
+.cal-status-dot--draft { background: var(--ws-draft); }
+.cal-status-dot--pending { background: var(--ws-pending); }
+.cal-status-dot--rejected { background: var(--ws-rejected); }
+.cal-status-dot--approved { background: var(--ws-approved); }
 
 .tech-month-calendar {
   margin-top: 0.35rem;
@@ -1099,11 +1116,12 @@ body.dark-mode .offline-sync-banner__icon {
   border-left-style: solid;
 }
 
-.tech-month-job-state {
+.tech-month-job .work-state-badge {
   display: block;
-  font-size: 0.55rem;
-  font-weight: 600;
-  opacity: 0.9;
+  margin-top: 1px;
+  font-size: 0.5rem !important;
+  padding: 0.1rem 0.3rem !important;
+  border-radius: 4px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1157,33 +1175,34 @@ body.dark-mode .offline-sync-banner__icon {
 .job-card:active { transform: scale(0.98); }
 
 .job-card.cal-event--scheduled {
-  border-color: rgba(96, 165, 250, 0.45);
-  background: linear-gradient(135deg, rgba(219, 234, 254, 0.35), transparent 55%);
+  border-color: color-mix(in srgb, var(--ws-scheduled) 55%, transparent);
+  background: linear-gradient(135deg, var(--ws-scheduled-bg), transparent 55%);
+  color: var(--ws-scheduled-text);
 }
 
 .job-card.cal-event--draft {
-  background: #e2e8f0;
-  border: 1px solid #94a3b8;
-  color: #334155;
+  background: var(--ws-draft-bg);
+  border: 1px solid color-mix(in srgb, var(--ws-draft) 55%, transparent);
+  color: var(--ws-draft-text);
 }
 
 .job-card.cal-event--pending {
-  background: #fef3c7;
-  border: 1px solid #fbbf24;
-  color: #78350f;
+  background: var(--ws-pending-bg);
+  border: 1px solid color-mix(in srgb, var(--ws-pending) 55%, transparent);
+  color: var(--ws-pending-text);
 }
 
 .job-card.cal-event--rejected,
 .job-card.job-rejected {
-  background: #fee2e2;
-  border: 1px solid #f87171;
-  color: #991b1b;
+  background: var(--ws-rejected-bg);
+  border: 1px solid color-mix(in srgb, var(--ws-rejected) 55%, transparent);
+  color: var(--ws-rejected-text);
 }
 
 .job-card.cal-event--approved {
-  background: #dcfce7;
-  border: 1px solid #4ade80;
-  color: #166534;
+  background: var(--ws-approved-bg);
+  border: 1px solid color-mix(in srgb, var(--ws-approved) 55%, transparent);
+  color: var(--ws-approved-text);
 }
 
 .job-rejection-alert {
@@ -1217,6 +1236,68 @@ body.dark-mode .offline-sync-banner__icon {
   gap: 0.35rem;
 }
 
+/* Etiquetas oficiais de estado (dashboard técnicos, RH, listas) */
+.work-state-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.55rem;
+  border-radius: 20px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1.25;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+
+.work-state-badge--scheduled {
+  color: var(--ws-scheduled-text);
+  background: var(--ws-scheduled-bg);
+  border-color: color-mix(in srgb, var(--ws-scheduled) 40%, transparent);
+}
+
+.work-state-badge--draft {
+  color: var(--ws-draft-text);
+  background: var(--ws-draft-bg);
+  border-color: color-mix(in srgb, var(--ws-draft) 40%, transparent);
+}
+
+.work-state-badge--pending {
+  color: var(--ws-pending-text);
+  background: var(--ws-pending-bg);
+  border-color: color-mix(in srgb, var(--ws-pending) 45%, transparent);
+}
+
+.work-state-badge--rejected {
+  color: var(--ws-rejected-text);
+  background: var(--ws-rejected-bg);
+  border-color: color-mix(in srgb, var(--ws-rejected) 40%, transparent);
+}
+
+.work-state-badge--approved {
+  color: var(--ws-approved-text);
+  background: var(--ws-approved-bg);
+  border-color: color-mix(in srgb, var(--ws-approved) 40%, transparent);
+}
+
+@keyframes work-state-pending-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--ws-pending) 0%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--ws-pending) 55%, transparent);
+  }
+}
+
+.work-state-badge--pending.work-state-badge--flash {
+  animation: work-state-pending-pulse 0.9s ease-in-out 5;
+}
+
+.work-state-card--flash.cal-event--pending,
+.work-state-card--flash.work-state-card--pending {
+  animation: work-state-pending-pulse 0.9s ease-in-out 5;
+}
+
 .draft-badge {
   font-size: 0.65rem;
   font-weight: 700;
@@ -1224,9 +1305,9 @@ body.dark-mode .offline-sync-banner__icon {
   border-radius: 20px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--draft-badge-fg);
-  background: rgba(59, 130, 246, 0.18);
-  border: 1px solid rgba(59, 130, 246, 0.35);
+  color: var(--ws-draft-text);
+  background: var(--ws-draft-bg);
+  border: 1px solid color-mix(in srgb, var(--ws-draft) 40%, transparent);
 }
 
 .job-time {
@@ -1245,19 +1326,29 @@ body.dark-mode .offline-sync-banner__icon {
   white-space: nowrap;
 }
 
+.status-badge--scheduled {
+  background: var(--ws-scheduled-bg);
+  color: var(--ws-scheduled-text);
+}
+
 .status-badge--pending {
-  background-color: var(--ms-bg-pending, #fef3c7);
-  color: var(--ms-text-pending, #78350f);
+  background: var(--ws-pending-bg);
+  color: var(--ws-pending-text);
 }
 
 .status-badge--approved {
-  background-color: var(--ms-bg-approved, #dcfce7);
-  color: var(--ms-text-approved, #15803d);
+  background: var(--ws-approved-bg);
+  color: var(--ws-approved-text);
 }
 
 .status-badge--rejected {
-  background-color: var(--ms-bg-rejected, #fee2e2);
-  color: var(--ms-text-rejected, #991b1b);
+  background: var(--ws-rejected-bg);
+  color: var(--ws-rejected-text);
+}
+
+.status-badge--draft {
+  background: var(--ws-draft-bg);
+  color: var(--ws-draft-text);
 }
 
 .job-client {
@@ -4675,12 +4766,7 @@ body.dark-mode .rh-list-item__ordem {
 }
 
 .rh-review-stack-card--highlight {
-  animation: rh-card-highlight 2.2s ease;
-}
-
-@keyframes rh-card-highlight {
-  0%, 100% { box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05); }
-  35% { box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.28), 0 4px 14px rgba(0, 0, 0, 0.08); }
+  animation: work-state-pending-pulse 0.9s ease-in-out 5;
 }
 
 .rh-card {
@@ -4697,23 +4783,31 @@ body.dark-mode .rh-list-item__ordem {
 }
 
 .rh-card--pending,
-.rh-list-item.rh-card--pending {
-  border-left-color: #fbbf24;
+.rh-list-item.rh-card--pending,
+.rh-list-item.work-state-card--pending {
+  border-left-color: var(--ws-pending);
 }
 
 .rh-card--draft,
-.rh-list-item.rh-card--draft {
-  border-left-color: #94a3b8;
+.rh-list-item.rh-card--draft,
+.rh-list-item.work-state-card--draft {
+  border-left-color: var(--ws-draft);
 }
 
 .rh-card--approved,
-.rh-list-item.rh-card--approved {
-  border-left-color: #22c55e;
+.rh-list-item.rh-card--approved,
+.rh-list-item.work-state-card--approved {
+  border-left-color: var(--ws-approved);
 }
 
 .rh-card--rejected,
-.rh-list-item.rh-card--rejected {
-  border-left-color: #ef4444;
+.rh-list-item.rh-card--rejected,
+.rh-list-item.work-state-card--rejected {
+  border-left-color: var(--ws-rejected);
+}
+
+.rh-list-item.work-state-card--scheduled {
+  border-left-color: var(--ws-scheduled);
 }
 
 .rh-card:hover {
@@ -4739,33 +4833,13 @@ body.dark-mode .rh-list-item__ordem {
   padding: 2px 8px;
   font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
+  letter-spacing: 0.02em;
   border-radius: 4px;
 }
 
-.rh-card--pending .rh-card__status-pill,
-.rh-list-item.rh-card--pending .rh-card__status-pill {
-  color: #92400e;
-  background: #fef3c7;
-}
-
-.rh-card--draft .rh-card__status-pill,
-.rh-list-item.rh-card--draft .rh-card__status-pill {
-  color: #475569;
-  background: #f1f5f9;
-}
-
-.rh-card--approved .rh-card__status-pill,
-.rh-list-item.rh-card--approved .rh-card__status-pill {
-  color: #166534;
-  background: #dcfce7;
-}
-
-.rh-card--rejected .rh-card__status-pill,
-.rh-list-item.rh-card--rejected .rh-card__status-pill {
-  color: #991b1b;
-  background: #fee2e2;
+.rh-list-item__status.work-state-badge {
+  font-size: 9px !important;
+  padding: 2px 6px !important;
 }
 
 .rh-card__ordem-badge {
@@ -5235,35 +5309,45 @@ body.dark-mode .rh-card__btn--pdf {
   transition: transform var(--transition);
 }
 
-/* Estados do calendário — cores por relatório / trabalho */
-.cal-event--scheduled {
-  background: #dbeafe;
-  color: #1e40af;
-  border-left-color: #60a5fa;
+/* Estados do calendário — tabela oficial (--ws-*) */
+.cal-event--scheduled,
+.work-state-card--scheduled {
+  background: var(--ws-scheduled-bg);
+  color: var(--ws-scheduled-text);
+  border-left-color: var(--ws-scheduled);
+  border-color: color-mix(in srgb, var(--ws-scheduled) 45%, var(--border-subtle));
 }
 
-.cal-event--draft {
-  background: #e2e8f0;
-  color: #334155;
-  border-left-color: #94a3b8;
+.cal-event--draft,
+.work-state-card--draft {
+  background: var(--ws-draft-bg);
+  color: var(--ws-draft-text);
+  border-left-color: var(--ws-draft);
+  border-color: color-mix(in srgb, var(--ws-draft) 45%, var(--border-subtle));
 }
 
-.cal-event--pending {
-  background: #fef3c7;
-  color: #78350f;
-  border-left-color: #fbbf24;
+.cal-event--pending,
+.work-state-card--pending {
+  background: var(--ws-pending-bg);
+  color: var(--ws-pending-text);
+  border-left-color: var(--ws-pending);
+  border-color: color-mix(in srgb, var(--ws-pending) 45%, var(--border-subtle));
 }
 
-.cal-event--rejected {
-  background: #fee2e2;
-  color: #991b1b;
-  border-left-color: #f87171;
+.cal-event--rejected,
+.work-state-card--rejected {
+  background: var(--ws-rejected-bg);
+  color: var(--ws-rejected-text);
+  border-left-color: var(--ws-rejected);
+  border-color: color-mix(in srgb, var(--ws-rejected) 45%, var(--border-subtle));
 }
 
-.cal-event--approved {
-  background: #dcfce7;
-  color: #166534;
-  border-left-color: #4ade80;
+.cal-event--approved,
+.work-state-card--approved {
+  background: var(--ws-approved-bg);
+  color: var(--ws-approved-text);
+  border-left-color: var(--ws-approved);
+  border-color: color-mix(in srgb, var(--ws-approved) 45%, var(--border-subtle));
 }
 
 .cal-block.cal-event--scheduled .cal-block-time,
@@ -5301,27 +5385,27 @@ body.dark-mode .rh-card__btn--pdf {
 
 .cal-block--interactive.cal-event--scheduled:hover,
 .cal-block--interactive.cal-event--scheduled:focus-visible {
-  outline-color: #60a5fa;
+  outline-color: var(--ws-scheduled);
 }
 
 .cal-block--interactive.cal-event--draft:hover,
 .cal-block--interactive.cal-event--draft:focus-visible {
-  outline-color: #94a3b8;
+  outline-color: var(--ws-draft);
 }
 
 .cal-block--interactive.cal-event--pending:hover,
 .cal-block--interactive.cal-event--pending:focus-visible {
-  outline-color: #fbbf24;
+  outline-color: var(--ws-pending);
 }
 
 .cal-block--interactive.cal-event--rejected:hover,
 .cal-block--interactive.cal-event--rejected:focus-visible {
-  outline-color: #f87171;
+  outline-color: var(--ws-rejected);
 }
 
 .cal-block--interactive.cal-event--approved:hover,
 .cal-block--interactive.cal-event--approved:focus-visible {
-  outline-color: #4ade80;
+  outline-color: var(--ws-approved);
 }
 
 .cal-block--interactive {
@@ -5423,41 +5507,20 @@ body.dark-mode .rh-card__btn--pdf {
   transition: border-color var(--transition), box-shadow var(--transition);
 }
 
-.agenda-list-item.cal-event--draft {
-  background: #e2e8f0;
-  border-color: #94a3b8;
-  border-left-color: #94a3b8;
-  color: #334155;
-}
-
-.agenda-list-item.cal-event--pending {
-  background: #fef3c7;
-  border-color: #fbbf24;
-  border-left-color: #fbbf24;
-  color: #78350f;
-}
-
-.agenda-list-item.cal-event--rejected {
-  background: #fee2e2;
-  border-color: #f87171;
-  border-left-color: #f87171;
-  color: #991b1b;
-}
-
+.agenda-list-item.cal-event--scheduled,
+.agenda-list-item.cal-event--draft,
+.agenda-list-item.cal-event--pending,
+.agenda-list-item.cal-event--rejected,
 .agenda-list-item.cal-event--approved {
-  background: #dcfce7;
-  border-color: #4ade80;
-  border-left-color: #4ade80;
-  color: #166534;
+  border-left-width: 4px;
 }
 
+.agenda-list-item.cal-event--scheduled .agenda-list-time,
 .agenda-list-item.cal-event--draft .agenda-list-time,
 .agenda-list-item.cal-event--pending .agenda-list-time,
 .agenda-list-item.cal-event--rejected .agenda-list-time,
-.agenda-list-item.cal-event--approved .agenda-list-time {
-  color: inherit;
-}
-
+.agenda-list-item.cal-event--approved .agenda-list-time,
+.agenda-list-item.cal-event--scheduled .agenda-list-client,
 .agenda-list-item.cal-event--draft .agenda-list-client,
 .agenda-list-item.cal-event--pending .agenda-list-client {
   color: inherit;
@@ -5470,24 +5533,29 @@ body.dark-mode .rh-card__btn--pdf {
   outline: none;
 }
 
+.agenda-list-item.cal-event--scheduled:hover,
+.agenda-list-item.cal-event--scheduled:focus-visible {
+  border-color: var(--ws-scheduled);
+}
+
 .agenda-list-item.cal-event--draft:hover,
 .agenda-list-item.cal-event--draft:focus-visible {
-  border-color: #64748b;
+  border-color: var(--ws-draft);
 }
 
 .agenda-list-item.cal-event--pending:hover,
 .agenda-list-item.cal-event--pending:focus-visible {
-  border-color: #f59e0b;
+  border-color: var(--ws-pending);
 }
 
 .agenda-list-item.cal-event--rejected:hover,
 .agenda-list-item.cal-event--rejected:focus-visible {
-  border-color: #ef4444;
+  border-color: var(--ws-rejected);
 }
 
 .agenda-list-item.cal-event--approved:hover,
 .agenda-list-item.cal-event--approved:focus-visible {
-  border-color: #22c55e;
+  border-color: var(--ws-approved);
 }
 
 .agenda-list-top {

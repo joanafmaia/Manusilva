@@ -84,9 +84,12 @@ export async function initAdminRealtime(callbacks = {}) {
       { event: 'UPDATE', schema: 'public', table: 'relatorios' },
       (payload) => {
         const report = mergeReportFromRealtime(payload.new);
+        if (!report) return;
         if (shouldNotifyNewPendingReport(report, payload.old)) {
           callbacks.onPendingReport?.(report, { playSound: true });
+          return;
         }
+        callbacks.onReportUpdated?.(report, payload.old);
       },
     )
     .subscribe((status, err) => {

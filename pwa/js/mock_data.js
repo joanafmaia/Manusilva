@@ -645,11 +645,11 @@ export const CLIENTS = [];
 export const SERVICE_TYPES = [...reportTemplates];
 
 export const JOB_STATUSES = {
-  scheduled: { label: 'Pendente', badgeVariant: 'pending' },
-  in_progress: { label: 'Em Progresso', badgeVariant: 'pending' },
-  pending_parts: { label: 'Pendente Peças', badgeVariant: 'pending' },
+  scheduled: { label: 'Agendado', badgeVariant: 'scheduled' },
+  in_progress: { label: 'Agendado', badgeVariant: 'scheduled' },
+  pending_parts: { label: 'Agendado', badgeVariant: 'scheduled' },
   rejected: { label: 'Rejeitado', badgeVariant: 'rejected' },
-  completed: { label: 'Aprovado', badgeVariant: 'approved' },
+  completed: { label: 'Concluído', badgeVariant: 'approved' },
 };
 
 function getWeekDates(baseDate = new Date()) {
