@@ -1563,6 +1563,9 @@ export {
   searchClients,
 } from './clients-catalog.js';
 
+export { getJobsSnapshot, ensureJobsLoaded } from './trabalhos-db.js';
+export { getReportsSnapshot, ensureReportsLoaded } from './relatorios-db.js';
+
 /* ─── Tema + arranque da app (index.html) ─── */
 
 /** Aplica `dark-mode` / `light-mode` no body (localStorage `app_theme`) */
