@@ -420,21 +420,28 @@ function bindFotoInputs(overlay) {
         input.value = '';
         return;
       }
+
+      formAutosave?.beginPhotoProcessing?.();
+
       if (state.previewUrl?.startsWith('blob:')) {
         URL.revokeObjectURL(state.previewUrl);
       }
       state.cleared = false;
+
       try {
         const compressed = await compressImageFile(file, { filename: which });
         state.file = compressed.file;
         state.base64 = compressed.dataUrl;
         state.previewUrl = URL.createObjectURL(compressed.file);
+        updateFotoPreview(overlay, which);
       } catch (err) {
         console.error('[Form] Foto compressão:', err);
         try {
+          const fallback = await readFileAsDataUrl(file);
           state.file = file;
-          state.base64 = await readFileAsDataUrl(file);
+          state.base64 = fallback;
           state.previewUrl = URL.createObjectURL(file);
+          updateFotoPreview(overlay, which);
         } catch (fallbackErr) {
           console.error('[Form] Foto base64:', fallbackErr);
           state.file = null;
@@ -442,10 +449,9 @@ function bindFotoInputs(overlay) {
           state.previewUrl = null;
           showToast('Não foi possível processar a imagem.', 'error');
         }
+      } finally {
+        formAutosave?.endPhotoProcessingAndSave?.();
       }
-      updateFotoPreview(overlay, which);
-      formAutosave?.markDirty();
-      formAutosave?.flush();
     });
   };
 
@@ -466,8 +472,7 @@ function bindFotoInputs(overlay) {
       const input = overlay.querySelector(`#foto-${which}-input`);
       if (input) input.value = '';
       updateFotoPreview(overlay, which);
-      formAutosave?.markDirty();
-      formAutosave?.flush();
+      void formAutosave?.flush?.();
     });
   });
 }
@@ -542,8 +547,12 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport) {
   signaturePadsReady = false;
   signaturePads = {};
 
-  overlay.querySelector('#close-form').addEventListener('click', () => {
-    formAutosave?.flush();
+  overlay.querySelector('#close-form').addEventListener('click', async () => {
+    try {
+      await formAutosave?.flush?.();
+    } catch (err) {
+      console.warn('[Form] Auto-save ao fechar:', err);
+    }
     closeForm(overlay);
   });
 
@@ -581,7 +590,7 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport) {
   };
 
   overlay.querySelector('#btn-save-draft')?.addEventListener('click', async () => {
-    formAutosave?.flush();
+    await formAutosave?.flush?.();
     try {
       let report = buildReportFromForm(overlay, job, existingReport, signaturePads, draftReportId);
 
@@ -639,7 +648,7 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport) {
     }
     commitSignatureSnapshot(signaturePads.technician);
 
-    formAutosave?.flush();
+    await formAutosave?.flush?.();
     formAutosave?.destroy();
     formAutosave = null;
 

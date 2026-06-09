@@ -1377,7 +1377,17 @@ body.dark-mode .offline-sync-banner__icon {
 }
 
 .form-autosave-status[data-state="saved"] {
-  color: var(--ms-text-500, #94a3b8);
+  color: var(--ms-emerald-600, #059669);
+  font-weight: 600;
+}
+
+.form-autosave-status--pulse {
+  animation: form-autosave-pulse 0.45s ease-out;
+}
+
+@keyframes form-autosave-pulse {
+  0% { opacity: 0.35; transform: translateY(2px); }
+  100% { opacity: 1; transform: translateY(0); }
 }
 
 .form-autosave-status[data-state="error"] {

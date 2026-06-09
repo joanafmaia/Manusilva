@@ -5,7 +5,9 @@
 import { saveLocalReportDraft } from './report-local-storage.js';
 import { mergeReportInCache } from './relatorios-db.js';
 
-const DEBOUNCE_MS = 80;
+const DEBOUNCE_MS = 350;
+const PHOTO_WAIT_POLL_MS = 50;
+const SAVED_INDICATOR_MS = 4500;
 
 /** Estados em que o formulário pode ser auto-gravado */
 export function canAutosaveReport(existingReport, job) {
@@ -21,64 +23,153 @@ export function canAutosaveReport(existingReport, job) {
  * @param {object} ctx.job
  * @param {object|null} ctx.existingReport
  * @param {() => object} ctx.buildReport — devolve payload completo do relatório
- * @returns {{ flush: () => void, destroy: () => void, markDirty: () => void }}
  */
 export function initReportFormAutosave({ overlay, job, existingReport, buildReport }) {
   const noop = () => {};
+  const noopAsync = () => Promise.resolve();
+
   if (!canAutosaveReport(existingReport, job)) {
-    return { flush: noop, destroy: noop, markDirty: noop };
+    return {
+      flush: noopAsync,
+      destroy: noop,
+      markDirty: noop,
+      beginPhotoProcessing: noop,
+      endPhotoProcessingAndSave: noop,
+    };
   }
 
   const reportId = existingReport?.id || `rep-draft-${job.id}`;
   let debounceTimer = null;
   let destroyed = false;
+  let saveQueue = Promise.resolve();
+  let photoProcessingCount = 0;
+  let savedHideTimer = null;
+
   const statusEl = overlay.querySelector('#form-autosave-status');
 
-  const setStatus = (state) => {
+  const clearSavedHideTimer = () => {
+    if (savedHideTimer) {
+      clearTimeout(savedHideTimer);
+      savedHideTimer = null;
+    }
+  };
+
+  const setStatus = (state, customMessage = '') => {
     if (!statusEl || destroyed) return;
+    clearSavedHideTimer();
     statusEl.dataset.state = state;
+    statusEl.classList.remove('form-autosave-status--pulse');
+
     if (state === 'idle') {
       statusEl.textContent = '';
       statusEl.hidden = true;
       return;
     }
-    statusEl.hidden = false;
-    if (state === 'pending') statusEl.textContent = '🔄 A gravar alterações…';
-    else if (state === 'saved') statusEl.textContent = '✓ Guardado no tablet';
-    else if (state === 'error') statusEl.textContent = 'Erro ao guardar — tente «Guardar Rascunho»';
-  };
 
-  const persist = async () => {
-    if (destroyed) return;
-    try {
-      const report = buildReport();
-      report.id = reportId;
-      if (report.status !== 'pending_review') {
-        report.status = 'draft';
-      }
-      await saveLocalReportDraft(report);
-      mergeReportInCache(report);
-      setStatus('saved');
-    } catch (err) {
-      console.error('[Auto-save] Erro ao guardar rascunho:', err);
-      setStatus('error');
+    statusEl.hidden = false;
+
+    if (state === 'pending') {
+      statusEl.textContent =
+        customMessage ||
+        (photoProcessingCount > 0 ? 'A processar foto…' : 'A gravar rascunho…');
+      return;
+    }
+
+    if (state === 'saved') {
+      statusEl.textContent = customMessage || '✓ Rascunho gravado automaticamente';
+      statusEl.classList.add('form-autosave-status--pulse');
+      savedHideTimer = setTimeout(() => setStatus('idle'), SAVED_INDICATOR_MS);
+      return;
+    }
+
+    if (state === 'error') {
+      statusEl.textContent =
+        customMessage || 'Erro ao gravar — tente «Gravar Rascunho»';
     }
   };
 
-  const scheduleSave = () => {
+  const waitForPhotoProcessing = async () => {
+    while (photoProcessingCount > 0 && !destroyed) {
+      await new Promise((resolve) => setTimeout(resolve, PHOTO_WAIT_POLL_MS));
+    }
+  };
+
+  const persistToIndexedDB = async () => {
     if (destroyed) return;
+
+    await waitForPhotoProcessing();
+    if (destroyed) return;
+
+    setStatus('pending');
+
+    let report;
+    try {
+      report = buildReport();
+    } catch (err) {
+      console.error('[Auto-save] buildReport:', err);
+      throw new Error('Não foi possível ler os dados do formulário.');
+    }
+
+    if (!report?.jobId) {
+      throw new Error('Rascunho sem identificador do trabalho.');
+    }
+
+    report.id = reportId;
+    if (report.status !== 'pending_review') {
+      report.status = 'draft';
+    }
+
+    await saveLocalReportDraft(report);
+    mergeReportInCache(report);
+    setStatus('saved');
+  };
+
+  const enqueuePersist = () => {
+    saveQueue = saveQueue
+      .then(() => persistToIndexedDB())
+      .catch((err) => {
+        console.error('[Auto-save] IndexedDB:', err);
+        setStatus('error', err?.message ? String(err.message).slice(0, 80) : '');
+      });
+    return saveQueue;
+  };
+
+  const scheduleSave = (immediate = false) => {
+    if (destroyed) return;
+    if (photoProcessingCount > 0) {
+      setStatus('pending', 'A processar foto…');
+      return;
+    }
     setStatus('pending');
     clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(() => {
-      void persist();
-    }, DEBOUNCE_MS);
+    debounceTimer = setTimeout(
+      () => {
+        void enqueuePersist();
+      },
+      immediate ? 0 : DEBOUNCE_MS,
+    );
+  };
+
+  const shouldIgnoreActivityTarget = (target) => {
+    if (!(target instanceof HTMLElement)) return true;
+    if (target.matches('input[type="file"], .foto-antes-depois-input')) return true;
+    if (target.closest('.foto-antes-depois-card, .foto-antes-depois-input')) return true;
+    if (target.closest('button, [type="button"], .modal-overlay, .pdf-preview-overlay')) {
+      return true;
+    }
+    if (target.closest('#btn-preview-pdf, #btn-submit-report, #btn-save-draft')) {
+      return true;
+    }
+    return false;
   };
 
   const onActivity = (e) => {
     if (destroyed) return;
     const t = e.target;
-    if (!(t instanceof HTMLElement)) return;
+    if (shouldIgnoreActivityTarget(t)) return;
+
     if (
+      t instanceof HTMLElement &&
       t.closest(
         '.dynamic-table-add, .grandes-battery-add, .btn-row-remove, .grandes-battery-remove',
       )
@@ -86,20 +177,19 @@ export function initReportFormAutosave({ overlay, job, existingReport, buildRepo
       scheduleSave();
       return;
     }
-    if (t.closest('button, [type="button"], .modal-overlay, .pdf-preview-overlay')) return;
-    if (t.closest('#btn-preview-pdf, #btn-submit-report')) return;
+
     scheduleSave();
   };
 
   const onBeforeUnload = () => {
     clearTimeout(debounceTimer);
-    void persist();
+    void enqueuePersist();
   };
 
   const onVisibility = () => {
     if (document.visibilityState === 'hidden') {
       clearTimeout(debounceTimer);
-      void persist();
+      void enqueuePersist();
     }
   };
 
@@ -110,15 +200,30 @@ export function initReportFormAutosave({ overlay, job, existingReport, buildRepo
   document.addEventListener('visibilitychange', onVisibility);
 
   return {
-    markDirty: scheduleSave,
+    markDirty: () => scheduleSave(),
+
+    beginPhotoProcessing: () => {
+      photoProcessingCount += 1;
+      clearTimeout(debounceTimer);
+      setStatus('pending', 'A processar foto…');
+    },
+
+    endPhotoProcessingAndSave: () => {
+      photoProcessingCount = Math.max(0, photoProcessingCount - 1);
+      if (destroyed) return;
+      scheduleSave(true);
+    },
+
     flush: () => {
       clearTimeout(debounceTimer);
-      void persist();
+      return enqueuePersist();
     },
+
     destroy: () => {
       if (destroyed) return;
       destroyed = true;
       clearTimeout(debounceTimer);
+      clearSavedHideTimer();
       overlay.removeEventListener('input', onActivity, true);
       overlay.removeEventListener('change', onActivity, true);
       overlay.removeEventListener('click', onActivity, true);
