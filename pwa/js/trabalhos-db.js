@@ -2,7 +2,7 @@
  * Trabalhos agendados — Supabase (tabela `trabalhos`)
  */
 
-import { getSupabaseClient } from './supabase-client.js';
+import { getAuthenticatedSupabaseClient } from './supabase-client.js';
 
 let jobsCache = null;
 let jobsLoadPromise = null;
@@ -69,7 +69,7 @@ export function formatTrabalhosError(err) {
     return 'Tabela "trabalhos" não encontrada. Executa pwa/supabase-schema-operacoes.sql no Supabase.';
   }
   if (code === '42501' || /permission denied|row-level security/i.test(msg)) {
-    return 'Sem permissão na tabela trabalhos (RLS). Executa pwa/supabase-rls-authenticated.sql no Supabase (login Auth usa role authenticated).';
+    return 'Sem permissão na tabela trabalhos (RLS). Inicie sessão e confirme migrations/007_lockdown_anon.sql (role authenticated).';
   }
 
   return msg || 'Erro ao aceder aos trabalhos.';
@@ -91,7 +91,7 @@ export async function ensureJobsLoaded(force = false) {
 }
 
 async function loadJobsFromSupabase() {
-  const supabase = await getSupabaseClient();
+  const supabase = await getAuthenticatedSupabaseClient();
   const { data, error } = await supabase
     .from('trabalhos')
     .select('*')
@@ -135,7 +135,7 @@ export async function ensureTrabalhosSemana(technicianId, startDate, endDate) {
   const tech = getTechnician(technicianId);
   const techName = tech?.name || String(technicianId);
 
-  const supabase = await getSupabaseClient();
+  const supabase = await getAuthenticatedSupabaseClient();
   const { data, error } = await supabase
     .from('trabalhos')
     .select('*')
@@ -176,7 +176,7 @@ export function getTechnicianJobDatesInRange(technicianId, dates) {
 }
 
 export async function insertTrabalho(jobData) {
-  const supabase = await getSupabaseClient();
+  const supabase = await getAuthenticatedSupabaseClient();
   const row = mapJobToRow(jobData, { estado: 'scheduled', nota_rejeicao: null });
 
   const { data, error } = await supabase.from('trabalhos').insert(row).select();
@@ -201,7 +201,7 @@ export async function insertTrabalho(jobData) {
 }
 
 export async function deleteTrabalho(jobId) {
-  const supabase = await getSupabaseClient();
+  const supabase = await getAuthenticatedSupabaseClient();
   const { error } = await supabase.from('trabalhos').delete().eq('id', jobId);
 
   if (error) {
@@ -229,7 +229,7 @@ export async function patchTrabalho(jobId, patch = {}) {
   if (patch.fotoAntes !== undefined) update.foto_antes = patch.fotoAntes;
   if (patch.fotoDepois !== undefined) update.foto_depois = patch.fotoDepois;
 
-  const supabase = await getSupabaseClient();
+  const supabase = await getAuthenticatedSupabaseClient();
   const { error } = await supabase.from('trabalhos').update(update).eq('id', jobId);
 
   if (error) {

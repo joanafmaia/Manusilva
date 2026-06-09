@@ -2,7 +2,7 @@
  * Relatórios de intervenção — Supabase (tabela `relatorios`)
  */
 
-import { getSupabaseClient } from './supabase-client.js';
+import { getAuthenticatedSupabaseClient } from './supabase-client.js';
 import {
   ensureJobsLoaded,
   getJobsSnapshot,
@@ -90,7 +90,7 @@ export function formatRelatoriosError(err) {
     return 'Tabela "relatorios" não encontrada. Executa pwa/supabase-schema-operacoes.sql no Supabase.';
   }
   if (code === '42501' || /permission denied|row-level security/i.test(msg)) {
-    return 'Sem permissão na tabela relatorios (RLS). Executa pwa/supabase-schema-operacoes.sql.';
+    return 'Sem permissão na tabela relatorios (RLS). Inicie sessão e confirme migrations/007_lockdown_anon.sql (role authenticated).';
   }
 
   return msg || 'Erro ao aceder aos relatórios.';
@@ -112,7 +112,7 @@ export async function ensureReportsLoaded(force = false) {
 }
 
 async function loadReportsFromSupabase() {
-  const supabase = await getSupabaseClient();
+  const supabase = await getAuthenticatedSupabaseClient();
   const { data, error } = await supabase
     .from('relatorios')
     .select('*')
@@ -186,7 +186,7 @@ async function ensureTrabalhoForReport(report) {
 export async function upsertRelatorio(report) {
   const { report: linkedReport } = await ensureTrabalhoForReport(report);
 
-  const supabase = await getSupabaseClient();
+  const supabase = await getAuthenticatedSupabaseClient();
   const row = mapReportToRow(linkedReport);
   const existingId = findExistingReportId(linkedReport);
 
@@ -238,7 +238,7 @@ export async function updateRelatorio(reportId, patch) {
 
 export async function deleteRelatoriosByTrabalho(trabalhoId) {
   if (!trabalhoId) return;
-  const supabase = await getSupabaseClient();
+  const supabase = await getAuthenticatedSupabaseClient();
   const { error } = await supabase.from('relatorios').delete().eq('trabalho_id', trabalhoId);
   if (error) {
     console.error('[ManuSilva] Erro ao eliminar relatórios do trabalho:', error);

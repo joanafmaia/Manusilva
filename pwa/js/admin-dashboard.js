@@ -253,7 +253,11 @@ export async function initAdminDashboard() {
     await warmOperacoes();
   } catch (err) {
     console.error('[Admin] Supabase:', err);
-    showToast(formatClientsLoadError(err), 'error', 9000);
+    const msg =
+      err?.message ||
+      formatClientsLoadError(err) ||
+      'Não foi possível carregar dados do Supabase. Verifique a sessão e as políticas RLS.';
+    showToast(msg, 'error', 9000);
   }
 
   try {

@@ -2,7 +2,7 @@
  * Supabase Realtime — painel de administração (novos trabalhos / relatórios pendentes)
  */
 
-import { getSupabaseClient } from './supabase-client.js';
+import { getAuthenticatedSupabaseClient } from './supabase-client.js';
 import { mergeJobFromRealtime } from './trabalhos-db.js';
 import { mergeReportFromRealtime } from './relatorios-db.js';
 
@@ -53,7 +53,7 @@ function playNotificationBeep() {
 export async function initAdminRealtime(callbacks = {}) {
   if (channel) return channel;
 
-  const supabase = await getSupabaseClient();
+  const supabase = await getAuthenticatedSupabaseClient();
 
   channel = supabase
     .channel('admin-painel-realtime')

@@ -66,3 +66,19 @@ export async function ensureSupabaseAuthSession() {
 
   return data?.session || null;
 }
+
+/**
+ * Cliente Supabase com sessão authenticated ativa (obrigatório após lockdown RLS anon).
+ */
+export async function getAuthenticatedSupabaseClient() {
+  const session = await ensureSupabaseAuthSession();
+  const supabase = await getSupabaseClient();
+  if (!session?.access_token) {
+    const err = new Error(
+      'Sessão Supabase em falta. Termine sessão e volte a entrar para carregar trabalhos e relatórios.',
+    );
+    err.code = 'AUTH_SESSION_MISSING';
+    throw err;
+  }
+  return supabase;
+}

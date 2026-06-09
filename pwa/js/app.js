@@ -182,6 +182,8 @@ export function warmReports() {
 }
 
 export async function warmOperacoes() {
+  const { ensureSupabaseAuthSession } = await import('./supabase-client.js');
+  await ensureSupabaseAuthSession();
   await ensureJobsLoaded();
   await ensureReportsLoaded();
 }
