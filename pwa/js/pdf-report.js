@@ -1171,7 +1171,15 @@ async function drawReportFieldsSection(doc, y, service, values, pdfContext = nul
     }
 
     if (field.type === 'longtext' || field.type === 'textarea' || field.type === 'grid') {
-      if (isObservationsField(field)) continue;
+      if (isObservationsField(field)) {
+        if (pairedObservationsRendered.has(field.id)) continue;
+        const pairedWithMaterial = (service.fields || []).some(
+          (f) => isMaterialTableField(f) && findPairedObservationsField(service, f)?.id === field.id,
+        );
+        if (pairedWithMaterial) continue;
+        y = drawLongTextBlock(doc, y, field.label, value);
+        continue;
+      }
 
       if (field.prominent) {
         const sectionRendered = Boolean(field.section && field.section === currentSection);
@@ -1269,15 +1277,37 @@ function ensureBlockFitsSafeZone(doc, y, blockHeight) {
   return PDF_PAGE_CONTENT_START_Y;
 }
 
-function ensureBlockFitsPage(doc, y, blockHeight, minOrphan = 22) {
-  const remaining = pdfContentBottomY() - y;
-  if (blockHeight <= remaining) return y;
-  if (remaining < Math.min(blockHeight, minOrphan)) {
+function pdfMaxContentHeight() {
+  return pdfContentBottomY() - PDF_PAGE_CONTENT_START_Y;
+}
+
+/**
+ * Mantém o bloco inteiro na mesma página quando couber numa página.
+ * Se não couber no espaço restante, salta para página nova antes de desenhar.
+ */
+function ensureKeepTogetherBlock(doc, y, blockHeight) {
+  const pageBottom = pdfContentBottomY();
+  if (blockHeight <= 0) return y;
+  if (y + blockHeight <= pageBottom) return y;
+
+  const maxOnPage = pdfMaxContentHeight();
+  if (blockHeight <= maxOnPage) {
+    doc.addPage();
+    touchPdfContentPage(doc);
+    return PDF_PAGE_CONTENT_START_Y;
+  }
+
+  const remaining = pageBottom - y;
+  if (remaining < maxOnPage * 0.2) {
     doc.addPage();
     touchPdfContentPage(doc);
     return PDF_PAGE_CONTENT_START_Y;
   }
   return y;
+}
+
+function ensureBlockFitsPage(doc, y, blockHeight) {
+  return ensureKeepTogetherBlock(doc, y, blockHeight);
 }
 
 function matrixDisplayState(opt) {
@@ -1679,22 +1709,48 @@ function estimateDynamicTableBlockHeight(columns, rows) {
   return titleH + tableH;
 }
 
+const OBS_LINE_HEIGHT = 4.5;
+const OBS_EMPTY_LINE_HEIGHT = 2.5;
+const OBS_TITLE_BLOCK_HEIGHT = 9;
+const OBS_BOTTOM_PAD = 8;
+
+function prepareObservationsTypography(doc) {
+  pdfSetFont(doc, 'normal');
+  doc.setFontSize(8.5);
+}
+
+/** Parágrafos preservando \n — cada parágrafo é array de linhas já com wrap */
+function pdfObservationParagraphs(doc, text, maxWidth) {
+  const cleaned = cleanPdfText(text);
+  if (!cleaned) return [];
+  return cleaned.split('\n').map((para) => {
+    const trimmed = para.trim();
+    return trimmed ? pdfSplitText(doc, trimmed, maxWidth) : [''];
+  });
+}
+
+function measureObservationLinesHeight(lines) {
+  let height = 0;
+  lines.forEach((line) => {
+    height += line ? OBS_LINE_HEIGHT : OBS_EMPTY_LINE_HEIGHT;
+  });
+  return height;
+}
+
+function measureObservationsBlockHeight(doc, value, includeTitle = true) {
+  prepareObservationsTypography(doc);
+  const paragraphs = pdfObservationParagraphs(doc, value, CONTENT_W);
+  const bodyH = paragraphs.reduce((sum, lines) => sum + measureObservationLinesHeight(lines), 0);
+  const titleH = includeTitle ? OBS_TITLE_BLOCK_HEIGHT : 0;
+  return titleH + bodyH + OBS_BOTTOM_PAD;
+}
+
 function estimateLongTextBlockHeight(doc, value) {
-  const lines = pdfParagraphLines(doc, value, CONTENT_W);
-  return 18 + Math.max(1, lines.length) * 4.5 + 8;
+  return measureObservationsBlockHeight(doc, value, true);
 }
 
 function pdfParagraphLines(doc, text, maxWidth) {
-  const cleaned = cleanPdfText(text);
-  if (!cleaned) return [];
-  const paragraphs = cleaned.split('\n');
-  const lines = [];
-  paragraphs.forEach((para, index) => {
-    if (index > 0) lines.push('');
-    const wrapped = para.trim() ? pdfSplitText(doc, para, maxWidth) : [''];
-    lines.push(...wrapped);
-  });
-  return lines;
+  return pdfObservationParagraphs(doc, text, maxWidth).flat();
 }
 
 async function drawMaterialAndObservationsBlock(
@@ -1729,7 +1785,9 @@ async function drawMaterialAndObservationsBlock(
   }
 
   if (!obsEmpty) {
-    y = drawLongTextBlock(doc, y, obsField.label, obsValue, { skipLeadingPageCheck: true });
+    const obsBlockH = measureObservationsBlockHeight(doc, obsValue, true);
+    y = ensureKeepTogetherBlock(doc, y, Math.min(obsBlockH, pdfMaxContentHeight()));
+    y = drawLongTextBlock(doc, y, obsField.label, obsValue, { keepTogetherApplied: true });
   }
 
   return y;
@@ -1847,7 +1905,14 @@ function drawDiagnosticAnalysisBlock(doc, y, label, section, value) {
 }
 
 function drawLongTextBlock(doc, y, label, value, options = {}) {
-  if (!options.skipLeadingPageCheck) y = ensureSpace(doc, y, 18);
+  prepareObservationsTypography(doc);
+  const paragraphs = pdfObservationParagraphs(doc, value, CONTENT_W);
+  const blockHeight = measureObservationsBlockHeight(doc, value, true);
+
+  if (!options.keepTogetherApplied) {
+    y = ensureKeepTogetherBlock(doc, y, Math.min(blockHeight, pdfMaxContentHeight()));
+  }
+
   pdfSetFont(doc, 'bold');
   doc.setFontSize(8.5);
   doc.setTextColor(...CORPORATE_BLUE);
@@ -1855,18 +1920,26 @@ function drawLongTextBlock(doc, y, label, value, options = {}) {
   y += 5;
   y = drawDivider(doc, y - 3);
 
-  pdfSetFont(doc, 'normal');
-  doc.setFontSize(8.5);
+  prepareObservationsTypography(doc);
   doc.setTextColor(...TEXT_DARK);
-  const lines = pdfParagraphLines(doc, value, CONTENT_W);
-  lines.forEach((line) => {
-    y = ensureSpace(doc, y, 5);
-    if (line) doc.text(line, MARGIN, y);
-    y += line ? 4.5 : 2.5;
+
+  paragraphs.forEach((lines) => {
+    const paragraphHeight = measureObservationLinesHeight(lines);
+    y = ensureKeepTogetherBlock(doc, y, Math.min(paragraphHeight, pdfMaxContentHeight()));
+
+    lines.forEach((line) => {
+      if (y + OBS_LINE_HEIGHT > pdfContentBottomY()) {
+        doc.addPage();
+        touchPdfContentPage(doc);
+        y = PDF_PAGE_CONTENT_START_Y;
+      }
+      if (line) doc.text(line, MARGIN, y);
+      y += line ? OBS_LINE_HEIGHT : OBS_EMPTY_LINE_HEIGHT;
+    });
   });
 
   touchPdfContentPage(doc);
-  return y + 8;
+  return y + OBS_BOTTOM_PAD;
 }
 
 const POLAROID_MM = 60;
