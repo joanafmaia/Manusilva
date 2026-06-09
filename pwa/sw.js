@@ -2,22 +2,7 @@
  * Manusilva PWA — Service Worker
  *
  * APIs externas de mapas (deslocação Km): bypass total — rede direta, sem cache offline.
- * Domínios: nominatim.openstreetmap.org · router.project-osrm.org
  */
-const MAP_NETWORK_ONLY_HOSTS = new Set([
-  'nominatim.openstreetmap.org',
-  'router.project-osrm.org',
-]);
-
-function isMapNetworkOnlyRequest(request) {
-  try {
-    const url = new URL(request.url);
-    return MAP_NETWORK_ONLY_HOSTS.has(url.hostname);
-  } catch {
-    return false;
-  }
-}
-
 self.addEventListener('install', (event) => {
   event.waitUntil(self.skipWaiting());
 });
@@ -29,8 +14,10 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  if (isMapNetworkOnlyRequest(event.request)) {
-    // Network-only: não chamar respondWith — o browser faz o pedido diretamente à rede.
+  if (
+    event.request.url.includes('nominatim.openstreetmap.org') ||
+    event.request.url.includes('router.project-osrm.org')
+  ) {
     return;
   }
 

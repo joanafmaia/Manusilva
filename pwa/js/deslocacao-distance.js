@@ -21,13 +21,33 @@ export function serviceHasDeslocacaoField(service) {
   return reportIncludesDeslocacao(service);
 }
 
-/** Morada pesquisável — evita vírgulas duplas e gralhas vazias */
+/** Rua principal — texto antes da primeira vírgula (ignora nº, andar, lote, etc.) */
+function extractMainStreet(morada) {
+  const raw = String(morada || '').trim();
+  if (!raw) return '';
+  return raw.split(',')[0].trim();
+}
+
+/** Primeiros 4 dígitos do CP português (ex.: 4785-228 → 4785) */
+function extractPostalDistrict4(codigoPostal, moradaFallback = '') {
+  for (const src of [codigoPostal, moradaFallback]) {
+    const match = String(src || '').match(/\b(\d{4})\b/);
+    if (match) return match[1];
+  }
+  return '';
+}
+
+/**
+ * Morada limpa para Nominatim — só rua + distrito postal (4 dígitos) + Portugal.
+ * Ex.: "Rua Barca da Trofa, 31, 2Esquerdo, 4785-228, Trofa" → "Rua Barca da Trofa, 4785, Portugal"
+ */
 export function buildClientMapSearchQuery(morada, codigoPostal) {
-  const street = String(morada || '').trim();
-  const cp = String(codigoPostal || '').trim();
+  const street = extractMainStreet(morada);
   if (!street) return '';
-  const parts = [street, cp, 'Portugal'].filter(Boolean);
-  return parts.join(', ').replace(/,\s*,+/g, ', ').replace(/,\s*$/g, '').trim();
+
+  const cp4 = extractPostalDistrict4(codigoPostal, morada);
+  const parts = cp4 ? [street, cp4, 'Portugal'] : [street, 'Portugal'];
+  return parts.join(', ');
 }
 
 async function waitNominatimSlot() {
@@ -94,7 +114,8 @@ export async function geocodeAddressToCoords(pesquisaMorada) {
 
 async function getHqPoint() {
   if (cachedHqPoint) return cachedHqPoint;
-  cachedHqPoint = await geocodeAddressToCoords(HQ_ADDRESS);
+  const hqQuery = buildClientMapSearchQuery(HQ_ADDRESS, '4760-725');
+  cachedHqPoint = await geocodeAddressToCoords(hqQuery);
   return cachedHqPoint;
 }
 
