@@ -3864,11 +3864,22 @@ body.dark-mode .rh-section {
   flex-shrink: 0;
 }
 
-.admin-header h1 {
-  font-size: 1.25rem;
+.admin-header-text {
+  min-width: 0;
+  flex: 1;
+}
+
+.admin-header-lead {
+  margin: 0.35rem 0 0;
+  max-width: 42rem;
+}
+
+.admin-header h1,
+.admin-header .ms-h1 {
+  font-size: 1.5rem;
   margin: 0;
   font-weight: 700;
-  color: var(--ms-text-800, var(--text-primary));
+  color: #1e293b;
 }
 
 .admin-header-actions {
@@ -4760,7 +4771,8 @@ body.dark-mode .rh-card__btn--pdf {
   font-size: 1.125rem;
   font-weight: 600;
   margin: 0;
-  color: var(--ms-text-700, var(--text-primary));
+  color: #334155;
+  line-height: 1.35;
 }
 
 .panel-controls { display: flex; gap: 0.5rem; align-items: center; }
@@ -5463,11 +5475,52 @@ body.dark-mode .rh-card__btn--pdf {
   align-items: stretch;
 }
 
+/* ─── Tipografia Tailwind slate (design system) ─── */
+.ms-h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.3;
+  color: #1e293b;
+}
+
+.ms-h2 {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: #334155;
+}
+
+.ms-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.45;
+  color: #64748b;
+}
+
+body.dark-mode .ms-h1 {
+  color: #f8fafc;
+}
+
+body.dark-mode .ms-h2 {
+  color: #e2e8f0;
+}
+
+body.dark-mode .ms-label {
+  color: #94a3b8;
+}
+
 .dashboard-section-title {
   margin: 0 0 0.85rem;
   font-size: 1.125rem;
   font-weight: 600;
-  color: var(--ms-text-700, var(--text-primary));
+  color: #334155;
+  line-height: 1.35;
+}
+
+body.dark-mode .dashboard-section-title {
+  color: #e2e8f0;
 }
 
 .dashboard-metrics {
@@ -5697,10 +5750,10 @@ body.dark-mode .rh-card__btn--pdf {
   display: flex;
   flex-direction: column;
   gap: 0.65rem;
-  background: var(--ms-card-bg, #fff);
-  border: 1px solid var(--ms-border-md, #e2e8f0);
-  border-radius: var(--ms-radius-lg, 0.5rem);
-  box-shadow: none;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
 .clients-list-card-name {
@@ -5776,9 +5829,9 @@ body.dark-mode .rh-card__btn--pdf {
 
 .clients-list-table-scroll {
   overflow-x: auto;
-  border: 1px solid var(--ms-border-md, #e2e8f0);
-  border-radius: var(--ms-radius-lg, 0.5rem);
-  background: var(--ms-card-bg, #fff);
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  background: #ffffff;
 }
 
 .clients-list-table-row:hover {
@@ -5839,12 +5892,15 @@ body.dark-mode .rh-card__btn--pdf {
   max-height: 92vh;
   display: flex;
   flex-direction: column;
-  background: var(--ms-card-bg, #ffffff);
+  background: #ffffff;
   border-radius: var(--ms-radius-xl, 0.75rem) var(--ms-radius-xl, 0.75rem) 0 0;
-  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.18);
+  box-shadow:
+    0 20px 25px -5px rgba(15, 23, 42, 0.12),
+    0 8px 10px -6px rgba(15, 23, 42, 0.08);
   padding: 1.5rem;
   overflow: hidden;
   animation: client-ficha-slide-up 0.22s ease-out;
+  border-left: 1px solid #e2e8f0;
 }
 
 @keyframes client-ficha-slide-up {
@@ -5867,17 +5923,19 @@ body.dark-mode .rh-card__btn--pdf {
   flex-shrink: 0;
 }
 
+.client-ficha-eyebrow {
+  margin: 0 0 0.2rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 0.6875rem;
+}
+
 .client-ficha-title {
   margin: 0;
-  font-size: 1.125rem;
-  font-weight: 700;
-  color: var(--ms-text-700, #334155);
-  line-height: 1.3;
 }
 
 .client-ficha-subtitle {
-  margin: 0.25rem 0 0;
-  font-size: 0.8125rem;
+  margin: 0.35rem 0 0;
 }
 
 .client-ficha-close {
@@ -5898,22 +5956,25 @@ body.dark-mode .rh-card__btn--pdf {
 
 .client-ficha-block {
   padding: 0.85rem 1rem;
-  border: 1px solid var(--ms-border-md, #e2e8f0);
-  border-radius: var(--ms-radius-lg, 0.5rem);
-  background: var(--ms-page-bg, #f8fafc);
+  border: 1px solid #f1f5f9;
+  border-radius: 0.75rem;
+  background: #ffffff;
+}
+
+.client-ficha-block--machines {
+  background: #f8fafc;
+  border-color: #e2e8f0;
 }
 
 .client-ficha-label {
   margin: 0 0 0.35rem;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  color: var(--ms-text-500, #64748b);
 }
 
 .client-ficha-value {
   margin: 0;
   font-size: 0.9375rem;
-  color: var(--ms-text-700, #334155);
+  font-weight: 500;
+  color: #334155;
   line-height: 1.45;
   word-break: break-word;
 }
@@ -6071,8 +6132,10 @@ body.dark-mode .rh-card__btn--pdf {
     max-width: 26rem;
     max-height: 100vh;
     height: 100%;
-    border-radius: var(--ms-radius-xl, 0.75rem) 0 0 var(--ms-radius-xl, 0.75rem);
-    box-shadow: -8px 0 32px rgba(15, 23, 42, 0.12);
+    border-radius: 0;
+    box-shadow:
+      -12px 0 32px rgba(15, 23, 42, 0.14),
+      0 20px 25px -5px rgba(15, 23, 42, 0.1);
     animation: client-ficha-slide-in 0.24s ease-out;
   }
 
@@ -8339,4 +8402,79 @@ body.dark-mode .clients-list-table-row:hover {
 body.dark-mode .glass-card-inner {
   background: var(--ms-card-bg);
   border-color: var(--ms-border-md);
+}
+
+/* ═══ Painel RH / Administração — guia Tailwind slate ═══ */
+
+body.light-mode.admin-rh-page .admin-main,
+body.light-mode .admin-rh-page .admin-page {
+  background-color: #f8fafc;
+}
+
+body.light-mode .admin-rh-page .bg-mesh {
+  background: #f8fafc;
+}
+
+body.light-mode .admin-rh-page .admin-panel.glass-card,
+body.light-mode .admin-rh-page .admin-review-panel.glass-card,
+body.light-mode .admin-rh-page .rh-section,
+body.light-mode .admin-rh-page .dashboard-metric-card,
+body.light-mode .admin-rh-page .employee-card,
+body.light-mode .admin-rh-page .clients-list-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+}
+
+body.light-mode .admin-rh-page .rh-section {
+  border-color: #f1f5f9;
+}
+
+body.light-mode .admin-rh-page .admin-sidebar {
+  background: #ffffff;
+  border-right-color: #e2e8f0;
+}
+
+body.light-mode .admin-rh-page .rh-data-table th {
+  background: #f8fafc;
+  color: #64748b;
+  border-bottom-color: #e2e8f0;
+}
+
+body.light-mode .admin-rh-page .rh-data-table td {
+  border-bottom-color: #f1f5f9;
+  color: #334155;
+}
+
+body.light-mode .admin-rh-page .form-input,
+body.light-mode .admin-rh-page .form-select,
+body.light-mode .admin-rh-page .client-combobox-input {
+  border-radius: 0.5rem;
+  border-color: #e2e8f0;
+  background: #ffffff;
+}
+
+body.light-mode .admin-rh-page .btn-primary,
+body.light-mode .admin-rh-page .btn-secondary,
+body.light-mode .admin-rh-page .btn-ghost {
+  border-radius: 0.5rem;
+}
+
+body.dark-mode .client-ficha-panel {
+  background: var(--ms-card-bg, #1e293b);
+  border-left-color: var(--ms-border-md, #475569);
+}
+
+body.dark-mode .client-ficha-block {
+  background: rgba(15, 23, 42, 0.35);
+  border-color: var(--ms-border-md, #475569);
+}
+
+body.dark-mode .client-ficha-block--machines {
+  background: rgba(30, 41, 59, 0.5);
+}
+
+body.dark-mode .client-ficha-value {
+  color: #e2e8f0;
 }

@@ -11,6 +11,7 @@ const FIELD_LABELS = {
   telemovel: 'Telemóvel',
   codigo_postal: 'Código postal',
   localidade: 'Localidade',
+  condicao_pagamento: 'Condição de pagamento',
 };
 
 function resolveActor() {

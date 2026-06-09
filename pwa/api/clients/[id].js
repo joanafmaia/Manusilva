@@ -9,7 +9,14 @@ const SUPABASE_KEY =
   process.env.SUPABASE_KEY ||
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpoZmJlenJldm9zbWJtY2J5c2t3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzOTQxMTMsImV4cCI6MjA5NTk3MDExM30.eUXiUiBVxoULll4LICBLLmEtBWZ0zqBHuW_W7-nB4Wc';
 
-const ALLOWED_FIELDS = ['email', 'morada', 'telemovel', 'codigo_postal', 'localidade'];
+const ALLOWED_FIELDS = [
+  'email',
+  'morada',
+  'telemovel',
+  'codigo_postal',
+  'localidade',
+  'condicao_pagamento',
+];
 
 function getBearerToken(req) {
   const auth = String(req.headers.authorization || '');
@@ -26,6 +33,9 @@ function normalizePatch(body = {}) {
     patch.codigo_postal = String(body.codigo_postal ?? '').trim() || null;
   }
   if (body.localidade !== undefined) patch.localidade = String(body.localidade ?? '').trim() || null;
+  if (body.condicao_pagamento !== undefined) {
+    patch.condicao_pagamento = String(body.condicao_pagamento ?? '').trim() || null;
+  }
   return patch;
 }
 

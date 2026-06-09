@@ -3,6 +3,7 @@
 -- Este ficheiro aplica telemovel, auditoria e RLS endurecido (escrita só RH authenticated).
 
 ALTER TABLE public.clientes ADD COLUMN IF NOT EXISTS telemovel text;
+ALTER TABLE public.clientes ADD COLUMN IF NOT EXISTS condicao_pagamento text;
 
 CREATE TABLE IF NOT EXISTS public.cliente_alteracoes (
   id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,

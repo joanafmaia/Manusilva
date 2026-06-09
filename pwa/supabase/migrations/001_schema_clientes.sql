@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS public.clientes (
   codigo_postal text,
   localidade text,
   telemovel text,
+  condicao_pagamento text,
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now()
 );

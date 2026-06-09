@@ -35,6 +35,8 @@ export function normalizeClientRecord(raw, index = 0) {
     Localidade: raw.localidade ?? raw.Localidade ?? '',
     'País/Região': raw['País/Região'] ?? raw.pais ?? 'Portugal',
     Telemovel: raw.telemovel ?? raw.Telemovel ?? raw.phone ?? '',
+    condicao_pagamento:
+      raw.condicao_pagamento ?? raw['Condição de pagamento'] ?? raw.condicaoPagamento ?? '',
     forklifts: raw.forklifts || [],
   };
 }

@@ -1,5 +1,5 @@
 /**
- * Ficha do Cliente — painel lateral / modal de consulta rápida (RH/Admin).
+ * Ficha do Cliente — painel lateral dinâmico (RH/Admin).
  */
 
 import {
@@ -10,6 +10,15 @@ import {
 import { getClient, escapeHtml, showToast } from '../app.js';
 import { putClient } from '../clients-api.js';
 import { mapClientToLegacy, DEMO_CLIENT_FORKLIFTS } from '../mock_data.js';
+
+export const PAYMENT_CONDITION_OPTIONS = [
+  'Pronto Pagamento',
+  'Semanal',
+  'Mensal',
+  '30 dias',
+  '60 dias',
+  '90 dias',
+];
 
 const COPY_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>`;
 
@@ -46,6 +55,11 @@ function enrichLegacyClient(clientId, catalogRecord) {
     catalogRecord?.telemovel ||
     '';
 
+  const condicaoRaw =
+    legacy?.condicao_pagamento ||
+    catalogRecord?.condicao_pagamento ||
+    '';
+
   return {
     id: clientId,
     nome: legacy?.name || legacy?.Nome || catalogRecord?.Nome || '—',
@@ -58,6 +72,8 @@ function enrichLegacyClient(clientId, catalogRecord) {
     localidadeRaw: localidade || '',
     emailRaw: email,
     phoneRaw: phone,
+    condicaoPagamento: condicaoRaw || '—',
+    condicaoPagamentoRaw: condicaoRaw || '',
     forklifts: legacy?.forklifts || [],
   };
 }
@@ -101,7 +117,7 @@ function renderCopyButton(value, label) {
 
 function renderForkliftsList(forklifts) {
   if (!forklifts?.length) {
-    return '<p class="client-ficha-muted">Sem máquinas registadas para este cliente.</p>';
+    return '<p class="client-ficha-muted ms-label">Sem máquinas registadas para este cliente.</p>';
   }
   return `
     <ul class="client-ficha-machines" role="list">
@@ -110,7 +126,7 @@ function renderForkliftsList(forklifts) {
           (f) => `
         <li class="client-ficha-machine">
           <span class="client-ficha-machine-serial">${escapeHtml(f.serial || '—')}</span>
-          <span class="client-ficha-machine-meta text-muted">${escapeHtml([f.brand, f.model].filter(Boolean).join(' · ') || 'Empilhador')}</span>
+          <span class="client-ficha-machine-meta ms-label">${escapeHtml([f.brand, f.model].filter(Boolean).join(' · ') || 'Empilhador')}</span>
         </li>
       `,
         )
@@ -122,9 +138,26 @@ function renderForkliftsList(forklifts) {
 function renderEditableField(label, inputId, value, inputType = 'text') {
   return `
     <section class="client-ficha-block">
-      <label class="client-ficha-label" for="${escapeHtml(inputId)}">${escapeHtml(label)}</label>
+      <label class="client-ficha-label ms-label" for="${escapeHtml(inputId)}">${escapeHtml(label)}</label>
       <input type="${escapeHtml(inputType)}" class="form-input client-profile-edit-input" id="${escapeHtml(inputId)}"
         value="${escapeAttr(value)}" autocomplete="off">
+    </section>
+  `;
+}
+
+function renderPaymentSelect(value) {
+  const options = PAYMENT_CONDITION_OPTIONS.map(
+    (opt) =>
+      `<option value="${escapeAttr(opt)}"${opt === value ? ' selected' : ''}>${escapeHtml(opt)}</option>`,
+  ).join('');
+
+  return `
+    <section class="client-ficha-block">
+      <label class="client-ficha-label ms-label" for="client-ficha-pagamento">Condição de pagamento</label>
+      <select class="form-select client-profile-edit-input" id="client-ficha-pagamento">
+        <option value="">— Selecionar —</option>
+        ${options}
+      </select>
     </section>
   `;
 }
@@ -139,48 +172,56 @@ function renderAddressEditBlock(profile) {
   `;
 }
 
+function renderViewField(label, valueHtml, { copyValue = '', copyLabel = '' } = {}) {
+  return `
+    <section class="client-ficha-block">
+      <h3 class="client-ficha-label ms-label">${escapeHtml(label)}</h3>
+      <div class="client-ficha-value-row">
+        <p class="client-ficha-value">${valueHtml}</p>
+        ${copyValue && copyValue !== '—' ? renderCopyButton(copyValue, copyLabel || label) : ''}
+      </div>
+    </section>
+  `;
+}
+
 export function renderClientProfilePanel(profile, { editing = false } = {}) {
   const moradaBlock = editing
     ? renderAddressEditBlock(profile)
-    : `
-        <section class="client-ficha-block">
-          <h3 class="client-ficha-label">Morada completa</h3>
-          <div class="client-ficha-value-row">
-            <p class="client-ficha-value">${escapeHtml(profile.morada)}</p>
-            ${renderCopyButton(profile.morada !== '—' ? profile.morada : '', 'morada')}
-          </div>
-        </section>
-      `;
+    : renderViewField(
+        'Morada completa',
+        escapeHtml(profile.morada),
+        { copyValue: profile.morada, copyLabel: 'morada' },
+      );
 
   const emailBlock = editing
-    ? renderEditableField('E-mail', 'client-ficha-email', profile.emailRaw || '', 'email')
-    : `
-        <section class="client-ficha-block">
-          <h3 class="client-ficha-label">E-mail</h3>
-          <p class="client-ficha-value">
-            ${profile.email !== '—' ? `<a href="mailto:${escapeHtml(profile.email)}" class="client-ficha-link">${escapeHtml(profile.email)}</a>` : '—'}
-          </p>
-        </section>
-      `;
+    ? renderEditableField('E-mail de contacto', 'client-ficha-email', profile.emailRaw || '', 'email')
+    : renderViewField(
+        'E-mail de contacto',
+        profile.email !== '—'
+          ? `<a href="mailto:${escapeHtml(profile.email)}" class="client-ficha-link">${escapeHtml(profile.email)}</a>`
+          : '—',
+      );
 
   const phoneBlock = editing
     ? renderEditableField('Contacto telefónico', 'client-ficha-phone', profile.phoneRaw || '', 'tel')
-    : `
-        <section class="client-ficha-block">
-          <h3 class="client-ficha-label">Contacto telefónico</h3>
-          <p class="client-ficha-value">
-            ${profile.phone !== '—' ? `<a href="tel:${escapeHtml(String(profile.phone).replace(/[^\d+]/g, ''))}" class="client-ficha-link">${escapeHtml(profile.phone)}</a>` : '—'}
-          </p>
-        </section>
-      `;
+    : renderViewField(
+        'Contacto telefónico',
+        profile.phone !== '—'
+          ? `<a href="tel:${escapeHtml(String(profile.phone).replace(/[^\d+]/g, ''))}" class="client-ficha-link">${escapeHtml(profile.phone)}</a>`
+          : '—',
+      );
+
+  const paymentBlock = editing
+    ? renderPaymentSelect(profile.condicaoPagamentoRaw)
+    : renderViewField('Condição de pagamento', escapeHtml(profile.condicaoPagamento));
 
   const footer = editing
     ? `
         <button type="button" class="btn-ghost client-ficha-cancel-btn" data-client-ficha-cancel>Cancelar</button>
-        <button type="button" class="btn-primary client-ficha-save-btn" data-client-ficha-save>Guardar Alterações</button>
+        <button type="button" class="btn-primary client-ficha-save-btn" data-client-ficha-save>Guardar alterações</button>
       `
     : `
-        <button type="button" class="btn-ghost client-ficha-edit-btn" data-client-ficha-edit>Editar Dados</button>
+        <button type="button" class="btn-primary client-ficha-edit-btn" data-client-ficha-edit>Editar Dados</button>
         <button type="button" class="btn-secondary client-ficha-history-btn" data-client-ficha-history>
           Ver histórico de relatórios
         </button>
@@ -190,27 +231,31 @@ export function renderClientProfilePanel(profile, { editing = false } = {}) {
     <div class="client-ficha-panel" role="dialog" aria-labelledby="client-ficha-title" aria-modal="true" data-editing="${editing ? 'true' : 'false'}">
       <header class="client-ficha-header">
         <div>
-          <h2 id="client-ficha-title" class="client-ficha-title">${escapeHtml(profile.nome)}</h2>
-          <p class="client-ficha-subtitle text-muted">${editing ? 'Edição de dados cadastrais' : 'Ficha cadastral'}</p>
+          <p class="client-ficha-eyebrow ms-label">Ficha cadastral</p>
+          <h2 id="client-ficha-title" class="client-ficha-title ms-h2">${escapeHtml(profile.nome)}</h2>
+          <p class="client-ficha-subtitle ms-label">${editing ? 'Edição de dados cadastrais' : 'Consulta rápida — dados da empresa'}</p>
         </div>
         <button type="button" class="btn-ghost client-ficha-close" data-client-ficha-close aria-label="Fechar ficha">&times;</button>
       </header>
 
       <div class="client-ficha-body">
+        ${renderViewField('Nome da empresa', escapeHtml(profile.nome))}
+
         <section class="client-ficha-block">
-          <h3 class="client-ficha-label">NIF</h3>
+          <h3 class="client-ficha-label ms-label">NIF</h3>
           <div class="client-ficha-value-row">
             <p class="client-ficha-value">${escapeHtml(profile.nif)}</p>
-            ${editing ? '' : renderCopyButton(profile.nif, 'NIF')}
+            ${editing ? '' : renderCopyButton(profile.nif !== '—' ? profile.nif : '', 'NIF')}
           </div>
         </section>
 
         ${moradaBlock}
         ${emailBlock}
         ${phoneBlock}
+        ${paymentBlock}
 
-        <section class="client-ficha-block">
-          <h3 class="client-ficha-label">Máquinas associadas</h3>
+        <section class="client-ficha-block client-ficha-block--machines">
+          <h3 class="client-ficha-label ms-label">Máquinas associadas</h3>
           ${renderForkliftsList(profile.forklifts)}
         </section>
       </div>
@@ -245,6 +290,7 @@ function readEditForm(shell) {
     localidade: shell.querySelector('#client-ficha-localidade')?.value?.trim() ?? '',
     email: shell.querySelector('#client-ficha-email')?.value?.trim() ?? '',
     telemovel: shell.querySelector('#client-ficha-phone')?.value?.trim() ?? '',
+    condicao_pagamento: shell.querySelector('#client-ficha-pagamento')?.value?.trim() ?? '',
   };
 }
 
@@ -268,6 +314,7 @@ function bindClientProfilePanel(shell, profile, options = {}) {
     localidade: p.localidadeRaw || '',
     email: p.emailRaw || '',
     telemovel: p.phoneRaw || '',
+    condicao_pagamento: p.condicaoPagamentoRaw || '',
   });
 
   const repaint = async (editing) => {
@@ -335,7 +382,7 @@ function bindClientProfilePanel(shell, profile, options = {}) {
       showToast(err?.message || 'Não foi possível guardar as alterações.', 'error');
     } finally {
       btn.disabled = false;
-      btn.textContent = 'Guardar Alterações';
+      btn.textContent = 'Guardar alterações';
     }
   });
 }

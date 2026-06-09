@@ -11,7 +11,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/app.css?v=design-system">
 </head>
-<body>
+<body class="admin-rh-page">
   <script src="js/theme-boot.js"></script>
   <div class="bg-mesh"></div>
 
@@ -42,7 +42,10 @@
     <main class="admin-main">
       <div class="admin-page">
         <header class="admin-header">
-          <h1>Painel de Administração</h1>
+          <div class="admin-header-text">
+            <h1 class="ms-h1">Painel de Administração</h1>
+            <p class="admin-header-lead ms-label">Calendário da equipa, revisão de relatórios, fichas de clientes e gestão de técnicos.</p>
+          </div>
           <div class="admin-header-actions">
             <button type="button" id="theme-toggle" class="theme-toggle-btn theme-toggle-btn--inline btn-ghost btn-sm" aria-label="Alternar tema" title="Alternar tema">
               <span id="theme-icon" aria-hidden="true"></span>

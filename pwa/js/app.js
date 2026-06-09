@@ -484,7 +484,7 @@ export async function addClient(payload) {
 /**
  * Atualiza dados cadastrais de um cliente no Supabase.
  * @param {string|number} clientId
- * @param {{ email?: string, morada?: string, telemovel?: string, codigo_postal?: string, localidade?: string }} patch
+ * @param {{ email?: string, morada?: string, telemovel?: string, codigo_postal?: string, localidade?: string, condicao_pagamento?: string }} patch
  * @param {{ origem?: string, silent?: boolean }} [options]
  */
 export async function updateClient(clientId, patch = {}, options = {}) {
@@ -510,6 +510,9 @@ export async function updateClient(clientId, patch = {}, options = {}) {
   if (patch.localidade !== undefined) {
     row.localidade = String(patch.localidade ?? '').trim() || null;
   }
+  if (patch.condicao_pagamento !== undefined) {
+    row.condicao_pagamento = String(patch.condicao_pagamento ?? '').trim() || null;
+  }
 
   if (!Object.keys(row).length) {
     if (!options.silent) showToast('Nenhum dado para atualizar.', 'warning');
@@ -525,6 +528,7 @@ export async function updateClient(clientId, patch = {}, options = {}) {
       telemovel: existing?.Telemovel || '',
       codigo_postal: existing?.['Código postal'] || '',
       localidade: existing?.Localidade || '',
+      condicao_pagamento: existing?.condicao_pagamento || '',
     };
 
     const supabase = await getSupabaseClient();
@@ -562,6 +566,7 @@ export async function updateClient(clientId, patch = {}, options = {}) {
         telemovel: record.Telemovel || '',
         codigo_postal: record['Código postal'] || '',
         localidade: record.Localidade || '',
+        condicao_pagamento: record.condicao_pagamento || '',
       },
       { origem: options.origem || 'rh_ficha' },
     );

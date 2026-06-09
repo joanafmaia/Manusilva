@@ -40,7 +40,7 @@ function buildApiHeaders(session) {
 
 /**
  * @param {string|number} clientId
- * @param {{ email?: string, morada?: string, telemovel?: string, codigo_postal?: string, localidade?: string }} patch
+ * @param {{ email?: string, morada?: string, telemovel?: string, codigo_postal?: string, localidade?: string, condicao_pagamento?: string }} patch
  */
 export async function putClient(clientId, patch) {
   const session = requireRhSession();

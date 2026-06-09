@@ -20,8 +20,8 @@ export function renderClientsListSection() {
   return `
     <section class="clients-list-section rh-section" data-clients-list-section aria-labelledby="clients-list-title">
       <h3 id="clients-list-title" class="dashboard-section-title">Lista de clientes</h3>
-      <p class="text-muted clients-list-hint">
-        Clique no nome para consultar a ficha cadastral (NIF, morada, contacto). Use «Histórico» para ver relatórios.
+      <p class="clients-list-hint ms-label">
+        Clique no nome para abrir a ficha cadastral (NIF, morada, e-mail e condição de pagamento). Use «Histórico» para relatórios.
       </p>
       <div class="clients-list-toolbar">
         <input type="search"

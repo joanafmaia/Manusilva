@@ -627,6 +627,7 @@ export function mapClientToLegacy(record) {
     codigoPostal: cp,
     localidade: loc,
     pais: record['País/Região'] ?? record.pais ?? 'Portugal',
+    condicao_pagamento: record.condicao_pagamento ?? record.condicaoPagamento ?? '',
     forklifts: record.forklifts || [],
   };
 }
