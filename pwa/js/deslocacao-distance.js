@@ -1,113 +1,67 @@
 /**
  * Deslocação (Km) — cálculo automático ida e volta (sede → cliente).
- * Geocoding: Nominatim (OSM) · Rota: OSRM público.
+ * Geocoding: Mapbox · Rota: OSRM público.
  */
 
 import { ensureClientAddressForDeslocacao } from './clients-catalog.js';
 import { reportIncludesDeslocacao } from './deslocacao-field.js';
+import { MAPBOX_ACCESS_TOKEN } from './mapbox-config.js';
 
 const HQ_ADDRESS =
   'Rua São Mamede, Lote Nº1-Fração D, 4760-725 Ribeirão VNF, Portugal';
-const HQ_LOCALIDADE = 'Ribeirão VNF';
 
-const NOMINATIM_SEARCH_URL = 'https://nominatim.openstreetmap.org/search';
+const MAPBOX_GEOCODING_URL = 'https://api.mapbox.com/geocoding/v5/mapbox.places';
 const OSRM_ROUTE_URL = 'https://router.project-osrm.org/route/v1/driving';
 const REQUEST_TIMEOUT_MS = 14_000;
-const NOMINATIM_DELAY_MS = 1_100;
 
-let lastNominatimAt = 0;
 let cachedHqPoint = null;
 
 export function serviceHasDeslocacaoField(service) {
   return reportIncludesDeslocacao(service);
 }
 
-/** Rua principal — texto antes da primeira vírgula (ignora nº, andar, lote, etc.) */
-function extractMainStreet(morada) {
-  const raw = String(morada || '').trim();
-  if (!raw) return '';
-  return raw.split(',')[0].trim();
-}
-
-/** Localidade de reserva — último segmento da morada que não seja CP nem número */
-function extractLocalidadeFromMorada(morada) {
-  const parts = String(morada || '')
-    .split(',')
-    .map((p) => p.trim())
-    .filter(Boolean);
-
-  for (let i = parts.length - 1; i >= 1; i--) {
-    const part = parts[i];
-    if (/^\d{4}(-\d{3})?$/.test(part)) continue;
-    if (/^\d+[ºª]?\s*(esquerdo|direito|dto|esq)?$/i.test(part)) continue;
-    if (/^\d+$/.test(part)) continue;
-    if (part.length > 2) return part;
-  }
-  return '';
-}
-
 /**
- * Morada limpa para Nominatim — rua + localidade por extenso + Portugal.
+ * Morada completa do Supabase — Mapbox resolve números, andares e CP.
+ * Enriquece com localidade/CP/Portugal só se faltarem no texto original.
  */
-export function buildClientMapSearchQuery(morada, localidade = '') {
-  const candidates = buildNominatimSearchCandidates(morada, localidade, '');
-  return candidates[0] || '';
+export function buildMapboxSearchQuery(morada, localidade = '', codigoPostal = '') {
+  const base = String(morada || '').trim();
+  if (!base) return '';
+
+  const parts = [base];
+  const loc = String(localidade || '').trim();
+  const cp = String(codigoPostal || '').trim();
+
+  if (loc && !base.toLowerCase().includes(loc.toLowerCase())) parts.push(loc);
+  if (cp && !base.includes(cp)) parts.push(cp);
+  if (!/portugal/i.test(base)) parts.push('Portugal');
+
+  return parts.join(', ');
+}
+
+/** @deprecated Alias — usar buildMapboxSearchQuery */
+export function buildClientMapSearchQuery(morada, localidade = '', codigoPostal = '') {
+  return buildMapboxSearchQuery(morada, localidade, codigoPostal);
 }
 
 /**
- * Várias pesquisas por ordem de precisão (se a rua não existir no OSM, cai para CP/localidade).
- */
-export function buildNominatimSearchCandidates(morada, localidade = '', codigoPostal = '') {
-  const street = extractMainStreet(morada);
-  const loc = String(localidade || '').trim() || extractLocalidadeFromMorada(morada);
-  const cpRaw = String(codigoPostal || '').trim();
-  const cpFromMorada = String(morada || '').match(/\b(\d{4}-\d{3})\b/)?.[1] || '';
-  const cpFull = cpRaw.match(/\d{4}-\d{3}/)?.[0] || cpFromMorada;
-  const cp4 = cpRaw.match(/\d{4}/)?.[0] || cpFull.slice(0, 4) || cpFromMorada.slice(0, 4);
-
-  const seen = new Set();
-  const out = [];
-  const add = (q) => {
-    const s = String(q || '').trim();
-    if (!s || seen.has(s)) return;
-    seen.add(s);
-    out.push(s);
-  };
-
-  if (street && loc) add(`${street}, ${loc}, Portugal`);
-  if (street && cpFull) add(`${street}, ${cpFull}, Portugal`);
-  if (street && cp4 && loc) add(`${street}, ${cp4} ${loc}, Portugal`);
-  if (loc && cpFull) add(`${cpFull} ${loc}, Portugal`);
-  if (loc && cp4) add(`${loc}, ${cp4}, Portugal`);
-  if (loc) add(`${loc}, Portugal`);
-  if (street) add(`${street}, Portugal`);
-
-  return out;
-}
-
-async function waitNominatimSlot() {
-  const elapsed = Date.now() - lastNominatimAt;
-  if (elapsed < NOMINATIM_DELAY_MS) {
-    await new Promise((r) => setTimeout(r, NOMINATIM_DELAY_MS - elapsed));
-  }
-  lastNominatimAt = Date.now();
-}
-
-/**
- * Traduz texto (morada + localidade) em coordenadas GPS via Nominatim.
- * @param {string} pesquisaMorada
+ * Geocoding Mapbox — morada → coordenadas GPS.
+ * @param {string} searchText
  * @returns {Promise<{ lat: number, lon: number } | null>}
  */
-async function nominatimSearchOnce(q, { logMiss = true } = {}) {
-  const query = String(q || '').trim();
-  if (!query) return null;
-
-  await waitNominatimSlot();
+async function mapboxGeocodeToCoords(searchText) {
+  const q = String(searchText || '').trim();
+  if (!q) return null;
+  if (!MAPBOX_ACCESS_TOKEN) {
+    console.warn('[Deslocação] MAPBOX_ACCESS_TOKEN em falta — ver mapbox-config.js');
+    return null;
+  }
 
   const url =
-    `${NOMINATIM_SEARCH_URL}?format=json&q=${encodeURIComponent(query)}&limit=1&countrycodes=pt`;
+    `${MAPBOX_GEOCODING_URL}/${encodeURIComponent(q)}.json` +
+    `?access_token=${MAPBOX_ACCESS_TOKEN}&country=pt&limit=1`;
 
-  console.log('[Deslocação] Nominatim — a traduzir morada:', query);
+  console.log('[Deslocação] Mapbox — a geocodificar:', q);
 
   let res;
   try {
@@ -116,63 +70,51 @@ async function nominatimSearchOnce(q, { logMiss = true } = {}) {
       mode: 'cors',
       cache: 'no-store',
       credentials: 'omit',
-      headers: {
-        Accept: 'application/json',
-        'Accept-Language': 'pt-PT,pt',
-      },
+      headers: { Accept: 'application/json' },
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
   } catch (err) {
-    console.warn('[Deslocação] Nominatim Failed to fetch:', err);
+    console.warn('[Deslocação] Mapbox Failed to fetch:', err);
     return null;
   }
 
   if (!res.ok) {
-    console.warn('[Deslocação] Nominatim HTTP', res.status);
+    console.warn('[Deslocação] Mapbox HTTP', res.status);
     return null;
   }
 
-  const rows = await res.json();
-  const hit = rows?.[0];
-  if (!hit) {
-    if (logMiss) console.warn('[Deslocação] Nominatim sem resultados para:', query);
+  const data = await res.json();
+  const feature = data?.features?.[0];
+  if (!feature?.center || feature.center.length < 2) {
+    console.warn('[Deslocação] Mapbox sem resultados para:', q);
     return null;
   }
 
-  const lat = Number.parseFloat(hit.lat);
-  const lon = Number.parseFloat(hit.lon);
+  const lon = Number(feature.center[0]);
+  const lat = Number(feature.center[1]);
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
 
-  console.log('[Deslocação] Coordenadas obtidas:', { lat, lon, display_name: hit.display_name });
+  console.log('[Deslocação] Coordenadas obtidas:', {
+    lat,
+    lon,
+    place_name: feature.place_name,
+  });
   return { lat, lon };
 }
 
-export async function geocodeAddressToCoords(pesquisaMorada) {
-  return nominatimSearchOnce(pesquisaMorada);
+export async function geocodeAddressToCoords(searchText) {
+  return mapboxGeocodeToCoords(searchText);
 }
 
 async function geocodeClientAddress(morada, localidade = '', codigoPostal = '') {
-  const candidates = buildNominatimSearchCandidates(morada, localidade, codigoPostal);
-  if (!candidates.length) return null;
-
-  for (let i = 0; i < candidates.length; i++) {
-    const point = await nominatimSearchOnce(candidates[i], {
-      logMiss: i === candidates.length - 1,
-    });
-    if (point) {
-      if (i > 0) {
-        console.log('[Deslocação] Nominatim — fallback aceite:', candidates[i]);
-      }
-      return point;
-    }
-  }
-  return null;
+  const query = buildMapboxSearchQuery(morada, localidade, codigoPostal);
+  if (!query) return null;
+  return mapboxGeocodeToCoords(query);
 }
 
 async function getHqPoint() {
   if (cachedHqPoint) return cachedHqPoint;
-  const hqQuery = buildClientMapSearchQuery(HQ_ADDRESS, HQ_LOCALIDADE);
-  cachedHqPoint = await geocodeAddressToCoords(hqQuery);
+  cachedHqPoint = await mapboxGeocodeToCoords(HQ_ADDRESS);
   return cachedHqPoint;
 }
 
@@ -221,13 +163,14 @@ async function drivingDistanceKmOneWay(from, to) {
  * Ida e volta (×2), arredondada a 1 casa decimal.
  * @param {string} morada
  * @param {string} localidade
+ * @param {string} codigoPostal
  * @returns {Promise<number | null>}
  */
 export async function calculateDeslocacaoRoundTripKm(morada, localidade = '', codigoPostal = '') {
-  const candidates = buildNominatimSearchCandidates(morada, localidade, codigoPostal);
-  if (!candidates.length) return null;
+  const pesquisaMorada = buildMapboxSearchQuery(morada, localidade, codigoPostal);
+  if (!pesquisaMorada) return null;
 
-  console.log('A calcular rota para:', candidates[0], candidates.length > 1 ? `(+${candidates.length - 1} fallbacks)` : '');
+  console.log('A calcular rota para:', pesquisaMorada);
 
   try {
     const clientPoint = await geocodeClientAddress(morada, localidade, codigoPostal);

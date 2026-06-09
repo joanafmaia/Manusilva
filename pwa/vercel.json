@@ -1,4 +1,5 @@
 {
+  "buildCommand": "node scripts/write-mapbox-config.js",
   "headers": [
     {
       "source": "/js/(.*)",

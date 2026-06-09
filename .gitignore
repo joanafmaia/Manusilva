@@ -3,3 +3,6 @@
 .dev_stdout.log
 .dev_stderr.log
 .env
+pwa/js/mapbox-config.js
+node_modules/
+.tmp-bcrypt/
