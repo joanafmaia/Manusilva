@@ -98,12 +98,17 @@
     <main id="app" class="tech-main">
       <section class="jobs-section" data-tech-jobs-shell>
         <div class="section-header">
-          <h2>Trabalhos do Dia</h2>
+          <h2 id="tech-jobs-section-title">Em Curso / Pendentes</h2>
           <span class="date-label" id="selected-date-label"></span>
         </div>
         <p class="text-muted tech-greeting">
           Olá, <strong id="user-name"></strong>
         </p>
+        <div class="tech-jobs-tabs" role="tablist" aria-label="Filtrar trabalhos">
+          <button type="button" class="tech-jobs-tab is-active" data-tech-jobs-tab="em_curso" role="tab" aria-selected="true">Em Curso / Pendentes</button>
+          <button type="button" class="tech-jobs-tab" data-tech-jobs-tab="agendados" role="tab" aria-selected="false">Agendados</button>
+          <button type="button" class="tech-jobs-tab" data-tech-jobs-tab="realizados" role="tab" aria-selected="false">Histórico de Realizados</button>
+        </div>
         <div class="jobs-list" id="jobs-list"></div>
       </section>
     </main>

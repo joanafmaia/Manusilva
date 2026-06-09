@@ -6,16 +6,21 @@ import {
   requireAuth,
   getWeekDates,
   getJobsForTechnician,
+  getJobsSnapshot,
+  getReportsSnapshot,
   getReportForJob,
+  getJob,
   getClient,
   getServiceType,
   getTechnician,
+  jobAssignedToTechnician,
   isOffline,
   isNetworkOnline,
   canReachServer,
   setOfflineMode,
   warmOperacoes,
   formatDate,
+  formatDateLong,
   getDayLabel,
   getDayNumber,
   isToday,
@@ -23,6 +28,7 @@ import {
   escapeHtml,
   applyBrandLogo,
 } from './app.js';
+import { jobMatchesTechnician } from './job-technician-utils.js';
 import {
   getCalendarEventStateClass,
   renderWorkStateBadge,
@@ -45,6 +51,25 @@ let techCalendarNavBound = false;
 const TECH_MONTH_WEEKDAYS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
 const TECH_MONTH_JOBS_VISIBLE = 4;
 
+const TECH_JOBS_TABS = {
+  em_curso: { id: 'em_curso', label: 'Em Curso / Pendentes', subtitle: 'Hoje' },
+  agendados: { id: 'agendados', label: 'Agendados', subtitle: 'Próximos trabalhos' },
+  realizados: { id: 'realizados', label: 'Histórico de Realizados', subtitle: 'Concluídos' },
+};
+
+const SCHEDULED_JOB_STATUSES = new Set([
+  'scheduled',
+  'agendado',
+  'atribuido',
+  'atribuído',
+  'in_progress',
+  'pending_parts',
+]);
+
+let techJobsTab = 'em_curso';
+let techJobsTabsBound = false;
+let techTabDataCacheKey = null;
+
 /** Carrega `forms.js` (+ `form-engine.js`) só ao abrir um relatório no tablet. */
 let formsModulePromise = null;
 
@@ -66,15 +91,155 @@ function startOfLocalDay(date) {
   return d;
 }
 
+function getTodayIso() {
+  return new Date().toISOString().split('T')[0];
+}
+
+function addDaysToIso(isoDate, days) {
+  const base = new Date(`${isoDate}T12:00:00`);
+  if (Number.isNaN(base.getTime())) return isoDate;
+  base.setDate(base.getDate() + days);
+  return base.toISOString().split('T')[0];
+}
+
+function sortJobsByDateTime(a, b) {
+  if (a.date !== b.date) return a.date.localeCompare(b.date);
+  return (a.time || '').localeCompare(b.time || '');
+}
+
+function reportAssignedToTechnician(report, techId) {
+  if (!report || !techId) return false;
+  const tech = getTechnician(techId);
+  return jobMatchesTechnician(report.technicianId, {
+    techId,
+    techName: tech?.name,
+  });
+}
+
+function isScheduledJobStatus(status) {
+  return SCHEDULED_JOB_STATUSES.has(String(status || '').toLowerCase());
+}
+
+function setTechJobsTab(tabId) {
+  if (!TECH_JOBS_TABS[tabId] || techJobsTab === tabId) return;
+  techJobsTab = tabId;
+  techTabDataCacheKey = null;
+
+  document.querySelectorAll('[data-tech-jobs-tab]').forEach((btn) => {
+    const active = btn.dataset.techJobsTab === tabId;
+    btn.classList.toggle('is-active', active);
+    btn.setAttribute('aria-selected', active ? 'true' : 'false');
+  });
+
+  const title = document.getElementById('tech-jobs-section-title');
+  if (title) title.textContent = TECH_JOBS_TABS[tabId].label;
+
+  loadTechTabData()
+    .then(() => renderJobs())
+    .catch(console.error);
+}
+
+function bindTechJobsTabs() {
+  if (techJobsTabsBound) return;
+  techJobsTabsBound = true;
+
+  document.querySelectorAll('[data-tech-jobs-tab]').forEach((btn) => {
+    btn.addEventListener('click', () => setTechJobsTab(btn.dataset.techJobsTab));
+  });
+}
+
+async function loadTechTabData() {
+  const session = requireAuth('technician');
+  if (!session?.technicianId) return;
+
+  const today = getTodayIso();
+  const cacheKey = `${session.technicianId}:${techJobsTab}:${today}`;
+  if (techTabDataCacheKey === cacheKey) return;
+
+  await loadPeriodJobsFromSupabase();
+
+  if (techJobsTab === 'em_curso') {
+    const pastStart = addDaysToIso(today, -60);
+    await ensureTrabalhosSemana(session.technicianId, pastStart, today);
+    const { ensureReportsLoaded } = await import('./relatorios-db.js');
+    await ensureReportsLoaded();
+  } else if (techJobsTab === 'agendados') {
+    const futureEnd = addDaysToIso(today, 120);
+    await ensureTrabalhosSemana(session.technicianId, addDaysToIso(today, 1), futureEnd);
+  } else if (techJobsTab === 'realizados') {
+    const { ensureReportsLoaded } = await import('./relatorios-db.js');
+    const { ensureJobsLoaded } = await import('./trabalhos-db.js');
+    await ensureReportsLoaded();
+    await ensureJobsLoaded();
+  }
+
+  techTabDataCacheKey = cacheKey;
+}
+
+function getEmCursoJobs(techId) {
+  const today = getTodayIso();
+  const byId = new Map();
+
+  getReportsSnapshot().forEach((report) => {
+    if (report.status !== 'draft' || !reportAssignedToTechnician(report, techId)) return;
+    const job = report.jobId ? getJob(report.jobId) : null;
+    if (job && jobAssignedToTechnician(job, techId)) byId.set(job.id, job);
+  });
+
+  getJobsSnapshot().forEach((job) => {
+    if (!jobAssignedToTechnician(job, techId)) return;
+    if (job.date !== today) return;
+    const report = getReportForJob(job.id);
+    if (report?.status === 'approved') return;
+    byId.set(job.id, job);
+  });
+
+  return [...byId.values()].sort(sortJobsByDateTime);
+}
+
+function getAgendadosJobs(techId) {
+  const today = getTodayIso();
+
+  return getJobsSnapshot()
+    .filter((job) => {
+      if (!jobAssignedToTechnician(job, techId)) return false;
+      if (job.date <= today) return false;
+      const report = getReportForJob(job.id);
+      if (report?.status === 'approved' || report?.status === 'draft') return false;
+      if (resolveCalendarEventState(job, report) !== 'scheduled') return false;
+      return isScheduledJobStatus(job.status);
+    })
+    .sort(sortJobsByDateTime);
+}
+
+function getRealizadosItems(techId) {
+  return getReportsSnapshot()
+    .filter((report) => report.status === 'approved' && reportAssignedToTechnician(report, techId))
+    .map((report) => ({
+      report,
+      job: report.jobId ? getJob(report.jobId) : null,
+    }))
+    .sort((a, b) => {
+      const dateA = a.job?.date || a.report.approvedAt || a.report.submittedAt || '';
+      const dateB = b.job?.date || b.report.approvedAt || b.report.submittedAt || '';
+      return String(dateB).localeCompare(String(dateA));
+    });
+}
+
 const TECH_JOBS_SHELL_HTML = `
   <section class="jobs-section" data-tech-jobs-shell>
     <div class="section-header">
-      <h2>Trabalhos do Dia</h2>
+      <h2 id="tech-jobs-section-title">Em Curso / Pendentes</h2>
       <span class="date-label" id="selected-date-label"></span>
     </div>
     <p class="text-muted tech-greeting">
       Olá, <strong id="user-name"></strong>
     </p>
+    <div class="tech-jobs-tabs" role="tablist" aria-label="Filtrar trabalhos">
+      <button type="button" class="tech-jobs-tab is-active" data-tech-jobs-tab="em_curso" role="tab" aria-selected="true">Em Curso / Pendentes</button>
+      <button type="button" class="tech-jobs-tab" data-tech-jobs-tab="agendados" role="tab" aria-selected="false">Agendados</button>
+      <button type="button" class="tech-jobs-tab" data-tech-jobs-tab="realizados" role="tab" aria-selected="false">Histórico de Realizados</button>
+    </div>
     <div class="jobs-list" id="jobs-list"></div>
   </section>
 `;
@@ -83,6 +248,8 @@ export function restoreTechDashboard() {
   const app = document.getElementById('app');
   if (!app) return;
   app.innerHTML = TECH_JOBS_SHELL_HTML;
+  techJobsTabsBound = false;
+  bindTechJobsTabs();
   renderUserGreeting('user-name');
   refreshTechCalendar().catch(console.error);
   app.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -134,16 +301,19 @@ export async function initTechDashboard() {
   renderOfflineSyncBar();
 
   bindTechCalendarNavigation();
+  bindTechJobsTabs();
   await refreshTechCalendar();
 
   window.addEventListener('jobs-updated', () => {
     periodJobsCacheKey = null;
+    techTabDataCacheKey = null;
     refreshTechCalendar().catch(console.error);
   });
   window.addEventListener('db-updated', () => {
     renderOfflineToggle();
     renderOfflineSyncBar();
     periodJobsCacheKey = null;
+    techTabDataCacheKey = null;
     refreshTechCalendar().catch(console.error);
   });
 
@@ -417,6 +587,7 @@ async function loadPeriodJobsFromSupabase() {
 async function refreshTechCalendar() {
   try {
     await loadPeriodJobsFromSupabase();
+    await loadTechTabData();
   } catch (err) {
     console.error('[Técnico] Calendário:', err);
   }
@@ -617,112 +788,196 @@ function renderCalendarStrip() {
   });
 }
 
-function renderJobs() {
-  const session = requireAuth('technician');
-  const container = document.getElementById('jobs-list');
-  const dateLabel = document.getElementById('selected-date-label');
-  if (!container || !session) return;
+function renderJobCard(job, { actionMode = 'em_curso' } = {}) {
+  const client = getClient(job.clientId);
+  const service = getServiceType(job.serviceType);
+  const savedReport = getReportForJob(job.id);
+  const isRejected = job.status === 'rejected' || savedReport?.status === 'rejected';
+  const stateClass = getCalendarEventStateClass(job, savedReport);
+  const stateBadge = renderWorkStateBadge(job, savedReport);
+  const dateLine =
+    techJobsTab === 'agendados' && job.date
+      ? `<span class="job-date-chip">${escapeHtml(formatDateLong(job.date))}</span>`
+      : '';
 
-  dateLabel.textContent = formatDate(selectedDate);
-  const jobs = getJobsForTechnician(session.technicianId, selectedDate);
-
-  if (!jobs.length) {
-    container.innerHTML = `
-      <div class="empty-state glass-card">
-        <div class="empty-icon">📋</div>
-        <p>Sem trabalhos atribuídos para este dia.</p>
-      </div>
-    `;
-    return;
+  let actionBtn = '';
+  if (actionMode === 'realizados') {
+    actionBtn = `<button type="button" class="job-action-btn job-action-btn--primary" data-view-job="${job.id}">Visualizar</button>`;
+  } else {
+    actionBtn = `<button type="button" class="job-action-btn job-action-btn--primary" data-continue-job="${job.id}">Continuar Relatório</button>`;
   }
 
-  container.innerHTML = jobs.map((job) => {
-    const client = getClient(job.clientId);
-    const service = getServiceType(job.serviceType);
-    const savedReport = getReportForJob(job.id);
-    const isRejected = job.status === 'rejected' || savedReport?.status === 'rejected';
-    const isPendingReview = savedReport?.status === 'pending_review';
-    const isApproved = savedReport?.status === 'approved';
-    const hasDraft = savedReport?.status === 'draft';
-    const stateClass = getCalendarEventStateClass(job, savedReport);
-    const stateBadge = renderWorkStateBadge(job, savedReport);
-
-    let actionBtn = '';
-    if (isPendingReview) {
-      actionBtn = `<button type="button" class="job-action-btn job-action-btn--primary" data-edit-pending-job="${job.id}">✏️ Editar</button>`;
-    } else if (isRejected) {
-      actionBtn = `<button type="button" class="job-action-btn job-action-btn--primary" data-open-job="${job.id}">Corrigir e Reenviar</button>`;
-    } else if (isApproved) {
-      actionBtn = `<button type="button" class="job-action-btn job-action-btn--primary" data-open-job="${job.id}">Ver Relatório</button>`;
-    } else if (hasDraft) {
-      actionBtn = `<button type="button" class="job-action-btn job-action-btn--primary" data-open-job="${job.id}">Continuar relatório</button>`;
-    } else {
-      actionBtn = `<button type="button" class="job-action-btn job-action-btn--primary" data-open-job="${job.id}">Iniciar</button>`;
-    }
-
-    return `
-      <article class="job-card glass-card ${stateClass} ${isRejected ? 'job-rejected' : ''}" data-job-id="${job.id}">
-        ${isRejected ? `
-          <div class="job-rejection-alert">
-            <span class="alert-icon">⚠</span>
-            <div>
-              <strong>Correção Necessária</strong>
-              <p>${escapeHtml(job.rejectionNote)}</p>
-            </div>
+  return `
+    <article class="job-card glass-card ${stateClass} ${isRejected ? 'job-rejected' : ''}" data-job-id="${job.id}">
+      ${isRejected ? `
+        <div class="job-rejection-alert">
+          <span class="alert-icon">⚠</span>
+          <div>
+            <strong>Correção Necessária</strong>
+            <p>${escapeHtml(job.rejectionNote)}</p>
           </div>
-        ` : ''}
-        <div class="job-card-top">
-          <div class="job-time">${job.time}</div>
-          <div class="job-card-badges">${stateBadge}</div>
         </div>
-        <div class="job-client-row">
-          <button type="button" class="job-client job-client-link" data-client-history="${escapeHtml(job.clientId)}" title="Ver histórico de intervenções">
-            ${escapeHtml(client?.name || 'Cliente')}
-          </button>
-          <button type="button" class="btn-outline job-history-btn" data-client-history="${escapeHtml(job.clientId)}">
-            Histórico
-          </button>
-        </div>
-        <div class="job-meta">
-          <span class="job-type">${service?.icon || '🔧'} ${escapeHtml(service?.label || job.serviceType)}</span>
-          ${job.forkliftSerial ? `<span class="job-serial">${escapeHtml(job.forkliftSerial)}</span>` : ''}
-        </div>
-        ${actionBtn}
-      </article>
-    `;
-  }).join('');
+      ` : ''}
+      <div class="job-card-top">
+        <div class="job-time">${job.time || '—'}${dateLine}</div>
+        <div class="job-card-badges">${stateBadge}</div>
+      </div>
+      <div class="job-client-row">
+        <button type="button" class="job-client job-client-link" data-client-history="${escapeHtml(job.clientId)}" title="Ver histórico de intervenções">
+          ${escapeHtml(client?.name || 'Cliente')}
+        </button>
+        <button type="button" class="btn-outline job-history-btn" data-client-history="${escapeHtml(job.clientId)}">
+          Histórico
+        </button>
+      </div>
+      <div class="job-meta">
+        <span class="job-type">${service?.icon || '🔧'} ${escapeHtml(service?.label || job.serviceType)}</span>
+        ${job.forkliftSerial ? `<span class="job-serial">${escapeHtml(job.forkliftSerial)}</span>` : ''}
+      </div>
+      ${actionBtn}
+    </article>
+  `;
+}
 
-  container.querySelectorAll('[data-open-job]').forEach((btn) => {
+function renderRealizadoCard({ job, report }) {
+  const client = getClient(report.clientId || job?.clientId);
+  const service = getServiceType(report.serviceType || job?.serviceType);
+  const stateClass = getCalendarEventStateClass(job, report);
+  const stateBadge = renderWorkStateBadge(job, report);
+  const serviceDate = job?.date ? formatDateLong(job.date) : '—';
+  const jobId = job?.id || report.jobId;
+
+  return `
+    <article class="job-card glass-card ${stateClass}" data-job-id="${escapeHtml(jobId || '')}">
+      <div class="job-card-top">
+        <div class="job-time">${escapeHtml(job?.time || '—')}<span class="job-date-chip">${escapeHtml(serviceDate)}</span></div>
+        <div class="job-card-badges">${stateBadge}</div>
+      </div>
+      <div class="job-client-row">
+        <button type="button" class="job-client job-client-link" data-client-history="${escapeHtml(client?.id || report.clientId || '')}" title="Ver histórico de intervenções">
+          ${escapeHtml(client?.name || 'Cliente')}
+        </button>
+        <button type="button" class="btn-outline job-history-btn" data-client-history="${escapeHtml(client?.id || report.clientId || '')}">
+          Histórico
+        </button>
+      </div>
+      <div class="job-meta">
+        <span class="job-type">${service?.icon || '🔧'} ${escapeHtml(service?.label || report.serviceType || 'Relatório')}</span>
+        ${job?.forkliftSerial ? `<span class="job-serial">${escapeHtml(job.forkliftSerial)}</span>` : ''}
+      </div>
+      <button type="button" class="job-action-btn job-action-btn--primary" data-view-job="${escapeHtml(jobId || '')}">Visualizar</button>
+    </article>
+  `;
+}
+
+function openContinueJob(jobId) {
+  const report = getReportForJob(jobId);
+  if (report?.status === 'pending_review') {
+    openJobFormLazy(jobId, { editPending: true }).catch(console.error);
+    return;
+  }
+  openJobFormLazy(jobId).catch(console.error);
+}
+
+const TECH_TAB_EMPTY_MESSAGES = {
+  em_curso: 'Sem relatórios em aberto nem trabalhos para hoje.',
+  agendados: 'Sem trabalhos agendados nos próximos dias.',
+  realizados: 'Ainda não tem relatórios concluídos.',
+};
+
+function updateJobsSectionHeader() {
+  const tabMeta = TECH_JOBS_TABS[techJobsTab];
+  const title = document.getElementById('tech-jobs-section-title');
+  const dateLabel = document.getElementById('selected-date-label');
+  if (title) title.textContent = tabMeta.label;
+
+  if (!dateLabel) return;
+
+  if (techJobsTab === 'em_curso') {
+    dateLabel.textContent = `Hoje — ${formatDate(getTodayIso())}`;
+  } else if (techJobsTab === 'agendados') {
+    dateLabel.textContent = tabMeta.subtitle;
+  } else {
+    const session = requireAuth('technician');
+    const count = session ? getRealizadosItems(session.technicianId).length : 0;
+    dateLabel.textContent = count ? `${count} relatório${count === 1 ? '' : 's'}` : tabMeta.subtitle;
+  }
+}
+
+function bindJobListEvents(container) {
+  container.querySelectorAll('[data-continue-job]').forEach((btn) => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
-      openJobFormLazy(btn.dataset.openJob).catch(console.error);
+      openContinueJob(btn.dataset.continueJob);
     });
   });
 
-  container.querySelectorAll('[data-edit-pending-job]').forEach((btn) => {
+  container.querySelectorAll('[data-view-job]').forEach((btn) => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
-      openJobFormLazy(btn.dataset.editPendingJob, { editPending: true }).catch(console.error);
+      if (!btn.dataset.viewJob) return;
+      openJobFormLazy(btn.dataset.viewJob, { viewOnly: true }).catch(console.error);
     });
   });
 
   container.querySelectorAll('[data-client-history]').forEach((btn) => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
-      openTechClientHistory(btn.dataset.clientHistory);
+      if (btn.dataset.clientHistory) openTechClientHistory(btn.dataset.clientHistory);
     });
   });
 
   container.querySelectorAll('.job-card').forEach((card) => {
     card.addEventListener('click', (e) => {
       if (e.target.closest('[data-client-history]')) return;
-      if (e.target.closest('[data-edit-pending-job], [data-open-job]')) return;
-      const report = getReportForJob(card.dataset.jobId);
-      if (report?.status === 'pending_review') {
-        openJobFormLazy(card.dataset.jobId, { editPending: true }).catch(console.error);
+      if (e.target.closest('[data-continue-job], [data-view-job]')) return;
+      const jobId = card.dataset.jobId;
+      if (!jobId) return;
+      if (techJobsTab === 'realizados') {
+        openJobFormLazy(jobId, { viewOnly: true }).catch(console.error);
         return;
       }
-      openJobFormLazy(card.dataset.jobId).catch(console.error);
+      openContinueJob(jobId);
     });
   });
+}
+
+function renderJobs() {
+  const session = requireAuth('technician');
+  const container = document.getElementById('jobs-list');
+  if (!container || !session) return;
+
+  updateJobsSectionHeader();
+  const techId = session.technicianId;
+
+  let html = '';
+
+  if (techJobsTab === 'realizados') {
+    const items = getRealizadosItems(techId);
+    if (!items.length) {
+      container.innerHTML = `
+        <div class="empty-state glass-card">
+          <div class="empty-icon">✅</div>
+          <p>${TECH_TAB_EMPTY_MESSAGES.realizados}</p>
+        </div>
+      `;
+      return;
+    }
+    html = items.map((item) => renderRealizadoCard(item)).join('');
+  } else {
+    const jobs = techJobsTab === 'agendados' ? getAgendadosJobs(techId) : getEmCursoJobs(techId);
+    if (!jobs.length) {
+      container.innerHTML = `
+        <div class="empty-state glass-card">
+          <div class="empty-icon">📋</div>
+          <p>${TECH_TAB_EMPTY_MESSAGES[techJobsTab]}</p>
+        </div>
+      `;
+      return;
+    }
+    html = jobs.map((job) => renderJobCard(job, { actionMode: techJobsTab })).join('');
+  }
+
+  container.innerHTML = html;
+  bindJobListEvents(container);
 }

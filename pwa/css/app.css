@@ -1144,6 +1144,93 @@ body.dark-mode .offline-sync-banner__icon {
 /* Jobs */
 .jobs-section { padding: 1rem 1.25rem; }
 
+.tech-jobs-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin: 0 0 1rem;
+  padding: 0.25rem;
+  border-radius: 12px;
+  background: var(--surface-muted);
+  border: 1px solid var(--border-subtle);
+}
+
+.tech-jobs-tab {
+  width: 100%;
+  padding: 0.55rem 0.75rem;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition), box-shadow var(--transition);
+}
+
+.tech-jobs-tab.is-active {
+  background: var(--surface-elevated, #fff);
+  color: var(--text-primary);
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.08);
+}
+
+.tech-jobs-tab:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+@media (min-width: 480px) {
+  .tech-jobs-tabs {
+    flex-direction: row;
+  }
+
+  .tech-jobs-tab {
+    flex: 1;
+    text-align: center;
+    font-size: 0.75rem;
+    padding: 0.5rem 0.45rem;
+  }
+}
+
+.form-overlay--readonly .form-panel-footer .btn-secondary,
+.form-overlay--readonly .form-panel-footer .btn-primary,
+.form-overlay--readonly .form-footer-hint {
+  display: none;
+}
+
+.form-overlay--readonly input:not([type="hidden"]),
+.form-overlay--readonly textarea,
+.form-overlay--readonly select {
+  pointer-events: none;
+  opacity: 0.92;
+}
+
+.form-overlay--readonly .btn-foto,
+.form-overlay--readonly .foto-antes-depois-clear,
+.form-overlay--readonly label[for^="foto-"] {
+  display: none;
+}
+
+.form-readonly-banner {
+  display: none;
+  align-items: flex-start;
+  gap: 0.65rem;
+  margin-bottom: 0.85rem;
+  padding: 0.75rem 0.9rem;
+  border-radius: var(--radius-sm);
+  background: var(--ws-approved-bg);
+  border: 1px solid color-mix(in srgb, var(--ws-approved) 40%, transparent);
+  color: var(--ws-approved-text);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+
+.form-overlay--readonly .form-readonly-banner {
+  display: flex;
+}
+
 .section-header {
   display: flex;
   align-items: center;
@@ -1314,6 +1401,20 @@ body.dark-mode .offline-sync-banner__icon {
   font-size: 0.875rem;
   font-weight: 600;
   color: var(--primary);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.job-date-chip {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  padding: 0.12rem 0.4rem;
+  border-radius: 6px;
+  background: var(--surface-muted);
+  border: 1px solid var(--border-subtle);
 }
 
 .status-badge {

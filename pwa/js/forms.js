@@ -127,9 +127,10 @@ function fotoPersistPayload(state) {
 
 /**
  * @param {string} jobId
- * @param {{ editPending?: boolean }} [options]
+ * @param {{ editPending?: boolean, viewOnly?: boolean }} [options]
  */
 export async function openJobForm(jobId, options = {}) {
+  const viewOnly = options.viewOnly === true;
   try {
     await ensureJobsLoaded();
     await ensureProductionCatalog();
@@ -153,9 +154,16 @@ export async function openJobForm(jobId, options = {}) {
     editPending: editPendingOpt,
   });
 
-  if (existingReport?.status === 'approved') {
+  if (existingReport?.status === 'approved' && !viewOnly) {
     showToast('Este relatório já foi aprovado pelo RH e não pode ser editado.', 'warning', 5000);
     return;
+  }
+
+  if (viewOnly) {
+    if (existingReport?.status !== 'approved') {
+      showToast('Este relatório ainda não está concluído.', 'warning', 4500);
+      return;
+    }
   }
 
   const editPending =
@@ -173,13 +181,14 @@ export async function openJobForm(jobId, options = {}) {
   const overlay = document.createElement('div');
   overlay.id = 'form-overlay';
   overlay.className = 'form-overlay';
-  overlay.innerHTML = buildFormHTML(job, client, tech, service, existingReport);
+  overlay.innerHTML = buildFormHTML(job, client, tech, service, existingReport, { viewOnly });
   document.body.appendChild(overlay);
   document.body.style.overflow = 'hidden';
 
   requestAnimationFrame(() => overlay.classList.add('show'));
+  if (viewOnly) overlay.classList.add('form-overlay--readonly');
 
-  bindFormEvents(overlay, job, client, tech, service, existingReport);
+  bindFormEvents(overlay, job, client, tech, service, existingReport, { viewOnly });
 
   await bindFormFieldInteractions(overlay);
 
@@ -234,7 +243,8 @@ function renderFotoPreviewHtml(url, label) {
   return `<img src="${escapeHtml(url)}" alt="${escapeHtml(label)}" class="foto-antes-depois-img" loading="lazy">`;
 }
 
-function buildFormHTML(job, client, tech, service, existingReport) {
+function buildFormHTML(job, client, tech, service, existingReport, options = {}) {
+  const viewOnly = options.viewOnly === true;
   const saved = getFormValues(existingReport);
   const formContext = {
     tech,
@@ -273,6 +283,16 @@ function buildFormHTML(job, client, tech, service, existingReport) {
       <div>
         <strong>Edição de relatório pendente</strong>
         <p>As alterações substituem a submissão anterior. As fotos existentes mantêm-se se não tirar novas.</p>
+      </div>
+    </div>
+  ` : '';
+
+  const readonlyBanner = viewOnly ? `
+    <div class="form-readonly-banner" role="status">
+      <span aria-hidden="true">👁️</span>
+      <div>
+        <strong>Modo visualização</strong>
+        <p>Relatório concluído — apenas leitura. Use «Pré-visualizar Relatório» para ver o PDF.</p>
       </div>
     </div>
   ` : '';
@@ -323,6 +343,7 @@ function buildFormHTML(job, client, tech, service, existingReport) {
         <div class="form-panel-body">
           ${rejectionBanner}
           ${editPendingBanner}
+          ${readonlyBanner}
 
           <div class="report-tab-panels">
             <div class="report-tab-panel is-active" data-report-panel="geral" id="report-panel-geral" role="tabpanel" aria-labelledby="report-tab-geral">
@@ -365,11 +386,12 @@ function buildFormHTML(job, client, tech, service, existingReport) {
             <span class="btn-preview-icon" aria-hidden="true">👁️</span>
             Pré-visualizar Relatório
           </button>
+          ${viewOnly ? '' : `
           <p class="form-footer-hint text-muted">Gravar Rascunho mantém o relatório <strong>em aberto</strong> para novas visitas. Concluir envia-o para aprovação do RH.</p>
           <div class="form-panel-footer-row">
             <button type="button" class="btn-secondary btn-touch" id="btn-save-draft">Gravar Rascunho</button>
             <button type="button" class="btn-primary btn-touch" id="btn-submit-report">Concluir Relatório</button>
-          </div>
+          </div>`}
         </div>
       </div>
     </div>
@@ -571,7 +593,21 @@ function activateReportTab(overlay, tabId) {
   btn?.click();
 }
 
-function bindFormEvents(overlay, job, client, tech, service, existingReport) {
+function applyFormReadOnly(overlay) {
+  overlay.querySelectorAll('input:not([type="hidden"]), textarea, select').forEach((el) => {
+    el.disabled = true;
+    if ('readOnly' in el) el.readOnly = true;
+  });
+  overlay.querySelectorAll('input[type="file"]').forEach((el) => {
+    el.disabled = true;
+  });
+  overlay.querySelectorAll('.signature-canvas').forEach((canvas) => {
+    canvas.style.pointerEvents = 'none';
+  });
+}
+
+function bindFormEvents(overlay, job, client, tech, service, existingReport, options = {}) {
+  const viewOnly = options.viewOnly === true;
   const draftReportId = existingReport?.id || null;
   existingReportRef = existingReport;
   signaturesRestoredFromReport = false;
@@ -589,16 +625,22 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport) {
 
   bindReportFormTabs(overlay, { onTabActivate: onReportTabActivated });
 
-  bindFotoInputs(overlay);
+  if (!viewOnly) {
+    bindFotoInputs(overlay);
+  }
 
-  formAutosave = initReportFormAutosave({
+  if (viewOnly) {
+    applyFormReadOnly(overlay);
+  } else {
+    formAutosave = initReportFormAutosave({
     overlay,
     job,
     existingReport,
     buildReport: () => buildReportFromForm(overlay, job, existingReport, signaturePads, draftReportId),
-  });
+    });
+  }
 
-  if (service?.id === 'manutencao_baterias_grandes') {
+  if (!viewOnly && service?.id === 'manutencao_baterias_grandes') {
     initGrandesBatteryTable(overlay, {
       onRowChange: () => formAutosave?.markDirty(),
     });
@@ -616,7 +658,7 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport) {
     }
   };
 
-  overlay.querySelector('#btn-save-draft')?.addEventListener('click', async () => {
+  if (!viewOnly) overlay.querySelector('#btn-save-draft')?.addEventListener('click', async () => {
     await formAutosave?.flush?.();
     const draftBtn = overlay.querySelector('#btn-save-draft');
     if (draftBtn) draftBtn.disabled = true;
@@ -681,7 +723,7 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport) {
     }
   });
 
-  overlay.querySelector('#btn-submit-report').addEventListener('click', async () => {
+  if (!viewOnly) overlay.querySelector('#btn-submit-report')?.addEventListener('click', async () => {
     ensureSignaturePadsInitialized();
     const storedSigs = existingReport?.data?.signatures;
     if (!technicianSignatureReady(signaturePads, storedSigs)) {
