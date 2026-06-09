@@ -44,7 +44,7 @@ import {
 import { getCalendarEventStateClass } from './calendar-event-state.js';
 import { ensureProductionCatalog, formatClientsLoadError } from './clients-catalog.js';
 import { renderClientCombobox, bindClientComboboxes } from './client-combobox.js';
-import { initLogoutButton, renderUserGreeting } from './auth.js';
+import { forceLogout, renderUserGreeting } from './auth.js';
 import { initMetricsPanel, refreshMetricsPanel } from './views/dashboard.js';
 import { initClientsApp } from './views/clients-app.js';
 import { initEmployeesPanel, refreshTechniciansList } from './views/rh-registry.js';
@@ -245,7 +245,9 @@ export async function initAdminDashboard() {
   if (!session) return;
 
   renderUserGreeting('user-name');
-  initLogoutButton();
+  document.getElementById('logout-btn')?.addEventListener('click', () => {
+    void forceLogout();
+  });
   bindAdminNavigation();
 
   try {

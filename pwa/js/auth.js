@@ -3,7 +3,10 @@
  */
 
 import { getSupabaseClient } from './supabase-client.js';
-import { APP_SESSION_KEY, clearSession, normalizeSession, setRawSession } from './session.js';
+import { clearSession, getRawSession, normalizeSession, setRawSession } from './session.js';
+
+/** Página de login da PWA (não existe login.html separado). */
+export const LOGIN_URL = 'index.html';
 import { UTILIZADORES } from './mock_data.js';
 import { isRhOrAdminRole, normalizeDbRole } from './auth-roles.js';
 
@@ -229,27 +232,66 @@ export const AuthService = {
   },
 
   async logout() {
-    try {
-      const supabase = await getSupabaseClient();
-      await supabase.auth.signOut();
-    } catch (err) {
-      console.warn('[Auth] signOut:', err);
-    }
-    clearSession();
+    await forceLogout();
   },
 
   getSessao() {
-    const sessao = localStorage.getItem(APP_SESSION_KEY);
-    return sessao ? JSON.parse(sessao) : null;
+    return getRawSession();
   },
 
   buildLoginPool,
 };
 
+const LOGOUT_REMOTE_TIMEOUT_MS = 3000;
+
+/**
+ * Termina sessão de forma à prova de falhas: limpa storage e redireciona sempre.
+ */
+export async function forceLogout() {
+  try {
+    let supabase = null;
+    try {
+      if (window.supabase?.createClient) {
+        supabase = await Promise.race([
+          getSupabaseClient(),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Timeout ao obter cliente Supabase')), LOGOUT_REMOTE_TIMEOUT_MS),
+          ),
+        ]);
+      }
+    } catch (innerErr) {
+      console.warn('Erro ao obter cliente Supabase no logout:', innerErr);
+    }
+
+    if (supabase?.auth) {
+      await Promise.race([
+        supabase.auth.signOut(),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Timeout signOut Supabase')), LOGOUT_REMOTE_TIMEOUT_MS),
+        ),
+      ]);
+    }
+  } catch (err) {
+    console.warn('Erro ao limpar sessão no Supabase, a forçar limpeza local...', err);
+  } finally {
+    try {
+      localStorage.clear();
+      sessionStorage.clear();
+    } catch (storageErr) {
+      console.warn('[Auth] Limpeza de storage falhou, a tentar clearSession:', storageErr);
+      try {
+        clearSession();
+      } catch {
+        /* ignorar — o redirect abaixo continua */
+      }
+    }
+    window.location.href = LOGIN_URL;
+  }
+}
+
 export function initLogoutButton() {
-  document.getElementById('logout-btn')?.addEventListener('click', async () => {
-    await AuthService.logout();
-    window.location.href = 'index.html';
+  document.getElementById('logout-btn')?.addEventListener('click', () => {
+    void forceLogout();
   });
 }
 
