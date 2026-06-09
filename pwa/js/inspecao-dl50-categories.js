@@ -1,3 +1,8 @@
+import {
+  buildPdfAutoTableStyles,
+  mergePdfTableDidParseCell,
+  PDF_MACHINE_SECTION,
+} from './pdf-design-system.js';
 import { pdfAutoTableFont, pdfSetFont, pdfSafeText, pdfSplitText } from './pdf-font.js';
 
 /** Pontos de inspeção DL 50/2005 — MS. 061 */
@@ -124,8 +129,6 @@ export const INSPECAO_DL50_LEGAL_OPTIONS = [
 
 /* ─── PDF: cabeçalho (Informações da Máquina → Periodicidade) ─── */
 
-const PDF_TEXT_DARK = [30, 41, 59];
-
 /** Alturas (mm) — estrutura Y do cabeçalho no PDF */
 const INSPECAO_DL50_PDF_Y = {
   AFTER_CONCLUSAO: 3,
@@ -150,12 +153,6 @@ export const INSPECAO_DL50_PDF_SKIP_FIELD_IDS = new Set([
   'periodicidade_inspecao',
   'declaracao_seguranca',
 ]);
-
-const MACHINE_TABLE_LINE = [226, 232, 240];
-const MACHINE_TABLE_FILL = [255, 255, 255];
-const MACHINE_TABLE_ALT_FILL = [248, 249, 250];
-const MACHINE_TABLE_HEAD_FILL = [30, 64, 115];
-const MACHINE_TABLE_HEAD_TEXT = [255, 255, 255];
 
 function pickFirstNonEmpty(...candidates) {
   for (const raw of candidates) {
@@ -295,11 +292,10 @@ export async function drawInspecaoDl50HeaderBlock(doc, y, values, helpers) {
     y += Y.AFTER_CONCLUSAO;
   }
 
-  y = drawSectionTitle(doc, y, 'Informações da Máquina', { skipEnsure: true });
+  y = drawSectionTitle(doc, y, PDF_MACHINE_SECTION, { skipEnsure: true });
   y = drawDivider(doc, y - 4);
 
   await loadAutoTable();
-  pdfSetFont(doc, 'normal');
   const colW = contentW / 2;
   const machineBody = buildInspecaoDl50MachineTableBody(machine);
   doc.autoTable({
@@ -307,33 +303,12 @@ export async function drawInspecaoDl50HeaderBlock(doc, y, values, helpers) {
     margin: { left: margin, right: margin, bottom: 30 },
     tableWidth: contentW,
     body: machineBody,
-    theme: 'plain',
-    styles: {
-      font: pdfAutoTableFont(doc),
-      fontSize: 10,
-      cellPadding: { top: 3.5, right: 4, bottom: 3.5, left: 4 },
-      lineColor: MACHINE_TABLE_LINE,
-      lineWidth: 0.15,
-      textColor: PDF_TEXT_DARK,
-      fontStyle: 'normal',
-      valign: 'middle',
-      overflow: 'linebreak',
-    },
-    bodyStyles: {
-      fillColor: MACHINE_TABLE_FILL,
-    },
-    alternateRowStyles: {
-      fillColor: MACHINE_TABLE_ALT_FILL,
-    },
+    ...buildPdfAutoTableStyles(doc, pdfAutoTableFont, pdfSetFont),
     columnStyles: {
       0: { cellWidth: colW, overflow: 'linebreak' },
       1: { cellWidth: colW, overflow: 'linebreak' },
     },
-    didParseCell: (data) => {
-      if (data.section === 'body' && data.row.index % 2 === 1) {
-        data.cell.styles.fillColor = MACHINE_TABLE_ALT_FILL;
-      }
-    },
+    didParseCell: mergePdfTableDidParseCell(),
   });
 
   y = doc.lastAutoTable.finalY + Y.AFTER_MACHINE_BLOCK;

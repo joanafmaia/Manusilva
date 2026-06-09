@@ -31,28 +31,69 @@ import {
 } from './pdf-font.js';
 import { getColumnLabels } from './views/relatorio-grandes.js';
 import {
+  buildPdfAutoTableStyles,
+  getBlockPdfTitle,
+  getMachineSectionScalarFields,
+  mergePdfTableDidParseCell,
+  PDF_AUTOTABLE_MARGIN_BOTTOM_MM,
+  PDF_COLOR_CORPORATE_BLUE as CORPORATE_BLUE,
+  PDF_COLOR_CORPORATE_BLUE_DARK as CORPORATE_BLUE_DARK,
+  PDF_COLOR_DANGER as DANGER,
+  PDF_COLOR_SLATE_LINE as SLATE_LINE,
+  PDF_COLOR_SUCCESS as SUCCESS,
+  PDF_COLOR_TEXT_DARK as TEXT_DARK,
+  PDF_COLOR_TEXT_MUTED as TEXT_MUTED,
+  PDF_COLOR_WHITE as WHITE,
+  PDF_CONTENT_SAFE_BOTTOM_MM,
+  PDF_CONTENT_W as CONTENT_W,
+  PDF_FONT_BODY,
+  PDF_FONT_CAPTION,
+  PDF_FONT_SECTION,
+  PDF_FONT_SUBTITLE,
+  PDF_FONT_TITLE,
+  PDF_FOOTER_BLOCK_TOP,
+  PDF_FOOTER_TEXT_RGB,
+  PDF_FOTO_LABEL_ANTES,
+  PDF_FOTO_LABEL_DEPOIS,
+  PDF_FOTO_SECTION_TITLE,
+  PDF_MARGIN as MARGIN,
+  PDF_MACHINE_SECTION,
+  PDF_PAGE_CONTENT_START_Y,
+  PDF_PAGE_H as PAGE_H,
+  PDF_PAGE_NUMBER_Y,
+  PDF_PAGE_W as PAGE_W,
+  PDF_SCALAR_FIELD_TYPES,
+  PDF_SECTION_BG,
+  PDF_TABLE_ALT_ROW_FILL,
+  PDF_TABLE_BODY_FILL,
+  PDF_TABLE_HEAD_FILL,
+  PDF_TABLE_HEAD_TEXT,
+  PDF_TABLE_LINE,
+  isMachineInfoSection,
+  pdfNormalizeHeading,
+  reportHasMachineSection,
+  shouldSkipPdfSectionHeader,
+} from './pdf-design-system.js';
+import {
   columnKey as materialColumnKey,
   columnLabel as materialColumnLabel,
   fieldAnchorsReportClosing,
   findPairedObservationsField,
   getMaterialTablePdfLabel,
-  isMaterialOnlySection,
   isMaterialTableField,
   isObservationsField,
   MATERIAL_UTILIZADO_COLUMNS,
   normalizeMaterialRows,
 } from './material-table-field.js';
 import {
-  buildInspecaoDl50MachineTableBody,
   drawInspecaoDl50HeaderBlock,
   INSPECAO_DL50_MACHINE_FIELD_IDS,
   INSPECAO_DL50_PDF_SKIP_FIELD_IDS,
   resolveInspecaoDl50MachineFields,
 } from './inspecao-dl50-categories.js';
 
-const PDF_MACHINE_SECTION = 'Informações da Máquina';
-
 const DB_KEY = 'manusilva_db';
+const PDF_FOOTER_FONT_SIZE = PDF_FONT_CAPTION;
 
 function getDB() {
   const raw = localStorage.getItem(DB_KEY);
@@ -183,53 +224,6 @@ function getJob(id) {
   return getJobsSnapshot().find((j) => j.id === id) || null;
 }
 
-const CORPORATE_BLUE = [30, 64, 115];
-const CORPORATE_BLUE_DARK = [15, 39, 68];
-const SLATE_LINE = [100, 116, 139];
-const TEXT_DARK = [30, 41, 59];
-const TEXT_MUTED = [100, 116, 139];
-const SUCCESS = [16, 185, 129];
-const DANGER = [248, 113, 113];
-const WHITE = [255, 255, 255];
-
-/** Design system — tipografia (pt) */
-const PDF_FONT_TITLE = 16;
-const PDF_FONT_SECTION = 14;
-const PDF_FONT_SUBTITLE = 12;
-const PDF_FONT_BODY = 10;
-const PDF_FONT_CAPTION = 8;
-
-const PDF_VERIFICATION_SECTION_TITLE = 'Verificações Efetuadas';
-
-const MARGIN = 15;
-const PAGE_W = 210;
-const PAGE_H = 297;
-const CONTENT_W = PAGE_W - MARGIN * 2;
-/** Y inicial após quebra de página forçada */
-const PDF_PAGE_CONTENT_START_Y = 22;
-/** Topo do bloco institucional (linha + dados da empresa) */
-const PDF_FOOTER_BLOCK_TOP = PAGE_H - 28;
-/** Numeração centrada no espaço livre acima do rodapé de contactos */
-const PDF_PAGE_NUMBER_Y = PDF_FOOTER_BLOCK_TOP - 8;
-/** Conteúdo não pode ultrapassar esta zona — reserva espaço para paginação + rodapé */
-const PDF_CONTENT_SAFE_BOTTOM_MM = PAGE_H - PDF_PAGE_NUMBER_Y + 3;
-/** Margem inferior autoTable */
-const PDF_AUTOTABLE_MARGIN_BOTTOM_MM = PAGE_H - PDF_FOOTER_BLOCK_TOP + 4;
-/** @deprecated usar PDF_FOOTER_BLOCK_TOP */
-const PDF_FOOTER_BASELINE_Y = PDF_FOOTER_BLOCK_TOP;
-/** @deprecated usar PDF_CONTENT_SAFE_BOTTOM_MM */
-const PDF_FOOTER_RESERVE_MM = PDF_CONTENT_SAFE_BOTTOM_MM;
-const PDF_FOOTER_TEXT_RGB = [148, 163, 184];
-const PDF_FOOTER_FONT_SIZE = PDF_FONT_CAPTION;
-
-/** Grelhas autoTable — cabeçalho institucional + linhas alternadas */
-const PDF_TABLE_HEAD_FILL = CORPORATE_BLUE;
-const PDF_TABLE_HEAD_TEXT = WHITE;
-const PDF_TABLE_LINE = [226, 232, 240];
-const PDF_TABLE_BODY_FILL = WHITE;
-const PDF_TABLE_ALT_ROW_FILL = [248, 249, 250];
-const PDF_SECTION_BG = [248, 250, 252];
-
 const TABLE_HEADER_SHORT = {
   artigo: 'Artigo / Desc.',
   quantidade: 'Qtd.',
@@ -242,17 +236,6 @@ const TABLE_HEADER_SHORT = {
   tipo: 'Tipo',
   horas: 'Horas',
 };
-
-const PDF_SCALAR_FIELD_TYPES = new Set([
-  'text',
-  'date',
-  'number',
-  'status_pills',
-  'toggle_component',
-  'dropdown',
-  'choice',
-  'toggle',
-]);
 
 let jsPDFCtor = null;
 let jsPDFLoadPromise = null;
@@ -596,18 +579,6 @@ function buildSmartColumnStyles(columns, tableWidth = CONTENT_W) {
   return styles;
 }
 
-function mergeTableDidParseCell(extra) {
-  return (data) => {
-    if (data.section === 'body' && data.row.index % 2 === 1) {
-      data.cell.styles.fillColor = PDF_TABLE_ALT_ROW_FILL;
-    }
-    if (data.section === 'body') {
-      data.cell.styles.fontSize = PDF_FONT_BODY;
-    }
-    if (extra) extra(data);
-  };
-}
-
 function drawLogoPlaceholder(doc, x, y, widthMm, heightMm = widthMm) {
   doc.setDrawColor(...SLATE_LINE);
   doc.setLineWidth(0.35);
@@ -679,48 +650,20 @@ async function drawPdfGridTable(doc, y, options = {}) {
   if (!body?.length && !head?.length) return y;
 
   await loadJsPdfAutoTable();
-  pdfSetFont(doc, 'normal');
-
   const tableConfig = {
     startY: y,
     margin: getPdfAutoTableMargin(marginLeft, marginRight),
     tableWidth,
-    theme: 'plain',
-    styles: {
-      font: pdfAutoTableFont(doc),
-      fontSize: PDF_FONT_BODY,
-      cellPadding: { top: 3.5, right: 4, bottom: 3.5, left: 4 },
-      lineColor: PDF_TABLE_LINE,
-      lineWidth: 0.15,
-      textColor: TEXT_DARK,
-      fontStyle: 'normal',
-      valign: 'middle',
-      overflow: 'linebreak',
-    },
-    bodyStyles: { fillColor: PDF_TABLE_BODY_FILL },
+    ...buildPdfAutoTableStyles(doc, pdfAutoTableFont, pdfSetFont),
     columnStyles: columnStyles || {
       0: { cellWidth: tableWidth / 2, overflow: 'linebreak' },
       1: { cellWidth: tableWidth / 2, overflow: 'linebreak' },
     },
   };
 
-  if (head?.length) {
-    tableConfig.head = head;
-    tableConfig.headStyles = {
-      font: pdfAutoTableFont(doc),
-      fillColor: PDF_TABLE_HEAD_FILL,
-      textColor: PDF_TABLE_HEAD_TEXT,
-      fontStyle: 'bold',
-      fontSize: PDF_FONT_BODY,
-      lineColor: CORPORATE_BLUE_DARK,
-      lineWidth: 0.15,
-      halign: 'left',
-      overflow: 'linebreak',
-    };
-  }
-
+  if (head?.length) tableConfig.head = head;
   if (body?.length) tableConfig.body = body;
-  tableConfig.didParseCell = mergeTableDidParseCell(didParseCell);
+  tableConfig.didParseCell = mergePdfTableDidParseCell(didParseCell);
   tableConfig.didDrawPage = buildPdfAutoTableDidDrawPage(doc);
 
   doc.autoTable(tableConfig);
@@ -732,19 +675,13 @@ function isPdfScalarField(field) {
   return Boolean(field?.type && PDF_SCALAR_FIELD_TYPES.has(field.type));
 }
 
-function reportHasPdfMachineBlock(service) {
-  return (service?.fields || []).some((field) => INSPECAO_DL50_MACHINE_FIELD_IDS.has(field.id));
-}
-
-async function drawMachineInfoBlock(doc, y, values, pdfContext) {
-  const machine = resolveInspecaoDl50MachineFields(values, pdfContext);
+async function drawGenericMachineInfoBlock(doc, y, service, values, pdfContext) {
+  const fields = getMachineSectionScalarFields(service);
+  if (!fields.length) return y;
   y = ensureSpace(doc, y, 28);
   y = drawSectionTitle(doc, y, PDF_MACHINE_SECTION, { skipEnsure: true });
   y = drawDivider(doc, y - 4);
-  return drawPdfGridTable(doc, y, {
-    body: buildInspecaoDl50MachineTableBody(machine),
-    gapAfter: 5,
-  });
+  return drawSectionScalarGrid(doc, y, fields, values, pdfContext);
 }
 
 function collectPdfScalarFields(service, values, pdfContext, filters = {}) {
@@ -752,6 +689,7 @@ function collectPdfScalarFields(service, values, pdfContext, filters = {}) {
   return (service?.fields || []).filter((field) => {
     if (skipIds.has(field.id)) return false;
     if (INSPECAO_DL50_MACHINE_FIELD_IDS.has(field.id)) return false;
+    if (field.section && isMachineInfoSection(field.section)) return false;
     if (field.id === 'declaracao_seguranca') return false;
     if (isDl50 && INSPECAO_DL50_PDF_SKIP_FIELD_IDS.has(field.id)) return false;
     if (field.id === 'deslocacao') return false;
@@ -959,23 +897,6 @@ function drawSectionTitle(doc, y, title, options = {}) {
   return y + bandH + 3;
 }
 
-function isMachineInfoSection(section) {
-  return pdfNormalizeHeading(section) === pdfNormalizeHeading(PDF_MACHINE_SECTION);
-}
-
-/** Secção só com verification_toggles — evita «Verificações» + «Lista de Verificações» */
-function isVerificationOnlySection(section, service) {
-  if (!section) return false;
-  const norm = pdfNormalizeHeading(section);
-  if (!norm.includes('verific')) return false;
-  const inSection = (service?.fields || []).filter((f) => f.section === section);
-  return inSection.length > 0 && inSection.every((f) => f.type === 'verification_toggles');
-}
-
-function getVerificationPdfTitle(field) {
-  return field?.pdfTitle || field?.label || PDF_VERIFICATION_SECTION_TITLE;
-}
-
 function normalizeReportValues(data) {
   const values = {};
   if (data.values && typeof data.values === 'object') {
@@ -1153,16 +1074,13 @@ async function drawReportFieldsSection(doc, y, service, values, pdfContext = nul
     });
     INSPECAO_DL50_PDF_SKIP_FIELD_IDS.forEach((id) => scalarRenderedIds.add(id));
     gridRenderedSections.add(PDF_MACHINE_SECTION);
-  } else if (reportHasPdfMachineBlock(service)) {
-    y = await drawMachineInfoBlock(doc, y, values, pdfContext);
-    INSPECAO_DL50_MACHINE_FIELD_IDS.forEach((id) => scalarRenderedIds.add(id));
+  } else if (reportHasMachineSection(service)) {
+    y = await drawGenericMachineInfoBlock(doc, y, service, values, pdfContext);
+    getMachineSectionScalarFields(service).forEach((f) => scalarRenderedIds.add(f.id));
     gridRenderedSections.add(PDF_MACHINE_SECTION);
-    service.fields
-      ?.filter((f) => f.section && isMachineInfoSection(f.section))
-      .forEach((f) => gridRenderedSections.add(f.section));
   }
 
-  const machineBlockRendered = reportHasPdfMachineBlock(service);
+  const machineBlockRendered = reportHasMachineSection(service);
 
   const headerScalars = collectPdfScalarFields(service, values, pdfContext, {
     section: null,
@@ -1209,31 +1127,31 @@ async function drawReportFieldsSection(doc, y, service, values, pdfContext = nul
 
     if (field.section && field.section !== currentSection) {
       currentSection = field.section;
-      const skipMaterialSectionHeader = isMaterialOnlySection(currentSection, service);
-      const skipVerificationSectionHeader = isVerificationOnlySection(currentSection, service);
-      const skipMachineSectionHeader =
-        machineBlockRendered && isMachineInfoSection(currentSection);
-      const skipSectionHeader =
-        skipMaterialSectionHeader || skipVerificationSectionHeader || skipMachineSectionHeader;
-
-      if (!skipSectionHeader) {
-        y = ensureSpace(doc, y, 10);
-        y = drawSectionTitle(doc, y, currentSection);
-        y = drawDivider(doc, y - 4);
-      }
+      const skipSectionHeader = shouldSkipPdfSectionHeader(currentSection, service, {
+        machineBlockRendered,
+      });
 
       if (!gridRenderedSections.has(currentSection)) {
-        if (!skipSectionHeader) {
-          const sectionScalars = collectPdfScalarFields(service, values, pdfContext, {
-            section: currentSection,
-            isDl50,
-            skipIds: scalarRenderedIds,
-          });
-          if (sectionScalars.length) {
-            y = await drawSectionScalarGrid(doc, y, sectionScalars, values, pdfContext);
-            sectionScalars.forEach((f) => scalarRenderedIds.add(f.id));
-          }
+        const sectionScalars = skipSectionHeader
+          ? []
+          : collectPdfScalarFields(service, values, pdfContext, {
+              section: currentSection,
+              isDl50,
+              skipIds: scalarRenderedIds,
+            });
+
+        if (sectionScalars.length) {
+          y = ensureSpace(doc, y, 10);
+          y = drawSectionTitle(doc, y, currentSection);
+          y = drawDivider(doc, y - 4);
+          y = await drawSectionScalarGrid(doc, y, sectionScalars, values, pdfContext);
+          sectionScalars.forEach((f) => scalarRenderedIds.add(f.id));
+        } else if (!skipSectionHeader) {
+          y = ensureSpace(doc, y, 10);
+          y = drawSectionTitle(doc, y, currentSection);
+          y = drawDivider(doc, y - 4);
         }
+
         gridRenderedSections.add(currentSection);
       }
     }
@@ -1243,13 +1161,7 @@ async function drawReportFieldsSection(doc, y, service, values, pdfContext = nul
     y = ensureSpace(doc, y, 14);
 
     if (field.type === 'verification_toggles' && value && typeof value === 'object') {
-      const sectionRendered = Boolean(field.section && field.section === currentSection);
-      const verificationOnly =
-        field.section && isVerificationOnlySection(field.section, service);
-      const blockTitle = verificationOnly
-        ? getVerificationPdfTitle(field)
-        : pdfBlockTitle(field, sectionRendered);
-      y = await drawVerificationBlock(doc, y, blockTitle, field.items || [], value);
+      y = await drawVerificationBlock(doc, y, getBlockPdfTitle(field), field.items || [], value);
       continue;
     }
 
@@ -1262,7 +1174,6 @@ async function drawReportFieldsSection(doc, y, service, values, pdfContext = nul
           obsValue = coercePdfFieldValue(obsField, values[obsField.id], pdfContext);
           if (isPdfEmptyValue(obsField, obsValue)) obsValue = null;
         }
-        const sectionRendered = Boolean(field.section && field.section === currentSection);
         y = await drawMaterialAndObservationsBlock(
           doc,
           y,
@@ -1270,18 +1181,16 @@ async function drawReportFieldsSection(doc, y, service, values, pdfContext = nul
           rows,
           obsField,
           obsValue,
-          sectionRendered,
           pdfContext,
         );
         if (obsField && obsValue !== null) pairedObservationsRendered.add(obsField.id);
         continue;
       }
 
-      const sectionRendered = Boolean(field.section && field.section === currentSection);
       y = await drawDynamicTableBlock(
         doc,
         y,
-        pdfBlockTitle(field, sectionRendered),
+        getBlockPdfTitle(field),
         field.columns || [],
         value,
       );
@@ -1289,11 +1198,10 @@ async function drawReportFieldsSection(doc, y, service, values, pdfContext = nul
     }
 
     if (field.type === 'grandes_identificacao_baterias' && Array.isArray(value)) {
-      const sectionRendered = Boolean(field.section && field.section === currentSection);
       y = await drawDynamicTableBlock(
         doc,
         y,
-        pdfBlockTitle(field, sectionRendered),
+        getBlockPdfTitle(field),
         getColumnLabels(),
         value,
       );
@@ -1301,8 +1209,7 @@ async function drawReportFieldsSection(doc, y, service, values, pdfContext = nul
     }
 
     if (field.type === 'multi_checkbox' && Array.isArray(value)) {
-      const sectionRendered = Boolean(field.section && field.section === currentSection);
-      y = await drawMultiCheckboxBlock(doc, y, pdfBlockTitle(field, sectionRendered), value);
+      y = await drawMultiCheckboxBlock(doc, y, getBlockPdfTitle(field), value);
       continue;
     }
 
@@ -1332,12 +1239,13 @@ async function drawReportFieldsSection(doc, y, service, values, pdfContext = nul
       }
 
       if (field.prominent) {
-        const sectionRendered = Boolean(field.section && field.section === currentSection);
+        const skipSectionInBox =
+          field.section && shouldSkipPdfSectionHeader(field.section, service, { machineBlockRendered });
         y = drawDiagnosticAnalysisBlock(
           doc,
           y,
-          field.label,
-          sectionRendered ? null : field.section,
+          getBlockPdfTitle(field),
+          skipSectionInBox ? null : field.section,
           value,
         );
       } else {
@@ -1347,6 +1255,7 @@ async function drawReportFieldsSection(doc, y, service, values, pdfContext = nul
     }
 
     if (isPdfScalarField(field)) {
+      if (field.section || scalarRenderedIds.has(field.id)) continue;
       y = await drawSectionScalarGrid(doc, y, [field], values, pdfContext);
       scalarRenderedIds.add(field.id);
       continue;
@@ -1492,7 +1401,7 @@ function estimateMatrixAutoTableHeight(doc, body) {
 async function drawMatrixInspectionBlock(doc, y, field, matrixValue) {
   await loadJsPdfAutoTable();
 
-  y = drawSectionTitle(doc, y, field.label || 'Pontos de Inspeção');
+  y = drawSectionTitle(doc, y, getBlockPdfTitle(field) || 'Pontos de Inspeção');
 
   (field.categories || []).forEach((cat) => {
     const catKey = columnKey(cat.name);
@@ -1508,7 +1417,7 @@ async function drawMatrixInspectionBlock(doc, y, field, matrixValue) {
     y = ensureBlockFitsPage(doc, y, catHeight, minOrphan);
 
     pdfSetFont(doc, 'bold');
-    doc.setFontSize(8);
+    doc.setFontSize(PDF_FONT_BODY);
     doc.setTextColor(...CORPORATE_BLUE_DARK);
     doc.text(cat.name.toUpperCase(), MARGIN, y);
     y += MATRIX_CAT_TITLE_H;
@@ -1520,33 +1429,7 @@ async function drawMatrixInspectionBlock(doc, y, field, matrixValue) {
       tableWidth: CONTENT_W,
       head: [['Ponto de Inspeção', 'Estado']],
       body,
-      theme: 'plain',
-      styles: {
-        font: pdfAutoTableFont(doc),
-        fontSize: 7,
-        cellPadding: { top: 1.6, right: 2, bottom: 1.6, left: 2 },
-        lineColor: PDF_TABLE_LINE,
-        lineWidth: 0.12,
-        textColor: TEXT_DARK,
-        fontStyle: 'normal',
-        valign: 'middle',
-        overflow: 'linebreak',
-      },
-      headStyles: {
-        font: pdfAutoTableFont(doc),
-        fillColor: PDF_TABLE_HEAD_FILL,
-        textColor: PDF_TABLE_HEAD_TEXT,
-        fontStyle: 'bold',
-        fontSize: PDF_FONT_BODY,
-        lineColor: CORPORATE_BLUE_DARK,
-        lineWidth: 0.15,
-      },
-      bodyStyles: {
-        fillColor: PDF_TABLE_BODY_FILL,
-      },
-      alternateRowStyles: {
-        fillColor: PDF_TABLE_ALT_ROW_FILL,
-      },
+      ...buildPdfAutoTableStyles(doc, pdfAutoTableFont, pdfSetFont),
       columnStyles: {
         0: { cellWidth: MATRIX_POINT_COL_W },
         1: {
@@ -1554,15 +1437,15 @@ async function drawMatrixInspectionBlock(doc, y, field, matrixValue) {
           halign: 'center',
           font: pdfAutoTableFont(doc),
           fontStyle: 'bold',
-          fontSize: 7.5,
+          fontSize: PDF_FONT_BODY,
         },
       },
-      didParseCell: (data) => {
+      didParseCell: mergePdfTableDidParseCell((data) => {
         if (data.section === 'body' && data.column.index === 1) {
           const opt = rowOpts[data.row.index];
           data.cell.styles.textColor = matrixPdfRgb(opt);
         }
-      },
+      }),
       didDrawPage: buildPdfAutoTableDidDrawPage(doc),
     });
 
@@ -1572,10 +1455,6 @@ async function drawMatrixInspectionBlock(doc, y, field, matrixValue) {
 
   return y + 4;
 }
-
-const PDF_FOTO_LABEL_ANTES = 'Antes';
-const PDF_FOTO_LABEL_DEPOIS = 'Depois';
-const PDF_FOTO_SECTION_TITLE = 'Registo Fotográfico';
 
 function drawLegalVerdictBlock(doc, y, label, value, opts = {}) {
   const gapAfter = opts.gapAfter ?? 8;
@@ -1881,7 +1760,6 @@ async function drawMaterialAndObservationsBlock(
   materialRows,
   obsField,
   obsValue,
-  sectionRendered,
   pdfContext = null,
 ) {
   const materialEmpty = isPdfEmptyValue(materialField, materialRows);
@@ -1993,9 +1871,13 @@ function drawKeyValueLine(doc, y, label, value, fieldType) {
 }
 
 function drawDiagnosticAnalysisBlock(doc, y, label, section, value) {
+  const bandTitle = section || label;
+  const innerTitle =
+    section && label && pdfNormalizeHeading(section) !== pdfNormalizeHeading(label) ? label : null;
+
   y = ensureSpace(doc, y, 28);
-  if (section) {
-    y = drawSectionTitle(doc, y, section, { skipEnsure: true });
+  if (bandTitle) {
+    y = drawSectionTitle(doc, y, bandTitle, { skipEnsure: true });
   }
 
   doc.setFillColor(...PDF_SECTION_BG);
@@ -2003,19 +1885,22 @@ function drawDiagnosticAnalysisBlock(doc, y, label, section, value) {
   doc.setLineWidth(0.3);
 
   const lines = pdfParagraphLines(doc, value, CONTENT_W - 12);
-  const boxH = Math.max(24, lines.length * 5 + 16);
+  const textTop = innerTitle ? 14 : 8;
+  const boxH = Math.max(24, lines.length * 5 + textTop + 8);
   y = ensureSpace(doc, y, boxH + 6);
   doc.roundedRect(MARGIN, y, CONTENT_W, boxH, 2, 2, 'FD');
 
-  pdfSetFont(doc, 'bold');
-  doc.setFontSize(PDF_FONT_SUBTITLE);
-  doc.setTextColor(...CORPORATE_BLUE_DARK);
-  doc.text(label.toUpperCase(), MARGIN + 4, y + 7);
+  if (innerTitle) {
+    pdfSetFont(doc, 'bold');
+    doc.setFontSize(PDF_FONT_SUBTITLE);
+    doc.setTextColor(...CORPORATE_BLUE_DARK);
+    doc.text(innerTitle.toUpperCase(), MARGIN + 4, y + 7);
+  }
 
   pdfSetFont(doc, 'normal');
   doc.setFontSize(PDF_FONT_BODY);
   doc.setTextColor(...TEXT_DARK);
-  doc.text(lines, MARGIN + 4, y + 14, { lineHeightFactor: 1.45 });
+  doc.text(lines, MARGIN + 4, y + textTop, { lineHeightFactor: 1.45 });
 
   touchPdfContentPage(doc);
   return y + boxH + 8;
@@ -2385,26 +2270,6 @@ function trimTrailingBlankPages(doc) {
     doc.deletePage(total);
     total -= 1;
   }
-}
-
-function pdfNormalizeHeading(text) {
-  return String(text || '')
-    .trim()
-    .toLocaleLowerCase('pt-PT')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '');
-}
-
-/** Título de bloco/tabela — evita repetir o cabeçalho de secção já desenhado */
-function pdfBlockTitle(field, sectionRendered) {
-  if (!sectionRendered) return field.section || field.label || null;
-  if (
-    field.label &&
-    pdfNormalizeHeading(field.label) !== pdfNormalizeHeading(field.section)
-  ) {
-    return field.label;
-  }
-  return null;
 }
 
 function ensureSpace(doc, y, needed) {

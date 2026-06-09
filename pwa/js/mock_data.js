@@ -9,7 +9,7 @@ import {
 } from './preventiva-empilhadores-items.js';
 import { createMaterialTableField } from './material-table-field.js';
 
-export const SCHEMA_VERSION = 20;
+export const SCHEMA_VERSION = 21;
 
 export const COMPANY = {
   name: 'ManuSilva Manutenção Industrial, Unipessoal, Lda',
@@ -93,6 +93,7 @@ export const MANUTENCAO_CORRETIVA_MAQUINAS = {
       type: 'verification_toggles',
       id: 'lista_de_verificacoes',
       label: 'Verificações Efetuadas',
+      pdfTitle: 'Verificações Efetuadas',
       section: 'Verificações',
       items: [
         'Chassis',
@@ -253,6 +254,7 @@ export const MANUTENCAO_PREVENTIVA_EMPILHADORES = {
       type: 'verification_toggles',
       id: 'componentes_externos',
       label: 'Componentes Externos',
+      pdfTitle: 'Verificações Externas',
       section: 'Verificações Externas',
       collapsible: true,
       defaultOpen: true,
@@ -262,6 +264,7 @@ export const MANUTENCAO_PREVENTIVA_EMPILHADORES = {
       type: 'verification_toggles',
       id: 'componentes_internos',
       label: 'Componentes Internos',
+      pdfTitle: 'Verificações Internas',
       section: 'Verificações Internas',
       collapsible: true,
       defaultOpen: false,
