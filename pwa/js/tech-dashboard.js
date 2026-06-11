@@ -58,7 +58,8 @@ const TECH_JOBS_TABS = {
   realizados: { id: 'realizados', label: 'Histórico de Realizados', subtitle: 'Concluídos' },
 };
 
-let techJobsTab = 'em_curso';
+/** Aba ativa no arranque: Agendados (vista semanal do calendário). */
+let techJobsTab = 'agendados';
 let techJobsTabsBound = false;
 let techTabDataCacheKey = null;
 
@@ -324,7 +325,7 @@ function getRealizadosItems(techId) {
 const TECH_JOBS_SHELL_HTML = `
   <section class="jobs-section" data-tech-jobs-shell>
     <div class="section-header">
-      <h2 id="tech-jobs-section-title">Em Curso / Pendentes</h2>
+      <h2 id="tech-jobs-section-title">Agendados</h2>
       <span class="date-label" id="selected-date-label"></span>
     </div>
     <p class="text-muted tech-greeting">
