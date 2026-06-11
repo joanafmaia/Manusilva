@@ -2934,6 +2934,77 @@ body.dark-mode .btn-preview:hover:not(:disabled) {
   text-decoration: underline;
 }
 
+.form-ordem-tecnico-line {
+  margin: 0 0 0.85rem;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--primary);
+  background: var(--surface-elevated, rgba(30, 64, 115, 0.06));
+  border-radius: var(--radius-sm, 6px);
+  border: 1px solid var(--border-subtle, rgba(30, 64, 115, 0.12));
+}
+
+.report-standard-block {
+  margin-bottom: 0.85rem;
+  padding: 0.9rem 1rem;
+}
+
+.report-standard-block .section-title {
+  margin-top: 0;
+  margin-bottom: 0.75rem;
+  font-size: 0.95rem;
+}
+
+.report-standard-grid {
+  display: grid;
+  gap: 0.65rem 0.75rem;
+}
+
+.report-standard-grid--machine {
+  grid-template-columns: 1fr 1fr;
+}
+
+.report-standard-grid--dates,
+.report-standard-grid--logistics {
+  grid-template-columns: 1fr 1fr;
+}
+
+.report-standard-subsection {
+  margin-top: 0.85rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border-subtle, rgba(0, 0, 0, 0.08));
+}
+
+.report-standard-subtitle {
+  margin: 0 0 0.55rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.report-pedido-orcamento-field {
+  margin-top: 0.5rem;
+}
+
+.report-pedido-orcamento-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+@media (max-width: 520px) {
+  .report-standard-grid--machine,
+  .report-standard-grid--dates,
+  .report-standard-grid--logistics {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Título dinâmico do relatório — template global (Avarias, Baterias, DL50, etc.) */
 .form-report-title {
   margin: 0.35rem 0 1rem;

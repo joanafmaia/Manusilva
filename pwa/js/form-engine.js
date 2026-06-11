@@ -32,6 +32,7 @@ import {
   VISITAS_FIELD_ID,
   DESLOCACAO_BASE_FIELD_ID,
 } from './deslocacao-field.js';
+import { isStandardLayoutReservedField } from './report-layout-standard.js';
 
 export { renderClientCombobox, renderHeaderClientCombobox, bindClientComboboxes, collectClientComboboxValues };
 
@@ -172,11 +173,13 @@ export function isOfficialTemplate(service) {
   return Boolean(service?.companyName && (service?.title || service?.label));
 }
 
-/** Campos de rastreamento de máquina — suspensos no fluxo de relatórios */
+/** Campos de rastreamento de máquina — bloco standard (todos os relatórios oficiais). */
 export const MACHINE_TRACKING_FIELD_IDS = new Set([
   'marca',
   'modelo',
   'numero_de_serie',
+  'n_interno',
+  'horas',
   'marca_modelo',
 ]);
 
@@ -184,22 +187,12 @@ export function isMachineTrackingField(field) {
   return Boolean(field?.id && MACHINE_TRACKING_FIELD_IDS.has(field.id));
 }
 
-/** Serviços onde o técnico identifica a máquina no ecrã (Marca/Modelo/Nº Série). */
-const SERVICES_WITH_MACHINE_FIELDS = new Set([
-  'inspecao_dl50_2005',
-  'folha_intervencao_avarias',
-]);
-
 function filterReportFields(fields, service) {
   return (fields || []).filter((f) => {
     if (isDeslocacaoField(f) || isVisitasField(f) || isDeslocacaoMetaField(f)) return false;
-    if (
-      SERVICES_WITH_MACHINE_FIELDS.has(service?.id) &&
-      f.section === 'Informações da Máquina'
-    ) {
-      return true;
-    }
-    return !isMachineTrackingField(f);
+    if (isStandardLayoutReservedField(f)) return false;
+    if (isMachineTrackingField(f)) return false;
+    return true;
   });
 }
 
@@ -257,35 +250,19 @@ export function resolveClientDisplayMeta(client) {
   return { nome, address, phone, email };
 }
 
-/** Cabeçalho com dados do cliente (destino da intervenção) */
+/** Cabeçalho com dados do cliente (destino da intervenção) — só nome e morada */
 export function renderJobClientHeader(client) {
-  const { nome, address, phone, email } = resolveClientDisplayMeta(client);
+  const { nome, address } = resolveClientDisplayMeta(client);
 
   const addressHtml = address
     ? `<p class="job-client-header-address">${escapeHtml(address)}</p>`
     : `<p class="job-client-header-address job-client-header-address--muted">Morada não registada</p>`;
 
-  let contactHtml = '';
-  if (phone) {
-    const telHref = phone.replace(/[^\d+]/g, '');
-    contactHtml = `
-      <p class="job-client-header-contact">
-        <span class="job-client-header-label">Contacto</span>
-        <a href="tel:${escapeHtml(telHref)}" class="job-client-header-link">${escapeHtml(phone)}</a>
-      </p>`;
-  } else if (email) {
-    contactHtml = `
-      <p class="job-client-header-contact">
-        <span class="job-client-header-label">E-mail</span>
-        <a href="mailto:${escapeHtml(email)}" class="job-client-header-link">${escapeHtml(email)}</a>
-      </p>`;
-  }
-
   return `
     <div class="job-client-header glass-card-inner">
+      <p class="job-client-header-label">Cliente</p>
       <p class="job-client-header-name">${escapeHtml(nome)}</p>
       ${addressHtml}
-      ${contactHtml}
     </div>
   `;
 }
@@ -775,6 +752,8 @@ export function collectReportValues(overlay) {
     const kind = el.dataset.fieldKind;
     if (['text', 'textarea', 'longtext', 'number', 'dropdown', 'grid'].includes(kind)) {
       values[id] = el.value;
+    } else if (kind === 'checkbox') {
+      values[id] = el.checked;
     } else if (kind === 'date') {
       values[id] = normalizeDateForStorage(el.value);
     } else if (kind === 'time') {

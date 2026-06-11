@@ -9,7 +9,7 @@ import {
 } from './preventiva-empilhadores-items.js';
 import { createMaterialTableField } from './material-table-field.js';
 
-export const SCHEMA_VERSION = 21;
+export const SCHEMA_VERSION = 22;
 
 export const COMPANY = {
   name: 'ManuSilva Manutenção Industrial, Unipessoal, Lda',

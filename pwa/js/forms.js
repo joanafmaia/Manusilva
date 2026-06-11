@@ -28,8 +28,13 @@ import {
   buildFormPrefill,
   mergeFormValues,
   isOfficialTemplate,
-  renderDeslocacaoIntroBlock,
 } from './form-engine.js';
+import {
+  mergeStandardLayoutValues,
+  renderOrdemTechnicianLine,
+  renderStandardMachineBlock,
+  renderStandardClosingBlock,
+} from './report-layout-standard.js';
 import {
   migrateLegacyBatteryRows,
   GRANDES_BATTERY_FIELD_ID,
@@ -255,7 +260,7 @@ function buildFormHTML(job, client, tech, service, existingReport, options = {})
     lockClient: true,
   };
   const prefill = buildFormPrefill(service, job, null, formContext);
-  const values = mergeFormValues(saved, prefill, service);
+  const values = mergeStandardLayoutValues(mergeFormValues(saved, prefill, service), service);
   if (service?.id === 'manutencao_baterias_grandes') {
     values[GRANDES_BATTERY_FIELD_ID] = migrateLegacyBatteryRows(values);
   }
@@ -351,13 +356,13 @@ function buildFormHTML(job, client, tech, service, existingReport, options = {})
               <div class="form-section-card form-section-card--intro">
                 ${clientHeader}
                 ${lockedClientFields}
+                ${official ? renderOrdemTechnicianLine(job, tech) : ''}
+                ${official ? renderStandardMachineBlock(values, formContext) : ''}
                 <h2 class="form-report-title">${service?.icon || '📋'} ${escapeHtml(formTitle)}</h2>
                 <div class="form-fixed-header glass-card-inner ${official ? 'form-fixed-header--compact' : ''}">
                   ${official ? '<p class="form-intro-block-label">Dados da Intervenção</p>' : ''}
                   <div class="header-grid ${official ? 'header-grid--intervention' : ''}">
                     <div class="header-field"><span class="hf-label">Data do Serviço</span><span class="hf-value">${formatDateLong(job.date)}</span></div>
-                    <div class="header-field"><span class="hf-label">Técnico</span><span class="hf-value">${escapeHtml(tech.name)}</span></div>
-                    ${official ? `<div class="form-intro-deslocacao">${renderDeslocacaoIntroBlock(values, formContext)}</div>` : ''}
                   </div>
                 </div>
               </div>
@@ -374,6 +379,7 @@ function buildFormHTML(job, client, tech, service, existingReport, options = {})
             </div>
 
             <div class="report-tab-panel" data-report-panel="finalizacao" id="report-panel-finalizacao" role="tabpanel" aria-labelledby="report-tab-finalizacao" hidden>
+              ${official ? renderStandardClosingBlock(values, formContext) : ''}
               <section class="form-section report-fields-section">
                 <div class="report-fields">${fieldsFinalizacao}</div>
               </section>

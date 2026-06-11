@@ -6,6 +6,10 @@ import {
   isMaterialTableField,
   MATERIAL_TABLE_PDF_LABEL,
 } from './material-table-field.js';
+import {
+  PDF_STANDARD_MACHINE_SPECS as LAYOUT_MACHINE_SPECS,
+  getPdfLayoutSkipFieldIds,
+} from './report-layout-standard.js';
 
 /** Tipografia (pt) */
 export const PDF_FONT_TITLE = 16;
@@ -190,38 +194,12 @@ export function getVerificationPdfTitle(field) {
 }
 
 /** Bloco de equipamento padronizado em todos os PDFs */
-export const PDF_STANDARD_MACHINE_SPECS = [
-  { id: 'marca', label: 'Marca' },
-  { id: 'modelo', label: 'Modelo' },
-  {
-    id: 'numero_de_serie',
-    label: 'Número de Série',
-    aliases: ['num_serie', 'numero_serie', 'n_serie'],
-  },
-  { id: 'n_interno', label: 'Nº Interno', aliases: ['num_interno'] },
-];
+export const PDF_STANDARD_MACHINE_SPECS = LAYOUT_MACHINE_SPECS;
 
-/** Campos de diagnóstico antes das assinaturas */
-export const PDF_CLOSING_DIAGNOSTIC_SPECS = [
-  { id: 'horas', label: 'Horas', aliases: ['horas_gastas'] },
-  { id: 'estado_maquina', label: 'Estado da Máquina' },
-];
+/** @deprecated — resumo desenhado em drawStandardClosingBlock */
+export const PDF_CLOSING_DIAGNOSTIC_SPECS = [];
 
-export const PDF_LAYOUT_SKIP_FIELD_IDS = new Set([
-  ...PDF_STANDARD_MACHINE_SPECS.flatMap((s) => [s.id, ...(s.aliases || [])]),
-  ...PDF_CLOSING_DIAGNOSTIC_SPECS.flatMap((s) => [s.id, ...(s.aliases || [])]),
-  'deslocacao',
-  'visitas_realizadas',
-  'visitas',
-  'deslocacao_base_km',
-  'datas_visitas',
-  'data_1',
-  'data_2',
-  'data_3',
-  'data_4',
-  'data_5',
-  'data_de_conclusao',
-]);
+export const PDF_LAYOUT_SKIP_FIELD_IDS = getPdfLayoutSkipFieldIds();
 
 /** Resolve valor de campo padronizado (com aliases). */
 export function resolvePdfStandardFieldValue(values, spec, fallback = null) {

@@ -66,7 +66,6 @@ import {
   PDF_SCALAR_FIELD_TYPES,
   PDF_SECTION_BG,
   PDF_STANDARD_MACHINE_SPECS,
-  PDF_CLOSING_DIAGNOSTIC_SPECS,
   PDF_LAYOUT_SKIP_FIELD_IDS,
   resolvePdfStandardFieldValue,
   PDF_TABLE_ALT_ROW_FILL,
@@ -96,6 +95,12 @@ import {
   INSPECAO_DL50_PDF_SKIP_FIELD_IDS,
   resolveInspecaoDl50MachineFields,
 } from './inspecao-dl50-categories.js';
+import {
+  formatOrdemTechnicianLine,
+  resolveResumoIntervencaoValue,
+  resolvePedidoOrcamentoValue,
+  resolveStandardFieldValue,
+} from './report-layout-standard.js';
 
 const DB_KEY = 'manusilva_db';
 const PDF_FOOTER_FONT_SIZE = PDF_FONT_CAPTION;
@@ -521,7 +526,7 @@ export async function renderInterventionPDF(report) {
   const fotoAntesUrl = data.fotoAntesUrl || job?.fotoAntes || null;
   const fotoDepoisUrl = data.fotoDepoisUrl || job?.fotoDepois || null;
 
-  let y = drawTopRowWithClientBlock(doc, clientMeta, job?.numeroOrdem ?? null);
+  let y = drawTopRowWithClientBlock(doc, clientMeta, job?.numeroOrdem ?? null, tech?.name || '—');
   y = drawTitleBar(doc, y, title);
   const pdfContext = buildPdfRenderContext(report, job, clientMeta, tech);
   let values = mapReportValuesForPdf(data, service, pdfContext);
@@ -529,24 +534,23 @@ export async function renderInterventionPDF(report) {
   pdfContext.values = values;
   pdfContext.service = service;
   pdfContext.closingOpts = {
+    service,
+    pdfContext,
     fotoAntesUrl,
     fotoDepoisUrl,
     simplePhotoLegend: true,
     legalValue: isDl50Pdf ? values.declaracao_seguranca : null,
   };
-  const visitCount = formatPdfNumeroVisitas(values);
   y = drawServiceInfoBlock(doc, y, {
     serviceDate: formatPdfServiceDateOnly(report, job, values),
-    visitDatesLine: resolvePdfVisitDatesLine(values, report, job, visitCount),
-    numeroVisitas: visitCount,
-    deslocacao: reportIncludesDeslocacao(service) ? values.deslocacao || '—' : null,
-    technician: tech?.name || '—',
   });
   y = drawDivider(doc, y);
   y = await drawStandardMachineBlock(doc, y, values, pdfContext);
   y = drawDivider(doc, y);
   y = await drawReportFieldsSection(doc, y, service, values, pdfContext);
   y = await drawReportClosingSection(doc, y, {
+    service,
+    pdfContext,
     legalLabel: isDl50Pdf ? 'Declaração de Segurança' : null,
     legalValue: isDl50Pdf ? values.declaracao_seguranca : null,
     fotoAntesUrl,
@@ -848,8 +852,8 @@ function drawTopRow(doc, _service, numeroOrdem = null) {
   return topY + logoH + 6;
 }
 
-/** Cabeçalho — coluna esquerda: logo + ordem; coluna direita: cliente (nome + morada) */
-function drawTopRowWithClientBlock(doc, clientMeta, numeroOrdem = null) {
+/** Cabeçalho — coluna esquerda: logo + ordem/técnico; coluna direita: cliente (nome + morada) */
+function drawTopRowWithClientBlock(doc, clientMeta, numeroOrdem = null, techName = '') {
   const topY = MARGIN;
   const logoW = PDF_LOGO_WIDTH_MM;
   const logoH = PDF_LOGO_HEIGHT_MM;
@@ -875,12 +879,14 @@ function drawTopRowWithClientBlock(doc, clientMeta, numeroOrdem = null) {
   }
 
   let leftY = topY + logoH + 4;
-  if (numeroOrdem != null) {
+  if (numeroOrdem != null || techName) {
     pdfSetFont(doc, 'bold');
     doc.setFontSize(PDF_FONT_BODY);
     doc.setTextColor(...CORPORATE_BLUE);
-    doc.text(formatOrdemDisplay(numeroOrdem), MARGIN, leftY);
-    leftY += 6;
+    const ordemLine = formatOrdemTechnicianLine(numeroOrdem, techName);
+    const ordemLines = pdfSplitText(doc, pdfSafeText(ordemLine), leftColW);
+    doc.text(ordemLines, MARGIN, leftY);
+    leftY += ordemLines.length * 5 + 2;
   }
 
   pdfSetFont(doc, 'normal');
@@ -978,13 +984,11 @@ async function drawSectionScalarGridFromPairs(doc, y, pairs) {
   return drawPdfGridTable(doc, y, { body });
 }
 
-/** Bloco superior — data do serviço (esq.) + visitas/deslocação/técnico (dir.) */
+/** Bloco superior — apenas data do serviço */
 function drawServiceInfoBlock(doc, y, meta) {
-  const blockH = meta.visitDatesLine ? 24 : 18;
-  y = ensureSpace(doc, y, blockH);
+  y = ensureSpace(doc, y, 14);
 
   const leftX = MARGIN;
-  const rightX = PAGE_W - MARGIN;
   const labelW = 36;
 
   pdfSetFont(doc, 'normal');
@@ -996,45 +1000,77 @@ function drawServiceInfoBlock(doc, y, meta) {
   doc.setTextColor(...TEXT_DARK);
   doc.text(pdfSafeText(meta.serviceDate || '—'), leftX + labelW, y);
 
-  let leftBottom = y;
-  if (meta.visitDatesLine) {
-    const lineY = y + 6;
-    pdfSetFont(doc, 'normal');
-    doc.setTextColor(...TEXT_MUTED);
-    doc.text('Datas das Visitas:', leftX, lineY);
-    doc.setTextColor(...TEXT_DARK);
-    doc.text(pdfSafeText(meta.visitDatesLine), leftX + labelW + 2, lineY);
-    leftBottom = lineY;
-  }
-
-  const rightLines = [];
-  if (meta.numeroVisitas != null) rightLines.push(`Nº de Visitas: ${pdfDisplayValue(meta.numeroVisitas)}`);
-  if (meta.deslocacao != null) rightLines.push(`Deslocação: ${pdfDisplayValue(meta.deslocacao)}`);
-  if (meta.technician) rightLines.push(`Técnico: ${pdfDisplayValue(meta.technician)}`);
-
-  let rightY = y;
-  rightLines.forEach((line) => {
-    pdfSetFont(doc, 'normal');
-    doc.setFontSize(PDF_FONT_BODY);
-    doc.setTextColor(...TEXT_DARK);
-    doc.text(pdfSafeText(line), rightX, rightY, { align: 'right' });
-    rightY += 5.5;
-  });
-
   touchPdfContentPage(doc);
-  return Math.max(leftBottom, rightY - 5.5) + 8;
+  return y + 10;
 }
 
-async function drawClosingDiagnosticBlock(doc, y, values) {
-  const pairs = PDF_CLOSING_DIAGNOSTIC_SPECS.map((spec) => ({
-    label: spec.label,
-    value: pdfDisplayValue(resolvePdfStandardFieldValue(values, spec)),
-  }));
-
-  y = ensureSpace(doc, y, 20);
+async function drawStandardClosingBlock(doc, y, values, service, pdfContext = null) {
+  y = ensureSpace(doc, y, 36);
   y = drawSectionTitle(doc, y, 'Resumo da Intervenção', { skipEnsure: true });
   y = drawDivider(doc, y - 4);
-  return drawSectionScalarGridFromPairs(doc, y, pairs);
+
+  const resumo = resolveResumoIntervencaoValue(values);
+  pdfSetFont(doc, 'bold');
+  doc.setFontSize(PDF_FONT_SUBTITLE);
+  doc.setTextColor(...TEXT_DARK);
+  doc.text('Diagnóstico e trabalho efetuado', MARGIN, y);
+  y += 6;
+
+  prepareObservationsTypography(doc);
+  const paragraphs = pdfObservationParagraphs(doc, resumo, CONTENT_W);
+  if (!paragraphs.length) {
+    pdfSetFont(doc, 'normal');
+    doc.setFontSize(PDF_FONT_BODY);
+    doc.setTextColor(...TEXT_MUTED);
+    doc.text('—', MARGIN, y);
+    y += OBS_LINE_HEIGHT;
+  } else {
+    paragraphs.forEach((lines) => {
+      lines.forEach((line) => {
+        if (y + OBS_LINE_HEIGHT > pdfContentBottomY()) {
+          doc.addPage();
+          touchPdfContentPage(doc);
+          y = PDF_PAGE_CONTENT_START_Y;
+        }
+        pdfSetFont(doc, 'normal');
+        doc.setFontSize(PDF_FONT_BODY);
+        doc.setTextColor(...TEXT_DARK);
+        if (line) doc.text(line, MARGIN, y);
+        y += line ? OBS_LINE_HEIGHT : OBS_EMPTY_LINE_HEIGHT;
+      });
+    });
+  }
+  y += 4;
+
+  y = drawKeyValueLine(
+    doc,
+    y,
+    'Pedido de Orçamento',
+    resolvePedidoOrcamentoValue(values) ? 'Sim' : 'Não',
+  );
+
+  const retornoPairs = [
+    { label: 'Data 1', value: pdfDisplayValue(values.data_1) },
+    { label: 'Data 2', value: pdfDisplayValue(values.data_2) },
+  ];
+  y = await drawSectionScalarGridFromPairs(doc, y, retornoPairs);
+
+  const logisticsPairs = [
+    { label: 'Nº de Visitas', value: pdfDisplayValue(formatPdfNumeroVisitas(values)) },
+  ];
+  if (reportIncludesDeslocacao(service)) {
+    logisticsPairs.push({
+      label: 'Deslocações',
+      value: pdfDisplayValue(formatPdfDeslocacao(values.deslocacao, { ...pdfContext, values })),
+    });
+  }
+  logisticsPairs.push({
+    label: 'Horas Gastas',
+    value: pdfDisplayValue(resolveStandardFieldValue(values, { id: 'horas_gastas' }) || '—'),
+  });
+  y = await drawSectionScalarGridFromPairs(doc, y, logisticsPairs);
+
+  return y + 2;
 }
 
 function drawDivider(doc, y) {
@@ -1760,6 +1796,16 @@ async function drawReportClosingSection(doc, y, opts) {
   profile = planReportClosingProfile(doc, y, opts);
   closingHeight = estimateClosingHeight(profile);
 
+  if (opts.closingValues) {
+    y = await drawStandardClosingBlock(
+      doc,
+      y,
+      opts.closingValues,
+      opts.service,
+      opts.pdfContext,
+    );
+  }
+
   if (hasLegal) {
     const legalH = estimateLegalVerdictHeight(doc, opts.legalValue, profile);
     y = ensureBlockFitsSafeZone(doc, y, legalH);
@@ -1791,10 +1837,6 @@ async function drawReportClosingSection(doc, y, opts) {
         skipEnsure: true,
       },
     );
-  }
-
-  if (opts.closingValues) {
-    y = await drawClosingDiagnosticBlock(doc, y, opts.closingValues);
   }
 
   const sigH = estimateSignaturesHeight(profile);
