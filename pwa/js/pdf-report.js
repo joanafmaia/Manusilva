@@ -669,7 +669,6 @@ const PDF_LOGO_HEIGHT_MM = 34;
 const FOLHA_TITLE_BAR_BG = [241, 245, 249];
 const FOLHA_TABLE_HEAD_FILL = [241, 245, 249];
 const FOLHA_POLAROID_MM = 37;
-const FOLHA_INTERVENTION_SUMMARY_FONT = 13;
 const FOLHA_CLOSING_PROFILE = {
   polaroidMm: FOLHA_POLAROID_MM,
   descH: 0,
@@ -1306,7 +1305,7 @@ async function drawFolhaClosingDataBlock(doc, y, values) {
   return await drawFolhaInterventionMetricsTable(doc, y, values);
 }
 
-/** Tabela destacada — Intervenção (Datas e Custos): cabeçalho cinza + valores em bold grande */
+/** Tabela padronizada — Intervenção (Datas e Custos): cabeçalho cinza + linha de valores */
 async function drawFolhaInterventionMetricsTable(doc, y, values) {
   const data1 = formatFolhaInterventionDate(resolvePdfStandardFieldValue(values, { id: 'data_1' }));
   const data2 = formatFolhaInterventionDate(resolvePdfStandardFieldValue(values, { id: 'data_2' }));
@@ -1317,7 +1316,7 @@ async function drawFolhaInterventionMetricsTable(doc, y, values) {
   const horas = pdfDisplayValue(resolvePdfStandardFieldValue(values, { id: 'horas_gastas' })) || '—';
 
   const colW = CONTENT_W / 4;
-  const blockH = 26;
+  const blockH = 22;
   y = ensureKeepTogetherBlock(doc, y, blockH + 4);
 
   await loadJsPdfAutoTable();
@@ -1339,14 +1338,13 @@ async function drawFolhaInterventionMetricsTable(doc, y, values) {
       bodyStyles: {
         font: pdfAutoTableFont(doc),
         fillColor: PDF_TABLE_BODY_FILL,
-        textColor: CORPORATE_BLUE_DARK,
-        fontStyle: 'bold',
-        fontSize: FOLHA_INTERVENTION_SUMMARY_FONT,
+        textColor: TEXT_DARK,
+        fontStyle: 'normal',
+        fontSize: PDF_FONT_BODY,
         lineColor: PDF_TABLE_LINE,
         lineWidth: 0.2,
         halign: 'center',
         valign: 'middle',
-        minCellHeight: 12,
       },
       columnStyles: {
         0: { cellWidth: colW, halign: 'center' },
