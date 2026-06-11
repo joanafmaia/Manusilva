@@ -118,8 +118,9 @@
   <script src="js/vendor/jspdf.umd.min.js" data-jspdf defer></script>
   <script src="js/vendor/jspdf.plugin.autotable.min.js" data-jspdf-autotable defer></script>
   <script type="module">
-    import { initLocalDatabase, warmClientsCatalog, warmOperacoes } from './js/app.js';
+    import { initLocalDatabase, warmClientsCatalog, warmOperacoes, handleFatalDashboardError } from './js/app.js';
     import { initTechDashboard } from './js/tech-dashboard.js';
+    import { initLogoutButton } from './js/auth.js';
     import { applyThemeToDocument, themeToggleIcon, toggleTheme } from './js/theme.js';
 
     applyThemeToDocument();
@@ -131,10 +132,21 @@
       if (themeIcon) themeIcon.textContent = themeToggleIcon(next);
     });
 
+    // Botão Sair ativo antes de qualquer carregamento de dados
+    initLogoutButton();
     initLocalDatabase();
-    await warmClientsCatalog();
-    await warmOperacoes();
-    initTechDashboard();
+
+    let fatalSessionError = false;
+    try {
+      await warmClientsCatalog();
+      await warmOperacoes();
+    } catch (error) {
+      fatalSessionError = await handleFatalDashboardError(error);
+    }
+
+    if (!fatalSessionError) {
+      initTechDashboard();
+    }
 
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('./sw.js?v=v6').catch(() => {});

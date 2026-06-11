@@ -268,35 +268,16 @@ export async function initTechDashboard() {
   const session = requireAuth('technician');
   if (!session) return;
 
+  // UI básica primeiro — navegação e botão Sair nunca ficam bloqueados
+  // por falhas na recolha de dados do Supabase.
   renderUserGreeting('user-name');
   initLogoutButton();
   renderHeader();
   renderOfflineToggle();
   renderOfflineSyncBar();
-
-  const { hydrateLocalReportsIntoCache } = await import('./report-local-storage.js');
-  await hydrateLocalReportsIntoCache();
-
-  try {
-    await warmOperacoes();
-  } catch (err) {
-    console.error('[Técnico] Dados Supabase:', err);
-  }
-
-  await hydrateLocalReportsIntoCache();
-
-  const { initTrabalhosOfflineSync, migrateLegacyOfflineQueue, sincronizarTrabalhosOffline } =
-    await import('./trabalhos-offline.js');
-  const { getDB, updateDB } = await import('./app.js');
-
-  await migrateLegacyOfflineQueue(getDB, updateDB);
-  initTrabalhosOfflineSync();
-  sincronizarTrabalhosOffline().catch(console.error);
-  renderOfflineSyncBar();
-
   bindTechCalendarNavigation();
   bindTechJobsTabs();
-  await refreshTechCalendar();
+  bindOfflineSyncButton();
 
   window.addEventListener('jobs-updated', () => {
     periodJobsCacheKey = null;
@@ -321,7 +302,46 @@ export async function initTechDashboard() {
     renderOfflineSyncBar();
   });
 
-  bindOfflineSyncButton();
+  try {
+    const { hydrateLocalReportsIntoCache } = await import('./report-local-storage.js');
+    await hydrateLocalReportsIntoCache();
+
+    try {
+      await warmOperacoes();
+    } catch (err) {
+      const { handleFatalDashboardError } = await import('./app.js');
+      if (await handleFatalDashboardError(err)) return;
+      console.error('[Técnico] Dados Supabase:', err);
+    }
+
+    await hydrateLocalReportsIntoCache();
+
+    const { initTrabalhosOfflineSync, migrateLegacyOfflineQueue, sincronizarTrabalhosOffline } =
+      await import('./trabalhos-offline.js');
+    const { getDB, updateDB } = await import('./app.js');
+
+    await migrateLegacyOfflineQueue(getDB, updateDB);
+    initTrabalhosOfflineSync();
+    sincronizarTrabalhosOffline().catch(console.error);
+    renderOfflineSyncBar();
+
+    await refreshTechCalendar();
+  } catch (error) {
+    const { handleFatalDashboardError } = await import('./app.js');
+    if (await handleFatalDashboardError(error)) return;
+
+    console.error('[Técnico] Erro ao carregar dados da dashboard:', error);
+    try {
+      const { showToast } = await import('./app.js');
+      showToast(
+        'Erro ao carregar dados. Pode tentar novamente ou terminar sessão pelo botão Sair.',
+        'error',
+        9000,
+      );
+    } catch {
+      /* UI mínima já está ativa — o botão Sair continua a funcionar */
+    }
+  }
 }
 
 let offlineSyncBound = false;

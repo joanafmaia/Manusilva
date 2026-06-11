@@ -193,6 +193,32 @@ export async function warmOperacoes() {
   await ensureProductionCatalog();
 }
 
+/**
+ * Trata erros fatais de arranque da dashboard (sessão/token inválido).
+ * Se o erro for de sessão, limpa storage e redireciona para o login.
+ * @param {unknown} error
+ * @returns {Promise<boolean>} true se o redirect foi iniciado
+ */
+export async function handleFatalDashboardError(error) {
+  console.error('Erro fatal ao iniciar dashboard:', error);
+
+  const msg = String(error?.message || '').toLowerCase();
+  const isSessionError =
+    error?.code === 'AUTH_SESSION_MISSING' ||
+    msg.includes('sessão') ||
+    msg.includes('sessao') ||
+    msg.includes('session') ||
+    msg.includes('token') ||
+    msg.includes('jwt');
+
+  if (!isSessionError) return false;
+
+  console.warn('Sessão expirada totalmente. A redirecionar para o login...');
+  const { handleFatalAuthSessionError } = await import('./supabase-client.js');
+  handleFatalAuthSessionError(error?.message || 'Sessão em falta no arranque da dashboard.');
+  return true;
+}
+
 function normalizeStoredClient(record) {
   if (!record) return null;
   return record.name ? record : mapClientToLegacy(record);

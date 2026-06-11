@@ -257,6 +257,9 @@ export async function initAdminDashboard() {
     await warmClientsCatalog();
     await warmOperacoes();
   } catch (err) {
+    const { handleFatalDashboardError } = await import('./app.js');
+    if (await handleFatalDashboardError(err)) return;
+
     console.error('[Admin] Supabase:', err);
     const msg =
       err?.message ||
