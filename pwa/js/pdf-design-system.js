@@ -11,12 +11,24 @@ import {
   getPdfLayoutSkipFieldIds,
 } from './report-layout-standard.js';
 
-/** Tipografia (pt) */
-export const PDF_FONT_TITLE = 16;
-export const PDF_FONT_SECTION = 14;
-export const PDF_FONT_SUBTITLE = 12;
-export const PDF_FONT_BODY = 10;
-export const PDF_FONT_CAPTION = 8;
+/** Tipografia (pt) — compacta para impressão (1 página quando possível) */
+export const PDF_FONT_TITLE = 12;
+export const PDF_FONT_SECTION = 10;
+export const PDF_FONT_SUBTITLE = 9;
+export const PDF_FONT_BODY = 9;
+export const PDF_FONT_CAPTION = 7;
+
+/** Layout (mm) — margens reduzidas para maximizar área útil */
+export const PDF_MARGIN = 12;
+export const PDF_PAGE_W = 210;
+export const PDF_PAGE_H = 297;
+export const PDF_CONTENT_W = PDF_PAGE_W - PDF_MARGIN * 2;
+export const PDF_PAGE_CONTENT_START_Y = 16;
+export const PDF_FOOTER_BLOCK_TOP = PDF_PAGE_H - 22;
+export const PDF_PAGE_NUMBER_Y = PDF_FOOTER_BLOCK_TOP - 4;
+export const PDF_CONTENT_SAFE_BOTTOM_MM = PDF_PAGE_H - PDF_PAGE_NUMBER_Y + 2;
+export const PDF_AUTOTABLE_MARGIN_BOTTOM_MM = PDF_PAGE_H - PDF_FOOTER_BLOCK_TOP + 2;
+export const PDF_FOOTER_TEXT_RGB = [148, 163, 184];
 
 /** Cores institucionais */
 export const PDF_COLOR_CORPORATE_BLUE = [30, 64, 115];
@@ -27,18 +39,6 @@ export const PDF_COLOR_TEXT_MUTED = [100, 116, 139];
 export const PDF_COLOR_WHITE = [255, 255, 255];
 export const PDF_COLOR_SUCCESS = [16, 185, 129];
 export const PDF_COLOR_DANGER = [248, 113, 113];
-
-/** Layout (mm) */
-export const PDF_MARGIN = 15;
-export const PDF_PAGE_W = 210;
-export const PDF_PAGE_H = 297;
-export const PDF_CONTENT_W = PDF_PAGE_W - PDF_MARGIN * 2;
-export const PDF_PAGE_CONTENT_START_Y = 22;
-export const PDF_FOOTER_BLOCK_TOP = PDF_PAGE_H - 28;
-export const PDF_PAGE_NUMBER_Y = PDF_FOOTER_BLOCK_TOP - 8;
-export const PDF_CONTENT_SAFE_BOTTOM_MM = PDF_PAGE_H - PDF_PAGE_NUMBER_Y + 3;
-export const PDF_AUTOTABLE_MARGIN_BOTTOM_MM = PDF_PAGE_H - PDF_FOOTER_BLOCK_TOP + 4;
-export const PDF_FOOTER_TEXT_RGB = [148, 163, 184];
 
 /** Tabelas autoTable */
 export const PDF_TABLE_HEAD_FILL = PDF_COLOR_CORPORATE_BLUE;
@@ -221,7 +221,7 @@ export function buildPdfAutoTableStyles(doc, pdfAutoTableFont, pdfSetFont) {
     styles: {
       font: pdfAutoTableFont(doc),
       fontSize: PDF_FONT_BODY,
-      cellPadding: { top: 3.5, right: 4, bottom: 3.5, left: 4 },
+      cellPadding: { top: 2, right: 3, bottom: 2, left: 3 },
       lineColor: PDF_TABLE_LINE,
       lineWidth: 0.15,
       textColor: PDF_COLOR_TEXT_DARK,

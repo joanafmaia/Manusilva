@@ -645,10 +645,17 @@ export async function generateReportPdfByServiceType(report) {
 
 /* ─── Layout blocks ─── */
 
-/** Logo no cabeçalho PDF (mm) — largura × altura, proporção do wordmark MS + MANUSILVA */
-const PDF_LOGO_WIDTH_MM = 48;
-const PDF_LOGO_HEIGHT_MM = 34;
-const PDF_HEADER_CLIENT_W = 88;
+/** Logo no cabeçalho PDF (mm) — compacto para impressão */
+const PDF_LOGO_WIDTH_MM = 40;
+const PDF_LOGO_HEIGHT_MM = 27;
+const PDF_HEADER_CLIENT_W = 84;
+
+/** Espaçamentos verticais compactos (mm) */
+const PDF_GAP_BLOCK = 3;
+const PDF_GAP_TABLE = 2;
+const PDF_GAP_DIVIDER = 2;
+const PDF_GAP_TITLE_AFTER = 3;
+const PDF_SECTION_BAND_H = 7;
 
 function formatTableHeaderLabel(col) {
   const key = columnKey(col);
@@ -743,7 +750,7 @@ async function drawPdfGridTable(doc, y, options = {}) {
     body,
     columnStyles,
     didParseCell,
-    gapAfter = 5,
+    gapAfter = PDF_GAP_TABLE,
     marginLeft = MARGIN,
     marginRight = MARGIN,
     tableWidth = CONTENT_W,
@@ -878,7 +885,7 @@ function drawTopRowWithClientBlock(doc, clientMeta, numeroOrdem = null, techName
     drawLogoPlaceholder(doc, MARGIN, topY, logoW, logoH);
   }
 
-  let leftY = topY + logoH + 4;
+  let leftY = topY + logoH + 3;
   if (numeroOrdem != null || techName) {
     pdfSetFont(doc, 'bold');
     doc.setFontSize(PDF_FONT_BODY);
@@ -886,18 +893,18 @@ function drawTopRowWithClientBlock(doc, clientMeta, numeroOrdem = null, techName
     const ordemLine = formatOrdemTechnicianLine(numeroOrdem, techName);
     const ordemLines = pdfSplitText(doc, pdfSafeText(ordemLine), leftColW);
     doc.text(ordemLines, MARGIN, leftY);
-    leftY += ordemLines.length * 5 + 2;
+    leftY += ordemLines.length * 4.2 + 1;
   }
 
   pdfSetFont(doc, 'normal');
   doc.setFontSize(PDF_FONT_CAPTION);
   doc.setTextColor(...TEXT_MUTED);
   doc.text(COMPANY.name, MARGIN, leftY, { maxWidth: leftColW });
-  leftY += 5;
+  leftY += 4;
 
   const blockW = PDF_HEADER_CLIENT_W;
   const blockX = PAGE_W - MARGIN - blockW;
-  const blockPad = 4;
+  const blockPad = 3;
   const textW = blockW - blockPad * 2;
 
   const nameLines = pdfSplitText(doc, pdfSafeText(clientMeta.nome), textW);
@@ -906,41 +913,41 @@ function drawTopRowWithClientBlock(doc, clientMeta, numeroOrdem = null, techName
     ? pdfSplitText(doc, pdfSafeText(clientMeta.addressSubline), textW)
     : [];
 
-  let blockContentH = 8 + nameLines.length * 4.2 + 2;
-  blockContentH += addrLines.length * 3.6 + 1;
-  blockContentH += addrSubLines.length * 3.6;
+  let blockContentH = 6 + nameLines.length * 3.6 + 1;
+  blockContentH += addrLines.length * 3.2 + 0.5;
+  blockContentH += addrSubLines.length * 3.2;
   const blockH = Math.max(logoH, blockContentH + blockPad * 2);
 
   doc.setFillColor(...PDF_SECTION_BG);
   doc.setDrawColor(...PDF_TABLE_LINE);
   doc.setLineWidth(0.2);
-  doc.roundedRect(blockX, topY, blockW, blockH, 2, 2, 'FD');
+  doc.roundedRect(blockX, topY, blockW, blockH, 1.5, 1.5, 'FD');
 
-  let lineY = topY + blockPad + 3;
+  let lineY = topY + blockPad + 2.5;
   pdfSetFont(doc, 'bold');
   doc.setFontSize(PDF_FONT_CAPTION);
   doc.setTextColor(...CORPORATE_BLUE);
   doc.text('CLIENTE', blockX + blockPad, lineY);
-  lineY += 5.5;
+  lineY += 4.5;
 
   pdfSetFont(doc, 'bold');
   doc.setFontSize(PDF_FONT_BODY);
   doc.setTextColor(...TEXT_DARK);
   doc.text(nameLines, blockX + blockPad, lineY);
-  lineY += nameLines.length * 4.2 + 2;
+  lineY += nameLines.length * 3.6 + 1;
 
   pdfSetFont(doc, 'normal');
-  doc.setFontSize(PDF_FONT_CAPTION + 0.5);
+  doc.setFontSize(PDF_FONT_CAPTION);
   doc.setTextColor(...TEXT_MUTED);
   doc.text(addrLines, blockX + blockPad, lineY);
-  lineY += addrLines.length * 3.6 + (addrSubLines.length ? 1 : 0);
+  lineY += addrLines.length * 3.2 + (addrSubLines.length ? 0.5 : 0);
 
   if (addrSubLines.length) {
     doc.text(addrSubLines, blockX + blockPad, lineY);
   }
 
   touchPdfContentPage(doc);
-  return Math.max(leftY, topY + blockH) + 8;
+  return Math.max(leftY, topY + blockH) + PDF_GAP_BLOCK;
 }
 
 function drawTitleBar(doc, y, title) {
@@ -948,20 +955,19 @@ function drawTitleBar(doc, y, title) {
   doc.setFontSize(PDF_FONT_TITLE);
   doc.setTextColor(...CORPORATE_BLUE_DARK);
   const lines = pdfSplitText(doc, title, CONTENT_W);
-  doc.text(lines, MARGIN, y + 5);
-  const textH = lines.length * 6.2;
-  y += textH + 4;
+  doc.text(lines, MARGIN, y + 4);
+  const textH = lines.length * 4.5;
+  y += textH + 2;
   doc.setDrawColor(...CORPORATE_BLUE);
-  doc.setLineWidth(0.5);
+  doc.setLineWidth(0.35);
   doc.line(MARGIN, y, MARGIN + CONTENT_W, y);
   touchPdfContentPage(doc);
-  return y + 8;
+  return y + PDF_GAP_TITLE_AFTER;
 }
 
 async function drawStandardMachineBlock(doc, y, values, pdfContext = null) {
-  y = ensureSpace(doc, y, 28);
+  y = ensureSpace(doc, y, 18);
   y = drawSectionTitle(doc, y, PDF_MACHINE_SECTION, { skipEnsure: true });
-  y = drawDivider(doc, y - 4);
 
   const pairs = PDF_STANDARD_MACHINE_SPECS.map((spec) => {
     let fallback = null;
@@ -980,41 +986,54 @@ async function drawStandardMachineBlock(doc, y, values, pdfContext = null) {
 async function drawSectionScalarGridFromPairs(doc, y, pairs) {
   const body = buildTwoColumnGridBody(pairs);
   if (!body.length) return y;
-  y = ensureSpace(doc, y, 14);
+  y = ensureSpace(doc, y, 10);
   return drawPdfGridTable(doc, y, { body });
 }
 
 /** Bloco superior — apenas data do serviço */
 function drawServiceInfoBlock(doc, y, meta) {
-  y = ensureSpace(doc, y, 14);
+  y = ensureSpace(doc, y, 8);
 
   const leftX = MARGIN;
-  const labelW = 36;
+  const labelW = 32;
 
   pdfSetFont(doc, 'normal');
-  doc.setFontSize(PDF_FONT_BODY);
+  doc.setFontSize(PDF_FONT_CAPTION);
   doc.setTextColor(...TEXT_MUTED);
   doc.text('Data do Serviço:', leftX, y);
 
   pdfSetFont(doc, 'bold');
+  doc.setFontSize(PDF_FONT_BODY);
   doc.setTextColor(...TEXT_DARK);
   doc.text(pdfSafeText(meta.serviceDate || '—'), leftX + labelW, y);
 
   touchPdfContentPage(doc);
-  return y + 10;
+  return y + 6;
+}
+
+function estimateStandardClosingBlockHeight(doc, values, service) {
+  const resumo = resolveResumoIntervencaoValue(values);
+  prepareObservationsTypography(doc);
+  const paragraphs = pdfObservationParagraphs(doc, resumo, CONTENT_W);
+  let h = PDF_SECTION_BAND_H + 2 + 5;
+  paragraphs.forEach((lines) => {
+    h += measureObservationLinesHeight(lines);
+  });
+  if (!paragraphs.length) h += OBS_LINE_HEIGHT;
+  h += 6 + 7 + 12 + 12;
+  return h;
 }
 
 async function drawStandardClosingBlock(doc, y, values, service, pdfContext = null) {
-  y = ensureSpace(doc, y, 36);
+  y = ensureSpace(doc, y, 22);
   y = drawSectionTitle(doc, y, 'Resumo da Intervenção', { skipEnsure: true });
-  y = drawDivider(doc, y - 4);
 
   const resumo = resolveResumoIntervencaoValue(values);
   pdfSetFont(doc, 'bold');
-  doc.setFontSize(PDF_FONT_SUBTITLE);
-  doc.setTextColor(...TEXT_DARK);
+  doc.setFontSize(PDF_FONT_CAPTION);
+  doc.setTextColor(...TEXT_MUTED);
   doc.text('Diagnóstico e trabalho efetuado', MARGIN, y);
-  y += 6;
+  y += 4;
 
   prepareObservationsTypography(doc);
   const paragraphs = pdfObservationParagraphs(doc, resumo, CONTENT_W);
@@ -1040,7 +1059,7 @@ async function drawStandardClosingBlock(doc, y, values, service, pdfContext = nu
       });
     });
   }
-  y += 4;
+  y += 2;
 
   y = drawKeyValueLine(
     doc,
@@ -1070,34 +1089,34 @@ async function drawStandardClosingBlock(doc, y, values, service, pdfContext = nu
   });
   y = await drawSectionScalarGridFromPairs(doc, y, logisticsPairs);
 
-  return y + 2;
+  return y + 1;
 }
 
 function drawDivider(doc, y) {
   doc.setDrawColor(...PDF_TABLE_LINE);
-  doc.setLineWidth(0.25);
+  doc.setLineWidth(0.2);
   doc.line(MARGIN, y, PAGE_W - MARGIN, y);
-  return y + 6;
+  return y + PDF_GAP_DIVIDER;
 }
 
 function drawSectionTitle(doc, y, title, options = {}) {
-  const bandH = 12;
+  const bandH = PDF_SECTION_BAND_H;
   if (!options.skipEnsure) {
-    y = ensureSpace(doc, y, bandH + 4);
+    y = ensureSpace(doc, y, bandH + 2);
   }
 
   doc.setFillColor(...PDF_SECTION_BG);
-  doc.rect(MARGIN, y - 2, CONTENT_W, bandH, 'F');
+  doc.rect(MARGIN, y - 1.5, CONTENT_W, bandH, 'F');
   doc.setDrawColor(...CORPORATE_BLUE);
-  doc.setLineWidth(0.35);
-  doc.line(MARGIN, y - 2, PAGE_W - MARGIN, y - 2);
+  doc.setLineWidth(0.25);
+  doc.line(MARGIN, y - 1.5, PAGE_W - MARGIN, y - 1.5);
 
   pdfSetFont(doc, 'bold');
   doc.setFontSize(PDF_FONT_SECTION);
   doc.setTextColor(...CORPORATE_BLUE_DARK);
-  doc.text(title.toUpperCase(), MARGIN + 3, y + 6);
+  doc.text(title.toUpperCase(), MARGIN + 2.5, y + 4.5);
   touchPdfContentPage(doc);
-  return y + bandH + 3;
+  return y + bandH + 1;
 }
 
 function normalizeReportValues(data) {
@@ -1697,38 +1716,38 @@ function drawLegalVerdictBlock(doc, y, label, value, opts = {}) {
   return y + boxH + gapAfter;
 }
 
-const POLAROID_MM = 60;
-const POLAROID_FRAME_PAD = 3;
-const POLAROID_CAPTION_H = 9;
-const POLAROID_DESC_H = 10;
+const POLAROID_MM = 44;
+const POLAROID_FRAME_PAD = 2;
+const POLAROID_CAPTION_H = 6;
+const POLAROID_DESC_H = 6;
 
 const REPORT_CLOSING_PROFILES = [
   {
-    polaroidMm: 60,
-    descH: 10,
-    polaroidBottom: 10,
-    sectionHeader: true,
-    legalGap: 8,
-    sigTop: 16,
-    sigImg: 20,
-  },
-  {
-    polaroidMm: 48,
-    descH: 8,
-    polaroidBottom: 6,
-    sectionHeader: true,
-    legalGap: 5,
-    sigTop: 8,
-    sigImg: 16,
-  },
-  {
-    polaroidMm: 42,
-    descH: 6,
+    polaroidMm: 44,
+    descH: 5,
     polaroidBottom: 4,
     sectionHeader: false,
     legalGap: 4,
-    sigTop: 4,
-    sigImg: 14,
+    sigTop: 5,
+    sigImg: 15,
+  },
+  {
+    polaroidMm: 36,
+    descH: 4,
+    polaroidBottom: 3,
+    sectionHeader: false,
+    legalGap: 3,
+    sigTop: 3,
+    sigImg: 13,
+  },
+  {
+    polaroidMm: 30,
+    descH: 0,
+    polaroidBottom: 2,
+    sectionHeader: false,
+    legalGap: 2,
+    sigTop: 2,
+    sigImg: 11,
   },
 ];
 
@@ -1741,13 +1760,13 @@ function estimateLegalVerdictHeight(doc, value, profile) {
 
 function estimatePolaroidSectionHeight(hasFotos, profile, opts = {}) {
   if (!hasFotos) return 0;
-  const headerH = profile.sectionHeader ? 17 : 0;
+  const headerH = profile.sectionHeader ? 10 : 0;
   const descH = opts.simpleLegend ? 0 : profile.descH;
   return headerH + descH + profile.polaroidMm + POLAROID_CAPTION_H + profile.polaroidBottom;
 }
 
 function estimateSignaturesHeight(profile) {
-  return profile.sigTop + profile.sigImg + SIGNATURE_LABEL_GAP_MM + 10;
+  return profile.sigTop + profile.sigImg + SIGNATURE_LABEL_GAP_MM + 6;
 }
 
 function estimateReportClosingHeight(doc, y, opts = {}) {
@@ -1755,7 +1774,11 @@ function estimateReportClosingHeight(doc, y, opts = {}) {
   const hasLegal = Boolean(opts.legalValue && String(opts.legalValue).trim());
   const polaroidOpts = { simpleLegend: Boolean(opts.simplePhotoLegend) };
   const profile = planReportClosingProfile(doc, y, opts);
+  const resumoH = opts.closingValues
+    ? estimateStandardClosingBlockHeight(doc, opts.closingValues, opts.service)
+    : 0;
   return (
+    resumoH +
     (hasLegal ? estimateLegalVerdictHeight(doc, opts.legalValue, profile) : 0) +
     estimatePolaroidSectionHeight(hasFotos, profile, polaroidOpts) +
     estimateSignaturesHeight(profile)
@@ -1768,9 +1791,13 @@ function planReportClosingProfile(doc, y, opts) {
   const hasFotos = Boolean(opts.fotoAntesUrl || opts.fotoDepoisUrl);
   const hasLegal = Boolean(opts.legalValue && String(opts.legalValue).trim());
   const polaroidOpts = { simpleLegend: Boolean(opts.simplePhotoLegend) };
+  const resumoH = opts.closingValues
+    ? estimateStandardClosingBlockHeight(doc, opts.closingValues, opts.service)
+    : 0;
 
   for (const profile of REPORT_CLOSING_PROFILES) {
     const total =
+      resumoH +
       (hasLegal ? estimateLegalVerdictHeight(doc, opts.legalValue, profile) : 0) +
       estimatePolaroidSectionHeight(hasFotos, profile, polaroidOpts) +
       estimateSignaturesHeight(profile);
@@ -1786,7 +1813,12 @@ async function drawReportClosingSection(doc, y, opts) {
   const polaroidOpts = { simpleLegend: Boolean(opts.simplePhotoLegend) };
 
   let profile = planReportClosingProfile(doc, y, opts);
+  const resumoH = opts.closingValues
+    ? estimateStandardClosingBlockHeight(doc, opts.closingValues, opts.service)
+    : 0;
+
   const estimateClosingHeight = (closingProfile) =>
+    resumoH +
     (hasLegal ? estimateLegalVerdictHeight(doc, opts.legalValue, closingProfile) : 0) +
     estimatePolaroidSectionHeight(hasFotos, closingProfile, polaroidOpts) +
     estimateSignaturesHeight(closingProfile);
@@ -1840,7 +1872,7 @@ async function drawReportClosingSection(doc, y, opts) {
   }
 
   const sigH = estimateSignaturesHeight(profile);
-  y = ensureBlockFitsSafeZone(doc, y, sigH);
+  y = ensureKeepTogetherBlock(doc, y, Math.min(sigH, pdfMaxContentHeight()));
   y = await drawSignaturesFooter(doc, y, opts.signatures || {}, {
     topMargin: profile.sigTop,
     imgHeight: profile.sigImg,
@@ -1916,10 +1948,10 @@ function estimateDynamicTableBlockHeight(columns, rows) {
   return titleH + tableH;
 }
 
-const OBS_LINE_HEIGHT = 5;
-const OBS_EMPTY_LINE_HEIGHT = 3;
-const OBS_TITLE_BLOCK_HEIGHT = 14;
-const OBS_BOTTOM_PAD = 8;
+const OBS_LINE_HEIGHT = 3.8;
+const OBS_EMPTY_LINE_HEIGHT = 2;
+const OBS_TITLE_BLOCK_HEIGHT = 10;
+const OBS_BOTTOM_PAD = 4;
 
 function prepareObservationsTypography(doc) {
   pdfSetFont(doc, 'normal');
@@ -2027,7 +2059,7 @@ async function drawDynamicTableBlock(doc, y, label, columns, rows, options = {})
     head: [headLabels],
     body,
     columnStyles,
-    gapAfter: 6,
+    gapAfter: PDF_GAP_TABLE,
   });
 }
 
@@ -2054,8 +2086,8 @@ function drawKeyValueLine(doc, y, label, value, fieldType) {
 
   const symbol = pdfStatusGlyph(symbolKind);
 
-  const valLines = pdfSplitText(doc, text, CONTENT_W - 62);
-  const blockH = Math.max(5, valLines.length * 4.2) + 3;
+  const valLines = pdfSplitText(doc, text, CONTENT_W - 58);
+  const blockH = Math.max(4, valLines.length * 3.6) + 2;
   y = ensureSpace(doc, y, blockH);
 
   doc.setTextColor(...rgb);
@@ -2064,12 +2096,12 @@ function drawKeyValueLine(doc, y, label, value, fieldType) {
   if (symbol) doc.text(symbol, MARGIN + 1, y);
 
   pdfSetFont(doc, 'bold');
-  doc.setFontSize(8);
+  doc.setFontSize(PDF_FONT_CAPTION);
   doc.setTextColor(...TEXT_MUTED);
   doc.text(`${label}:`, MARGIN + 7, y);
 
   pdfSetFont(doc, 'normal');
-  doc.setFontSize(8.5);
+  doc.setFontSize(PDF_FONT_BODY);
   doc.setTextColor(...TEXT_DARK);
   doc.text(valLines, MARGIN + 58, y);
 
@@ -2365,17 +2397,17 @@ async function drawPhotosAppendix(doc, y, photos) {
 }
 
 /** Espaço generoso após fotos Polaroid + bloco de assinaturas */
-const SIGNATURES_TOP_MARGIN_MM = 14;
-const SIGNATURE_LINE_GAP_MM = 14;
-const SIGNATURE_IMG_H_MM = 22;
-const SIGNATURE_LABEL_GAP_MM = 6;
+const SIGNATURES_TOP_MARGIN_MM = 6;
+const SIGNATURE_LINE_GAP_MM = 10;
+const SIGNATURE_IMG_H_MM = 14;
+const SIGNATURE_LABEL_GAP_MM = 4;
 const SIGNATURES_BLOCK_HEIGHT_MM =
-  SIGNATURES_TOP_MARGIN_MM + SIGNATURE_IMG_H_MM + SIGNATURE_LABEL_GAP_MM + 10;
+  SIGNATURES_TOP_MARGIN_MM + SIGNATURE_IMG_H_MM + SIGNATURE_LABEL_GAP_MM + 6;
 
 async function drawSignaturesFooter(doc, y, signatures, opts = {}) {
   const topMargin = opts.topMargin ?? SIGNATURES_TOP_MARGIN_MM;
   const imgHeight = opts.imgHeight ?? SIGNATURE_IMG_H_MM;
-  const blockHeight = topMargin + imgHeight + SIGNATURE_LABEL_GAP_MM + 10;
+  const blockHeight = topMargin + imgHeight + SIGNATURE_LABEL_GAP_MM + 6;
 
   if (!opts.skipEnsure) {
     y = ensureBlockFitsSafeZone(doc, y, blockHeight);
