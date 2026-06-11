@@ -140,14 +140,24 @@ async function resolvePdfClientMeta(report, values = {}) {
   }
 
   const nome = values.cliente || prod?.Nome || dbClient?.name || dbClient?.Nome || '—';
-  const nif = values.nif || prod?.NIF || dbClient?.nif || dbClient?.NIF || '';
-  const email = values.email || values.e_mail || prod?.['E-mail'] || dbClient?.email || dbClient?.['E-mail'] || '';
   const morada = values.morada || prod?.Morada || dbClient?.morada || dbClient?.Morada || '';
   const localidade = values.localidade || prod?.Localidade || dbClient?.localidade || dbClient?.Localidade || '';
-  const cp = values.codigo_postal || prod?.['Código postal'] || '';
-  const parts = [morada, cp, localidade].filter(Boolean);
-  const addressLine = parts.length ? parts.join(', ') : dbClient?.address || '';
-  return { nome, nif, email, addressLine, localidade };
+  const cp = values.codigo_postal || prod?.['Código postal'] || dbClient?.['Código postal'] || '';
+
+  const street = cleanPdfText(morada);
+  const cpLoc = [cp, localidade].filter(Boolean).map((p) => cleanPdfText(p)).join(' ').trim();
+  let addressLine = street;
+  let addressSubline = cpLoc;
+
+  if (!street && !cpLoc) {
+    const fallback = cleanPdfText(dbClient?.address || '');
+    if (fallback) {
+      addressLine = fallback;
+      addressSubline = '';
+    }
+  }
+
+  return { nome, addressLine: addressLine || '—', addressSubline, localidade };
 }
 
 function buildPdfRenderContext(report, job, clientMeta, tech) {
@@ -838,7 +848,7 @@ function drawTopRow(doc, _service, numeroOrdem = null) {
   return topY + logoH + 6;
 }
 
-/** Cabeçalho — coluna esquerda: logo + ordem; coluna direita: dados do cliente */
+/** Cabeçalho — coluna esquerda: logo + ordem; coluna direita: cliente (nome + morada) */
 function drawTopRowWithClientBlock(doc, clientMeta, numeroOrdem = null) {
   const topY = MARGIN;
   const logoW = PDF_LOGO_WIDTH_MM;
@@ -882,47 +892,49 @@ function drawTopRowWithClientBlock(doc, clientMeta, numeroOrdem = null) {
   const blockW = PDF_HEADER_CLIENT_W;
   const blockX = PAGE_W - MARGIN - blockW;
   const blockPad = 4;
-  const clientLines = [
-    { label: 'Cliente', value: clientMeta.nome, prominent: true },
-    clientMeta.nif ? { label: 'NIF', value: clientMeta.nif } : null,
-    clientMeta.email ? { label: 'Email', value: clientMeta.email } : null,
-    clientMeta.addressLine ? { label: 'Morada', value: clientMeta.addressLine } : null,
-  ].filter(Boolean);
+  const textW = blockW - blockPad * 2;
 
-  let blockContentH = 8;
-  clientLines.forEach((line) => {
-    const wrapped = pdfSplitText(doc, pdfSafeText(line.value), blockW - blockPad * 2);
-    blockContentH += line.prominent ? 11 : 8 + Math.max(0, wrapped.length - 1) * 3.5;
-  });
+  const nameLines = pdfSplitText(doc, pdfSafeText(clientMeta.nome), textW);
+  const addrLines = pdfSplitText(doc, pdfSafeText(clientMeta.addressLine), textW);
+  const addrSubLines = clientMeta.addressSubline
+    ? pdfSplitText(doc, pdfSafeText(clientMeta.addressSubline), textW)
+    : [];
+
+  let blockContentH = 8 + nameLines.length * 4.2 + 2;
+  blockContentH += addrLines.length * 3.6 + 1;
+  blockContentH += addrSubLines.length * 3.6;
+  const blockH = Math.max(logoH, blockContentH + blockPad * 2);
 
   doc.setFillColor(...PDF_SECTION_BG);
   doc.setDrawColor(...PDF_TABLE_LINE);
   doc.setLineWidth(0.2);
-  doc.roundedRect(blockX, topY, blockW, blockContentH + blockPad, 2, 2, 'FD');
+  doc.roundedRect(blockX, topY, blockW, blockH, 2, 2, 'FD');
 
   let lineY = topY + blockPad + 3;
   pdfSetFont(doc, 'bold');
   doc.setFontSize(PDF_FONT_CAPTION);
   doc.setTextColor(...CORPORATE_BLUE);
   doc.text('CLIENTE', blockX + blockPad, lineY);
-  lineY += 5;
+  lineY += 5.5;
 
-  clientLines.forEach((line) => {
-    pdfSetFont(doc, 'normal');
-    doc.setFontSize(PDF_FONT_CAPTION);
-    doc.setTextColor(...TEXT_MUTED);
-    doc.text(line.label, blockX + blockPad, lineY);
+  pdfSetFont(doc, 'bold');
+  doc.setFontSize(PDF_FONT_BODY);
+  doc.setTextColor(...TEXT_DARK);
+  doc.text(nameLines, blockX + blockPad, lineY);
+  lineY += nameLines.length * 4.2 + 2;
 
-    pdfSetFont(doc, line.prominent ? 'bold' : 'normal');
-    doc.setFontSize(line.prominent ? PDF_FONT_BODY : PDF_FONT_CAPTION + 0.5);
-    doc.setTextColor(...TEXT_DARK);
-    const wrapped = pdfSplitText(doc, pdfSafeText(line.value), blockW - blockPad * 2);
-    doc.text(wrapped, blockX + blockPad, lineY + 3.8);
-    lineY += line.prominent ? 11 : 8 + Math.max(0, wrapped.length - 1) * 3.5;
-  });
+  pdfSetFont(doc, 'normal');
+  doc.setFontSize(PDF_FONT_CAPTION + 0.5);
+  doc.setTextColor(...TEXT_MUTED);
+  doc.text(addrLines, blockX + blockPad, lineY);
+  lineY += addrLines.length * 3.6 + (addrSubLines.length ? 1 : 0);
+
+  if (addrSubLines.length) {
+    doc.text(addrSubLines, blockX + blockPad, lineY);
+  }
 
   touchPdfContentPage(doc);
-  return Math.max(leftY, topY + blockContentH + blockPad) + 8;
+  return Math.max(leftY, topY + blockH) + 8;
 }
 
 function drawTitleBar(doc, y, title) {
