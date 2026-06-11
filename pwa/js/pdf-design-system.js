@@ -12,10 +12,10 @@ import {
 } from './report-layout-standard.js';
 
 /** Tipografia (pt) — compacta para impressão (1 página quando possível) */
-export const PDF_FONT_TITLE = 12;
-export const PDF_FONT_SECTION = 10;
-export const PDF_FONT_SUBTITLE = 9;
-export const PDF_FONT_BODY = 9;
+export const PDF_FONT_TITLE = 10;
+export const PDF_FONT_SECTION = 8.5;
+export const PDF_FONT_SUBTITLE = 8.5;
+export const PDF_FONT_BODY = 8;
 export const PDF_FONT_CAPTION = 7;
 
 /** Layout (mm) — margens reduzidas para maximizar área útil */

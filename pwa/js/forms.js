@@ -31,9 +31,12 @@ import {
 } from './form-engine.js';
 import {
   mergeStandardLayoutValues,
+  renderCompanyIntroBlock,
   renderOrdemTechnicianLine,
   renderStandardMachineBlock,
+  renderStandardWorkBlock,
   renderStandardClosingBlock,
+  bindStandardLayoutInteractions,
 } from './report-layout-standard.js';
 import {
   migrateLegacyBatteryRows,
@@ -210,6 +213,8 @@ export async function openJobForm(jobId, options = {}) {
     onDirty: () => formAutosave?.markDirty?.(),
   });
 
+  bindStandardLayoutInteractions(overlay, () => formAutosave?.markDirty?.());
+
   if (trabalhoIdEmEdicao) {
     showToast('Pode editar o relatório enquanto aguarda aprovação do RH.', 'info', 4000);
   } else if (existingReport?.status === 'draft' || existingReport?._localSavedAt) {
@@ -256,6 +261,7 @@ function buildFormHTML(job, client, tech, service, existingReport, options = {})
     tech,
     client,
     job,
+    service,
     selectedClientId: saved.cliente_id || client.NIF || client.id,
     lockClient: true,
   };
@@ -354,17 +360,19 @@ function buildFormHTML(job, client, tech, service, existingReport, options = {})
           <div class="report-tab-panels">
             <div class="report-tab-panel is-active" data-report-panel="geral" id="report-panel-geral" role="tabpanel" aria-labelledby="report-tab-geral">
               <div class="form-section-card form-section-card--intro">
+                ${official ? renderCompanyIntroBlock(service) : ''}
+                ${official ? renderOrdemTechnicianLine(job, tech) : ''}
                 ${clientHeader}
                 ${lockedClientFields}
-                ${official ? renderOrdemTechnicianLine(job, tech) : ''}
+                ${official ? `<h2 class="form-report-title form-report-title--compact">${escapeHtml(formTitle)}</h2>` : `<h2 class="form-report-title">${service?.icon || '📋'} ${escapeHtml(formTitle)}</h2>`}
                 ${official ? renderStandardMachineBlock(values, formContext) : ''}
-                <h2 class="form-report-title">${service?.icon || '📋'} ${escapeHtml(formTitle)}</h2>
-                <div class="form-fixed-header glass-card-inner ${official ? 'form-fixed-header--compact' : ''}">
-                  ${official ? '<p class="form-intro-block-label">Dados da Intervenção</p>' : ''}
-                  <div class="header-grid ${official ? 'header-grid--intervention' : ''}">
+                ${official ? renderStandardWorkBlock(values, formContext) : ''}
+                ${!official ? `
+                <div class="form-fixed-header glass-card-inner">
+                  <div class="header-grid">
                     <div class="header-field"><span class="hf-label">Data do Serviço</span><span class="hf-value">${formatDateLong(job.date)}</span></div>
                   </div>
-                </div>
+                </div>` : ''}
               </div>
               <section class="form-section report-fields-section">
                 ${official ? '' : '<h3 class="section-title">Dados do Relatório</h3>'}

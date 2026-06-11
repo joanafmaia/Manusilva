@@ -2935,9 +2935,9 @@ body.dark-mode .btn-preview:hover:not(:disabled) {
 }
 
 .form-ordem-tecnico-line {
-  margin: 0 0 0.85rem;
-  padding: 0.55rem 0.75rem;
-  font-size: 0.88rem;
+  margin: 0 0 0.55rem;
+  padding: 0.4rem 0.55rem;
+  font-size: 0.82rem;
   font-weight: 700;
   color: var(--primary);
   background: var(--surface-elevated, rgba(30, 64, 115, 0.06));
@@ -2945,63 +2945,170 @@ body.dark-mode .btn-preview:hover:not(:disabled) {
   border: 1px solid var(--border-subtle, rgba(30, 64, 115, 0.12));
 }
 
-.report-standard-block {
-  margin-bottom: 0.85rem;
-  padding: 0.9rem 1rem;
+.report-company-intro {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  margin-bottom: 0.55rem;
+  padding-bottom: 0.55rem;
+  border-bottom: 1px solid var(--border-subtle, rgba(0, 0, 0, 0.08));
 }
 
-.report-standard-block .section-title {
+.report-company-intro-logo {
+  flex: 0 0 auto;
+  width: 2.4rem;
+  height: 2.4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.45rem;
+  background: var(--primary);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.report-company-intro-name {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--text-primary);
+}
+
+.report-company-intro-address {
+  margin: 0.15rem 0 0;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: var(--text-muted);
+}
+
+.report-standard-block {
+  margin-bottom: 0.55rem;
+  padding: 0.55rem 0.65rem;
+}
+
+.report-standard-block .section-title,
+.report-standard-section-title {
   margin-top: 0;
-  margin-bottom: 0.75rem;
-  font-size: 0.95rem;
+  margin-bottom: 0.45rem;
+  font-size: 0.82rem;
+  letter-spacing: 0.02em;
 }
 
 .report-standard-grid {
   display: grid;
-  gap: 0.65rem 0.75rem;
+  gap: 0.45rem 0.55rem;
 }
 
 .report-standard-grid--machine {
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.report-standard-grid--machine .field-block--horas {
+  grid-column: 1 / -1;
+  max-width: 12rem;
 }
 
 .report-standard-grid--dates,
-.report-standard-grid--logistics {
-  grid-template-columns: 1fr 1fr;
+.report-standard-grid--logistics,
+.report-standard-grid--intervention {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
 .report-standard-subsection {
-  margin-top: 0.85rem;
-  padding-top: 0.75rem;
+  margin-top: 0.55rem;
+  padding-top: 0.55rem;
   border-top: 1px solid var(--border-subtle, rgba(0, 0, 0, 0.08));
 }
 
 .report-standard-subtitle {
-  margin: 0 0 0.55rem;
-  font-size: 0.78rem;
+  margin: 0 0 0.4rem;
+  font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.03em;
   text-transform: uppercase;
   color: var(--text-muted);
 }
 
-.report-pedido-orcamento-field {
-  margin-top: 0.5rem;
+.report-work-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
 }
 
-.report-pedido-orcamento-label {
+.report-work-text-field {
+  margin-bottom: 0;
+}
+
+.report-work-textarea {
+  min-height: 4.5rem;
+  padding: 0.45rem 0.55rem;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.report-pedido-orcamento-field {
+  margin-top: 0;
+}
+
+.report-pedido-orcamento-options {
   display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  margin-top: 0.25rem;
+}
+
+.report-pedido-orcamento-option {
+  display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.35rem;
+  font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
 }
 
-@media (max-width: 520px) {
-  .report-standard-grid--machine,
+.report-pedido-orcamento-detalhe {
+  margin-top: 0.45rem;
+}
+
+.report-estado-maquina-pills {
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.form-report-title--compact {
+  margin: 0.35rem 0 0.55rem;
+  padding: 0.35rem 0 0.45rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: 0.01em;
+  text-align: left;
+}
+
+.form-overlay .form-section-card--intro .job-client-header {
+  margin-bottom: 0.45rem;
+  padding: 0 0 0.45rem;
+}
+
+.form-overlay .form-section-card--intro .form-report-title--compact {
+  margin: 0.35rem 0 0.55rem;
+  padding: 0 0 0.45rem;
+  border-bottom: 1px solid var(--ms-border, var(--border-subtle));
+  text-align: left;
+}
+
+@media (max-width: 720px) {
+  .report-standard-grid--machine {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .report-standard-grid--dates,
-  .report-standard-grid--logistics {
-    grid-template-columns: 1fr;
+  .report-standard-grid--logistics,
+  .report-standard-grid--intervention {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 

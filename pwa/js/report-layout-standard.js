@@ -2,6 +2,7 @@
  * Layout rígido partilhado — ecrã do técnico e PDF (todos os relatórios oficiais).
  */
 
+import { MATERIAL_FIELD_IDS } from './material-table-field.js';
 import {
   DESLOCACAO_BASE_FIELD_ID,
   STANDARD_DESLOCACAO_FIELD,
@@ -20,6 +21,14 @@ function escapeHtml(str) {
 
 export const RESUMO_INTERVENCAO_FIELD_ID = 'resumo_intervencao';
 export const PEDIDO_ORCAMENTO_FIELD_ID = 'pedido_orcamento';
+export const PEDIDO_ORCAMENTO_DETALHE_FIELD_ID = 'pedido_orcamento_detalhe';
+export const CONSUMIVEIS_TEXT_FIELD_ID = 'consumiveis_texto';
+
+const WORK_TEXT_FIELD_SPECS = [
+  { id: 'detecao_de_avaria', label: 'Deteção de avaria', rows: 3 },
+  { id: 'resolucao_da_avaria', label: 'Resolução de avaria', rows: 3 },
+  { id: CONSUMIVEIS_TEXT_FIELD_ID, label: 'Consumíveis', rows: 2 },
+];
 
 /** Campos do bloco máquina (ordem fixa). */
 export const STANDARD_MACHINE_FIELD_SPECS = [
@@ -37,8 +46,8 @@ export const STANDARD_MACHINE_FIELD_SPECS = [
     label: 'Horas',
     type: 'number',
     min: 0,
-    step: 0.1,
-    inputMode: 'decimal',
+    step: 1,
+    inputMode: 'numeric',
     hint: 'Horas indicadas no painel da máquina',
   },
 ];
@@ -50,8 +59,11 @@ export const STANDARD_MACHINE_FIELD_IDS = new Set(
 /** Campos retirados do fluxo normal — renderizados nos blocos standard. */
 export const STANDARD_LAYOUT_SKIP_FIELD_IDS = new Set([
   ...STANDARD_MACHINE_FIELD_IDS,
+  ...MATERIAL_FIELD_IDS,
+  ...WORK_TEXT_FIELD_SPECS.map((s) => s.id),
   RESUMO_INTERVENCAO_FIELD_ID,
   PEDIDO_ORCAMENTO_FIELD_ID,
+  PEDIDO_ORCAMENTO_DETALHE_FIELD_ID,
   'data_1',
   'data_2',
   'data_3',
@@ -87,8 +99,14 @@ const STANDARD_DATA_RETORNO_FIELDS = [
 
 const STANDARD_LOGISTICS_FIELDS = [
   STANDARD_VISITAS_FIELD,
-  { ...STANDARD_DESLOCACAO_FIELD, label: 'Deslocações' },
+  { ...STANDARD_DESLOCACAO_FIELD, label: 'Deslocação' },
   { type: 'number', id: 'horas_gastas', label: 'Horas Gastas', min: 0, step: 0.5, inputMode: 'decimal' },
+];
+
+const DEFAULT_ESTADO_MAQUINA_OPTIONS = [
+  'Apta a Trabalhar',
+  'Aguardar Intervenção',
+  'Pedido de Orçamento',
 ];
 
 export function isOfficialReportService(service) {
@@ -119,6 +137,35 @@ export function resolveStandardFieldValue(values, spec) {
   return '';
 }
 
+function materialRowsToText(rows) {
+  if (!Array.isArray(rows)) return '';
+  return rows
+    .map((row) => {
+      if (!row || typeof row !== 'object') return '';
+      const artigo = String(row.artigo || row.material || row.equipamento || '').trim();
+      const qtd = String(row.qtd || row.quantidade || row.qty || '').trim();
+      if (!artigo) return '';
+      return qtd ? `${artigo} (${qtd})` : artigo;
+    })
+    .filter(Boolean)
+    .join('\n');
+}
+
+/** Texto de consumíveis — campo novo ou tabelas legadas. */
+export function resolveConsumiveisTextValue(values = {}) {
+  const direct = String(values[CONSUMIVEIS_TEXT_FIELD_ID] || '').trim();
+  if (direct) return direct;
+
+  for (const id of MATERIAL_FIELD_IDS) {
+    const legacy = materialRowsToText(values[id]);
+    if (legacy) return legacy;
+  }
+
+  const plain = String(values.consumiveis || '').trim();
+  if (plain && !plain.startsWith('[')) return plain;
+  return '';
+}
+
 /** Texto unificado do resumo (novo campo ou legado). */
 export function resolveResumoIntervencaoValue(values = {}) {
   const direct = String(values[RESUMO_INTERVENCAO_FIELD_ID] || '').trim();
@@ -139,27 +186,54 @@ export function resolveResumoIntervencaoValue(values = {}) {
 }
 
 export function resolvePedidoOrcamentoValue(values = {}) {
-  if (values[PEDIDO_ORCAMENTO_FIELD_ID] === true || values[PEDIDO_ORCAMENTO_FIELD_ID] === 'Sim') {
-    return true;
-  }
-  if (values[PEDIDO_ORCAMENTO_FIELD_ID] === false || values[PEDIDO_ORCAMENTO_FIELD_ID] === 'Não') {
-    return false;
-  }
+  const raw = values[PEDIDO_ORCAMENTO_FIELD_ID];
+  if (raw === true || raw === 'Sim' || raw === 'sim') return true;
+  if (raw === false || raw === 'Não' || raw === 'Nao' || raw === 'nao') return false;
   if (values.estado_maquina === 'Pedido de Orçamento') return true;
   if (values.pedir_orcamento_adicional === 'Sim') return true;
   return false;
 }
 
-/** Pré-preenche resumo e pedido de orçamento a partir de dados guardados. */
-export function mergeStandardLayoutValues(values = {}, _service = null) {
+export function resolvePedidoOrcamentoDetalhe(values = {}) {
+  return String(values[PEDIDO_ORCAMENTO_DETALHE_FIELD_ID] || '').trim();
+}
+
+function resolveEstadoMaquinaField(service) {
+  return (service?.fields || []).find((f) => f.id === 'estado_maquina') || null;
+}
+
+function resolveEstadoMaquinaOptions(service) {
+  const field = resolveEstadoMaquinaField(service);
+  return field?.options?.length ? field.options : DEFAULT_ESTADO_MAQUINA_OPTIONS;
+}
+
+/** Pré-preenche campos standard a partir de dados guardados. */
+export function mergeStandardLayoutValues(values = {}, service = null) {
   const merged = { ...values };
+
+  if (!String(merged.deteccao_de_avaria || '').trim() && merged[RESUMO_INTERVENCAO_FIELD_ID]) {
+    merged.deteccao_de_avaria = String(merged[RESUMO_INTERVENCAO_FIELD_ID]).split('\n\n')[0] || '';
+  }
+
+  if (!String(merged[CONSUMIVEIS_TEXT_FIELD_ID] || '').trim()) {
+    const legacyConsumiveis = resolveConsumiveisTextValue(merged);
+    if (legacyConsumiveis) merged[CONSUMIVEIS_TEXT_FIELD_ID] = legacyConsumiveis;
+  }
+
+  if (merged[PEDIDO_ORCAMENTO_FIELD_ID] == null || merged[PEDIDO_ORCAMENTO_FIELD_ID] === '') {
+    merged[PEDIDO_ORCAMENTO_FIELD_ID] = resolvePedidoOrcamentoValue(merged) ? 'Sim' : 'Não';
+  } else if (merged[PEDIDO_ORCAMENTO_FIELD_ID] === true) {
+    merged[PEDIDO_ORCAMENTO_FIELD_ID] = 'Sim';
+  } else if (merged[PEDIDO_ORCAMENTO_FIELD_ID] === false) {
+    merged[PEDIDO_ORCAMENTO_FIELD_ID] = 'Não';
+  }
+
   if (!String(merged[RESUMO_INTERVENCAO_FIELD_ID] || '').trim()) {
     const legacy = resolveResumoIntervencaoValue(merged);
     if (legacy) merged[RESUMO_INTERVENCAO_FIELD_ID] = legacy;
   }
-  if (merged[PEDIDO_ORCAMENTO_FIELD_ID] == null || merged[PEDIDO_ORCAMENTO_FIELD_ID] === '') {
-    merged[PEDIDO_ORCAMENTO_FIELD_ID] = resolvePedidoOrcamentoValue(merged);
-  }
+
+  void service;
   return merged;
 }
 
@@ -172,12 +246,14 @@ function numberInputAttrs(field) {
   return attrs.join(' ');
 }
 
-function renderStandardScalarField(field, value) {
+function renderStandardScalarField(field, value, extraClass = '') {
   const val = value ?? '';
+  const wrapClass = extraClass ? `form-group field-block ${extraClass}` : 'form-group field-block';
+
   if (field.type === 'number') {
     const unit = field.unit ? `<span class="field-unit">${escapeHtml(field.unit)}</span>` : '';
     return `
-      <div class="form-group field-block" data-field-wrap="${field.id}">
+      <div class="${wrapClass}" data-field-wrap="${field.id}">
         <label class="form-label" for="field-${field.id}">${escapeHtml(field.label)}</label>
         ${field.hint ? `<p class="field-hint text-muted">${escapeHtml(field.hint)}</p>` : ''}
         <div class="field-with-unit">
@@ -190,17 +266,94 @@ function renderStandardScalarField(field, value) {
   }
   if (field.type === 'date') {
     return `
-      <div class="form-group field-block" data-field-wrap="${field.id}">
+      <div class="${wrapClass}" data-field-wrap="${field.id}">
         <label class="form-label" for="field-${field.id}">${escapeHtml(field.label)}</label>
         <input type="date" id="field-${field.id}" class="form-input form-input-date" data-field-id="${field.id}"
           data-field-kind="date" value="${escapeHtml(String(val))}">
       </div>`;
   }
   return `
-    <div class="form-group field-block" data-field-wrap="${field.id}">
+    <div class="${wrapClass}" data-field-wrap="${field.id}">
       <label class="form-label" for="field-${field.id}">${escapeHtml(field.label)}</label>
       <input type="text" id="field-${field.id}" class="form-input" data-field-id="${field.id}"
         data-field-kind="text" value="${escapeHtml(String(val))}">
+    </div>`;
+}
+
+function renderStandardTextareaField(spec, value) {
+  const val = spec.id === CONSUMIVEIS_TEXT_FIELD_ID ? resolveConsumiveisTextValue({ ...value, [CONSUMIVEIS_TEXT_FIELD_ID]: value[CONSUMIVEIS_TEXT_FIELD_ID] }) : (value ?? '');
+  return `
+    <div class="form-group field-block report-work-text-field" data-field-wrap="${spec.id}">
+      <label class="form-label" for="field-${spec.id}">${escapeHtml(spec.label)}</label>
+      <textarea id="field-${spec.id}" class="form-input form-textarea report-work-textarea" rows="${spec.rows || 3}"
+        data-field-id="${spec.id}" data-field-kind="textarea"
+        placeholder="">${escapeHtml(String(val))}</textarea>
+    </div>`;
+}
+
+function renderEstadoMaquinaField(service, value) {
+  const options = resolveEstadoMaquinaOptions(service);
+  const selected = String(value || options[0] || '');
+  const pills = options
+    .map((opt) => {
+      const isSelected = opt === selected ? ' selected' : '';
+      return `
+        <button type="button" class="status-pill${isSelected}" data-value="${escapeHtml(opt)}" aria-pressed="${opt === selected}">
+          <span class="status-pill-dot"></span>
+          ${escapeHtml(opt)}
+        </button>`;
+    })
+    .join('');
+
+  return `
+    <div class="form-group field-block status-pills-field report-estado-maquina-field" data-status-pills="estado_maquina">
+      <label class="form-label">Estado da Máquina</label>
+      <div class="status-pills-group report-estado-maquina-pills">${pills}</div>
+    </div>`;
+}
+
+function renderPedidoOrcamentoField(values = {}) {
+  const pedido = resolvePedidoOrcamentoValue(values);
+  const detalhe = resolvePedidoOrcamentoDetalhe(values);
+  const simChecked = pedido ? 'checked' : '';
+  const naoChecked = !pedido ? 'checked' : '';
+
+  return `
+    <div class="form-group field-block report-pedido-orcamento-field">
+      <span class="form-label">Pedido de Orçamento</span>
+      <div class="report-pedido-orcamento-options" role="radiogroup" aria-label="Pedido de Orçamento">
+        <label class="report-pedido-orcamento-option">
+          <input type="radio" name="pedido_orcamento_radio" value="sim" ${simChecked}>
+          <span>Sim</span>
+        </label>
+        <label class="report-pedido-orcamento-option">
+          <input type="radio" name="pedido_orcamento_radio" value="nao" ${naoChecked}>
+          <span>Não</span>
+        </label>
+      </div>
+      <input type="hidden" id="field-${PEDIDO_ORCAMENTO_FIELD_ID}" data-field-id="${PEDIDO_ORCAMENTO_FIELD_ID}"
+        data-field-kind="text" value="${pedido ? 'Sim' : 'Não'}">
+      <div class="report-pedido-orcamento-detalhe" data-pedido-detalhe-wrap ${pedido ? '' : 'hidden'}>
+        <label class="form-label" for="field-${PEDIDO_ORCAMENTO_DETALHE_FIELD_ID}">O que é necessário</label>
+        <textarea id="field-${PEDIDO_ORCAMENTO_DETALHE_FIELD_ID}" class="form-input form-textarea report-work-textarea" rows="2"
+          data-field-id="${PEDIDO_ORCAMENTO_DETALHE_FIELD_ID}" data-field-kind="textarea"
+          placeholder="Descreva o que é necessário…">${escapeHtml(detalhe)}</textarea>
+      </div>
+    </div>`;
+}
+
+export function renderCompanyIntroBlock(service) {
+  const name = service?.companyName || 'ManuSilva Manutenção Industrial, Unipessoal, Lda';
+  const address =
+    service?.companyAddress || 'Rua São Mamede, Lote Nº1 - Fração D, 4760-725 Ribeirão VNF';
+
+  return `
+    <div class="report-company-intro">
+      <div class="report-company-intro-logo" aria-hidden="true">MS</div>
+      <div class="report-company-intro-meta">
+        <p class="report-company-intro-name">${escapeHtml(name)}</p>
+        <p class="report-company-intro-address">${escapeHtml(address)}</p>
+      </div>
     </div>`;
 }
 
@@ -210,21 +363,40 @@ export function renderOrdemTechnicianLine(job, tech) {
 }
 
 export function renderStandardMachineBlock(values = {}, _context = {}) {
-  const fieldsHtml = STANDARD_MACHINE_FIELD_SPECS.map((spec) =>
-    renderStandardScalarField(spec, resolveStandardFieldValue(values, spec)),
-  ).join('');
+  const fieldsHtml = STANDARD_MACHINE_FIELD_SPECS.map((spec) => {
+    const extraClass =
+      spec.id === 'horas' ? 'field-block--horas' : `field-block--machine-${spec.id}`;
+    return renderStandardScalarField(spec, resolveStandardFieldValue(values, spec), extraClass);
+  }).join('');
 
   return `
     <section class="form-section-card report-standard-block report-standard-block--machine" aria-labelledby="report-machine-heading">
-      <h3 class="section-title" id="report-machine-heading">Informações da Máquina</h3>
+      <h3 class="section-title report-standard-section-title" id="report-machine-heading">Informações da Máquina</h3>
       <div class="report-standard-grid report-standard-grid--machine">
         ${fieldsHtml}
       </div>
     </section>`;
 }
 
+export function renderStandardWorkBlock(values = {}, _context = {}) {
+  const fieldsHtml = WORK_TEXT_FIELD_SPECS.map((spec) => {
+    const val =
+      spec.id === CONSUMIVEIS_TEXT_FIELD_ID
+        ? resolveConsumiveisTextValue(values)
+        : values[spec.id];
+    return renderStandardTextareaField(spec, val);
+  }).join('');
+
+  return `
+    <section class="form-section-card report-standard-block report-standard-block--work" aria-labelledby="report-work-heading">
+      <div class="report-work-fields">
+        ${fieldsHtml}
+      </div>
+    </section>`;
+}
+
 export function renderStandardClosingBlock(values = {}, context = {}) {
-  const resumo = resolveResumoIntervencaoValue(values);
+  const service = context?.service || null;
   const pedido = resolvePedidoOrcamentoValue(values);
   const visitas = values[VISITAS_FIELD_ID] ?? values.visitas ?? 1;
   const baseKm = values[DESLOCACAO_BASE_FIELD_ID] ?? '';
@@ -245,36 +417,36 @@ export function renderStandardClosingBlock(values = {}, context = {}) {
 
   return `
     <section class="form-section-card report-standard-block report-standard-block--closing" aria-labelledby="report-closing-heading">
-      <h3 class="section-title" id="report-closing-heading">Resumo da Intervenção</h3>
-      <div class="form-group field-block">
-        <label class="form-label" for="field-${RESUMO_INTERVENCAO_FIELD_ID}">Diagnóstico e trabalho efetuado</label>
-        <textarea id="field-${RESUMO_INTERVENCAO_FIELD_ID}" class="form-input form-textarea" rows="5"
-          data-field-id="${RESUMO_INTERVENCAO_FIELD_ID}" data-field-kind="textarea"
-          placeholder="Descreva o diagnóstico e o trabalho efetuado…">${escapeHtml(resumo)}</textarea>
-      </div>
-      <div class="form-group field-block report-pedido-orcamento-field">
-        <label class="form-check-label report-pedido-orcamento-label">
-          <input type="checkbox" class="form-check-input" id="field-${PEDIDO_ORCAMENTO_FIELD_ID}"
-            data-field-id="${PEDIDO_ORCAMENTO_FIELD_ID}" data-field-kind="checkbox"
-            ${pedido ? 'checked' : ''}>
-          Pedido de Orçamento
-        </label>
-      </div>
-      <div class="report-standard-subsection">
-        <p class="report-standard-subtitle">Datas de retorno</p>
-        <div class="report-standard-grid report-standard-grid--dates">
+      ${renderPedidoOrcamentoField({ ...values, [PEDIDO_ORCAMENTO_FIELD_ID]: pedido ? 'Sim' : 'Não' })}
+      ${resolveEstadoMaquinaField(service) ? renderEstadoMaquinaField(service, values.estado_maquina) : ''}
+      <div class="report-standard-subsection report-standard-subsection--intervention">
+        <p class="report-standard-subtitle">Intervenção (Datas e Custos)</p>
+        <div class="report-standard-grid report-standard-grid--intervention">
           ${datesHtml}
-        </div>
-      </div>
-      <div class="report-standard-subsection">
-        <p class="report-standard-subtitle">Logística final</p>
-        <div class="report-standard-grid report-standard-grid--logistics">
           ${logisticsHtml}
         </div>
         <input type="hidden" data-field-id="${DESLOCACAO_BASE_FIELD_ID}" data-field-kind="number"
           value="${escapeHtml(String(baseKm))}">
       </div>
     </section>`;
+}
+
+export function bindStandardLayoutInteractions(overlay, onDirty) {
+  const hidden = overlay.querySelector(`#field-${PEDIDO_ORCAMENTO_FIELD_ID}`);
+  const detalheWrap = overlay.querySelector('[data-pedido-detalhe-wrap]');
+  const radios = overlay.querySelectorAll('[name="pedido_orcamento_radio"]');
+
+  const syncPedidoOrcamento = () => {
+    const simSelected = overlay.querySelector('[name="pedido_orcamento_radio"][value="sim"]')?.checked;
+    if (hidden) hidden.value = simSelected ? 'Sim' : 'Não';
+    if (detalheWrap) detalheWrap.hidden = !simSelected;
+    onDirty?.();
+  };
+
+  radios.forEach((radio) => {
+    radio.addEventListener('change', syncPedidoOrcamento);
+  });
+  syncPedidoOrcamento();
 }
 
 /** PDF — specs espelhadas */
@@ -284,13 +456,16 @@ export const PDF_STANDARD_MACHINE_SPECS = STANDARD_MACHINE_FIELD_SPECS.map(({ id
   aliases,
 }));
 
+export const PDF_STANDARD_WORK_SPECS = WORK_TEXT_FIELD_SPECS.map(({ id, label }) => ({ id, label }));
+
 export const PDF_CLOSING_SUMMARY_SPECS = {
-  resumoFieldId: RESUMO_INTERVENCAO_FIELD_ID,
   pedidoFieldId: PEDIDO_ORCAMENTO_FIELD_ID,
+  pedidoDetalheFieldId: PEDIDO_ORCAMENTO_DETALHE_FIELD_ID,
+  estadoFieldId: 'estado_maquina',
   retornoDateIds: ['data_1', 'data_2'],
   logistics: [
     { id: VISITAS_FIELD_ID, label: 'Nº de Visitas', aliases: ['visitas'] },
-    { id: 'deslocacao', label: 'Deslocações' },
+    { id: 'deslocacao', label: 'Deslocação' },
     { id: 'horas_gastas', label: 'Horas Gastas' },
   ],
 };

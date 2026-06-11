@@ -97,9 +97,11 @@ import {
 } from './inspecao-dl50-categories.js';
 import {
   formatOrdemTechnicianLine,
-  resolveResumoIntervencaoValue,
+  resolveConsumiveisTextValue,
   resolvePedidoOrcamentoValue,
+  resolvePedidoOrcamentoDetalhe,
   resolveStandardFieldValue,
+  PDF_STANDARD_WORK_SPECS,
 } from './report-layout-standard.js';
 
 const DB_KEY = 'manusilva_db';
@@ -541,11 +543,9 @@ export async function renderInterventionPDF(report) {
     simplePhotoLegend: true,
     legalValue: isDl50Pdf ? values.declaracao_seguranca : null,
   };
-  y = drawServiceInfoBlock(doc, y, {
-    serviceDate: formatPdfServiceDateOnly(report, job, values),
-  });
-  y = drawDivider(doc, y);
   y = await drawStandardMachineBlock(doc, y, values, pdfContext);
+  y = drawDivider(doc, y);
+  y = await drawStandardWorkBlock(doc, y, values);
   y = drawDivider(doc, y);
   y = await drawReportFieldsSection(doc, y, service, values, pdfContext);
   y = await drawReportClosingSection(doc, y, {
@@ -646,16 +646,15 @@ export async function generateReportPdfByServiceType(report) {
 /* ─── Layout blocks ─── */
 
 /** Logo no cabeçalho PDF (mm) — compacto para impressão */
-const PDF_LOGO_WIDTH_MM = 40;
-const PDF_LOGO_HEIGHT_MM = 27;
-const PDF_HEADER_CLIENT_W = 84;
+const PDF_LOGO_WIDTH_MM = 34;
+const PDF_LOGO_HEIGHT_MM = 22;
 
 /** Espaçamentos verticais compactos (mm) */
-const PDF_GAP_BLOCK = 3;
-const PDF_GAP_TABLE = 2;
-const PDF_GAP_DIVIDER = 2;
-const PDF_GAP_TITLE_AFTER = 3;
-const PDF_SECTION_BAND_H = 7;
+const PDF_GAP_BLOCK = 2;
+const PDF_GAP_TABLE = 1.5;
+const PDF_GAP_DIVIDER = 1.5;
+const PDF_GAP_TITLE_AFTER = 2;
+const PDF_SECTION_BAND_H = 5.5;
 
 function formatTableHeaderLabel(col) {
   const key = columnKey(col);
@@ -859,12 +858,12 @@ function drawTopRow(doc, _service, numeroOrdem = null) {
   return topY + logoH + 6;
 }
 
-/** Cabeçalho — coluna esquerda: logo + ordem/técnico; coluna direita: cliente (nome + morada) */
+/** Cabeçalho — logo/empresa, ordem/técnico e cliente (nome + morada) em coluna */
 function drawTopRowWithClientBlock(doc, clientMeta, numeroOrdem = null, techName = '') {
   const topY = MARGIN;
   const logoW = PDF_LOGO_WIDTH_MM;
   const logoH = PDF_LOGO_HEIGHT_MM;
-  const leftColW = CONTENT_W * 0.46;
+  const contentW = CONTENT_W;
 
   if (isLogoConfigured()) {
     try {
@@ -885,91 +884,75 @@ function drawTopRowWithClientBlock(doc, clientMeta, numeroOrdem = null, techName
     drawLogoPlaceholder(doc, MARGIN, topY, logoW, logoH);
   }
 
-  let leftY = topY + logoH + 3;
+  let y = topY + logoH + 2.5;
+
+  pdfSetFont(doc, 'normal');
+  doc.setFontSize(PDF_FONT_CAPTION);
+  doc.setTextColor(...TEXT_MUTED);
+  const companyLines = pdfSplitText(doc, pdfSafeText(COMPANY.name), contentW);
+  doc.text(companyLines, MARGIN, y);
+  y += companyLines.length * 3.1 + 0.5;
+
   if (numeroOrdem != null || techName) {
     pdfSetFont(doc, 'bold');
     doc.setFontSize(PDF_FONT_BODY);
     doc.setTextColor(...CORPORATE_BLUE);
     const ordemLine = formatOrdemTechnicianLine(numeroOrdem, techName);
-    const ordemLines = pdfSplitText(doc, pdfSafeText(ordemLine), leftColW);
-    doc.text(ordemLines, MARGIN, leftY);
-    leftY += ordemLines.length * 4.2 + 1;
+    const ordemLines = pdfSplitText(doc, pdfSafeText(ordemLine), contentW);
+    doc.text(ordemLines, MARGIN, y);
+    y += ordemLines.length * 3.8 + 1.5;
   }
 
-  pdfSetFont(doc, 'normal');
-  doc.setFontSize(PDF_FONT_CAPTION);
-  doc.setTextColor(...TEXT_MUTED);
-  doc.text(COMPANY.name, MARGIN, leftY, { maxWidth: leftColW });
-  leftY += 4;
-
-  const blockW = PDF_HEADER_CLIENT_W;
-  const blockX = PAGE_W - MARGIN - blockW;
-  const blockPad = 3;
-  const textW = blockW - blockPad * 2;
-
-  const nameLines = pdfSplitText(doc, pdfSafeText(clientMeta.nome), textW);
-  const addrLines = pdfSplitText(doc, pdfSafeText(clientMeta.addressLine), textW);
-  const addrSubLines = clientMeta.addressSubline
-    ? pdfSplitText(doc, pdfSafeText(clientMeta.addressSubline), textW)
-    : [];
-
-  let blockContentH = 6 + nameLines.length * 3.6 + 1;
-  blockContentH += addrLines.length * 3.2 + 0.5;
-  blockContentH += addrSubLines.length * 3.2;
-  const blockH = Math.max(logoH, blockContentH + blockPad * 2);
-
-  doc.setFillColor(...PDF_SECTION_BG);
-  doc.setDrawColor(...PDF_TABLE_LINE);
-  doc.setLineWidth(0.2);
-  doc.roundedRect(blockX, topY, blockW, blockH, 1.5, 1.5, 'FD');
-
-  let lineY = topY + blockPad + 2.5;
   pdfSetFont(doc, 'bold');
   doc.setFontSize(PDF_FONT_CAPTION);
   doc.setTextColor(...CORPORATE_BLUE);
-  doc.text('CLIENTE', blockX + blockPad, lineY);
-  lineY += 4.5;
+  doc.text('CLIENTE', MARGIN, y);
+  y += 3.8;
 
   pdfSetFont(doc, 'bold');
   doc.setFontSize(PDF_FONT_BODY);
   doc.setTextColor(...TEXT_DARK);
-  doc.text(nameLines, blockX + blockPad, lineY);
-  lineY += nameLines.length * 3.6 + 1;
+  const nameLines = pdfSplitText(doc, pdfSafeText(clientMeta.nome), contentW);
+  doc.text(nameLines, MARGIN, y);
+  y += nameLines.length * 3.4 + 0.5;
 
   pdfSetFont(doc, 'normal');
   doc.setFontSize(PDF_FONT_CAPTION);
   doc.setTextColor(...TEXT_MUTED);
-  doc.text(addrLines, blockX + blockPad, lineY);
-  lineY += addrLines.length * 3.2 + (addrSubLines.length ? 0.5 : 0);
+  const addrLines = pdfSplitText(doc, pdfSafeText(clientMeta.addressLine), contentW);
+  doc.text(addrLines, MARGIN, y);
+  y += addrLines.length * 3.1;
 
-  if (addrSubLines.length) {
-    doc.text(addrSubLines, blockX + blockPad, lineY);
+  if (clientMeta.addressSubline) {
+    const addrSubLines = pdfSplitText(doc, pdfSafeText(clientMeta.addressSubline), contentW);
+    doc.text(addrSubLines, MARGIN, y);
+    y += addrSubLines.length * 3.1;
   }
 
   touchPdfContentPage(doc);
-  return Math.max(leftY, topY + blockH) + PDF_GAP_BLOCK;
+  return y + PDF_GAP_BLOCK;
 }
 
 function drawTitleBar(doc, y, title) {
   pdfSetFont(doc, 'bold');
-  doc.setFontSize(PDF_FONT_TITLE);
+  doc.setFontSize(PDF_FONT_SUBTITLE);
   doc.setTextColor(...CORPORATE_BLUE_DARK);
   const lines = pdfSplitText(doc, title, CONTENT_W);
-  doc.text(lines, MARGIN, y + 4);
-  const textH = lines.length * 4.5;
-  y += textH + 2;
+  doc.text(lines, MARGIN, y + 3);
+  const textH = lines.length * 3.8;
+  y += textH + 1.5;
   doc.setDrawColor(...CORPORATE_BLUE);
-  doc.setLineWidth(0.35);
+  doc.setLineWidth(0.25);
   doc.line(MARGIN, y, MARGIN + CONTENT_W, y);
   touchPdfContentPage(doc);
   return y + PDF_GAP_TITLE_AFTER;
 }
 
 async function drawStandardMachineBlock(doc, y, values, pdfContext = null) {
-  y = ensureSpace(doc, y, 18);
+  y = ensureSpace(doc, y, 16);
   y = drawSectionTitle(doc, y, PDF_MACHINE_SECTION, { skipEnsure: true });
 
-  const pairs = PDF_STANDARD_MACHINE_SPECS.map((spec) => {
+  const machinePairs = PDF_STANDARD_MACHINE_SPECS.filter((spec) => spec.id !== 'horas').map((spec) => {
     let fallback = null;
     if (spec.id === 'numero_de_serie') {
       fallback = pdfContext?.forkliftSerial || pdfContext?.report?.forkliftSerial || null;
@@ -980,7 +963,104 @@ async function drawStandardMachineBlock(doc, y, values, pdfContext = null) {
     };
   });
 
-  return drawSectionScalarGridFromPairs(doc, y, pairs);
+  y = await drawMachineRowTable(doc, y, machinePairs);
+
+  const horasValue = pdfDisplayValue(
+    resolvePdfStandardFieldValue(values, { id: 'horas' }) ||
+      resolveStandardFieldValue(values, { id: 'horas' }),
+  );
+  return drawKeyValueLine(doc, y, 'Horas', horasValue);
+}
+
+async function drawMachineRowTable(doc, y, pairs) {
+  if (!pairs.length) return y;
+  await loadJsPdfAutoTable();
+  const colW = CONTENT_W / pairs.length;
+  const columnStyles = {};
+  pairs.forEach((_, i) => {
+    columnStyles[i] = { cellWidth: colW, overflow: 'linebreak' };
+  });
+
+  doc.autoTable({
+    startY: y,
+    margin: getPdfAutoTableMargin(MARGIN, MARGIN),
+    tableWidth: CONTENT_W,
+    head: [pairs.map((p) => p.label)],
+    body: [pairs.map((p) => p.value)],
+    ...buildPdfAutoTableStyles(doc, pdfAutoTableFont, pdfSetFont),
+    headStyles: {
+      font: pdfAutoTableFont(doc),
+      fillColor: PDF_SECTION_BG,
+      textColor: CORPORATE_BLUE_DARK,
+      fontStyle: 'bold',
+      fontSize: PDF_FONT_CAPTION,
+      lineColor: PDF_TABLE_LINE,
+      lineWidth: 0.15,
+      halign: 'left',
+    },
+    bodyStyles: {
+      fillColor: PDF_TABLE_BODY_FILL,
+      fontSize: PDF_FONT_BODY,
+    },
+    columnStyles,
+    didDrawPage: buildPdfAutoTableDidDrawPage(doc),
+  });
+
+  touchPdfContentPage(doc);
+  return normalizeYAfterAutoTable(doc, y, PDF_GAP_TABLE);
+}
+
+async function drawStandardWorkBlock(doc, y, values) {
+  for (const spec of PDF_STANDARD_WORK_SPECS) {
+    let text = '';
+    if (spec.id === 'consumiveis_texto') {
+      text = resolveConsumiveisTextValue(values);
+    } else {
+      text = values[spec.id];
+    }
+    y = drawCompactLongTextBlock(doc, y, spec.label, text);
+  }
+  return y + 1;
+}
+
+function drawCompactLongTextBlock(doc, y, label, value) {
+  prepareObservationsTypography(doc);
+  const paragraphs = pdfObservationParagraphs(doc, value, CONTENT_W);
+  const bodyH = paragraphs.reduce((sum, lines) => sum + measureObservationLinesHeight(lines), 0);
+  const blockH = 4 + Math.max(bodyH, OBS_LINE_HEIGHT) + 2;
+  y = ensureSpace(doc, y, blockH + 2);
+
+  pdfSetFont(doc, 'bold');
+  doc.setFontSize(PDF_FONT_CAPTION);
+  doc.setTextColor(...TEXT_MUTED);
+  doc.text(`${label}:`, MARGIN, y);
+  y += 3.5;
+
+  if (!paragraphs.length) {
+    pdfSetFont(doc, 'normal');
+    doc.setFontSize(PDF_FONT_BODY);
+    doc.setTextColor(...TEXT_MUTED);
+    doc.text('—', MARGIN, y);
+    y += OBS_LINE_HEIGHT;
+  } else {
+    paragraphs.forEach((lines) => {
+      lines.forEach((line) => {
+        if (y + OBS_LINE_HEIGHT > pdfContentBottomY()) {
+          doc.addPage();
+          touchPdfContentPage(doc);
+          y = PDF_PAGE_CONTENT_START_Y;
+        }
+        pdfSetFont(doc, 'normal');
+        doc.setFontSize(PDF_FONT_BODY);
+        doc.setTextColor(...TEXT_DARK);
+        if (line) doc.text(line, MARGIN, y);
+        y += line ? OBS_LINE_HEIGHT : OBS_EMPTY_LINE_HEIGHT;
+      });
+    });
+  }
+
+  touchPdfContentPage(doc);
+  return y + 1.5;
 }
 
 async function drawSectionScalarGridFromPairs(doc, y, pairs) {
@@ -1012,84 +1092,100 @@ function drawServiceInfoBlock(doc, y, meta) {
 }
 
 function estimateStandardClosingBlockHeight(doc, values, service) {
-  const resumo = resolveResumoIntervencaoValue(values);
   prepareObservationsTypography(doc);
-  const paragraphs = pdfObservationParagraphs(doc, resumo, CONTENT_W);
-  let h = PDF_SECTION_BAND_H + 2 + 5;
-  paragraphs.forEach((lines) => {
-    h += measureObservationLinesHeight(lines);
-  });
-  if (!paragraphs.length) h += OBS_LINE_HEIGHT;
-  h += 6 + 7 + 12 + 12;
+  let h = 8 + 7 + 10;
+  const pedidoDetalhe = resolvePedidoOrcamentoDetalhe(values);
+  if (resolvePedidoOrcamentoValue(values) && pedidoDetalhe) {
+    h += measureObservationsBlockHeight(doc, pedidoDetalhe, false);
+  }
+  h += 12;
   return h;
 }
 
 async function drawStandardClosingBlock(doc, y, values, service, pdfContext = null) {
-  y = ensureSpace(doc, y, 22);
-  y = drawSectionTitle(doc, y, 'Resumo da Intervenção', { skipEnsure: true });
+  y = ensureSpace(doc, y, 18);
 
-  const resumo = resolveResumoIntervencaoValue(values);
-  pdfSetFont(doc, 'bold');
-  doc.setFontSize(PDF_FONT_CAPTION);
-  doc.setTextColor(...TEXT_MUTED);
-  doc.text('Diagnóstico e trabalho efetuado', MARGIN, y);
-  y += 4;
+  const pedido = resolvePedidoOrcamentoValue(values);
+  y = drawKeyValueLine(doc, y, 'Pedido de Orçamento', pedido ? 'Sim' : 'Não');
 
-  prepareObservationsTypography(doc);
-  const paragraphs = pdfObservationParagraphs(doc, resumo, CONTENT_W);
-  if (!paragraphs.length) {
-    pdfSetFont(doc, 'normal');
-    doc.setFontSize(PDF_FONT_BODY);
-    doc.setTextColor(...TEXT_MUTED);
-    doc.text('—', MARGIN, y);
-    y += OBS_LINE_HEIGHT;
-  } else {
-    paragraphs.forEach((lines) => {
-      lines.forEach((line) => {
-        if (y + OBS_LINE_HEIGHT > pdfContentBottomY()) {
-          doc.addPage();
-          touchPdfContentPage(doc);
-          y = PDF_PAGE_CONTENT_START_Y;
-        }
-        pdfSetFont(doc, 'normal');
-        doc.setFontSize(PDF_FONT_BODY);
-        doc.setTextColor(...TEXT_DARK);
-        if (line) doc.text(line, MARGIN, y);
-        y += line ? OBS_LINE_HEIGHT : OBS_EMPTY_LINE_HEIGHT;
-      });
-    });
+  if (pedido) {
+    const detalhe = resolvePedidoOrcamentoDetalhe(values);
+    if (detalhe) {
+      y = drawCompactLongTextBlock(doc, y, 'O que é necessário', detalhe);
+    }
   }
-  y += 2;
 
-  y = drawKeyValueLine(
-    doc,
-    y,
-    'Pedido de Orçamento',
-    resolvePedidoOrcamentoValue(values) ? 'Sim' : 'Não',
-  );
+  const hasEstadoMaquina = (service?.fields || []).some((f) => f.id === 'estado_maquina');
+  if (hasEstadoMaquina) {
+    y = drawKeyValueLine(
+      doc,
+      y,
+      'Estado da Máquina',
+      pdfDisplayValue(values.estado_maquina || '—'),
+    );
+  }
 
-  const retornoPairs = [
+  y = drawSectionTitle(doc, y, 'Intervenção (Datas e Custos)', { skipEnsure: true });
+
+  const interventionPairs = [
     { label: 'Data 1', value: pdfDisplayValue(values.data_1) },
     { label: 'Data 2', value: pdfDisplayValue(values.data_2) },
-  ];
-  y = await drawSectionScalarGridFromPairs(doc, y, retornoPairs);
-
-  const logisticsPairs = [
     { label: 'Nº de Visitas', value: pdfDisplayValue(formatPdfNumeroVisitas(values)) },
   ];
+
   if (reportIncludesDeslocacao(service)) {
-    logisticsPairs.push({
-      label: 'Deslocações',
+    interventionPairs.push({
+      label: 'Deslocação',
       value: pdfDisplayValue(formatPdfDeslocacao(values.deslocacao, { ...pdfContext, values })),
     });
   }
-  logisticsPairs.push({
+
+  interventionPairs.push({
     label: 'Horas Gastas',
     value: pdfDisplayValue(resolveStandardFieldValue(values, { id: 'horas_gastas' }) || '—'),
   });
-  y = await drawSectionScalarGridFromPairs(doc, y, logisticsPairs);
+
+  y = await drawInterventionRowTable(doc, y, interventionPairs);
 
   return y + 1;
+}
+
+async function drawInterventionRowTable(doc, y, pairs) {
+  if (!pairs.length) return y;
+  await loadJsPdfAutoTable();
+  const colW = CONTENT_W / pairs.length;
+  const columnStyles = {};
+  pairs.forEach((_, i) => {
+    columnStyles[i] = { cellWidth: colW, overflow: 'linebreak' };
+  });
+
+  doc.autoTable({
+    startY: y,
+    margin: getPdfAutoTableMargin(MARGIN, MARGIN),
+    tableWidth: CONTENT_W,
+    head: [pairs.map((p) => p.label)],
+    body: [pairs.map((p) => p.value)],
+    ...buildPdfAutoTableStyles(doc, pdfAutoTableFont, pdfSetFont),
+    headStyles: {
+      font: pdfAutoTableFont(doc),
+      fillColor: PDF_SECTION_BG,
+      textColor: CORPORATE_BLUE_DARK,
+      fontStyle: 'bold',
+      fontSize: PDF_FONT_CAPTION,
+      lineColor: PDF_TABLE_LINE,
+      lineWidth: 0.15,
+      halign: 'left',
+    },
+    bodyStyles: {
+      fillColor: PDF_TABLE_BODY_FILL,
+      fontSize: PDF_FONT_BODY,
+    },
+    columnStyles,
+    didDrawPage: buildPdfAutoTableDidDrawPage(doc),
+  });
+
+  touchPdfContentPage(doc);
+  return normalizeYAfterAutoTable(doc, y, PDF_GAP_TABLE);
 }
 
 function drawDivider(doc, y) {
@@ -1114,9 +1210,9 @@ function drawSectionTitle(doc, y, title, options = {}) {
   pdfSetFont(doc, 'bold');
   doc.setFontSize(PDF_FONT_SECTION);
   doc.setTextColor(...CORPORATE_BLUE_DARK);
-  doc.text(title.toUpperCase(), MARGIN + 2.5, y + 4.5);
+  doc.text(title.toUpperCase(), MARGIN + 2, y + 3.5);
   touchPdfContentPage(doc);
-  return y + bandH + 1;
+  return y + bandH + 0.5;
 }
 
 function normalizeReportValues(data) {
@@ -1948,8 +2044,8 @@ function estimateDynamicTableBlockHeight(columns, rows) {
   return titleH + tableH;
 }
 
-const OBS_LINE_HEIGHT = 3.8;
-const OBS_EMPTY_LINE_HEIGHT = 2;
+const OBS_LINE_HEIGHT = 3.4;
+const OBS_EMPTY_LINE_HEIGHT = 1.8;
 const OBS_TITLE_BLOCK_HEIGHT = 10;
 const OBS_BOTTOM_PAD = 4;
 
