@@ -6,29 +6,13 @@ import {
   isMaterialTableField,
   MATERIAL_TABLE_PDF_LABEL,
 } from './material-table-field.js';
-import {
-  PDF_STANDARD_MACHINE_SPECS as LAYOUT_MACHINE_SPECS,
-  getPdfLayoutSkipFieldIds,
-} from './report-layout-standard.js';
 
-/** Tipografia (pt) — compacta para impressão (1 página quando possível) */
-export const PDF_FONT_TITLE = 10;
-export const PDF_FONT_SECTION = 8.5;
-export const PDF_FONT_SUBTITLE = 8.5;
-export const PDF_FONT_BODY = 8;
-export const PDF_FONT_CAPTION = 7;
-
-/** Layout (mm) — margens reduzidas para maximizar área útil */
-export const PDF_MARGIN = 12;
-export const PDF_PAGE_W = 210;
-export const PDF_PAGE_H = 297;
-export const PDF_CONTENT_W = PDF_PAGE_W - PDF_MARGIN * 2;
-export const PDF_PAGE_CONTENT_START_Y = 16;
-export const PDF_FOOTER_BLOCK_TOP = PDF_PAGE_H - 22;
-export const PDF_PAGE_NUMBER_Y = PDF_FOOTER_BLOCK_TOP - 4;
-export const PDF_CONTENT_SAFE_BOTTOM_MM = PDF_PAGE_H - PDF_PAGE_NUMBER_Y + 2;
-export const PDF_AUTOTABLE_MARGIN_BOTTOM_MM = PDF_PAGE_H - PDF_FOOTER_BLOCK_TOP + 2;
-export const PDF_FOOTER_TEXT_RGB = [148, 163, 184];
+/** Tipografia (pt) */
+export const PDF_FONT_TITLE = 16;
+export const PDF_FONT_SECTION = 14;
+export const PDF_FONT_SUBTITLE = 12;
+export const PDF_FONT_BODY = 10;
+export const PDF_FONT_CAPTION = 8;
 
 /** Cores institucionais */
 export const PDF_COLOR_CORPORATE_BLUE = [30, 64, 115];
@@ -39,6 +23,18 @@ export const PDF_COLOR_TEXT_MUTED = [100, 116, 139];
 export const PDF_COLOR_WHITE = [255, 255, 255];
 export const PDF_COLOR_SUCCESS = [16, 185, 129];
 export const PDF_COLOR_DANGER = [248, 113, 113];
+
+/** Layout (mm) */
+export const PDF_MARGIN = 15;
+export const PDF_PAGE_W = 210;
+export const PDF_PAGE_H = 297;
+export const PDF_CONTENT_W = PDF_PAGE_W - PDF_MARGIN * 2;
+export const PDF_PAGE_CONTENT_START_Y = 22;
+export const PDF_FOOTER_BLOCK_TOP = PDF_PAGE_H - 28;
+export const PDF_PAGE_NUMBER_Y = PDF_FOOTER_BLOCK_TOP - 8;
+export const PDF_CONTENT_SAFE_BOTTOM_MM = PDF_PAGE_H - PDF_PAGE_NUMBER_Y + 3;
+export const PDF_AUTOTABLE_MARGIN_BOTTOM_MM = PDF_PAGE_H - PDF_FOOTER_BLOCK_TOP + 4;
+export const PDF_FOOTER_TEXT_RGB = [148, 163, 184];
 
 /** Tabelas autoTable */
 export const PDF_TABLE_HEAD_FILL = PDF_COLOR_CORPORATE_BLUE;
@@ -194,12 +190,42 @@ export function getVerificationPdfTitle(field) {
 }
 
 /** Bloco de equipamento padronizado em todos os PDFs */
-export const PDF_STANDARD_MACHINE_SPECS = LAYOUT_MACHINE_SPECS;
+export const PDF_STANDARD_MACHINE_SPECS = [
+  { id: 'marca', label: 'Marca' },
+  { id: 'modelo', label: 'Modelo' },
+  {
+    id: 'numero_de_serie',
+    label: 'Número de Série',
+    aliases: ['num_serie', 'numero_serie', 'n_serie'],
+  },
+  { id: 'n_interno', label: 'Nº Interno', aliases: ['num_interno'] },
+];
 
-/** @deprecated — resumo desenhado em drawStandardClosingBlock */
-export const PDF_CLOSING_DIAGNOSTIC_SPECS = [];
+/** Campos de diagnóstico antes das assinaturas */
+export const PDF_CLOSING_DIAGNOSTIC_SPECS = [
+  { id: 'horas', label: 'Horas', aliases: ['horas_gastas'] },
+  { id: 'estado_maquina', label: 'Estado da Máquina' },
+];
 
-export const PDF_LAYOUT_SKIP_FIELD_IDS = getPdfLayoutSkipFieldIds();
+export const PDF_LAYOUT_SKIP_FIELD_IDS = new Set([
+  ...PDF_STANDARD_MACHINE_SPECS.flatMap((s) => [s.id, ...(s.aliases || [])]),
+  ...PDF_CLOSING_DIAGNOSTIC_SPECS.flatMap((s) => [s.id, ...(s.aliases || [])]),
+  'deslocacao',
+  'visitas_realizadas',
+  'visitas',
+  'deslocacao_base_km',
+  'datas_visitas',
+  'data_1',
+  'data_2',
+  'data_3',
+  'data_4',
+  'data_5',
+  'data_de_conclusao',
+  'pedido_orcamento',
+  'pedido_orcamento_detalhe',
+  'resumo_intervencao',
+  'pedir_orcamento_adicional',
+]);
 
 /** Resolve valor de campo padronizado (com aliases). */
 export function resolvePdfStandardFieldValue(values, spec, fallback = null) {
@@ -221,7 +247,7 @@ export function buildPdfAutoTableStyles(doc, pdfAutoTableFont, pdfSetFont) {
     styles: {
       font: pdfAutoTableFont(doc),
       fontSize: PDF_FONT_BODY,
-      cellPadding: { top: 2, right: 3, bottom: 2, left: 3 },
+      cellPadding: { top: 3.5, right: 4, bottom: 3.5, left: 4 },
       lineColor: PDF_TABLE_LINE,
       lineWidth: 0.15,
       textColor: PDF_COLOR_TEXT_DARK,
