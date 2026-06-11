@@ -7,10 +7,15 @@ import { clearSession, getRawSession, normalizeSession, setRawSession } from './
 
 /** Página de login da PWA (não existe login.html separado). */
 export const LOGIN_URL = 'index.html';
-import { UTILIZADORES } from './mock_data.js';
-import { isRhOrAdminRole, normalizeDbRole } from './auth-roles.js';
+import { UTILIZADORES, FILIPA_LEGACY_AUTH_EMAIL } from './mock_data.js';
+import {
+  isRhOrAdminRole,
+  normalizeDbRole,
+  isRhOrAdminEmail,
+  isRhOrAdminName,
+} from './auth-roles.js';
 
-export const AUTH_BUILD = '2026-06-11-login-filipa-fix';
+export const AUTH_BUILD = '2026-06-11-rh-admin-login';
 
 /** Domínio fictício para login só com nome de utilizador (sem e-mail real). */
 export const SYSTEM_LOGIN_EMAIL_DOMAIN = 'sistema.com';
@@ -67,6 +72,46 @@ function buildLoginPool() {
   return pool;
 }
 
+/** Utilizador do catálogo local a partir do e-mail ou metadados Auth. */
+function findPoolUserForAuth(email, meta = {}) {
+  const pool = buildLoginPool();
+  const normalized = String(email || '').toLowerCase();
+  let match = pool.find((u) => u.email?.toLowerCase() === normalized);
+  if (match) return match;
+
+  if (normalized === FILIPA_LEGACY_AUTH_EMAIL) {
+    return pool.find((u) => u.nome?.toLowerCase() === 'filipa') || null;
+  }
+
+  const nomeHint = meta.nome || meta.name;
+  if (nomeHint) {
+    match = pool.find((u) => u.nome?.toLowerCase() === String(nomeHint).toLowerCase());
+    if (match) return match;
+  }
+
+  const slug = normalized.split('@')[0];
+  return pool.find((u) => u.nome?.toLowerCase() === slug) || null;
+}
+
+/**
+ * Perfil esperado (RH ou Técnico) para sugerir o separador no ecrã de login.
+ * @param {string} identifier
+ * @returns {'RH'|'Tecnico'|null}
+ */
+export function resolveLoginRoleHint(identifier) {
+  const term = String(identifier || '').trim();
+  if (!term) return null;
+
+  const pool = buildLoginPool();
+  if (term.includes('@')) {
+    const match = pool.find((u) => u.email?.toLowerCase() === term.toLowerCase());
+    return match?.role === 'RH' || match?.role === 'Tecnico' ? match.role : null;
+  }
+
+  const match = pool.find((u) => u.nome?.toLowerCase() === term.toLowerCase());
+  return match?.role === 'RH' || match?.role === 'Tecnico' ? match.role : null;
+}
+
 /**
  * Lista de e-mails a tentar no Supabase Auth (por ordem).
  * O perfil (Técnico/RH) valida-se depois do login — não bloqueia a resolução do e-mail.
@@ -120,17 +165,12 @@ export function resolveLoginEmail(identifier, _roleFiltro = null) {
 }
 
 /** Utilizador RH sem e-mail pessoal — login só por nome; sem recuperação por e-mail. */
-export function userUsesNameOnlyLogin(identifier, roleFiltro = null) {
+export function userUsesNameOnlyLogin(identifier) {
   const candidates = resolveLoginEmailCandidates(identifier);
   if (!candidates.length) return false;
   const pool = buildLoginPool();
   return candidates.some((email) =>
-    pool.some(
-      (u) =>
-        u.email?.toLowerCase() === email &&
-        (!roleFiltro || u.role === roleFiltro) &&
-        u.semEmailPessoal === true,
-    ),
+    pool.some((u) => u.email?.toLowerCase() === email && u.semEmailPessoal === true),
   );
 }
 
@@ -148,7 +188,7 @@ export function resolveDisplayNameForHint(identifier, roleFiltro = null) {
 function profileFromAuthUser(user, roleFiltro) {
   const meta = user.user_metadata || {};
   const email = (user.email || '').toLowerCase();
-  const fromPool = buildLoginPool().find((u) => u.email.toLowerCase() === email);
+  const fromPool = findPoolUserForAuth(email, meta);
 
   const rawRole = meta.role || fromPool?.role;
   const role = normalizeDbRole(rawRole) || rawRole;
@@ -156,26 +196,31 @@ function profileFromAuthUser(user, roleFiltro) {
   const technicianId =
     meta.technician_id || meta.technicianId || fromPool?.technicianId || null;
 
-  if (roleFiltro === 'RH' && isRhOrAdminRole(rawRole)) {
-    /* RH/Admin — OK */
-  } else if (roleFiltro && role && role !== roleFiltro) {
-    return {
-      error:
-        roleFiltro === 'RH'
-          ? 'Esta conta não tem acesso de Recursos Humanos.'
-          : 'Esta conta não tem acesso de Técnico.',
-    };
+  const isRhAdmin =
+    isRhOrAdminRole(rawRole) ||
+    fromPool?.role === 'RH' ||
+    isRhOrAdminEmail(email) ||
+    isRhOrAdminName(nome);
+
+  // RH/Admin (Joana, Filipa, …) entra sempre — mesmo com separador «Técnico» selecionado.
+  if (!isRhAdmin && roleFiltro === 'RH' && role === 'Tecnico') {
+    return { error: 'Esta conta não tem acesso de Recursos Humanos.' };
   }
 
-  if (!role) {
+  const effectiveRole = isRhAdmin ? 'RH' : role;
+
+  if (!effectiveRole) {
     return { error: 'Perfil não configurado. Contacte o RH.' };
   }
 
   return {
     nome,
     email: user.email,
-    role,
-    technicianId: technicianId || technicianIdFor({ email, role, technicianId }),
+    role: effectiveRole,
+    technicianId:
+      effectiveRole === 'Tecnico'
+        ? technicianId || technicianIdFor({ email, role: effectiveRole, technicianId })
+        : null,
   };
 }
 

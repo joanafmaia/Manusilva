@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   resolveLoginEmail,
   resolveLoginEmailCandidates,
+  resolveLoginRoleHint,
   SYSTEM_LOGIN_EMAIL_DOMAIN,
   LEGACY_RH_LOGIN_EMAIL_DOMAIN,
 } from '../js/auth.js';
@@ -49,5 +50,20 @@ describe('resolveLoginEmailCandidates', () => {
 
   it('expõe domínio legado RH', () => {
     assert.equal(LEGACY_RH_LOGIN_EMAIL_DOMAIN, 'rh.manusilva.internal');
+  });
+});
+
+describe('resolveLoginRoleHint', () => {
+  it('identifica Joana e Filipa como RH', () => {
+    assert.equal(resolveLoginRoleHint('Filipa'), 'RH');
+    assert.equal(resolveLoginRoleHint('Joana'), 'RH');
+  });
+
+  it('identifica técnicos pelo nome', () => {
+    assert.equal(resolveLoginRoleHint('Hugo'), 'Tecnico');
+  });
+
+  it('devolve null para nomes desconhecidos', () => {
+    assert.equal(resolveLoginRoleHint('Maria'), null);
   });
 });

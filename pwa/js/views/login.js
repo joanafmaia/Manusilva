@@ -1,4 +1,4 @@
-import { AuthService, resolveLoginEmail, userUsesNameOnlyLogin } from '../auth.js';
+import { AuthService, resolveLoginEmail, resolveLoginRoleHint, userUsesNameOnlyLogin } from '../auth.js';
 import { ROLE_UI_TO_DB } from '../mock_data.js';
 import { toggleTheme, themeToggleIcon } from '../theme.js';
 
@@ -93,6 +93,21 @@ export const LoginView = {
       admin: { identifier: 'Filipa' },
     };
 
+    function selectUiRole(uiRole) {
+      selectedUiRole = uiRole;
+      roleButtons.forEach((b) => {
+        const selected = b.dataset.role === uiRole;
+        b.classList.toggle('is-selected', selected);
+        b.setAttribute('aria-pressed', selected ? 'true' : 'false');
+      });
+    }
+
+    function applyRoleHint(identifier) {
+      const hint = resolveLoginRoleHint(identifier);
+      if (hint === 'RH') selectUiRole('admin');
+      else if (hint === 'Tecnico') selectUiRole('technician');
+    }
+
     function setLoginLocked(locked, message = '') {
       btnSubmit.disabled = locked;
       btnSubmit.classList.toggle('is-loading', locked && !message);
@@ -156,16 +171,15 @@ export const LoginView = {
 
     roleButtons.forEach((btn) => {
       btn.addEventListener('click', () => {
-        selectedUiRole = btn.dataset.role;
-        roleButtons.forEach((b) => {
-          const selected = b === btn;
-          b.classList.toggle('is-selected', selected);
-          b.setAttribute('aria-pressed', selected ? 'true' : 'false');
-        });
+        selectUiRole(btn.dataset.role);
         const defaults = loginDefaults[selectedUiRole] || loginDefaults.technician;
         identifierInput.value = defaults.identifier;
         passwordInput.value = '';
       });
+    });
+
+    identifierInput.addEventListener('blur', () => {
+      applyRoleHint(identifierInput.value.trim());
     });
 
     form.addEventListener('submit', async (e) => {
@@ -174,10 +188,12 @@ export const LoginView = {
 
       hideMessages();
 
+      const identifier = identifierInput.value.trim();
+      applyRoleHint(identifier);
+
       setLoginLocked(true);
       btnText.textContent = 'A verificar...';
 
-      const identifier = identifierInput.value.trim();
       const password = passwordInput.value;
       const roleFiltro = ROLE_UI_TO_DB[selectedUiRole];
 
@@ -195,7 +211,7 @@ export const LoginView = {
       setFailedCount(failures);
 
       if (failures >= MAX_FAILED_ATTEMPTS) {
-        if (userUsesNameOnlyLogin(identifier, roleFiltro)) {
+        if (userUsesNameOnlyLogin(identifier)) {
           showInfo(
             'Demasiadas tentativas incorretas. Contacte a administração para redefinir a palavra-passe.',
           );
