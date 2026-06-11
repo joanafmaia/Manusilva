@@ -3,7 +3,7 @@
  * Migra automaticamente rascunhos antigos de localStorage.
  */
 
-import { mergeReportInCache } from './relatorios-db.js';
+import { mergeReportInCache, getReportsSnapshot } from './relatorios-db.js';
 import {
   STORE_REPORT_DRAFTS,
   idbDelete,
@@ -224,12 +224,31 @@ export async function resolveReportForJob(jobId, serverReport, options = {}) {
   return serverReport;
 }
 
+/** Estados do servidor que um rascunho local NUNCA pode sobrepor. */
+const LOCKED_SERVER_STATUSES = new Set(['approved', 'pending_review', 'rejected']);
+
 /**
  * Repõe rascunhos locais e submissões em fila no cache em memória (dashboard técnico offline).
+ * Rascunhos obsoletos (o servidor já tem o relatório submetido/concluído) são ignorados
+ * — e removidos do tablet quando o relatório foi aprovado.
  */
 export async function hydrateLocalReportsIntoCache() {
   const drafts = await getAllLocalReportDrafts();
-  drafts.forEach((draft) => mergeReportInCache(draft));
+  const serverReports = getReportsSnapshot();
+
+  for (const draft of drafts) {
+    const server = serverReports.find((r) => r.jobId === draft.jobId);
+
+    if (server && LOCKED_SERVER_STATUSES.has(server.status)) {
+      // O servidor manda: não deixar o rascunho local "ressuscitar" como Em aberto.
+      if (server.status === 'approved') {
+        removeLocalReportDraft(draft.jobId).catch(() => {});
+      }
+      continue;
+    }
+
+    mergeReportInCache(draft);
+  }
 
   try {
     const { getTrabalhosPendentes } = await import('./trabalhos-offline.js');

@@ -199,15 +199,36 @@ function jobFromDraftReport(report) {
   };
 }
 
-/** Apenas relatórios «Em aberto» (rascunho), incluindo dias anteriores. */
+/** Estados de trabalho que excluem o relatório da aba Em Curso. */
+const EM_CURSO_EXCLUDED_JOB_STATUSES = new Set([
+  'completed',
+  'concluido',
+  'concluído',
+  'approved',
+  'pending_review',
+  'pendente',
+]);
+
+/**
+ * Apenas relatórios EXCLUSIVAMENTE «Em aberto» (rascunho), incluindo dias anteriores.
+ * Concluídos, Pendente RH e Rejeitados nunca entram aqui.
+ */
 function getEmCursoJobs(techId) {
   const byId = new Map();
 
   getReportsSnapshot().forEach((report) => {
-    if (report.status !== 'draft' || !reportAssignedToTechnician(report, techId)) return;
+    // Regra estrita: só estado 'draft' (Em aberto)
+    if (report.status !== 'draft') return;
+    if (!reportAssignedToTechnician(report, techId)) return;
+
     const job = jobFromDraftReport(report);
     if (!job) return;
     if (job.technicianId && !jobAssignedToTechnician(job, techId)) return;
+
+    // Defesa extra: se o trabalho no servidor já está submetido/concluído,
+    // o rascunho local é obsoleto e não pode aparecer como Em aberto.
+    if (EM_CURSO_EXCLUDED_JOB_STATUSES.has(String(job.status || '').toLowerCase())) return;
+
     byId.set(job.id, job);
   });
 
@@ -1094,6 +1115,10 @@ function renderJobs() {
   const session = requireAuth('technician');
   const container = document.getElementById('jobs-list');
   if (!container || !session) return;
+
+  // Esvazia a lista antes de injetar os novos cards filtrados,
+  // para não deixar lixo visual de consultas anteriores.
+  container.innerHTML = '';
 
   updateJobsSectionHeader();
   const techId = session.technicianId;
