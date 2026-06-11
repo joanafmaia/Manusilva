@@ -184,10 +184,19 @@ export function isMachineTrackingField(field) {
   return Boolean(field?.id && MACHINE_TRACKING_FIELD_IDS.has(field.id));
 }
 
+/** Serviços onde o técnico identifica a máquina no ecrã (Marca/Modelo/Nº Série). */
+const SERVICES_WITH_MACHINE_FIELDS = new Set([
+  'inspecao_dl50_2005',
+  'folha_intervencao_avarias',
+]);
+
 function filterReportFields(fields, service) {
   return (fields || []).filter((f) => {
     if (isDeslocacaoField(f) || isVisitasField(f) || isDeslocacaoMetaField(f)) return false;
-    if (service?.id === 'inspecao_dl50_2005' && f.section === 'Informações da Máquina') {
+    if (
+      SERVICES_WITH_MACHINE_FIELDS.has(service?.id) &&
+      f.section === 'Informações da Máquina'
+    ) {
       return true;
     }
     return !isMachineTrackingField(f);

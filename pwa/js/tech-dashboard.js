@@ -95,8 +95,10 @@ function addDaysToIso(isoDate, days) {
 }
 
 function sortJobsByDateTime(a, b) {
-  if (a.date !== b.date) return a.date.localeCompare(b.date);
-  return (a.time || '').localeCompare(b.time || '');
+  const dateA = String(a.date || '');
+  const dateB = String(b.date || '');
+  if (dateA !== dateB) return dateA.localeCompare(dateB);
+  return String(a.time || '').localeCompare(String(b.time || ''));
 }
 
 function reportAssignedToTechnician(report, techId) {
@@ -243,31 +245,50 @@ function getEmCursoJobs(techId) {
   return [...byId.values()].sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
 }
 
-/** Trabalhos «Agendados» do dia selecionado no calendário (ainda não iniciados). */
+/** Estados visíveis na aba Agendados: por fazer (Agendado) ou a corrigir (Rejeitado). */
+const AGENDADOS_VISIBLE_STATES = new Set(['scheduled', 'rejected']);
+
+/** Data pura YYYY-MM-DD — elimina hora/fuso antes de comparar. */
+function toPureDate(value) {
+  return String(value || '').split('T')[0];
+}
+
+/** Trabalhos da aba «Agendados» do dia selecionado (agendados + rejeitados a corrigir). */
 function getAgendadosJobs(techId) {
+  const selected = toPureDate(selectedDate);
   return getJobsSnapshot()
     .filter((job) => {
       if (!jobAssignedToTechnician(job, techId)) return false;
-      if (job.date !== selectedDate) return false;
+      if (toPureDate(job.date) !== selected) return false;
       const report = getReportForJob(job.id);
-      return resolveCalendarEventState(job, report) === 'scheduled';
+      return AGENDADOS_VISIBLE_STATES.has(resolveCalendarEventState(job, report));
     })
     .sort(sortJobsByDateTime);
 }
 
-/** Trabalhos agendados no resto da semana do dia selecionado (exclui o próprio dia). */
+/** Trabalhos no resto da semana do dia selecionado (exclui o próprio dia). */
 function getRestOfWeekScheduledJobs(techId) {
-  const weekOfSelected = getWeekDates(new Date(`${selectedDate}T12:00:00`));
+  const selected = toPureDate(selectedDate);
+  const weekOfSelected = getWeekDates(new Date(`${selected}T12:00:00`));
   const dateSet = new Set(weekOfSelected);
 
   return getJobsSnapshot()
     .filter((job) => {
+      const jobDate = toPureDate(job.date);
       if (!jobAssignedToTechnician(job, techId)) return false;
-      if (!dateSet.has(job.date) || job.date === selectedDate) return false;
+      if (!dateSet.has(jobDate) || jobDate === selected) return false;
       const report = getReportForJob(job.id);
-      return resolveCalendarEventState(job, report) === 'scheduled';
+      return AGENDADOS_VISIBLE_STATES.has(resolveCalendarEventState(job, report));
     })
     .sort(sortJobsByDateTime);
+}
+
+/** Linha da aba Agendados: rejeitados reabrem para correção (borda vermelha). */
+function renderAgendadosRow(job, options = {}) {
+  const report = getReportForJob(job.id);
+  const state = resolveCalendarEventState(job, report);
+  const action = state === 'rejected' ? 'continue' : 'start';
+  return renderTechJobRow(job, report, action, options);
 }
 
 function renderAgendadosWeekPreview(techId) {
@@ -276,9 +297,7 @@ function renderAgendadosWeekPreview(techId) {
     return '<p class="agendados-preview-empty text-muted">Sem mais trabalhos agendados esta semana.</p>';
   }
 
-  const rows = weekJobs
-    .map((job) => renderTechJobRow(job, getReportForJob(job.id), 'start'))
-    .join('');
+  const rows = weekJobs.map((job) => renderAgendadosRow(job)).join('');
 
   return `
     <div class="agendados-week-preview">
@@ -1180,7 +1199,7 @@ function renderJobs() {
       // Aba diária: o dia já está selecionado no calendário — a linha começa pelo cliente.
       container.innerHTML = `
         <div class="tech-job-rows">
-          ${jobs.map((job) => renderTechJobRow(job, getReportForJob(job.id), 'start', { showDate: false })).join('')}
+          ${jobs.map((job) => renderAgendadosRow(job, { showDate: false })).join('')}
         </div>
         ${renderAgendadosWeekPreview(techId)}
       `;
