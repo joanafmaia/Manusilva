@@ -308,9 +308,19 @@ function renderAgendadosWeekPreview(techId) {
   `;
 }
 
+/**
+ * Estados visíveis no Histórico de Realizados: Concluído (approved) e
+ * Pendente RH (pending_review) — o técnico vê o que enviou, só em leitura.
+ */
+const REALIZADOS_VISIBLE_STATUSES = new Set(['approved', 'pending_review']);
+
 function getRealizadosItems(techId) {
   return getReportsSnapshot()
-    .filter((report) => report.status === 'approved' && reportAssignedToTechnician(report, techId))
+    .filter(
+      (report) =>
+        REALIZADOS_VISIBLE_STATUSES.has(report.status) &&
+        reportAssignedToTechnician(report, techId),
+    )
     .map((report) => ({
       report,
       job: report.jobId ? getJob(report.jobId) : null,
