@@ -7889,6 +7889,23 @@ body.dark-mode .client-history-status--rejected {
   cursor: default;
 }
 
+.client-history-modal-row-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.client-history-modal-pdf-btn {
+  min-width: 2.6rem;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+}
+
 /* RH — abas de gestão (distintas das abas de relatórios técnicos) */
 .rh-admin-tabs {
   display: none;

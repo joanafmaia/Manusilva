@@ -75,6 +75,13 @@ function formatClientHistoryDate(report) {
   return y && m && d ? `${d}/${m}/${y}` : '—';
 }
 
+function renderClientHistoryPdfButton(report, job) {
+  if (job?.urlPdf) {
+    return `<button type="button" class="btn-outline btn-sm client-history-modal-pdf-btn" data-open-pdf-url="${escapeHtml(job.urlPdf)}" title="Ver PDF" aria-label="Ver PDF do relatório">PDF</button>`;
+  }
+  return `<button type="button" class="btn-outline btn-sm client-history-modal-pdf-btn" data-download-pdf="${escapeHtml(report.id)}" title="Ver PDF" aria-label="Ver PDF do relatório">PDF</button>`;
+}
+
 function renderClientHistoryRows(reports) {
   if (!reports.length) {
     return '<p class="text-muted empty-inline">Sem relatórios registados para este cliente.</p>';
@@ -87,17 +94,43 @@ function renderClientHistoryRows(reports) {
           const meta = HISTORY_STATUS_META[report.status] || HISTORY_STATUS_META.draft;
           const service = getServiceType(report.serviceType);
           const tech = getTechnician(report.technicianId);
+          const job = report.jobId ? getJob(report.jobId) : null;
           return `
             <div class="tech-job-row tech-job-row--${meta.cls} client-history-modal-row">
               <span class="tech-job-row-date">${escapeHtml(formatClientHistoryDate(report))}</span>
               <span class="tech-job-row-service">${escapeHtml(service?.label || report.serviceType || '—')}${tech?.name ? ` · ${escapeHtml(tech.name)}` : ''}</span>
-              <span class="work-state-badge work-state-badge--${meta.cls}">${meta.label}</span>
+              <div class="client-history-modal-row-actions">
+                ${renderClientHistoryPdfButton(report, job)}
+                <span class="work-state-badge work-state-badge--${meta.cls}">${meta.label}</span>
+              </div>
             </div>
           `;
         })
         .join('')}
     </div>
   `;
+}
+
+function bindClientHistoryModalActions(overlay) {
+  if (!overlay) return;
+
+  overlay.querySelectorAll('[data-download-pdf]').forEach((btn) => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const reportId = btn.dataset.downloadPdf;
+      if (!reportId) return;
+      const { downloadReportPDF } = await import('../report-review-modal.js');
+      downloadReportPDF(reportId).catch(console.error);
+    });
+  });
+
+  overlay.querySelectorAll('[data-open-pdf-url]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const url = btn.dataset.openPdfUrl;
+      if (url) window.open(url, '_blank');
+    });
+  });
 }
 
 export function openClientHistoryModal(clientId) {
@@ -112,7 +145,8 @@ export function openClientHistoryModal(clientId) {
     <div class="tech-history-modal-list">${renderClientHistoryRows(reports)}</div>
   `;
 
-  openModal(`🗂 Histórico — ${nome}`, content);
+  const overlay = openModal(`🗂 Histórico — ${nome}`, content);
+  bindClientHistoryModalActions(overlay);
 }
 
 /* ─── Painel principal de Clientes / Empresas ─── */
