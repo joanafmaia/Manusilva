@@ -5,14 +5,7 @@
 
 import { getReportsSnapshot } from './relatorios-db.js';
 import { getJobsSnapshot } from './trabalhos-db.js';
-import { jobMatchesTechnician } from './job-technician-utils.js';
-
-function reportMatchesTechnician(report, tech) {
-  return jobMatchesTechnician(report.technicianId, {
-    techId: tech?.id,
-    techName: tech?.name,
-  });
-}
+import { reportMatchesTechnicianTeam } from './job-technician-utils.js';
 
 function getApprovedReports() {
   return getReportsSnapshot().filter((r) => r.status === 'approved');
@@ -35,14 +28,17 @@ function currentMonthKey() {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 }
 
-/** Histórico de Concluídos de um técnico — [{ report, job, date }], mais recente primeiro. */
+/**
+ * Histórico de Concluídos de um técnico — [{ report, job, date }], mais recente primeiro.
+ * Verifica a equipa completa do trabalho («Hugo, Filipe»): conta para todos os
+ * técnicos atribuídos, mesmo que só um tenha submetido o relatório no tablet.
+ */
 export function getConcluidosForTechnician(tech) {
+  const match = { techId: tech?.id, techName: tech?.name };
   return getApprovedReports()
-    .filter((report) => reportMatchesTechnician(report, tech))
-    .map((report) => {
-      const job = findJob(report.jobId);
-      return { report, job, date: getConcluidoDate(report, job) };
-    })
+    .map((report) => ({ report, job: findJob(report.jobId) }))
+    .filter(({ report, job }) => reportMatchesTechnicianTeam(report, job, match))
+    .map(({ report, job }) => ({ report, job, date: getConcluidoDate(report, job) }))
     .sort((a, b) => b.date.localeCompare(a.date));
 }
 

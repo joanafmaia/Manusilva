@@ -28,7 +28,7 @@ import {
   escapeHtml,
   applyBrandLogo,
 } from './app.js';
-import { jobMatchesTechnician } from './job-technician-utils.js';
+import { reportMatchesTechnicianTeam } from './job-technician-utils.js';
 import {
   getCalendarEventStateClass,
   renderWorkStateBadge,
@@ -102,10 +102,16 @@ function sortJobsByDateTime(a, b) {
   return String(a.time || '').localeCompare(String(b.time || ''));
 }
 
+/**
+ * O relatório conta para este técnico? Verifica o submissor E a equipa completa
+ * do trabalho associado — com 2+ técnicos atribuídos, o relatório aparece no
+ * histórico de todos, mesmo que só um tenha preenchido no tablet.
+ */
 function reportAssignedToTechnician(report, techId) {
   if (!report || !techId) return false;
   const tech = getTechnician(techId);
-  return jobMatchesTechnician(report.technicianId, {
+  const job = report.jobId ? getJob(report.jobId) : null;
+  return reportMatchesTechnicianTeam(report, job, {
     techId,
     techName: tech?.name,
   });

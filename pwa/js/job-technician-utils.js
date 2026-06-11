@@ -24,3 +24,17 @@ export function jobMatchesTechnician(stored, { techId, techName }) {
   }
   return splitTechnicianStoredValue(value).includes(techName);
 }
+
+/**
+ * O relatório pertence à equipa do técnico?
+ * O relatório guarda apenas quem o digitou (tecnico_id de sessão), mas o trabalho
+ * associado guarda a equipa completa («Hugo, Filipe»). Conta para todos os envolvidos.
+ *
+ * @param {object} report — relatório (technicianId = submissor)
+ * @param {object|null} job — trabalho associado (technicianId pode ser lista CSV)
+ * @param {{ techId?: string, techName?: string }} match
+ */
+export function reportMatchesTechnicianTeam(report, job, { techId, techName }) {
+  if (jobMatchesTechnician(report?.technicianId, { techId, techName })) return true;
+  return jobMatchesTechnician(job?.technicianId, { techId, techName });
+}
