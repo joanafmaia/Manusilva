@@ -619,6 +619,11 @@ function updateTechCalendarVisibility() {
   const month = document.getElementById('tech-month-calendar');
   if (!strip || !month) return;
 
+  // Classes de vista no contentor pai — isolam os estilos de cada modo.
+  const body = strip.closest('.tech-calendar-body');
+  body?.classList.toggle('vista-mensal', techCalendarView === 'month');
+  body?.classList.toggle('vista-semanal', techCalendarView !== 'month');
+
   // Limpeza absoluta do contentor inativo — evita herdar estrutura/estilos
   // da outra vista e garante que só uma grelha existe no DOM de cada vez.
   if (techCalendarView === 'month') {
@@ -634,6 +639,9 @@ function updateTechCalendarVisibility() {
     strip.hidden = false;
     strip.style.removeProperty('display');
   }
+
+  // Força o navegador a processar o novo layout antes de desenhar os cards.
+  void body?.offsetHeight;
 }
 
 /** Força o browser a recalcular dimensões após trocar de vista. */
@@ -715,17 +723,27 @@ function bindTechMonthCalendarEvents(container) {
     });
   });
 
+  const selectMonthDay = (cell) => {
+    selectedDate = cell.dataset.techMonthDay;
+    if (techJobsTab === 'agendados') techTabDataCacheKey = null;
+    renderMonthCalendar();
+    if (techJobsTab === 'agendados') {
+      loadTechTabData().then(() => renderJobs()).catch(console.error);
+    } else {
+      renderJobs();
+    }
+  };
+
   container.querySelectorAll('[data-tech-month-day]').forEach((cell) => {
     cell.addEventListener('click', (e) => {
       if (e.target.closest('[data-tech-month-job]')) return;
-      selectedDate = cell.dataset.techMonthDay;
-      if (techJobsTab === 'agendados') techTabDataCacheKey = null;
-      renderMonthCalendar();
-      if (techJobsTab === 'agendados') {
-        loadTechTabData().then(() => renderJobs()).catch(console.error);
-      } else {
-        renderJobs();
-      }
+      selectMonthDay(cell);
+    });
+    cell.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      if (e.target.closest('[data-tech-month-job]')) return;
+      e.preventDefault();
+      selectMonthDay(cell);
     });
   });
 }
@@ -766,14 +784,16 @@ function renderMonthCalendar() {
       const visibleJobs = dayJobs.slice(0, TECH_MONTH_JOBS_VISIBLE);
       const hiddenCount = Math.max(0, dayJobs.length - TECH_MONTH_JOBS_VISIBLE);
 
+      // <div role="button"> em vez de <button>: os cards internos são botões
+      // e botões aninhados são HTML inválido (o parser partia a grelha).
       return `
-        <button type="button" class="${classes}" data-tech-month-day="${date}" aria-pressed="${isSelected}">
+        <div class="${classes}" data-tech-month-day="${date}" role="button" tabindex="0" aria-pressed="${isSelected}">
           <span class="cal-cell-day">${getDayNumber(date)}</span>
           <div class="tech-month-jobs">
             ${visibleJobs.map((job) => renderTechMonthJobBlock(job)).join('')}
             ${hiddenCount ? `<span class="cal-more">+${hiddenCount}</span>` : ''}
           </div>
-        </button>
+        </div>
       `;
     })
     .join('');
