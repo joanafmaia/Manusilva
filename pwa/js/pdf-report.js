@@ -582,7 +582,11 @@ export async function renderInterventionPDF(report) {
 
   touchPdfContentPage(doc);
   trimTrailingBlankPages(doc);
-  drawPageFooter(doc, report.id, { lastPageOnly: isFolhaAvariasPdf });
+  if (isFolhaAvariasPdf) {
+    drawFolhaDocumentFooters(doc);
+  } else {
+    drawPageFooter(doc, report.id);
+  }
 
   return doc;
 }
@@ -671,6 +675,9 @@ const FOLHA_TABLE_HEAD_FILL = [241, 245, 249];
 const FOLHA_PHOTO_GAP_MM = 6;
 const FOLHA_PHOTO_MAX_H_MM = 72;
 const FOLHA_PHOTO_BORDER_MM = 0.18;
+const FOLHA_INSTITUTIONAL_FOOTER_RGB = [102, 102, 102];
+const FOLHA_INSTITUTIONAL_FOOTER_FONT = 8;
+const FOLHA_INSTITUTIONAL_FOOTER_H_MM = 22;
 const FOLHA_CLOSING_PROFILE = {
   sigTop: 8,
   sigImg: 18,
@@ -767,6 +774,55 @@ function buildInstitutionalFooterLines() {
     COMPANY.address,
     contact,
   ].filter(Boolean);
+}
+
+/** Rodapé institucional — Folha de Intervenção de Avarias (3 linhas, contactos com |) */
+function buildFolhaInstitutionalFooterLines() {
+  const contact = [COMPANY.phone, COMPANY.email, COMPANY.website].filter(Boolean).join(' | ');
+  return [COMPANY.name, COMPANY.address, contact].filter(Boolean);
+}
+
+function drawFolhaInstitutionalFooter(doc) {
+  const total = doc.getNumberOfPages();
+  doc.setPage(total);
+
+  const footerTop = PDF_FOOTER_BLOCK_TOP;
+  const footerLines = buildFolhaInstitutionalFooterLines();
+
+  doc.setDrawColor(...PDF_TABLE_LINE);
+  doc.setLineWidth(0.2);
+  doc.line(MARGIN, footerTop, PAGE_W - MARGIN, footerTop);
+
+  pdfSetFont(doc, 'normal');
+  doc.setFontSize(FOLHA_INSTITUTIONAL_FOOTER_FONT);
+  doc.setTextColor(...FOLHA_INSTITUTIONAL_FOOTER_RGB);
+
+  let textY = footerTop + 4;
+  footerLines.forEach((line) => {
+    const wrapped = pdfSplitText(doc, line, CONTENT_W);
+    wrapped.forEach((part) => {
+      doc.text(part, PAGE_W / 2, textY, { align: 'center' });
+      textY += 3.5;
+    });
+  });
+}
+
+/** Rodapé Folha de Avarias — numeração em todas as páginas; institucional só na última */
+function drawFolhaDocumentFooters(doc) {
+  const total = doc.getNumberOfPages();
+  for (let i = 1; i <= total; i++) {
+    doc.setPage(i);
+    pdfSetFont(doc, 'normal');
+    doc.setFontSize(PDF_FONT_CAPTION);
+    doc.setTextColor(...TEXT_MUTED);
+    doc.text(`${i} / ${total}`, PAGE_W / 2, PDF_PAGE_NUMBER_Y, { align: 'center' });
+    if (i < total) {
+      doc.setDrawColor(...PDF_TABLE_LINE);
+      doc.setLineWidth(0.15);
+      doc.line(MARGIN, PDF_FOOTER_BLOCK_TOP, PAGE_W - MARGIN, PDF_FOOTER_BLOCK_TOP);
+    }
+  }
+  drawFolhaInstitutionalFooter(doc);
 }
 
 function pdfGridCell(label, value) {
@@ -1470,7 +1526,10 @@ async function drawFolhaAntesDepoisPhotoSection(doc, y, fotoAntesUrl, fotoDepois
 async function drawFolhaReportClosingSection(doc, y, opts) {
   const hasFotos = Boolean(opts.fotoAntesUrl || opts.fotoDepoisUrl);
   const profile = FOLHA_CLOSING_PROFILE;
-  const blockH = estimateFolhaPhotoSectionHeight(hasFotos) + estimateSignaturesHeight(profile);
+  const blockH =
+    estimateFolhaPhotoSectionHeight(hasFotos) +
+    estimateSignaturesHeight(profile) +
+    FOLHA_INSTITUTIONAL_FOOTER_H_MM;
 
   y = ensureKeepTogetherBlock(doc, y, Math.min(blockH, pdfMaxContentHeight()));
 
@@ -1482,6 +1541,7 @@ async function drawFolhaReportClosingSection(doc, y, opts) {
     topMargin: profile.sigTop,
     imgHeight: profile.sigImg,
     skipEnsure: true,
+    reserveInstitutionalFooter: true,
   });
 }
 
@@ -2929,9 +2989,17 @@ async function drawSignaturesFooter(doc, y, signatures, opts = {}) {
   const topMargin = opts.topMargin ?? SIGNATURES_TOP_MARGIN_MM;
   const imgHeight = opts.imgHeight ?? SIGNATURE_IMG_H_MM;
   const blockHeight = topMargin + imgHeight + SIGNATURE_LABEL_GAP_MM + 10;
+  const footerLimit = opts.reserveInstitutionalFooter
+    ? PDF_FOOTER_BLOCK_TOP - 2
+    : pdfContentBottomY();
 
   if (!opts.skipEnsure) {
     y = ensureBlockFitsSafeZone(doc, y, blockHeight);
+  }
+  if (y + blockHeight > footerLimit) {
+    doc.addPage();
+    touchPdfContentPage(doc);
+    y = PDF_PAGE_CONTENT_START_Y;
   }
   y += topMargin;
 
