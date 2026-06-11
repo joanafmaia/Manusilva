@@ -1174,6 +1174,7 @@ async function drawStandardClosingBlock(doc, y, values, service, pdfContext = nu
       y,
       'Estado da Máquina',
       pdfDisplayValue(values.estado_maquina || '—'),
+      'status_pills',
     );
   }
 

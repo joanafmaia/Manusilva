@@ -101,12 +101,6 @@ const STANDARD_LOGISTICS_FIELDS = [
   { type: 'number', id: 'horas_gastas', label: 'Horas Gastas', min: 0, step: 0.5, inputMode: 'decimal' },
 ];
 
-const DEFAULT_ESTADO_MAQUINA_OPTIONS = [
-  'Apta a Trabalhar',
-  'Aguardar Intervenção',
-  'Pedido de Orçamento',
-];
-
 export function isOfficialReportService(service) {
   return Boolean(service?.id && OFFICIAL_REPORT_SERVICE_IDS.has(service.id));
 }
@@ -165,15 +159,6 @@ export function resolvePedidoOrcamentoValue(values = {}) {
 
 export function resolvePedidoOrcamentoDetalhe(values = {}) {
   return String(values[PEDIDO_ORCAMENTO_DETALHE_FIELD_ID] || '').trim();
-}
-
-function resolveEstadoMaquinaField(service) {
-  return (service?.fields || []).find((f) => f.id === 'estado_maquina') || null;
-}
-
-function resolveEstadoMaquinaOptions(service) {
-  const field = resolveEstadoMaquinaField(service);
-  return field?.options?.length ? field.options : DEFAULT_ESTADO_MAQUINA_OPTIONS;
 }
 
 /** Pré-preenche campos standard a partir de dados guardados. */
@@ -250,27 +235,6 @@ function renderStandardTextareaField(spec, value) {
       <textarea id="field-${spec.id}" class="form-input form-textarea report-work-textarea" rows="${spec.rows || 3}"
         data-field-id="${spec.id}" data-field-kind="textarea"
         placeholder="">${escapeHtml(String(value ?? ''))}</textarea>
-    </div>`;
-}
-
-function renderEstadoMaquinaField(service, value) {
-  const options = resolveEstadoMaquinaOptions(service);
-  const selected = String(value || options[0] || '');
-  const pills = options
-    .map((opt) => {
-      const isSelected = opt === selected ? ' selected' : '';
-      return `
-        <button type="button" class="status-pill${isSelected}" data-value="${escapeHtml(opt)}" aria-pressed="${opt === selected}">
-          <span class="status-pill-dot"></span>
-          ${escapeHtml(opt)}
-        </button>`;
-    })
-    .join('');
-
-  return `
-    <div class="form-group field-block status-pills-field report-estado-maquina-field" data-status-pills="estado_maquina">
-      <label class="form-label">Estado da Máquina</label>
-      <div class="status-pills-group report-estado-maquina-pills">${pills}</div>
     </div>`;
 }
 
@@ -358,8 +322,7 @@ export function renderStandardWorkBlock(values = {}, _context = {}, materialTabl
     </section>`;
 }
 
-export function renderStandardClosingBlock(values = {}, context = {}) {
-  const service = context?.service || null;
+export function renderStandardClosingBlock(values = {}, context = {}, estadoMaquinaHtml = '') {
   const pedido = resolvePedidoOrcamentoValue(values);
   const visitas = values[VISITAS_FIELD_ID] ?? values.visitas ?? 1;
   const baseKm = values[DESLOCACAO_BASE_FIELD_ID] ?? '';
@@ -381,7 +344,7 @@ export function renderStandardClosingBlock(values = {}, context = {}) {
   return `
     <section class="form-section-card report-standard-block report-standard-block--closing" aria-labelledby="report-closing-heading">
       ${renderPedidoOrcamentoField({ ...values, [PEDIDO_ORCAMENTO_FIELD_ID]: pedido ? 'Sim' : 'Não' })}
-      ${resolveEstadoMaquinaField(service) ? renderEstadoMaquinaField(service, values.estado_maquina) : ''}
+      ${estadoMaquinaHtml}
       <div class="report-standard-subsection report-standard-subsection--intervention">
         <p class="report-standard-subtitle">Intervenção (Datas e Custos)</p>
         <div class="report-standard-grid report-standard-grid--intervention">
@@ -405,6 +368,10 @@ export function bindStandardLayoutInteractions(overlay, onDirty) {
     if (detalheWrap) detalheWrap.hidden = !simSelected;
     onDirty?.();
   };
+
+  overlay.querySelectorAll('[data-status-pills="estado_maquina"] .status-pill').forEach((pill) => {
+    pill.addEventListener('click', () => onDirty?.());
+  });
 
   radios.forEach((radio) => {
     radio.addEventListener('change', syncPedidoOrcamento);

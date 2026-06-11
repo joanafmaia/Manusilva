@@ -3086,9 +3086,9 @@ body.dark-mode .btn-preview:hover:not(:disabled) {
   margin-top: 0.45rem;
 }
 
-.report-estado-maquina-pills {
-  flex-wrap: wrap;
-  gap: 0.35rem;
+.report-standard-block--closing .status-pills-field {
+  margin-top: 0.35rem;
+  margin-bottom: 0.45rem;
 }
 
 .form-report-title--compact {

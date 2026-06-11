@@ -270,6 +270,17 @@ export function renderServiceMaterialTable(service, values = {}, context = {}) {
   );
 }
 
+/** Status pills do estado da máquina — bloco standard de fecho. */
+export function renderServiceEstadoMaquinaField(service, values = {}) {
+  const field = (service?.fields || []).find((f) => f.id === 'estado_maquina');
+  if (!field || field.type !== 'status_pills') return '';
+
+  return renderStatusPillsField(
+    { ...field, label: 'Estado da Máquina' },
+    values.estado_maquina ?? '',
+  );
+}
+
 /** Cabeçalho com dados do cliente (destino da intervenção) — só nome e morada */
 export function renderJobClientHeader(client) {
   const { nome, address } = resolveClientDisplayMeta(client);

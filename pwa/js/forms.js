@@ -25,6 +25,7 @@ import {
   bindFormFieldInteractions,
   renderJobClientHeader,
   renderServiceMaterialTable,
+  renderServiceEstadoMaquinaField,
   getServiceFormTitle,
   buildFormPrefill,
   mergeFormValues,
@@ -388,7 +389,7 @@ function buildFormHTML(job, client, tech, service, existingReport, options = {})
             </div>
 
             <div class="report-tab-panel" data-report-panel="finalizacao" id="report-panel-finalizacao" role="tabpanel" aria-labelledby="report-tab-finalizacao" hidden>
-              ${official ? renderStandardClosingBlock(values, formContext) : ''}
+              ${official ? renderStandardClosingBlock(values, formContext, renderServiceEstadoMaquinaField(service, values)) : ''}
               <section class="form-section report-fields-section">
                 <div class="report-fields">${fieldsFinalizacao}</div>
               </section>
