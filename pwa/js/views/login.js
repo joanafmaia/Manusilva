@@ -49,8 +49,8 @@ export const LoginView = {
 
           <form id="login-form" class="login-form" autocomplete="on">
             <div class="form-group">
-              <label for="identifier" class="form-label">Nome ou e-mail</label>
-              <input type="text" id="identifier" class="form-input" required autocomplete="username" placeholder="Nome ou exemplo@empresa.com">
+              <label for="identifier" class="form-label">Nome de utilizador ou e-mail</label>
+              <input type="text" id="identifier" class="form-input" required autocomplete="username" placeholder="Ex.: Filipa ou nome@empresa.com">
             </div>
 
             <div class="form-group form-group--compact">

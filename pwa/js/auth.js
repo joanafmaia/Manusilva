@@ -10,7 +10,10 @@ export const LOGIN_URL = 'index.html';
 import { UTILIZADORES } from './mock_data.js';
 import { isRhOrAdminRole, normalizeDbRole } from './auth-roles.js';
 
-export const AUTH_BUILD = '2026-06-03-supabase-auth';
+export const AUTH_BUILD = '2026-06-11-login-username-domain';
+
+/** Domínio fictício para login só com nome de utilizador (sem e-mail real). */
+export const SYSTEM_LOGIN_EMAIL_DOMAIN = 'sistema.com';
 
 const TECHNICIAN_IDS = {
   'filipasilvahugo2013@gmail.com': 'tech-1',
@@ -31,6 +34,7 @@ function buildLoginPool() {
     email: u.email,
     role: u.role,
     technicianId: u.technicianId || null,
+    semEmailPessoal: Boolean(u.semEmailPessoal),
   }));
 
   try {
@@ -44,6 +48,7 @@ function buildLoginPool() {
         email: u.email,
         role: u.role,
         technicianId: u.technicianId || null,
+        semEmailPessoal: Boolean(u.semEmailPessoal),
       };
       const idx = pool.findIndex(
         (p) =>
@@ -60,23 +65,31 @@ function buildLoginPool() {
 }
 
 /**
- * Resolve nome ou e-mail para o e-mail usado no Supabase Auth.
+ * Converte identificador de login (nome ou e-mail) no e-mail enviado ao Supabase Auth.
+ * 1. Se contém «@» → e-mail tal como introduzido.
+ * 2. Se coincide com um nome no catálogo → e-mail registado (ex.: Filipa → filipa@rh.manusilva.internal).
+ * 3. Caso contrário → slug@sistema.com (ex.: «Filipa» nova → filipa@sistema.com).
+ *
  * @param {string} identifier
  * @param {string|null} roleFiltro `Tecnico` | `RH`
  */
 export function resolveLoginEmail(identifier, roleFiltro = null) {
-  const term = String(identifier || '').trim().toLowerCase();
+  const term = String(identifier || '').trim();
   if (!term) return null;
 
-  if (term.includes('@')) return term;
+  if (term.includes('@')) return term.toLowerCase();
 
-  const matches = buildLoginPool().filter((u) => u.nome.toLowerCase() === term);
-  if (!matches.length) return null;
-  if (roleFiltro) {
-    const filtered = matches.find((u) => u.role === roleFiltro);
-    return filtered?.email.toLowerCase() || null;
+  const matches = buildLoginPool().filter((u) => u.nome.toLowerCase() === term.toLowerCase());
+  if (matches.length) {
+    if (roleFiltro) {
+      const filtered = matches.find((u) => u.role === roleFiltro);
+      return filtered?.email?.toLowerCase() || null;
+    }
+    return matches[0].email.toLowerCase();
   }
-  return matches[0].email.toLowerCase();
+
+  const slug = term.toLowerCase().replace(/\s+/g, '');
+  return slug ? `${slug}@${SYSTEM_LOGIN_EMAIL_DOMAIN}` : null;
 }
 
 /** Utilizador RH sem e-mail pessoal — login só por nome; sem recuperação por e-mail. */
