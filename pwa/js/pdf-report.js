@@ -669,6 +669,7 @@ const PDF_LOGO_HEIGHT_MM = 34;
 const FOLHA_TITLE_BAR_BG = [241, 245, 249];
 const FOLHA_TABLE_HEAD_FILL = [241, 245, 249];
 const FOLHA_POLAROID_MM = 37;
+const FOLHA_INTERVENTION_SUMMARY_FONT = 13;
 const FOLHA_CLOSING_PROFILE = {
   polaroidMm: FOLHA_POLAROID_MM,
   descH: 0,
@@ -744,6 +745,22 @@ function formatFolhaOrdemDisplay(numeroOrdem) {
 
 function folhaGridCell(label, value) {
   return `${label}: ${pdfDisplayValue(value) || '—'}`;
+}
+
+/** Data da intervenção no resumo de fecho — formato ISO (ex: 2026-06-11) */
+function formatFolhaInterventionDate(raw) {
+  const pure = String(raw ?? '').trim();
+  if (!pure) return '—';
+  const iso = pure.includes('T') ? pure.split('T')[0] : pure;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso;
+  const parts = iso.split(/[/-]/);
+  if (parts.length === 3) {
+    if (parts[0].length === 4) {
+      return `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
+    }
+    return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+  }
+  return pdfDisplayValue(raw) || '—';
 }
 
 function buildInstitutionalFooterLines() {
@@ -1275,7 +1292,7 @@ async function drawFolhaClosingDataBlock(doc, y, values) {
   const pedido = resolvePedidoOrcamentoValue(values);
   const detalhe = resolvePedidoOrcamentoDetalhe(values);
   const estado = resolveFolhaEstadoMaquinaDisplay(values);
-  const blockH = 28 + (pedido && detalhe ? 10 : 0);
+  const blockH = 50 + (pedido && detalhe ? 10 : 0);
   y = ensureKeepTogetherBlock(doc, y, blockH);
 
   y = drawFolhaLabelValueLine(doc, y, 'Pedido de Orçamento', pedido ? 'Sim' : 'Não');
@@ -1290,35 +1307,39 @@ async function drawFolhaClosingDataBlock(doc, y, values) {
 }
 
 function drawFolhaInterventionLine(doc, y, values) {
-  const data1 = pdfDisplayValue(resolvePdfStandardFieldValue(values, { id: 'data_1' }));
-  const data2 = pdfDisplayValue(resolvePdfStandardFieldValue(values, { id: 'data_2' }));
-  const visitas = pdfDisplayValue(
-    resolvePdfStandardFieldValue(values, { id: VISITAS_FIELD_ID, aliases: ['visitas'] }),
-  );
-  const horas = pdfDisplayValue(resolvePdfStandardFieldValue(values, { id: 'horas_gastas' }));
-  const parts = [
-    `Data 1: ${data1 || '—'}`,
-    `Data 2: ${data2 || '—'}`,
-    `Nº de Visitas: ${visitas || '—'}`,
-    `Horas Gastas: ${horas || '—'}`,
-  ];
+  const data1 = formatFolhaInterventionDate(resolvePdfStandardFieldValue(values, { id: 'data_1' }));
+  const data2 = formatFolhaInterventionDate(resolvePdfStandardFieldValue(values, { id: 'data_2' }));
+  const visitas =
+    pdfDisplayValue(
+      resolvePdfStandardFieldValue(values, { id: VISITAS_FIELD_ID, aliases: ['visitas'] }),
+    ) || '—';
+  const horas = pdfDisplayValue(resolvePdfStandardFieldValue(values, { id: 'horas_gastas' })) || '—';
 
-  y = ensureSpace(doc, y, 14);
+  const line1 = `Data 1: ${data1}  Data 2: ${data2}`;
+  const line2 = `Nº de Visitas: ${visitas}  Horas Gastas: ${horas}`;
+
+  const padV = 7;
+  const lineGap = 7;
+  const boxH = padV * 2 + lineGap + 4;
+  y = ensureKeepTogetherBlock(doc, y, boxH + 4);
+
+  doc.setFillColor(...FOLHA_TITLE_BAR_BG);
   doc.setDrawColor(...PDF_TABLE_LINE);
-  doc.setLineWidth(0.2);
-  doc.line(MARGIN, y, MARGIN + CONTENT_W, y);
-  y += 6;
-  pdfSetFont(doc, 'normal');
-  doc.setFontSize(PDF_FONT_CAPTION);
-  doc.setTextColor(...TEXT_DARK);
-  const line = parts.join('   |   ');
-  const wrapped = pdfSplitText(doc, line, CONTENT_W);
+  doc.setLineWidth(0.3);
+  doc.roundedRect(MARGIN, y, CONTENT_W, boxH, 2, 2, 'FD');
+
+  pdfSetFont(doc, 'bold');
+  doc.setFontSize(FOLHA_INTERVENTION_SUMMARY_FONT);
+  doc.setTextColor(...CORPORATE_BLUE_DARK);
+
   const centerX = MARGIN + CONTENT_W / 2;
-  wrapped.forEach((textLine, index) => {
-    doc.text(textLine, centerX, y + index * 4.2, { align: 'center' });
-  });
+  const textY1 = y + padV + 3;
+  const textY2 = textY1 + lineGap;
+  doc.text(line1, centerX, textY1, { align: 'center' });
+  doc.text(line2, centerX, textY2, { align: 'center' });
+
   touchPdfContentPage(doc);
-  return y + wrapped.length * 4.2 + 6;
+  return y + boxH + 8;
 }
 
 /** Fecho da Folha de Avarias — fotos compactas + assinaturas paralelas, sem checkboxes */
