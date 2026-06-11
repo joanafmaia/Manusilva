@@ -7879,6 +7879,16 @@ body.dark-mode .client-history-status--rejected {
   margin-top: 0.35rem;
 }
 
+/* Formulário de cliente dentro do modal «Adicionar Cliente» */
+.rh-register--modal .rh-register-submit {
+  align-self: flex-end;
+}
+
+/* Linhas do modal «Ver Histórico» do cliente */
+.client-history-modal-row {
+  cursor: default;
+}
+
 /* RH — abas de gestão (distintas das abas de relatórios técnicos) */
 .rh-admin-tabs {
   display: none;

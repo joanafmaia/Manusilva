@@ -21,7 +21,7 @@ export function renderClientsListSection() {
     <section class="clients-list-section rh-section" data-clients-list-section aria-labelledby="clients-list-title">
       <h3 id="clients-list-title" class="dashboard-section-title">Lista de clientes</h3>
       <p class="clients-list-hint ms-label">
-        Clique no nome para abrir a ficha cadastral (NIF, morada, e-mail e condição de pagamento). Use «Histórico» para relatórios.
+        Use «Editar Ficha» para os dados cadastrais (NIF, morada, e-mail e condição de pagamento) e «Ver Histórico» para os relatórios do cliente.
       </p>
       <div class="clients-list-toolbar">
         <input type="search"
@@ -68,8 +68,8 @@ function renderClientCard(c) {
         <div><dt>E-mail</dt><dd>${escapeHtml(c['E-mail'] || '—')}</dd></div>
       </dl>
       <div class="clients-list-card-actions">
-        <button type="button" class="btn-ghost btn-sm" data-client-profile="${escapeAttr(c.id)}">Ficha</button>
-        <button type="button" class="btn-primary btn-sm" data-client-history="${escapeAttr(c.id)}">Histórico</button>
+        <button type="button" class="btn-ghost btn-sm" data-client-profile="${escapeAttr(c.id)}">✏️ Editar Ficha</button>
+        <button type="button" class="btn-primary btn-sm" data-client-history="${escapeAttr(c.id)}">🗂 Ver Histórico</button>
       </div>
     </article>
   `;
@@ -87,8 +87,8 @@ function renderClientTableRow(c) {
       <td>${escapeHtml(c['E-mail'] || '—')}</td>
       <td>${escapeHtml(c.Localidade || '—')}</td>
       <td class="clients-list-table-actions">
-        <button type="button" class="btn-ghost btn-sm" data-client-profile="${escapeAttr(c.id)}">Ficha</button>
-        <button type="button" class="btn-primary btn-sm" data-client-history="${escapeAttr(c.id)}">Histórico</button>
+        <button type="button" class="btn-ghost btn-sm" data-client-profile="${escapeAttr(c.id)}">✏️ Editar Ficha</button>
+        <button type="button" class="btn-primary btn-sm" data-client-history="${escapeAttr(c.id)}">🗂 Ver Histórico</button>
       </td>
     </tr>
   `;

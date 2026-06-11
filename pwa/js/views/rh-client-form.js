@@ -4,11 +4,20 @@
 
 import { addClient } from '../app.js';
 
-export function renderClientFormSection() {
-  return `
-    <section class="rh-register rh-section" data-rh-client-form aria-labelledby="rh-client-form-title">
+/**
+ * @param {{ modal?: boolean }} [options] — em modal omite o título (o modal já o tem).
+ */
+export function renderClientFormSection(options = {}) {
+  const heading = options.modal
+    ? ''
+    : `
       <h3 id="rh-client-form-title" class="dashboard-section-title">Novo cliente / empresa</h3>
       <p class="rh-register-hint text-muted">O registo fica disponível de imediato na pesquisa e ao atribuir trabalho.</p>
+    `;
+
+  return `
+    <section class="rh-register${options.modal ? ' rh-register--modal' : ' rh-section'}" data-rh-client-form aria-labelledby="rh-client-form-title">
+      ${heading}
       <form id="rh-client-form" class="rh-register-form" novalidate>
         <div class="form-group">
           <label class="form-label" for="rh-client-nome">Nome / Empresa *</label>

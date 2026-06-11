@@ -3,7 +3,6 @@
  */
 
 import { getAllTechnicians } from '../app.js';
-import { renderClientFormSection, mountClientForm } from './rh-client-form.js';
 import {
   renderTechnicianFormSection,
   renderTechniciansList,
@@ -13,23 +12,6 @@ import {
 
 export { renderClientFormSection, mountClientForm } from './rh-client-form.js';
 export { renderTechnicianFormSection, mountTechnicianForm } from './rh-technician-form.js';
-
-/**
- * Secção de cadastro de cliente (painel Clientes).
- */
-export function renderClientRegistryBlock() {
-  return `<div data-rh-client-registry>${renderClientFormSection()}</div>`;
-}
-
-export function mountClientRegistry(root, callbacks = {}) {
-  const block = root?.querySelector('[data-rh-client-registry]');
-  if (!block) return;
-  mountClientForm(block, {
-    onSuccess: (record) => {
-      callbacks.onClientAdded?.(record);
-    },
-  });
-}
 
 /**
  * Painel Funcionários — formulário + lista dinâmica.

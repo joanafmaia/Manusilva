@@ -51,7 +51,6 @@ import { forceLogout, renderUserGreeting } from './auth.js';
 import { initMetricsPanel, refreshMetricsPanel } from './views/dashboard.js';
 import { initClientsApp } from './views/clients-app.js';
 import { initEmployeesPanel, refreshTechniciansList } from './views/rh-registry.js';
-import { initArquivoHistoricoPage, refreshArquivoHistoricoPage } from './views/arquivo-historico.js';
 import { initFaturacaoPanel, refreshFaturacaoPanel } from './views/faturacao.js';
 
 /** Aba ativa do painel admin (controlada pela sidebar) */
@@ -62,7 +61,6 @@ const ADMIN_TAB_BY_NAV = {
   '#pending': 'relatorios',
   '#billing': 'faturacao',
   '#clients': 'clientes',
-  '#client-history': 'clientes',
   '#employees': 'funcionarios',
 };
 
@@ -106,7 +104,7 @@ function refreshOpsTab() {
 }
 
 function refreshClientesTab() {
-  refreshArquivoHistoricoPage();
+  initClientsApp().catch(console.error);
 }
 
 function refreshFuncionariosTab() {
@@ -329,7 +327,6 @@ export async function initAdminDashboard() {
     console.error('[Admin] Realtime:', err);
   });
 
-  const historyRoot = document.getElementById('client-history-app');
   const metricsRoot = document.getElementById('admin-metrics-root');
   const faturacaoRoot = document.getElementById('faturacao-panel-root');
 
@@ -343,12 +340,6 @@ export async function initAdminDashboard() {
       console.error('[Admin] Painel de clientes:', err);
       showToast(formatClientsLoadError(err), 'error', 9000);
     }),
-    historyRoot
-      ? initArquivoHistoricoPage(historyRoot).catch((err) => {
-          console.error('[Admin] Histórico de clientes:', err);
-          showToast(formatClientsLoadError(err), 'error', 9000);
-        })
-      : Promise.resolve(),
     faturacaoRoot
       ? initFaturacaoPanel(faturacaoRoot).catch((err) => {
           console.error('[Admin] Faturação:', err);

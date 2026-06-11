@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/app.css?v=form-layout-v14">
+  <link rel="stylesheet" href="css/app.css?v=form-layout-v15">
 </head>
 <body class="admin-rh-page">
   <script src="js/theme-boot.js"></script>
@@ -30,7 +30,6 @@
         <a href="#pending" class="nav-item" data-admin-tab="relatorios">📋 Revisão de Relatórios</a>
         <a href="#billing" class="nav-item" data-admin-tab="faturacao">💶 Faturação</a>
         <a href="#clients" class="nav-item" data-admin-tab="clientes">🏢 Clientes / Empresas</a>
-        <a href="#client-history" class="nav-item" data-admin-tab="clientes">🗂 Histórico de Clientes</a>
         <a href="#employees" class="nav-item" data-admin-tab="funcionarios">👷 Funcionários</a>
       </nav>
 
@@ -105,15 +104,9 @@
           <section class="admin-panel glass-card" id="clients">
             <div class="panel-header">
               <h2>Clientes / Empresas</h2>
+              <button type="button" class="btn-primary btn-sm" id="btn-add-client">+ Adicionar Cliente</button>
             </div>
             <div id="app" class="clients-app-root admin-panel-body admin-form-shell"></div>
-          </section>
-
-          <section class="admin-panel glass-card" id="client-history">
-            <div class="panel-header">
-              <h2>Histórico de Clientes</h2>
-            </div>
-            <div id="client-history-app" class="clients-app-root admin-panel-body admin-form-shell"></div>
           </section>
         </div>
 
