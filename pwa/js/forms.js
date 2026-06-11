@@ -53,10 +53,6 @@ import {
   commitSignatureSnapshot,
 } from './signatures.js';
 import { initReportFormAutosave } from './report-form-autosave.js';
-import {
-  applyAutoDeslocacaoToForm,
-  bindDeslocacaoVisitasRecalc,
-} from './deslocacao-distance.js';
 import { VISITAS_FIELD_ID, VISIT_DATES_FIELD_ID } from './deslocacao-field.js';
 import { ensureProductionCatalog } from './clients-catalog.js';
 import { ensureJobsLoaded } from './trabalhos-db.js';
@@ -203,17 +199,6 @@ export async function openJobForm(jobId, options = {}) {
   await bindFormFieldInteractions(overlay);
 
   const savedValues = getFormValues(existingReport);
-  await applyAutoDeslocacaoToForm(overlay, {
-    job,
-    service,
-    savedValues,
-    onValueSet: () => formAutosave?.markDirty?.(),
-  });
-
-  bindDeslocacaoVisitasRecalc(overlay, {
-    onDirty: () => formAutosave?.markDirty?.(),
-  });
-
   bindStandardLayoutInteractions(overlay, () => formAutosave?.markDirty?.());
 
   if (trabalhoIdEmEdicao) {

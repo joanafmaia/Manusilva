@@ -6,7 +6,6 @@ import { MATERIAL_FIELD_IDS } from './material-table-field.js';
 import { COMPANY } from './mock_data.js';
 import {
   DESLOCACAO_BASE_FIELD_ID,
-  STANDARD_DESLOCACAO_FIELD,
   STANDARD_VISITAS_FIELD,
   VISITAS_FIELD_ID,
   OFFICIAL_REPORT_SERVICE_IDS,
@@ -99,7 +98,6 @@ const STANDARD_DATA_RETORNO_FIELDS = [
 
 const STANDARD_LOGISTICS_FIELDS = [
   STANDARD_VISITAS_FIELD,
-  { ...STANDARD_DESLOCACAO_FIELD, label: 'Deslocação' },
   { type: 'number', id: 'horas_gastas', label: 'Horas Gastas', min: 0, step: 0.5, inputMode: 'decimal' },
 ];
 
@@ -114,8 +112,8 @@ export function isStandardLayoutReservedField(field) {
 export function formatOrdemTechnicianLine(numeroOrdem, techName) {
   const ordem =
     numeroOrdem != null && numeroOrdem !== ''
-      ? `Ordem Nº OP-2026-${String(numeroOrdem).padStart(2, '0')}`
-      : 'Ordem Nº —';
+      ? `Ordem No: OP-2026-${String(numeroOrdem).padStart(2, '0')}`
+      : 'Ordem No: —';
   const tech = String(techName || '').trim() || '—';
   return `${ordem} — Técnico: ${tech}`;
 }
@@ -349,7 +347,6 @@ export function renderStandardWorkBlock(values = {}, _context = {}, materialTabl
 export function renderStandardClosingBlock(values = {}, context = {}, estadoMaquinaHtml = '') {
   const pedido = resolvePedidoOrcamentoValue(values);
   const visitas = values[VISITAS_FIELD_ID] ?? values.visitas ?? 1;
-  const baseKm = values[DESLOCACAO_BASE_FIELD_ID] ?? '';
 
   const datesHtml = STANDARD_DATA_RETORNO_FIELDS.map((field) =>
     renderStandardScalarField(field, values[field.id]),
@@ -358,9 +355,6 @@ export function renderStandardClosingBlock(values = {}, context = {}, estadoMaqu
   const logisticsHtml = STANDARD_LOGISTICS_FIELDS.map((field) => {
     if (field.id === VISITAS_FIELD_ID) {
       return renderStandardScalarField({ ...field, label: 'Nº de Visitas' }, visitas);
-    }
-    if (field.id === 'deslocacao') {
-      return renderStandardScalarField(field, values.deslocacao);
     }
     return renderStandardScalarField(field, values[field.id]);
   }).join('');
@@ -375,8 +369,6 @@ export function renderStandardClosingBlock(values = {}, context = {}, estadoMaqu
           ${datesHtml}
           ${logisticsHtml}
         </div>
-        <input type="hidden" data-field-id="${DESLOCACAO_BASE_FIELD_ID}" data-field-kind="number"
-          value="${escapeHtml(String(baseKm))}">
       </div>
     </section>`;
 }
@@ -419,7 +411,6 @@ export const PDF_CLOSING_SUMMARY_SPECS = {
   retornoDateIds: ['data_1', 'data_2'],
   logistics: [
     { id: VISITAS_FIELD_ID, label: 'Nº de Visitas', aliases: ['visitas'] },
-    { id: 'deslocacao', label: 'Deslocação' },
     { id: 'horas_gastas', label: 'Horas Gastas' },
   ],
 };

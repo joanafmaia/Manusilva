@@ -199,11 +199,11 @@ export const PDF_STANDARD_MACHINE_SPECS = [
     aliases: ['num_serie', 'numero_serie', 'n_serie'],
   },
   { id: 'n_interno', label: 'Nº Interno', aliases: ['num_interno'] },
+  { id: 'horas', label: 'Horas' },
 ];
 
-/** Campos de diagnóstico antes das assinaturas */
+/** Campos de diagnóstico antes das assinaturas (relatórios genéricos) */
 export const PDF_CLOSING_DIAGNOSTIC_SPECS = [
-  { id: 'horas', label: 'Horas', aliases: ['horas_gastas'] },
   { id: 'estado_maquina', label: 'Estado da Máquina' },
 ];
 
@@ -225,6 +225,12 @@ export const PDF_LAYOUT_SKIP_FIELD_IDS = new Set([
   'pedido_orcamento_detalhe',
   'resumo_intervencao',
   'pedir_orcamento_adicional',
+  'detecao_de_avaria',
+  'resolucao_da_avaria',
+  'material_utilizado',
+  'consumiveis',
+  'consumiveis_utilizados',
+  'consumiveis_material',
 ]);
 
 /** Resolve valor de campo padronizado (com aliases). */

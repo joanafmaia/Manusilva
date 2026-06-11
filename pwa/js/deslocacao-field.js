@@ -49,7 +49,7 @@ export function isDeslocacaoMetaField(field) {
   return field?.id === DESLOCACAO_BASE_FIELD_ID;
 }
 
-/** Relatórios oficiais incluem sempre o campo Deslocação no topo do formulário */
-export function reportIncludesDeslocacao(service) {
-  return Boolean(service?.id && OFFICIAL_REPORT_SERVICE_IDS.has(service.id));
+/** Deslocação removida do sistema — mantido para compatibilidade com dados legados */
+export function reportIncludesDeslocacao(_service) {
+  return false;
 }
