@@ -189,6 +189,52 @@ export function getVerificationPdfTitle(field) {
   return getBlockPdfTitle(field);
 }
 
+/** Bloco de equipamento padronizado em todos os PDFs */
+export const PDF_STANDARD_MACHINE_SPECS = [
+  { id: 'marca', label: 'Marca' },
+  { id: 'modelo', label: 'Modelo' },
+  {
+    id: 'numero_de_serie',
+    label: 'Número de Série',
+    aliases: ['num_serie', 'numero_serie', 'n_serie'],
+  },
+  { id: 'n_interno', label: 'Nº Interno', aliases: ['num_interno'] },
+];
+
+/** Campos de diagnóstico antes das assinaturas */
+export const PDF_CLOSING_DIAGNOSTIC_SPECS = [
+  { id: 'horas', label: 'Horas', aliases: ['horas_gastas'] },
+  { id: 'estado_maquina', label: 'Estado da Máquina' },
+];
+
+export const PDF_LAYOUT_SKIP_FIELD_IDS = new Set([
+  ...PDF_STANDARD_MACHINE_SPECS.flatMap((s) => [s.id, ...(s.aliases || [])]),
+  ...PDF_CLOSING_DIAGNOSTIC_SPECS.flatMap((s) => [s.id, ...(s.aliases || [])]),
+  'deslocacao',
+  'visitas_realizadas',
+  'visitas',
+  'deslocacao_base_km',
+  'datas_visitas',
+  'data_1',
+  'data_2',
+  'data_3',
+  'data_4',
+  'data_5',
+  'data_de_conclusao',
+]);
+
+/** Resolve valor de campo padronizado (com aliases). */
+export function resolvePdfStandardFieldValue(values, spec, fallback = null) {
+  const pools = [values, values?.maquina, values?.machine].filter(Boolean);
+  for (const pool of pools) {
+    if (pool[spec.id] != null && String(pool[spec.id]).trim()) return pool[spec.id];
+    for (const alias of spec.aliases || []) {
+      if (pool[alias] != null && String(pool[alias]).trim()) return pool[alias];
+    }
+  }
+  return fallback;
+}
+
 /** Estilos base autoTable — todos os relatórios */
 export function buildPdfAutoTableStyles(doc, pdfAutoTableFont, pdfSetFont) {
   pdfSetFont(doc, 'normal');

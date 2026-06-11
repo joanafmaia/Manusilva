@@ -259,63 +259,16 @@ export function buildInspecaoDl50MachineTableBody(machine) {
 }
 
 /**
- * Cabeçalho PDF DL 50/2005 — ordem fixa antes da matriz de pontos.
- * @param {import('jspdf').jsPDF} doc
- * @param {number} y
- * @param {Record<string, unknown>} values
- * @param {{ ensureSpace: Function, drawSectionTitle: Function, drawDivider: Function, drawKeyValueLine: Function, loadAutoTable: Function, margin: number, contentW: number, pdfContext?: object }} helpers
+ * Bloco específico DL 50/2005 — periodicidade (equipamento e datas no layout global).
  */
 export async function drawInspecaoDl50HeaderBlock(doc, y, values, helpers) {
-  const {
-    ensureSpace,
-    drawSectionTitle,
-    drawDivider,
-    drawKeyValueLine,
-    loadAutoTable,
-    margin,
-    contentW,
-    pdfContext = {},
-  } = helpers;
-  const Y = INSPECAO_DL50_PDF_Y;
-  const machine = resolveInspecaoDl50MachineFields(values, pdfContext);
+  const { ensureSpace, drawKeyValueLine } = helpers;
 
-  const machineBlockH = Y.SECTION_TITLE + Y.DIVIDER + 16 + Y.AFTER_MACHINE_BLOCK;
-  const headerBlockH =
-    (values.data_de_conclusao && String(values.data_de_conclusao).trim() ? 10 + Y.AFTER_CONCLUSAO : 0) +
-    machineBlockH +
-    Y.PERIODICITY_BLOCK;
-
-  y = ensureSpace(doc, y, headerBlockH);
-
-  if (values.data_de_conclusao && String(values.data_de_conclusao).trim()) {
-    y = drawKeyValueLine(doc, y, 'Data de Conclusão', values.data_de_conclusao, 'date');
-    y += Y.AFTER_CONCLUSAO;
+  if (!values.periodicidade_inspecao || !String(values.periodicidade_inspecao).trim()) {
+    return y;
   }
 
-  y = drawSectionTitle(doc, y, PDF_MACHINE_SECTION, { skipEnsure: true });
-  y = drawDivider(doc, y - 4);
-
-  await loadAutoTable();
-  const colW = contentW / 2;
-  const machineBody = buildInspecaoDl50MachineTableBody(machine);
-  doc.autoTable({
-    startY: y,
-    margin: { left: margin, right: margin, bottom: 30 },
-    tableWidth: contentW,
-    body: machineBody,
-    ...buildPdfAutoTableStyles(doc, pdfAutoTableFont, pdfSetFont),
-    columnStyles: {
-      0: { cellWidth: colW, overflow: 'linebreak' },
-      1: { cellWidth: colW, overflow: 'linebreak' },
-    },
-    didParseCell: mergePdfTableDidParseCell(),
-  });
-
-  y = doc.lastAutoTable.finalY + Y.AFTER_MACHINE_BLOCK;
-
-  if (values.periodicidade_inspecao && String(values.periodicidade_inspecao).trim()) {
-    y = drawKeyValueLine(doc, y, 'Periodicidade Inspeção', values.periodicidade_inspecao, 'status_pills');
-  }
-
+  y = ensureSpace(doc, y, 12);
+  y = drawKeyValueLine(doc, y, 'Periodicidade Inspeção', values.periodicidade_inspecao, 'status_pills');
   return y;
 }

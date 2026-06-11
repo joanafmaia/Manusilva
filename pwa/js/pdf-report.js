@@ -30,7 +30,7 @@ import {
   pdfStatusGlyph,
 } from './pdf-font.js';
 import { getColumnLabels } from './views/relatorio-grandes.js';
-import { reportIncludesDeslocacao, VISITAS_FIELD_ID, DESLOCACAO_BASE_FIELD_ID } from './deslocacao-field.js';
+import { reportIncludesDeslocacao, VISITAS_FIELD_ID, VISIT_DATES_FIELD_ID, DESLOCACAO_BASE_FIELD_ID } from './deslocacao-field.js';
 import {
   buildPdfAutoTableStyles,
   getBlockPdfTitle,
@@ -65,6 +65,10 @@ import {
   PDF_PAGE_W as PAGE_W,
   PDF_SCALAR_FIELD_TYPES,
   PDF_SECTION_BG,
+  PDF_STANDARD_MACHINE_SPECS,
+  PDF_CLOSING_DIAGNOSTIC_SPECS,
+  PDF_LAYOUT_SKIP_FIELD_IDS,
+  resolvePdfStandardFieldValue,
   PDF_TABLE_ALT_ROW_FILL,
   PDF_TABLE_BODY_FILL,
   PDF_TABLE_HEAD_FILL,
@@ -219,6 +223,69 @@ function formatPdfNumeroVisitas(values) {
   const n = Number(String(raw ?? '').replace(',', '.').trim());
   if (Number.isFinite(n) && n >= 1) return String(Math.round(n));
   return '1';
+}
+
+function parsePdfVisitDatesRaw(raw) {
+  if (Array.isArray(raw)) return raw.map(String).filter(Boolean);
+  if (typeof raw === 'string' && raw.trim()) {
+    return raw.split(/[,;|]/).map((s) => s.trim()).filter(Boolean);
+  }
+  return [];
+}
+
+/** DD/MM — para linha condicional de múltiplas visitas */
+function formatPdfShortVisitDate(raw) {
+  const pure = String(raw || '').split('T')[0];
+  const [y, m, d] = pure.split('-');
+  if (y && m && d) return `${d}/${m}`;
+  return '';
+}
+
+/** Data principal do serviço — apenas dia (DD/MM/AAAA), sem hora */
+function formatPdfServiceDateOnly(report, job, values = {}) {
+  const raw =
+    job?.date ||
+    values.data_de_conclusao ||
+    values.data_1 ||
+    values.concluido_testado_em ||
+    report?.submittedAt?.split('T')[0];
+  if (!raw) return '—';
+  const [y, m, d] = String(raw).split('T')[0].split('-');
+  return y && m && d ? `${d}/${m}/${y}` : '—';
+}
+
+/** Datas de visitas ao terreno — só relevante quando visitas > 1 */
+function resolvePdfVisitDatesLine(values, report, job, visitCount) {
+  const n = Number(visitCount) || 1;
+  if (n <= 1) return '';
+
+  let dates = parsePdfVisitDatesRaw(
+    values?.[VISIT_DATES_FIELD_ID] ??
+      values?.visitas_datas ??
+      report?.data?.[VISIT_DATES_FIELD_ID] ??
+      report?.data?.values?.[VISIT_DATES_FIELD_ID],
+  );
+
+  for (let i = 1; i <= 8; i += 1) {
+    const key = `data_${i}`;
+    if (values?.[key]) dates.push(values[key]);
+  }
+
+  dates = [...new Set(dates.map(formatPdfShortVisitDate).filter(Boolean))];
+
+  const serviceShort = formatPdfShortVisitDate(job?.date || values?.data_de_conclusao);
+  if (serviceShort && !dates.includes(serviceShort)) dates.unshift(serviceShort);
+
+  if (!dates.length && serviceShort) dates = [serviceShort];
+  while (dates.length < n && serviceShort) {
+    dates.push(serviceShort);
+  }
+
+  return dates.slice(0, n).join(', ');
+}
+
+function isPdfLayoutReservedField(fieldId) {
+  return PDF_LAYOUT_SKIP_FIELD_IDS.has(fieldId);
 }
 
 function getTechnician(id) {
@@ -457,16 +524,16 @@ export async function renderInterventionPDF(report) {
     simplePhotoLegend: true,
     legalValue: isDl50Pdf ? values.declaracao_seguranca : null,
   };
-  y = await drawMetadataGrid(doc, y, {
-    dateTime: formatReportDateTimeCompact(report, job, values),
+  const visitCount = formatPdfNumeroVisitas(values);
+  y = drawServiceInfoBlock(doc, y, {
+    serviceDate: formatPdfServiceDateOnly(report, job, values),
+    visitDatesLine: resolvePdfVisitDatesLine(values, report, job, visitCount),
+    numeroVisitas: visitCount,
+    deslocacao: reportIncludesDeslocacao(service) ? values.deslocacao || '—' : null,
     technician: tech?.name || '—',
-    ...(reportIncludesDeslocacao(service)
-      ? {
-          deslocacao: values.deslocacao || '—',
-          numeroVisitas: formatPdfNumeroVisitas(values),
-        }
-      : {}),
   });
+  y = drawDivider(doc, y);
+  y = await drawStandardMachineBlock(doc, y, values, pdfContext);
   y = drawDivider(doc, y);
   y = await drawReportFieldsSection(doc, y, service, values, pdfContext);
   y = await drawReportClosingSection(doc, y, {
@@ -477,6 +544,7 @@ export async function renderInterventionPDF(report) {
     fotoLegenda: '',
     simplePhotoLegend: true,
     signatures: data.signatures || {},
+    closingValues: values,
   });
   if ((data.photos || []).length) {
     y = await drawPhotosAppendix(doc, y, data.photos || []);
@@ -711,8 +779,7 @@ function collectPdfScalarFields(service, values, pdfContext, filters = {}) {
     if (field.section && isMachineInfoSection(field.section)) return false;
     if (field.id === 'declaracao_seguranca') return false;
     if (isDl50 && INSPECAO_DL50_PDF_SKIP_FIELD_IDS.has(field.id)) return false;
-    if (field.id === 'deslocacao') return false;
-    if (field.id === VISITAS_FIELD_ID || field.id === DESLOCACAO_BASE_FIELD_ID) return false;
+    if (isPdfLayoutReservedField(field.id)) return false;
     if (section !== null && field.section !== section) return false;
     if (field.dependency && !isPdfDependencyMet(field, values)) return false;
     if (!isPdfScalarField(field)) return false;
@@ -873,28 +940,89 @@ function drawTitleBar(doc, y, title) {
   return y + 8;
 }
 
-async function drawMetadataGrid(doc, y, meta) {
-  y = ensureSpace(doc, y, 14);
-  const colW = CONTENT_W / 2;
-  const body = [
-    [
-      pdfGridCell('Data / Hora', meta.dateTime),
-      pdfGridCell('Nome do Técnico', meta.technician),
-    ],
-  ];
-  if (meta.deslocacao != null || meta.numeroVisitas != null) {
-    body.push([
-      pdfGridCell('Deslocação', meta.deslocacao ?? '—'),
-      pdfGridCell('Número de Visitas', meta.numeroVisitas ?? '1'),
-    ]);
-  }
-  return drawPdfGridTable(doc, y, {
-    body,
-    columnStyles: {
-      0: { cellWidth: colW, overflow: 'ellipsize' },
-      1: { cellWidth: colW, overflow: 'ellipsize' },
-    },
+async function drawStandardMachineBlock(doc, y, values, pdfContext = null) {
+  y = ensureSpace(doc, y, 28);
+  y = drawSectionTitle(doc, y, PDF_MACHINE_SECTION, { skipEnsure: true });
+  y = drawDivider(doc, y - 4);
+
+  const pairs = PDF_STANDARD_MACHINE_SPECS.map((spec) => {
+    let fallback = null;
+    if (spec.id === 'numero_de_serie') {
+      fallback = pdfContext?.forkliftSerial || pdfContext?.report?.forkliftSerial || null;
+    }
+    return {
+      label: spec.label,
+      value: pdfDisplayValue(resolvePdfStandardFieldValue(values, spec, fallback)),
+    };
   });
+
+  return drawSectionScalarGridFromPairs(doc, y, pairs);
+}
+
+async function drawSectionScalarGridFromPairs(doc, y, pairs) {
+  const body = buildTwoColumnGridBody(pairs);
+  if (!body.length) return y;
+  y = ensureSpace(doc, y, 14);
+  return drawPdfGridTable(doc, y, { body });
+}
+
+/** Bloco superior — data do serviço (esq.) + visitas/deslocação/técnico (dir.) */
+function drawServiceInfoBlock(doc, y, meta) {
+  const blockH = meta.visitDatesLine ? 24 : 18;
+  y = ensureSpace(doc, y, blockH);
+
+  const leftX = MARGIN;
+  const rightX = PAGE_W - MARGIN;
+  const labelW = 36;
+
+  pdfSetFont(doc, 'normal');
+  doc.setFontSize(PDF_FONT_BODY);
+  doc.setTextColor(...TEXT_MUTED);
+  doc.text('Data do Serviço:', leftX, y);
+
+  pdfSetFont(doc, 'bold');
+  doc.setTextColor(...TEXT_DARK);
+  doc.text(pdfSafeText(meta.serviceDate || '—'), leftX + labelW, y);
+
+  let leftBottom = y;
+  if (meta.visitDatesLine) {
+    const lineY = y + 6;
+    pdfSetFont(doc, 'normal');
+    doc.setTextColor(...TEXT_MUTED);
+    doc.text('Datas das Visitas:', leftX, lineY);
+    doc.setTextColor(...TEXT_DARK);
+    doc.text(pdfSafeText(meta.visitDatesLine), leftX + labelW + 2, lineY);
+    leftBottom = lineY;
+  }
+
+  const rightLines = [];
+  if (meta.numeroVisitas != null) rightLines.push(`Nº de Visitas: ${pdfDisplayValue(meta.numeroVisitas)}`);
+  if (meta.deslocacao != null) rightLines.push(`Deslocação: ${pdfDisplayValue(meta.deslocacao)}`);
+  if (meta.technician) rightLines.push(`Técnico: ${pdfDisplayValue(meta.technician)}`);
+
+  let rightY = y;
+  rightLines.forEach((line) => {
+    pdfSetFont(doc, 'normal');
+    doc.setFontSize(PDF_FONT_BODY);
+    doc.setTextColor(...TEXT_DARK);
+    doc.text(pdfSafeText(line), rightX, rightY, { align: 'right' });
+    rightY += 5.5;
+  });
+
+  touchPdfContentPage(doc);
+  return Math.max(leftBottom, rightY - 5.5) + 8;
+}
+
+async function drawClosingDiagnosticBlock(doc, y, values) {
+  const pairs = PDF_CLOSING_DIAGNOSTIC_SPECS.map((spec) => ({
+    label: spec.label,
+    value: pdfDisplayValue(resolvePdfStandardFieldValue(values, spec)),
+  }));
+
+  y = ensureSpace(doc, y, 20);
+  y = drawSectionTitle(doc, y, 'Resumo da Intervenção', { skipEnsure: true });
+  y = drawDivider(doc, y - 4);
+  return drawSectionScalarGridFromPairs(doc, y, pairs);
 }
 
 function drawDivider(doc, y) {
@@ -1088,6 +1216,9 @@ async function drawReportFieldsSection(doc, y, service, values, pdfContext = nul
   const scalarRenderedIds = new Set();
   const gridRenderedSections = new Set();
 
+  PDF_LAYOUT_SKIP_FIELD_IDS.forEach((id) => scalarRenderedIds.add(id));
+  gridRenderedSections.add(PDF_MACHINE_SECTION);
+
   if (isDl50) {
     y = await drawInspecaoDl50HeaderBlock(doc, y, values, {
       ensureSpace,
@@ -1100,14 +1231,11 @@ async function drawReportFieldsSection(doc, y, service, values, pdfContext = nul
       contentW: CONTENT_W,
     });
     INSPECAO_DL50_PDF_SKIP_FIELD_IDS.forEach((id) => scalarRenderedIds.add(id));
-    gridRenderedSections.add(PDF_MACHINE_SECTION);
   } else if (reportHasMachineSection(service)) {
-    y = await drawGenericMachineInfoBlock(doc, y, service, values, pdfContext);
     getMachineSectionScalarFields(service).forEach((f) => scalarRenderedIds.add(f.id));
-    gridRenderedSections.add(PDF_MACHINE_SECTION);
   }
 
-  const machineBlockRendered = reportHasMachineSection(service);
+  const machineBlockRendered = true;
 
   const headerScalars = collectPdfScalarFields(service, values, pdfContext, {
     section: null,
@@ -1129,7 +1257,7 @@ async function drawReportFieldsSection(doc, y, service, values, pdfContext = nul
     if (field.id === 'declaracao_seguranca') continue;
     if (field.dependency && !isPdfDependencyMet(field, values)) continue;
 
-    if (field.id === 'deslocacao' || field.id === VISITAS_FIELD_ID || field.id === DESLOCACAO_BASE_FIELD_ID) {
+    if (isPdfLayoutReservedField(field.id)) {
       scalarRenderedIds.add(field.id);
       continue;
     }
@@ -1651,6 +1779,10 @@ async function drawReportClosingSection(doc, y, opts) {
         skipEnsure: true,
       },
     );
+  }
+
+  if (opts.closingValues) {
+    y = await drawClosingDiagnosticBlock(doc, y, opts.closingValues);
   }
 
   const sigH = estimateSignaturesHeight(profile);

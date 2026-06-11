@@ -48,6 +48,7 @@ import {
   applyAutoDeslocacaoToForm,
   bindDeslocacaoVisitasRecalc,
 } from './deslocacao-distance.js';
+import { VISITAS_FIELD_ID, VISIT_DATES_FIELD_ID } from './deslocacao-field.js';
 import { ensureProductionCatalog } from './clients-catalog.js';
 import { ensureJobsLoaded } from './trabalhos-db.js';
 import {
@@ -416,8 +417,34 @@ function resolveFormSignatures(existingReport) {
   };
 }
 
+function accumulateVisitDates(values, existingReport) {
+  const today = new Date().toISOString().split('T')[0];
+  let dates = [];
+
+  const prev =
+    values[VISIT_DATES_FIELD_ID] ??
+    existingReport?.data?.values?.[VISIT_DATES_FIELD_ID] ??
+    existingReport?.data?.[VISIT_DATES_FIELD_ID];
+
+  if (Array.isArray(prev)) dates = [...prev];
+  else if (typeof prev === 'string' && prev.trim()) {
+    dates = prev.split(/[,;|]/).map((s) => s.trim()).filter(Boolean);
+  }
+
+  if (!dates.includes(today)) dates.push(today);
+
+  const visitas = Number(values[VISITAS_FIELD_ID] ?? values.visitas ?? 1);
+  if (Number.isFinite(visitas) && visitas >= 1 && dates.length > visitas) {
+    dates = dates.slice(-visitas);
+  }
+
+  values[VISIT_DATES_FIELD_ID] = dates;
+  return values;
+}
+
 function buildReportFromForm(overlay, job, existingReport, signaturePads, reportId) {
   const values = collectReportValues(overlay);
+  accumulateVisitDates(values, existingReport);
   const editingPending = isEdicaoPendenteAtiva(job.id);
   return {
     id: relatorioIdEmEdicao || reportId || existingReport?.id || null,

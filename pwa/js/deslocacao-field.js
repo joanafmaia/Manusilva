@@ -15,6 +15,7 @@ export const OFFICIAL_REPORT_SERVICE_IDS = new Set([
 ]);
 
 export const VISITAS_FIELD_ID = 'visitas_realizadas';
+export const VISIT_DATES_FIELD_ID = 'datas_visitas';
 export const DESLOCACAO_BASE_FIELD_ID = 'deslocacao_base_km';
 
 export const STANDARD_VISITAS_FIELD = {
