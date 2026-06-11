@@ -37,6 +37,7 @@ import {
 import { initLogoutButton, renderUserGreeting } from './auth.js';
 import { HistoricoClienteView } from './views/historico-cliente.js';
 import { ensureTrabalhosSemana, isJobsCacheLoaded } from './trabalhos-db.js';
+import { isUuid } from './relatorios-db.js';
 
 /** Âncora da semana visível no calendário (segunda-feira da semana em foco) */
 let currentWeekDate = startOfLocalDay(new Date());
@@ -222,13 +223,9 @@ function getEmCursoJobs(techId) {
     if (report.status !== 'draft') return;
     if (!reportAssignedToTechnician(report, techId)) return;
 
-    // Trabalho eliminado pelo RH: id do servidor (numérico) que já não existe
+    // Trabalho eliminado pelo RH: id do servidor (uuid) que já não existe
     // na tabela trabalhos — o rascunho não pode continuar a aparecer.
-    if (
-      jobsLoaded &&
-      /^\d+$/.test(String(report.jobId || '')) &&
-      !getJob(report.jobId)
-    ) {
+    if (jobsLoaded && isUuid(report.jobId) && !getJob(report.jobId)) {
       return;
     }
 

@@ -6,6 +6,8 @@ import { getAuthenticatedSupabaseClient } from './supabase-client.js';
 
 let jobsCache = null;
 let jobsLoadPromise = null;
+/** true só depois de um SELECT completo à tabela trabalhos (não cargas parciais). */
+let jobsFullyLoaded = false;
 
 function parseClientId(clientId) {
   if (clientId == null || clientId === '') return null;
@@ -80,7 +82,9 @@ export function getJobsSnapshot() {
 }
 
 export async function ensureJobsLoaded(force = false) {
-  if (jobsCache && !force) return jobsCache;
+  // O cache pode existir só com dados parciais (semana visível, realtime);
+  // nesse caso o carregamento completo ainda tem de acontecer.
+  if (jobsFullyLoaded && jobsCache && !force) return jobsCache;
   if (!jobsLoadPromise || force) {
     jobsLoadPromise = loadJobsFromSupabase().catch((err) => {
       jobsLoadPromise = null;
@@ -104,6 +108,7 @@ async function loadJobsFromSupabase() {
   }
 
   jobsCache = (data || []).map(mapRowToJob).filter(Boolean);
+  jobsFullyLoaded = true;
   console.info(`[ManuSilva] ${jobsCache.length} trabalho(s) carregados do Supabase.`);
   return jobsCache;
 }
@@ -122,11 +127,15 @@ export function mergeJobFromRealtime(row) {
 export function invalidateJobsCache() {
   jobsCache = null;
   jobsLoadPromise = null;
+  jobsFullyLoaded = false;
 }
 
-/** Indica se o cache de trabalhos já foi carregado do Supabase. */
+/**
+ * Indica se a tabela trabalhos COMPLETA já foi carregada do Supabase.
+ * Só nesse caso é seguro concluir que «id ausente do cache = trabalho eliminado».
+ */
 export function isJobsCacheLoaded() {
-  return jobsCache !== null;
+  return jobsFullyLoaded && jobsCache !== null;
 }
 
 /** Remove trabalho do cache local (ex.: evento Realtime DELETE vindo do RH). */

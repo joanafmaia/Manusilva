@@ -11,12 +11,15 @@ import {
 import { legacyPrazoToCondicao } from './billing-constants.js';
 
 let reportsCache = null;
+/** true só depois de um SELECT completo à tabela relatorios (não rascunhos locais). */
+let reportsFullyLoaded = false;
 let reportsLoadPromise = null;
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-function isUuid(value) {
+/** Ids do servidor (trabalhos/relatorios) são uuid — ids locais/mock não são. */
+export function isUuid(value) {
   return UUID_RE.test(String(value || ''));
 }
 
@@ -119,7 +122,9 @@ export function getReportsSnapshot() {
 }
 
 export async function ensureReportsLoaded(force = false) {
-  if (reportsCache && !force) return reportsCache;
+  // O cache pode existir só com rascunhos locais hidratados antes do arranque;
+  // nesse caso o carregamento do servidor ainda tem de acontecer.
+  if (reportsFullyLoaded && reportsCache && !force) return reportsCache;
   if (!reportsLoadPromise || force) {
     reportsLoadPromise = loadReportsFromSupabase().catch((err) => {
       reportsLoadPromise = null;
@@ -142,6 +147,7 @@ async function loadReportsFromSupabase() {
   }
 
   reportsCache = (data || []).map(mapRowToReport).filter(Boolean);
+  reportsFullyLoaded = true;
   console.info(`[ManuSilva] ${reportsCache.length} relatório(s) carregados do Supabase.`);
   return reportsCache;
 }
@@ -149,6 +155,7 @@ async function loadReportsFromSupabase() {
 export function invalidateReportsCache() {
   reportsCache = null;
   reportsLoadPromise = null;
+  reportsFullyLoaded = false;
 }
 
 function upsertCacheEntry(report) {

@@ -3,7 +3,7 @@
  * Migra automaticamente rascunhos antigos de localStorage.
  */
 
-import { mergeReportInCache, getReportsSnapshot } from './relatorios-db.js';
+import { mergeReportInCache, getReportsSnapshot, isUuid } from './relatorios-db.js';
 import { getJobsSnapshot, isJobsCacheLoaded } from './trabalhos-db.js';
 import {
   STORE_REPORT_DRAFTS,
@@ -229,13 +229,13 @@ export async function resolveReportForJob(jobId, serverReport, options = {}) {
 const LOCKED_SERVER_STATUSES = new Set(['approved', 'pending_review', 'rejected']);
 
 /**
- * Trabalho eliminado pelo RH: o id era do servidor (numérico) mas já não existe
- * nem na tabela trabalhos nem na de relatórios. Ids temporários/offline não contam.
+ * Trabalho eliminado pelo RH: o id era do servidor (uuid da tabela trabalhos)
+ * mas já não existe nem em trabalhos nem em relatorios. Ids locais/mock não contam.
  */
 function isDraftOfDeletedJob(draft, serverReport, serverJobIds) {
   if (!serverJobIds || serverReport) return false;
   const jobId = String(draft?.jobId || '');
-  if (!/^\d+$/.test(jobId)) return false;
+  if (!isUuid(jobId)) return false;
   return !serverJobIds.has(jobId);
 }
 
