@@ -24,6 +24,7 @@ import {
   collectReportValues,
   bindFormFieldInteractions,
   renderJobClientHeader,
+  renderServiceMaterialTable,
   getServiceFormTitle,
   buildFormPrefill,
   mergeFormValues,
@@ -366,7 +367,7 @@ function buildFormHTML(job, client, tech, service, existingReport, options = {})
                 ${lockedClientFields}
                 ${official ? `<h2 class="form-report-title form-report-title--compact">${escapeHtml(formTitle)}</h2>` : `<h2 class="form-report-title">${service?.icon || '📋'} ${escapeHtml(formTitle)}</h2>`}
                 ${official ? renderStandardMachineBlock(values, formContext) : ''}
-                ${official ? renderStandardWorkBlock(values, formContext) : ''}
+                ${official ? renderStandardWorkBlock(values, formContext, renderServiceMaterialTable(service, values, formContext)) : ''}
                 ${!official ? `
                 <div class="form-fixed-header glass-card-inner">
                   <div class="header-grid">

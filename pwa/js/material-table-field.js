@@ -120,6 +120,11 @@ export function isMaterialTableField(field) {
   );
 }
 
+/** Primeiro campo de consumíveis/material do template (por serviço). */
+export function resolveServiceMaterialField(service) {
+  return (service?.fields || []).find((f) => isMaterialTableField(f)) || null;
+}
+
 export function isObservationsField(field) {
   if (!field) return false;
   return (

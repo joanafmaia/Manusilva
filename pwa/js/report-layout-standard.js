@@ -22,12 +22,10 @@ function escapeHtml(str) {
 export const RESUMO_INTERVENCAO_FIELD_ID = 'resumo_intervencao';
 export const PEDIDO_ORCAMENTO_FIELD_ID = 'pedido_orcamento';
 export const PEDIDO_ORCAMENTO_DETALHE_FIELD_ID = 'pedido_orcamento_detalhe';
-export const CONSUMIVEIS_TEXT_FIELD_ID = 'consumiveis_texto';
 
 const WORK_TEXT_FIELD_SPECS = [
   { id: 'detecao_de_avaria', label: 'Deteção de avaria', rows: 3 },
   { id: 'resolucao_da_avaria', label: 'Resolução de avaria', rows: 3 },
-  { id: CONSUMIVEIS_TEXT_FIELD_ID, label: 'Consumíveis', rows: 2 },
 ];
 
 /** Campos do bloco máquina (ordem fixa). */
@@ -137,35 +135,6 @@ export function resolveStandardFieldValue(values, spec) {
   return '';
 }
 
-function materialRowsToText(rows) {
-  if (!Array.isArray(rows)) return '';
-  return rows
-    .map((row) => {
-      if (!row || typeof row !== 'object') return '';
-      const artigo = String(row.artigo || row.material || row.equipamento || '').trim();
-      const qtd = String(row.qtd || row.quantidade || row.qty || '').trim();
-      if (!artigo) return '';
-      return qtd ? `${artigo} (${qtd})` : artigo;
-    })
-    .filter(Boolean)
-    .join('\n');
-}
-
-/** Texto de consumíveis — campo novo ou tabelas legadas. */
-export function resolveConsumiveisTextValue(values = {}) {
-  const direct = String(values[CONSUMIVEIS_TEXT_FIELD_ID] || '').trim();
-  if (direct) return direct;
-
-  for (const id of MATERIAL_FIELD_IDS) {
-    const legacy = materialRowsToText(values[id]);
-    if (legacy) return legacy;
-  }
-
-  const plain = String(values.consumiveis || '').trim();
-  if (plain && !plain.startsWith('[')) return plain;
-  return '';
-}
-
 /** Texto unificado do resumo (novo campo ou legado). */
 export function resolveResumoIntervencaoValue(values = {}) {
   const direct = String(values[RESUMO_INTERVENCAO_FIELD_ID] || '').trim();
@@ -208,16 +177,11 @@ function resolveEstadoMaquinaOptions(service) {
 }
 
 /** Pré-preenche campos standard a partir de dados guardados. */
-export function mergeStandardLayoutValues(values = {}, service = null) {
+export function mergeStandardLayoutValues(values = {}, _service = null) {
   const merged = { ...values };
 
   if (!String(merged.deteccao_de_avaria || '').trim() && merged[RESUMO_INTERVENCAO_FIELD_ID]) {
     merged.deteccao_de_avaria = String(merged[RESUMO_INTERVENCAO_FIELD_ID]).split('\n\n')[0] || '';
-  }
-
-  if (!String(merged[CONSUMIVEIS_TEXT_FIELD_ID] || '').trim()) {
-    const legacyConsumiveis = resolveConsumiveisTextValue(merged);
-    if (legacyConsumiveis) merged[CONSUMIVEIS_TEXT_FIELD_ID] = legacyConsumiveis;
   }
 
   if (merged[PEDIDO_ORCAMENTO_FIELD_ID] == null || merged[PEDIDO_ORCAMENTO_FIELD_ID] === '') {
@@ -233,7 +197,6 @@ export function mergeStandardLayoutValues(values = {}, service = null) {
     if (legacy) merged[RESUMO_INTERVENCAO_FIELD_ID] = legacy;
   }
 
-  void service;
   return merged;
 }
 
@@ -281,13 +244,12 @@ function renderStandardScalarField(field, value, extraClass = '') {
 }
 
 function renderStandardTextareaField(spec, value) {
-  const val = spec.id === CONSUMIVEIS_TEXT_FIELD_ID ? resolveConsumiveisTextValue({ ...value, [CONSUMIVEIS_TEXT_FIELD_ID]: value[CONSUMIVEIS_TEXT_FIELD_ID] }) : (value ?? '');
   return `
     <div class="form-group field-block report-work-text-field" data-field-wrap="${spec.id}">
       <label class="form-label" for="field-${spec.id}">${escapeHtml(spec.label)}</label>
       <textarea id="field-${spec.id}" class="form-input form-textarea report-work-textarea" rows="${spec.rows || 3}"
         data-field-id="${spec.id}" data-field-kind="textarea"
-        placeholder="">${escapeHtml(String(val))}</textarea>
+        placeholder="">${escapeHtml(String(value ?? ''))}</textarea>
     </div>`;
 }
 
@@ -378,19 +340,20 @@ export function renderStandardMachineBlock(values = {}, _context = {}) {
     </section>`;
 }
 
-export function renderStandardWorkBlock(values = {}, _context = {}) {
-  const fieldsHtml = WORK_TEXT_FIELD_SPECS.map((spec) => {
-    const val =
-      spec.id === CONSUMIVEIS_TEXT_FIELD_ID
-        ? resolveConsumiveisTextValue(values)
-        : values[spec.id];
-    return renderStandardTextareaField(spec, val);
-  }).join('');
+/**
+ * Bloco de trabalho: deteção, resolução e tabela de consumíveis (HTML injectado).
+ * @param {string} [materialTableHtml='']
+ */
+export function renderStandardWorkBlock(values = {}, _context = {}, materialTableHtml = '') {
+  const fieldsHtml = WORK_TEXT_FIELD_SPECS.map((spec) =>
+    renderStandardTextareaField(spec, values[spec.id]),
+  ).join('');
 
   return `
     <section class="form-section-card report-standard-block report-standard-block--work" aria-labelledby="report-work-heading">
       <div class="report-work-fields">
         ${fieldsHtml}
+        ${materialTableHtml}
       </div>
     </section>`;
 }

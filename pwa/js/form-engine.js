@@ -15,6 +15,7 @@ import {
   isMaterialTableField,
   normalizeMaterialRows,
   MATERIAL_FIELD_IDS,
+  resolveServiceMaterialField,
 } from './material-table-field.js';
 import {
   renderGrandesBatterySection,
@@ -248,6 +249,25 @@ export function resolveClientDisplayMeta(client) {
     '';
   const email = client?.email || client?.['E-mail'] || '';
   return { nome, address, phone, email };
+}
+
+/** Tabela dinâmica de consumíveis — bloco standard de trabalho (Artigo + Quantidade). */
+export function renderServiceMaterialTable(service, values = {}, context = {}) {
+  const field = resolveServiceMaterialField(service);
+  if (!field) return '';
+
+  const raw = values[field.id];
+  const rows = normalizeMaterialRows(Array.isArray(raw) && raw.length ? raw : [emptyMaterialRow()]);
+
+  return renderField(
+    {
+      ...field,
+      label: 'Consumíveis',
+      addButtonLabel: field.addButtonLabel || 'Adicionar linha',
+    },
+    rows,
+    context,
+  );
 }
 
 /** Cabeçalho com dados do cliente (destino da intervenção) — só nome e morada */

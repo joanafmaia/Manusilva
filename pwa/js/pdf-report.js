@@ -88,6 +88,7 @@ import {
   isObservationsField,
   MATERIAL_UTILIZADO_COLUMNS,
   normalizeMaterialRows,
+  resolveServiceMaterialField,
 } from './material-table-field.js';
 import {
   drawInspecaoDl50HeaderBlock,
@@ -97,7 +98,6 @@ import {
 } from './inspecao-dl50-categories.js';
 import {
   formatOrdemTechnicianLine,
-  resolveConsumiveisTextValue,
   resolvePedidoOrcamentoValue,
   resolvePedidoOrcamentoDetalhe,
   resolveStandardFieldValue,
@@ -545,7 +545,7 @@ export async function renderInterventionPDF(report) {
   };
   y = await drawStandardMachineBlock(doc, y, values, pdfContext);
   y = drawDivider(doc, y);
-  y = await drawStandardWorkBlock(doc, y, values);
+  y = await drawStandardWorkBlock(doc, y, values, service);
   y = drawDivider(doc, y);
   y = await drawReportFieldsSection(doc, y, service, values, pdfContext);
   y = await drawReportClosingSection(doc, y, {
@@ -1010,17 +1010,69 @@ async function drawMachineRowTable(doc, y, pairs) {
   return normalizeYAfterAutoTable(doc, y, PDF_GAP_TABLE);
 }
 
-async function drawStandardWorkBlock(doc, y, values) {
+async function drawStandardWorkBlock(doc, y, values, service = null) {
   for (const spec of PDF_STANDARD_WORK_SPECS) {
-    let text = '';
-    if (spec.id === 'consumiveis_texto') {
-      text = resolveConsumiveisTextValue(values);
-    } else {
-      text = values[spec.id];
-    }
-    y = drawCompactLongTextBlock(doc, y, spec.label, text);
+    y = drawCompactLongTextBlock(doc, y, spec.label, values[spec.id]);
   }
+
+  const materialField = resolveServiceMaterialField(service);
+  if (materialField) {
+    const raw = values[materialField.id];
+    const rows = normalizeMaterialRows(Array.isArray(raw) ? raw : []);
+    y = await drawStandardMaterialTable(doc, y, rows, materialField.columns || MATERIAL_UTILIZADO_COLUMNS);
+  }
+
   return y + 1;
+}
+
+async function drawStandardMaterialTable(doc, y, rows, columns) {
+  y = ensureSpace(doc, y, 10);
+
+  pdfSetFont(doc, 'bold');
+  doc.setFontSize(PDF_FONT_CAPTION);
+  doc.setTextColor(...TEXT_MUTED);
+  doc.text('Consumíveis:', MARGIN, y);
+  y += 3.5;
+
+  const colKeys = columns.map((c) => columnKey(c));
+  const headLabels = columns.map((c) => formatTableHeaderLabel(c));
+  const body =
+    rows.length > 0
+      ? rows.map((row) => colKeys.map((key) => pdfDisplayValue(row[key])))
+      : [['—', '—']];
+
+  await loadJsPdfAutoTable();
+  doc.autoTable({
+    startY: y,
+    margin: getPdfAutoTableMargin(MARGIN, MARGIN),
+    tableWidth: CONTENT_W,
+    head: [headLabels],
+    body,
+    ...buildPdfAutoTableStyles(doc, pdfAutoTableFont, pdfSetFont),
+    headStyles: {
+      font: pdfAutoTableFont(doc),
+      fillColor: PDF_SECTION_BG,
+      textColor: CORPORATE_BLUE_DARK,
+      fontStyle: 'bold',
+      fontSize: PDF_FONT_CAPTION,
+      lineColor: PDF_TABLE_LINE,
+      lineWidth: 0.15,
+      halign: 'left',
+    },
+    bodyStyles: {
+      fillColor: PDF_TABLE_BODY_FILL,
+      fontSize: PDF_FONT_BODY,
+      cellPadding: { top: 1.5, right: 2.5, bottom: 1.5, left: 2.5 },
+    },
+    columnStyles: {
+      0: { cellWidth: CONTENT_W * 0.72, overflow: 'linebreak' },
+      1: { cellWidth: CONTENT_W * 0.28, halign: 'center', overflow: 'linebreak' },
+    },
+    didDrawPage: buildPdfAutoTableDidDrawPage(doc),
+  });
+
+  touchPdfContentPage(doc);
+  return normalizeYAfterAutoTable(doc, y, PDF_GAP_TABLE);
 }
 
 function drawCompactLongTextBlock(doc, y, label, value) {

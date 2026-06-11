@@ -3049,6 +3049,19 @@ body.dark-mode .btn-preview:hover:not(:disabled) {
   line-height: 1.4;
 }
 
+.report-work-fields .dynamic-table-field {
+  margin-bottom: 0;
+}
+
+.report-work-fields .dynamic-table-field .form-label {
+  font-size: 0.82rem;
+  margin-bottom: 0.35rem;
+}
+
+.report-work-fields .dynamic-table-wrap {
+  padding: 0.45rem;
+}
+
 .report-pedido-orcamento-field {
   margin-top: 0;
 }
