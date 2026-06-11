@@ -2,7 +2,14 @@
  * Métricas rápidas do painel RH — sem renderizar a lista de clientes.
  */
 
-import { getDB, getPendingReports, getAllJobs, getWeekDates, getAllTechnicians } from '../app.js';
+import {
+  getDB,
+  getPendingReports,
+  getPendingBillingReports,
+  getAllJobs,
+  getWeekDates,
+  getAllTechnicians,
+} from '../app.js';
 import {
   getProductionClientsCatalog,
   isProductionCatalogReady,
@@ -27,6 +34,7 @@ export function computeDashboardMetrics(db = getDB()) {
     scheduled: jobs.filter((j) => j.status === 'scheduled').length,
     inProgress: jobs.filter((j) => j.status === 'in_progress').length,
     technicians: getAllTechnicians().length,
+    pendingBilling: getPendingBillingReports().length,
     teamTotalConcluidos: team.totalGlobal,
     teamTopMonth: team.topMonth
       ? `${team.topMonth.tech.name} (${team.topMonth.month})`
@@ -46,6 +54,12 @@ export function renderMetricsSection(metrics) {
     { label: 'Agendados', value: metrics.scheduled, accent: 'muted' },
     { label: 'Em progresso', value: metrics.inProgress, accent: 'success' },
     { label: 'Técnicos ativos', value: metrics.technicians, accent: 'muted' },
+    {
+      label: 'Relatórios por faturar',
+      value: metrics.pendingBilling,
+      // Laranja de alerta quando há relatórios aprovados à espera de fatura
+      accent: metrics.pendingBilling > 0 ? 'billing-alert' : 'muted',
+    },
   ];
 
   return `
