@@ -668,13 +668,10 @@ const PDF_LOGO_HEIGHT_MM = 34;
 /** Layout profissional — Folha de Intervenção de Avarias */
 const FOLHA_TITLE_BAR_BG = [241, 245, 249];
 const FOLHA_TABLE_HEAD_FILL = [241, 245, 249];
-const FOLHA_POLAROID_MM = 37;
+const FOLHA_PHOTO_GAP_MM = 6;
+const FOLHA_PHOTO_MAX_H_MM = 72;
+const FOLHA_PHOTO_BORDER_MM = 0.18;
 const FOLHA_CLOSING_PROFILE = {
-  polaroidMm: FOLHA_POLAROID_MM,
-  descH: 0,
-  polaroidBottom: 6,
-  sectionHeader: true,
-  legalGap: 4,
   sigTop: 8,
   sigImg: 18,
 };
@@ -1359,33 +1356,126 @@ async function drawFolhaInterventionMetricsTable(doc, y, values) {
   return normalizeYAfterAutoTable(doc, y, 8);
 }
 
-/** Fecho da Folha de Avarias — fotos compactas + assinaturas paralelas, sem checkboxes */
+function estimateFolhaPhotoSectionHeight(hasFotos) {
+  if (!hasFotos) return 0;
+  return 17 + FOLHA_PHOTO_MAX_H_MM + 8 + 8;
+}
+
+function fitFolhaImageInSlot(imgW, imgH, slotW, maxH) {
+  const safeW = Math.max(imgW, 1);
+  const safeH = Math.max(imgH, 1);
+  const scale = Math.min(slotW / safeW, maxH / safeH);
+  return { width: safeW * scale, height: safeH * scale };
+}
+
+function measureImageDimensionsForPdf(dataUrl) {
+  if (!dataUrl || typeof Image === 'undefined') {
+    return Promise.resolve({ width: 4, height: 3 });
+  }
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () =>
+      resolve({
+        width: img.naturalWidth || img.width || 4,
+        height: img.naturalHeight || img.height || 3,
+      });
+    img.onerror = () => resolve({ width: 4, height: 3 });
+    img.src = dataUrl;
+  });
+}
+
+function drawFolhaPhotoSlot(doc, imgData, label, slotX, slotW, imgY, rowImgH) {
+  return measureImageDimensionsForPdf(imgData).then((dims) => {
+    const fit = fitFolhaImageInSlot(dims.width, dims.height, slotW, rowImgH);
+    const imgX = slotX + (slotW - fit.width) / 2;
+
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(FOLHA_PHOTO_BORDER_MM);
+    doc.rect(imgX, imgY, fit.width, fit.height, 'S');
+
+    try {
+      const fmt = detectImageFormat(imgData);
+      doc.addImage(imgData, fmt, imgX, imgY, fit.width, fit.height, undefined, 'FAST');
+    } catch {
+      pdfSetFont(doc, 'normal');
+      doc.setFontSize(PDF_FONT_CAPTION);
+      doc.setTextColor(...TEXT_MUTED);
+      doc.text('IMG', slotX + slotW / 2, imgY + fit.height / 2, { align: 'center' });
+    }
+
+    pdfSetFont(doc, 'normal');
+    doc.setFontSize(PDF_FONT_BODY);
+    doc.setTextColor(...TEXT_DARK);
+    doc.text(pdfSafeText(label), slotX + slotW / 2, imgY + fit.height + 5, { align: 'center' });
+
+    return fit.height;
+  });
+}
+
+/** Registo fotográfico Folha de Avarias — fotos maximizadas lado a lado, sem polaroid */
+async function drawFolhaAntesDepoisPhotoSection(doc, y, fotoAntesUrl, fotoDepoisUrl) {
+  const antes = fotoAntesUrl ? await loadImageForPdf(fotoAntesUrl) : null;
+  const depois = fotoDepoisUrl ? await loadImageForPdf(fotoDepoisUrl) : null;
+  if (!antes && !depois) return y;
+
+  const gap = FOLHA_PHOTO_GAP_MM;
+  const slotW = (CONTENT_W - gap) / 2;
+  const captionH = 7;
+  const headerH = 17;
+
+  const slots = [];
+  if (antes && depois) {
+    slots.push({ data: antes, label: PDF_FOTO_LABEL_ANTES, x: MARGIN });
+    slots.push({ data: depois, label: PDF_FOTO_LABEL_DEPOIS, x: MARGIN + slotW + gap });
+  } else {
+    const single = antes || depois;
+    const label = antes ? PDF_FOTO_LABEL_ANTES : PDF_FOTO_LABEL_DEPOIS;
+    slots.push({ data: single, label, x: MARGIN + (CONTENT_W - slotW) / 2 });
+  }
+
+  const dimsList = await Promise.all(slots.map((slot) => measureImageDimensionsForPdf(slot.data)));
+  const slotWidthFor = () => (slots.length === 1 ? CONTENT_W : slotW);
+  const rowImgH = Math.max(
+    ...dimsList.map((dims) =>
+      fitFolhaImageInSlot(dims.width, dims.height, slotWidthFor(), FOLHA_PHOTO_MAX_H_MM).height,
+    ),
+    20,
+  );
+  const blockH = headerH + rowImgH + captionH + 8;
+
+  y = ensureKeepTogetherBlock(doc, y, Math.min(blockH, pdfMaxContentHeight()));
+  y = drawSectionTitle(doc, y, PDF_FOTO_SECTION_TITLE, { skipEnsure: true });
+  y = drawDivider(doc, y - 4);
+
+  const imgY = y;
+  await Promise.all(
+    slots.map((slot) =>
+      drawFolhaPhotoSlot(
+        doc,
+        slot.data,
+        slot.label,
+        slot.x,
+        slotWidthFor(),
+        imgY,
+        rowImgH,
+      ),
+    ),
+  );
+
+  touchPdfContentPage(doc);
+  return imgY + rowImgH + captionH + 8;
+}
+
+/** Fecho da Folha de Avarias — fotos maximizadas + assinaturas paralelas */
 async function drawFolhaReportClosingSection(doc, y, opts) {
   const hasFotos = Boolean(opts.fotoAntesUrl || opts.fotoDepoisUrl);
   const profile = FOLHA_CLOSING_PROFILE;
-  const polaroidOpts = { simpleLegend: true };
-  const blockH =
-    estimatePolaroidSectionHeight(hasFotos, profile, polaroidOpts) +
-    estimateSignaturesHeight(profile);
+  const blockH = estimateFolhaPhotoSectionHeight(hasFotos) + estimateSignaturesHeight(profile);
 
   y = ensureKeepTogetherBlock(doc, y, Math.min(blockH, pdfMaxContentHeight()));
 
   if (hasFotos) {
-    y = await drawAntesDepoisPolaroidSection(
-      doc,
-      y,
-      opts.fotoAntesUrl,
-      opts.fotoDepoisUrl,
-      opts.fotoLegenda,
-      {
-        polaroidMm: profile.polaroidMm,
-        descH: 0,
-        bottomGap: profile.polaroidBottom,
-        showSectionHeader: true,
-        simpleLegend: true,
-        skipEnsure: true,
-      },
-    );
+    y = await drawFolhaAntesDepoisPhotoSection(doc, y, opts.fotoAntesUrl, opts.fotoDepoisUrl);
   }
 
   return drawSignaturesFooter(doc, y, opts.signatures || {}, {
