@@ -990,6 +990,14 @@ body.dark-mode .offline-sync-banner__icon {
   scrollbar-width: none;
 }
 
+/* O [hidden] nativo perde para display:flex/grid das classes acima —
+   força a ocultação total para nunca misturar vista semanal com mensal. */
+.calendar-strip[hidden],
+.tech-header .calendar-strip[hidden],
+.tech-month-calendar[hidden] {
+  display: none !important;
+}
+
 .calendar-strip::-webkit-scrollbar { display: none; }
 
 .cal-day {
@@ -1059,6 +1067,8 @@ body.dark-mode .offline-sync-banner__icon {
 .cal-status-dot--approved { background: var(--ws-approved); }
 
 .tech-month-calendar {
+  display: block;
+  width: 100%;
   margin-top: 0.35rem;
 }
 

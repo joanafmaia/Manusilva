@@ -557,7 +557,13 @@ function setTechCalendarView(view) {
     btn.setAttribute('aria-selected', active ? 'true' : 'false');
   });
 
-  refreshTechCalendar().catch(console.error);
+  // Esconde/limpa de imediato a vista anterior para não ficarem as duas
+  // estruturas misturadas enquanto os dados do novo período carregam.
+  updateTechCalendarVisibility();
+
+  refreshTechCalendar()
+    .then(() => scheduleCalendarResize())
+    .catch(console.error);
 }
 
 function bindTechCalendarNavigation() {
@@ -613,13 +619,34 @@ function updateTechCalendarVisibility() {
   const month = document.getElementById('tech-month-calendar');
   if (!strip || !month) return;
 
+  // Limpeza absoluta do contentor inativo — evita herdar estrutura/estilos
+  // da outra vista e garante que só uma grelha existe no DOM de cada vez.
   if (techCalendarView === 'month') {
     strip.hidden = true;
+    strip.style.display = 'none';
+    strip.innerHTML = '';
     month.hidden = false;
+    month.style.removeProperty('display');
   } else {
-    strip.hidden = false;
     month.hidden = true;
+    month.style.display = 'none';
+    month.innerHTML = '';
+    strip.hidden = false;
+    strip.style.removeProperty('display');
   }
+}
+
+/** Força o browser a recalcular dimensões após trocar de vista. */
+function scheduleCalendarResize() {
+  setTimeout(() => {
+    const active =
+      techCalendarView === 'month'
+        ? document.getElementById('tech-month-calendar')
+        : document.getElementById('calendar-strip');
+    // Leitura de offsetHeight força reflow da nova grelha
+    void active?.offsetHeight;
+    window.dispatchEvent(new Event('resize'));
+  }, 50);
 }
 
 function renderCalendarTitle() {
