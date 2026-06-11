@@ -1448,6 +1448,41 @@ body.dark-mode .offline-sync-banner__icon {
   }
 }
 
+/* ─── Produtividade da equipa (painel RH) ─── */
+.tech-done-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.12rem 0.55rem;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  border-radius: 999px;
+  background: rgba(16, 185, 129, 0.12);
+  color: var(--ws-approved-text);
+  font-size: 0.7rem;
+  font-weight: 700;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.employee-card[role='button'],
+.rh-data-table-row[role='button'] {
+  cursor: pointer;
+}
+
+.tech-history-modal-summary {
+  margin: 0 0 0.75rem;
+  font-size: 0.8125rem;
+}
+
+.tech-history-modal-list {
+  max-height: 55vh;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
+.tech-history-modal-list .tech-job-row {
+  cursor: default;
+}
+
 .form-overlay--readonly .form-panel-footer .btn-secondary,
 .form-overlay--readonly .form-panel-footer .btn-primary,
 .form-overlay--readonly .form-footer-hint {

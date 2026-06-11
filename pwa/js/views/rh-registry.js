@@ -8,6 +8,7 @@ import {
   renderTechnicianFormSection,
   renderTechniciansList,
   mountTechnicianForm,
+  bindTechniciansListEvents,
 } from './rh-technician-form.js';
 
 export { renderClientFormSection, mountClientForm } from './rh-client-form.js';
@@ -106,6 +107,7 @@ export function refreshTechniciansList(root) {
   const list = root?.querySelector('#rh-technicians-list');
   if (!list) return;
   list.innerHTML = renderTechniciansList(getAllTechnicians());
+  bindTechniciansListEvents(list);
 }
 
 export function initEmployeesPanel(root) {

@@ -7,6 +7,7 @@ import {
   getProductionClientsCatalog,
   isProductionCatalogReady,
 } from '../clients-catalog.js';
+import { getTeamStatsSummary } from '../team-stats.js';
 
 export function computeDashboardMetrics(db = getDB()) {
   const catalog = isProductionCatalogReady()
@@ -16,6 +17,7 @@ export function computeDashboardMetrics(db = getDB()) {
   const pending = getPendingReports();
   const today = new Date().toISOString().split('T')[0];
   const weekSet = new Set(getWeekDates());
+  const team = getTeamStatsSummary(getAllTechnicians());
 
   return {
     totalClients: catalog.length,
@@ -25,11 +27,18 @@ export function computeDashboardMetrics(db = getDB()) {
     scheduled: jobs.filter((j) => j.status === 'scheduled').length,
     inProgress: jobs.filter((j) => j.status === 'in_progress').length,
     technicians: getAllTechnicians().length,
+    teamTotalConcluidos: team.totalGlobal,
+    teamTopMonth: team.topMonth
+      ? `${team.topMonth.tech.name} (${team.topMonth.month})`
+      : '—',
+    teamMonthLabel: team.monthLabel,
   };
 }
 
 export function renderMetricsSection(metrics) {
   const cards = [
+    { label: `Mais saídas — ${metrics.teamMonthLabel}`, value: metrics.teamTopMonth, accent: 'success' },
+    { label: 'Intervenções concluídas (total)', value: metrics.teamTotalConcluidos, accent: 'primary' },
     { label: 'Clientes no catálogo', value: metrics.totalClients, accent: 'primary' },
     { label: 'Relatórios pendentes', value: metrics.pendingReports, accent: 'warning' },
     { label: 'Trabalhos hoje', value: metrics.jobsToday, accent: 'primary' },

@@ -2,7 +2,18 @@
  * Formulário RH — novo técnico (equipa + metadados de login)
  */
 
-import { addTechnician, escapeHtml } from '../app.js';
+import {
+  addTechnician,
+  escapeHtml,
+  getClient,
+  getServiceType,
+  getTechnician,
+  openModal,
+} from '../app.js';
+import {
+  countConcluidosForTechnician,
+  getConcluidosForTechnician,
+} from '../team-stats.js';
 
 export function renderTechnicianFormSection() {
   return `
@@ -46,16 +57,21 @@ function technicianInitials(name) {
     .slice(0, 2);
 }
 
-function renderTechnicianCards(technicians) {
+/** Badge «N Concluídos» — clicável para abrir o histórico do técnico. */
+function renderConcluidosBadge(count) {
+  return `<span class="tech-done-badge" title="Relatórios concluídos no terreno">${count} Concluído${count === 1 ? '' : 's'}</span>`;
+}
+
+function renderTechnicianCards(technicians, counts) {
   return technicians
     .map(
       (t) => `
-    <div class="employee-card" data-tech-id="${escapeHtml(t.id)}">
+    <div class="employee-card" data-tech-id="${escapeHtml(t.id)}" tabindex="0" role="button" aria-label="Histórico de serviços de ${escapeHtml(t.name)}">
       <div class="employee-avatar" style="background:${t.color}20;color:${t.color}">${escapeHtml(
         technicianInitials(t.name),
       )}</div>
       <div class="employee-info">
-        <h4>${escapeHtml(t.name)}</h4>
+        <h4>${escapeHtml(t.name)} ${renderConcluidosBadge(counts.get(t.id) ?? 0)}</h4>
         <p class="text-muted">${escapeHtml(t.email)}</p>
         <p class="text-muted">${escapeHtml(t.phone || '—')}</p>
       </div>
@@ -66,7 +82,7 @@ function renderTechnicianCards(technicians) {
     .join('');
 }
 
-function renderTechniciansTable(technicians) {
+function renderTechniciansTable(technicians, counts) {
   return `
     <div class="rh-table-scroll">
       <table class="rh-data-table rh-employees-table">
@@ -75,6 +91,7 @@ function renderTechniciansTable(technicians) {
             <th scope="col">Técnico</th>
             <th scope="col">E-mail</th>
             <th scope="col">Telemóvel</th>
+            <th scope="col">Concluídos</th>
             <th scope="col">Estado</th>
           </tr>
         </thead>
@@ -82,7 +99,7 @@ function renderTechniciansTable(technicians) {
           ${technicians
             .map(
               (t) => `
-            <tr class="rh-data-table-row" data-tech-id="${escapeHtml(t.id)}" tabindex="0" role="button" aria-label="Perfil de ${escapeHtml(t.name)}">
+            <tr class="rh-data-table-row" data-tech-id="${escapeHtml(t.id)}" tabindex="0" role="button" aria-label="Histórico de serviços de ${escapeHtml(t.name)}">
               <td>
                 <div class="rh-table-tech-cell">
                   <div class="employee-avatar" style="background:${t.color}20;color:${t.color}">${escapeHtml(
@@ -93,6 +110,7 @@ function renderTechniciansTable(technicians) {
               </td>
               <td data-col-label="E-mail">${escapeHtml(t.email)}</td>
               <td data-col-label="Telemóvel">${escapeHtml(t.phone || '—')}</td>
+              <td data-col-label="Concluídos">${renderConcluidosBadge(counts.get(t.id) ?? 0)}</td>
               <td data-col-label="Estado"><span class="employee-status online-dot">Ativo</span></td>
             </tr>
           `,
@@ -109,10 +127,100 @@ export function renderTechniciansList(technicians) {
     return '<p class="text-muted empty-inline">Sem técnicos registados.</p>';
   }
 
+  const counts = new Map(
+    technicians.map((t) => [t.id, countConcluidosForTechnician(t)]),
+  );
+
   return `
-    <div class="rh-employees-cards">${renderTechnicianCards(technicians)}</div>
-    <div class="rh-employees-table-wrap">${renderTechniciansTable(technicians)}</div>
+    <div class="rh-employees-cards">${renderTechnicianCards(technicians, counts)}</div>
+    <div class="rh-employees-table-wrap">${renderTechniciansTable(technicians, counts)}</div>
   `;
+}
+
+/* ─── Histórico de serviços do técnico (modal, linhas compactas) ─── */
+
+function formatHistoryRowDate(isoDate) {
+  if (!isoDate) return '—';
+  const d = new Date(`${isoDate}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
+function formatHistoryMonthLabel(isoDate) {
+  if (!isoDate) return 'Sem data';
+  const d = new Date(`${isoDate}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return 'Sem data';
+  const label = d.toLocaleDateString('pt-PT', { month: 'long', year: 'numeric' });
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
+function renderTechnicianHistoryRows(items) {
+  if (!items.length) {
+    return '<p class="text-muted empty-inline">Este técnico ainda não tem relatórios concluídos.</p>';
+  }
+
+  // Agrupa por mês/ano — mesmo padrão do Histórico de Realizados dos técnicos
+  const groups = new Map();
+  items.forEach((item) => {
+    const key = item.date ? item.date.slice(0, 7) : 'sem-data';
+    if (!groups.has(key)) {
+      groups.set(key, { label: formatHistoryMonthLabel(item.date), items: [] });
+    }
+    groups.get(key).items.push(item);
+  });
+
+  return [...groups.values()]
+    .map(
+      (group) => `
+        <section class="realizados-month-group">
+          <h3 class="realizados-month-heading">${escapeHtml(group.label)}</h3>
+          <div class="tech-job-rows">
+            ${group.items
+              .map(({ report, job, date }) => {
+                const client = getClient(report.clientId || job?.clientId);
+                const service = getServiceType(report.serviceType || job?.serviceType);
+                return `
+                  <div class="tech-job-row tech-job-row--approved">
+                    <span class="tech-job-row-date">${formatHistoryRowDate(date)}</span>
+                    <span class="tech-job-row-client">${escapeHtml(client?.name || 'Cliente')}</span>
+                    <span class="tech-job-row-service">${service?.icon || '🔧'} ${escapeHtml(service?.label || report.serviceType || 'Relatório')}</span>
+                  </div>
+                `;
+              })
+              .join('')}
+          </div>
+        </section>
+      `,
+    )
+    .join('');
+}
+
+export function openTechnicianHistoryModal(techId) {
+  const tech = getTechnician(techId);
+  if (!tech) return;
+
+  const items = getConcluidosForTechnician(tech);
+  const content = `
+    <p class="text-muted tech-history-modal-summary">
+      ${items.length} serviço${items.length === 1 ? '' : 's'} concluído${items.length === 1 ? '' : 's'} no terreno.
+    </p>
+    <div class="tech-history-modal-list">${renderTechnicianHistoryRows(items)}</div>
+  `;
+
+  openModal(`🛠 Serviços de ${tech.name}`, content);
+}
+
+/** Liga o clique nos cards/linhas da equipa ao modal de histórico. */
+export function bindTechniciansListEvents(listEl) {
+  if (!listEl) return;
+  listEl.querySelectorAll('[data-tech-id]').forEach((el) => {
+    el.addEventListener('click', () => openTechnicianHistoryModal(el.dataset.techId));
+    el.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      e.preventDefault();
+      openTechnicianHistoryModal(el.dataset.techId);
+    });
+  });
 }
 
 /**
