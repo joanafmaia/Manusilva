@@ -5,7 +5,7 @@
 import {
   getPendingBillingReports,
   getPendingPaymentInvoices,
-  getBillingFinancialMetrics,
+  getReportsSnapshot,
   getReport,
   getClient,
   getJob,
@@ -17,6 +17,7 @@ import {
   formatDate,
   showToast,
 } from '../app.js';
+import { renderClientCombobox, bindClientComboboxes } from '../client-combobox.js';
 import { formatOrdemLabel } from '../report-review-ui.js';
 import { PAYMENT_CONDITION_OPTIONS } from './client-profile-drawer.js';
 import {
@@ -47,6 +48,15 @@ const ESTIMATE_EUR_BY_SERVICE = {
 let mountRoot = null;
 let billingChart = null;
 let chartJsPromise = null;
+
+/** Filtros dinâmicos do painel — período + cliente (KPIs, gráfico e histórico). */
+const billingFilters = {
+  period: 'all',
+  from: '',
+  to: '',
+  clientId: '',
+  clientNome: '',
+};
 
 function loadChartJs() {
   if (window.Chart) return Promise.resolve(window.Chart);
@@ -140,6 +150,84 @@ function formatCurrencyEur(value) {
   }).format(Number(value) || 0);
 }
 
+/** Data legível a partir de timestamps ISO completos ou datas puras. */
+function formatDateSafe(iso) {
+  const pure = String(iso || '').split('T')[0];
+  if (!pure) return '—';
+  const label = formatDate(pure);
+  return /invalid/i.test(label) ? '—' : label;
+}
+
+/* ─── Filtros de período e cliente ─── */
+
+function toLocalIsoDate(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function getPeriodRange() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = now.getMonth();
+
+  switch (billingFilters.period) {
+    case 'this_month':
+      return { from: toLocalIsoDate(new Date(y, m, 1)), to: toLocalIsoDate(new Date(y, m + 1, 0)) };
+    case 'last_month':
+      return { from: toLocalIsoDate(new Date(y, m - 1, 1)), to: toLocalIsoDate(new Date(y, m, 0)) };
+    case 'year':
+      return { from: `${y}-01-01`, to: `${y}-12-31` };
+    case 'custom':
+      return { from: billingFilters.from || '', to: billingFilters.to || '' };
+    default:
+      return { from: '', to: '' };
+  }
+}
+
+/** Data de referência da fatura (emissão; fallback aprovação). */
+function invoiceDateOf(report) {
+  return String(report.dataFatura || report.approvedAt || '').split('T')[0];
+}
+
+/** Todas as faturas registadas — o histórico nunca é apagado do Supabase. */
+function getInvoicedReports() {
+  return getReportsSnapshot().filter((r) => r.faturacaoStatus === 'faturado');
+}
+
+function invoiceMatchesFilters(report) {
+  const { from, to } = getPeriodRange();
+  const date = invoiceDateOf(report);
+  if (from && (!date || date < from)) return false;
+  if (to && (!date || date > to)) return false;
+  if (billingFilters.clientId && String(report.clientId) !== String(billingFilters.clientId)) {
+    return false;
+  }
+  return true;
+}
+
+/** Faturas dentro dos filtros ativos — mais recentes primeiro. */
+function getFilteredInvoices() {
+  return getInvoicedReports()
+    .filter(invoiceMatchesFilters)
+    .sort((a, b) => invoiceDateOf(b).localeCompare(invoiceDateOf(a)));
+}
+
+/** KPIs calculados sobre as faturas filtradas. */
+function computeFilteredMetrics(invoices = getFilteredInvoices()) {
+  let totalFaturado = 0;
+  let totalRecebido = 0;
+  let totalDivida = 0;
+
+  invoices.forEach((r) => {
+    const valor = Number(r.valorFaturado);
+    if (!Number.isFinite(valor) || valor <= 0) return;
+    totalFaturado += valor;
+    if (r.statusRecebimento === 'pago') totalRecebido += valor;
+    else if (r.statusRecebimento === 'pendente') totalDivida += valor;
+  });
+
+  return { totalFaturado, totalRecebido, totalDivida };
+}
+
 function resolveClientMeta(clientId) {
   const client = getClient(clientId);
   const nome = client?.name || client?.Nome || client?.nome || '—';
@@ -161,7 +249,7 @@ function buildBillingRows(reports) {
       report,
       ...meta,
       ordem: formatOrdemLabel(job),
-      approvedLabel: report.approvedAt ? formatDate(report.approvedAt) : '—',
+      approvedLabel: formatDateSafe(report.approvedAt),
       urgent: isBillingUrgent(report, meta.client),
       estimate: estimateReportValue(report),
     };
@@ -180,10 +268,10 @@ function buildReceivableRows(reports) {
       numeroFatura: report.numeroFatura || '—',
       valor,
       valorLabel: formatCurrencyEur(valor),
-      emissaoLabel: report.dataFatura ? formatDate(report.dataFatura) : '—',
+      emissaoLabel: formatDateSafe(report.dataFatura),
       condicaoLabel: labelFaturaCondicao(report.faturaCondicaoPagamento),
       statusLabel: labelStatusRecebimento(report.statusRecebimento),
-      vencimentoLabel: vencimento ? formatDate(vencimento) : '—',
+      vencimentoLabel: formatDateSafe(vencimento),
       vencimentoClass: vencimentoCellClass(vencimentoUrg),
       vencimentoUrg,
     };
@@ -210,6 +298,122 @@ function renderKpis(metrics) {
           <p class="faturacao-kpi-sub">Faturado e ainda por receber</p>
         </article>
       </div>
+    </section>
+  `;
+}
+
+function renderFiltersSection() {
+  const isCustom = billingFilters.period === 'custom';
+  const year = new Date().getFullYear();
+  const opt = (value, label) =>
+    `<option value="${value}"${billingFilters.period === value ? ' selected' : ''}>${label}</option>`;
+
+  return `
+    <section class="faturacao-filters rh-section glass-card" aria-label="Filtros do controlo de faturação">
+      <div class="faturacao-filters-grid">
+        <div class="form-group faturacao-filter-group">
+          <label class="form-label" for="faturacao-period">Período</label>
+          <select class="form-select" id="faturacao-period">
+            ${opt('all', 'Tudo')}
+            ${opt('this_month', 'Este Mês')}
+            ${opt('last_month', 'Mês Passado')}
+            ${opt('year', `Ano de ${year}`)}
+            ${opt('custom', 'Intervalo Personalizado')}
+          </select>
+        </div>
+        <div class="faturacao-filter-custom"${isCustom ? '' : ' hidden'}>
+          <div class="form-group faturacao-filter-group">
+            <label class="form-label" for="faturacao-from">De</label>
+            <input type="date" class="form-input" id="faturacao-from" value="${escapeHtml(billingFilters.from)}">
+          </div>
+          <div class="form-group faturacao-filter-group">
+            <label class="form-label" for="faturacao-to">Até</label>
+            <input type="date" class="form-input" id="faturacao-to" value="${escapeHtml(billingFilters.to)}">
+          </div>
+        </div>
+        <div class="faturacao-filter-client">
+          ${renderClientCombobox({
+            fieldId: 'faturacao-client',
+            label: 'Cliente',
+            value: billingFilters.clientNome,
+            selectedId: billingFilters.clientId,
+            compact: true,
+          })}
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+/* ─── Histórico de Faturas Emitidas ─── */
+
+/** dd/mm/aaaa — o histórico pode abranger vários anos. */
+function formatHistoryDate(isoDate) {
+  const [y, m, d] = String(isoDate || '').split('-');
+  if (!y || !m || !d) return '—';
+  return `${d}/${m}/${y}`;
+}
+
+function renderInvoiceHistoryRow(report, acumulado) {
+  const meta = resolveClientMeta(report.clientId);
+  const pago = report.statusRecebimento === 'pago';
+  const stateClass = pago ? 'tech-job-row--approved' : 'tech-job-row--pending';
+
+  return `
+    <div class="tech-job-row ${stateClass} faturacao-history-row">
+      <span class="tech-job-row-date">${escapeHtml(formatHistoryDate(invoiceDateOf(report)))}</span>
+      <span class="tech-job-row-client">${escapeHtml(meta.nome)}</span>
+      <span class="faturacao-history-num"><code class="faturacao-ordem">${escapeHtml(report.numeroFatura || '—')}</code></span>
+      <span class="faturacao-history-valor">${escapeHtml(formatCurrencyEur(report.valorFaturado))}</span>
+      ${
+        acumulado != null
+          ? `<span class="faturacao-history-acum" title="Acumulado do cliente até esta fatura">Σ ${escapeHtml(formatCurrencyEur(acumulado))}</span>`
+          : ''
+      }
+      <span class="faturacao-history-estado ${pago ? 'is-pago' : 'is-pendente'}">${pago ? 'Pago' : 'Pendente'}</span>
+    </div>
+  `;
+}
+
+function renderHistorySection(invoices = getFilteredInvoices()) {
+  const clientActive = Boolean(billingFilters.clientId);
+
+  let rowsHtml = '<p class="text-muted faturacao-empty">Sem faturas emitidas nos filtros selecionados.</p>';
+  let cumulativeByReport = null;
+
+  if (invoices.length) {
+    if (clientActive) {
+      // Acumulado (Renda Total) do mais antigo para o mais recente
+      cumulativeByReport = new Map();
+      let running = 0;
+      [...invoices]
+        .sort((a, b) => invoiceDateOf(a).localeCompare(invoiceDateOf(b)))
+        .forEach((r) => {
+          running += Number(r.valorFaturado) || 0;
+          cumulativeByReport.set(r.id, running);
+        });
+    }
+
+    rowsHtml = `
+      <div class="tech-job-rows faturacao-history-rows">
+        ${invoices
+          .map((r) => renderInvoiceHistoryRow(r, cumulativeByReport ? cumulativeByReport.get(r.id) : null))
+          .join('')}
+      </div>
+    `;
+  }
+
+  const total = invoices.reduce((sum, r) => sum + (Number(r.valorFaturado) || 0), 0);
+  const rendaTotal =
+    clientActive && invoices.length
+      ? `<p class="faturacao-history-total">Renda Total — ${escapeHtml(billingFilters.clientNome || 'cliente selecionado')}: <strong>${escapeHtml(formatCurrencyEur(total))}</strong></p>`
+      : '';
+
+  return `
+    <section class="faturacao-history-section rh-section glass-card" aria-label="Histórico de faturas emitidas">
+      <h3 class="ms-h2 faturacao-section-title">Histórico de Faturas Emitidas <span class="badge-count">${invoices.length}</span></h3>
+      ${rendaTotal}
+      ${rowsHtml}
     </section>
   `;
 }
@@ -433,15 +637,79 @@ async function updateChartData(metrics) {
 async function softRefreshFaturacaoPanel() {
   if (!mountRoot) return;
 
-  const metrics = getBillingFinancialMetrics();
+  const invoices = getFilteredInvoices();
+  const metrics = computeFilteredMetrics(invoices);
   const billingRows = buildBillingRows(getPendingBillingReports());
   const receivableRows = buildReceivableRows(getPendingPaymentInvoices());
 
   replaceMountedSection('.faturacao-kpis', renderKpis(metrics));
   replaceMountedSection('.faturacao-table-section--billing', renderBillingTable(billingRows));
   replaceMountedSection('.faturacao-receivables-section', renderReceivablesTable(receivableRows));
+  replaceMountedSection('.faturacao-history-section', renderHistorySection(invoices));
   bindTableActions();
   await updateChartData(metrics);
+}
+
+/** Reaplica os filtros sem reconstruir o painel inteiro (mantém foco/scroll). */
+async function applyBillingFilters() {
+  if (!mountRoot) return;
+  const invoices = getFilteredInvoices();
+  const metrics = computeFilteredMetrics(invoices);
+  replaceMountedSection('.faturacao-kpis', renderKpis(metrics));
+  replaceMountedSection('.faturacao-history-section', renderHistorySection(invoices));
+  await updateChartData(metrics);
+}
+
+function bindFilterEvents() {
+  const root = mountRoot;
+  if (!root) return;
+
+  const periodSel = root.querySelector('#faturacao-period');
+  periodSel?.addEventListener('change', () => {
+    billingFilters.period = periodSel.value;
+    const customWrap = root.querySelector('.faturacao-filter-custom');
+    if (customWrap) customWrap.hidden = billingFilters.period !== 'custom';
+    applyBillingFilters().catch(console.error);
+  });
+
+  root.querySelector('#faturacao-from')?.addEventListener('change', (e) => {
+    billingFilters.from = e.target.value || '';
+    applyBillingFilters().catch(console.error);
+  });
+  root.querySelector('#faturacao-to')?.addEventListener('change', (e) => {
+    billingFilters.to = e.target.value || '';
+    applyBillingFilters().catch(console.error);
+  });
+
+  const combo = root.querySelector('[data-client-combobox][data-field-id="faturacao-client"]');
+  if (!combo) return;
+
+  const syncClientFilterFromCombobox = () => {
+    const id = combo.querySelector('.client-combobox-id')?.value || '';
+    const nome = combo.querySelector('.client-combobox-input')?.value || '';
+    if (id === billingFilters.clientId) return;
+    billingFilters.clientId = id;
+    billingFilters.clientNome = id ? nome : '';
+    applyBillingFilters().catch(console.error);
+  };
+
+  // O combobox atualiza o hidden após a seleção — sincroniza no tick seguinte.
+  combo.addEventListener('mousedown', (e) => {
+    if (!e.target.closest('.client-combobox-option')) return;
+    setTimeout(syncClientFilterFromCombobox, 0);
+  });
+  combo.querySelector('.client-combobox-input')?.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    setTimeout(syncClientFilterFromCombobox, 0);
+  });
+  combo.querySelector('.client-combobox-clear')?.addEventListener('click', () => {
+    setTimeout(syncClientFilterFromCombobox, 0);
+  });
+  combo.querySelector('.client-combobox-input')?.addEventListener('input', (e) => {
+    if (!String(e.target.value || '').trim() && billingFilters.clientId) {
+      setTimeout(syncClientFilterFromCombobox, 0);
+    }
+  });
 }
 
 function openRegisterInvoiceModal(reportId) {
@@ -572,7 +840,8 @@ function bindTableActions() {
 }
 
 function renderPanel() {
-  const metrics = getBillingFinancialMetrics();
+  const invoices = getFilteredInvoices();
+  const metrics = computeFilteredMetrics(invoices);
   const billingRows = buildBillingRows(getPendingBillingReports());
   const receivableRows = buildReceivableRows(getPendingPaymentInvoices());
 
@@ -584,10 +853,12 @@ function renderPanel() {
           Emita faturas no programa externo e registe aqui o valor, prazo e recebimentos para acompanhar o fluxo de caixa.
         </p>
       </header>
+      ${renderFiltersSection()}
       ${renderKpis(metrics)}
       ${renderChartSection()}
       ${renderBillingTable(billingRows)}
       ${renderReceivablesTable(receivableRows)}
+      ${renderHistorySection(invoices)}
     </div>
   `;
 }
@@ -613,7 +884,9 @@ export async function refreshFaturacaoPanel(options = {}) {
 
   mountRoot.innerHTML = renderPanel();
   bindTableActions();
-  await updateChartData(getBillingFinancialMetrics());
+  bindFilterEvents();
+  bindClientComboboxes(mountRoot).catch(console.error);
+  await updateChartData(computeFilteredMetrics());
 }
 
 export function initFaturacaoPanel(root) {

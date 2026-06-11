@@ -9517,6 +9517,108 @@ body.dark-mode .client-ficha-value {
   font-size: 0.82rem;
 }
 
+/* ─── Filtros do Controlo de Faturação ─── */
+
+.faturacao-filters {
+  padding: 0.9rem 1.1rem;
+}
+
+.faturacao-filters-grid {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem 1rem;
+}
+
+.faturacao-filter-group {
+  margin: 0;
+  min-width: 170px;
+}
+
+.faturacao-filter-custom {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.faturacao-filter-custom[hidden] {
+  display: none;
+}
+
+.faturacao-filter-client {
+  flex: 1 1 240px;
+  min-width: 220px;
+  max-width: 380px;
+}
+
+.faturacao-filter-client .form-group {
+  margin: 0;
+}
+
+/* ─── Histórico de Faturas Emitidas ─── */
+
+.faturacao-history-rows {
+  margin-top: 0.5rem;
+}
+
+.faturacao-history-row {
+  cursor: default;
+}
+
+.faturacao-history-row .tech-job-row-date {
+  min-width: 4.6rem;
+}
+
+.faturacao-history-row .tech-job-row-client {
+  flex: 1;
+  min-width: 0;
+  max-width: none;
+}
+
+.faturacao-history-num,
+.faturacao-history-valor,
+.faturacao-history-acum {
+  white-space: nowrap;
+  font-size: 0.78rem;
+}
+
+.faturacao-history-valor {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.faturacao-history-acum {
+  color: var(--ms-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.faturacao-history-estado {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.1rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.faturacao-history-estado.is-pago {
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  color: var(--ws-approved-text);
+}
+
+.faturacao-history-estado.is-pendente {
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  color: var(--ws-pending-text);
+}
+
+.faturacao-history-total {
+  margin: 0 0 0.5rem;
+  font-size: 0.85rem;
+  color: var(--ms-text-muted);
+}
+
 @media (max-width: 768px) {
   .faturacao-chart-wrap {
     height: 240px;
@@ -9524,5 +9626,14 @@ body.dark-mode .client-ficha-value {
 
   .faturacao-col-action {
     white-space: normal;
+  }
+
+  .faturacao-filters-grid {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .faturacao-filter-client {
+    max-width: none;
   }
 }
