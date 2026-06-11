@@ -107,6 +107,15 @@ function reportAssignedToTechnician(report, techId) {
   });
 }
 
+/** O calendário (Semana/Mês + dias) só é visível na aba Agendados. */
+function updateTechCalendarWrapVisibility() {
+  const wrap = document.getElementById('tech-calendar-wrap');
+  if (!wrap) return;
+  const show = techJobsTab === 'agendados';
+  wrap.hidden = !show;
+  wrap.style.display = show ? '' : 'none';
+}
+
 function setTechJobsTab(tabId) {
   if (!TECH_JOBS_TABS[tabId] || techJobsTab === tabId) return;
   techJobsTab = tabId;
@@ -120,6 +129,16 @@ function setTechJobsTab(tabId) {
 
   const title = document.getElementById('tech-jobs-section-title');
   if (title) title.textContent = TECH_JOBS_TABS[tabId].label;
+
+  updateTechCalendarWrapVisibility();
+
+  if (tabId === 'agendados') {
+    // Calendário volta a ser visível — garante grelha/dados atualizados
+    refreshTechCalendar()
+      .then(() => scheduleCalendarResize())
+      .catch(console.error);
+    return;
+  }
 
   loadTechTabData()
     .then(() => renderJobs())
@@ -145,18 +164,19 @@ async function loadTechTabData() {
 
   await loadPeriodJobsFromSupabase();
 
-  if (techJobsTab === 'em_curso') {
+  if (techJobsTab === 'em_curso' || techJobsTab === 'realizados') {
     const { ensureReportsLoaded } = await import('./relatorios-db.js');
     const { ensureJobsLoaded } = await import('./trabalhos-db.js');
     await ensureReportsLoaded();
     await ensureJobsLoaded();
   } else if (techJobsTab === 'agendados') {
-    await ensureTrabalhosSemana(session.technicianId, selectedDate, selectedDate);
-  } else if (techJobsTab === 'realizados') {
-    const { ensureReportsLoaded } = await import('./relatorios-db.js');
-    const { ensureJobsLoaded } = await import('./trabalhos-db.js');
-    await ensureReportsLoaded();
-    await ensureJobsLoaded();
+    // Garante a semana do dia selecionado (para a lista «resto da semana»)
+    const weekOfSelected = getWeekDates(new Date(`${selectedDate}T12:00:00`));
+    await ensureTrabalhosSemana(
+      session.technicianId,
+      weekOfSelected[0],
+      weekOfSelected[weekOfSelected.length - 1],
+    );
   }
 
   techTabDataCacheKey = cacheKey;
@@ -206,6 +226,62 @@ function getAgendadosJobs(techId) {
     .sort(sortJobsByDateTime);
 }
 
+/** Trabalhos agendados no resto da semana do dia selecionado (exclui o próprio dia). */
+function getRestOfWeekScheduledJobs(techId) {
+  const weekOfSelected = getWeekDates(new Date(`${selectedDate}T12:00:00`));
+  const dateSet = new Set(weekOfSelected);
+
+  return getJobsSnapshot()
+    .filter((job) => {
+      if (!jobAssignedToTechnician(job, techId)) return false;
+      if (!dateSet.has(job.date) || job.date === selectedDate) return false;
+      const report = getReportForJob(job.id);
+      return resolveCalendarEventState(job, report) === 'scheduled';
+    })
+    .sort(sortJobsByDateTime);
+}
+
+function renderAgendadosWeekPreview(techId) {
+  const weekJobs = getRestOfWeekScheduledJobs(techId);
+  if (!weekJobs.length) {
+    return '<p class="agendados-preview-empty text-muted">Sem mais trabalhos agendados esta semana.</p>';
+  }
+
+  const rows = weekJobs
+    .map((job) => {
+      const client = getClient(job.clientId);
+      const service = getServiceType(job.serviceType);
+      const report = getReportForJob(job.id);
+      const stateClass = getCalendarEventStateClass(job, report);
+      return `
+        <button type="button" class="agendados-preview-row ${stateClass}" data-preview-day="${job.date}">
+          <span class="agendados-preview-date">${getDayLabel(job.date)} ${getDayNumber(job.date)}</span>
+          <span class="agendados-preview-time">${escapeHtml(job.time || '—')}</span>
+          <span class="agendados-preview-client">${escapeHtml(client?.name || 'Cliente')}</span>
+          <span class="agendados-preview-service">${service?.icon || '🔧'}</span>
+        </button>
+      `;
+    })
+    .join('');
+
+  return `
+    <div class="agendados-week-preview">
+      <h3 class="agendados-preview-title">Resto da semana</h3>
+      ${rows}
+    </div>
+  `;
+}
+
+function bindAgendadosPreviewEvents(container) {
+  container.querySelectorAll('[data-preview-day]').forEach((row) => {
+    row.addEventListener('click', () => {
+      selectedDate = row.dataset.previewDay;
+      techTabDataCacheKey = null;
+      renderTechCalendar();
+    });
+  });
+}
+
 function getRealizadosItems(techId) {
   return getReportsSnapshot()
     .filter((report) => report.status === 'approved' && reportAssignedToTechnician(report, techId))
@@ -229,11 +305,6 @@ const TECH_JOBS_SHELL_HTML = `
     <p class="text-muted tech-greeting">
       Olá, <strong id="user-name"></strong>
     </p>
-    <div class="tech-jobs-tabs" role="tablist" aria-label="Filtrar trabalhos">
-      <button type="button" class="tech-jobs-tab is-active" data-tech-jobs-tab="em_curso" role="tab" aria-selected="true">Em Curso / Pendentes</button>
-      <button type="button" class="tech-jobs-tab" data-tech-jobs-tab="agendados" role="tab" aria-selected="false">Agendados</button>
-      <button type="button" class="tech-jobs-tab" data-tech-jobs-tab="realizados" role="tab" aria-selected="false">Histórico de Realizados</button>
-    </div>
     <div class="jobs-list" id="jobs-list"></div>
   </section>
 `;
@@ -242,9 +313,10 @@ export function restoreTechDashboard() {
   const app = document.getElementById('app');
   if (!app) return;
   app.innerHTML = TECH_JOBS_SHELL_HTML;
-  techJobsTabsBound = false;
-  bindTechJobsTabs();
   renderUserGreeting('user-name');
+  updateTechCalendarWrapVisibility();
+  const title = document.getElementById('tech-jobs-section-title');
+  if (title) title.textContent = TECH_JOBS_TABS[techJobsTab].label;
   refreshTechCalendar().catch(console.error);
   app.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
@@ -278,6 +350,7 @@ export async function initTechDashboard() {
   bindTechCalendarNavigation();
   bindTechJobsTabs();
   bindOfflineSyncButton();
+  updateTechCalendarWrapVisibility();
 
   window.addEventListener('jobs-updated', () => {
     periodJobsCacheKey = null;
@@ -1039,18 +1112,33 @@ function renderJobs() {
       return;
     }
     html = items.map((item) => renderRealizadoCard(item)).join('');
+  } else if (techJobsTab === 'agendados') {
+    const jobs = getAgendadosJobs(techId);
+    if (!jobs.length) {
+      // Layout compacto: nota discreta + trabalhos do resto da semana
+      container.innerHTML = `
+        <div class="agendados-empty-note" role="status">
+          <span aria-hidden="true">📅</span>
+          <p>${TECH_TAB_EMPTY_MESSAGES.agendados}</p>
+        </div>
+        ${renderAgendadosWeekPreview(techId)}
+      `;
+      bindAgendadosPreviewEvents(container);
+      return;
+    }
+    html = jobs.map((job) => renderJobCard(job, { actionMode: 'agendados' })).join('');
   } else {
-    const jobs = techJobsTab === 'agendados' ? getAgendadosJobs(techId) : getEmCursoJobs(techId);
+    const jobs = getEmCursoJobs(techId);
     if (!jobs.length) {
       container.innerHTML = `
         <div class="empty-state glass-card">
           <div class="empty-icon">📋</div>
-          <p>${TECH_TAB_EMPTY_MESSAGES[techJobsTab]}</p>
+          <p>${TECH_TAB_EMPTY_MESSAGES.em_curso}</p>
         </div>
       `;
       return;
     }
-    html = jobs.map((job) => renderJobCard(job, { actionMode: techJobsTab })).join('');
+    html = jobs.map((job) => renderJobCard(job, { actionMode: 'em_curso' })).join('');
   }
 
   container.innerHTML = html;

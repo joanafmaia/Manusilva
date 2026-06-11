@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/app.css?v=form-layout-v7">
+  <link rel="stylesheet" href="css/app.css?v=form-layout-v8">
 </head>
 <body class="tech-dashboard-page">
   <script src="js/theme-boot.js"></script>
@@ -78,20 +78,28 @@
         </button>
       </div>
 
-      <div class="tech-calendar-toolbar">
-        <div class="tech-cal-view-toggle" role="tablist" aria-label="Vista do calendário">
-          <button type="button" class="tech-cal-view-btn is-active" data-tech-cal-view="week" role="tab" aria-selected="true">Semana</button>
-          <button type="button" class="tech-cal-view-btn" data-tech-cal-view="month" role="tab" aria-selected="false">Mês</button>
-        </div>
-        <div class="calendar-nav tech-calendar-nav">
-          <button type="button" id="tech-prev-period" aria-label="Período anterior">‹</button>
-          <span id="tech-calendar-title"></span>
-          <button type="button" id="tech-next-period" aria-label="Período seguinte">›</button>
-        </div>
+      <div class="tech-jobs-tabs tech-jobs-tabs--header" role="tablist" aria-label="Filtrar trabalhos">
+        <button type="button" class="tech-jobs-tab is-active" data-tech-jobs-tab="em_curso" role="tab" aria-selected="true">Em Curso / Pendentes</button>
+        <button type="button" class="tech-jobs-tab" data-tech-jobs-tab="agendados" role="tab" aria-selected="false">Agendados</button>
+        <button type="button" class="tech-jobs-tab" data-tech-jobs-tab="realizados" role="tab" aria-selected="false">Histórico de Realizados</button>
       </div>
-      <div class="tech-calendar-body vista-semanal">
-        <div class="calendar-strip calendar-strip--week" id="calendar-strip" role="group" aria-label="Dias da semana"></div>
-        <div class="tech-month-calendar" id="tech-month-calendar" hidden aria-label="Calendário mensal"></div>
+
+      <div id="tech-calendar-wrap" hidden>
+        <div class="tech-calendar-toolbar">
+          <div class="tech-cal-view-toggle" role="tablist" aria-label="Vista do calendário">
+            <button type="button" class="tech-cal-view-btn is-active" data-tech-cal-view="week" role="tab" aria-selected="true">Semana</button>
+            <button type="button" class="tech-cal-view-btn" data-tech-cal-view="month" role="tab" aria-selected="false">Mês</button>
+          </div>
+          <div class="calendar-nav tech-calendar-nav">
+            <button type="button" id="tech-prev-period" aria-label="Período anterior">‹</button>
+            <span id="tech-calendar-title"></span>
+            <button type="button" id="tech-next-period" aria-label="Período seguinte">›</button>
+          </div>
+        </div>
+        <div class="tech-calendar-body vista-semanal">
+          <div class="calendar-strip calendar-strip--week" id="calendar-strip" role="group" aria-label="Dias da semana"></div>
+          <div class="tech-month-calendar" id="tech-month-calendar" hidden aria-label="Calendário mensal"></div>
+        </div>
       </div>
     </header>
 
@@ -104,11 +112,6 @@
         <p class="text-muted tech-greeting">
           Olá, <strong id="user-name"></strong>
         </p>
-        <div class="tech-jobs-tabs" role="tablist" aria-label="Filtrar trabalhos">
-          <button type="button" class="tech-jobs-tab is-active" data-tech-jobs-tab="em_curso" role="tab" aria-selected="true">Em Curso / Pendentes</button>
-          <button type="button" class="tech-jobs-tab" data-tech-jobs-tab="agendados" role="tab" aria-selected="false">Agendados</button>
-          <button type="button" class="tech-jobs-tab" data-tech-jobs-tab="realizados" role="tab" aria-selected="false">Histórico de Realizados</button>
-        </div>
         <div class="jobs-list" id="jobs-list"></div>
       </section>
     </main>

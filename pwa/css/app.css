@@ -1239,6 +1239,108 @@ body.dark-mode .offline-sync-banner__icon {
   }
 }
 
+/* Abas principais no topo (header) — controlador principal do ecrã */
+.tech-jobs-tabs--header {
+  margin: 0.75rem 0 0.25rem;
+}
+
+#tech-calendar-wrap[hidden] {
+  display: none !important;
+}
+
+/* Aba Agendados — dia sem trabalhos: layout compacto */
+.agendados-empty-note {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.7rem 0.9rem;
+  border-radius: var(--radius-sm);
+  border: 1px dashed var(--border-subtle);
+  background: var(--surface-muted);
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+  margin-bottom: 0.85rem;
+}
+
+.agendados-empty-note p {
+  margin: 0;
+}
+
+.agendados-week-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.agendados-preview-title {
+  margin: 0 0 0.15rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.agendados-preview-row {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  width: 100%;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--border-subtle);
+  border-left: 3px solid var(--ws-scheduled);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  font-family: inherit;
+  font-size: 0.8125rem;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+.agendados-preview-row:hover,
+.agendados-preview-row:focus-visible {
+  border-color: var(--ws-scheduled);
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.07);
+  outline: none;
+}
+
+.agendados-preview-date {
+  flex-shrink: 0;
+  min-width: 3.4rem;
+  font-weight: 700;
+  color: var(--ws-scheduled-text);
+  text-transform: uppercase;
+  font-size: 0.7rem;
+}
+
+.agendados-preview-time {
+  flex-shrink: 0;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.agendados-preview-client {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-primary);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.agendados-preview-service {
+  flex-shrink: 0;
+}
+
+.agendados-preview-empty {
+  margin: 0;
+  font-size: 0.8125rem;
+  text-align: center;
+  padding: 0.4rem 0;
+}
+
 .form-overlay--readonly .form-panel-footer .btn-secondary,
 .form-overlay--readonly .form-panel-footer .btn-primary,
 .form-overlay--readonly .form-footer-hint {
