@@ -102,7 +102,6 @@ import {
   resolvePedidoOrcamentoDetalhe,
   PDF_STANDARD_WORK_SPECS,
   formatOrdemTechnicianLine,
-  PDF_CLOSING_SUMMARY_SPECS,
 } from './report-layout-standard.js';
 
 const DB_KEY = 'manusilva_db';
@@ -530,7 +529,10 @@ export async function renderInterventionPDF(report) {
   const fotoDepoisUrl = data.fotoDepoisUrl || job?.fotoDepois || null;
 
   const techName = tech?.name || '—';
-  let y = drawTopRowWithClientBlock(doc, clientMeta, job?.numeroOrdem ?? null, techName);
+  const isFolhaAvariasPdf = report.serviceType === 'folha_intervencao_avarias';
+  let y = isFolhaAvariasPdf
+    ? drawFolhaMirrorHeader(doc, clientMeta, job?.numeroOrdem ?? null, techName)
+    : drawTopRowWithClientBlock(doc, clientMeta, job?.numeroOrdem ?? null, techName);
   const pdfContext = buildPdfRenderContext(report, job, clientMeta, tech);
   let values = mapReportValuesForPdf(data, service, pdfContext);
   values = { ...values, ...resolveInspecaoDl50MachineFields(values, pdfContext) };
@@ -543,7 +545,6 @@ export async function renderInterventionPDF(report) {
     legalValue: isDl50Pdf ? values.declaracao_seguranca : null,
   };
 
-  const isFolhaAvariasPdf = report.serviceType === 'folha_intervencao_avarias';
   const closingOpts = {
     legalLabel: isDl50Pdf ? 'Declaração de Segurança' : null,
     legalValue: isDl50Pdf ? values.declaracao_seguranca : null,
@@ -554,10 +555,11 @@ export async function renderInterventionPDF(report) {
     signatures: data.signatures || {},
     closingValues: values,
     skipClosingDiagnostic: isFolhaAvariasPdf,
+    folhaLayout: isFolhaAvariasPdf,
   };
 
   if (isFolhaAvariasPdf) {
-    y = drawCenteredTitleBar(doc, y, 'FOLHA DE INTERVENÇÃO DE AVARIAS');
+    y = drawFolhaTitleBar(doc, y, 'FOLHA DE INTERVENÇÃO DE AVARIAS');
     y = await drawFolhaAvariasBody(doc, y, values, service, pdfContext);
     y = await drawReportClosingSection(doc, y, closingOpts);
   } else {
@@ -580,7 +582,7 @@ export async function renderInterventionPDF(report) {
 
   touchPdfContentPage(doc);
   trimTrailingBlankPages(doc);
-  drawPageFooter(doc, report.id);
+  drawPageFooter(doc, report.id, { lastPageOnly: isFolhaAvariasPdf });
 
   return doc;
 }
@@ -662,6 +664,20 @@ export async function generateReportPdfByServiceType(report) {
 /** Logo no cabeçalho PDF (mm) — largura × altura, proporção do wordmark MS + MANUSILVA */
 const PDF_LOGO_WIDTH_MM = 48;
 const PDF_LOGO_HEIGHT_MM = 34;
+
+/** Layout profissional — Folha de Intervenção de Avarias */
+const FOLHA_TITLE_BAR_BG = [241, 245, 249];
+const FOLHA_TABLE_HEAD_FILL = [241, 245, 249];
+const FOLHA_POLAROID_MM = 37;
+const FOLHA_CLOSING_PROFILE = {
+  polaroidMm: FOLHA_POLAROID_MM,
+  descH: 0,
+  polaroidBottom: 6,
+  sectionHeader: true,
+  legalGap: 4,
+  sigTop: 8,
+  sigImg: 18,
+};
 const PDF_HEADER_CLIENT_W = 88;
 
 function formatTableHeaderLabel(col) {
@@ -718,6 +734,16 @@ function sanitizePdfTitle(title) {
 function formatOrdemDisplay(numeroOrdem) {
   const padded = String(numeroOrdem).padStart(2, '0');
   return `Ordem No: OP-2026-${padded}`;
+}
+
+function formatFolhaOrdemDisplay(numeroOrdem) {
+  if (numeroOrdem == null || numeroOrdem === '') return 'Ordem Nº: —';
+  const padded = String(numeroOrdem).padStart(2, '0');
+  return `Ordem Nº: OP-2026-${padded}`;
+}
+
+function folhaGridCell(label, value) {
+  return `${label}: ${pdfDisplayValue(value) || '—'}`;
 }
 
 function buildInstitutionalFooterLines() {
@@ -946,52 +972,323 @@ function drawTopRowWithClientBlock(doc, clientMeta, numeroOrdem = null, techName
   return Math.max(leftY, topY + blockH) + 8;
 }
 
-function drawCenteredTitleBar(doc, y, title) {
+/** Cabeçalho espelho — logótipo/ordem/técnico (esq.) vs. cliente (dir., alinhado à direita) */
+function drawFolhaMirrorHeader(doc, clientMeta, numeroOrdem = null, techName = '—') {
+  const topY = MARGIN;
+  const logoW = PDF_LOGO_WIDTH_MM;
+  const logoH = PDF_LOGO_HEIGHT_MM;
+  const rightX = PAGE_W - MARGIN;
+  const rightTextW = CONTENT_W * 0.48;
+
+  if (isLogoConfigured()) {
+    try {
+      doc.addImage(
+        MANUSILVA_LOGO,
+        getPdfLogoFormat(),
+        MARGIN,
+        topY,
+        logoW,
+        logoH,
+        undefined,
+        'FAST',
+      );
+    } catch {
+      drawLogoPlaceholder(doc, MARGIN, topY, logoW, logoH);
+    }
+  } else {
+    drawLogoPlaceholder(doc, MARGIN, topY, logoW, logoH);
+  }
+
+  let leftY = topY + logoH + 5;
   pdfSetFont(doc, 'bold');
-  doc.setFontSize(PDF_FONT_TITLE);
-  doc.setTextColor(...CORPORATE_BLUE_DARK);
-  const lines = pdfSplitText(doc, title, CONTENT_W);
-  doc.text(lines, MARGIN + CONTENT_W / 2, y + 5, { align: 'center' });
-  const textH = lines.length * 6.2;
-  y += textH + 4;
-  doc.setDrawColor(...CORPORATE_BLUE);
-  doc.setLineWidth(0.5);
-  doc.line(MARGIN, y, MARGIN + CONTENT_W, y);
+  doc.setFontSize(PDF_FONT_BODY);
+  doc.setTextColor(...CORPORATE_BLUE);
+  doc.text(formatFolhaOrdemDisplay(numeroOrdem), MARGIN, leftY);
+  leftY += 5.5;
+  doc.text(`Técnico: ${pdfSafeText(techName)}`, MARGIN, leftY);
+  leftY += 5;
+
+  let rightY = topY + 4;
+  pdfSetFont(doc, 'bold');
+  doc.setFontSize(PDF_FONT_BODY);
+  doc.setTextColor(...TEXT_DARK);
+  const nameLines = pdfSplitText(doc, pdfSafeText(clientMeta.nome), rightTextW);
+  nameLines.forEach((line) => {
+    doc.text(line, rightX, rightY, { align: 'right' });
+    rightY += 4.5;
+  });
+  rightY += 1.5;
+
+  pdfSetFont(doc, 'normal');
+  doc.setFontSize(PDF_FONT_CAPTION);
+  doc.setTextColor(...TEXT_MUTED);
+  const addrLines = pdfSplitText(doc, pdfSafeText(clientMeta.addressLine), rightTextW);
+  const addrSubLines = clientMeta.addressSubline
+    ? pdfSplitText(doc, pdfSafeText(clientMeta.addressSubline), rightTextW)
+    : [];
+  [...addrLines, ...addrSubLines].forEach((line) => {
+    doc.text(line, rightX, rightY, { align: 'right' });
+    rightY += 3.8;
+  });
+
   touchPdfContentPage(doc);
-  return y + 8;
+  return Math.max(leftY, rightY, topY + logoH) + 6;
+}
+
+function drawFolhaTitleBar(doc, y, title) {
+  const barH = 12;
+  y = ensureSpace(doc, y, barH + 8);
+  doc.setFillColor(...FOLHA_TITLE_BAR_BG);
+  doc.setDrawColor(...PDF_TABLE_LINE);
+  doc.setLineWidth(0.15);
+  doc.roundedRect(MARGIN, y, CONTENT_W, barH, 1.5, 1.5, 'FD');
+  pdfSetFont(doc, 'bold');
+  doc.setFontSize(PDF_FONT_SECTION);
+  doc.setTextColor(...CORPORATE_BLUE_DARK);
+  doc.text(title, MARGIN + CONTENT_W / 2, y + 8, { align: 'center' });
+  touchPdfContentPage(doc);
+  return y + barH + 8;
 }
 
 async function drawFolhaAvariasBody(doc, y, values, service, pdfContext) {
-  y = await drawStandardMachineBlock(doc, y, values, pdfContext);
-  y = drawDivider(doc, y);
+  y = await drawFolhaMachineGrid(doc, y, values, pdfContext);
   y = await drawFolhaWorkBlock(doc, y, values, service);
-  y = drawDivider(doc, y);
-  y = await drawFolhaClosingDataBlock(doc, y, values, service);
+  y = await drawFolhaClosingDataBlock(doc, y, values);
   return y;
 }
 
+async function drawFolhaMachineGrid(doc, y, values, pdfContext) {
+  const resolveMachine = (spec) => {
+    let fallback = null;
+    if (spec.id === 'numero_de_serie') {
+      fallback = pdfContext?.forkliftSerial || pdfContext?.report?.forkliftSerial || null;
+    }
+    return resolvePdfStandardFieldValue(values, spec, fallback);
+  };
+
+  const marca = resolveMachine(PDF_STANDARD_MACHINE_SPECS[0]);
+  const modelo = resolveMachine(PDF_STANDARD_MACHINE_SPECS[1]);
+  const serie = resolveMachine(PDF_STANDARD_MACHINE_SPECS[2]);
+  const interno = resolveMachine(PDF_STANDARD_MACHINE_SPECS[3]);
+  const horas = resolveMachine(PDF_STANDARD_MACHINE_SPECS[4]);
+
+  y = ensureSpace(doc, y, 34);
+  pdfSetFont(doc, 'bold');
+  doc.setFontSize(PDF_FONT_CAPTION);
+  doc.setTextColor(...CORPORATE_BLUE);
+  doc.text('INFORMAÇÕES DA MÁQUINA', MARGIN, y + 4);
+  y += 8;
+
+  await loadJsPdfAutoTable();
+  const tableConfig = {
+    startY: y,
+    margin: getPdfAutoTableMargin(MARGIN, MARGIN),
+    tableWidth: CONTENT_W,
+    body: [
+      [
+        { content: folhaGridCell('Marca', marca), colSpan: 3 },
+        { content: folhaGridCell('Modelo', modelo), colSpan: 3 },
+      ],
+      [
+        { content: folhaGridCell('Nº Série', serie), colSpan: 2 },
+        { content: folhaGridCell('Nº Interno', interno), colSpan: 2 },
+        { content: folhaGridCell('Horas', horas), colSpan: 2 },
+      ],
+    ],
+    theme: 'plain',
+    styles: {
+      font: pdfAutoTableFont(doc),
+      fontSize: PDF_FONT_BODY,
+      cellPadding: { top: 3.5, right: 4, bottom: 3.5, left: 4 },
+      lineColor: PDF_TABLE_LINE,
+      lineWidth: 0.2,
+      textColor: TEXT_DARK,
+      fillColor: PDF_TABLE_BODY_FILL,
+      valign: 'middle',
+      overflow: 'linebreak',
+    },
+    columnStyles: {
+      0: { cellWidth: CONTENT_W / 6 },
+      1: { cellWidth: CONTENT_W / 6 },
+      2: { cellWidth: CONTENT_W / 6 },
+      3: { cellWidth: CONTENT_W / 6 },
+      4: { cellWidth: CONTENT_W / 6 },
+      5: { cellWidth: CONTENT_W / 6 },
+    },
+    didDrawPage: buildPdfAutoTableDidDrawPage(doc),
+  };
+  doc.autoTable(tableConfig);
+  touchPdfContentPage(doc);
+  return normalizeYAfterAutoTable(doc, y, 8);
+}
+
+function drawFolhaBoundedTextField(doc, y, label, value) {
+  const innerW = CONTENT_W - 10;
+  const lines = pdfParagraphLines(doc, value, innerW);
+  const labelH = 7;
+  const boxH = Math.max(20, lines.length * 4.5 + labelH + 8);
+  y = ensureSpace(doc, y, boxH + 6);
+
+  doc.setDrawColor(...PDF_TABLE_LINE);
+  doc.setLineWidth(0.2);
+  doc.setFillColor(255, 255, 255);
+  doc.roundedRect(MARGIN, y, CONTENT_W, boxH, 1, 1, 'FD');
+
+  pdfSetFont(doc, 'bold');
+  doc.setFontSize(PDF_FONT_CAPTION);
+  doc.setTextColor(...TEXT_MUTED);
+  doc.text(String(label).toUpperCase(), MARGIN + 4, y + 5.5);
+
+  pdfSetFont(doc, 'normal');
+  doc.setFontSize(PDF_FONT_BODY);
+  doc.setTextColor(...TEXT_DARK);
+  doc.text(lines, MARGIN + 4, y + labelH + 5, { lineHeightFactor: 1.35 });
+
+  touchPdfContentPage(doc);
+  return y + boxH + 5;
+}
+
 async function drawFolhaWorkBlock(doc, y, values, service) {
+  y = ensureSpace(doc, y, 12);
+  pdfSetFont(doc, 'bold');
+  doc.setFontSize(PDF_FONT_CAPTION);
+  doc.setTextColor(...CORPORATE_BLUE);
+  doc.text('BLOCO DE TRABALHO', MARGIN, y + 4);
+  y += 9;
+
   for (const spec of PDF_STANDARD_WORK_SPECS) {
     const text = String(resolvePdfStandardFieldValue(values, spec) || '').trim();
     if (!text) continue;
-    y = drawDiagnosticAnalysisBlock(doc, y, spec.label, null, text);
+    y = drawFolhaBoundedTextField(doc, y, spec.label, text);
   }
 
   const materialField = resolveServiceMaterialField(service);
   if (!materialField) return y;
 
-  const rows = normalizeMaterialRows(values[materialField.id]);
-  if (!rows.length || rows.every((row) => !String(row.artigo || '').trim() && !row.qtd)) return y;
+  const rows = normalizeMaterialRows(values[materialField.id]).filter(
+    (row) => String(row.artigo || '').trim() || row.qtd,
+  );
+  if (!rows.length) return y;
 
-  return drawDynamicTableBlock(doc, y, getMaterialTablePdfLabel(), MATERIAL_UTILIZADO_COLUMNS, rows, {
-    isMaterialTable: true,
-  });
+  return drawFolhaMaterialTable(doc, y, rows);
 }
 
-async function drawFolhaClosingDataBlock(doc, y, values, service) {
-  y = await drawPedidoOrcamentoPdfBlock(doc, y, values, { alwaysShow: true });
-  y = drawEstadoMaquinaPdfSelector(doc, y, values, service);
-  return drawInterventionLogisticsBlock(doc, y, values);
+async function drawFolhaMaterialTable(doc, y, rows) {
+  const columns = MATERIAL_UTILIZADO_COLUMNS;
+  const colKeys = columns.map((c) => columnKey(c));
+  const headLabels = columns.map((c) => formatTableHeaderLabel(c));
+  const body = rows.map((row) => colKeys.map((key) => pdfDisplayValue(row[key])));
+  const blockH = estimateDynamicTableBlockHeight(columns, rows) + 6;
+  y = ensureKeepTogetherBlock(doc, y, blockH);
+
+  pdfSetFont(doc, 'bold');
+  doc.setFontSize(PDF_FONT_CAPTION);
+  doc.setTextColor(...CORPORATE_BLUE);
+  doc.text(getMaterialTablePdfLabel().toUpperCase(), MARGIN, y + 4);
+  y += 8;
+
+  await loadJsPdfAutoTable();
+  const tableConfig = {
+    startY: y,
+    margin: getPdfAutoTableMargin(MARGIN, MARGIN),
+    tableWidth: CONTENT_W,
+    head: [headLabels],
+    body,
+    theme: 'plain',
+    styles: {
+      font: pdfAutoTableFont(doc),
+      fontSize: PDF_FONT_BODY,
+      cellPadding: { top: 3, right: 4, bottom: 3, left: 4 },
+      lineColor: PDF_TABLE_LINE,
+      lineWidth: 0.2,
+      textColor: TEXT_DARK,
+      fillColor: PDF_TABLE_BODY_FILL,
+      valign: 'middle',
+      overflow: 'linebreak',
+    },
+    headStyles: {
+      font: pdfAutoTableFont(doc),
+      fillColor: FOLHA_TABLE_HEAD_FILL,
+      textColor: TEXT_DARK,
+      fontStyle: 'bold',
+      fontSize: PDF_FONT_BODY,
+      lineColor: PDF_TABLE_LINE,
+      lineWidth: 0.2,
+      halign: 'left',
+    },
+    columnStyles: buildSmartColumnStyles(columns),
+    didDrawPage: buildPdfAutoTableDidDrawPage(doc),
+  };
+  doc.autoTable(tableConfig);
+  touchPdfContentPage(doc);
+  return normalizeYAfterAutoTable(doc, y, 8);
+}
+
+function drawFolhaLabelValueLine(doc, y, label, value, options = {}) {
+  y = ensureSpace(doc, y, 7);
+  const labelText = options.uppercaseLabel ? `${label.toUpperCase()}:` : `${label}:`;
+  pdfSetFont(doc, 'bold');
+  doc.setFontSize(PDF_FONT_BODY);
+  doc.setTextColor(...TEXT_MUTED);
+  const labelW = doc.getTextWidth(`${labelText} `);
+  doc.text(labelText, MARGIN, y);
+  pdfSetFont(doc, 'normal');
+  doc.setTextColor(...TEXT_DARK);
+  const valLines = pdfSplitText(doc, pdfSafeText(pdfDisplayValue(value)), CONTENT_W - labelW - 2);
+  doc.text(valLines, MARGIN + labelW, y);
+  touchPdfContentPage(doc);
+  return y + Math.max(6, valLines.length * 4.5 + 2);
+}
+
+async function drawFolhaClosingDataBlock(doc, y, values) {
+  y = ensureSpace(doc, y, 24);
+  pdfSetFont(doc, 'bold');
+  doc.setFontSize(PDF_FONT_CAPTION);
+  doc.setTextColor(...CORPORATE_BLUE);
+  doc.text('BLOCO DE FECHO', MARGIN, y + 4);
+  y += 9;
+
+  const pedido = resolvePedidoOrcamentoValue(values);
+  y = drawFolhaLabelValueLine(doc, y, 'Pedido de Orçamento', pedido ? 'Sim' : 'Não');
+
+  const detalhe = resolvePedidoOrcamentoDetalhe(values);
+  if (pedido && detalhe) {
+    y = drawFolhaLabelValueLine(doc, y, 'O que é necessário', detalhe, { uppercaseLabel: true });
+  }
+
+  const estado = String(values.estado_maquina || '').trim() || '—';
+  y = drawFolhaLabelValueLine(doc, y, 'Estado da Máquina', estado);
+
+  return drawFolhaInterventionLine(doc, y, values);
+}
+
+function drawFolhaInterventionLine(doc, y, values) {
+  const data1 = pdfDisplayValue(resolvePdfStandardFieldValue(values, { id: 'data_1' }));
+  const data2 = pdfDisplayValue(resolvePdfStandardFieldValue(values, { id: 'data_2' }));
+  const visitas = pdfDisplayValue(
+    resolvePdfStandardFieldValue(values, { id: VISITAS_FIELD_ID, aliases: ['visitas'] }),
+  );
+  const horas = pdfDisplayValue(resolvePdfStandardFieldValue(values, { id: 'horas_gastas' }));
+  const parts = [
+    `Data 1: ${data1 || '—'}`,
+    `Data 2: ${data2 || '—'}`,
+    `Nº de Visitas: ${visitas || '—'}`,
+    `Horas Gastas: ${horas || '—'}`,
+  ];
+
+  y = ensureSpace(doc, y, 14);
+  doc.setDrawColor(...PDF_TABLE_LINE);
+  doc.setLineWidth(0.2);
+  doc.line(MARGIN, y, MARGIN + CONTENT_W, y);
+  y += 6;
+  pdfSetFont(doc, 'normal');
+  doc.setFontSize(PDF_FONT_CAPTION);
+  doc.setTextColor(...TEXT_DARK);
+  const line = parts.join('   |   ');
+  const wrapped = pdfSplitText(doc, line, CONTENT_W);
+  doc.text(wrapped, MARGIN + CONTENT_W / 2, y, { align: 'center' });
+  touchPdfContentPage(doc);
+  return y + wrapped.length * 4 + 6;
 }
 
 function drawPdfCheckbox(doc, x, y, checked) {
@@ -1004,56 +1301,6 @@ function drawPdfCheckbox(doc, x, y, checked) {
     doc.setFontSize(7);
     doc.text(pdfStatusGlyph('ok'), x + 0.35, y + 3.1);
   }
-}
-
-function drawEstadoMaquinaPdfSelector(doc, y, values, service) {
-  const field = (service?.fields || []).find((f) => f.id === 'estado_maquina');
-  const options = field?.options?.length
-    ? field.options
-    : ['Apta a Trabalhar', 'Aguardar Intervenção', 'Pedido de Orçamento'];
-  const selected = String(values.estado_maquina || '').trim();
-
-  y = ensureSpace(doc, y, 14);
-  pdfSetFont(doc, 'bold');
-  doc.setFontSize(PDF_FONT_BODY);
-  doc.setTextColor(...TEXT_MUTED);
-  doc.text('Estado da Máquina:', MARGIN, y);
-
-  let optX = MARGIN + 42;
-  options.forEach((option) => {
-    const isSelected = selected === option;
-    drawPdfCheckbox(doc, optX, y - 3.5, isSelected);
-    pdfSetFont(doc, isSelected ? 'bold' : 'normal');
-    doc.setFontSize(PDF_FONT_CAPTION);
-    doc.setTextColor(...(isSelected ? TEXT_DARK : TEXT_MUTED));
-    doc.text(pdfSafeText(option), optX + 5, y);
-    optX += doc.getTextWidth(pdfSafeText(option)) + 12;
-  });
-
-  touchPdfContentPage(doc);
-  return y + 9;
-}
-
-function drawInterventionLogisticsBlock(doc, y, values) {
-  const dateSpecs = PDF_CLOSING_SUMMARY_SPECS.retornoDateIds.map((id) => ({
-    id,
-    label: id === 'data_1' ? 'Data 1' : 'Data 2',
-  }));
-  const pairs = [
-    ...dateSpecs.map((spec) => ({
-      label: spec.label,
-      value: pdfDisplayValue(resolvePdfStandardFieldValue(values, spec)),
-    })),
-    ...PDF_CLOSING_SUMMARY_SPECS.logistics.map((spec) => ({
-      label: spec.label,
-      value: pdfDisplayValue(resolvePdfStandardFieldValue(values, spec)),
-    })),
-  ];
-
-  y = ensureSpace(doc, y, 20);
-  y = drawSectionTitle(doc, y, 'Intervenção', { skipEnsure: true });
-  y = drawDivider(doc, y - 4);
-  return drawSectionScalarGridFromPairs(doc, y, pairs);
 }
 
 function drawTitleBar(doc, y, title) {
@@ -1879,6 +2126,8 @@ function estimateReportClosingHeight(doc, y, opts = {}) {
 }
 
 function planReportClosingProfile(doc, y, opts) {
+  if (opts.folhaLayout) return FOLHA_CLOSING_PROFILE;
+
   const bottom = pdfContentBottomY();
   const available = bottom - y;
   const hasFotos = Boolean(opts.fotoAntesUrl || opts.fotoDepoisUrl);
@@ -2568,10 +2817,21 @@ function buildPdfAutoTableDidDrawPage(doc) {
   };
 }
 
-function drawPageFooter(doc, _reportId) {
+function drawPageFooter(doc, _reportId, options = {}) {
   const total = doc.getNumberOfPages();
   for (let i = 1; i <= total; i++) {
-    drawInstitutionalPageFooter(doc, i, total);
+    if (options.lastPageOnly && i < total) {
+      doc.setPage(i);
+      pdfSetFont(doc, 'normal');
+      doc.setFontSize(PDF_FONT_CAPTION);
+      doc.setTextColor(...TEXT_MUTED);
+      doc.text(`${i} / ${total}`, PAGE_W / 2, PDF_PAGE_NUMBER_Y, { align: 'center' });
+      doc.setDrawColor(...PDF_TABLE_LINE);
+      doc.setLineWidth(0.15);
+      doc.line(MARGIN, PDF_FOOTER_BLOCK_TOP, PAGE_W - MARGIN, PDF_FOOTER_BLOCK_TOP);
+    } else {
+      drawInstitutionalPageFooter(doc, i, total);
+    }
   }
 }
 
