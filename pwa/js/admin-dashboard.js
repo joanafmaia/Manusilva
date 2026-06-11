@@ -500,10 +500,9 @@ function renderCalendarBlock(job, compact = false) {
   const stateClass = getCalendarEventStateClass(job, report);
   const sizeClass = compact ? 'cal-block cal-block-sm' : 'cal-block';
   const cls = `${sizeClass} cal-block--interactive ${stateClass}`;
-  const label = `${job.time} — ${client?.name || 'Cliente'} — ${service?.label || 'Serviço'}`;
+  const label = `${client?.name || 'Cliente'} — ${service?.label || 'Serviço'}`;
   return `
     <button type="button" class="${cls}" data-job-id="${job.id}" style="--tech-color:${tech?.color || '#3b82f6'}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">
-      <span class="cal-block-time">${job.time}</span>
       <span class="cal-block-client">${escapeHtml(compact ? client?.name?.split(' ')[0] : client?.name)}</span>
       ${!compact ? `<span class="cal-block-tech">${escapeHtml(techLabel.split(',')[0]?.trim() || tech?.name?.split(' ')[0] || '—')}</span>` : ''}
     </button>
@@ -556,7 +555,6 @@ function renderAgendaListItem(job) {
       <div class="agenda-swipe-track">
         <button type="button" class="agenda-list-item ${stateClass}" data-job-id="${job.id}" style="--tech-color:${tech?.color || '#3b82f6'}">
           <div class="agenda-list-top">
-            <span class="agenda-list-time">${job.time}</span>
             ${renderWorkStateBadge(job, report)}
           </div>
           <p class="agenda-list-client">${escapeHtml(client?.name || 'Cliente')}</p>
@@ -817,7 +815,7 @@ function buildJobDetailContent(job) {
       <div><dt>Cliente</dt><dd>${escapeHtml(client?.name || '—')}</dd></div>
       <div><dt>Técnico</dt><dd>${escapeHtml(techLabel)}</dd></div>
       <div><dt>Serviço</dt><dd>${service?.icon || ''} ${escapeHtml(service?.label || job.serviceType)}</dd></div>
-      <div><dt>Data e hora</dt><dd>${escapeHtml(formatDateLong(job.date))} · ${escapeHtml(job.time)}</dd></div>
+      <div><dt>Data</dt><dd>${escapeHtml(formatDateLong(job.date))}</dd></div>
       <div><dt>N.º série</dt><dd>${escapeHtml(job.forkliftSerial || '—')}</dd></div>
       <div><dt>Estado</dt><dd>${statusBadge(job.status)}</dd></div>
       <div><dt>Relatório</dt><dd>${escapeHtml(reportLine)}</dd></div>
@@ -835,7 +833,7 @@ function openJobDetailModal(jobId) {
 
   const client = getClient(job.clientId);
   const service = getServiceType(job.serviceType);
-  const modalTitle = `${service?.icon || '🔧'} ${client?.name || 'Serviço'} — ${job.time}`;
+  const modalTitle = `${service?.icon || '🔧'} ${client?.name || 'Serviço'} — ${formatDateLong(job.date)}`;
 
   const actions = `
     <button type="button" class="btn-ghost" id="job-detail-close">Fechar</button>
@@ -862,7 +860,7 @@ function confirmDeleteJob(jobId) {
     : '';
 
   const content = `
-    <p>Tem a certeza que deseja eliminar o serviço atribuído a <strong>${escapeHtml(client?.name || 'este cliente')}</strong> (${escapeHtml(job.date)} ${escapeHtml(job.time)})?</p>
+    <p>Tem a certeza que deseja eliminar o serviço atribuído a <strong>${escapeHtml(client?.name || 'este cliente')}</strong> (${escapeHtml(formatDateLong(job.date))})?</p>
     ${extra}
   `;
 
@@ -1002,15 +1000,9 @@ async function openAssignModal() {
           ${SERVICE_TYPES.map((s) => `<option value="${s.id}">${s.icon} ${escapeHtml(s.label)}</option>`).join('')}
         </select>
       </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label class="form-label">Data</label>
-          <input type="date" class="form-input form-input-date" id="assign-date" required autocomplete="off">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Hora</label>
-          <input type="time" class="form-input form-input-time" id="assign-time" required value="09:00" autocomplete="off">
-        </div>
+      <div class="form-group">
+        <label class="form-label">Data do serviço</label>
+        <input type="date" class="form-input form-input-date" id="assign-date" required autocomplete="off">
       </div>
     </form>
   `;
@@ -1049,7 +1041,6 @@ async function openAssignModal() {
     )?.value;
     const serviceType = overlay.querySelector('#assign-service').value;
     const date = overlay.querySelector('#assign-date').value;
-    const time = overlay.querySelector('#assign-time').value;
 
     if (selectedTechs.length < 1) {
       if (techHint) techHint.hidden = false;
@@ -1060,18 +1051,19 @@ async function openAssignModal() {
       showToast('Pode selecionar no máximo 3 técnicos.', 'error');
       return;
     }
-    if (!clientId || !date || !time) {
+    if (!clientId || !date) {
       showToast('Preencha todos os campos.', 'error');
       return;
     }
 
+    // Serviços são atribuídos ao dia — sem hora marcada.
     const id = await assignJob({
       technicianId: selectedTechs.join(', '),
       clientId,
       forkliftSerial: '',
       serviceType,
       date,
-      time,
+      time: '',
     });
     if (!id) return;
     closeModal();

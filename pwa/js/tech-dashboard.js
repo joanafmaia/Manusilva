@@ -788,7 +788,7 @@ function renderTechMonthJobBlock(job) {
   const service = getServiceType(job.serviceType);
   const report = getReportForJob(job.id);
   const stateClass = getCalendarEventStateClass(job, report);
-  const label = `${job.time} — ${client?.name || 'Cliente'} — ${service?.label || 'Serviço'}`;
+  const label = `${client?.name || 'Cliente'} — ${service?.label || 'Serviço'}`;
 
   return `
     <button type="button"
@@ -796,7 +796,6 @@ function renderTechMonthJobBlock(job) {
       data-tech-month-job="${job.id}"
       title="${escapeHtml(label)}"
       aria-label="${escapeHtml(label)}">
-      <span class="cal-block-time">${job.time}</span>
       <span class="cal-block-client">${escapeHtml(client?.name?.split(' ')[0] || 'Cliente')}</span>
       ${renderWorkStateBadge(job, report)}
     </button>
@@ -948,8 +947,8 @@ function renderCalendarStrip() {
 }
 
 /* ─── Linha compacta padrão (todas as abas) ───
-   [Data] | [Hora] | [Cliente] | [Tipo de Relatório] | [Etiqueta Estado] | [Ação]
-   Borda esquerda com a cor oficial do estado. */
+   [Data] | [Cliente] | [Tipo de Relatório] | [Etiqueta Estado] | [Ação]
+   Borda esquerda com a cor oficial do estado. (Serviços são ao dia — sem hora.) */
 
 const TECH_ROW_ACTIONS = {
   view: { icon: '👁️', title: 'Visualizar relatório' },
@@ -957,7 +956,7 @@ const TECH_ROW_ACTIONS = {
   start: { icon: '▶', title: 'Iniciar relatório' },
 };
 
-function renderTechJobRow(job, report, actionType, { dateOverride } = {}) {
+function renderTechJobRow(job, report, actionType, { dateOverride, showDate = true } = {}) {
   const state = resolveCalendarEventState(job, report);
   const client = getClient(job?.clientId || report?.clientId);
   const service = getServiceType(job?.serviceType || report?.serviceType);
@@ -968,8 +967,7 @@ function renderTechJobRow(job, report, actionType, { dateOverride } = {}) {
 
   return `
     <div class="tech-job-row tech-job-row--${state}" data-row-job="${escapeHtml(jobId)}" data-row-action="${escapeHtml(actionType)}" role="button" tabindex="0" aria-label="${escapeHtml(label)}">
-      <span class="tech-job-row-date">${formatRealizadoRowDate(isoDate)}</span>
-      ${job?.time ? `<span class="tech-job-row-time">${escapeHtml(job.time)}</span>` : ''}
+      ${showDate ? `<span class="tech-job-row-date">${formatRealizadoRowDate(isoDate)}</span>` : ''}
       <span class="tech-job-row-client">${escapeHtml(client?.name || 'Cliente')}</span>
       <span class="tech-job-row-service">${service?.icon || '🔧'} ${escapeHtml(service?.label || job?.serviceType || 'Relatório')}</span>
       ${renderWorkStateBadge(job, report)}
@@ -1179,9 +1177,10 @@ function renderJobs() {
         ${renderAgendadosWeekPreview(techId)}
       `;
     } else {
+      // Aba diária: o dia já está selecionado no calendário — a linha começa pelo cliente.
       container.innerHTML = `
         <div class="tech-job-rows">
-          ${jobs.map((job) => renderTechJobRow(job, getReportForJob(job.id), 'start')).join('')}
+          ${jobs.map((job) => renderTechJobRow(job, getReportForJob(job.id), 'start', { showDate: false })).join('')}
         </div>
         ${renderAgendadosWeekPreview(techId)}
       `;

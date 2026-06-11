@@ -1386,13 +1386,6 @@ body.dark-mode .offline-sync-banner__icon {
   color: var(--text-secondary);
 }
 
-.tech-job-row-time {
-  flex-shrink: 0;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  color: var(--text-secondary);
-}
-
 .tech-job-row-client {
   flex-shrink: 0;
   max-width: 32%;
