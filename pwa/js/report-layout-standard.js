@@ -3,6 +3,7 @@
  */
 
 import { MATERIAL_FIELD_IDS } from './material-table-field.js';
+import { COMPANY } from './mock_data.js';
 import {
   DESLOCACAO_BASE_FIELD_ID,
   STANDARD_DESLOCACAO_FIELD,
@@ -47,6 +48,7 @@ export const STANDARD_MACHINE_FIELD_SPECS = [
     step: 1,
     inputMode: 'numeric',
     hint: 'Horas indicadas no painel da máquina',
+    pattern: '[0-9]*',
   },
 ];
 
@@ -162,11 +164,15 @@ export function resolvePedidoOrcamentoDetalhe(values = {}) {
 }
 
 /** Pré-preenche campos standard a partir de dados guardados. */
-export function mergeStandardLayoutValues(values = {}, _service = null) {
+export function mergeStandardLayoutValues(values = {}, _service = null, job = null) {
   const merged = { ...values };
 
   if (!String(merged.deteccao_de_avaria || '').trim() && merged[RESUMO_INTERVENCAO_FIELD_ID]) {
     merged.deteccao_de_avaria = String(merged[RESUMO_INTERVENCAO_FIELD_ID]).split('\n\n')[0] || '';
+  }
+
+  if (!String(merged.data_1 || '').trim() && job?.date) {
+    merged.data_1 = String(job.date).split('T')[0];
   }
 
   if (merged[PEDIDO_ORCAMENTO_FIELD_ID] == null || merged[PEDIDO_ORCAMENTO_FIELD_ID] === '') {
@@ -189,6 +195,7 @@ function numberInputAttrs(field) {
   const step = field.step ?? 1;
   const mode = field.inputMode || (Number(step) === 1 ? 'numeric' : 'decimal');
   const attrs = [`step="${step}"`, `inputmode="${mode}"`];
+  if (field.pattern) attrs.push(`pattern="${field.pattern}"`);
   if (field.min != null) attrs.push(`min="${field.min}"`);
   if (field.max != null) attrs.push(`max="${field.max}"`);
   return attrs.join(' ');
@@ -248,19 +255,21 @@ function renderPedidoOrcamentoField(values = {}) {
     <div class="form-group field-block report-pedido-orcamento-field">
       <span class="form-label">Pedido de Orçamento</span>
       <div class="report-pedido-orcamento-options" role="radiogroup" aria-label="Pedido de Orçamento">
-        <label class="report-pedido-orcamento-option">
+        <label class="report-pedido-orcamento-option report-pedido-orcamento-option--checkbox">
           <input type="radio" name="pedido_orcamento_radio" value="sim" ${simChecked}>
+          <span class="report-pedido-orcamento-box" aria-hidden="true"></span>
           <span>Sim</span>
         </label>
-        <label class="report-pedido-orcamento-option">
+        <label class="report-pedido-orcamento-option report-pedido-orcamento-option--checkbox">
           <input type="radio" name="pedido_orcamento_radio" value="nao" ${naoChecked}>
+          <span class="report-pedido-orcamento-box" aria-hidden="true"></span>
           <span>Não</span>
         </label>
       </div>
       <input type="hidden" id="field-${PEDIDO_ORCAMENTO_FIELD_ID}" data-field-id="${PEDIDO_ORCAMENTO_FIELD_ID}"
         data-field-kind="text" value="${pedido ? 'Sim' : 'Não'}">
       <div class="report-pedido-orcamento-detalhe" data-pedido-detalhe-wrap ${pedido ? '' : 'hidden'}>
-        <label class="form-label" for="field-${PEDIDO_ORCAMENTO_DETALHE_FIELD_ID}">O que é necessário</label>
+        <label class="form-label" for="field-${PEDIDO_ORCAMENTO_DETALHE_FIELD_ID}">O que é necessário:</label>
         <textarea id="field-${PEDIDO_ORCAMENTO_DETALHE_FIELD_ID}" class="form-input form-textarea report-work-textarea" rows="2"
           data-field-id="${PEDIDO_ORCAMENTO_DETALHE_FIELD_ID}" data-field-kind="textarea"
           placeholder="Descreva o que é necessário…">${escapeHtml(detalhe)}</textarea>
@@ -268,24 +277,39 @@ function renderPedidoOrcamentoField(values = {}) {
     </div>`;
 }
 
-export function renderCompanyIntroBlock(service) {
-  const name = service?.companyName || 'ManuSilva Manutenção Industrial, Unipessoal, Lda';
-  const address =
-    service?.companyAddress || 'Rua São Mamede, Lote Nº1 - Fração D, 4760-725 Ribeirão VNF';
+/** Cabeçalho bilateral — esquerda: logo + ordem/técnico; direita: dados institucionais */
+export function renderBilateralDocumentHeader(job, tech, service) {
+  const ordemLine = formatOrdemTechnicianLine(job?.numeroOrdem, tech?.name);
+  const companyName = service?.companyName || COMPANY.name;
+  const companyAddress =
+    service?.companyAddress ||
+    'Rua São Mamede, Lote Nº1-Fração D, 4760-725 Ribeirão VNF';
+  const contactLine = `Tel: ${COMPANY.phone} | ${COMPANY.email}`;
+  const website = COMPANY.website || 'www.manusilva.pt';
 
   return `
-    <div class="report-company-intro">
-      <div class="report-company-intro-logo" aria-hidden="true">MS</div>
-      <div class="report-company-intro-meta">
-        <p class="report-company-intro-name">${escapeHtml(name)}</p>
-        <p class="report-company-intro-address">${escapeHtml(address)}</p>
+    <header class="report-doc-header">
+      <div class="report-doc-header-col report-doc-header-col--left">
+        <div class="report-doc-header-logo" aria-hidden="true">MS</div>
+        <p class="report-doc-ordem-line">${escapeHtml(ordemLine)}</p>
       </div>
-    </div>`;
+      <div class="report-doc-header-col report-doc-header-col--right">
+        <p class="report-doc-company-line report-doc-company-line--name">${escapeHtml(companyName)}</p>
+        <p class="report-doc-company-line">${escapeHtml(companyAddress)}</p>
+        <p class="report-doc-company-line">${escapeHtml(contactLine)}</p>
+        <p class="report-doc-company-line">${escapeHtml(website)}</p>
+      </div>
+    </header>`;
 }
 
+/** @deprecated — usar renderBilateralDocumentHeader */
+export function renderCompanyIntroBlock(service) {
+  return renderBilateralDocumentHeader(null, null, service);
+}
+
+/** @deprecated — ordem incluída em renderBilateralDocumentHeader */
 export function renderOrdemTechnicianLine(job, tech) {
-  const line = formatOrdemTechnicianLine(job?.numeroOrdem, tech?.name);
-  return `<p class="form-ordem-tecnico-line">${escapeHtml(line)}</p>`;
+  return '';
 }
 
 export function renderStandardMachineBlock(values = {}, _context = {}) {

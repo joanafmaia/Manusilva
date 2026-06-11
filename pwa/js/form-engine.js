@@ -263,6 +263,10 @@ export function renderServiceMaterialTable(service, values = {}, context = {}) {
     {
       ...field,
       label: 'Consumíveis',
+      columns: [
+        { id: 'artigo', label: 'Artigo / Desc.' },
+        { id: 'qtd', label: 'Qtd.' },
+      ],
       addButtonLabel: field.addButtonLabel || 'Adicionar linha',
     },
     rows,
@@ -283,14 +287,26 @@ export function renderServiceEstadoMaquinaField(service, values = {}) {
 
 /** Cabeçalho com dados do cliente (destino da intervenção) — só nome e morada */
 export function renderJobClientHeader(client) {
-  const { nome, address } = resolveClientDisplayMeta(client);
+  const { nome } = resolveClientDisplayMeta(client);
+  const morada = client?.Morada || client?.morada || '';
+  const cp = client?.['Código postal'] || client?.codigoPostal || '';
+  const loc = client?.Localidade || client?.localidade || '';
+  const cpLoc = [cp, loc].filter(Boolean).join(' ');
 
-  const addressHtml = address
-    ? `<p class="job-client-header-address">${escapeHtml(address)}</p>`
-    : `<p class="job-client-header-address job-client-header-address--muted">Morada não registada</p>`;
+  let addressHtml;
+  if (morada || cpLoc) {
+    addressHtml = `
+      ${morada ? `<p class="job-client-header-address">${escapeHtml(morada)}</p>` : ''}
+      ${cpLoc ? `<p class="job-client-header-address">${escapeHtml(cpLoc)}</p>` : ''}`;
+  } else {
+    const { address } = resolveClientDisplayMeta(client);
+    addressHtml = address
+      ? `<p class="job-client-header-address">${escapeHtml(address)}</p>`
+      : `<p class="job-client-header-address job-client-header-address--muted">Morada não registada</p>`;
+  }
 
   return `
-    <div class="job-client-header glass-card-inner">
+    <div class="job-client-header report-client-block glass-card-inner">
       <p class="job-client-header-label">Cliente</p>
       <p class="job-client-header-name">${escapeHtml(nome)}</p>
       ${addressHtml}

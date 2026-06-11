@@ -33,8 +33,7 @@ import {
 } from './form-engine.js';
 import {
   mergeStandardLayoutValues,
-  renderCompanyIntroBlock,
-  renderOrdemTechnicianLine,
+  renderBilateralDocumentHeader,
   renderStandardMachineBlock,
   renderStandardWorkBlock,
   renderStandardClosingBlock,
@@ -268,7 +267,7 @@ function buildFormHTML(job, client, tech, service, existingReport, options = {})
     lockClient: true,
   };
   const prefill = buildFormPrefill(service, job, null, formContext);
-  const values = mergeStandardLayoutValues(mergeFormValues(saved, prefill, service), service);
+  const values = mergeStandardLayoutValues(mergeFormValues(saved, prefill, service), service, job);
   if (service?.id === 'manutencao_baterias_grandes') {
     values[GRANDES_BATTERY_FIELD_ID] = migrateLegacyBatteryRows(values);
   }
@@ -315,8 +314,8 @@ function buildFormHTML(job, client, tech, service, existingReport, options = {})
   const depoisUrl = fotoDisplayUrl(fotoDepoisState);
 
   const fotoSection = `
-    <section class="form-section form-section--final form-section-card">
-      <h3 class="section-title">Fotos do Trabalho <span class="text-muted section-title-hint">(opcional)</span></h3>
+    <section class="form-section form-section--final form-section-card form-section-card--fotos-compact">
+      <h3 class="section-title section-title--compact">Fotos do Trabalho <span class="text-muted section-title-hint">(opcional)</span></h3>
       <p class="text-muted foto-antes-depois-hint">Pode anexar só Antes, só Depois, as duas ou nenhuma.</p>
       <div class="foto-antes-depois-grid">
         <div class="foto-antes-depois-card">
@@ -362,8 +361,7 @@ function buildFormHTML(job, client, tech, service, existingReport, options = {})
           <div class="report-tab-panels">
             <div class="report-tab-panel is-active" data-report-panel="geral" id="report-panel-geral" role="tabpanel" aria-labelledby="report-tab-geral">
               <div class="form-section-card form-section-card--intro">
-                ${official ? renderCompanyIntroBlock(service) : ''}
-                ${official ? renderOrdemTechnicianLine(job, tech) : ''}
+                ${official ? renderBilateralDocumentHeader(job, tech, service) : ''}
                 ${clientHeader}
                 ${lockedClientFields}
                 ${official ? `<h2 class="form-report-title form-report-title--compact">${escapeHtml(formTitle)}</h2>` : `<h2 class="form-report-title">${service?.icon || '📋'} ${escapeHtml(formTitle)}</h2>`}
