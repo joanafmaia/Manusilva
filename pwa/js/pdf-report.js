@@ -30,7 +30,7 @@ import {
   pdfStatusGlyph,
 } from './pdf-font.js';
 import { getColumnLabels } from './views/relatorio-grandes.js';
-import { reportIncludesDeslocacao } from './deslocacao-field.js';
+import { reportIncludesDeslocacao, VISITAS_FIELD_ID, DESLOCACAO_BASE_FIELD_ID } from './deslocacao-field.js';
 import {
   buildPdfAutoTableStyles,
   getBlockPdfTitle,
@@ -211,6 +211,14 @@ function formatPdfDeslocacao(raw, ctx = {}) {
   }
 
   return text;
+}
+
+/** Número de visitas ao terreno — padrão 1 quando omitido. */
+function formatPdfNumeroVisitas(values) {
+  const raw = values?.[VISITAS_FIELD_ID] ?? values?.visitas ?? values?.numero_visitas;
+  const n = Number(String(raw ?? '').replace(',', '.').trim());
+  if (Number.isFinite(n) && n >= 1) return String(Math.round(n));
+  return '1';
 }
 
 function getTechnician(id) {
@@ -452,7 +460,12 @@ export async function renderInterventionPDF(report) {
   y = await drawMetadataGrid(doc, y, {
     dateTime: formatReportDateTimeCompact(report, job, values),
     technician: tech?.name || '—',
-    deslocacao: reportIncludesDeslocacao(service) ? (values.deslocacao || '—') : null,
+    ...(reportIncludesDeslocacao(service)
+      ? {
+          deslocacao: values.deslocacao || '—',
+          numeroVisitas: formatPdfNumeroVisitas(values),
+        }
+      : {}),
   });
   y = drawDivider(doc, y);
   y = await drawReportFieldsSection(doc, y, service, values, pdfContext);
@@ -699,6 +712,7 @@ function collectPdfScalarFields(service, values, pdfContext, filters = {}) {
     if (field.id === 'declaracao_seguranca') return false;
     if (isDl50 && INSPECAO_DL50_PDF_SKIP_FIELD_IDS.has(field.id)) return false;
     if (field.id === 'deslocacao') return false;
+    if (field.id === VISITAS_FIELD_ID || field.id === DESLOCACAO_BASE_FIELD_ID) return false;
     if (section !== null && field.section !== section) return false;
     if (field.dependency && !isPdfDependencyMet(field, values)) return false;
     if (!isPdfScalarField(field)) return false;
@@ -868,10 +882,10 @@ async function drawMetadataGrid(doc, y, meta) {
       pdfGridCell('Nome do Técnico', meta.technician),
     ],
   ];
-  if (meta.deslocacao != null) {
+  if (meta.deslocacao != null || meta.numeroVisitas != null) {
     body.push([
-      pdfGridCell('Deslocação', meta.deslocacao),
-      pdfGridCell('', ''),
+      pdfGridCell('Deslocação', meta.deslocacao ?? '—'),
+      pdfGridCell('Número de Visitas', meta.numeroVisitas ?? '1'),
     ]);
   }
   return drawPdfGridTable(doc, y, {
@@ -1115,8 +1129,8 @@ async function drawReportFieldsSection(doc, y, service, values, pdfContext = nul
     if (field.id === 'declaracao_seguranca') continue;
     if (field.dependency && !isPdfDependencyMet(field, values)) continue;
 
-    if (field.id === 'deslocacao') {
-      scalarRenderedIds.add('deslocacao');
+    if (field.id === 'deslocacao' || field.id === VISITAS_FIELD_ID || field.id === DESLOCACAO_BASE_FIELD_ID) {
+      scalarRenderedIds.add(field.id);
       continue;
     }
 
