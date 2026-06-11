@@ -1004,35 +1004,149 @@ function renderJobCard(job, { actionMode = 'em_curso' } = {}) {
   `;
 }
 
-function renderRealizadoCard({ job, report }) {
+/* ─── Histórico de Realizados — lista compacta com pesquisa e grupos por mês ─── */
+
+let realizadosSearchQuery = '';
+
+function getRealizadoItemDate(item) {
+  return item.job?.date || String(item.report.approvedAt || item.report.submittedAt || '').split('T')[0] || '';
+}
+
+function formatRealizadoRowDate(isoDate) {
+  if (!isoDate) return '—';
+  const d = new Date(`${isoDate}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit' });
+}
+
+function formatRealizadoMonthLabel(isoDate) {
+  if (!isoDate) return 'Sem data';
+  const d = new Date(`${isoDate}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return 'Sem data';
+  const label = d.toLocaleDateString('pt-PT', { month: 'long', year: 'numeric' });
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
+function filterRealizadosItems(items) {
+  const query = realizadosSearchQuery.trim().toLowerCase();
+  if (!query) return items;
+  return items.filter((item) => {
+    const client = getClient(item.report.clientId || item.job?.clientId);
+    const clientName = String(client?.name || '').toLowerCase();
+    const service = getServiceType(item.report.serviceType || item.job?.serviceType);
+    const serviceLabel = String(service?.label || '').toLowerCase();
+    return clientName.includes(query) || serviceLabel.includes(query);
+  });
+}
+
+function renderRealizadoRow({ job, report }) {
   const client = getClient(report.clientId || job?.clientId);
   const service = getServiceType(report.serviceType || job?.serviceType);
-  const stateClass = getCalendarEventStateClass(job, report);
-  const stateBadge = renderWorkStateBadge(job, report);
-  const serviceDate = job?.date ? formatDateLong(job.date) : '—';
-  const jobId = job?.id || report.jobId;
+  const jobId = job?.id || report.jobId || '';
+  const isoDate = getRealizadoItemDate({ job, report });
+  const label = `${client?.name || 'Cliente'} — ${service?.label || 'Relatório'} — ${formatDateLong(isoDate)}`;
 
   return `
-    <article class="job-card glass-card ${stateClass}" data-job-id="${escapeHtml(jobId || '')}">
-      <div class="job-card-top">
-        <div class="job-time">${escapeHtml(job?.time || '—')}<span class="job-date-chip">${escapeHtml(serviceDate)}</span></div>
-        <div class="job-card-badges">${stateBadge}</div>
-      </div>
-      <div class="job-client-row">
-        <button type="button" class="job-client job-client-link" data-client-history="${escapeHtml(client?.id || report.clientId || '')}" title="Ver histórico de intervenções">
-          ${escapeHtml(client?.name || 'Cliente')}
-        </button>
-        <button type="button" class="btn-outline job-history-btn" data-client-history="${escapeHtml(client?.id || report.clientId || '')}">
-          Histórico
-        </button>
-      </div>
-      <div class="job-meta">
-        <span class="job-type">${service?.icon || '🔧'} ${escapeHtml(service?.label || report.serviceType || 'Relatório')}</span>
-        ${job?.forkliftSerial ? `<span class="job-serial">${escapeHtml(job.forkliftSerial)}</span>` : ''}
-      </div>
-      <button type="button" class="job-action-btn job-action-btn--primary" data-view-job="${escapeHtml(jobId || '')}">Visualizar</button>
-    </article>
+    <div class="realizados-row" data-view-job="${escapeHtml(jobId)}" role="button" tabindex="0" aria-label="Visualizar: ${escapeHtml(label)}">
+      <span class="realizados-row-date">${formatRealizadoRowDate(isoDate)}</span>
+      <span class="realizados-row-client">${escapeHtml(client?.name || 'Cliente')}</span>
+      <span class="realizados-row-service">${service?.icon || '🔧'} ${escapeHtml(service?.label || report.serviceType || 'Relatório')}</span>
+      ${renderWorkStateBadge(job, report)}
+      <button type="button" class="realizados-row-view" data-view-job-btn="${escapeHtml(jobId)}" title="Visualizar relatório" aria-label="Visualizar relatório">👁️</button>
+    </div>
   `;
+}
+
+function renderRealizadosListHtml(allItems) {
+  const items = filterRealizadosItems(allItems);
+
+  if (!items.length) {
+    return realizadosSearchQuery.trim()
+      ? '<p class="realizados-no-results text-muted">Nenhum resultado para esta pesquisa.</p>'
+      : `
+        <div class="empty-state glass-card">
+          <div class="empty-icon">✅</div>
+          <p>${TECH_TAB_EMPTY_MESSAGES.realizados}</p>
+        </div>
+      `;
+  }
+
+  // Agrupa por mês/ano, do mais recente para o mais antigo (items já vêm ordenados)
+  const groups = new Map();
+  items.forEach((item) => {
+    const isoDate = getRealizadoItemDate(item);
+    const key = isoDate ? isoDate.slice(0, 7) : 'sem-data';
+    if (!groups.has(key)) {
+      groups.set(key, { label: formatRealizadoMonthLabel(isoDate), items: [] });
+    }
+    groups.get(key).items.push(item);
+  });
+
+  return [...groups.values()]
+    .map(
+      (group) => `
+        <section class="realizados-month-group">
+          <h3 class="realizados-month-heading">${escapeHtml(group.label)}</h3>
+          <div class="realizados-rows">
+            ${group.items.map((item) => renderRealizadoRow(item)).join('')}
+          </div>
+        </section>
+      `,
+    )
+    .join('');
+}
+
+function bindRealizadosListEvents(listEl) {
+  const openView = (jobId) => {
+    if (!jobId) return;
+    openJobFormLazy(jobId, { viewOnly: true }).catch(console.error);
+  };
+
+  listEl.querySelectorAll('[data-view-job-btn]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openView(btn.dataset.viewJobBtn);
+    });
+  });
+
+  listEl.querySelectorAll('.realizados-row[data-view-job]').forEach((row) => {
+    row.addEventListener('click', () => openView(row.dataset.viewJob));
+    row.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      e.preventDefault();
+      openView(row.dataset.viewJob);
+    });
+  });
+}
+
+function renderRealizadosPanel(container, techId) {
+  const allItems = getRealizadosItems(techId);
+
+  container.innerHTML = `
+    <div class="realizados-toolbar">
+      <input
+        type="search"
+        id="realizados-search"
+        class="realizados-search"
+        placeholder="🔍 Pesquisar cliente…"
+        autocomplete="off"
+        value="${escapeHtml(realizadosSearchQuery)}"
+        aria-label="Pesquisar relatórios concluídos por cliente"
+      >
+    </div>
+    <div id="realizados-list">${renderRealizadosListHtml(allItems)}</div>
+  `;
+
+  const listEl = container.querySelector('#realizados-list');
+  bindRealizadosListEvents(listEl);
+
+  const searchInput = container.querySelector('#realizados-search');
+  searchInput?.addEventListener('input', () => {
+    realizadosSearchQuery = searchInput.value || '';
+    // Re-renderiza só a lista — o input mantém o foco enquanto escreve
+    listEl.innerHTML = renderRealizadosListHtml(getRealizadosItems(techId));
+    bindRealizadosListEvents(listEl);
+  });
 }
 
 function openContinueJob(jobId) {
@@ -1126,17 +1240,8 @@ function renderJobs() {
   let html = '';
 
   if (techJobsTab === 'realizados') {
-    const items = getRealizadosItems(techId);
-    if (!items.length) {
-      container.innerHTML = `
-        <div class="empty-state glass-card">
-          <div class="empty-icon">✅</div>
-          <p>${TECH_TAB_EMPTY_MESSAGES.realizados}</p>
-        </div>
-      `;
-      return;
-    }
-    html = items.map((item) => renderRealizadoCard(item)).join('');
+    renderRealizadosPanel(container, techId);
+    return;
   } else if (techJobsTab === 'agendados') {
     const jobs = getAgendadosJobs(techId);
     if (!jobs.length) {
