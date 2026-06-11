@@ -1303,10 +1303,11 @@ async function drawFolhaClosingDataBlock(doc, y, values) {
 
   y = drawFolhaLabelValueLine(doc, y, 'Estado da Máquina', estado);
 
-  return drawFolhaInterventionLine(doc, y, values);
+  return await drawFolhaInterventionMetricsTable(doc, y, values);
 }
 
-function drawFolhaInterventionLine(doc, y, values) {
+/** Tabela destacada — Intervenção (Datas e Custos): cabeçalho cinza + valores em bold grande */
+async function drawFolhaInterventionMetricsTable(doc, y, values) {
   const data1 = formatFolhaInterventionDate(resolvePdfStandardFieldValue(values, { id: 'data_1' }));
   const data2 = formatFolhaInterventionDate(resolvePdfStandardFieldValue(values, { id: 'data_2' }));
   const visitas =
@@ -1315,31 +1316,49 @@ function drawFolhaInterventionLine(doc, y, values) {
     ) || '—';
   const horas = pdfDisplayValue(resolvePdfStandardFieldValue(values, { id: 'horas_gastas' })) || '—';
 
-  const line1 = `Data 1: ${data1}  Data 2: ${data2}`;
-  const line2 = `Nº de Visitas: ${visitas}  Horas Gastas: ${horas}`;
+  const colW = CONTENT_W / 4;
+  const blockH = 26;
+  y = ensureKeepTogetherBlock(doc, y, blockH + 4);
 
-  const padV = 7;
-  const lineGap = 7;
-  const boxH = padV * 2 + lineGap + 4;
-  y = ensureKeepTogetherBlock(doc, y, boxH + 4);
-
-  doc.setFillColor(...FOLHA_TITLE_BAR_BG);
-  doc.setDrawColor(...PDF_TABLE_LINE);
-  doc.setLineWidth(0.3);
-  doc.roundedRect(MARGIN, y, CONTENT_W, boxH, 2, 2, 'FD');
-
-  pdfSetFont(doc, 'bold');
-  doc.setFontSize(FOLHA_INTERVENTION_SUMMARY_FONT);
-  doc.setTextColor(...CORPORATE_BLUE_DARK);
-
-  const centerX = MARGIN + CONTENT_W / 2;
-  const textY1 = y + padV + 3;
-  const textY2 = textY1 + lineGap;
-  doc.text(line1, centerX, textY1, { align: 'center' });
-  doc.text(line2, centerX, textY2, { align: 'center' });
+  await loadJsPdfAutoTable();
+  doc.autoTable(
+    buildFolhaAutoTableConfig(doc, y, {
+      head: [['Data 1', 'Data 2', 'Nº de Visitas', 'Horas Gastas']],
+      body: [[data1, data2, visitas, horas]],
+      headStyles: {
+        font: pdfAutoTableFont(doc),
+        fillColor: FOLHA_TABLE_HEAD_FILL,
+        textColor: TEXT_DARK,
+        fontStyle: 'bold',
+        fontSize: PDF_FONT_BODY,
+        lineColor: PDF_TABLE_LINE,
+        lineWidth: 0.2,
+        halign: 'center',
+        valign: 'middle',
+      },
+      bodyStyles: {
+        font: pdfAutoTableFont(doc),
+        fillColor: PDF_TABLE_BODY_FILL,
+        textColor: CORPORATE_BLUE_DARK,
+        fontStyle: 'bold',
+        fontSize: FOLHA_INTERVENTION_SUMMARY_FONT,
+        lineColor: PDF_TABLE_LINE,
+        lineWidth: 0.2,
+        halign: 'center',
+        valign: 'middle',
+        minCellHeight: 12,
+      },
+      columnStyles: {
+        0: { cellWidth: colW, halign: 'center' },
+        1: { cellWidth: colW, halign: 'center' },
+        2: { cellWidth: colW, halign: 'center' },
+        3: { cellWidth: colW, halign: 'center' },
+      },
+    }),
+  );
 
   touchPdfContentPage(doc);
-  return y + boxH + 8;
+  return normalizeYAfterAutoTable(doc, y, 8);
 }
 
 /** Fecho da Folha de Avarias — fotos compactas + assinaturas paralelas, sem checkboxes */
