@@ -13,8 +13,12 @@ const RH_ADMIN_ROLE_VALUES = new Set([
   'Administracao',
 ]);
 
-/** E-mails RH (incl. identificador interno da Filipa — ver mock_data.js) */
-const RH_ADMIN_EMAILS = ['joanamaia97@gmail.com', 'filipa@rh.manusilva.internal'];
+/** E-mails RH (incl. Filipa @sistema.com e legado @rh.manusilva.internal) */
+const RH_ADMIN_EMAILS = [
+  'joanamaia97@gmail.com',
+  'filipa@sistema.com',
+  'filipa@rh.manusilva.internal',
+];
 const RH_ADMIN_NAMES = new Set(['joana', 'filipa']);
 
 function normalizeDbRole(role) {

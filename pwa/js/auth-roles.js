@@ -2,7 +2,7 @@
  * Funções e constantes partilhadas — perfis RH / Admin (Joana, Filipa, etc.)
  */
 
-import { UTILIZADORES } from './mock_data.js';
+import { UTILIZADORES, FILIPA_LEGACY_AUTH_EMAIL } from './mock_data.js';
 
 /** Valores aceites em user_metadata.role ou sessão local */
 export const RH_ADMIN_ROLE_VALUES = new Set([
@@ -25,9 +25,12 @@ export function getRhAdminEmails() {
   );
   return [
     ...new Set(
-      UTILIZADORES.filter((u) => u.role === 'RH')
-        .map((u) => u.email.toLowerCase())
-        .filter((email) => email && !tecnicoEmails.has(email)),
+      [
+        ...UTILIZADORES.filter((u) => u.role === 'RH')
+          .map((u) => u.email.toLowerCase())
+          .filter((email) => email && !tecnicoEmails.has(email)),
+        FILIPA_LEGACY_AUTH_EMAIL.toLowerCase(),
+      ].filter(Boolean),
     ),
   ];
 }

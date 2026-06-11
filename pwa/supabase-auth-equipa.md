@@ -22,11 +22,11 @@ RH / Admin (Joana, Filipa): `"role": "RH"` (também aceite: `admin`). Sem `techn
 | Nome   | Como entra na app     | Identificador Supabase (interno) | Role | Palavra-passe |
 |--------|------------------------|-----------------------------------|------|---------------|
 | Joana  | `Joana` ou e-mail      | joanamaia97@gmail.com             | RH   | `Joana.2026`  |
-| Filipa | **`Filipa`** + passe   | filipa@rh.manusilva.internal      | RH   | `Filipa.2026` |
+| Filipa | **`Filipa`** + passe   | filipa@sistema.com (legado: filipa@rh.manusilva.internal) | RH   | `Filipa.2026` |
 
-**Filipa não tem e-mail pessoal.** O identificador `filipa@rh.manusilva.internal` existe só no Supabase Auth — ela nunca o vê nem usa recuperação por e-mail.
+**Filipa não tem e-mail real.** O identificador `filipa@sistema.com` existe só no Supabase Auth — ela nunca o vê nem usa recuperação por e-mail.
 
-Criar no Dashboard → Authentication → Users (metadata `{"role":"RH","nome":"Filipa"}`), depois executar `006_rh_admin_roles.sql`.
+Criar no Dashboard → Authentication → Users (metadata `{"role":"RH","nome":"Filipa"}`), depois executar `006_rh_admin_roles.sql` e `007_filipa_sistema_email.sql`.
 
 ## Redirect de redefinição
 

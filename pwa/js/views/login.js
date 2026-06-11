@@ -90,7 +90,7 @@ export const LoginView = {
 
     const loginDefaults = {
       technician: { identifier: 'Hugo' },
-      admin: { identifier: 'Joana' },
+      admin: { identifier: 'Filipa' },
     };
 
     function setLoginLocked(locked, message = '') {

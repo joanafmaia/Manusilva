@@ -16,7 +16,7 @@ Joana e Filipa são **RH e Administração**. Devem ter acesso total sem bloquei
 
 - `user_metadata.role` deve ser **`RH`** (também aceite: `admin`, `Admin`)
 - Joana: `joanamaia97@gmail.com` — migração `006_rh_admin_roles.sql`
-- Filipa: **sem e-mail pessoal** — entra com nome `Filipa` + palavra-passe; identificador interno `filipa@rh.manusilva.internal` só no Supabase
+- Filipa: **sem e-mail pessoal** — entra com nome `Filipa` + palavra-passe; identificador Supabase `filipa@sistema.com` (legado: `filipa@rh.manusilva.internal`)
 
 ## Código
 

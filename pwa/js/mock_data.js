@@ -500,10 +500,13 @@ export const PDF_DOCUMENT_TITLES = {
 };
 
 /**
- * Identificador interno Supabase Auth — a Filipa entra só com o nome «Filipa» + palavra-passe.
- * Não é um e-mail real; não usa recuperação por e-mail.
+ * Identificador Supabase Auth — a Filipa entra só com o nome «Filipa» + palavra-passe.
+ * Domínio fictício partilhado com outros utilizadores sem e-mail real.
  */
-export const FILIPA_AUTH_EMAIL = 'filipa@rh.manusilva.internal';
+export const FILIPA_AUTH_EMAIL = 'filipa@sistema.com';
+
+/** E-mail legado (contas criadas antes da migração para @sistema.com). */
+export const FILIPA_LEGACY_AUTH_EMAIL = 'filipa@rh.manusilva.internal';
 
 /** Tabela `utilizadores` — roles: `Tecnico` | `RH` */
 export const UTILIZADORES = [

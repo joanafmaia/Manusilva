@@ -10,10 +10,13 @@ export const LOGIN_URL = 'index.html';
 import { UTILIZADORES } from './mock_data.js';
 import { isRhOrAdminRole, normalizeDbRole } from './auth-roles.js';
 
-export const AUTH_BUILD = '2026-06-11-login-username-domain';
+export const AUTH_BUILD = '2026-06-11-login-filipa-fix';
 
 /** Domínio fictício para login só com nome de utilizador (sem e-mail real). */
 export const SYSTEM_LOGIN_EMAIL_DOMAIN = 'sistema.com';
+
+/** Sufixo legado RH (contas antigas no Supabase Auth). */
+export const LEGACY_RH_LOGIN_EMAIL_DOMAIN = 'rh.manusilva.internal';
 
 const TECHNICIAN_IDS = {
   'filipasilvahugo2013@gmail.com': 'tech-1',
@@ -65,45 +68,70 @@ function buildLoginPool() {
 }
 
 /**
- * Converte identificador de login (nome ou e-mail) no e-mail enviado ao Supabase Auth.
- * 1. Se contém «@» → e-mail tal como introduzido.
- * 2. Se coincide com um nome no catálogo → e-mail registado (ex.: Filipa → filipa@rh.manusilva.internal).
- * 3. Caso contrário → slug@sistema.com (ex.: «Filipa» nova → filipa@sistema.com).
+ * Lista de e-mails a tentar no Supabase Auth (por ordem).
+ * O perfil (Técnico/RH) valida-se depois do login — não bloqueia a resolução do e-mail.
  *
  * @param {string} identifier
- * @param {string|null} roleFiltro `Tecnico` | `RH`
+ * @returns {string[]}
  */
-export function resolveLoginEmail(identifier, roleFiltro = null) {
+export function resolveLoginEmailCandidates(identifier) {
   const term = String(identifier || '').trim();
-  if (!term) return null;
+  if (!term) return [];
 
-  if (term.includes('@')) return term.toLowerCase();
-
-  const matches = buildLoginPool().filter((u) => u.nome.toLowerCase() === term.toLowerCase());
-  if (matches.length) {
-    if (roleFiltro) {
-      const filtered = matches.find((u) => u.role === roleFiltro);
-      return filtered?.email?.toLowerCase() || null;
+  const seen = new Set();
+  const out = [];
+  const push = (email) => {
+    const e = String(email || '').trim().toLowerCase();
+    if (e && !seen.has(e)) {
+      seen.add(e);
+      out.push(e);
     }
-    return matches[0].email.toLowerCase();
+  };
+
+  if (term.includes('@')) {
+    push(term);
+    return out;
   }
 
   const slug = term.toLowerCase().replace(/\s+/g, '');
-  return slug ? `${slug}@${SYSTEM_LOGIN_EMAIL_DOMAIN}` : null;
+  const matches = buildLoginPool().filter((u) => u.nome.toLowerCase() === term.toLowerCase());
+
+  for (const m of matches) {
+    if (m.email) push(m.email);
+  }
+
+  if (slug) {
+    push(`${slug}@${SYSTEM_LOGIN_EMAIL_DOMAIN}`);
+    if (matches.some((m) => m.semEmailPessoal)) {
+      push(`${slug}@${LEGACY_RH_LOGIN_EMAIL_DOMAIN}`);
+    }
+  }
+
+  return out;
+}
+
+/**
+ * Primeiro e-mail candidato para login (compatibilidade).
+ * @param {string} identifier
+ */
+export function resolveLoginEmail(identifier, _roleFiltro = null) {
+  const candidates = resolveLoginEmailCandidates(identifier);
+  return candidates[0] || null;
 }
 
 /** Utilizador RH sem e-mail pessoal — login só por nome; sem recuperação por e-mail. */
 export function userUsesNameOnlyLogin(identifier, roleFiltro = null) {
-  const email = resolveLoginEmail(identifier, roleFiltro);
-  if (!email) return false;
+  const candidates = resolveLoginEmailCandidates(identifier);
+  if (!candidates.length) return false;
   const pool = buildLoginPool();
-  const match = pool.find(
-    (u) =>
-      u.email?.toLowerCase() === email &&
-      (!roleFiltro || u.role === roleFiltro) &&
-      u.semEmailPessoal === true,
+  return candidates.some((email) =>
+    pool.some(
+      (u) =>
+        u.email?.toLowerCase() === email &&
+        (!roleFiltro || u.role === roleFiltro) &&
+        u.semEmailPessoal === true,
+    ),
   );
-  return Boolean(match);
 }
 
 export function resolveDisplayNameForHint(identifier, roleFiltro = null) {
@@ -174,9 +202,9 @@ export const AuthService = {
    */
   async login(identifier, password, roleFiltro = null) {
     const pass = String(password || '').trim();
-    const email = resolveLoginEmail(identifier, roleFiltro);
+    const candidates = resolveLoginEmailCandidates(identifier);
 
-    if (!email || !pass) {
+    if (!candidates.length || !pass) {
       return {
         success: false,
         error: 'Utilizador ou palavra-passe incorretos.',
@@ -184,23 +212,39 @@ export const AuthService = {
     }
 
     const supabase = await getSupabaseClient();
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password: pass,
-    });
+    let data = null;
+    let lastError = null;
+    let usedEmail = candidates[0];
 
-    if (error) {
+    for (const email of candidates) {
+      const result = await supabase.auth.signInWithPassword({
+        email,
+        password: pass,
+      });
+      if (!result.error && result.data?.user) {
+        data = result.data;
+        usedEmail = email;
+        break;
+      }
+      lastError = result.error;
+      const msg = String(result.error?.message || '').toLowerCase();
+      const retryable =
+        msg.includes('invalid login credentials') || msg.includes('invalid_credentials');
+      if (!retryable) break;
+    }
+
+    if (!data?.user) {
       return {
         success: false,
-        error: formatAuthError(error),
-        email,
+        error: formatAuthError(lastError),
+        email: usedEmail,
       };
     }
 
     const profile = profileFromAuthUser(data.user, roleFiltro);
     if (profile.error) {
       await supabase.auth.signOut();
-      return { success: false, error: profile.error, email };
+      return { success: false, error: profile.error, email: usedEmail };
     }
 
     const sessao = {
@@ -219,7 +263,7 @@ export const AuthService = {
     return {
       success: true,
       user: sessao,
-      email,
+      email: usedEmail,
     };
   },
 

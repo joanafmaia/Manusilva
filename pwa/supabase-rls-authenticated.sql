@@ -44,6 +44,7 @@ AS $$
       OR lower(COALESCE(auth.jwt() -> 'user_metadata' ->> 'nome', '')) IN ('joana', 'filipa')
       OR lower(COALESCE(auth.jwt() ->> 'email', '')) IN (
         'joanamaia97@gmail.com',
+        'filipa@sistema.com',
         'filipa@rh.manusilva.internal'
       )
   END;

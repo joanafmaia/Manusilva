@@ -15,8 +15,9 @@ describe('auth-roles', () => {
     assert.equal(isRhOrAdminRole('Tecnico'), false);
   });
 
-  it('reconhece e-mails RH (Joana e identificador interno da Filipa)', () => {
+  it('reconhece e-mails RH (Joana e identificadores da Filipa)', () => {
     assert.equal(isRhOrAdminEmail('joanamaia97@gmail.com'), true);
+    assert.equal(isRhOrAdminEmail('filipa@sistema.com'), true);
     assert.equal(isRhOrAdminEmail('filipa@rh.manusilva.internal'), true);
     assert.equal(isRhOrAdminEmail('filipasilvahugo2013@gmail.com'), false);
   });
