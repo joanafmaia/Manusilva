@@ -3,7 +3,7 @@
  *
  * APIs de mapas (Mapbox + OSRM): passthrough direto à rede, sem cache offline.
  */
-const CACHE_VERSION = 'v6';
+const CACHE_VERSION = 'v7';
 
 self.addEventListener('install', (event) => {
   event.waitUntil(self.skipWaiting());

@@ -1281,59 +1281,6 @@ body.dark-mode .offline-sync-banner__icon {
   color: var(--text-muted);
 }
 
-.agendados-preview-row {
-  display: flex;
-  align-items: center;
-  gap: 0.65rem;
-  width: 100%;
-  padding: 0.55rem 0.75rem;
-  border: 1px solid var(--border-subtle);
-  border-left: 3px solid var(--ws-scheduled);
-  border-radius: var(--radius-sm);
-  background: var(--bg-card);
-  font-family: inherit;
-  font-size: 0.8125rem;
-  text-align: left;
-  cursor: pointer;
-  transition: border-color var(--transition), box-shadow var(--transition);
-}
-
-.agendados-preview-row:hover,
-.agendados-preview-row:focus-visible {
-  border-color: var(--ws-scheduled);
-  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.07);
-  outline: none;
-}
-
-.agendados-preview-date {
-  flex-shrink: 0;
-  min-width: 3.4rem;
-  font-weight: 700;
-  color: var(--ws-scheduled-text);
-  text-transform: uppercase;
-  font-size: 0.7rem;
-}
-
-.agendados-preview-time {
-  flex-shrink: 0;
-  font-weight: 600;
-  color: var(--text-secondary);
-}
-
-.agendados-preview-client {
-  flex: 1;
-  min-width: 0;
-  color: var(--text-primary);
-  font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.agendados-preview-service {
-  flex-shrink: 0;
-}
-
 .agendados-preview-empty {
   margin: 0;
   font-size: 0.8125rem;
@@ -1377,19 +1324,28 @@ body.dark-mode .offline-sync-banner__icon {
   color: var(--text-muted);
 }
 
-.realizados-rows {
+.realizados-no-results {
+  margin: 0;
+  padding: 0.75rem 0;
+  text-align: center;
+  font-size: 0.8125rem;
+}
+
+/* ─── Linha compacta padrão das abas dos técnicos ───
+   Borda esquerda colorida segundo a tabela oficial de estados. */
+.tech-job-rows {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
 }
 
-.realizados-row {
+.tech-job-row {
   display: flex;
   align-items: center;
   gap: 0.6rem;
   padding: 0.5rem 0.7rem;
   border: 1px solid var(--border-subtle);
-  border-left: 3px solid var(--ws-approved);
+  border-left: 3px solid var(--ws-draft);
   border-radius: var(--radius-sm);
   background: var(--bg-card);
   font-size: 0.8125rem;
@@ -1397,14 +1353,32 @@ body.dark-mode .offline-sync-banner__icon {
   transition: border-color var(--transition), box-shadow var(--transition);
 }
 
-.realizados-row:hover,
-.realizados-row:focus-visible {
-  border-color: var(--ws-approved);
+.tech-job-row:hover,
+.tech-job-row:focus-visible {
   box-shadow: 0 2px 10px rgba(15, 23, 42, 0.07);
   outline: none;
 }
 
-.realizados-row-date {
+/* Sinergia de cores: Agendado azul, Em aberto cinza, Pendente RH amarelo,
+   Rejeitado vermelho, Concluído verde. */
+.tech-job-row--scheduled { border-left-color: var(--ws-scheduled); }
+.tech-job-row--draft { border-left-color: var(--ws-draft); }
+.tech-job-row--pending { border-left-color: var(--ws-pending); }
+.tech-job-row--rejected { border-left-color: var(--ws-rejected); }
+.tech-job-row--approved { border-left-color: var(--ws-approved); }
+
+.tech-job-row--scheduled:hover,
+.tech-job-row--scheduled:focus-visible { border-color: var(--ws-scheduled); }
+.tech-job-row--draft:hover,
+.tech-job-row--draft:focus-visible { border-color: var(--ws-draft); }
+.tech-job-row--pending:hover,
+.tech-job-row--pending:focus-visible { border-color: var(--ws-pending); }
+.tech-job-row--rejected:hover,
+.tech-job-row--rejected:focus-visible { border-color: var(--ws-rejected); }
+.tech-job-row--approved:hover,
+.tech-job-row--approved:focus-visible { border-color: var(--ws-approved); }
+
+.tech-job-row-date {
   flex-shrink: 0;
   min-width: 2.9rem;
   font-weight: 700;
@@ -1412,7 +1386,14 @@ body.dark-mode .offline-sync-banner__icon {
   color: var(--text-secondary);
 }
 
-.realizados-row-client {
+.tech-job-row-time {
+  flex-shrink: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+}
+
+.tech-job-row-client {
   flex-shrink: 0;
   max-width: 32%;
   font-weight: 600;
@@ -1422,7 +1403,7 @@ body.dark-mode .offline-sync-banner__icon {
   text-overflow: ellipsis;
 }
 
-.realizados-row-service {
+.tech-job-row-service {
   flex: 1;
   min-width: 0;
   color: var(--text-secondary);
@@ -1431,11 +1412,11 @@ body.dark-mode .offline-sync-banner__icon {
   text-overflow: ellipsis;
 }
 
-.realizados-row .work-state-badge {
+.tech-job-row .work-state-badge {
   flex-shrink: 0;
 }
 
-.realizados-row-view {
+.tech-job-row-action {
   flex-shrink: 0;
   width: 2.1rem;
   height: 2.1rem;
@@ -1450,32 +1431,25 @@ body.dark-mode .offline-sync-banner__icon {
   transition: border-color var(--transition), background var(--transition);
 }
 
-.realizados-row-view:hover,
-.realizados-row-view:focus-visible {
+.tech-job-row-action:hover,
+.tech-job-row-action:focus-visible {
   border-color: var(--primary);
   background: var(--primary-glow);
   outline: none;
 }
 
-.realizados-no-results {
-  margin: 0;
-  padding: 0.75rem 0;
-  text-align: center;
-  font-size: 0.8125rem;
-}
-
 @media (max-width: 560px) {
-  .realizados-row {
+  .tech-job-row {
     flex-wrap: wrap;
     row-gap: 0.25rem;
   }
 
-  .realizados-row-client {
+  .tech-job-row-client {
     max-width: none;
     flex: 1;
   }
 
-  .realizados-row-service {
+  .tech-job-row-service {
     flex-basis: 100%;
     order: 5;
   }
