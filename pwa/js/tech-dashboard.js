@@ -36,7 +36,7 @@ import {
 } from './calendar-event-state.js';
 import { initLogoutButton, renderUserGreeting } from './auth.js';
 import { HistoricoClienteView } from './views/historico-cliente.js';
-import { ensureTrabalhosSemana } from './trabalhos-db.js';
+import { ensureTrabalhosSemana, isJobsCacheLoaded } from './trabalhos-db.js';
 
 /** Âncora da semana visível no calendário (segunda-feira da semana em foco) */
 let currentWeekDate = startOfLocalDay(new Date());
@@ -215,11 +215,22 @@ const EM_CURSO_EXCLUDED_JOB_STATUSES = new Set([
  */
 function getEmCursoJobs(techId) {
   const byId = new Map();
+  const jobsLoaded = isJobsCacheLoaded();
 
   getReportsSnapshot().forEach((report) => {
     // Regra estrita: só estado 'draft' (Em aberto)
     if (report.status !== 'draft') return;
     if (!reportAssignedToTechnician(report, techId)) return;
+
+    // Trabalho eliminado pelo RH: id do servidor (numérico) que já não existe
+    // na tabela trabalhos — o rascunho não pode continuar a aparecer.
+    if (
+      jobsLoaded &&
+      /^\d+$/.test(String(report.jobId || '')) &&
+      !getJob(report.jobId)
+    ) {
+      return;
+    }
 
     const job = jobFromDraftReport(report);
     if (!job) return;
@@ -397,6 +408,15 @@ export async function initTechDashboard() {
     renderOfflineSyncBar();
 
     await refreshTechCalendar();
+
+    // Realtime: quando o RH cria/altera/elimina trabalhos ou relatórios,
+    // a lista atualiza-se logo, sem o técnico fazer refresh manual.
+    try {
+      const { initTechRealtime } = await import('./tech-realtime.js');
+      await initTechRealtime();
+    } catch (err) {
+      console.warn('[Técnico] Realtime indisponível (a dashboard continua a funcionar):', err);
+    }
   } catch (error) {
     const { handleFatalDashboardError } = await import('./app.js');
     if (await handleFatalDashboardError(error)) return;

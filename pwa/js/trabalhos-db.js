@@ -124,6 +124,20 @@ export function invalidateJobsCache() {
   jobsLoadPromise = null;
 }
 
+/** Indica se o cache de trabalhos já foi carregado do Supabase. */
+export function isJobsCacheLoaded() {
+  return jobsCache !== null;
+}
+
+/** Remove trabalho do cache local (ex.: evento Realtime DELETE vindo do RH). */
+export function removeJobFromCache(jobId) {
+  if (jobId == null || !jobsCache) return false;
+  const id = String(jobId);
+  const before = jobsCache.length;
+  jobsCache = jobsCache.filter((j) => j.id !== id);
+  return jobsCache.length !== before;
+}
+
 /**
  * Carrega trabalhos do técnico num intervalo de datas (semana visível no calendário).
  * Faz merge no cache local sem substituir os restantes trabalhos.

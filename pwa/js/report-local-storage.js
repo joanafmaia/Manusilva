@@ -4,6 +4,7 @@
  */
 
 import { mergeReportInCache, getReportsSnapshot } from './relatorios-db.js';
+import { getJobsSnapshot, isJobsCacheLoaded } from './trabalhos-db.js';
 import {
   STORE_REPORT_DRAFTS,
   idbDelete,
@@ -228,13 +229,27 @@ export async function resolveReportForJob(jobId, serverReport, options = {}) {
 const LOCKED_SERVER_STATUSES = new Set(['approved', 'pending_review', 'rejected']);
 
 /**
+ * Trabalho eliminado pelo RH: o id era do servidor (numérico) mas já não existe
+ * nem na tabela trabalhos nem na de relatórios. Ids temporários/offline não contam.
+ */
+function isDraftOfDeletedJob(draft, serverReport, serverJobIds) {
+  if (!serverJobIds || serverReport) return false;
+  const jobId = String(draft?.jobId || '');
+  if (!/^\d+$/.test(jobId)) return false;
+  return !serverJobIds.has(jobId);
+}
+
+/**
  * Repõe rascunhos locais e submissões em fila no cache em memória (dashboard técnico offline).
  * Rascunhos obsoletos (o servidor já tem o relatório submetido/concluído) são ignorados
- * — e removidos do tablet quando o relatório foi aprovado.
+ * — e removidos do tablet quando o relatório foi aprovado ou o trabalho foi eliminado pelo RH.
  */
 export async function hydrateLocalReportsIntoCache() {
   const drafts = await getAllLocalReportDrafts();
   const serverReports = getReportsSnapshot();
+  const serverJobIds = isJobsCacheLoaded()
+    ? new Set(getJobsSnapshot().map((j) => String(j.id)))
+    : null;
 
   for (const draft of drafts) {
     const server = serverReports.find((r) => r.jobId === draft.jobId);
@@ -244,6 +259,13 @@ export async function hydrateLocalReportsIntoCache() {
       if (server.status === 'approved') {
         removeLocalReportDraft(draft.jobId).catch(() => {});
       }
+      continue;
+    }
+
+    // O RH eliminou o trabalho enquanto o tablet estava offline/fechado:
+    // o rascunho órfão é removido e nunca entra na aba Em Curso / Pendentes.
+    if (isDraftOfDeletedJob(draft, server, serverJobIds)) {
+      removeLocalReportDraft(draft.jobId).catch(() => {});
       continue;
     }
 

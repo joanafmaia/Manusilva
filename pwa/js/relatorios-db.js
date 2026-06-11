@@ -174,6 +174,25 @@ export function mergeReportFromRealtime(row) {
   return report;
 }
 
+/**
+ * Remove relatório do cache pelo id (evento Realtime DELETE).
+ * Devolve o relatório removido (para sabermos o jobId associado).
+ */
+export function removeReportFromCache(reportId) {
+  if (reportId == null || !reportsCache) return null;
+  const id = String(reportId);
+  const removed = reportsCache.find((r) => String(r.id) === id) || null;
+  reportsCache = reportsCache.filter((r) => String(r.id) !== id);
+  return removed;
+}
+
+/** Remove do cache todos os relatórios de um trabalho (trabalho eliminado pelo RH). */
+export function removeReportsForJobFromCache(jobId) {
+  if (jobId == null || !reportsCache) return;
+  const id = String(jobId);
+  reportsCache = reportsCache.filter((r) => String(r.jobId ?? '') !== id);
+}
+
 function findExistingReportId(report) {
   if (report.id && isUuid(report.id)) return report.id;
   const byJob = reportsCache?.find((r) => report.jobId && r.jobId === report.jobId);
