@@ -561,7 +561,7 @@ export async function renderInterventionPDF(report) {
   if (isFolhaAvariasPdf) {
     y = drawFolhaTitleBar(doc, y, 'FOLHA DE INTERVENÇÃO DE AVARIAS');
     y = await drawFolhaAvariasBody(doc, y, values, service, pdfContext);
-    y = await drawReportClosingSection(doc, y, closingOpts);
+    y = await drawFolhaReportClosingSection(doc, y, closingOpts);
   } else {
     y = drawTitleBar(doc, y, title);
     const visitCount = formatPdfNumeroVisitas(values);
@@ -972,13 +972,40 @@ function drawTopRowWithClientBlock(doc, clientMeta, numeroOrdem = null, techName
   return Math.max(leftY, topY + blockH) + 8;
 }
 
+/** Estilos base das tabelas da Folha de Avarias — grelhas fechadas sem quebras internas */
+function buildFolhaAutoTableConfig(doc, y, overrides = {}) {
+  return {
+    startY: y,
+    margin: getPdfAutoTableMargin(MARGIN, MARGIN),
+    tableWidth: CONTENT_W,
+    theme: 'plain',
+    rowPageBreak: 'avoid',
+    styles: {
+      font: pdfAutoTableFont(doc),
+      fontSize: PDF_FONT_BODY,
+      cellPadding: { top: 3.5, right: 4, bottom: 3.5, left: 4 },
+      lineColor: PDF_TABLE_LINE,
+      lineWidth: 0.2,
+      textColor: TEXT_DARK,
+      fillColor: PDF_TABLE_BODY_FILL,
+      valign: 'middle',
+      overflow: 'linebreak',
+      minCellHeight: 8,
+    },
+    bodyStyles: { minCellHeight: 8 },
+    didDrawPage: buildPdfAutoTableDidDrawPage(doc),
+    ...overrides,
+  };
+}
+
 /** Cabeçalho espelho — logótipo/ordem/técnico (esq.) vs. cliente (dir., alinhado à direita) */
 function drawFolhaMirrorHeader(doc, clientMeta, numeroOrdem = null, techName = '—') {
   const topY = MARGIN;
   const logoW = PDF_LOGO_WIDTH_MM;
   const logoH = PDF_LOGO_HEIGHT_MM;
   const rightX = PAGE_W - MARGIN;
-  const rightTextW = CONTENT_W * 0.48;
+  const rightTextW = CONTENT_W * 0.46;
+  const midX = MARGIN + CONTENT_W / 2;
 
   if (isLogoConfigured()) {
     try {
@@ -999,16 +1026,7 @@ function drawFolhaMirrorHeader(doc, clientMeta, numeroOrdem = null, techName = '
     drawLogoPlaceholder(doc, MARGIN, topY, logoW, logoH);
   }
 
-  let leftY = topY + logoH + 5;
-  pdfSetFont(doc, 'bold');
-  doc.setFontSize(PDF_FONT_BODY);
-  doc.setTextColor(...CORPORATE_BLUE);
-  doc.text(formatFolhaOrdemDisplay(numeroOrdem), MARGIN, leftY);
-  leftY += 5.5;
-  doc.text(`Técnico: ${pdfSafeText(techName)}`, MARGIN, leftY);
-  leftY += 5;
-
-  let rightY = topY + 4;
+  let rightY = topY + 3;
   pdfSetFont(doc, 'bold');
   doc.setFontSize(PDF_FONT_BODY);
   doc.setTextColor(...TEXT_DARK);
@@ -1017,7 +1035,7 @@ function drawFolhaMirrorHeader(doc, clientMeta, numeroOrdem = null, techName = '
     doc.text(line, rightX, rightY, { align: 'right' });
     rightY += 4.5;
   });
-  rightY += 1.5;
+  rightY += 1;
 
   pdfSetFont(doc, 'normal');
   doc.setFontSize(PDF_FONT_CAPTION);
@@ -1028,11 +1046,24 @@ function drawFolhaMirrorHeader(doc, clientMeta, numeroOrdem = null, techName = '
     : [];
   [...addrLines, ...addrSubLines].forEach((line) => {
     doc.text(line, rightX, rightY, { align: 'right' });
-    rightY += 3.8;
+    rightY += 3.6;
   });
 
+  let leftY = topY + logoH + 4;
+  pdfSetFont(doc, 'bold');
+  doc.setFontSize(PDF_FONT_BODY);
+  doc.setTextColor(...CORPORATE_BLUE);
+  doc.text(formatFolhaOrdemDisplay(numeroOrdem), MARGIN, leftY);
+  leftY += 5.5;
+  doc.text(`Técnico: ${pdfSafeText(techName)}`, MARGIN, leftY);
+  leftY += 4;
+
+  doc.setDrawColor(...PDF_TABLE_LINE);
+  doc.setLineWidth(0.15);
+  doc.line(midX, topY, midX, Math.max(leftY, rightY) + 2);
+
   touchPdfContentPage(doc);
-  return Math.max(leftY, rightY, topY + logoH) + 6;
+  return Math.max(leftY, rightY, topY + logoH) + 8;
 }
 
 function drawFolhaTitleBar(doc, y, title) {
@@ -1072,7 +1103,7 @@ async function drawFolhaMachineGrid(doc, y, values, pdfContext) {
   const interno = resolveMachine(PDF_STANDARD_MACHINE_SPECS[3]);
   const horas = resolveMachine(PDF_STANDARD_MACHINE_SPECS[4]);
 
-  y = ensureSpace(doc, y, 34);
+  y = ensureKeepTogetherBlock(doc, y, 38);
   pdfSetFont(doc, 'bold');
   doc.setFontSize(PDF_FONT_CAPTION);
   doc.setTextColor(...CORPORATE_BLUE);
@@ -1080,46 +1111,39 @@ async function drawFolhaMachineGrid(doc, y, values, pdfContext) {
   y += 8;
 
   await loadJsPdfAutoTable();
-  const tableConfig = {
-    startY: y,
-    margin: getPdfAutoTableMargin(MARGIN, MARGIN),
-    tableWidth: CONTENT_W,
-    body: [
-      [
-        { content: folhaGridCell('Marca', marca), colSpan: 3 },
-        { content: folhaGridCell('Modelo', modelo), colSpan: 3 },
+  const halfW = CONTENT_W / 2;
+  const thirdW = CONTENT_W / 3;
+
+  doc.autoTable(
+    buildFolhaAutoTableConfig(doc, y, {
+      body: [[folhaGridCell('Marca', marca), folhaGridCell('Modelo', modelo)]],
+      columnStyles: {
+        0: { cellWidth: halfW },
+        1: { cellWidth: halfW },
+      },
+    }),
+  );
+
+  const row2Y = doc.lastAutoTable?.finalY ?? y;
+  doc.autoTable(
+    buildFolhaAutoTableConfig(doc, row2Y, {
+      body: [
+        [
+          folhaGridCell('Nº Série', serie),
+          folhaGridCell('Nº Interno', interno),
+          folhaGridCell('Horas', horas),
+        ],
       ],
-      [
-        { content: folhaGridCell('Nº Série', serie), colSpan: 2 },
-        { content: folhaGridCell('Nº Interno', interno), colSpan: 2 },
-        { content: folhaGridCell('Horas', horas), colSpan: 2 },
-      ],
-    ],
-    theme: 'plain',
-    styles: {
-      font: pdfAutoTableFont(doc),
-      fontSize: PDF_FONT_BODY,
-      cellPadding: { top: 3.5, right: 4, bottom: 3.5, left: 4 },
-      lineColor: PDF_TABLE_LINE,
-      lineWidth: 0.2,
-      textColor: TEXT_DARK,
-      fillColor: PDF_TABLE_BODY_FILL,
-      valign: 'middle',
-      overflow: 'linebreak',
-    },
-    columnStyles: {
-      0: { cellWidth: CONTENT_W / 6 },
-      1: { cellWidth: CONTENT_W / 6 },
-      2: { cellWidth: CONTENT_W / 6 },
-      3: { cellWidth: CONTENT_W / 6 },
-      4: { cellWidth: CONTENT_W / 6 },
-      5: { cellWidth: CONTENT_W / 6 },
-    },
-    didDrawPage: buildPdfAutoTableDidDrawPage(doc),
-  };
-  doc.autoTable(tableConfig);
+      columnStyles: {
+        0: { cellWidth: thirdW },
+        1: { cellWidth: thirdW },
+        2: { cellWidth: thirdW },
+      },
+    }),
+  );
+
   touchPdfContentPage(doc);
-  return normalizeYAfterAutoTable(doc, y, 8);
+  return normalizeYAfterAutoTable(doc, row2Y, 10);
 }
 
 function drawFolhaBoundedTextField(doc, y, label, value) {
@@ -1127,7 +1151,7 @@ function drawFolhaBoundedTextField(doc, y, label, value) {
   const lines = pdfParagraphLines(doc, value, innerW);
   const labelH = 7;
   const boxH = Math.max(20, lines.length * 4.5 + labelH + 8);
-  y = ensureSpace(doc, y, boxH + 6);
+  y = ensureKeepTogetherBlock(doc, y, boxH + 6);
 
   doc.setDrawColor(...PDF_TABLE_LINE);
   doc.setLineWidth(0.2);
@@ -1178,7 +1202,7 @@ async function drawFolhaMaterialTable(doc, y, rows) {
   const colKeys = columns.map((c) => columnKey(c));
   const headLabels = columns.map((c) => formatTableHeaderLabel(c));
   const body = rows.map((row) => colKeys.map((key) => pdfDisplayValue(row[key])));
-  const blockH = estimateDynamicTableBlockHeight(columns, rows) + 6;
+  const blockH = 10 + 12 + rows.length * 8 + 10;
   y = ensureKeepTogetherBlock(doc, y, blockH);
 
   pdfSetFont(doc, 'bold');
@@ -1188,70 +1212,68 @@ async function drawFolhaMaterialTable(doc, y, rows) {
   y += 8;
 
   await loadJsPdfAutoTable();
-  const tableConfig = {
-    startY: y,
-    margin: getPdfAutoTableMargin(MARGIN, MARGIN),
-    tableWidth: CONTENT_W,
-    head: [headLabels],
-    body,
-    theme: 'plain',
-    styles: {
-      font: pdfAutoTableFont(doc),
-      fontSize: PDF_FONT_BODY,
-      cellPadding: { top: 3, right: 4, bottom: 3, left: 4 },
-      lineColor: PDF_TABLE_LINE,
-      lineWidth: 0.2,
-      textColor: TEXT_DARK,
-      fillColor: PDF_TABLE_BODY_FILL,
-      valign: 'middle',
-      overflow: 'linebreak',
-    },
-    headStyles: {
-      font: pdfAutoTableFont(doc),
-      fillColor: FOLHA_TABLE_HEAD_FILL,
-      textColor: TEXT_DARK,
-      fontStyle: 'bold',
-      fontSize: PDF_FONT_BODY,
-      lineColor: PDF_TABLE_LINE,
-      lineWidth: 0.2,
-      halign: 'left',
-    },
-    columnStyles: buildSmartColumnStyles(columns),
-    didDrawPage: buildPdfAutoTableDidDrawPage(doc),
-  };
-  doc.autoTable(tableConfig);
+  doc.autoTable(
+    buildFolhaAutoTableConfig(doc, y, {
+      head: [headLabels],
+      body,
+      headStyles: {
+        font: pdfAutoTableFont(doc),
+        fillColor: FOLHA_TABLE_HEAD_FILL,
+        textColor: TEXT_DARK,
+        fontStyle: 'bold',
+        fontSize: PDF_FONT_BODY,
+        lineColor: PDF_TABLE_LINE,
+        lineWidth: 0.2,
+        halign: 'left',
+      },
+      columnStyles: buildSmartColumnStyles(columns),
+    }),
+  );
   touchPdfContentPage(doc);
   return normalizeYAfterAutoTable(doc, y, 8);
 }
 
 function drawFolhaLabelValueLine(doc, y, label, value, options = {}) {
-  y = ensureSpace(doc, y, 7);
   const labelText = options.uppercaseLabel ? `${label.toUpperCase()}:` : `${label}:`;
+  const display = pdfSafeText(pdfDisplayValue(value));
+  const valLines = pdfSplitText(doc, display, CONTENT_W - 52);
+  const blockH = valLines.length === 1 ? 7 : 6 + valLines.length * 4.5;
+  y = ensureSpace(doc, y, blockH);
+
   pdfSetFont(doc, 'bold');
   doc.setFontSize(PDF_FONT_BODY);
   doc.setTextColor(...TEXT_MUTED);
-  const labelW = doc.getTextWidth(`${labelText} `);
   doc.text(labelText, MARGIN, y);
+
   pdfSetFont(doc, 'normal');
   doc.setTextColor(...TEXT_DARK);
-  const valLines = pdfSplitText(doc, pdfSafeText(pdfDisplayValue(value)), CONTENT_W - labelW - 2);
-  doc.text(valLines, MARGIN + labelW, y);
+  if (valLines.length === 1) {
+    doc.text(valLines[0], MARGIN + 52, y);
+    touchPdfContentPage(doc);
+    return y + 6;
+  }
+
+  valLines.forEach((line, index) => {
+    doc.text(line, MARGIN + 4, y + 5 + index * 4.5);
+  });
   touchPdfContentPage(doc);
-  return y + Math.max(6, valLines.length * 4.5 + 2);
+  return y + 5 + valLines.length * 4.5 + 2;
 }
 
 async function drawFolhaClosingDataBlock(doc, y, values) {
-  y = ensureSpace(doc, y, 24);
+  const pedido = resolvePedidoOrcamentoValue(values);
+  const detalhe = resolvePedidoOrcamentoDetalhe(values);
+  const blockH = 36 + (pedido && detalhe ? 10 : 0);
+  y = ensureKeepTogetherBlock(doc, y, blockH);
+
   pdfSetFont(doc, 'bold');
   doc.setFontSize(PDF_FONT_CAPTION);
   doc.setTextColor(...CORPORATE_BLUE);
   doc.text('BLOCO DE FECHO', MARGIN, y + 4);
   y += 9;
 
-  const pedido = resolvePedidoOrcamentoValue(values);
   y = drawFolhaLabelValueLine(doc, y, 'Pedido de Orçamento', pedido ? 'Sim' : 'Não');
 
-  const detalhe = resolvePedidoOrcamentoDetalhe(values);
   if (pedido && detalhe) {
     y = drawFolhaLabelValueLine(doc, y, 'O que é necessário', detalhe, { uppercaseLabel: true });
   }
@@ -1286,9 +1308,48 @@ function drawFolhaInterventionLine(doc, y, values) {
   doc.setTextColor(...TEXT_DARK);
   const line = parts.join('   |   ');
   const wrapped = pdfSplitText(doc, line, CONTENT_W);
-  doc.text(wrapped, MARGIN + CONTENT_W / 2, y, { align: 'center' });
+  const centerX = MARGIN + CONTENT_W / 2;
+  wrapped.forEach((textLine, index) => {
+    doc.text(textLine, centerX, y + index * 4.2, { align: 'center' });
+  });
   touchPdfContentPage(doc);
-  return y + wrapped.length * 4 + 6;
+  return y + wrapped.length * 4.2 + 6;
+}
+
+/** Fecho da Folha de Avarias — fotos compactas + assinaturas paralelas, sem checkboxes */
+async function drawFolhaReportClosingSection(doc, y, opts) {
+  const hasFotos = Boolean(opts.fotoAntesUrl || opts.fotoDepoisUrl);
+  const profile = FOLHA_CLOSING_PROFILE;
+  const polaroidOpts = { simpleLegend: true };
+  const blockH =
+    estimatePolaroidSectionHeight(hasFotos, profile, polaroidOpts) +
+    estimateSignaturesHeight(profile);
+
+  y = ensureKeepTogetherBlock(doc, y, Math.min(blockH, pdfMaxContentHeight()));
+
+  if (hasFotos) {
+    y = await drawAntesDepoisPolaroidSection(
+      doc,
+      y,
+      opts.fotoAntesUrl,
+      opts.fotoDepoisUrl,
+      opts.fotoLegenda,
+      {
+        polaroidMm: profile.polaroidMm,
+        descH: 0,
+        bottomGap: profile.polaroidBottom,
+        showSectionHeader: true,
+        simpleLegend: true,
+        skipEnsure: true,
+      },
+    );
+  }
+
+  return drawSignaturesFooter(doc, y, opts.signatures || {}, {
+    topMargin: profile.sigTop,
+    imgHeight: profile.sigImg,
+    skipEnsure: true,
+  });
 }
 
 function drawPdfCheckbox(doc, x, y, checked) {
