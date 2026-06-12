@@ -27,11 +27,8 @@ import {
   isDeslocacaoField,
   isDeslocacaoMetaField,
   isVisitasField,
-  STANDARD_DESLOCACAO_FIELD,
   STANDARD_VISITAS_FIELD,
   VISITAS_FIELD_ID,
-  DESLOCACAO_BASE_FIELD_ID,
-  reportIncludesDeslocacao,
 } from './deslocacao-field.js';
 
 export { renderClientCombobox, renderHeaderClientCombobox, bindClientComboboxes, collectClientComboboxValues };
@@ -208,22 +205,17 @@ function filterReportFields(fields, service) {
   });
 }
 
-/** Visitas + Deslocação no bloco intro — Informações Gerais / Dados da Intervenção */
+/** Visitas no bloco intro — Informações Gerais / Dados da Intervenção */
 export function renderDeslocacaoIntroBlock(values = {}, context = {}) {
   const service = context?.service;
   const visitas = values[VISITAS_FIELD_ID] ?? values.visitas ?? 1;
-  const baseKm = values[DESLOCACAO_BASE_FIELD_ID] ?? '';
   const showVisitasInIntro = !SERVICES_WITH_SECTION_VISITAS.has(service?.id);
-  const showDeslocacao = reportIncludesDeslocacao(service);
-  if (!showVisitasInIntro && !showDeslocacao) return '';
+  if (!showVisitasInIntro) return '';
 
   return `
     <div class="form-intro-deslocacao-grid">
-      ${showVisitasInIntro ? `<div class="form-intro-visitas">${renderField(STANDARD_VISITAS_FIELD, visitas, context)}</div>` : ''}
-      ${showDeslocacao ? `<div class="form-intro-deslocacao-km">${renderField(STANDARD_DESLOCACAO_FIELD, values.deslocacao, context)}</div>` : ''}
+      <div class="form-intro-visitas">${renderField(STANDARD_VISITAS_FIELD, visitas, context)}</div>
     </div>
-    ${showDeslocacao ? `<input type="hidden" data-field-id="${DESLOCACAO_BASE_FIELD_ID}" data-field-kind="number"
-      value="${escapeHtml(String(baseKm))}">` : ''}
   `;
 }
 
