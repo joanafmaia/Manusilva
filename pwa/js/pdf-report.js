@@ -68,6 +68,7 @@ import {
   PDF_STANDARD_MACHINE_SPECS,
   PDF_CLOSING_DIAGNOSTIC_SPECS,
   PDF_LAYOUT_SKIP_FIELD_IDS,
+  PREVENTIVA_BATERIA_ANALYSIS_SPECS,
   resolvePdfStandardFieldValue,
   PDF_TABLE_ALT_ROW_FILL,
   PDF_TABLE_BODY_FILL,
@@ -518,11 +519,11 @@ export async function renderInterventionPDF(report) {
 
   const clientMeta = await resolvePdfClientMeta(report, normalizeReportValues(data));
   const isDl50Pdf = report.serviceType === 'inspecao_dl50_2005';
+  const isPreventivaBateriaPdf = report.serviceType === 'manutencao_preventiva_bateria';
   const fotoAntesUrl = data.fotoAntesUrl || job?.fotoAntes || null;
   const fotoDepoisUrl = data.fotoDepoisUrl || job?.fotoDepois || null;
+  const techName = tech?.name || '—';
 
-  let y = drawTopRowWithClientBlock(doc, clientMeta, job?.numeroOrdem ?? null);
-  y = drawTitleBar(doc, y, title);
   const pdfContext = buildPdfRenderContext(report, job, clientMeta, tech);
   let values = mapReportValuesForPdf(data, service, pdfContext);
   values = { ...values, ...resolveInspecaoDl50MachineFields(values, pdfContext) };
@@ -534,19 +535,8 @@ export async function renderInterventionPDF(report) {
     simplePhotoLegend: true,
     legalValue: isDl50Pdf ? values.declaracao_seguranca : null,
   };
-  const visitCount = formatPdfNumeroVisitas(values);
-  y = drawServiceInfoBlock(doc, y, {
-    serviceDate: formatPdfServiceDateOnly(report, job, values),
-    visitDatesLine: resolvePdfVisitDatesLine(values, report, job, visitCount),
-    numeroVisitas: visitCount,
-    deslocacao: reportIncludesDeslocacao(service) ? values.deslocacao || '—' : null,
-    technician: tech?.name || '—',
-  });
-  y = drawDivider(doc, y);
-  y = await drawStandardMachineBlock(doc, y, values, pdfContext);
-  y = drawDivider(doc, y);
-  y = await drawReportFieldsSection(doc, y, service, values, pdfContext);
-  y = await drawReportClosingSection(doc, y, {
+
+  const closingOpts = {
     legalLabel: isDl50Pdf ? 'Declaração de Segurança' : null,
     legalValue: isDl50Pdf ? values.declaracao_seguranca : null,
     fotoAntesUrl,
@@ -555,14 +545,46 @@ export async function renderInterventionPDF(report) {
     simplePhotoLegend: true,
     signatures: data.signatures || {},
     closingValues: values,
-  });
+    skipClosingDiagnostic: isPreventivaBateriaPdf,
+  };
+
+  let y;
+  if (isPreventivaBateriaPdf) {
+    y = drawPreventivaBateriaMirrorHeader(doc, clientMeta, techName, report, job, values);
+    y = drawFolhaTitleBar(doc, y, title);
+    y = await drawPreventivaBateriaBody(doc, y, values, service);
+    y = await drawPreventivaBateriaClosingSection(doc, y, {
+      signatures: data.signatures || {},
+      values,
+    });
+  } else {
+    y = drawTopRowWithClientBlock(doc, clientMeta, job?.numeroOrdem ?? null);
+    y = drawTitleBar(doc, y, title);
+    const visitCount = formatPdfNumeroVisitas(values);
+    y = drawServiceInfoBlock(doc, y, {
+      serviceDate: formatPdfServiceDateOnly(report, job, values),
+      visitDatesLine: resolvePdfVisitDatesLine(values, report, job, visitCount),
+      numeroVisitas: visitCount,
+      deslocacao: reportIncludesDeslocacao(service) ? values.deslocacao || '—' : null,
+      technician: techName,
+    });
+    y = drawDivider(doc, y);
+    y = await drawStandardMachineBlock(doc, y, values, pdfContext);
+    y = drawDivider(doc, y);
+    y = await drawReportFieldsSection(doc, y, service, values, pdfContext);
+    y = await drawReportClosingSection(doc, y, closingOpts);
+  }
   if ((data.photos || []).length) {
     y = await drawPhotosAppendix(doc, y, data.photos || []);
   }
 
   touchPdfContentPage(doc);
   trimTrailingBlankPages(doc);
-  drawPageFooter(doc, report.id);
+  if (isPreventivaBateriaPdf) {
+    drawFolhaDocumentFooters(doc);
+  } else {
+    drawPageFooter(doc, report.id);
+  }
 
   return doc;
 }
@@ -645,6 +667,455 @@ export async function generateReportPdfByServiceType(report) {
 const PDF_LOGO_WIDTH_MM = 48;
 const PDF_LOGO_HEIGHT_MM = 34;
 const PDF_HEADER_CLIENT_W = 88;
+
+/** Layout profissional — relatórios com cabeçalho espelho e tabelas fechadas */
+const FOLHA_TITLE_BAR_BG = [241, 245, 249];
+const FOLHA_TABLE_HEAD_FILL = [241, 245, 249];
+const FOLHA_INSTITUTIONAL_FOOTER_RGB = [102, 102, 102];
+const FOLHA_INSTITUTIONAL_FOOTER_FONT = 8;
+const FOLHA_INSTITUTIONAL_FOOTER_H_MM = 22;
+const FOLHA_CLOSING_PROFILE = {
+  sigTop: 8,
+  sigImg: 18,
+};
+
+function formatFolhaInterventionDate(raw) {
+  const pure = String(raw ?? '').trim();
+  if (!pure) return '—';
+  const iso = pure.includes('T') ? pure.split('T')[0] : pure;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso;
+  const parts = iso.split(/[/-]/);
+  if (parts.length === 3) {
+    if (parts[0].length === 4) {
+      return `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
+    }
+    return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+  }
+  return pdfDisplayValue(raw) || '—';
+}
+
+function buildFolhaInstitutionalFooterLines() {
+  const contact = [COMPANY.phone, COMPANY.email, COMPANY.website].filter(Boolean).join(' | ');
+  return [COMPANY.name, COMPANY.address, contact].filter(Boolean);
+}
+
+function drawFolhaInstitutionalFooter(doc) {
+  const total = doc.getNumberOfPages();
+  doc.setPage(total);
+
+  const footerTop = PDF_FOOTER_BLOCK_TOP;
+  const footerLines = buildFolhaInstitutionalFooterLines();
+
+  doc.setDrawColor(...PDF_TABLE_LINE);
+  doc.setLineWidth(0.2);
+  doc.line(MARGIN, footerTop, PAGE_W - MARGIN, footerTop);
+
+  pdfSetFont(doc, 'normal');
+  doc.setFontSize(FOLHA_INSTITUTIONAL_FOOTER_FONT);
+  doc.setTextColor(...FOLHA_INSTITUTIONAL_FOOTER_RGB);
+
+  let textY = footerTop + 4;
+  footerLines.forEach((line) => {
+    pdfSplitText(doc, line, CONTENT_W).forEach((part) => {
+      doc.text(part, PAGE_W / 2, textY, { align: 'center' });
+      textY += 3.5;
+    });
+  });
+}
+
+function drawFolhaDocumentFooters(doc) {
+  const total = doc.getNumberOfPages();
+  for (let i = 1; i <= total; i++) {
+    doc.setPage(i);
+    pdfSetFont(doc, 'normal');
+    doc.setFontSize(PDF_FONT_CAPTION);
+    doc.setTextColor(...TEXT_MUTED);
+    doc.text(`${i} / ${total}`, PAGE_W / 2, PDF_PAGE_NUMBER_Y, { align: 'center' });
+    if (i < total) {
+      doc.setDrawColor(...PDF_TABLE_LINE);
+      doc.setLineWidth(0.15);
+      doc.line(MARGIN, PDF_FOOTER_BLOCK_TOP, PAGE_W - MARGIN, PDF_FOOTER_BLOCK_TOP);
+    }
+  }
+  drawFolhaInstitutionalFooter(doc);
+}
+
+function buildFolhaAutoTableConfig(doc, y, overrides = {}) {
+  return {
+    startY: y,
+    margin: getPdfAutoTableMargin(MARGIN, MARGIN),
+    tableWidth: CONTENT_W,
+    theme: 'plain',
+    rowPageBreak: 'avoid',
+    styles: {
+      font: pdfAutoTableFont(doc),
+      fontSize: PDF_FONT_BODY,
+      cellPadding: { top: 3.5, right: 4, bottom: 3.5, left: 4 },
+      lineColor: PDF_TABLE_LINE,
+      lineWidth: 0.2,
+      textColor: TEXT_DARK,
+      fillColor: PDF_TABLE_BODY_FILL,
+      valign: 'middle',
+      overflow: 'linebreak',
+      minCellHeight: 8,
+    },
+    bodyStyles: { minCellHeight: 8 },
+    didDrawPage: buildPdfAutoTableDidDrawPage(doc),
+    ...overrides,
+  };
+}
+
+/** Cabeçalho bilateral — esq.: logo + funcionário + data; dir.: cliente alinhado à direita */
+function drawPreventivaBateriaMirrorHeader(doc, clientMeta, techName, report, job, values) {
+  const topY = MARGIN;
+  const logoW = PDF_LOGO_WIDTH_MM;
+  const logoH = PDF_LOGO_HEIGHT_MM;
+  const rightX = PAGE_W - MARGIN;
+  const rightTextW = CONTENT_W / 2 - 6;
+  const leftColW = CONTENT_W / 2 - 6;
+  const dataConclusao = formatPdfServiceDateOnly(report, job, values);
+
+  if (isLogoConfigured()) {
+    try {
+      doc.addImage(
+        MANUSILVA_LOGO,
+        getPdfLogoFormat(),
+        MARGIN,
+        topY,
+        logoW,
+        logoH,
+        undefined,
+        'FAST',
+      );
+    } catch {
+      drawLogoPlaceholder(doc, MARGIN, topY, logoW, logoH);
+    }
+  } else {
+    drawLogoPlaceholder(doc, MARGIN, topY, logoW, logoH);
+  }
+
+  let rightY = topY + 2;
+  pdfSetFont(doc, 'bold');
+  doc.setFontSize(PDF_FONT_CAPTION);
+  doc.setTextColor(...CORPORATE_BLUE);
+  doc.text('CLIENTE', rightX, rightY, { align: 'right' });
+  rightY += 5;
+
+  pdfSetFont(doc, 'bold');
+  doc.setFontSize(PDF_FONT_BODY);
+  doc.setTextColor(...TEXT_DARK);
+  pdfSplitText(doc, pdfSafeText(clientMeta.nome), rightTextW).forEach((line) => {
+    doc.text(line, rightX, rightY, { align: 'right' });
+    rightY += 4.5;
+  });
+
+  pdfSetFont(doc, 'normal');
+  doc.setFontSize(PDF_FONT_CAPTION);
+  doc.setTextColor(...TEXT_MUTED);
+  [clientMeta.addressLine, clientMeta.addressSubline].filter(Boolean).forEach((addrPart) => {
+    pdfSplitText(doc, pdfSafeText(addrPart), rightTextW).forEach((line) => {
+      doc.text(line, rightX, rightY, { align: 'right' });
+      rightY += 3.6;
+    });
+  });
+
+  let leftY = topY + logoH + 4;
+  pdfSetFont(doc, 'normal');
+  doc.setFontSize(PDF_FONT_BODY);
+  doc.setTextColor(...TEXT_DARK);
+  doc.text(`Funcionário: ${pdfSafeText(techName)}`, MARGIN, leftY, { maxWidth: leftColW });
+  leftY += 5.5;
+  doc.text(`Data de Conclusão: ${pdfSafeText(dataConclusao)}`, MARGIN, leftY, { maxWidth: leftColW });
+  leftY += 5.5;
+
+  const headerBottom = Math.max(leftY, rightY, topY + logoH) + 4;
+  touchPdfContentPage(doc);
+  return headerBottom + 4;
+}
+
+function drawFolhaTitleBar(doc, y, title) {
+  const barH = 12;
+  y = ensureSpace(doc, y, barH + 8);
+  doc.setFillColor(...FOLHA_TITLE_BAR_BG);
+  doc.setDrawColor(...PDF_TABLE_LINE);
+  doc.setLineWidth(0.15);
+  doc.roundedRect(MARGIN, y, CONTENT_W, barH, 1.5, 1.5, 'FD');
+  pdfSetFont(doc, 'bold');
+  doc.setFontSize(PDF_FONT_SECTION);
+  doc.setTextColor(...CORPORATE_BLUE_DARK);
+  doc.text(title, MARGIN + CONTENT_W / 2, y + 8, { align: 'center' });
+  touchPdfContentPage(doc);
+  return y + barH + 8;
+}
+
+function resolvePreventivaBateriaAnalysisValue(spec, values) {
+  if (spec.multi || spec.id === 'estado_cofre') {
+    const raw = values[spec.id];
+    if (Array.isArray(raw)) {
+      const joined = raw.map((item) => cleanPdfText(item)).filter(Boolean).join(', ');
+      return joined || '—';
+    }
+    return pdfDisplayValue(raw);
+  }
+
+  if (spec.id === 'parafusos') {
+    let display = pdfDisplayValue(values.parafusos);
+    if (/danificad/i.test(String(values.parafusos || ''))) {
+      const qtd = values.qtd_parafusos_danificados;
+      if (qtd != null && String(qtd).trim() !== '') {
+        display += ` — Quantidade de parafusos danificados: ${pdfDisplayValue(qtd)}`;
+      }
+    }
+    return display;
+  }
+
+  const raw = values[spec.id];
+  if (raw == null || String(raw).trim() === '') return '—';
+  if (spec.unit) return `${pdfDisplayValue(raw)} ${spec.unit}`;
+  return pdfDisplayValue(raw);
+}
+
+async function drawPreventivaBateriaAnalysisTable(doc, y, values) {
+  const body = PREVENTIVA_BATERIA_ANALYSIS_SPECS.map((spec) => [
+    spec.label,
+    resolvePreventivaBateriaAnalysisValue(spec, values),
+  ]);
+  const blockH = 10 + body.length * 8 + 12;
+  y = ensureKeepTogetherBlock(doc, y, Math.min(blockH, pdfMaxContentHeight()));
+
+  pdfSetFont(doc, 'bold');
+  doc.setFontSize(PDF_FONT_CAPTION);
+  doc.setTextColor(...CORPORATE_BLUE);
+  doc.text('ANÁLISE DA BATERIA', MARGIN, y + 4);
+  y += 8;
+
+  const labelColW = CONTENT_W * 0.42;
+  await loadJsPdfAutoTable();
+  doc.autoTable(
+    buildFolhaAutoTableConfig(doc, y, {
+      body,
+      columnStyles: {
+        0: {
+          cellWidth: labelColW,
+          fillColor: FOLHA_TABLE_HEAD_FILL,
+          fontStyle: 'bold',
+          textColor: TEXT_DARK,
+        },
+        1: { cellWidth: CONTENT_W - labelColW, halign: 'left' },
+      },
+      bodyStyles: {
+        font: pdfAutoTableFont(doc),
+        fillColor: PDF_TABLE_BODY_FILL,
+        textColor: TEXT_DARK,
+        fontStyle: 'normal',
+        fontSize: PDF_FONT_BODY,
+        lineColor: PDF_TABLE_LINE,
+        lineWidth: 0.2,
+        valign: 'middle',
+      },
+    }),
+  );
+  touchPdfContentPage(doc);
+  return normalizeYAfterAutoTable(doc, y, 8);
+}
+
+async function drawFolhaMaterialTable(doc, y, rows, options = {}) {
+  const columns = MATERIAL_UTILIZADO_COLUMNS;
+  const colKeys = columns.map((c) => columnKey(c));
+  const headLabels = options.headLabels || columns.map((c) => formatTableHeaderLabel(c));
+  const body = rows.map((row) => colKeys.map((key) => pdfDisplayValue(row[key])));
+  const blockH = 10 + 12 + rows.length * 8 + 10;
+  y = ensureKeepTogetherBlock(doc, y, blockH);
+
+  const sectionTitle = (options.sectionTitle || getMaterialTablePdfLabel()).toUpperCase();
+  pdfSetFont(doc, 'bold');
+  doc.setFontSize(PDF_FONT_CAPTION);
+  doc.setTextColor(...CORPORATE_BLUE);
+  doc.text(sectionTitle, MARGIN, y + 4);
+  y += 8;
+
+  await loadJsPdfAutoTable();
+  doc.autoTable(
+    buildFolhaAutoTableConfig(doc, y, {
+      head: [headLabels],
+      body,
+      headStyles: {
+        font: pdfAutoTableFont(doc),
+        fillColor: FOLHA_TABLE_HEAD_FILL,
+        textColor: TEXT_DARK,
+        fontStyle: 'bold',
+        fontSize: PDF_FONT_BODY,
+        lineColor: PDF_TABLE_LINE,
+        lineWidth: 0.2,
+        halign: 'left',
+      },
+      columnStyles: buildSmartColumnStyles(columns),
+    }),
+  );
+  touchPdfContentPage(doc);
+  return normalizeYAfterAutoTable(doc, y, 8);
+}
+
+async function drawFolhaInterventionMetricsTable(doc, y, values) {
+  const data1 = formatFolhaInterventionDate(
+    resolvePdfStandardFieldValue(values, { id: 'data_1' }, values.data_de_conclusao),
+  );
+  const data2 = formatFolhaInterventionDate(resolvePdfStandardFieldValue(values, { id: 'data_2' }));
+  const visitas =
+    pdfDisplayValue(
+      resolvePdfStandardFieldValue(values, {
+        id: VISITAS_FIELD_ID,
+        aliases: ['visitas', 'numero_visitas'],
+      }),
+    ) || formatPdfNumeroVisitas(values);
+  const horas =
+    pdfDisplayValue(
+      resolvePdfStandardFieldValue(values, { id: 'horas', aliases: ['horas_gastas'] }),
+    ) || '—';
+
+  const colW = CONTENT_W / 4;
+  const blockH = 22;
+  y = ensureKeepTogetherBlock(doc, y, blockH + 4);
+
+  await loadJsPdfAutoTable();
+  doc.autoTable(
+    buildFolhaAutoTableConfig(doc, y, {
+      head: [['Data 1', 'Data 2', 'Nº de Visitas', 'Horas Gastas']],
+      body: [[data1, data2, visitas, horas]],
+      headStyles: {
+        font: pdfAutoTableFont(doc),
+        fillColor: FOLHA_TABLE_HEAD_FILL,
+        textColor: TEXT_DARK,
+        fontStyle: 'bold',
+        fontSize: PDF_FONT_BODY,
+        lineColor: PDF_TABLE_LINE,
+        lineWidth: 0.2,
+        halign: 'center',
+        valign: 'middle',
+      },
+      bodyStyles: {
+        font: pdfAutoTableFont(doc),
+        fillColor: PDF_TABLE_BODY_FILL,
+        textColor: TEXT_DARK,
+        fontStyle: 'normal',
+        fontSize: PDF_FONT_BODY,
+        lineColor: PDF_TABLE_LINE,
+        lineWidth: 0.2,
+        halign: 'center',
+        valign: 'middle',
+      },
+      columnStyles: {
+        0: { cellWidth: colW, halign: 'center' },
+        1: { cellWidth: colW, halign: 'center' },
+        2: { cellWidth: colW, halign: 'center' },
+        3: { cellWidth: colW, halign: 'center' },
+      },
+    }),
+  );
+
+  touchPdfContentPage(doc);
+  return normalizeYAfterAutoTable(doc, y, 8);
+}
+
+async function drawPreventivaBateriaBody(doc, y, values, service) {
+  y = await drawPreventivaBateriaAnalysisTable(doc, y, values);
+
+  const materialField = (service?.fields || []).find((f) => isMaterialTableField(f));
+  if (materialField) {
+    const rows = normalizeMaterialRows(values[materialField.id]).filter(
+      (row) => String(row.artigo || '').trim() || row.qtd,
+    );
+    if (rows.length) {
+      y = await drawFolhaMaterialTable(doc, y, rows, {
+        sectionTitle: 'Consumíveis',
+        headLabels: ['Material', 'Quantidade'],
+      });
+    }
+  }
+
+  return drawFolhaInterventionMetricsTable(doc, y, values);
+}
+
+function drawFolhaBoundedTextField(doc, y, label, value) {
+  const innerW = CONTENT_W - 10;
+  const lines = pdfParagraphLines(doc, value, innerW);
+  const labelH = 7;
+  const boxH = Math.max(20, lines.length * 4.5 + labelH + 8);
+  y = ensureKeepTogetherBlock(doc, y, boxH + 6);
+
+  doc.setDrawColor(...PDF_TABLE_LINE);
+  doc.setLineWidth(0.2);
+  doc.setFillColor(255, 255, 255);
+  doc.roundedRect(MARGIN, y, CONTENT_W, boxH, 1, 1, 'FD');
+
+  pdfSetFont(doc, 'bold');
+  doc.setFontSize(PDF_FONT_CAPTION);
+  doc.setTextColor(...TEXT_MUTED);
+  doc.text(String(label).toUpperCase(), MARGIN + 4, y + 5.5);
+
+  pdfSetFont(doc, 'normal');
+  doc.setFontSize(PDF_FONT_BODY);
+  doc.setTextColor(...TEXT_DARK);
+  doc.text(lines, MARGIN + 4, y + labelH + 5, { lineHeightFactor: 1.35 });
+
+  touchPdfContentPage(doc);
+  return y + boxH + 5;
+}
+
+function drawFolhaLabelValueLine(doc, y, label, value) {
+  const display = pdfSafeText(pdfDisplayValue(value));
+  const valLines = pdfSplitText(doc, display, CONTENT_W - 52);
+  const blockH = valLines.length === 1 ? 7 : 6 + valLines.length * 4.5;
+  y = ensureSpace(doc, y, blockH);
+
+  pdfSetFont(doc, 'bold');
+  doc.setFontSize(PDF_FONT_BODY);
+  doc.setTextColor(...TEXT_MUTED);
+  doc.text(`${label}:`, MARGIN, y);
+
+  pdfSetFont(doc, 'normal');
+  doc.setTextColor(...TEXT_DARK);
+  if (valLines.length === 1) {
+    doc.text(valLines[0], MARGIN + 52, y);
+    touchPdfContentPage(doc);
+    return y + 6;
+  }
+
+  valLines.forEach((line, index) => {
+    doc.text(line, MARGIN + 4, y + 5 + index * 4.5);
+  });
+  touchPdfContentPage(doc);
+  return y + 5 + valLines.length * 4.5 + 2;
+}
+
+async function drawPreventivaBateriaClosingSection(doc, y, opts) {
+  const values = opts.values || {};
+  const profile = FOLHA_CLOSING_PROFILE;
+  const observacao = String(values.observacao || '').trim();
+  const estadoFinal = String(values.estado_final || '').trim();
+  const closingBlockH =
+    (observacao ? 28 : 0) +
+    (estadoFinal ? 12 : 0) +
+    estimateSignaturesHeight(profile) +
+    FOLHA_INSTITUTIONAL_FOOTER_H_MM;
+
+  y = ensureKeepTogetherBlock(doc, y, Math.min(closingBlockH, pdfMaxContentHeight()));
+
+  if (observacao) {
+    y = drawFolhaBoundedTextField(doc, y, 'Observação', observacao);
+  }
+  if (estadoFinal) {
+    y = drawFolhaLabelValueLine(doc, y, 'Estado Final', estadoFinal);
+    y += 4;
+  }
+
+  return drawSignaturesFooter(doc, y, opts.signatures || {}, {
+    topMargin: profile.sigTop,
+    imgHeight: profile.sigImg,
+    skipEnsure: true,
+    reserveInstitutionalFooter: true,
+  });
+}
 
 function formatTableHeaderLabel(col) {
   const key = columnKey(col);
@@ -2334,9 +2805,17 @@ async function drawSignaturesFooter(doc, y, signatures, opts = {}) {
   const topMargin = opts.topMargin ?? SIGNATURES_TOP_MARGIN_MM;
   const imgHeight = opts.imgHeight ?? SIGNATURE_IMG_H_MM;
   const blockHeight = topMargin + imgHeight + SIGNATURE_LABEL_GAP_MM + 10;
+  const footerLimit = opts.reserveInstitutionalFooter
+    ? PDF_FOOTER_BLOCK_TOP - 2
+    : pdfContentBottomY();
 
   if (!opts.skipEnsure) {
     y = ensureBlockFitsSafeZone(doc, y, blockHeight);
+  }
+  if (y + blockHeight > footerLimit) {
+    doc.addPage();
+    touchPdfContentPage(doc);
+    y = PDF_PAGE_CONTENT_START_Y;
   }
   y += topMargin;
 

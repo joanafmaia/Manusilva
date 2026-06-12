@@ -207,9 +207,35 @@ export const PDF_CLOSING_DIAGNOSTIC_SPECS = [
   { id: 'estado_maquina', label: 'Estado da Máquina' },
 ];
 
+/** Linhas da tabela «Análise da Bateria» — Manutenção Preventiva de Bateria (PDF) */
+export const PREVENTIVA_BATERIA_ANALYSIS_SPECS = [
+  { id: 'densidade', label: 'Densidade' },
+  { id: 'tensao', label: 'Tensão', unit: 'V' },
+  { id: 'tensao_media_elementos', label: 'Tensão Média de Elementos', unit: 'V' },
+  { id: 'nivel_eletrolito', label: 'Nível de Eletrólito' },
+  { id: 'elementos_curto_circuito', label: 'Nº Elementos Em Curto-Circuito' },
+  { id: 'ficha', label: 'Ficha' },
+  { id: 'condutividade', label: 'Condutividade' },
+  { id: 'enchimento', label: 'Verificação do Enchimento' },
+  { id: 'parafusos', label: 'Parafusos', includeQtdField: 'qtd_parafusos_danificados' },
+  { id: 'terminal_olhal', label: 'Terminal Olhal' },
+  { id: 'estado_cofre', label: 'Estado do Cofre', multi: true },
+];
+
+export const PREVENTIVA_BATERIA_PDF_FIELD_IDS = new Set([
+  ...PREVENTIVA_BATERIA_ANALYSIS_SPECS.map((s) => s.id),
+  'qtd_parafusos_danificados',
+  'consumiveis',
+  'horas',
+  'observacao',
+  'estado_final',
+  'data_de_conclusao',
+]);
+
 export const PDF_LAYOUT_SKIP_FIELD_IDS = new Set([
   ...PDF_STANDARD_MACHINE_SPECS.flatMap((s) => [s.id, ...(s.aliases || [])]),
   ...PDF_CLOSING_DIAGNOSTIC_SPECS.flatMap((s) => [s.id, ...(s.aliases || [])]),
+  ...PREVENTIVA_BATERIA_PDF_FIELD_IDS,
   'deslocacao',
   'visitas_realizadas',
   'visitas',
@@ -220,7 +246,6 @@ export const PDF_LAYOUT_SKIP_FIELD_IDS = new Set([
   'data_3',
   'data_4',
   'data_5',
-  'data_de_conclusao',
 ]);
 
 /** Resolve valor de campo padronizado (com aliases). */
