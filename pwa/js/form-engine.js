@@ -186,7 +186,10 @@ export function isMachineTrackingField(field) {
 const SERVICES_WITH_MACHINE_FIELDS = new Set([
   'inspecao_dl50_2005',
   'folha_intervencao_avarias',
+  'manutencao_preventiva_empilhadores',
 ]);
+
+const EMPILHADORES_MATERIAL_SECTION = 'Substituição de Material';
 
 /** Relatórios com Nr de Visitas na secção dedicada do formulário (não no intro) */
 const SERVICES_WITH_SECTION_VISITAS = new Set(['manutencao_preventiva_bateria']);
@@ -429,9 +432,15 @@ const REPORT_TAB_CHECKLIST_TYPES = new Set(['verification_toggles', 'matrix_4opt
 const REPORT_TAB_FINAL_TYPES = new Set(['legal_verdict']);
 
 /** Secção do formulário em abas — Geral | Checklist | Finalização */
-export function getReportFieldTab(field) {
+export function getReportFieldTab(field, service = null) {
   if (REPORT_TAB_FINAL_TYPES.has(field?.type)) return 'finalizacao';
   if (REPORT_TAB_CHECKLIST_TYPES.has(field?.type)) return 'checklist';
+  if (
+    service?.id === 'manutencao_preventiva_empilhadores' &&
+    field?.section === EMPILHADORES_MATERIAL_SECTION
+  ) {
+    return 'checklist';
+  }
   return 'geral';
 }
 
@@ -439,7 +448,7 @@ export function analyzeReportFormTabs(service) {
   const fields = filterReportFields(service?.fields, service);
   const tabs = { geral: true, checklist: false, finalizacao: true };
   fields.forEach((field) => {
-    const tab = getReportFieldTab(field);
+    const tab = getReportFieldTab(field, service);
     if (tab === 'checklist') tabs.checklist = true;
     if (tab === 'finalizacao') tabs.finalizacao = true;
   });
@@ -502,7 +511,7 @@ export function renderReportFields(service, values = {}, context = {}, options =
   const tabFilter = options.tab || null;
   let fields = filterReportFields(service?.fields, service);
   if (tabFilter) {
-    fields = fields.filter((field) => getReportFieldTab(field) === tabFilter);
+    fields = fields.filter((field) => getReportFieldTab(field, service) === tabFilter);
   }
   if (!fields.length) {
     if (tabFilter === 'checklist') {
@@ -897,13 +906,31 @@ export function countMatrixProgress(field, matrixValue) {
   return { filled, total };
 }
 
+function resolveDependencySelectedValue(overlay, depId) {
+  const compGroup = overlay.querySelector(`[data-component-toggle="${depId}"]`);
+  if (compGroup) {
+    return compGroup.querySelector('.component-toggle-btn.selected')?.dataset.value ?? null;
+  }
+
+  const toggleInput = overlay.querySelector(`[data-toggle-field="${depId}"]`);
+  if (toggleInput) {
+    const toggleWrap = toggleInput.closest('[data-toggle-wrap]');
+    return toggleInput.checked ? toggleWrap?.dataset.onValue : toggleWrap?.dataset.offValue;
+  }
+
+  const pills = overlay.querySelector(`[data-status-pills="${depId}"]`);
+  if (pills) {
+    return pills.querySelector('.status-pill.selected')?.dataset.value ?? null;
+  }
+
+  return null;
+}
+
 export function evaluateFieldDependencies(overlay) {
   overlay.querySelectorAll('[data-dependency]').forEach((wrap) => {
     const dep = wrap.dataset.dependency;
-    const [compId, expected] = dep.split(':');
-    const group = overlay.querySelector(`[data-component-toggle="${compId}"]`);
-    const selected = group?.querySelector('.component-toggle-btn.selected')?.dataset.value;
-    const show = selected === expected;
+    const [depId, expected] = dep.split(':');
+    const show = resolveDependencySelectedValue(overlay, depId) === expected;
     wrap.classList.toggle('is-hidden', !show);
   });
 }
@@ -1727,6 +1754,7 @@ export async function bindFormFieldInteractions(overlay) {
       if (label && wrap) {
         label.textContent = input.checked ? wrap.dataset.onValue : wrap.dataset.offValue;
       }
+      evaluateFieldDependencies(overlay);
     });
   });
 
