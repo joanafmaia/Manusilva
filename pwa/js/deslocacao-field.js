@@ -7,7 +7,6 @@ export const OFFICIAL_REPORT_SERVICE_IDS = new Set([
   'folha_intervencao_avarias',
   'manutencao_baterias_grandes',
   'manutencao_corretiva_maquinas',
-  'manutencao_preventiva_bateria',
   'inspecao_dl50_2005',
   'manutencao_preventiva_empilhadores',
   'reparacao_carregador',

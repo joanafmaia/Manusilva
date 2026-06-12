@@ -268,6 +268,7 @@ function buildFormHTML(job, client, tech, service, existingReport, options = {})
   const fieldsGeral = service ? renderReportFields(service, values, formContext, { tab: 'geral' }) : '';
   const fieldsChecklist = service ? renderReportFields(service, values, formContext, { tab: 'checklist' }) : '';
   const fieldsFinalizacao = service ? renderReportFields(service, values, formContext, { tab: 'finalizacao' }) : '';
+  const deslocacaoIntroHtml = official ? renderDeslocacaoIntroBlock(values, formContext) : '';
 
   const rejectionBanner = job.status === 'rejected' && job.rejectionNote ? `
     <div class="rejection-banner">
@@ -358,7 +359,7 @@ function buildFormHTML(job, client, tech, service, existingReport, options = {})
                   <div class="header-grid ${official ? 'header-grid--intervention' : ''}">
                     <div class="header-field"><span class="hf-label">Data do Serviço</span><span class="hf-value">${formatDateLong(job.date)}</span></div>
                     <div class="header-field"><span class="hf-label">Técnico</span><span class="hf-value">${escapeHtml(tech.name)}</span></div>
-                    ${official ? `<div class="form-intro-deslocacao">${renderDeslocacaoIntroBlock(values, formContext)}</div>` : ''}
+                    ${deslocacaoIntroHtml ? `<div class="form-intro-deslocacao">${deslocacaoIntroHtml}</div>` : ''}
                   </div>
                 </div>
               </div>
