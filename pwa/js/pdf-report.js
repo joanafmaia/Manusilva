@@ -991,10 +991,6 @@ async function drawPreventivaBateriaConsumiveisTable(doc, y, rows) {
 }
 
 async function drawPreventivaBateriaIntervencaoTable(doc, y, values) {
-  const data1 = formatFolhaInterventionDate(
-    resolvePdfStandardFieldValue(values, { id: 'data_1' }, values.data_de_conclusao),
-  );
-  const data2 = formatFolhaInterventionDate(resolvePdfStandardFieldValue(values, { id: 'data_2' }));
   const visitas =
     pdfDisplayValue(
       resolvePdfStandardFieldValue(values, {
@@ -1007,30 +1003,27 @@ async function drawPreventivaBateriaIntervencaoTable(doc, y, values) {
       resolvePdfStandardFieldValue(values, { id: 'horas', aliases: ['horas_gastas'] }),
     ) || '—';
 
-  const colW = CONTENT_W / 4;
+  const colW = CONTENT_W / 2;
   return drawPreventivaBateriaClosedSectionTable(doc, y, {
-    sectionTitle: 'INTERVENÇÃO',
-    colSpan: 4,
-    columnHead: ['Data 1', 'Data 2', 'Nº de Visitas', 'Horas Gastas'],
-    body: [[data1, data2, visitas, horas]],
+    sectionTitle: 'NÚMERO DE VISITAS E TEMPO',
+    colSpan: 2,
+    columnHead: ['Nr de visitas', 'Horas'],
+    body: [[visitas, horas]],
     minBlockH: 36,
     bodyStyles: { halign: 'center' },
     columnStyles: {
       0: { cellWidth: colW, halign: 'center' },
       1: { cellWidth: colW, halign: 'center' },
-      2: { cellWidth: colW, halign: 'center' },
-      3: { cellWidth: colW, halign: 'center' },
     },
   });
 }
 
 async function drawPreventivaBateriaEstadoFinalBlock(doc, y, values) {
-  const observacao = pdfDisplayValue(values.observacao);
-  const estado = pdfDisplayValue(values.estado_final);
-  const body = [
-    [`Observação:`, observacao],
-    [`Estado:`, estado],
-  ];
+  const estadoFinal =
+    pdfDisplayValue(values.observacao) !== '—'
+      ? pdfDisplayValue(values.observacao)
+      : pdfDisplayValue(values.estado_final);
+  const body = [[`Estado final:`, estadoFinal]];
   const labelColW = CONTENT_W * 0.22;
   return drawPreventivaBateriaClosedSectionTable(doc, y, {
     sectionTitle: 'ESTADO FINAL',

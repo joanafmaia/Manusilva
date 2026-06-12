@@ -148,7 +148,8 @@ export function isScalarCompactSection(section, service) {
   if (
     norm.includes('analise da bateria') ||
     norm.includes('deslocacao e tempo') ||
-    norm.includes('tempo de intervencao')
+    norm.includes('tempo de intervencao') ||
+    norm.includes('numero de visitas e tempo')
   ) {
     return true;
   }
@@ -228,6 +229,8 @@ export const PREVENTIVA_BATERIA_PDF_FIELD_IDS = new Set([
   'qtd_parafusos_danificados',
   'consumiveis',
   'horas',
+  'visitas_realizadas',
+  'visitas',
   'observacao',
   'estado_final',
   'data_de_conclusao',

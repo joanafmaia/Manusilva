@@ -190,9 +190,13 @@ const SERVICES_WITH_MACHINE_FIELDS = new Set([
   'folha_intervencao_avarias',
 ]);
 
+/** Relatórios com Nr de Visitas na secção dedicada do formulário (não no intro) */
+const SERVICES_WITH_SECTION_VISITAS = new Set(['manutencao_preventiva_bateria']);
+
 function filterReportFields(fields, service) {
   return (fields || []).filter((f) => {
-    if (isDeslocacaoField(f) || isVisitasField(f) || isDeslocacaoMetaField(f)) return false;
+    if (isDeslocacaoField(f) || isDeslocacaoMetaField(f)) return false;
+    if (isVisitasField(f) && !SERVICES_WITH_SECTION_VISITAS.has(service?.id)) return false;
     if (
       SERVICES_WITH_MACHINE_FIELDS.has(service?.id) &&
       f.section === 'Informações da Máquina'
@@ -207,9 +211,10 @@ function filterReportFields(fields, service) {
 export function renderDeslocacaoIntroBlock(values = {}, context = {}) {
   const visitas = values[VISITAS_FIELD_ID] ?? values.visitas ?? 1;
   const baseKm = values[DESLOCACAO_BASE_FIELD_ID] ?? '';
+  const showVisitasInIntro = !SERVICES_WITH_SECTION_VISITAS.has(context?.service?.id);
   return `
     <div class="form-intro-deslocacao-grid">
-      <div class="form-intro-visitas">${renderField(STANDARD_VISITAS_FIELD, visitas, context)}</div>
+      ${showVisitasInIntro ? `<div class="form-intro-visitas">${renderField(STANDARD_VISITAS_FIELD, visitas, context)}</div>` : ''}
       <div class="form-intro-deslocacao-km">${renderField(STANDARD_DESLOCACAO_FIELD, values.deslocacao, context)}</div>
     </div>
     <input type="hidden" data-field-id="${DESLOCACAO_BASE_FIELD_ID}" data-field-kind="number"
@@ -350,6 +355,7 @@ export function buildFormPrefill(service, job, _forklift, context = {}) {
     return {
       data_de_conclusao: job?.date || '',
       consumiveis: [emptyMaterialRow()],
+      visitas_realizadas: 1,
       ...toggles,
     };
   }

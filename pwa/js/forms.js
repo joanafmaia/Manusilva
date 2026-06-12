@@ -251,6 +251,7 @@ function buildFormHTML(job, client, tech, service, existingReport, options = {})
     tech,
     client,
     job,
+    service,
     selectedClientId: saved.cliente_id || client.NIF || client.id,
     lockClient: true,
   };
