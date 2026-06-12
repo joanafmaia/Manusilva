@@ -220,7 +220,8 @@ export const MANUTENCAO_PREVENTIVA_BATERIA = {
       placeholder: '1',
     },
     { type: 'number', id: 'horas', label: 'Horas', section: 'Número de Visitas e Tempo', min: 0, step: 0.5 },
-    { type: 'textarea', id: 'observacao', label: 'Estado final', section: 'Estado final' },
+    { type: 'textarea', id: 'observacao', label: 'Observações', section: 'Estado final' },
+    { type: 'text', id: 'estado_final', label: 'Estado', section: 'Estado final' },
   ],
 };
 

@@ -1019,11 +1019,10 @@ async function drawPreventivaBateriaIntervencaoTable(doc, y, values) {
 }
 
 async function drawPreventivaBateriaEstadoFinalBlock(doc, y, values) {
-  const estadoFinal =
-    pdfDisplayValue(values.observacao) !== '—'
-      ? pdfDisplayValue(values.observacao)
-      : pdfDisplayValue(values.estado_final);
-  const body = [[`Estado final:`, estadoFinal]];
+  const body = [
+    [`Observações:`, pdfDisplayValue(values.observacao)],
+    [`Estado:`, pdfDisplayValue(values.estado_final)],
+  ];
   const labelColW = CONTENT_W * 0.22;
   return drawPreventivaBateriaClosedSectionTable(doc, y, {
     sectionTitle: 'ESTADO FINAL',
