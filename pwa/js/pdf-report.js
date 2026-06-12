@@ -669,8 +669,10 @@ const PDF_LOGO_HEIGHT_MM = 34;
 const PDF_HEADER_CLIENT_W = 88;
 
 /** Layout profissional — relatórios com cabeçalho espelho e tabelas fechadas */
-const FOLHA_TITLE_BAR_BG = [241, 245, 249];
-const FOLHA_TABLE_HEAD_FILL = [241, 245, 249];
+const PREVENTIVA_TITLE_BAR_BG = [245, 245, 245];
+const FOLHA_TITLE_BAR_BG = PREVENTIVA_TITLE_BAR_BG;
+const FOLHA_TABLE_HEAD_FILL = [245, 245, 245];
+const PREVENTIVA_SECTION_GAP_MM = 6;
 const FOLHA_INSTITUTIONAL_FOOTER_RGB = [102, 102, 102];
 const FOLHA_INSTITUTIONAL_FOOTER_FONT = 8;
 const FOLHA_INSTITUTIONAL_FOOTER_H_MM = 22;
@@ -765,14 +767,35 @@ function buildFolhaAutoTableConfig(doc, y, overrides = {}) {
   };
 }
 
-/** Cabeçalho bilateral — esq.: logo + funcionário + data; dir.: cliente alinhado à direita */
+function preventivaBateriaSectionHeadStyles() {
+  return {
+    fillColor: FOLHA_TABLE_HEAD_FILL,
+    textColor: CORPORATE_BLUE_DARK,
+    fontStyle: 'bold',
+    fontSize: PDF_FONT_BODY,
+    lineColor: PDF_TABLE_LINE,
+    lineWidth: 0.2,
+    halign: 'left',
+    valign: 'middle',
+    cellPadding: { top: 4, right: 4, bottom: 4, left: 5 },
+  };
+}
+
+function preventivaBateriaTableHeadStyles() {
+  return {
+    ...preventivaBateriaSectionHeadStyles(),
+    halign: 'center',
+  };
+}
+
+/** Cabeçalho bilateral — topo absoluto: logo + metadados (esq.) | cliente (dir.) */
 function drawPreventivaBateriaMirrorHeader(doc, clientMeta, techName, report, job, values) {
   const topY = MARGIN;
   const logoW = PDF_LOGO_WIDTH_MM;
   const logoH = PDF_LOGO_HEIGHT_MM;
   const rightX = PAGE_W - MARGIN;
-  const rightTextW = CONTENT_W / 2 - 6;
-  const leftColW = CONTENT_W / 2 - 6;
+  const rightTextW = CONTENT_W * 0.48;
+  const leftColW = CONTENT_W * 0.48;
   const dataConclusao = formatPdfServiceDateOnly(report, job, values);
 
   if (isLogoConfigured()) {
@@ -794,13 +817,7 @@ function drawPreventivaBateriaMirrorHeader(doc, clientMeta, techName, report, jo
     drawLogoPlaceholder(doc, MARGIN, topY, logoW, logoH);
   }
 
-  let rightY = topY + 2;
-  pdfSetFont(doc, 'bold');
-  doc.setFontSize(PDF_FONT_CAPTION);
-  doc.setTextColor(...CORPORATE_BLUE);
-  doc.text('CLIENTE', rightX, rightY, { align: 'right' });
-  rightY += 5;
-
+  let rightY = topY;
   pdfSetFont(doc, 'bold');
   doc.setFontSize(PDF_FONT_BODY);
   doc.setTextColor(...TEXT_DARK);
@@ -819,36 +836,39 @@ function drawPreventivaBateriaMirrorHeader(doc, clientMeta, techName, report, jo
     });
   });
 
-  let leftY = topY + logoH + 4;
+  let leftY = topY + logoH + 3;
   pdfSetFont(doc, 'normal');
   doc.setFontSize(PDF_FONT_BODY);
   doc.setTextColor(...TEXT_DARK);
   doc.text(`Funcionário: ${pdfSafeText(techName)}`, MARGIN, leftY, { maxWidth: leftColW });
-  leftY += 5.5;
-  doc.text(`Data de Conclusão: ${pdfSafeText(dataConclusao)}`, MARGIN, leftY, { maxWidth: leftColW });
-  leftY += 5.5;
+  leftY += 5;
+  doc.text(`Data de conclusão: ${pdfSafeText(dataConclusao)}`, MARGIN, leftY, { maxWidth: leftColW });
+  leftY += 5;
 
-  const headerBottom = Math.max(leftY, rightY, topY + logoH) + 4;
   touchPdfContentPage(doc);
-  return headerBottom + 4;
+  return Math.max(leftY, rightY) + PREVENTIVA_SECTION_GAP_MM;
 }
 
 function drawFolhaTitleBar(doc, y, title) {
-  const barH = 12;
-  y = ensureSpace(doc, y, barH + 8);
-  doc.setFillColor(...FOLHA_TITLE_BAR_BG);
+  const barH = 11;
+  y = ensureSpace(doc, y, barH + PREVENTIVA_SECTION_GAP_MM);
+  doc.setFillColor(...PREVENTIVA_TITLE_BAR_BG);
   doc.setDrawColor(...PDF_TABLE_LINE);
-  doc.setLineWidth(0.15);
-  doc.roundedRect(MARGIN, y, CONTENT_W, barH, 1.5, 1.5, 'FD');
+  doc.setLineWidth(0.2);
+  doc.rect(MARGIN, y, CONTENT_W, barH, 'FD');
   pdfSetFont(doc, 'bold');
   doc.setFontSize(PDF_FONT_SECTION);
   doc.setTextColor(...CORPORATE_BLUE_DARK);
-  doc.text(title, MARGIN + CONTENT_W / 2, y + 8, { align: 'center' });
+  doc.text(title, MARGIN + CONTENT_W / 2, y + 7.5, { align: 'center' });
   touchPdfContentPage(doc);
-  return y + barH + 8;
+  return y + barH + PREVENTIVA_SECTION_GAP_MM;
 }
 
 function resolvePreventivaBateriaAnalysisValue(spec, values) {
+  if (spec.id === 'qtd_parafusos_danificados' && !/danificad/i.test(String(values.parafusos || ''))) {
+    return '—';
+  }
+
   if (spec.multi || spec.id === 'estado_cofre') {
     const raw = values[spec.id];
     if (Array.isArray(raw)) {
@@ -858,51 +878,59 @@ function resolvePreventivaBateriaAnalysisValue(spec, values) {
     return pdfDisplayValue(raw);
   }
 
-  if (spec.id === 'parafusos') {
-    let display = pdfDisplayValue(values.parafusos);
-    if (/danificad/i.test(String(values.parafusos || ''))) {
-      const qtd = values.qtd_parafusos_danificados;
-      if (qtd != null && String(qtd).trim() !== '') {
-        display += ` — Quantidade de parafusos danificados: ${pdfDisplayValue(qtd)}`;
-      }
-    }
-    return display;
-  }
-
   const raw = values[spec.id];
   if (raw == null || String(raw).trim() === '') return '—';
   if (spec.unit) return `${pdfDisplayValue(raw)} ${spec.unit}`;
   return pdfDisplayValue(raw);
 }
 
-async function drawPreventivaBateriaAnalysisTable(doc, y, values) {
-  const body = PREVENTIVA_BATERIA_ANALYSIS_SPECS.map((spec) => [
-    spec.label,
+function buildPreventivaBateriaAnalysisRows(values) {
+  return PREVENTIVA_BATERIA_ANALYSIS_SPECS.map((spec) => [
+    `${spec.label}:`,
     resolvePreventivaBateriaAnalysisValue(spec, values),
   ]);
-  const blockH = 10 + body.length * 8 + 12;
+}
+
+async function drawPreventivaBateriaClosedSectionTable(doc, y, options) {
+  const {
+    sectionTitle,
+    colSpan,
+    columnHead,
+    body,
+    columnStyles,
+    headStyles,
+    bodyStyles,
+    minBlockH = 20,
+  } = options;
+
+  const rowCount = body?.length || 0;
+  const blockH = minBlockH + (columnHead ? 8 : 0) + rowCount * 7.5 + 8;
   y = ensureKeepTogetherBlock(doc, y, Math.min(blockH, pdfMaxContentHeight()));
 
-  pdfSetFont(doc, 'bold');
-  doc.setFontSize(PDF_FONT_CAPTION);
-  doc.setTextColor(...CORPORATE_BLUE);
-  doc.text('ANÁLISE DA BATERIA', MARGIN, y + 4);
-  y += 8;
+  const head = [
+    [
+      {
+        content: sectionTitle,
+        colSpan,
+        styles: preventivaBateriaSectionHeadStyles(),
+      },
+    ],
+  ];
+  if (columnHead?.length) {
+    head.push(
+      columnHead.map((label) => ({
+        content: label,
+        styles: preventivaBateriaTableHeadStyles(),
+      })),
+    );
+  }
 
-  const labelColW = CONTENT_W * 0.42;
   await loadJsPdfAutoTable();
   doc.autoTable(
     buildFolhaAutoTableConfig(doc, y, {
+      head,
       body,
-      columnStyles: {
-        0: {
-          cellWidth: labelColW,
-          fillColor: FOLHA_TABLE_HEAD_FILL,
-          fontStyle: 'bold',
-          textColor: TEXT_DARK,
-        },
-        1: { cellWidth: CONTENT_W - labelColW, halign: 'left' },
-      },
+      headStyles: headStyles || preventivaBateriaTableHeadStyles(),
       bodyStyles: {
         font: pdfAutoTableFont(doc),
         fillColor: PDF_TABLE_BODY_FILL,
@@ -912,11 +940,126 @@ async function drawPreventivaBateriaAnalysisTable(doc, y, values) {
         lineColor: PDF_TABLE_LINE,
         lineWidth: 0.2,
         valign: 'middle',
+        ...bodyStyles,
       },
+      columnStyles,
     }),
   );
   touchPdfContentPage(doc);
-  return normalizeYAfterAutoTable(doc, y, 8);
+  return normalizeYAfterAutoTable(doc, y, PREVENTIVA_SECTION_GAP_MM);
+}
+
+async function drawPreventivaBateriaAnalysisTable(doc, y, values) {
+  const body = buildPreventivaBateriaAnalysisRows(values);
+  const labelColW = CONTENT_W * 0.46;
+  return drawPreventivaBateriaClosedSectionTable(doc, y, {
+    sectionTitle: 'ANÁLISE DA BATERIA',
+    colSpan: 2,
+    body,
+    minBlockH: 14 + body.length * 7.5,
+    columnStyles: {
+      0: {
+        cellWidth: labelColW,
+        fontStyle: 'normal',
+        textColor: TEXT_DARK,
+        halign: 'left',
+      },
+      1: { cellWidth: CONTENT_W - labelColW, halign: 'left' },
+    },
+  });
+}
+
+async function drawPreventivaBateriaConsumiveisTable(doc, y, rows) {
+  const columns = MATERIAL_UTILIZADO_COLUMNS;
+  const colKeys = columns.map((c) => columnKey(c));
+  const body =
+    rows.length > 0
+      ? rows.map((row) => colKeys.map((key) => pdfDisplayValue(row[key])))
+      : [['—', '—']];
+  const colW = CONTENT_W / 2;
+  return drawPreventivaBateriaClosedSectionTable(doc, y, {
+    sectionTitle: 'CONSUMÍVEIS',
+    colSpan: 2,
+    columnHead: ['Material', 'Quantidade'],
+    body,
+    minBlockH: 28 + body.length * 7.5,
+    columnStyles: {
+      0: { cellWidth: colW, halign: 'left' },
+      1: { cellWidth: colW, halign: 'left' },
+    },
+  });
+}
+
+async function drawPreventivaBateriaIntervencaoTable(doc, y, values) {
+  const data1 = formatFolhaInterventionDate(
+    resolvePdfStandardFieldValue(values, { id: 'data_1' }, values.data_de_conclusao),
+  );
+  const data2 = formatFolhaInterventionDate(resolvePdfStandardFieldValue(values, { id: 'data_2' }));
+  const visitas =
+    pdfDisplayValue(
+      resolvePdfStandardFieldValue(values, {
+        id: VISITAS_FIELD_ID,
+        aliases: ['visitas', 'numero_visitas'],
+      }),
+    ) || formatPdfNumeroVisitas(values);
+  const horas =
+    pdfDisplayValue(
+      resolvePdfStandardFieldValue(values, { id: 'horas', aliases: ['horas_gastas'] }),
+    ) || '—';
+
+  const colW = CONTENT_W / 4;
+  return drawPreventivaBateriaClosedSectionTable(doc, y, {
+    sectionTitle: 'INTERVENÇÃO',
+    colSpan: 4,
+    columnHead: ['Data 1', 'Data 2', 'Nº de Visitas', 'Horas Gastas'],
+    body: [[data1, data2, visitas, horas]],
+    minBlockH: 36,
+    bodyStyles: { halign: 'center' },
+    columnStyles: {
+      0: { cellWidth: colW, halign: 'center' },
+      1: { cellWidth: colW, halign: 'center' },
+      2: { cellWidth: colW, halign: 'center' },
+      3: { cellWidth: colW, halign: 'center' },
+    },
+  });
+}
+
+async function drawPreventivaBateriaEstadoFinalBlock(doc, y, values) {
+  const observacao = pdfDisplayValue(values.observacao);
+  const estado = pdfDisplayValue(values.estado_final);
+  const body = [
+    [`Observação:`, observacao],
+    [`Estado:`, estado],
+  ];
+  const labelColW = CONTENT_W * 0.22;
+  return drawPreventivaBateriaClosedSectionTable(doc, y, {
+    sectionTitle: 'ESTADO FINAL',
+    colSpan: 2,
+    body,
+    minBlockH: 40,
+    columnStyles: {
+      0: {
+        cellWidth: labelColW,
+        fontStyle: 'normal',
+        textColor: TEXT_DARK,
+        valign: 'top',
+      },
+      1: { cellWidth: CONTENT_W - labelColW, valign: 'top' },
+    },
+  });
+}
+
+async function drawPreventivaBateriaBody(doc, y, values, service) {
+  y = await drawPreventivaBateriaAnalysisTable(doc, y, values);
+
+  const materialField = (service?.fields || []).find((f) => isMaterialTableField(f));
+  const rows = materialField
+    ? normalizeMaterialRows(values[materialField.id]).filter(
+        (row) => String(row.artigo || '').trim() || row.qtd,
+      )
+    : [];
+  y = await drawPreventivaBateriaConsumiveisTable(doc, y, rows);
+  return drawPreventivaBateriaIntervencaoTable(doc, y, values);
 }
 
 async function drawFolhaMaterialTable(doc, y, rows, options = {}) {
@@ -1017,97 +1160,14 @@ async function drawFolhaInterventionMetricsTable(doc, y, values) {
   return normalizeYAfterAutoTable(doc, y, 8);
 }
 
-async function drawPreventivaBateriaBody(doc, y, values, service) {
-  y = await drawPreventivaBateriaAnalysisTable(doc, y, values);
-
-  const materialField = (service?.fields || []).find((f) => isMaterialTableField(f));
-  if (materialField) {
-    const rows = normalizeMaterialRows(values[materialField.id]).filter(
-      (row) => String(row.artigo || '').trim() || row.qtd,
-    );
-    if (rows.length) {
-      y = await drawFolhaMaterialTable(doc, y, rows, {
-        sectionTitle: 'Consumíveis',
-        headLabels: ['Material', 'Quantidade'],
-      });
-    }
-  }
-
-  return drawFolhaInterventionMetricsTable(doc, y, values);
-}
-
-function drawFolhaBoundedTextField(doc, y, label, value) {
-  const innerW = CONTENT_W - 10;
-  const lines = pdfParagraphLines(doc, value, innerW);
-  const labelH = 7;
-  const boxH = Math.max(20, lines.length * 4.5 + labelH + 8);
-  y = ensureKeepTogetherBlock(doc, y, boxH + 6);
-
-  doc.setDrawColor(...PDF_TABLE_LINE);
-  doc.setLineWidth(0.2);
-  doc.setFillColor(255, 255, 255);
-  doc.roundedRect(MARGIN, y, CONTENT_W, boxH, 1, 1, 'FD');
-
-  pdfSetFont(doc, 'bold');
-  doc.setFontSize(PDF_FONT_CAPTION);
-  doc.setTextColor(...TEXT_MUTED);
-  doc.text(String(label).toUpperCase(), MARGIN + 4, y + 5.5);
-
-  pdfSetFont(doc, 'normal');
-  doc.setFontSize(PDF_FONT_BODY);
-  doc.setTextColor(...TEXT_DARK);
-  doc.text(lines, MARGIN + 4, y + labelH + 5, { lineHeightFactor: 1.35 });
-
-  touchPdfContentPage(doc);
-  return y + boxH + 5;
-}
-
-function drawFolhaLabelValueLine(doc, y, label, value) {
-  const display = pdfSafeText(pdfDisplayValue(value));
-  const valLines = pdfSplitText(doc, display, CONTENT_W - 52);
-  const blockH = valLines.length === 1 ? 7 : 6 + valLines.length * 4.5;
-  y = ensureSpace(doc, y, blockH);
-
-  pdfSetFont(doc, 'bold');
-  doc.setFontSize(PDF_FONT_BODY);
-  doc.setTextColor(...TEXT_MUTED);
-  doc.text(`${label}:`, MARGIN, y);
-
-  pdfSetFont(doc, 'normal');
-  doc.setTextColor(...TEXT_DARK);
-  if (valLines.length === 1) {
-    doc.text(valLines[0], MARGIN + 52, y);
-    touchPdfContentPage(doc);
-    return y + 6;
-  }
-
-  valLines.forEach((line, index) => {
-    doc.text(line, MARGIN + 4, y + 5 + index * 4.5);
-  });
-  touchPdfContentPage(doc);
-  return y + 5 + valLines.length * 4.5 + 2;
-}
-
 async function drawPreventivaBateriaClosingSection(doc, y, opts) {
   const values = opts.values || {};
   const profile = FOLHA_CLOSING_PROFILE;
-  const observacao = String(values.observacao || '').trim();
-  const estadoFinal = String(values.estado_final || '').trim();
   const closingBlockH =
-    (observacao ? 28 : 0) +
-    (estadoFinal ? 12 : 0) +
-    estimateSignaturesHeight(profile) +
-    FOLHA_INSTITUTIONAL_FOOTER_H_MM;
+    48 + estimateSignaturesHeight(profile) + FOLHA_INSTITUTIONAL_FOOTER_H_MM;
 
   y = ensureKeepTogetherBlock(doc, y, Math.min(closingBlockH, pdfMaxContentHeight()));
-
-  if (observacao) {
-    y = drawFolhaBoundedTextField(doc, y, 'Observação', observacao);
-  }
-  if (estadoFinal) {
-    y = drawFolhaLabelValueLine(doc, y, 'Estado Final', estadoFinal);
-    y += 4;
-  }
+  y = await drawPreventivaBateriaEstadoFinalBlock(doc, y, values);
 
   return drawSignaturesFooter(doc, y, opts.signatures || {}, {
     topMargin: profile.sigTop,

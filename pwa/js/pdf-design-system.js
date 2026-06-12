@@ -207,19 +207,20 @@ export const PDF_CLOSING_DIAGNOSTIC_SPECS = [
   { id: 'estado_maquina', label: 'Estado da Máquina' },
 ];
 
-/** Linhas da tabela «Análise da Bateria» — Manutenção Preventiva de Bateria (PDF) */
+/** Ordem e rótulos originais — Análise da Bateria (PDF Manutenção Preventiva) */
 export const PREVENTIVA_BATERIA_ANALYSIS_SPECS = [
   { id: 'densidade', label: 'Densidade' },
   { id: 'tensao', label: 'Tensão', unit: 'V' },
-  { id: 'tensao_media_elementos', label: 'Tensão Média de Elementos', unit: 'V' },
-  { id: 'nivel_eletrolito', label: 'Nível de Eletrólito' },
-  { id: 'elementos_curto_circuito', label: 'Nº Elementos Em Curto-Circuito' },
+  { id: 'tensao_media_elementos', label: 'Tensão Media de Elementos', unit: 'V' },
+  { id: 'nivel_eletrolito', label: 'Nivel de Eletrólito' },
   { id: 'ficha', label: 'Ficha' },
   { id: 'condutividade', label: 'Condutividade' },
-  { id: 'enchimento', label: 'Verificação do Enchimento' },
-  { id: 'parafusos', label: 'Parafusos', includeQtdField: 'qtd_parafusos_danificados' },
-  { id: 'terminal_olhal', label: 'Terminal Olhal' },
+  { id: 'parafusos', label: 'Parafusos' },
+  { id: 'elementos_curto_circuito', label: 'Nº Elementos Em Curto Circuito' },
   { id: 'estado_cofre', label: 'Estado do Cofre', multi: true },
+  { id: 'enchimento', label: 'Verificação do Enchimento' },
+  { id: 'terminal_olhal', label: 'Terminal olhal' },
+  { id: 'qtd_parafusos_danificados', label: 'Quantidade de parafusos danificados' },
 ];
 
 export const PREVENTIVA_BATERIA_PDF_FIELD_IDS = new Set([
