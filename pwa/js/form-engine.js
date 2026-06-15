@@ -187,6 +187,7 @@ const SERVICES_WITH_MACHINE_FIELDS = new Set([
   'inspecao_dl50_2005',
   'folha_intervencao_avarias',
   'manutencao_preventiva_empilhadores',
+  'manutencao_corretiva_maquinas',
 ]);
 
 const EMPILHADORES_MATERIAL_SECTION = 'Substituição de Material';
