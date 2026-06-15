@@ -9,6 +9,9 @@ import {
 } from './preventiva-empilhadores-items.js';
 import { createMaterialTableField } from './material-table-field.js';
 
+/** Secção de óleos/filtros — após verificações no relatório Empilhadores */
+export const EMPILHADORES_MATERIAL_SECTION = 'Substituição de Material na Manutenção';
+
 export const SCHEMA_VERSION = 21;
 
 export const COMPANY = {
@@ -325,7 +328,7 @@ export const MANUTENCAO_PREVENTIVA_EMPILHADORES = {
       type: 'number',
       id: 'litros_oleo_diferencial',
       label: 'Litros Óleo Diferencial',
-      section: 'Substituição de Material',
+      section: EMPILHADORES_MATERIAL_SECTION,
       min: 0,
       step: 0.1,
       uiVariant: 'material',
@@ -334,7 +337,7 @@ export const MANUTENCAO_PREVENTIVA_EMPILHADORES = {
       type: 'number',
       id: 'litros_oleo_torque',
       label: 'Litros Óleo Torque',
-      section: 'Substituição de Material',
+      section: EMPILHADORES_MATERIAL_SECTION,
       min: 0,
       step: 0.1,
       uiVariant: 'material',
@@ -343,7 +346,7 @@ export const MANUTENCAO_PREVENTIVA_EMPILHADORES = {
       type: 'number',
       id: 'litros_oleo_hidraulico',
       label: 'Litros Óleo Hidráulico',
-      section: 'Substituição de Material',
+      section: EMPILHADORES_MATERIAL_SECTION,
       min: 0,
       step: 0.1,
       uiVariant: 'material',
@@ -352,7 +355,7 @@ export const MANUTENCAO_PREVENTIVA_EMPILHADORES = {
       type: 'number',
       id: 'litros_oleo_travoes',
       label: 'Litros Óleo Travões',
-      section: 'Substituição de Material',
+      section: EMPILHADORES_MATERIAL_SECTION,
       min: 0,
       step: 0.1,
       uiVariant: 'material',
@@ -361,7 +364,7 @@ export const MANUTENCAO_PREVENTIVA_EMPILHADORES = {
       type: 'number',
       id: 'litros_oleo_motor',
       label: 'Litros Óleo Motor',
-      section: 'Substituição de Material',
+      section: EMPILHADORES_MATERIAL_SECTION,
       min: 0,
       step: 0.1,
       uiVariant: 'material',
@@ -370,7 +373,7 @@ export const MANUTENCAO_PREVENTIVA_EMPILHADORES = {
       type: 'number',
       id: 'qtd_filtro_oleo_motor',
       label: 'Quantidade Filtro Óleo Motor',
-      section: 'Substituição de Material',
+      section: EMPILHADORES_MATERIAL_SECTION,
       min: 0,
       step: 1,
       uiVariant: 'material',
@@ -379,7 +382,7 @@ export const MANUTENCAO_PREVENTIVA_EMPILHADORES = {
       type: 'number',
       id: 'qtd_filtro_ar',
       label: 'Quantidade Filtro Ar',
-      section: 'Substituição de Material',
+      section: EMPILHADORES_MATERIAL_SECTION,
       min: 0,
       step: 1,
       uiVariant: 'material',
@@ -388,7 +391,7 @@ export const MANUTENCAO_PREVENTIVA_EMPILHADORES = {
       type: 'number',
       id: 'qtd_filtro_combustivel',
       label: 'Quantidade Filtro Combustível',
-      section: 'Substituição de Material',
+      section: EMPILHADORES_MATERIAL_SECTION,
       min: 0,
       step: 1,
       uiVariant: 'material',
@@ -397,7 +400,7 @@ export const MANUTENCAO_PREVENTIVA_EMPILHADORES = {
       type: 'number',
       id: 'qtd_kit_gaseificador',
       label: 'Quantidade Kit Gaseificador',
-      section: 'Substituição de Material',
+      section: EMPILHADORES_MATERIAL_SECTION,
       min: 0,
       step: 1,
       uiVariant: 'material',
@@ -406,7 +409,7 @@ export const MANUTENCAO_PREVENTIVA_EMPILHADORES = {
       type: 'number',
       id: 'qtd_limpeza_lubrificante',
       label: 'Quantidade Limpeza e Lubrificante',
-      section: 'Substituição de Material',
+      section: EMPILHADORES_MATERIAL_SECTION,
       min: 0,
       step: 1,
       uiVariant: 'material',

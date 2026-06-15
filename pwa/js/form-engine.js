@@ -16,6 +16,7 @@ import {
   normalizeMaterialRows,
   MATERIAL_FIELD_IDS,
 } from './material-table-field.js';
+import { EMPILHADORES_MATERIAL_SECTION } from './mock_data.js';
 import {
   renderGrandesBatterySection,
   collect as collectGrandesBatteryRows,
@@ -195,8 +196,6 @@ const SERVICES_WITH_MACHINE_FIELDS = new Set([
 const SERVICE_MACHINE_FIELD_SECTIONS = {
   reparacao_carregador: 'Identificação Do Carregador',
 };
-
-const EMPILHADORES_MATERIAL_SECTION = 'Substituição de Material';
 
 /** Relatórios com Nr de Visitas na secção dedicada do formulário (não no intro) */
 
@@ -543,7 +542,7 @@ export function renderReportFields(service, values = {}, context = {}, options =
           ? `<h4 class="form-section-subtitle">${escapeHtml(section)}</h4>`
           : '';
       let fieldsHtml = fields.map((f) => renderField(f, values[f.id], context)).join('');
-      if (section === 'Substituição de Material') {
+      if (section === EMPILHADORES_MATERIAL_SECTION) {
         fieldsHtml = `<div class="material-substitution-grid">${fieldsHtml}</div>`;
       }
       if (section === 'Datas de Intervenção') {
@@ -553,7 +552,7 @@ export function renderReportFields(service, values = {}, context = {}, options =
         fieldsHtml = `<div class="folha-pedido-orcamento-block">${fieldsHtml}</div>`;
       }
       return `
-        <div class="form-field-section form-section-card${section === 'Substituição de Material' ? ' form-field-section--material' : ''}${section === 'Pedido de Orçamento' ? ' form-field-section--pedido-orcamento' : ''}">
+        <div class="form-field-section form-section-card${section === EMPILHADORES_MATERIAL_SECTION ? ' form-field-section--material' : ''}${section === 'Pedido de Orçamento' ? ' form-field-section--pedido-orcamento' : ''}">
           ${sectionTitle}
           ${fieldsHtml}
         </div>
@@ -1188,7 +1187,7 @@ function getMaterialUnit(label) {
 }
 
 function isMaterialQtyField(field) {
-  return field.uiVariant === 'material' || field.section === 'Substituição de Material';
+  return field.uiVariant === 'material' || field.section === EMPILHADORES_MATERIAL_SECTION;
 }
 
 function renderNumberField(field, value = '') {

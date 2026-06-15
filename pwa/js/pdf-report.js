@@ -7,6 +7,7 @@ import {
   PDF_DOCUMENT_TITLES,
   CLIENTS,
   DEMO_CLIENT_FORKLIFTS,
+  EMPILHADORES_MATERIAL_SECTION,
   mapClientToLegacy,
   TECHNICIANS,
   SERVICE_TYPES,
@@ -618,7 +619,7 @@ export async function renderInterventionPDF(report) {
     });
     if (reportHasMachineSection(service)) {
       y = drawDivider(doc, y);
-      y = await drawStandardMachineBlock(doc, y, values, pdfContext);
+      y = await drawStandardMachineBlock(doc, y, values, pdfContext, service);
     }
     if (!isEmpilhadoresPdf) {
       y = drawDivider(doc, y);
@@ -716,6 +717,18 @@ export async function generateReportPdfByServiceType(report) {
 /* ─── Layout blocks ─── */
 
 const EMPILHADORES_SERVICE_ID = 'manutencao_preventiva_empilhadores';
+/** Informações da Máquina — PDF empilhadores (inclui Horas) */
+const EMPILHADORES_MACHINE_PDF_SPECS = [
+  { id: 'marca', label: 'Marca' },
+  { id: 'modelo', label: 'Modelo' },
+  {
+    id: 'numero_de_serie',
+    label: 'Nº Série',
+    aliases: ['num_serie', 'numero_serie', 'n_serie'],
+  },
+  { id: 'horas', label: 'Horas', aliases: ['horas_gastas'] },
+  { id: 'n_interno', label: 'Nº Interno', aliases: ['num_interno'] },
+];
 /** gap 20px entre colunas de verificação */
 const EMPILHADORES_DUAL_VERIFY_GAP_MM = 5.3;
 const EMPILHADORES_VERIFY_COL_BAND_MM = 7;
@@ -1777,7 +1790,7 @@ function buildThreeColumnGridBody(pairs) {
 }
 
 function isEmpilhadoresMaterialSection(section) {
-  return pdfNormalizeHeading(section || '').includes('substituicao de material');
+  return pdfNormalizeHeading(section || '') === pdfNormalizeHeading(EMPILHADORES_MATERIAL_SECTION);
 }
 
 /** Título de secção numa coluna estreita (verificações lado a lado) */
@@ -2109,12 +2122,14 @@ function drawTitleBar(doc, y, title) {
   return y + PDF_SECTION_GAP_MM;
 }
 
-async function drawStandardMachineBlock(doc, y, values, pdfContext = null) {
+async function drawStandardMachineBlock(doc, y, values, pdfContext = null, service = null) {
   y = ensureSpace(doc, y, 28);
   y = drawSectionTitle(doc, y, PDF_MACHINE_SECTION, { skipEnsure: true });
   y = drawDivider(doc, y - 4);
 
-  const pairs = PDF_STANDARD_MACHINE_SPECS.map((spec) => {
+  const isEmpilhadores = service?.id === EMPILHADORES_SERVICE_ID;
+  const specs = isEmpilhadores ? EMPILHADORES_MACHINE_PDF_SPECS : PDF_STANDARD_MACHINE_SPECS;
+  const pairs = specs.map((spec) => {
     let fallback = null;
     if (spec.id === 'numero_de_serie') {
       fallback = pdfContext?.forkliftSerial || pdfContext?.report?.forkliftSerial || null;
@@ -2124,6 +2139,21 @@ async function drawStandardMachineBlock(doc, y, values, pdfContext = null) {
       value: pdfDisplayValue(resolvePdfStandardFieldValue(values, spec, fallback)),
     };
   });
+
+  if (isEmpilhadores) {
+    const body = buildThreeColumnGridBody(pairs);
+    if (!body.length) return y;
+    y = ensureSpace(doc, y, 10);
+    const colW = CONTENT_W / 3;
+    return drawPdfGridTable(doc, y, {
+      body,
+      columnStyles: {
+        0: { cellWidth: colW, overflow: 'linebreak', fontSize: PDF_FONT_TABLE },
+        1: { cellWidth: colW, overflow: 'linebreak', fontSize: PDF_FONT_TABLE },
+        2: { cellWidth: colW, overflow: 'linebreak', fontSize: PDF_FONT_TABLE },
+      },
+    });
+  }
 
   return drawSectionScalarGridFromPairs(doc, y, pairs);
 }
