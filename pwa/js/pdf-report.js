@@ -78,6 +78,8 @@ import {
   PDF_SERVICE_INFO_COL_GAP_MM,
   PDF_TABLE_CELL_PADDING,
   PDF_TABLE_CELL_PADDING_HEAD,
+  PDF_TABLE_CELL_PADDING_COMPACT,
+  PDF_TABLE_MIN_CELL_HEIGHT_COMPACT,
   PDF_TABLE_MIN_CELL_HEIGHT,
   PDF_TABLE_ROW_STEP_MM,
   PDF_TITLE_BAR_HEIGHT_MM,
@@ -542,6 +544,7 @@ export async function renderInterventionPDF(report) {
   const isFolhaIntervencaoAvariasPdf = report.serviceType === 'folha_intervencao_avarias';
   const isReparacaoAvariasBateriaPdf = report.serviceType === 'reparacao_avarias_bateria';
   const isReparacaoCarregadorPdf = report.serviceType === 'reparacao_carregador';
+  const isEmpilhadoresPdf = report.serviceType === EMPILHADORES_SERVICE_ID;
   const fotoAntesUrl = data.fotoAntesUrl || job?.fotoAntes || null;
   const fotoDepoisUrl = data.fotoDepoisUrl || job?.fotoDepois || null;
   const techName = tech?.name || '—';
@@ -573,7 +576,8 @@ export async function renderInterventionPDF(report) {
       isFolhaIntervencaoAvariasPdf ||
       isReparacaoAvariasBateriaPdf ||
       isReparacaoCarregadorPdf ||
-      isDl50Pdf,
+      isDl50Pdf ||
+      isEmpilhadoresPdf,
   };
 
   let y;
@@ -610,13 +614,15 @@ export async function renderInterventionPDF(report) {
       visitDatesLine: resolvePdfVisitDatesLine(values, report, job, visitCount),
       numeroVisitas: SERVICES_WITH_SECTION_VISITAS.has(service.id) ? null : visitCount,
       deslocacao: reportIncludesDeslocacao(service) ? values.deslocacao || '—' : null,
-      technician: techName,
+      technician: techName || values.tecnico || '',
     });
     if (reportHasMachineSection(service)) {
       y = drawDivider(doc, y);
       y = await drawStandardMachineBlock(doc, y, values, pdfContext);
     }
-    y = drawDivider(doc, y);
+    if (!isEmpilhadoresPdf) {
+      y = drawDivider(doc, y);
+    }
     y = await drawReportFieldsSection(doc, y, service, values, pdfContext);
     y = await drawReportClosingSection(doc, y, closingOpts);
   }
@@ -710,7 +716,9 @@ export async function generateReportPdfByServiceType(report) {
 /* ─── Layout blocks ─── */
 
 const EMPILHADORES_SERVICE_ID = 'manutencao_preventiva_empilhadores';
-const EMPILHADORES_DUAL_VERIFY_GAP_MM = 5;
+/** gap 20px entre colunas de verificação */
+const EMPILHADORES_DUAL_VERIFY_GAP_MM = 5.3;
+const EMPILHADORES_VERIFY_COL_BAND_MM = 7;
 
 /** Layout profissional — relatórios com cabeçalho espelho e tabelas fechadas */
 const PREVENTIVA_TITLE_BAR_BG = PDF_SECTION_BG;
@@ -1773,8 +1781,8 @@ function isEmpilhadoresMaterialSection(section) {
 }
 
 /** Título de secção numa coluna estreita (verificações lado a lado) */
-function drawColumnSectionTitle(doc, x, y, width, title) {
-  const bandH = PDF_SECTION_BAND_HEIGHT_MM;
+function drawColumnSectionTitle(doc, x, y, width, title, options = {}) {
+  const bandH = options.bandH ?? PDF_SECTION_BAND_HEIGHT_MM;
   doc.setFillColor(...PDF_SECTION_BG);
   doc.rect(x, y - 1, width, bandH, 'F');
   doc.setDrawColor(...PDF_TABLE_LINE);
@@ -1782,12 +1790,12 @@ function drawColumnSectionTitle(doc, x, y, width, title) {
   doc.line(x, y - 1, x + width, y - 1);
 
   pdfSetFont(doc, 'bold');
-  doc.setFontSize(PDF_FONT_SECTION);
+  doc.setFontSize(options.fontSize ?? PDF_FONT_SECTION);
   doc.setTextColor(...CORPORATE_BLUE);
   const lines = pdfSplitText(doc, String(title).toUpperCase(), width - 4);
   doc.text(lines, x + 2, y + bandH * 0.55);
   touchPdfContentPage(doc);
-  return y + bandH + 2;
+  return y + bandH + (options.gapAfter ?? 1.5);
 }
 
 function buildVerificationTableBody(items, states) {
@@ -1798,13 +1806,20 @@ function buildVerificationTableBody(items, states) {
   });
 }
 
-async function drawVerificationTableColumn(doc, startY, x, width, title, items, states) {
-  let y = drawColumnSectionTitle(doc, x, startY, width, title);
+async function drawVerificationTableColumn(doc, startY, x, width, title, items, states, options = {}) {
+  const compact = Boolean(options.compact);
+  let y = drawColumnSectionTitle(doc, x, startY, width, title, {
+    bandH: compact ? EMPILHADORES_VERIFY_COL_BAND_MM : PDF_SECTION_BAND_HEIGHT_MM,
+    fontSize: compact ? PDF_FONT_CAPTION : PDF_FONT_SECTION,
+    gapAfter: compact ? 1 : 2,
+  });
   const body = buildVerificationTableBody(items, states);
   if (!body.length) return y;
 
-  const pointW = width * 0.7;
+  const pointW = width * 0.68;
   const stateW = width - pointW;
+  const cellPadding = compact ? PDF_TABLE_CELL_PADDING_COMPACT : PDF_TABLE_CELL_PADDING;
+  const minCellHeight = compact ? PDF_TABLE_MIN_CELL_HEIGHT_COMPACT : PDF_TABLE_MIN_CELL_HEIGHT;
 
   await loadJsPdfAutoTable();
   doc.autoTable({
@@ -1814,6 +1829,31 @@ async function drawVerificationTableColumn(doc, startY, x, width, title, items, 
     head: [['Ponto', 'Est.']],
     body,
     ...buildPdfAutoTableStyles(doc, pdfAutoTableFont, pdfSetFont),
+    styles: {
+      font: pdfAutoTableFont(doc),
+      fontSize: PDF_FONT_TABLE,
+      cellPadding,
+      minCellHeight,
+      lineColor: PDF_TABLE_LINE,
+      lineWidth: PDF_TABLE_LINE_WIDTH,
+      textColor: TEXT_DARK,
+      valign: 'middle',
+      overflow: 'linebreak',
+    },
+    headStyles: {
+      font: pdfAutoTableFont(doc),
+      fillColor: PDF_TABLE_HEAD_FILL,
+      textColor: PDF_TABLE_HEAD_TEXT,
+      fontStyle: 'bold',
+      fontSize: PDF_FONT_TABLE,
+      cellPadding,
+      minCellHeight,
+      lineColor: PDF_TABLE_LINE,
+      lineWidth: PDF_TABLE_LINE_WIDTH,
+      halign: 'left',
+      overflow: 'linebreak',
+    },
+    bodyStyles: { minCellHeight, cellPadding },
     columnStyles: {
       0: { cellWidth: pointW, overflow: 'linebreak', fontSize: PDF_FONT_TABLE },
       1: {
@@ -1824,6 +1864,10 @@ async function drawVerificationTableColumn(doc, startY, x, width, title, items, 
       },
     },
     didParseCell: mergePdfTableDidParseCell((data) => {
+      if (compact) {
+        data.cell.styles.cellPadding = cellPadding;
+        data.cell.styles.minCellHeight = minCellHeight;
+      }
       if (data.section === 'body' && data.column.index === 1) {
         const state = String(data.cell.raw || '');
         data.cell.styles.textColor = state === 'OK' ? SUCCESS : DANGER;
@@ -1836,7 +1880,7 @@ async function drawVerificationTableColumn(doc, startY, x, width, title, items, 
   return doc.lastAutoTable.finalY;
 }
 
-/** Verificações Externas + Internas em 2 colunas paralelas */
+/** Verificações Externas + Internas — grid 2 colunas (1fr 1fr, gap 20px) */
 async function drawEmpilhadoresDualVerificationBlocks(doc, y, left, right) {
   const gap = EMPILHADORES_DUAL_VERIFY_GAP_MM;
   const colW = (CONTENT_W - gap) / 2;
@@ -1844,9 +1888,14 @@ async function drawEmpilhadoresDualVerificationBlocks(doc, y, left, right) {
   const rightX = MARGIN + colW + gap;
 
   const rowEstimate = Math.max(left?.items?.length || 0, right?.items?.length || 0);
-  y = ensureSpace(doc, y, PDF_SECTION_BAND_HEIGHT_MM + rowEstimate * 4.2 + 12);
+  y = ensureSpace(
+    doc,
+    y,
+    EMPILHADORES_VERIFY_COL_BAND_MM + rowEstimate * 3.6 + 8,
+  );
 
   const startY = y;
+  const compactOpts = { compact: true };
   const leftEnd = await drawVerificationTableColumn(
     doc,
     startY,
@@ -1855,6 +1904,7 @@ async function drawEmpilhadoresDualVerificationBlocks(doc, y, left, right) {
     left.title,
     left.items,
     left.states,
+    compactOpts,
   );
   const rightEnd = right
     ? await drawVerificationTableColumn(
@@ -1865,6 +1915,7 @@ async function drawEmpilhadoresDualVerificationBlocks(doc, y, left, right) {
         right.title,
         right.items,
         right.states,
+        compactOpts,
       )
     : startY;
 
@@ -2136,45 +2187,51 @@ function drawServiceInfoField(doc, x, y, label, value, options = {}) {
   doc.text(valueText, x + labelW, y, { maxWidth: Math.max(maxWidth - labelW, 8) });
 }
 
-/** Bloco meta — Data do Serviço, Nº de Visitas e Técnico com respiro e colunas flexíveis */
+/** Bloco meta — Data do Serviço, Nº de Visitas e Técnico (subcabeçalho único no topo) */
 function drawServiceInfoBlock(doc, y, meta) {
-  const rowItems = [
-    { label: 'Data do Serviço', value: meta.serviceDate || '—' },
-  ];
+  const rowItems = [];
+  rowItems.push({ label: 'Data do Serviço', value: meta.serviceDate || '—' });
   if (meta.numeroVisitas != null) {
     rowItems.push({ label: 'Nº de Visitas', value: pdfDisplayValue(meta.numeroVisitas) });
   }
   if (meta.deslocacao != null) {
     rowItems.push({ label: 'Deslocação', value: pdfDisplayValue(meta.deslocacao) });
   }
-  if (meta.technician) {
-    rowItems.push({ label: 'Técnico', value: pdfDisplayValue(meta.technician) });
+  const techValue = pdfDisplayValue(meta.technician || meta.tecnicoFallback || '');
+  if (techValue && techValue !== '—') {
+    rowItems.push({ label: 'Técnico', value: techValue });
   }
 
+  const boxPad = 2.5;
+  const boxInnerH = PDF_SERVICE_INFO_ROW_H_MM;
+  const boxH = boxInnerH + boxPad * 2;
   const extraRowH = meta.visitDatesLine ? PDF_SERVICE_INFO_ROW_H_MM + PDF_SERVICE_INFO_COL_GAP_MM : 0;
   const blockH =
-    PDF_SERVICE_INFO_MARGIN_TOP_MM +
-    PDF_SERVICE_INFO_ROW_H_MM +
-    extraRowH +
-    PDF_SERVICE_INFO_MARGIN_BOTTOM_MM;
+    PDF_SERVICE_INFO_MARGIN_TOP_MM + boxH + extraRowH + PDF_SERVICE_INFO_MARGIN_BOTTOM_MM;
   y = ensureSpace(doc, y, blockH);
 
   y += PDF_SERVICE_INFO_MARGIN_TOP_MM;
-  const rowY = y;
-  const colCount = rowItems.length;
-  const colW = CONTENT_W / Math.max(colCount, 1);
+  const boxY = y;
+
+  doc.setFillColor(...PDF_CLIENT_BOX_FILL);
+  doc.setDrawColor(...PDF_TABLE_LINE);
+  doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
+  doc.roundedRect(MARGIN, boxY, CONTENT_W, boxH, 1.5, 1.5, 'FD');
+
+  const rowY = boxY + boxPad + boxInnerH * 0.72;
+  const slotCount = Math.max(rowItems.length, 1);
+  const slotW = CONTENT_W / slotCount;
 
   rowItems.forEach((item, i) => {
-    const colX = MARGIN + i * colW;
-    const innerW = colW - (i > 0 && i < colCount - 1 ? PDF_SERVICE_INFO_COL_GAP_MM : 0);
-    const align = i === 0 ? 'left' : i === colCount - 1 ? 'right' : 'center';
-    drawServiceInfoField(doc, colX, rowY, item.label, item.value, {
+    const slotX = MARGIN + i * slotW;
+    const align = i === 0 ? 'left' : i === slotCount - 1 ? 'right' : 'center';
+    drawServiceInfoField(doc, slotX, rowY, item.label, item.value, {
       align,
-      maxWidth: innerW,
+      maxWidth: slotW - 4,
     });
   });
 
-  y = rowY + PDF_SERVICE_INFO_ROW_H_MM;
+  y = boxY + boxH;
 
   if (meta.visitDatesLine) {
     y += PDF_SERVICE_INFO_COL_GAP_MM;
@@ -2512,7 +2569,7 @@ async function drawReportFieldsSection(doc, y, service, values, pdfContext = nul
 
     if (scalarRenderedIds.has(field.id)) continue;
 
-    y = ensureSpace(doc, y, 14);
+    y = ensureSpace(doc, y, service.id === EMPILHADORES_SERVICE_ID ? 8 : 14);
 
     if (field.type === 'verification_toggles' && value && typeof value === 'object') {
       if (service.id === EMPILHADORES_SERVICE_ID && field.id === 'componentes_externos') {
@@ -2952,6 +3009,10 @@ function estimateReportClosingHeight(doc, y, opts = {}) {
 }
 
 function planReportClosingProfile(doc, y, opts) {
+  if (opts.service?.id === EMPILHADORES_SERVICE_ID) {
+    return REPORT_CLOSING_PROFILES[REPORT_CLOSING_PROFILES.length - 1];
+  }
+
   const bottom = pdfContentBottomY();
   const available = bottom - y;
   const hasFotos = Boolean(opts.fotoAntesUrl || opts.fotoDepoisUrl);

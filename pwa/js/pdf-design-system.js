@@ -25,6 +25,9 @@ export const PDF_SERVICE_INFO_COL_GAP_MM = 4.2;
 export const PDF_TABLE_ROW_STEP_MM = 5;
 export const PDF_TABLE_CELL_PADDING = { top: 1.1, right: 1.6, bottom: 1.1, left: 1.6 };
 export const PDF_TABLE_CELL_PADDING_HEAD = { top: 1.1, right: 1.6, bottom: 1.1, left: 1.6 };
+/** ~3px vertical — tabelas de verificação empilhadores (linhas juntas) */
+export const PDF_TABLE_CELL_PADDING_COMPACT = { top: 0.8, right: 1.2, bottom: 0.8, left: 1.2 };
+export const PDF_TABLE_MIN_CELL_HEIGHT_COMPACT = 4;
 export const PDF_TABLE_LINE_WIDTH = 0.1;
 export const PDF_TABLE_MIN_CELL_HEIGHT = 5;
 export const PDF_TITLE_BAR_HEIGHT_MM = 8;
@@ -325,6 +328,7 @@ export const PDF_LAYOUT_SKIP_FIELD_IDS = new Set([
   'data_3',
   'data_4',
   'data_5',
+  'tecnico',
 ]);
 
 /** Resolve valor de campo padronizado (com aliases). */
