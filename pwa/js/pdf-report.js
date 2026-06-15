@@ -521,6 +521,7 @@ export async function renderInterventionPDF(report) {
   const isDl50Pdf = report.serviceType === 'inspecao_dl50_2005';
   const isPreventivaBateriaPdf = report.serviceType === 'manutencao_preventiva_bateria';
   const isFolhaIntervencaoAvariasPdf = report.serviceType === 'folha_intervencao_avarias';
+  const isReparacaoAvariasBateriaPdf = report.serviceType === 'reparacao_avarias_bateria';
   const fotoAntesUrl = data.fotoAntesUrl || job?.fotoAntes || null;
   const fotoDepoisUrl = data.fotoDepoisUrl || job?.fotoDepois || null;
   const techName = tech?.name || '—';
@@ -547,7 +548,8 @@ export async function renderInterventionPDF(report) {
     signatures: data.signatures || {},
     closingValues: values,
     service,
-    skipClosingDiagnostic: isPreventivaBateriaPdf || isFolhaIntervencaoAvariasPdf,
+    skipClosingDiagnostic:
+      isPreventivaBateriaPdf || isFolhaIntervencaoAvariasPdf || isReparacaoAvariasBateriaPdf,
   };
 
   let y;
@@ -1030,9 +1032,12 @@ async function drawPreventivaBateriaIntervencaoTable(doc, y, values) {
   });
 }
 
-async function drawPreventivaBateriaEstadoFinalBlock(doc, y, values) {
+const REPARACAO_AVARIAS_ESTADO_FINAL_FIELD_IDS = new Set(['observacao', 'estado_final']);
+
+async function drawEstadoFinalClosedBlock(doc, y, values, options = {}) {
+  const observacaoLabel = options.observacaoLabel || 'Observações:';
   const body = [
-    [`Observações:`, pdfDisplayValue(values.observacao)],
+    [observacaoLabel, pdfDisplayValue(values.observacao)],
     [`Estado:`, pdfDisplayValue(values.estado_final)],
   ];
   const labelColW = CONTENT_W * 0.22;
@@ -1051,6 +1056,10 @@ async function drawPreventivaBateriaEstadoFinalBlock(doc, y, values) {
       1: { cellWidth: CONTENT_W - labelColW, valign: 'top' },
     },
   });
+}
+
+async function drawPreventivaBateriaEstadoFinalBlock(doc, y, values) {
+  return drawEstadoFinalClosedBlock(doc, y, values);
 }
 
 async function drawPreventivaBateriaBody(doc, y, values, service) {
@@ -1845,6 +1854,9 @@ async function drawReportFieldsSection(doc, y, service, values, pdfContext = nul
   const gridRenderedSections = new Set();
 
   PDF_LAYOUT_SKIP_FIELD_IDS.forEach((id) => scalarRenderedIds.add(id));
+  if (service.id === 'reparacao_avarias_bateria') {
+    REPARACAO_AVARIAS_ESTADO_FINAL_FIELD_IDS.forEach((id) => scalarRenderedIds.add(id));
+  }
   gridRenderedSections.add(PDF_MACHINE_SECTION);
 
   if (isDl50) {
@@ -2425,6 +2437,12 @@ async function drawReportClosingSection(doc, y, opts) {
 
   if (opts.closingValues && !opts.skipClosingDiagnostic) {
     y = await drawClosingDiagnosticBlock(doc, y, opts.closingValues, opts.service);
+  }
+
+  if (opts.service?.id === 'reparacao_avarias_bateria' && opts.closingValues) {
+    y = await drawEstadoFinalClosedBlock(doc, y, opts.closingValues, {
+      observacaoLabel: 'Observação:',
+    });
   }
 
   const sigH = estimateSignaturesHeight(profile);

@@ -149,7 +149,8 @@ export function isScalarCompactSection(section, service) {
     norm.includes('analise da bateria') ||
     norm.includes('deslocacao e tempo') ||
     norm.includes('tempo de intervencao') ||
-    norm.includes('numero de visitas e tempo')
+    norm.includes('numero de visitas e tempo') ||
+    norm.includes('estado final')
   ) {
     return true;
   }
