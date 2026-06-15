@@ -578,8 +578,10 @@ export async function renderInterventionPDF(report) {
       deslocacao: reportIncludesDeslocacao(service) ? values.deslocacao || '—' : null,
       technician: techName,
     });
-    y = drawDivider(doc, y);
-    y = await drawStandardMachineBlock(doc, y, values, pdfContext);
+    if (reportHasMachineSection(service)) {
+      y = drawDivider(doc, y);
+      y = await drawStandardMachineBlock(doc, y, values, pdfContext);
+    }
     y = drawDivider(doc, y);
     y = await drawReportFieldsSection(doc, y, service, values, pdfContext);
     y = await drawReportClosingSection(doc, y, closingOpts);
