@@ -3914,10 +3914,45 @@ body.dark-mode .matrix-bulk-good-btn--active {
   margin-bottom: 0.75rem;
 }
 
+/* Empilhadores — Informações da Máquina (Marca, Modelo, Série, Horas, Nº Interno) */
+.empilhadores-machine-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+.form-field-section--empilhadores-machine .form-section-subtitle {
+  margin-bottom: 0.65rem;
+}
+
 .material-substitution-grid {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 0.65rem;
+  gap: 10px;
+}
+
+.material-substitution-grid--empilhadores {
+  width: 100%;
+}
+
+@media (min-width: 600px) {
+  .empilhadores-machine-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .material-substitution-grid--empilhadores {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 900px) {
+  .empilhadores-machine-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .material-substitution-grid--empilhadores {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 .folha-datas-intervencao-grid {
@@ -3978,7 +4013,7 @@ body.dark-mode .matrix-bulk-good-btn--active {
 }
 
 @media (min-width: 480px) {
-  .material-substitution-grid {
+  .material-substitution-grid:not(.material-substitution-grid--empilhadores) {
     grid-template-columns: 1fr 1fr;
   }
 }
@@ -9093,6 +9128,7 @@ body:not(:has(.theme-toggle-btn:not(.theme-toggle-btn--inline))) .toast-containe
   }
 
   .form-section-subtitle,
+  .empilhadores-machine-grid,
   .material-substitution-grid,
   .diagnostic-section-highlight,
   .field-block:not(.field-block--grid-eligible) {

@@ -197,6 +197,9 @@ const SERVICE_MACHINE_FIELD_SECTIONS = {
   reparacao_carregador: 'Identificação Do Carregador',
 };
 
+const EMPILHADORES_SERVICE_ID = 'manutencao_preventiva_empilhadores';
+const EMPILHADORES_MACHINE_SECTION = 'Informações da Máquina';
+
 /** Relatórios com Nr de Visitas na secção dedicada do formulário (não no intro) */
 
 function filterReportFields(fields, service) {
@@ -542,8 +545,14 @@ export function renderReportFields(service, values = {}, context = {}, options =
           ? `<h4 class="form-section-subtitle">${escapeHtml(section)}</h4>`
           : '';
       let fieldsHtml = fields.map((f) => renderField(f, values[f.id], context)).join('');
+      if (
+        section === EMPILHADORES_MACHINE_SECTION &&
+        service?.id === EMPILHADORES_SERVICE_ID
+      ) {
+        fieldsHtml = `<div class="empilhadores-machine-grid">${fieldsHtml}</div>`;
+      }
       if (section === EMPILHADORES_MATERIAL_SECTION) {
-        fieldsHtml = `<div class="material-substitution-grid">${fieldsHtml}</div>`;
+        fieldsHtml = `<div class="material-substitution-grid material-substitution-grid--empilhadores">${fieldsHtml}</div>`;
       }
       if (section === 'Datas de Intervenção') {
         fieldsHtml = `<div class="folha-datas-intervencao-grid">${fieldsHtml}</div>`;
@@ -552,7 +561,11 @@ export function renderReportFields(service, values = {}, context = {}, options =
         fieldsHtml = `<div class="folha-pedido-orcamento-block">${fieldsHtml}</div>`;
       }
       return `
-        <div class="form-field-section form-section-card${section === EMPILHADORES_MATERIAL_SECTION ? ' form-field-section--material' : ''}${section === 'Pedido de Orçamento' ? ' form-field-section--pedido-orcamento' : ''}">
+        <div class="form-field-section form-section-card${
+          section === EMPILHADORES_MACHINE_SECTION && service?.id === EMPILHADORES_SERVICE_ID
+            ? ' form-field-section--empilhadores-machine'
+            : ''
+        }${section === EMPILHADORES_MATERIAL_SECTION ? ' form-field-section--material form-field-section--empilhadores-material' : ''}${section === 'Pedido de Orçamento' ? ' form-field-section--pedido-orcamento' : ''}">
           ${sectionTitle}
           ${fieldsHtml}
         </div>
