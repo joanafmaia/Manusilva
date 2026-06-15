@@ -30,7 +30,7 @@ import {
   pdfStatusGlyph,
 } from './pdf-font.js';
 import { getColumnLabels } from './views/relatorio-grandes.js';
-import { reportIncludesDeslocacao, VISITAS_FIELD_ID, VISIT_DATES_FIELD_ID, DESLOCACAO_BASE_FIELD_ID } from './deslocacao-field.js';
+import { reportIncludesDeslocacao, SERVICES_WITH_SECTION_VISITAS, VISITAS_FIELD_ID, VISIT_DATES_FIELD_ID, DESLOCACAO_BASE_FIELD_ID } from './deslocacao-field.js';
 import {
   buildPdfAutoTableStyles,
   getBlockPdfTitle,
@@ -546,6 +546,7 @@ export async function renderInterventionPDF(report) {
     simplePhotoLegend: true,
     signatures: data.signatures || {},
     closingValues: values,
+    service,
     skipClosingDiagnostic: isPreventivaBateriaPdf || isFolhaIntervencaoAvariasPdf,
   };
 
@@ -573,7 +574,7 @@ export async function renderInterventionPDF(report) {
     y = drawServiceInfoBlock(doc, y, {
       serviceDate: formatPdfServiceDateOnly(report, job, values),
       visitDatesLine: resolvePdfVisitDatesLine(values, report, job, visitCount),
-      numeroVisitas: visitCount,
+      numeroVisitas: SERVICES_WITH_SECTION_VISITAS.has(service.id) ? null : visitCount,
       deslocacao: reportIncludesDeslocacao(service) ? values.deslocacao || '—' : null,
       technician: techName,
     });
@@ -1634,8 +1635,12 @@ function drawServiceInfoBlock(doc, y, meta) {
   return Math.max(leftBottom, rightY - 5.5) + 8;
 }
 
-async function drawClosingDiagnosticBlock(doc, y, values) {
-  const pairs = PDF_CLOSING_DIAGNOSTIC_SPECS.map((spec) => ({
+async function drawClosingDiagnosticBlock(doc, y, values, service = null) {
+  const specs = PDF_CLOSING_DIAGNOSTIC_SPECS.filter((spec) => {
+    if (spec.id === 'horas' && SERVICES_WITH_SECTION_VISITAS.has(service?.id)) return false;
+    return true;
+  });
+  const pairs = specs.map((spec) => ({
     label: spec.label,
     value: pdfDisplayValue(resolvePdfStandardFieldValue(values, spec)),
   }));
@@ -1870,8 +1875,22 @@ async function drawReportFieldsSection(doc, y, service, values, pdfContext = nul
 
   let currentSection = null;
   const pairedObservationsRendered = new Set();
+  let visitasHorasTableRendered = false;
 
   for (const field of service.fields) {
+    if (
+      !visitasHorasTableRendered &&
+      SERVICES_WITH_SECTION_VISITAS.has(service.id) &&
+      service.id !== 'manutencao_preventiva_bateria' &&
+      field.id === VISITAS_FIELD_ID &&
+      pdfNormalizeHeading(field.section || '').includes('numero de visitas e tempo')
+    ) {
+      y = await drawPreventivaBateriaIntervencaoTable(doc, y, values);
+      visitasHorasTableRendered = true;
+      if (field.section) gridRenderedSections.add(field.section);
+      continue;
+    }
+
     if (scalarRenderedIds.has(field.id)) continue;
     if (machineBlockRendered && INSPECAO_DL50_MACHINE_FIELD_IDS.has(field.id)) continue;
     if (pairedObservationsRendered.has(field.id)) continue;
@@ -2402,8 +2421,8 @@ async function drawReportClosingSection(doc, y, opts) {
     );
   }
 
-  if (opts.closingValues) {
-    y = await drawClosingDiagnosticBlock(doc, y, opts.closingValues);
+  if (opts.closingValues && !opts.skipClosingDiagnostic) {
+    y = await drawClosingDiagnosticBlock(doc, y, opts.closingValues, opts.service);
   }
 
   const sigH = estimateSignaturesHeight(profile);

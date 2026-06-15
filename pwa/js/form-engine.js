@@ -27,6 +27,7 @@ import {
   isDeslocacaoField,
   isDeslocacaoMetaField,
   isVisitasField,
+  SERVICES_WITH_SECTION_VISITAS,
   STANDARD_VISITAS_FIELD,
   VISITAS_FIELD_ID,
 } from './deslocacao-field.js';
@@ -193,7 +194,6 @@ const SERVICES_WITH_MACHINE_FIELDS = new Set([
 const EMPILHADORES_MATERIAL_SECTION = 'Substituição de Material';
 
 /** Relatórios com Nr de Visitas na secção dedicada do formulário (não no intro) */
-const SERVICES_WITH_SECTION_VISITAS = new Set(['manutencao_preventiva_bateria']);
 
 function filterReportFields(fields, service) {
   return (fields || []).filter((f) => {
@@ -305,6 +305,7 @@ export function buildFormPrefill(service, job, _forklift, context = {}) {
   if (service.id === 'reparacao_avarias_bateria') {
     return {
       data_de_conclusao: job?.date || '',
+      visitas_realizadas: 1,
       estado_final: 'Reparação Concluída',
       consumiveis: [emptyMaterialRow()],
     };

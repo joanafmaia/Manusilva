@@ -48,6 +48,12 @@ export function isDeslocacaoMetaField(field) {
   return field?.id === DESLOCACAO_BASE_FIELD_ID;
 }
 
+/** Relatórios com Nr de Visitas + Horas na secção dedicada (não no intro) */
+export const SERVICES_WITH_SECTION_VISITAS = new Set([
+  'manutencao_preventiva_bateria',
+  'reparacao_avarias_bateria',
+]);
+
 /** Campo Deslocação removido de todos os formulários e PDFs */
 export function reportIncludesDeslocacao(_service) {
   return false;

@@ -477,7 +477,16 @@ export const REPARACAO_AVARIAS_BATERIA = {
         'Descreva sintomas, elementos danificados, voltagem do banco, densidade do eletrólito, ligações/pontes e diagnóstico técnico...',
     },
     createMaterialTableField({ id: 'consumiveis' }),
-    { type: 'number', id: 'horas', label: 'Horas', section: 'Tempo de Intervenção', min: 0, step: 0.5 },
+    {
+      type: 'number',
+      id: 'visitas_realizadas',
+      label: 'Nr de Visitas',
+      section: 'Número de Visitas e Tempo',
+      min: 1,
+      step: 1,
+      placeholder: '1',
+    },
+    { type: 'number', id: 'horas', label: 'Horas', section: 'Número de Visitas e Tempo', min: 0, step: 0.5 },
     { type: 'textarea', id: 'observacao', label: 'Observação', rows: 4 },
     {
       type: 'status_pills',
