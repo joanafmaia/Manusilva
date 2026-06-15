@@ -777,6 +777,8 @@ const CARREGADOR_CLOSING_PROFILE = {
   sigTop: 3,
   sigImg: 13,
 };
+/** ~6px — cantos arredondados executivos */
+const CARREGADOR_RADIUS_MM = 1.6;
 
 function formatFolhaInterventionDate(raw) {
   const pure = String(raw ?? '').trim();
@@ -1371,7 +1373,7 @@ function drawCarregadorTitleBar(doc, y, title) {
   doc.setFillColor(...PDF_SECTION_BG);
   doc.setDrawColor(...PDF_TABLE_LINE);
   doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
-  doc.roundedRect(MARGIN, y, CONTENT_W, barH, 1, 1, 'FD');
+  doc.roundedRect(MARGIN, y, CONTENT_W, barH, CARREGADOR_RADIUS_MM, CARREGADOR_RADIUS_MM, 'FD');
   pdfSetFont(doc, 'bold');
   doc.setFontSize(PDF_FONT_SUBTITLE);
   doc.setTextColor(...CORPORATE_BLUE);
@@ -1404,7 +1406,7 @@ function drawCarregadorIdentificacaoClienteBox(doc, topY, values, techName, data
   doc.setFillColor(...PDF_CLIENT_BOX_FILL);
   doc.setDrawColor(...PDF_TABLE_LINE);
   doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
-  doc.roundedRect(blockX, topY, blockW, blockH, 2, 2, 'FD');
+  doc.roundedRect(blockX, topY, blockW, blockH, CARREGADOR_RADIUS_MM, CARREGADOR_RADIUS_MM, 'FD');
 
   let lineY = topY + blockPad + 3;
   pdfSetFont(doc, 'bold');
@@ -1483,7 +1485,7 @@ async function drawCarregadorSectionBar(doc, y, title) {
   doc.setFillColor(...PDF_SECTION_BG);
   doc.setDrawColor(...PDF_TABLE_LINE);
   doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
-  doc.roundedRect(MARGIN, y, CONTENT_W, bandH, 1, 1, 'FD');
+  doc.roundedRect(MARGIN, y, CONTENT_W, bandH, CARREGADOR_RADIUS_MM, CARREGADOR_RADIUS_MM, 'FD');
   pdfSetFont(doc, 'bold');
   doc.setFontSize(CARREGADOR_HEAD_FONT_PT);
   doc.setTextColor(...CORPORATE_BLUE);

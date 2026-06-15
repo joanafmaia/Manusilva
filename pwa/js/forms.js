@@ -331,7 +331,7 @@ function buildFormHTML(job, client, tech, service, existingReport, options = {})
       : '';
 
   return `
-    <div class="form-workspace form-workspace--report">
+    <div class="form-workspace form-workspace--report${isCarregadorForm ? ' form-workspace--carregador' : ''}">
       <div class="form-panel form-panel--premium glass-card">
         <div class="form-panel-header form-panel-header--minimal">
           <button type="button" class="btn-ghost" id="close-form">&larr; Voltar</button>

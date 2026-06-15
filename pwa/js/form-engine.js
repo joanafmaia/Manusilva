@@ -686,10 +686,12 @@ export function renderReportFields(service, values = {}, context = {}, options =
       }
       const isCarregador = service?.id === 'reparacao_carregador';
       if (isCarregador && section === 'Identificação Cliente') {
-        fieldsHtml = `<div class="carregador-cliente-grid">${fieldsHtml}</div>`;
+        fieldsHtml = `<div class="carregador-cliente-grid">${sectionTitle}${fieldsHtml}</div>`;
+        sectionTitle = '';
       }
       if (isCarregador && section === 'Identificação Do Carregador') {
-        fieldsHtml = `<div class="carregador-identificacao-bar">${fieldsHtml}</div>`;
+        fieldsHtml = `<div class="carregador-identificacao-bar">${sectionTitle}${fieldsHtml}</div>`;
+        sectionTitle = '';
       }
       if (
         isCarregador &&
@@ -697,17 +699,20 @@ export function renderReportFields(service, values = {}, context = {}, options =
           section === 'Resultado do Teste' ||
           (section && /consum/i.test(section)))
       ) {
-        fieldsHtml = `<div class="carregador-dashboard-section">${fieldsHtml}</div>`;
+        fieldsHtml = `<div class="carregador-dashboard-section">${sectionTitle}${fieldsHtml}</div>`;
+        sectionTitle = '';
       }
       if (isCarregador && section === 'Fecho') {
-        fieldsHtml = `<div class="carregador-fecho-fields">${fieldsHtml}</div>`;
+        fieldsHtml = `<div class="carregador-fecho-fields">${sectionTitle}${fieldsHtml}</div>`;
+        sectionTitle = '';
       }
       if (
         isCarregador &&
         !section &&
         sectionFields.some((f) => f.type === 'dynamic_table' || isMaterialTableField(f))
       ) {
-        fieldsHtml = `<div class="carregador-dashboard-section">${fieldsHtml}</div>`;
+        fieldsHtml = `<div class="carregador-dashboard-section">${sectionTitle}${fieldsHtml}</div>`;
+        sectionTitle = '';
       }
       return `
         <div class="form-field-section form-section-card${
