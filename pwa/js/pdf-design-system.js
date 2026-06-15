@@ -17,6 +17,11 @@ export const PDF_FONT_CAPTION = 8;
 
 /** Espaçamento compacto (~10px entre blocos; células 4px vertical / 6px horizontal) */
 export const PDF_SECTION_GAP_MM = 2.7;
+/** Bloco meta (Data / Visitas / Técnico) — respiro abaixo do título e antes da 1.ª secção */
+export const PDF_SERVICE_INFO_MARGIN_TOP_MM = 3.2;
+export const PDF_SERVICE_INFO_MARGIN_BOTTOM_MM = 4;
+export const PDF_SERVICE_INFO_ROW_H_MM = 5;
+export const PDF_SERVICE_INFO_COL_GAP_MM = 4.2;
 export const PDF_TABLE_ROW_STEP_MM = 5;
 export const PDF_TABLE_CELL_PADDING = { top: 1.1, right: 1.6, bottom: 1.1, left: 1.6 };
 export const PDF_TABLE_CELL_PADDING_HEAD = { top: 1.1, right: 1.6, bottom: 1.1, left: 1.6 };

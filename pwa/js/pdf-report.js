@@ -72,6 +72,10 @@ import {
   PDF_SECTION_BG,
   PDF_SECTION_BAND_HEIGHT_MM,
   PDF_SECTION_GAP_MM,
+  PDF_SERVICE_INFO_MARGIN_TOP_MM,
+  PDF_SERVICE_INFO_MARGIN_BOTTOM_MM,
+  PDF_SERVICE_INFO_ROW_H_MM,
+  PDF_SERVICE_INFO_COL_GAP_MM,
   PDF_TABLE_CELL_PADDING,
   PDF_TABLE_CELL_PADDING_HEAD,
   PDF_TABLE_MIN_CELL_HEIGHT,
@@ -1940,51 +1944,110 @@ async function drawSectionScalarGridFromPairs(doc, y, pairs) {
   return drawPdfGridTable(doc, y, { body });
 }
 
-/** Bloco superior — data do serviço (esq.) + visitas/deslocação/técnico (dir.) */
-function drawServiceInfoBlock(doc, y, meta) {
-  const blockH = meta.visitDatesLine ? 24 : 18;
-  y = ensureSpace(doc, y, blockH);
+/** Campo label+valor numa linha (fonte compacta) */
+function drawServiceInfoField(doc, x, y, label, value, options = {}) {
+  const { align = 'left', maxWidth = CONTENT_W } = options;
+  const labelText = String(label).endsWith(':') ? label : `${label}:`;
+  const valueText = pdfSafeText(value);
 
-  const leftX = MARGIN;
-  const rightX = PAGE_W - MARGIN;
-  const labelW = 36;
+  if (align === 'right') {
+    pdfSetFont(doc, 'normal');
+    doc.setFontSize(PDF_FONT_BODY);
+    doc.setTextColor(...TEXT_MUTED);
+    const labelW = doc.getTextWidth(`${labelText} `);
+    pdfSetFont(doc, 'bold');
+    doc.setTextColor(...TEXT_DARK);
+    const valueW = doc.getTextWidth(valueText);
+    const startX = x + maxWidth - labelW - valueW;
+    pdfSetFont(doc, 'normal');
+    doc.setTextColor(...TEXT_MUTED);
+    doc.text(labelText, startX, y);
+    pdfSetFont(doc, 'bold');
+    doc.setTextColor(...TEXT_DARK);
+    doc.text(valueText, startX + labelW, y);
+    return;
+  }
+
+  if (align === 'center') {
+    pdfSetFont(doc, 'normal');
+    doc.setFontSize(PDF_FONT_BODY);
+    doc.setTextColor(...TEXT_MUTED);
+    const labelW = doc.getTextWidth(`${labelText} `);
+    pdfSetFont(doc, 'bold');
+    doc.setTextColor(...TEXT_DARK);
+    const valueW = doc.getTextWidth(valueText);
+    const startX = x + (maxWidth - labelW - valueW) / 2;
+    pdfSetFont(doc, 'normal');
+    doc.setTextColor(...TEXT_MUTED);
+    doc.text(labelText, startX, y);
+    pdfSetFont(doc, 'bold');
+    doc.setTextColor(...TEXT_DARK);
+    doc.text(valueText, startX + labelW, y);
+    return;
+  }
 
   pdfSetFont(doc, 'normal');
   doc.setFontSize(PDF_FONT_BODY);
   doc.setTextColor(...TEXT_MUTED);
-  doc.text('Data do Serviço:', leftX, y);
-
+  doc.text(labelText, x, y, { maxWidth });
+  const labelW = doc.getTextWidth(`${labelText} `);
   pdfSetFont(doc, 'bold');
   doc.setTextColor(...TEXT_DARK);
-  doc.text(pdfSafeText(meta.serviceDate || '—'), leftX + labelW, y);
+  doc.text(valueText, x + labelW, y, { maxWidth: Math.max(maxWidth - labelW, 8) });
+}
 
-  let leftBottom = y;
-  if (meta.visitDatesLine) {
-    const lineY = y + 6;
-    pdfSetFont(doc, 'normal');
-    doc.setTextColor(...TEXT_MUTED);
-    doc.text('Datas das Visitas:', leftX, lineY);
-    doc.setTextColor(...TEXT_DARK);
-    doc.text(pdfSafeText(meta.visitDatesLine), leftX + labelW + 2, lineY);
-    leftBottom = lineY;
+/** Bloco meta — Data do Serviço, Nº de Visitas e Técnico com respiro e colunas flexíveis */
+function drawServiceInfoBlock(doc, y, meta) {
+  const rowItems = [
+    { label: 'Data do Serviço', value: meta.serviceDate || '—' },
+  ];
+  if (meta.numeroVisitas != null) {
+    rowItems.push({ label: 'Nº de Visitas', value: pdfDisplayValue(meta.numeroVisitas) });
+  }
+  if (meta.deslocacao != null) {
+    rowItems.push({ label: 'Deslocação', value: pdfDisplayValue(meta.deslocacao) });
+  }
+  if (meta.technician) {
+    rowItems.push({ label: 'Técnico', value: pdfDisplayValue(meta.technician) });
   }
 
-  const rightLines = [];
-  if (meta.numeroVisitas != null) rightLines.push(`Nº de Visitas: ${pdfDisplayValue(meta.numeroVisitas)}`);
-  if (meta.deslocacao != null) rightLines.push(`Deslocação: ${pdfDisplayValue(meta.deslocacao)}`);
-  if (meta.technician) rightLines.push(`Técnico: ${pdfDisplayValue(meta.technician)}`);
+  const extraRowH = meta.visitDatesLine ? PDF_SERVICE_INFO_ROW_H_MM + PDF_SERVICE_INFO_COL_GAP_MM : 0;
+  const blockH =
+    PDF_SERVICE_INFO_MARGIN_TOP_MM +
+    PDF_SERVICE_INFO_ROW_H_MM +
+    extraRowH +
+    PDF_SERVICE_INFO_MARGIN_BOTTOM_MM;
+  y = ensureSpace(doc, y, blockH);
 
-  let rightY = y;
-  rightLines.forEach((line) => {
-    pdfSetFont(doc, 'normal');
-    doc.setFontSize(PDF_FONT_BODY);
-    doc.setTextColor(...TEXT_DARK);
-    doc.text(pdfSafeText(line), rightX, rightY, { align: 'right' });
-    rightY += 5.5;
+  y += PDF_SERVICE_INFO_MARGIN_TOP_MM;
+  const rowY = y;
+  const colCount = rowItems.length;
+  const colW = CONTENT_W / Math.max(colCount, 1);
+
+  rowItems.forEach((item, i) => {
+    const colX = MARGIN + i * colW;
+    const innerW = colW - (i > 0 && i < colCount - 1 ? PDF_SERVICE_INFO_COL_GAP_MM : 0);
+    const align = i === 0 ? 'left' : i === colCount - 1 ? 'right' : 'center';
+    drawServiceInfoField(doc, colX, rowY, item.label, item.value, {
+      align,
+      maxWidth: innerW,
+    });
   });
 
+  y = rowY + PDF_SERVICE_INFO_ROW_H_MM;
+
+  if (meta.visitDatesLine) {
+    y += PDF_SERVICE_INFO_COL_GAP_MM;
+    drawServiceInfoField(doc, MARGIN, y, 'Datas das Visitas', meta.visitDatesLine, {
+      align: 'left',
+      maxWidth: CONTENT_W,
+    });
+    y += PDF_SERVICE_INFO_ROW_H_MM;
+  }
+
+  y += PDF_SERVICE_INFO_MARGIN_BOTTOM_MM;
   touchPdfContentPage(doc);
-  return Math.max(leftBottom, rightY - 5.5) + 8;
+  return y;
 }
 
 async function drawClosingDiagnosticBlock(doc, y, values, service = null) {
