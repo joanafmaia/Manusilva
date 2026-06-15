@@ -4104,7 +4104,7 @@ body.dark-mode .matrix-bulk-good-btn--active {
 .dl50-matrix-dual-grid {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 15px;
+  gap: 16px;
 }
 
 @media (min-width: 900px) {
@@ -4120,6 +4120,11 @@ body.dark-mode .matrix-bulk-good-btn--active {
   gap: 12px;
 }
 
+.dl50-matrix-category {
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
 .dl50-matrix-category-header {
   display: flex;
   align-items: center;
@@ -4133,7 +4138,7 @@ body.dark-mode .matrix-bulk-good-btn--active {
 
 .dl50-matrix-category-title {
   margin: 0;
-  font-size: 0.78rem;
+  font-size: 10pt;
   font-weight: 700;
   letter-spacing: 0.03em;
   text-transform: uppercase;
@@ -4158,13 +4163,13 @@ body.dark-mode .matrix-bulk-good-btn--active {
   width: 100%;
   border-collapse: collapse;
   table-layout: fixed;
-  font-size: 0.84rem;
+  font-size: 9pt;
 }
 
 .dl50-matrix-table thead th {
   background: #edf2f7;
   color: #2b6cb0;
-  font-size: 0.72rem;
+  font-size: 9pt;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.03em;
@@ -4183,7 +4188,7 @@ body.dark-mode .matrix-bulk-good-btn--active {
   border-bottom: 1px solid #e2e8f0;
   padding: 3px 4px;
   vertical-align: middle;
-  font-size: 0.84rem;
+  font-size: 9pt;
 }
 
 .dl50-matrix-table tbody tr:nth-child(even) th,
@@ -4214,6 +4219,11 @@ body.dark-mode .matrix-bulk-good-btn--active {
 }
 
 .dl50-closing-block {
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+.dl50-closing-shell {
   page-break-inside: avoid;
   break-inside: avoid;
 }

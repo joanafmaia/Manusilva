@@ -2046,7 +2046,7 @@ function renderLegalVerdictField(field, value = '', service = null) {
   `;
 
   if (service?.id === 'inspecao_dl50_2005') {
-    return `<div class="dl50-closing-block">${inner}</div>`;
+    return inner;
   }
   return inner;
 }
