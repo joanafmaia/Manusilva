@@ -321,6 +321,7 @@ function buildFormHTML(job, client, tech, service, existingReport, options = {})
   const isCarregadorForm = service?.id === 'reparacao_carregador';
   const isCorretivaForm = service?.id === 'manutencao_corretiva_maquinas';
   const isGrandesForm = service?.id === 'manutencao_baterias_grandes';
+  const isRavBateriaForm = service?.id === 'reparacao_avarias_bateria';
   const finalizacaoPanelBody = `
               <section class="form-section report-fields-section">
                 <div class="report-fields">${fieldsFinalizacao}</div>
@@ -334,10 +335,12 @@ function buildFormHTML(job, client, tech, service, existingReport, options = {})
         ? 'corretiva-closing-shell'
         : isGrandesForm
           ? 'grandes-closing-shell'
-          : '';
+          : isRavBateriaForm
+            ? 'rav-closing-shell'
+            : '';
 
   return `
-    <div class="form-workspace form-workspace--report${isCarregadorForm ? ' form-workspace--carregador' : ''}${isCorretivaForm ? ' form-workspace--corretiva' : ''}${isGrandesForm ? ' form-workspace--grandes' : ''}">
+    <div class="form-workspace form-workspace--report${isCarregadorForm ? ' form-workspace--carregador' : ''}${isCorretivaForm ? ' form-workspace--corretiva' : ''}${isGrandesForm ? ' form-workspace--grandes' : ''}${isRavBateriaForm ? ' form-workspace--rav-bateria' : ''}">
       <div class="form-panel form-panel--premium glass-card">
         <div class="form-panel-header form-panel-header--minimal">
           <button type="button" class="btn-ghost" id="close-form">&larr; Voltar</button>

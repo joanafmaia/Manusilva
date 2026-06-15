@@ -8715,6 +8715,182 @@ body.dark-mode .client-history-status--rejected {
   }
 }
 
+/* Reparação Avarias Bateria — layout premium simétrico */
+.form-field-section--rav-bateria {
+  margin-bottom: 10px;
+}
+
+.form-workspace--rav-bateria .rejection-banner,
+.form-workspace--rav-bateria .edit-pending-banner,
+.form-workspace--rav-bateria .form-readonly-banner {
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.rav-section-bar {
+  display: flex;
+  align-items: center;
+  padding: 0.45rem 0.65rem;
+  background: #edf2f7;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px 4px 0 0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.rav-section-bar-title {
+  font-size: 10pt;
+  font-weight: 700;
+  color: #2b6cb0;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.rav-metrics-dual {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-bottom: 10px;
+}
+
+.rav-metrics-dual .rav-dashboard-section {
+  margin: 0;
+  min-width: 0;
+}
+
+.rav-dashboard-section {
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.rav-dashboard-section > .form-label,
+.rav-dashboard-section > .form-section-subtitle {
+  display: block;
+  margin: 0;
+  padding: 0.45rem 0.65rem;
+  background: #edf2f7;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 10pt;
+  font-weight: 700;
+  color: #2b6cb0;
+  text-transform: uppercase;
+  border-radius: 6px 6px 0 0;
+}
+
+.rav-dashboard-section .dynamic-table-wrap {
+  border-radius: 0 0 6px 6px;
+  overflow: hidden;
+}
+
+.rav-dashboard-section .dynamic-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 9.5pt;
+}
+
+.rav-dashboard-section .dynamic-table thead th {
+  background: #edf2f7;
+  color: #2b6cb0;
+  font-size: 9.5pt;
+  font-weight: 700;
+  padding: 4px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.rav-dashboard-section .dynamic-table tbody td {
+  padding: 4px;
+  border-bottom: 1px solid #e2e8f0;
+  color: #2d3748;
+  font-size: 9.5pt;
+  vertical-align: middle;
+}
+
+.rav-dashboard-section .dynamic-table tbody tr:nth-child(even) td {
+  background: #f8fafc;
+}
+
+.rav-visitas-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  padding: 0.65rem;
+}
+
+.rav-estado-final-shell {
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #fff;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+.rav-estado-final-shell > .form-section-subtitle {
+  margin: 0;
+  padding: 0.45rem 0.65rem;
+  background: #edf2f7;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 10pt;
+  font-weight: 700;
+  color: #2b6cb0;
+  text-transform: uppercase;
+  border-radius: 6px 6px 0 0;
+}
+
+.rav-estado-final-shell .form-group:has(.form-textarea) .form-label {
+  display: block;
+  margin: 0;
+  padding: 0.4rem 0.65rem 0;
+  font-size: 9.5pt;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.rav-estado-final-shell .form-textarea {
+  margin: 0.35rem 0.65rem 0.65rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #f8fafc;
+  min-height: 4rem;
+  font-size: 9.5pt;
+  padding: 0.5rem 0.65rem;
+  resize: vertical;
+}
+
+.rav-estado-final-shell .status-pills-field .form-label {
+  display: block;
+  margin: 0;
+  padding: 0 0.65rem 0.35rem;
+  font-size: 9.5pt;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.rav-estado-final-shell .choice-btn--success.selected,
+.rav-estado-final-shell .status-pills-field .choice-btn.selected:has([data-value*='Conclu']) {
+  background: rgba(16, 185, 129, 0.14);
+  border-color: rgba(16, 185, 129, 0.55);
+  color: #047857;
+  font-weight: 700;
+}
+
+.rav-closing-shell {
+  width: 100%;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+@media print {
+  .rav-closing-shell,
+  .rav-estado-final-shell,
+  .rav-metrics-dual,
+  .rav-dashboard-section {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+}
+
 .dynamic-table-field--grandes .form-input-sm {
   font-size: 8.5pt;
   padding: 3px 4px;

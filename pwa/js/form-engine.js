@@ -656,6 +656,35 @@ function mergeGrandesDualFooterGroups(groups) {
   return result;
 }
 
+function mergeRavDualMetricGroups(groups) {
+  const consumIdx = groups.findIndex((g) => g.fields.some((f) => isMaterialTableField(f)));
+  const visitasIdx = groups.findIndex((g) => g.section === 'Número de Visitas e Tempo');
+  if (consumIdx < 0 || visitasIdx < 0) return groups;
+
+  const result = [];
+  groups.forEach((g, i) => {
+    if (i === consumIdx) {
+      const dataFields = g.fields.filter((f) => f.id === 'data_de_conclusao');
+      const materialFields = g.fields.filter((f) => isMaterialTableField(f));
+      if (dataFields.length) {
+        result.push({ section: g.section, fields: dataFields });
+      }
+      if (materialFields.length) {
+        const visitasFields = groups[visitasIdx].fields;
+        result.push({
+          section: null,
+          fields: [...materialFields, ...visitasFields],
+          _ravDualMetrics: true,
+        });
+      }
+      return;
+    }
+    if (i === visitasIdx) return;
+    result.push(g);
+  });
+  return result;
+}
+
 export function renderReportFields(service, values = {}, context = {}, options = {}) {
   const tabFilter = options.tab || null;
   let fields = filterReportFields(service?.fields, service);
@@ -674,6 +703,9 @@ export function renderReportFields(service, values = {}, context = {}, options =
   if (service?.id === 'manutencao_baterias_grandes') {
     groups = mergeGrandesDualFooterGroups(groups);
   }
+  if (service?.id === 'reparacao_avarias_bateria') {
+    groups = mergeRavDualMetricGroups(groups);
+  }
   if (service?.id === EMPILHADORES_SERVICE_ID && tabFilter === 'checklist') {
     groups = mergeEmpilhadoresChecklistGroups(groups, service);
     return groups
@@ -684,7 +716,7 @@ export function renderReportFields(service, values = {}, context = {}, options =
   }
 
   return groups
-    .map(({ section, fields: sectionFields, _grandesDualFooter }) => {
+    .map(({ section, fields: sectionFields, _grandesDualFooter, _ravDualMetrics }) => {
       const hideSectionTitle =
         section &&
         sectionFields.every(
@@ -790,12 +822,43 @@ export function renderReportFields(service, values = {}, context = {}, options =
         fieldsHtml = `<div class="grandes-observations-box">${sectionTitle}${fieldsHtml}</div>`;
         sectionTitle = '';
       }
+      const isRavBateria = service?.id === 'reparacao_avarias_bateria';
+      if (isRavBateria && _ravDualMetrics) {
+        const materialHtml = sectionFields
+          .filter((f) => isMaterialTableField(f))
+          .map((f) => renderField(f, values[f.id], context))
+          .join('');
+        const visitasHtml = sectionFields
+          .filter((f) => f.id === 'visitas_realizadas' || f.id === 'horas')
+          .map((f) => renderField(f, values[f.id], context))
+          .join('');
+        fieldsHtml = `<div class="rav-metrics-dual">
+          <div class="rav-dashboard-section rav-dashboard-section--consumiveis">${materialHtml}</div>
+          <div class="rav-dashboard-section rav-dashboard-section--visitas">
+            <div class="rav-section-bar"><span class="rav-section-bar-title">Número de Visitas e Tempo</span></div>
+            <div class="rav-visitas-fields">${visitasHtml}</div>
+          </div>
+        </div>`;
+        sectionTitle = '';
+      } else if (
+        isRavBateria &&
+        sectionFields.some((f) => isMaterialTableField(f))
+      ) {
+        fieldsHtml = `<div class="rav-dashboard-section">${sectionTitle}${fieldsHtml}</div>`;
+        sectionTitle = '';
+      } else if (isRavBateria && section === 'Número de Visitas e Tempo') {
+        fieldsHtml = `<div class="rav-dashboard-section rav-dashboard-section--visitas">${sectionTitle}${fieldsHtml}</div>`;
+        sectionTitle = '';
+      } else if (isRavBateria && section === 'Estado final') {
+        fieldsHtml = `<div class="rav-estado-final-shell">${sectionTitle}${fieldsHtml}</div>`;
+        sectionTitle = '';
+      }
       return `
         <div class="form-field-section form-section-card${
           section === EMPILHADORES_MACHINE_SECTION && service?.id === EMPILHADORES_SERVICE_ID
             ? ' form-field-section--empilhadores-machine'
             : ''
-        }${section === EMPILHADORES_MATERIAL_SECTION ? ' form-field-section--material form-field-section--empilhadores-material' : ''}${section === 'Pedido de Orçamento' ? ' form-field-section--pedido-orcamento' : ''}${isCarregador ? ' form-field-section--carregador' : ''}${isCorretiva ? ' form-field-section--corretiva' : ''}${isGrandes ? ' form-field-section--grandes' : ''}">
+        }${section === EMPILHADORES_MATERIAL_SECTION ? ' form-field-section--material form-field-section--empilhadores-material' : ''}${section === 'Pedido de Orçamento' ? ' form-field-section--pedido-orcamento' : ''}${isCarregador ? ' form-field-section--carregador' : ''}${isCorretiva ? ' form-field-section--corretiva' : ''}${isGrandes ? ' form-field-section--grandes' : ''}${isRavBateria ? ' form-field-section--rav-bateria' : ''}">
           ${sectionTitle}
           ${fieldsHtml}
         </div>
