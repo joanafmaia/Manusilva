@@ -714,12 +714,29 @@ export function renderReportFields(service, values = {}, context = {}, options =
         fieldsHtml = `<div class="carregador-dashboard-section">${sectionTitle}${fieldsHtml}</div>`;
         sectionTitle = '';
       }
+      const isCorretiva = service?.id === 'manutencao_corretiva_maquinas';
+      if (isCorretiva && section === 'Informações da Máquina') {
+        fieldsHtml = `<div class="corretiva-machine-grid">${sectionTitle}${fieldsHtml}</div>`;
+        sectionTitle = '';
+      }
+      if (isCorretiva && section === 'Verificações') {
+        fieldsHtml = `<div class="corretiva-verifications-shell">${fieldsHtml}</div>`;
+        sectionTitle = '';
+      }
+      if (
+        isCorretiva &&
+        !section &&
+        sectionFields.some((f) => f.id === 'observacoes')
+      ) {
+        fieldsHtml = `<div class="corretiva-observations-box">${sectionTitle}${fieldsHtml}</div>`;
+        sectionTitle = '';
+      }
       return `
         <div class="form-field-section form-section-card${
           section === EMPILHADORES_MACHINE_SECTION && service?.id === EMPILHADORES_SERVICE_ID
             ? ' form-field-section--empilhadores-machine'
             : ''
-        }${section === EMPILHADORES_MATERIAL_SECTION ? ' form-field-section--material form-field-section--empilhadores-material' : ''}${section === 'Pedido de Orçamento' ? ' form-field-section--pedido-orcamento' : ''}${isCarregador ? ' form-field-section--carregador' : ''}">
+        }${section === EMPILHADORES_MATERIAL_SECTION ? ' form-field-section--material form-field-section--empilhadores-material' : ''}${section === 'Pedido de Orçamento' ? ' form-field-section--pedido-orcamento' : ''}${isCarregador ? ' form-field-section--carregador' : ''}${isCorretiva ? ' form-field-section--corretiva' : ''}">
           ${sectionTitle}
           ${fieldsHtml}
         </div>
@@ -951,7 +968,7 @@ function renderField(field, value = '', context = {}) {
       html = renderGrandesBatterySection(field, value);
       break;
     case 'verification_toggles':
-      html = renderVerificationTogglesField(field, value);
+      html = renderVerificationTogglesField(field, value, context.service);
       break;
     case 'matrix_4options':
       html = renderMatrix4OptionsField(field, value, context.service);
@@ -1669,7 +1686,63 @@ function verificationBulkOkBtnHtml(title = '') {
   `;
 }
 
-function renderVerificationTogglesField(field, value) {
+function renderCorretivaVerificationField(field, value) {
+  const items = field.items || [];
+  const states = value && typeof value === 'object' ? value : {};
+  const { ok, total } = countVerificationProgress(items, states);
+
+  const rows = items
+    .map((item) => {
+      const spec = normalizeVerifyItem(item);
+      const isFail = states[spec.id] === 'Não OK';
+      const stateClass = isFail ? 'verification-card--fail' : 'verification-card--ok';
+      const badgeClass = isFail ? 'verification-badge--fail' : 'verification-badge--ok';
+      const badgeText = isFail ? 'Não OK' : 'OK';
+      const checked = isFail ? 'checked' : '';
+      return `
+        <tr class="corretiva-verify-row ${stateClass}" data-verify-card="${spec.id}">
+          <th scope="row" class="corretiva-verify-point">${escapeHtml(spec.label)}</th>
+          <td class="corretiva-verify-state">
+            <span class="verification-badge ${badgeClass}" data-verify-badge="${spec.id}">${badgeText}</span>
+            <label class="verification-switch corretiva-verify-switch" aria-label="Alternar ${escapeHtml(spec.label)}">
+              <input type="checkbox" class="sr-only" data-verify-item="${spec.id}" ${checked}>
+              <span class="verify-track"><span class="verify-thumb"></span></span>
+            </label>
+          </td>
+        </tr>
+      `;
+    })
+    .join('');
+
+  return `
+    <div class="form-group field-block verification-toggles-field corretiva-verifications-field" data-verification-field="${field.id}">
+      <div class="corretiva-section-bar corretiva-section-bar--table">
+        <span class="corretiva-section-bar-title">${escapeHtml(field.label)}</span>
+        <div class="corretiva-section-bar-meta">
+          <span class="matrix-cat-progress" data-verify-progress>${ok}/${total}</span>
+          ${verificationBulkOkBtnHtml(field.label)}
+        </div>
+      </div>
+      <div class="corretiva-table-wrap">
+        <table class="corretiva-verify-table">
+          <thead>
+            <tr>
+              <th scope="col">Ponto</th>
+              <th scope="col">Est.</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+function renderVerificationTogglesField(field, value, service = null) {
+  if (service?.id === 'manutencao_corretiva_maquinas') {
+    return renderCorretivaVerificationField(field, value);
+  }
+
   const items = field.items || [];
   const states = value && typeof value === 'object' ? value : {};
   const useAccordion = field.collapsible || items.length >= 8;

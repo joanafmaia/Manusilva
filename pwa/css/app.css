@@ -4442,6 +4442,184 @@ body.dark-mode .matrix-bulk-good-btn--active {
   }
 }
 
+/* Manutenção Corretiva — layout executivo compacto (1 página A4) */
+.form-field-section--corretiva {
+  margin-bottom: 10px;
+}
+
+.form-workspace--corretiva .rejection-banner,
+.form-workspace--corretiva .edit-pending-banner,
+.form-workspace--corretiva .form-readonly-banner {
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.corretiva-section-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.45rem 0.65rem;
+  background: #edf2f7;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  margin-bottom: 0;
+}
+
+.corretiva-section-bar-title {
+  font-size: 10.5pt;
+  font-weight: 700;
+  color: #2b6cb0;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.corretiva-section-bar-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+.corretiva-machine-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  padding: 0 0.7rem 0.6rem;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.corretiva-machine-grid > .form-section-subtitle {
+  grid-column: 1 / -1;
+  margin: 0 -0.7rem 0.35rem;
+  padding: 0.45rem 0.7rem;
+  background: #edf2f7;
+  border-radius: 6px 6px 0 0;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 10.5pt;
+  font-weight: 700;
+  color: #2b6cb0;
+  text-transform: uppercase;
+}
+
+.corretiva-verifications-shell {
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.corretiva-verifications-field {
+  margin: 0;
+}
+
+.corretiva-verifications-field .corretiva-section-bar--table {
+  border: none;
+  border-radius: 6px 6px 0 0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.corretiva-table-wrap {
+  overflow: hidden;
+  border-radius: 0 0 6px 6px;
+}
+
+.corretiva-verify-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 9pt;
+}
+
+.corretiva-verify-table thead th {
+  background: #edf2f7;
+  color: #2b6cb0;
+  font-size: 9pt;
+  font-weight: 700;
+  padding: 4px;
+  border-bottom: 1px solid #e2e8f0;
+  text-align: left;
+}
+
+.corretiva-verify-table thead th:last-child {
+  width: 7.5rem;
+  text-align: center;
+}
+
+.corretiva-verify-table tbody th,
+.corretiva-verify-table tbody td {
+  padding: 4px;
+  border-bottom: 1px solid #e2e8f0;
+  color: #2d3748;
+  vertical-align: middle;
+  font-size: 9pt;
+  font-weight: 500;
+}
+
+.corretiva-verify-table tbody tr:nth-child(even) th,
+.corretiva-verify-table tbody tr:nth-child(even) td {
+  background: #f8fafc;
+}
+
+.corretiva-verify-state {
+  text-align: center;
+  white-space: nowrap;
+}
+
+.corretiva-verify-switch {
+  margin-left: 0.35rem;
+}
+
+.corretiva-observations-box {
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.corretiva-observations-box .form-group {
+  margin: 0;
+}
+
+.corretiva-observations-box .form-label {
+  display: block;
+  margin: 0;
+  padding: 0.45rem 0.65rem;
+  background: #edf2f7;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 10.5pt;
+  font-weight: 700;
+  color: #2b6cb0;
+  text-transform: uppercase;
+  border-radius: 6px 6px 0 0;
+}
+
+.corretiva-observations-box .form-textarea {
+  border: none;
+  border-radius: 0 0 6px 6px;
+  min-height: 4.5rem;
+  font-size: 9pt;
+  padding: 0.5rem 0.65rem;
+  resize: vertical;
+}
+
+.corretiva-closing-shell {
+  width: 100%;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+@media print {
+  .corretiva-closing-shell,
+  .corretiva-verifications-shell,
+  .corretiva-observations-box,
+  .corretiva-machine-grid {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+}
+
 .folha-datas-intervencao-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

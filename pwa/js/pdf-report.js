@@ -546,6 +546,7 @@ export async function renderInterventionPDF(report) {
   const isFolhaIntervencaoAvariasPdf = report.serviceType === 'folha_intervencao_avarias';
   const isReparacaoAvariasBateriaPdf = report.serviceType === 'reparacao_avarias_bateria';
   const isReparacaoCarregadorPdf = report.serviceType === 'reparacao_carregador';
+  const isCorretivaMaquinasPdf = report.serviceType === 'manutencao_corretiva_maquinas';
   const isEmpilhadoresPdf = report.serviceType === EMPILHADORES_SERVICE_ID;
   const fotoAntesUrl = data.fotoAntesUrl || job?.fotoAntes || null;
   const fotoDepoisUrl = data.fotoDepoisUrl || job?.fotoDepois || null;
@@ -578,6 +579,7 @@ export async function renderInterventionPDF(report) {
       isFolhaIntervencaoAvariasPdf ||
       isReparacaoAvariasBateriaPdf ||
       isReparacaoCarregadorPdf ||
+      isCorretivaMaquinasPdf ||
       isDl50Pdf ||
       isEmpilhadoresPdf,
   };
@@ -606,6 +608,26 @@ export async function renderInterventionPDF(report) {
     y = await drawReparacaoCarregadorClosingSection(doc, y, {
       signatures: data.signatures || {},
       values,
+    });
+  } else if (isCorretivaMaquinasPdf) {
+    y = drawTopRowWithClientBlock(doc, clientMeta, job?.numeroOrdem ?? null);
+    y = drawCorretivaTitleBar(doc, y, title);
+    const visitCount = formatPdfNumeroVisitas(values);
+    y = drawServiceInfoBlock(doc, y, {
+      serviceDate: formatPdfServiceDateOnly(report, job, values),
+      visitDatesLine: resolvePdfVisitDatesLine(values, report, job, visitCount),
+      numeroVisitas: visitCount,
+      deslocacao: null,
+      technician: techName || values.tecnico || '',
+      metaBottomGapMm: CORRETIVA_SECTION_GAP_MM,
+    });
+    y = await drawCorretivaMaquinasBody(doc, y, service, values, pdfContext);
+    y = await drawCorretivaMaquinasClosingSection(doc, y, {
+      signatures: data.signatures || {},
+      closingValues: values,
+      fotoAntesUrl,
+      fotoDepoisUrl,
+      simplePhotoLegend: true,
     });
   } else {
     y = drawTopRowWithClientBlock(doc, clientMeta, job?.numeroOrdem ?? null);
@@ -779,6 +801,17 @@ const CARREGADOR_CLOSING_PROFILE = {
 };
 /** ~6px — cantos arredondados executivos */
 const CARREGADOR_RADIUS_MM = 1.6;
+
+const CORRETIVA_MAQUINAS_SERVICE_ID = 'manutencao_corretiva_maquinas';
+const CORRETIVA_SECTION_GAP_MM = 3.5;
+const CORRETIVA_FONT_PT = 9;
+const CORRETIVA_HEAD_FONT_PT = 10.5;
+const CORRETIVA_RADIUS_MM = 1.6;
+const CORRETIVA_BAR_RADIUS_MM = 1.1;
+const CORRETIVA_CLOSING_PROFILE = {
+  sigTop: 3,
+  sigImg: 13,
+};
 
 function formatFolhaInterventionDate(raw) {
   const pure = String(raw ?? '').trim();
@@ -1718,6 +1751,260 @@ async function drawReparacaoCarregadorClosingSection(doc, y, opts) {
   });
 }
 
+function drawCorretivaTitleBar(doc, y, title) {
+  const barH = 5.5;
+  y = ensureSpace(doc, y, barH + CORRETIVA_SECTION_GAP_MM);
+  doc.setFillColor(...PDF_SECTION_BG);
+  doc.setDrawColor(...PDF_TABLE_LINE);
+  doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
+  doc.roundedRect(MARGIN, y, CONTENT_W, barH, CORRETIVA_BAR_RADIUS_MM, CORRETIVA_BAR_RADIUS_MM, 'FD');
+  pdfSetFont(doc, 'bold');
+  doc.setFontSize(PDF_FONT_SUBTITLE);
+  doc.setTextColor(...CORPORATE_BLUE);
+  doc.text(title, MARGIN + CONTENT_W / 2, y + barH * 0.62, { align: 'center' });
+  touchPdfContentPage(doc);
+  return y + barH + CORRETIVA_SECTION_GAP_MM;
+}
+
+function corretivaTableStylePack(doc) {
+  return {
+    styles: {
+      font: pdfAutoTableFont(doc),
+      fontSize: CORRETIVA_FONT_PT,
+      cellPadding: PDF_TABLE_CELL_PADDING_COMPACT,
+      minCellHeight: PDF_TABLE_MIN_CELL_HEIGHT_COMPACT,
+      lineColor: PDF_TABLE_LINE,
+      lineWidth: PDF_TABLE_LINE_WIDTH,
+      textColor: TEXT_DARK,
+      valign: 'middle',
+      overflow: 'linebreak',
+    },
+    headStyles: {
+      font: pdfAutoTableFont(doc),
+      fillColor: PDF_SECTION_BG,
+      textColor: CORPORATE_BLUE,
+      fontStyle: 'bold',
+      fontSize: CORRETIVA_FONT_PT,
+      cellPadding: PDF_TABLE_CELL_PADDING_COMPACT,
+      minCellHeight: PDF_TABLE_MIN_CELL_HEIGHT_COMPACT,
+      lineColor: PDF_TABLE_LINE,
+      lineWidth: PDF_TABLE_LINE_WIDTH,
+      halign: 'left',
+    },
+    bodyStyles: {
+      fillColor: PDF_TABLE_BODY_FILL,
+      minCellHeight: PDF_TABLE_MIN_CELL_HEIGHT_COMPACT,
+      cellPadding: PDF_TABLE_CELL_PADDING_COMPACT,
+      fontSize: CORRETIVA_FONT_PT,
+      textColor: TEXT_DARK,
+    },
+    didParseCell: (data) => {
+      if (data.section === 'body' && data.row.index % 2 === 1) {
+        data.cell.styles.fillColor = PDF_TABLE_ALT_ROW_FILL;
+      }
+      if (data.section === 'body') {
+        data.cell.styles.lineWidth = {
+          top: 0,
+          right: 0,
+          bottom: PDF_TABLE_LINE_WIDTH,
+          left: 0,
+        };
+      }
+    },
+  };
+}
+
+async function drawCorretivaSectionBar(doc, y, title) {
+  const bandH = 6;
+  y = ensureSpace(doc, y, bandH + 2);
+  doc.setFillColor(...PDF_SECTION_BG);
+  doc.setDrawColor(...PDF_TABLE_LINE);
+  doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
+  doc.roundedRect(MARGIN, y, CONTENT_W, bandH, CORRETIVA_BAR_RADIUS_MM, CORRETIVA_BAR_RADIUS_MM, 'FD');
+  pdfSetFont(doc, 'bold');
+  doc.setFontSize(CORRETIVA_HEAD_FONT_PT);
+  doc.setTextColor(...CORPORATE_BLUE);
+  doc.text(String(title).toUpperCase(), MARGIN + 2, y + bandH * 0.62);
+  touchPdfContentPage(doc);
+  return y + bandH + 1.2;
+}
+
+async function drawCorretivaMachineBlock(doc, y, values, pdfContext = null) {
+  const serieFallback = pdfContext?.forkliftSerial || pdfContext?.report?.forkliftSerial || null;
+  const marca = pdfDisplayValue(values.marca);
+  const modelo = pdfDisplayValue(values.modelo);
+  const serie = pdfDisplayValue(
+    resolvePdfStandardFieldValue(
+      values,
+      { id: 'numero_de_serie', aliases: ['num_serie', 'numero_serie', 'n_serie'] },
+      serieFallback,
+    ),
+  );
+  const colW = CONTENT_W / 3;
+
+  y = await drawCorretivaSectionBar(doc, y, PDF_MACHINE_SECTION);
+  const pack = corretivaTableStylePack(doc);
+  return drawPdfGridTable(doc, y, {
+    body: [[`Marca: ${marca}`, `Modelo: ${modelo}`, `N.º Série: ${serie}`]],
+    columnStyles: {
+      0: { cellWidth: colW, halign: 'left', fontSize: CORRETIVA_FONT_PT },
+      1: { cellWidth: colW, halign: 'left', fontSize: CORRETIVA_FONT_PT },
+      2: { cellWidth: colW, halign: 'left', fontSize: CORRETIVA_FONT_PT },
+    },
+    gapAfter: CORRETIVA_SECTION_GAP_MM,
+    ...pack,
+  });
+}
+
+async function drawCorretivaVerificationTable(doc, y, field, states) {
+  const items = field?.items || [];
+  const body = items.map((item) => {
+    const spec = normalizeVerifyItem(item);
+    const state = states?.[spec.id] || 'OK';
+    return [pdfSafeText(spec.label), state];
+  });
+  if (!body.length) return y;
+
+  const blockH = 8 + PDF_TABLE_MIN_CELL_HEIGHT_COMPACT + body.length * 4.2;
+  y = ensureKeepTogetherBlock(doc, y, Math.min(blockH, pdfMaxContentHeight()));
+  y = await drawCorretivaSectionBar(doc, y, getBlockPdfTitle(field) || 'Verificações Efetuadas');
+
+  const pointW = CONTENT_W * 0.72;
+  const stateW = CONTENT_W - pointW;
+  const pack = corretivaTableStylePack(doc);
+
+  return drawPdfGridTable(doc, y, {
+    head: [['Ponto', 'Est.']],
+    body,
+    columnStyles: {
+      0: { cellWidth: pointW, overflow: 'linebreak', fontSize: CORRETIVA_FONT_PT },
+      1: {
+        cellWidth: stateW,
+        halign: 'center',
+        overflow: 'linebreak',
+        fontSize: CORRETIVA_FONT_PT,
+        fontStyle: 'bold',
+      },
+    },
+    gapAfter: CORRETIVA_SECTION_GAP_MM,
+    ...pack,
+    didParseCell: mergePdfTableDidParseCell((data) => {
+      if (data.section === 'body' && data.row.index % 2 === 1) {
+        data.cell.styles.fillColor = PDF_TABLE_ALT_ROW_FILL;
+      }
+      if (data.section === 'body') {
+        data.cell.styles.lineWidth = {
+          top: 0,
+          right: 0,
+          bottom: PDF_TABLE_LINE_WIDTH,
+          left: 0,
+        };
+      }
+      if (data.section === 'body' && data.column.index === 1) {
+        const state = String(data.cell.raw || '');
+        data.cell.styles.textColor = state === 'OK' ? SUCCESS : DANGER;
+        data.cell.styles.fontStyle = 'bold';
+      }
+    }),
+  });
+}
+
+async function drawCorretivaObservationsBox(doc, y, value) {
+  const text = pdfDisplayValue(value);
+  const lines = pdfSplitText(doc, text, CONTENT_W - 6);
+  const boxH = Math.max(14, lines.length * 3.8 + 6);
+  const blockH = 8 + boxH;
+
+  y = ensureKeepTogetherBlock(doc, y, Math.min(blockH, pdfMaxContentHeight()));
+  y = await drawCorretivaSectionBar(doc, y, 'Observações');
+
+  const boxY = y;
+  doc.setFillColor(...PDF_TABLE_BODY_FILL);
+  doc.setDrawColor(...PDF_TABLE_LINE);
+  doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
+  doc.roundedRect(MARGIN, boxY, CONTENT_W, boxH, CORRETIVA_RADIUS_MM, CORRETIVA_RADIUS_MM, 'FD');
+
+  pdfSetFont(doc, 'normal');
+  doc.setFontSize(CORRETIVA_FONT_PT);
+  doc.setTextColor(...TEXT_DARK);
+  doc.text(lines, MARGIN + 3, boxY + 4.5);
+
+  touchPdfContentPage(doc);
+  return boxY + boxH + CORRETIVA_SECTION_GAP_MM;
+}
+
+async function drawCorretivaResumoRow(doc, y, values) {
+  const horas = pdfDisplayValue(resolvePdfStandardFieldValue(values, { id: 'horas' }));
+  const estado = pdfDisplayValue(resolvePdfStandardFieldValue(values, { id: 'estado_maquina' }));
+  const colW = CONTENT_W / 2;
+
+  y = await drawCorretivaSectionBar(doc, y, 'Resumo da Intervenção');
+  const pack = corretivaTableStylePack(doc);
+  return drawPdfGridTable(doc, y, {
+    body: [[`Horas: ${horas}`, `Estado da Máquina: ${estado}`]],
+    columnStyles: {
+      0: { cellWidth: colW, halign: 'left', fontSize: CORRETIVA_FONT_PT },
+      1: { cellWidth: colW, halign: 'left', fontSize: CORRETIVA_FONT_PT },
+    },
+    gapAfter: CORRETIVA_SECTION_GAP_MM,
+    ...pack,
+  });
+}
+
+async function drawCorretivaMaquinasBody(doc, y, service, values, pdfContext = null) {
+  y = await drawCorretivaMachineBlock(doc, y, values, pdfContext);
+
+  const verField = (service?.fields || []).find((f) => f.id === 'lista_de_verificacoes');
+  if (verField) {
+    y = await drawCorretivaVerificationTable(doc, y, verField, values.lista_de_verificacoes || {});
+  }
+
+  if (values.observacoes != null && String(values.observacoes).trim()) {
+    y = await drawCorretivaObservationsBox(doc, y, values.observacoes);
+  } else {
+    y = await drawCorretivaObservationsBox(doc, y, '—');
+  }
+
+  return y;
+}
+
+async function drawCorretivaMaquinasClosingSection(doc, y, opts) {
+  const profile = CORRETIVA_CLOSING_PROFILE;
+  const hasFotos = Boolean(opts.fotoAntesUrl || opts.fotoDepoisUrl);
+  const polaroidOpts = { simpleLegend: Boolean(opts.simplePhotoLegend) };
+  const closingBlockH =
+    18 +
+    (hasFotos ? estimatePolaroidSectionHeight(hasFotos, profile, polaroidOpts) : 0) +
+    estimateSignaturesHeight(profile);
+
+  y = ensureKeepTogetherBlock(doc, y, Math.min(closingBlockH, pdfMaxContentHeight()));
+  y = await drawCorretivaResumoRow(doc, y, opts.closingValues || {});
+
+  if (hasFotos) {
+    y = await drawAntesDepoisPolaroidSection(
+      doc,
+      y,
+      opts.fotoAntesUrl,
+      opts.fotoDepoisUrl,
+      '',
+      {
+        polaroidMm: 28,
+        descH: 0,
+        bottomGap: 2,
+        showSectionHeader: false,
+        simpleLegend: true,
+        skipEnsure: true,
+      },
+    );
+  }
+
+  return drawSignaturesFooter(doc, y, opts.signatures || {}, {
+    topMargin: profile.sigTop,
+    imgHeight: profile.sigImg,
+    skipEnsure: true,
+  });
+}
+
 async function drawPreventivaBateriaClosingSection(doc, y, opts) {
   const values = opts.values || {};
   const profile = FOLHA_CLOSING_PROFILE;
@@ -1793,7 +2080,7 @@ function drawCompactClientBox(doc, topY, clientMeta, numeroOrdem = null) {
   doc.setFillColor(...PDF_CLIENT_BOX_FILL);
   doc.setDrawColor(...PDF_TABLE_LINE);
   doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
-  doc.roundedRect(blockX, topY, blockW, blockH, 2, 2, 'FD');
+  doc.roundedRect(blockX, topY, blockW, blockH, CORRETIVA_RADIUS_MM, CORRETIVA_RADIUS_MM, 'FD');
 
   let lineY = topY + blockPad + 3;
   pdfSetFont(doc, 'bold');

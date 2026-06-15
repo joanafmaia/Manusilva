@@ -319,6 +319,7 @@ function buildFormHTML(job, client, tech, service, existingReport, options = {})
 
   const isDl50Form = service?.id === 'inspecao_dl50_2005';
   const isCarregadorForm = service?.id === 'reparacao_carregador';
+  const isCorretivaForm = service?.id === 'manutencao_corretiva_maquinas';
   const finalizacaoPanelBody = `
               <section class="form-section report-fields-section">
                 <div class="report-fields">${fieldsFinalizacao}</div>
@@ -328,10 +329,12 @@ function buildFormHTML(job, client, tech, service, existingReport, options = {})
     ? 'dl50-closing-shell'
     : isCarregadorForm
       ? 'carregador-closing-shell'
-      : '';
+      : isCorretivaForm
+        ? 'corretiva-closing-shell'
+        : '';
 
   return `
-    <div class="form-workspace form-workspace--report${isCarregadorForm ? ' form-workspace--carregador' : ''}">
+    <div class="form-workspace form-workspace--report${isCarregadorForm ? ' form-workspace--carregador' : ''}${isCorretivaForm ? ' form-workspace--corretiva' : ''}">
       <div class="form-panel form-panel--premium glass-card">
         <div class="form-panel-header form-panel-header--minimal">
           <button type="button" class="btn-ghost" id="close-form">&larr; Voltar</button>
