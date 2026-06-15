@@ -549,7 +549,10 @@ export async function renderInterventionPDF(report) {
     closingValues: values,
     service,
     skipClosingDiagnostic:
-      isPreventivaBateriaPdf || isFolhaIntervencaoAvariasPdf || isReparacaoAvariasBateriaPdf,
+      isPreventivaBateriaPdf ||
+      isFolhaIntervencaoAvariasPdf ||
+      isReparacaoAvariasBateriaPdf ||
+      isDl50Pdf,
   };
 
   let y;
