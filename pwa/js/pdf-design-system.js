@@ -7,27 +7,21 @@ import {
   MATERIAL_TABLE_PDF_LABEL,
 } from './material-table-field.js';
 
-/** Tipografia ultra-compacta (pt) — todos os relatórios */
-export const PDF_FONT_TITLE = 13;
+/** Tipografia compacta (pt) — todos os relatórios */
+export const PDF_FONT_TITLE = 14;
 export const PDF_FONT_SECTION = 11;
 export const PDF_FONT_SUBTITLE = 11;
-export const PDF_FONT_BODY = 9;
+export const PDF_FONT_BODY = 9.5;
 export const PDF_FONT_CAPTION = 8;
 
-/** Espaçamento mínimo — ~8–10px entre blocos */
-export const PDF_SECTION_GAP_MM = 2.5;
-export const PDF_TABLE_ROW_STEP_MM = 5;
-/** ~3–4px vertical em mm */
-export const PDF_TABLE_CELL_PADDING = { top: 1, right: 3, bottom: 1, left: 3 };
-export const PDF_TABLE_CELL_PADDING_HEAD = { top: 1.1, right: 3, bottom: 1.1, left: 3.5 };
-export const PDF_TABLE_MIN_CELL_HEIGHT = 5;
-export const PDF_TITLE_BAR_HEIGHT_MM = 7;
-export const PDF_SECTION_BAND_HEIGHT_MM = 7;
-
-/** Inspeções longas — grelha 2 colunas lado a lado */
-export const PDF_DUAL_COL_HALF_W_RATIO = 0.5;
-export const PDF_DUAL_COL_POINT_RATIO = 0.78;
-export const PDF_DUAL_COL_STATE_RATIO = 0.22;
+/** Espaçamento e tabelas compactas */
+export const PDF_SECTION_GAP_MM = 3;
+export const PDF_TABLE_ROW_STEP_MM = 6;
+export const PDF_TABLE_CELL_PADDING = { top: 1.5, right: 3.5, bottom: 1.5, left: 3.5 };
+export const PDF_TABLE_CELL_PADDING_HEAD = { top: 2, right: 3.5, bottom: 2, left: 4 };
+export const PDF_TABLE_MIN_CELL_HEIGHT = 6;
+export const PDF_TITLE_BAR_HEIGHT_MM = 9;
+export const PDF_SECTION_BAND_HEIGHT_MM = 9;
 
 /** Cabeçalho bilateral compacto */
 export const PDF_LOGO_WIDTH_MM = 40;
@@ -49,8 +43,8 @@ export const PDF_MARGIN = 15;
 export const PDF_PAGE_W = 210;
 export const PDF_PAGE_H = 297;
 export const PDF_CONTENT_W = PDF_PAGE_W - PDF_MARGIN * 2;
-export const PDF_PAGE_CONTENT_START_Y = 18;
-export const PDF_FOOTER_BLOCK_TOP = PDF_PAGE_H - 24;
+export const PDF_PAGE_CONTENT_START_Y = 22;
+export const PDF_FOOTER_BLOCK_TOP = PDF_PAGE_H - 28;
 export const PDF_PAGE_NUMBER_Y = PDF_FOOTER_BLOCK_TOP - 8;
 export const PDF_CONTENT_SAFE_BOTTOM_MM = PDF_PAGE_H - PDF_PAGE_NUMBER_Y + 3;
 export const PDF_AUTOTABLE_MARGIN_BOTTOM_MM = PDF_PAGE_H - PDF_FOOTER_BLOCK_TOP + 4;

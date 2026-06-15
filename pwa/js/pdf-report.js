@@ -52,9 +52,6 @@ import {
   PDF_FONT_SECTION,
   PDF_FONT_SUBTITLE,
   PDF_FONT_TITLE,
-  PDF_DUAL_COL_HALF_W_RATIO,
-  PDF_DUAL_COL_POINT_RATIO,
-  PDF_DUAL_COL_STATE_RATIO,
   PDF_FOOTER_BLOCK_TOP,
   PDF_FOOTER_INSTITUTIONAL_RGB,
   PDF_FOOTER_TEXT_RGB,
@@ -711,10 +708,10 @@ const FOLHA_TITLE_BAR_BG = PREVENTIVA_TITLE_BAR_BG;
 const FOLHA_TABLE_HEAD_FILL = PDF_SECTION_BG;
 const FOLHA_INSTITUTIONAL_FOOTER_RGB = PDF_FOOTER_INSTITUTIONAL_RGB;
 const FOLHA_INSTITUTIONAL_FOOTER_FONT = PDF_FONT_CAPTION;
-const FOLHA_INSTITUTIONAL_FOOTER_H_MM = 16;
+const FOLHA_INSTITUTIONAL_FOOTER_H_MM = 20;
 const FOLHA_CLOSING_PROFILE = {
-  sigTop: 4,
-  sigImg: 14,
+  sigTop: 8,
+  sigImg: 18,
 };
 
 function formatFolhaInterventionDate(raw) {
@@ -752,11 +749,11 @@ function drawFolhaInstitutionalFooter(doc) {
   doc.setFontSize(FOLHA_INSTITUTIONAL_FOOTER_FONT);
   doc.setTextColor(...FOLHA_INSTITUTIONAL_FOOTER_RGB);
 
-  let textY = footerTop + 3;
+  let textY = footerTop + 4;
   footerLines.forEach((line) => {
     pdfSplitText(doc, line, CONTENT_W).forEach((part) => {
       doc.text(part, PAGE_W / 2, textY, { align: 'center' });
-      textY += 3;
+      textY += 3.5;
     });
   });
 }
@@ -2438,67 +2435,13 @@ function matrixPdfRgb(opt) {
   return TEXT_MUTED;
 }
 
-const MATRIX_HALF_W = CONTENT_W * PDF_DUAL_COL_HALF_W_RATIO;
-const MATRIX_POINT_COL_W = MATRIX_HALF_W * PDF_DUAL_COL_POINT_RATIO;
-const MATRIX_STATE_COL_W = MATRIX_HALF_W * PDF_DUAL_COL_STATE_RATIO;
-const MATRIX_TABLE_HEADER_H = 5;
-const MATRIX_TABLE_ROW_MIN_H = 5;
-const MATRIX_CAT_TITLE_H = 4;
+const MATRIX_POINT_COL_W = CONTENT_W * 0.78;
+const MATRIX_STATE_COL_W = CONTENT_W - MATRIX_POINT_COL_W;
+const MATRIX_TABLE_HEADER_H = 7;
+const MATRIX_TABLE_ROW_MIN_H = 6;
+const MATRIX_CAT_TITLE_H = 6;
 const MATRIX_CAT_GAP = PDF_SECTION_GAP_MM;
-const DUAL_INSPECTION_HEAD = [['Ponto', 'Est.', 'Ponto', 'Est.']];
-
-function dualInspectionColumnStyles(stateFontStyle = 'bold') {
-  return {
-    0: { cellWidth: MATRIX_POINT_COL_W, overflow: 'linebreak' },
-    1: {
-      cellWidth: MATRIX_STATE_COL_W,
-      halign: 'center',
-      fontStyle: stateFontStyle,
-      fontSize: PDF_FONT_BODY,
-    },
-    2: { cellWidth: MATRIX_POINT_COL_W, overflow: 'linebreak' },
-    3: {
-      cellWidth: MATRIX_STATE_COL_W,
-      halign: 'center',
-      fontStyle: stateFontStyle,
-      fontSize: PDF_FONT_BODY,
-    },
-  };
-}
-
-/** Divide entradas em duas colunas paralelas (metade esq. / metade dir.) */
-function buildDualColumnPairRows(entries, getLabel, getValue) {
-  if (!entries.length) return { body: [], meta: [] };
-  const mid = Math.ceil(entries.length / 2);
-  const left = entries.slice(0, mid);
-  const right = entries.slice(mid);
-  const maxRows = Math.max(left.length, right.length);
-  const body = [];
-  const meta = [];
-  for (let i = 0; i < maxRows; i += 1) {
-    const L = left[i];
-    const R = right[i];
-    body.push([
-      L ? pdfSafeText(getLabel(L)) : '',
-      L ? getValue(L) : '',
-      R ? pdfSafeText(getLabel(R)) : '',
-      R ? getValue(R) : '',
-    ]);
-    meta.push({ left: L, right: R });
-  }
-  return { body, meta };
-}
-
-function estimateDualColumnTableHeight(doc, body) {
-  if (!body.length) return 0;
-  let height = MATRIX_TABLE_HEADER_H;
-  body.forEach((row) => {
-    const leftLines = row[0] ? pdfSplitText(doc, row[0], MATRIX_POINT_COL_W - 4).length : 1;
-    const rightLines = row[2] ? pdfSplitText(doc, row[2], MATRIX_POINT_COL_W - 4).length : 1;
-    height += Math.max(MATRIX_TABLE_ROW_MIN_H, Math.max(leftLines, rightLines) * 2.8 + 1.2);
-  });
-  return height;
-}
+const MATRIX_MIN_KEEP_ROWS = 3;
 
 function pdfContentBottomY() {
   return PAGE_H - PDF_CONTENT_SAFE_BOTTOM_MM;
@@ -2570,22 +2513,28 @@ function matrixDisplayState(opt) {
   return opt === 'N.A.' ? 'NA' : opt;
 }
 
-function buildMatrixCategoryTable(cat, catData) {
-  const entries = [];
+function buildMatrixCategoryTable(doc, cat, catData) {
+  const body = [];
+  const rowOpts = [];
+
   cat.items.forEach((item) => {
     const opt = catData[columnKey(item)];
     if (!opt) return;
-    entries.push({ label: item, opt });
+    body.push([pdfSafeText(item), matrixDisplayState(opt)]);
+    rowOpts.push(opt);
   });
-  return buildDualColumnPairRows(
-    entries,
-    (e) => e.label,
-    (e) => matrixDisplayState(e.opt),
-  );
+
+  return { body, rowOpts };
 }
 
 function estimateMatrixAutoTableHeight(doc, body) {
-  return MATRIX_CAT_TITLE_H + estimateDualColumnTableHeight(doc, body) + MATRIX_CAT_GAP;
+  if (!body.length) return 0;
+  let height = MATRIX_CAT_TITLE_H + MATRIX_TABLE_HEADER_H;
+  body.forEach((row) => {
+    const lines = pdfSplitText(doc, row[0], MATRIX_POINT_COL_W - 6);
+    height += Math.max(MATRIX_TABLE_ROW_MIN_H, lines.length * 3.2 + 2.5) + 0.5;
+  });
+  return height + MATRIX_CAT_GAP;
 }
 
 async function drawMatrixInspectionBlock(doc, y, field, matrixValue) {
@@ -2596,11 +2545,15 @@ async function drawMatrixInspectionBlock(doc, y, field, matrixValue) {
   (field.categories || []).forEach((cat) => {
     const catKey = columnKey(cat.name);
     const catData = matrixValue[catKey] || {};
-    const { body, meta } = buildMatrixCategoryTable(cat, catData);
+    const { body, rowOpts } = buildMatrixCategoryTable(doc, cat, catData);
     if (!body.length) return;
 
     const catHeight = estimateMatrixAutoTableHeight(doc, body);
-    y = ensureBlockFitsPage(doc, y, catHeight);
+    const minOrphan =
+      MATRIX_CAT_TITLE_H +
+      MATRIX_TABLE_HEADER_H +
+      MATRIX_TABLE_ROW_MIN_H * MATRIX_MIN_KEEP_ROWS;
+    y = ensureBlockFitsPage(doc, y, catHeight, minOrphan);
 
     pdfSetFont(doc, 'bold');
     doc.setFontSize(PDF_FONT_BODY);
@@ -2613,19 +2566,23 @@ async function drawMatrixInspectionBlock(doc, y, field, matrixValue) {
       startY: y,
       margin: getPdfAutoTableMargin(MARGIN, MARGIN),
       tableWidth: CONTENT_W,
-      head: [DUAL_INSPECTION_HEAD],
+      head: [['Ponto de Inspeção', 'Estado']],
       body,
       ...buildPdfAutoTableStyles(doc, pdfAutoTableFont, pdfSetFont),
-      columnStyles: dualInspectionColumnStyles('bold'),
+      columnStyles: {
+        0: { cellWidth: MATRIX_POINT_COL_W },
+        1: {
+          cellWidth: MATRIX_STATE_COL_W,
+          halign: 'center',
+          font: pdfAutoTableFont(doc),
+          fontStyle: 'bold',
+          fontSize: PDF_FONT_BODY,
+        },
+      },
       didParseCell: mergePdfTableDidParseCell((data) => {
-        if (data.section !== 'body') return;
-        const rowMeta = meta[data.row.index];
-        if (!rowMeta) return;
-        if (data.column.index === 1 && rowMeta.left) {
-          data.cell.styles.textColor = matrixPdfRgb(rowMeta.left.opt);
-        }
-        if (data.column.index === 3 && rowMeta.right) {
-          data.cell.styles.textColor = matrixPdfRgb(rowMeta.right.opt);
+        if (data.section === 'body' && data.column.index === 1) {
+          const opt = rowOpts[data.row.index];
+          data.cell.styles.textColor = matrixPdfRgb(opt);
         }
       }),
       didDrawPage: buildPdfAutoTableDidDrawPage(doc),
@@ -2635,7 +2592,7 @@ async function drawMatrixInspectionBlock(doc, y, field, matrixValue) {
     touchPdfContentPage(doc);
   });
 
-  return y;
+  return y + 4;
 }
 
 function drawLegalVerdictBlock(doc, y, label, value, opts = {}) {
@@ -2650,7 +2607,7 @@ function drawLegalVerdictBlock(doc, y, label, value, opts = {}) {
   y = ensureBlockFitsSafeZone(doc, y, blockHeight);
 
   pdfSetFont(doc, 'bold');
-  doc.setFontSize(PDF_FONT_SECTION);
+  doc.setFontSize(8.5);
   doc.setTextColor(...CORPORATE_BLUE);
   doc.text(label.toUpperCase(), MARGIN, y);
   y += titleGap;
@@ -2674,9 +2631,9 @@ function drawLegalVerdictBlock(doc, y, label, value, opts = {}) {
   doc.roundedRect(MARGIN, y, CONTENT_W, boxH, 2, 2, 'FD');
 
   pdfSetFont(doc, 'bold');
-  doc.setFontSize(PDF_FONT_BODY);
+  doc.setFontSize(8);
   doc.setTextColor(...rgb);
-  doc.text(lines, MARGIN + 3, y + 4, { lineHeightFactor: 1.25 });
+  doc.text(lines, MARGIN + 4, y + 6, { lineHeightFactor: 1.4 });
 
   touchPdfContentPage(doc);
   return y + boxH + gapAfter;
@@ -2866,45 +2823,32 @@ async function drawVerificationBlock(doc, y, label, items, states) {
     y = drawSectionTitle(doc, y, label);
   }
 
-  const entries = items.map((item) => {
+  const body = items.map((item) => {
     const spec = normalizeVerifyItem(item);
-    return { label: spec.label, state: states[spec.id] || 'OK' };
+    const state = states[spec.id] || 'OK';
+    return [pdfSafeText(spec.label), state];
   });
-  const { body, meta } = buildDualColumnPairRows(
-    entries,
-    (e) => e.label,
-    (e) => e.state,
-  );
 
   if (!body.length) return y;
 
-  y = ensureSpace(doc, y, 10);
-  await loadJsPdfAutoTable();
-  doc.autoTable({
-    startY: y,
-    margin: getPdfAutoTableMargin(MARGIN, MARGIN),
-    tableWidth: CONTENT_W,
-    head: [DUAL_INSPECTION_HEAD],
+  y = ensureSpace(doc, y, 14);
+  const colW = CONTENT_W * 0.72;
+  const stateW = CONTENT_W - colW;
+  return drawPdfGridTable(doc, y, {
+    head: [['Ponto de Verif.', 'Estado']],
     body,
-    ...buildPdfAutoTableStyles(doc, pdfAutoTableFont, pdfSetFont),
-    columnStyles: dualInspectionColumnStyles('bold'),
-    didParseCell: mergePdfTableDidParseCell((data) => {
-      if (data.section !== 'body') return;
-      const rowMeta = meta[data.row.index];
-      if (!rowMeta) return;
-      const paint = (colIdx, entry) => {
-        if (!entry || data.column.index !== colIdx) return;
-        const isOk = entry.state === 'OK';
-        data.cell.styles.textColor = isOk ? SUCCESS : DANGER;
-        data.cell.styles.fontStyle = 'bold';
-      };
-      paint(1, rowMeta.left);
-      paint(3, rowMeta.right);
-    }),
-    didDrawPage: buildPdfAutoTableDidDrawPage(doc),
+    columnStyles: {
+      0: { cellWidth: colW, overflow: 'linebreak' },
+      1: { cellWidth: stateW, halign: 'center', overflow: 'linebreak' },
+    },
+    didParseCell: (data) => {
+      if (data.section !== 'body' || data.column.index !== 1) return;
+      const state = String(data.cell.raw || '');
+      const isOk = state === 'OK';
+      data.cell.styles.textColor = isOk ? SUCCESS : DANGER;
+      data.cell.styles.fontStyle = 'bold';
+    },
   });
-  touchPdfContentPage(doc);
-  return normalizeYAfterAutoTable(doc, y, PDF_SECTION_GAP_MM);
 }
 
 function estimateDynamicTableBlockHeight(columns, rows) {
@@ -2914,10 +2858,10 @@ function estimateDynamicTableBlockHeight(columns, rows) {
   return titleH + tableH;
 }
 
-const OBS_LINE_HEIGHT = 4;
-const OBS_EMPTY_LINE_HEIGHT = 2.5;
-const OBS_TITLE_BLOCK_HEIGHT = 10;
-const OBS_BOTTOM_PAD = 4;
+const OBS_LINE_HEIGHT = 5;
+const OBS_EMPTY_LINE_HEIGHT = 3;
+const OBS_TITLE_BLOCK_HEIGHT = 14;
+const OBS_BOTTOM_PAD = 8;
 
 function prepareObservationsTypography(doc) {
   pdfSetFont(doc, 'normal');
@@ -3362,18 +3306,18 @@ async function drawPhotosAppendix(doc, y, photos) {
   return col > 0 ? rowY + thumbH + 10 : rowY + 6;
 }
 
-/** Assinaturas compactas — linhas paralelas rasteiras */
-const SIGNATURES_TOP_MARGIN_MM = 5;
-const SIGNATURE_LINE_GAP_MM = 8;
-const SIGNATURE_IMG_H_MM = 14;
-const SIGNATURE_LABEL_GAP_MM = 3;
+/** Espaço generoso após fotos Polaroid + bloco de assinaturas */
+const SIGNATURES_TOP_MARGIN_MM = 14;
+const SIGNATURE_LINE_GAP_MM = 14;
+const SIGNATURE_IMG_H_MM = 22;
+const SIGNATURE_LABEL_GAP_MM = 6;
 const SIGNATURES_BLOCK_HEIGHT_MM =
-  SIGNATURES_TOP_MARGIN_MM + SIGNATURE_IMG_H_MM + SIGNATURE_LABEL_GAP_MM + 6;
+  SIGNATURES_TOP_MARGIN_MM + SIGNATURE_IMG_H_MM + SIGNATURE_LABEL_GAP_MM + 10;
 
 async function drawSignaturesFooter(doc, y, signatures, opts = {}) {
   const topMargin = opts.topMargin ?? SIGNATURES_TOP_MARGIN_MM;
   const imgHeight = opts.imgHeight ?? SIGNATURE_IMG_H_MM;
-  const blockHeight = topMargin + imgHeight + SIGNATURE_LABEL_GAP_MM + 6;
+  const blockHeight = topMargin + imgHeight + SIGNATURE_LABEL_GAP_MM + 10;
   const footerLimit = opts.reserveInstitutionalFooter
     ? PDF_FOOTER_BLOCK_TOP - 2
     : pdfContentBottomY();
