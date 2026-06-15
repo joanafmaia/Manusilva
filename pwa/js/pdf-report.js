@@ -53,10 +53,14 @@ import {
   PDF_FONT_SUBTITLE,
   PDF_FONT_TITLE,
   PDF_FOOTER_BLOCK_TOP,
+  PDF_FOOTER_INSTITUTIONAL_RGB,
   PDF_FOOTER_TEXT_RGB,
   PDF_FOTO_LABEL_ANTES,
   PDF_FOTO_LABEL_DEPOIS,
   PDF_FOTO_SECTION_TITLE,
+  PDF_HEADER_CLIENT_W,
+  PDF_LOGO_HEIGHT_MM,
+  PDF_LOGO_WIDTH_MM,
   PDF_MARGIN as MARGIN,
   PDF_MACHINE_SECTION,
   PDF_PAGE_CONTENT_START_Y,
@@ -65,6 +69,13 @@ import {
   PDF_PAGE_W as PAGE_W,
   PDF_SCALAR_FIELD_TYPES,
   PDF_SECTION_BG,
+  PDF_SECTION_BAND_HEIGHT_MM,
+  PDF_SECTION_GAP_MM,
+  PDF_TABLE_CELL_PADDING,
+  PDF_TABLE_CELL_PADDING_HEAD,
+  PDF_TABLE_MIN_CELL_HEIGHT,
+  PDF_TABLE_ROW_STEP_MM,
+  PDF_TITLE_BAR_HEIGHT_MM,
   PDF_STANDARD_MACHINE_SPECS,
   PDF_CLOSING_DIAGNOSTIC_SPECS,
   PDF_LAYOUT_SKIP_FIELD_IDS,
@@ -691,19 +702,13 @@ export async function generateReportPdfByServiceType(report) {
 
 /* ─── Layout blocks ─── */
 
-/** Logo no cabeçalho PDF (mm) — largura × altura, proporção do wordmark MS + MANUSILVA */
-const PDF_LOGO_WIDTH_MM = 48;
-const PDF_LOGO_HEIGHT_MM = 34;
-const PDF_HEADER_CLIENT_W = 88;
-
 /** Layout profissional — relatórios com cabeçalho espelho e tabelas fechadas */
-const PREVENTIVA_TITLE_BAR_BG = [245, 245, 245];
+const PREVENTIVA_TITLE_BAR_BG = PDF_SECTION_BG;
 const FOLHA_TITLE_BAR_BG = PREVENTIVA_TITLE_BAR_BG;
-const FOLHA_TABLE_HEAD_FILL = [245, 245, 245];
-const PREVENTIVA_SECTION_GAP_MM = 6;
-const FOLHA_INSTITUTIONAL_FOOTER_RGB = [102, 102, 102];
-const FOLHA_INSTITUTIONAL_FOOTER_FONT = 8;
-const FOLHA_INSTITUTIONAL_FOOTER_H_MM = 22;
+const FOLHA_TABLE_HEAD_FILL = PDF_SECTION_BG;
+const FOLHA_INSTITUTIONAL_FOOTER_RGB = PDF_FOOTER_INSTITUTIONAL_RGB;
+const FOLHA_INSTITUTIONAL_FOOTER_FONT = PDF_FONT_CAPTION;
+const FOLHA_INSTITUTIONAL_FOOTER_H_MM = 20;
 const FOLHA_CLOSING_PROFILE = {
   sigTop: 8,
   sigImg: 18,
@@ -780,16 +785,16 @@ function buildFolhaAutoTableConfig(doc, y, overrides = {}) {
     styles: {
       font: pdfAutoTableFont(doc),
       fontSize: PDF_FONT_BODY,
-      cellPadding: { top: 3.5, right: 4, bottom: 3.5, left: 4 },
+      cellPadding: PDF_TABLE_CELL_PADDING,
       lineColor: PDF_TABLE_LINE,
       lineWidth: 0.2,
       textColor: TEXT_DARK,
       fillColor: PDF_TABLE_BODY_FILL,
       valign: 'middle',
       overflow: 'linebreak',
-      minCellHeight: 8,
+      minCellHeight: PDF_TABLE_MIN_CELL_HEIGHT,
     },
-    bodyStyles: { minCellHeight: 8 },
+    bodyStyles: { minCellHeight: PDF_TABLE_MIN_CELL_HEIGHT },
     didDrawPage: buildPdfAutoTableDidDrawPage(doc),
     ...overrides,
   };
@@ -800,12 +805,12 @@ function preventivaBateriaSectionHeadStyles() {
     fillColor: FOLHA_TABLE_HEAD_FILL,
     textColor: CORPORATE_BLUE_DARK,
     fontStyle: 'bold',
-    fontSize: PDF_FONT_BODY,
+    fontSize: PDF_FONT_SECTION,
     lineColor: PDF_TABLE_LINE,
     lineWidth: 0.2,
     halign: 'left',
     valign: 'middle',
-    cellPadding: { top: 4, right: 4, bottom: 4, left: 5 },
+    cellPadding: PDF_TABLE_CELL_PADDING_HEAD,
   };
 }
 
@@ -851,7 +856,7 @@ function drawPreventivaBateriaMirrorHeader(doc, clientMeta, techName, report, jo
   doc.setTextColor(...TEXT_DARK);
   pdfSplitText(doc, pdfSafeText(clientMeta.nome), rightTextW).forEach((line) => {
     doc.text(line, rightX, rightY, { align: 'right' });
-    rightY += 4.5;
+    rightY += 4;
   });
 
   pdfSetFont(doc, 'normal');
@@ -860,36 +865,36 @@ function drawPreventivaBateriaMirrorHeader(doc, clientMeta, techName, report, jo
   [clientMeta.addressLine, clientMeta.addressSubline].filter(Boolean).forEach((addrPart) => {
     pdfSplitText(doc, pdfSafeText(addrPart), rightTextW).forEach((line) => {
       doc.text(line, rightX, rightY, { align: 'right' });
-      rightY += 3.6;
+      rightY += 3.2;
     });
   });
 
-  let leftY = topY + logoH + 3;
+  let leftY = topY + logoH + 2;
   pdfSetFont(doc, 'normal');
   doc.setFontSize(PDF_FONT_BODY);
   doc.setTextColor(...TEXT_DARK);
   doc.text(`Funcionário: ${pdfSafeText(techName)}`, MARGIN, leftY, { maxWidth: leftColW });
-  leftY += 5;
+  leftY += 4;
   doc.text(`Data de conclusão: ${pdfSafeText(dataConclusao)}`, MARGIN, leftY, { maxWidth: leftColW });
-  leftY += 5;
+  leftY += 4;
 
   touchPdfContentPage(doc);
-  return Math.max(leftY, rightY) + PREVENTIVA_SECTION_GAP_MM;
+  return Math.max(leftY, rightY) + PDF_SECTION_GAP_MM;
 }
 
 function drawFolhaTitleBar(doc, y, title) {
-  const barH = 11;
-  y = ensureSpace(doc, y, barH + PREVENTIVA_SECTION_GAP_MM);
+  const barH = PDF_TITLE_BAR_HEIGHT_MM;
+  y = ensureSpace(doc, y, barH + PDF_SECTION_GAP_MM);
   doc.setFillColor(...PREVENTIVA_TITLE_BAR_BG);
   doc.setDrawColor(...PDF_TABLE_LINE);
   doc.setLineWidth(0.2);
   doc.rect(MARGIN, y, CONTENT_W, barH, 'FD');
   pdfSetFont(doc, 'bold');
-  doc.setFontSize(PDF_FONT_SECTION);
+  doc.setFontSize(PDF_FONT_TITLE);
   doc.setTextColor(...CORPORATE_BLUE_DARK);
-  doc.text(title, MARGIN + CONTENT_W / 2, y + 7.5, { align: 'center' });
+  doc.text(title, MARGIN + CONTENT_W / 2, y + barH * 0.62, { align: 'center' });
   touchPdfContentPage(doc);
-  return y + barH + PREVENTIVA_SECTION_GAP_MM;
+  return y + barH + PDF_SECTION_GAP_MM;
 }
 
 function resolvePreventivaBateriaAnalysisValue(spec, values) {
@@ -932,7 +937,7 @@ async function drawPreventivaBateriaClosedSectionTable(doc, y, options) {
   } = options;
 
   const rowCount = body?.length || 0;
-  const blockH = minBlockH + (columnHead ? 8 : 0) + rowCount * 7.5 + 8;
+  const blockH = minBlockH + (columnHead ? 6 : 0) + rowCount * PDF_TABLE_ROW_STEP_MM + 4;
   y = ensureKeepTogetherBlock(doc, y, Math.min(blockH, pdfMaxContentHeight()));
 
   const head = [
@@ -974,7 +979,7 @@ async function drawPreventivaBateriaClosedSectionTable(doc, y, options) {
     }),
   );
   touchPdfContentPage(doc);
-  return normalizeYAfterAutoTable(doc, y, PREVENTIVA_SECTION_GAP_MM);
+  return normalizeYAfterAutoTable(doc, y, PDF_SECTION_GAP_MM);
 }
 
 async function drawPreventivaBateriaAnalysisTable(doc, y, values) {
@@ -984,7 +989,7 @@ async function drawPreventivaBateriaAnalysisTable(doc, y, values) {
     sectionTitle: 'ANÁLISE DA BATERIA',
     colSpan: 2,
     body,
-    minBlockH: 14 + body.length * 7.5,
+    minBlockH: 14 + body.length * PDF_TABLE_ROW_STEP_MM,
     columnStyles: {
       0: {
         cellWidth: labelColW,
@@ -1010,7 +1015,7 @@ async function drawPreventivaBateriaConsumiveisTable(doc, y, rows) {
     colSpan: 2,
     columnHead: ['Material', 'Quantidade'],
     body,
-    minBlockH: 28 + body.length * 7.5,
+    minBlockH: 28 + body.length * PDF_TABLE_ROW_STEP_MM,
     columnStyles: {
       0: { cellWidth: colW, halign: 'left' },
       1: { cellWidth: colW, halign: 'left' },
@@ -1123,7 +1128,7 @@ async function drawFolhaMaterialTable(doc, y, rows, options = {}) {
     }),
   );
   touchPdfContentPage(doc);
-  return normalizeYAfterAutoTable(doc, y, 8);
+  return normalizeYAfterAutoTable(doc, y, PDF_SECTION_GAP_MM);
 }
 
 async function drawFolhaIntervencaoMaquinaTable(doc, y, values, pdfContext = null) {
@@ -1151,7 +1156,7 @@ async function drawFolhaIntervencaoMaquinaTable(doc, y, values, pdfContext = nul
       [`Numero de Série: ${serie}`, `Nº Interno: ${nInterno}`],
       [{ content: `Horas: ${horas}`, colSpan: 2 }],
     ],
-    minBlockH: 52,
+    minBlockH: 40,
     columnStyles: {
       0: { cellWidth: colW, halign: 'left' },
       1: { cellWidth: colW, halign: 'left' },
@@ -1166,7 +1171,7 @@ async function drawFolhaIntervencaoTextSection(doc, y, sectionTitle, text) {
     sectionTitle: sectionTitle.toUpperCase(),
     colSpan: 2,
     body: [[{ content: display, colSpan: 2 }]],
-    minBlockH: Math.max(24, lineCount * 5 + 14),
+    minBlockH: Math.max(18, lineCount * 4.2 + 10),
     bodyStyles: { valign: 'top', halign: 'left' },
     columnStyles: {
       0: { cellWidth: CONTENT_W, halign: 'left', valign: 'top' },
@@ -1187,7 +1192,7 @@ async function drawFolhaIntervencaoMaterialTable(doc, y, rows) {
     colSpan: 2,
     columnHead: ['Material', 'Quantidade'],
     body,
-    minBlockH: 28 + body.length * 7.5,
+    minBlockH: 28 + body.length * PDF_TABLE_ROW_STEP_MM,
     columnStyles: {
       0: { cellWidth: colW, halign: 'left' },
       1: { cellWidth: colW, halign: 'left' },
@@ -1391,17 +1396,17 @@ async function drawReparacaoCarregadorTopSection(doc, clientMeta, techName, repo
 
   const rightBottomY = await drawReparacaoCarregadorClienteTable(doc, topY, values);
 
-  let leftY = topY + logoH + 3;
+  let leftY = topY + logoH + 2;
   pdfSetFont(doc, 'normal');
   doc.setFontSize(PDF_FONT_BODY);
   doc.setTextColor(...TEXT_DARK);
   doc.text(`Funcionário: ${pdfSafeText(techName)}`, MARGIN, leftY, { maxWidth: leftColW });
-  leftY += 5;
+  leftY += 4;
   doc.text(`Data de conclusão: ${pdfSafeText(dataConclusao)}`, MARGIN, leftY, { maxWidth: leftColW });
-  leftY += 5;
+  leftY += 4;
 
   touchPdfContentPage(doc);
-  return Math.max(leftY, rightBottomY) + PREVENTIVA_SECTION_GAP_MM;
+  return Math.max(leftY, rightBottomY) + PDF_SECTION_GAP_MM;
 }
 
 async function drawReparacaoCarregadorIdentificacaoTable(doc, y, values, pdfContext = null) {
@@ -1456,7 +1461,7 @@ async function drawReparacaoCarregadorRegistoTable(doc, y, values, pdfContext = 
     colSpan: 4,
     columnHead: ['Data Intervenção', 'Serviço Efectuado/ Equipamento', 'Horas', 'Tecnico'],
     body,
-    minBlockH: 28 + body.length * 7.5,
+    minBlockH: 28 + body.length * PDF_TABLE_ROW_STEP_MM,
     bodyStyles: { halign: 'left', valign: 'middle' },
     columnStyles: {
       0: { cellWidth: colW * 0.85, halign: 'center' },
@@ -1494,7 +1499,7 @@ async function drawReparacaoCarregadorResultadoTesteBlock(doc, y, values) {
     colSpan: 2,
     columnHead: ['Valor da amperagem debitado', 'Equipamento'],
     body,
-    minBlockH: 28 + body.length * 7.5,
+    minBlockH: 28 + body.length * PDF_TABLE_ROW_STEP_MM,
     bodyStyles: { halign: 'left', valign: 'middle' },
     columnStyles: {
       0: { cellWidth: colW, halign: 'left' },
@@ -1524,7 +1529,7 @@ async function drawReparacaoCarregadorConsumiveisTable(doc, y, rows) {
     colSpan: 3,
     columnHead: ['Material Colocado', 'Equipamento', 'Quantidade'],
     body,
-    minBlockH: 28 + body.length * 7.5,
+    minBlockH: 28 + body.length * PDF_TABLE_ROW_STEP_MM,
     columnStyles: {
       0: { cellWidth: colW, halign: 'left' },
       1: { cellWidth: colW, halign: 'left' },
@@ -1698,7 +1703,7 @@ async function drawPdfGridTable(doc, y, options = {}) {
     body,
     columnStyles,
     didParseCell,
-    gapAfter = 5,
+    gapAfter = PDF_SECTION_GAP_MM,
     marginLeft = MARGIN,
     marginRight = MARGIN,
     tableWidth = CONTENT_W,
@@ -1804,7 +1809,7 @@ function drawTopRow(doc, _service, numeroOrdem = null) {
   }
 
   touchPdfContentPage(doc);
-  return topY + logoH + 6;
+  return topY + logoH + PDF_SECTION_GAP_MM;
 }
 
 /** Cabeçalho — coluna esquerda: logo + ordem; coluna direita: cliente (nome + morada) */
@@ -1812,7 +1817,6 @@ function drawTopRowWithClientBlock(doc, clientMeta, numeroOrdem = null) {
   const topY = MARGIN;
   const logoW = PDF_LOGO_WIDTH_MM;
   const logoH = PDF_LOGO_HEIGHT_MM;
-  const leftColW = CONTENT_W * 0.46;
 
   if (isLogoConfigured()) {
     try {
@@ -1833,24 +1837,18 @@ function drawTopRowWithClientBlock(doc, clientMeta, numeroOrdem = null) {
     drawLogoPlaceholder(doc, MARGIN, topY, logoW, logoH);
   }
 
-  let leftY = topY + logoH + 4;
+  let leftY = topY + logoH + 2;
   if (numeroOrdem != null) {
     pdfSetFont(doc, 'bold');
     doc.setFontSize(PDF_FONT_BODY);
     doc.setTextColor(...CORPORATE_BLUE);
     doc.text(formatOrdemDisplay(numeroOrdem), MARGIN, leftY);
-    leftY += 6;
+    leftY += 4;
   }
-
-  pdfSetFont(doc, 'normal');
-  doc.setFontSize(PDF_FONT_CAPTION);
-  doc.setTextColor(...TEXT_MUTED);
-  doc.text(COMPANY.name, MARGIN, leftY, { maxWidth: leftColW });
-  leftY += 5;
 
   const blockW = PDF_HEADER_CLIENT_W;
   const blockX = PAGE_W - MARGIN - blockW;
-  const blockPad = 4;
+  const blockPad = 3;
   const textW = blockW - blockPad * 2;
 
   const nameLines = pdfSplitText(doc, pdfSafeText(clientMeta.nome), textW);
@@ -1859,41 +1857,41 @@ function drawTopRowWithClientBlock(doc, clientMeta, numeroOrdem = null) {
     ? pdfSplitText(doc, pdfSafeText(clientMeta.addressSubline), textW)
     : [];
 
-  let blockContentH = 8 + nameLines.length * 4.2 + 2;
-  blockContentH += addrLines.length * 3.6 + 1;
-  blockContentH += addrSubLines.length * 3.6;
+  let blockContentH = 6 + nameLines.length * 4 + 1;
+  blockContentH += addrLines.length * 3.2;
+  blockContentH += addrSubLines.length * 3.2;
   const blockH = Math.max(logoH, blockContentH + blockPad * 2);
 
   doc.setFillColor(...PDF_SECTION_BG);
   doc.setDrawColor(...PDF_TABLE_LINE);
   doc.setLineWidth(0.2);
-  doc.roundedRect(blockX, topY, blockW, blockH, 2, 2, 'FD');
+  doc.roundedRect(blockX, topY, blockW, blockH, 1.5, 1.5, 'FD');
 
-  let lineY = topY + blockPad + 3;
+  let lineY = topY + blockPad + 2;
   pdfSetFont(doc, 'bold');
   doc.setFontSize(PDF_FONT_CAPTION);
   doc.setTextColor(...CORPORATE_BLUE);
   doc.text('CLIENTE', blockX + blockPad, lineY);
-  lineY += 5.5;
+  lineY += 4.5;
 
   pdfSetFont(doc, 'bold');
   doc.setFontSize(PDF_FONT_BODY);
   doc.setTextColor(...TEXT_DARK);
   doc.text(nameLines, blockX + blockPad, lineY);
-  lineY += nameLines.length * 4.2 + 2;
+  lineY += nameLines.length * 4 + 1;
 
   pdfSetFont(doc, 'normal');
-  doc.setFontSize(PDF_FONT_CAPTION + 0.5);
+  doc.setFontSize(PDF_FONT_CAPTION);
   doc.setTextColor(...TEXT_MUTED);
   doc.text(addrLines, blockX + blockPad, lineY);
-  lineY += addrLines.length * 3.6 + (addrSubLines.length ? 1 : 0);
+  lineY += addrLines.length * 3.2 + (addrSubLines.length ? 0.5 : 0);
 
   if (addrSubLines.length) {
     doc.text(addrSubLines, blockX + blockPad, lineY);
   }
 
   touchPdfContentPage(doc);
-  return Math.max(leftY, topY + blockH) + 8;
+  return Math.max(leftY, topY + blockH) + PDF_SECTION_GAP_MM;
 }
 
 function drawTitleBar(doc, y, title) {
@@ -1901,14 +1899,14 @@ function drawTitleBar(doc, y, title) {
   doc.setFontSize(PDF_FONT_TITLE);
   doc.setTextColor(...CORPORATE_BLUE_DARK);
   const lines = pdfSplitText(doc, title, CONTENT_W);
-  doc.text(lines, MARGIN, y + 5);
-  const textH = lines.length * 6.2;
-  y += textH + 4;
+  doc.text(lines, MARGIN, y + 4);
+  const textH = lines.length * 5.2;
+  y += textH + 2;
   doc.setDrawColor(...CORPORATE_BLUE);
-  doc.setLineWidth(0.5);
+  doc.setLineWidth(0.35);
   doc.line(MARGIN, y, MARGIN + CONTENT_W, y);
   touchPdfContentPage(doc);
-  return y + 8;
+  return y + PDF_SECTION_GAP_MM;
 }
 
 async function drawStandardMachineBlock(doc, y, values, pdfContext = null) {
@@ -2002,29 +2000,29 @@ async function drawClosingDiagnosticBlock(doc, y, values, service = null) {
 
 function drawDivider(doc, y) {
   doc.setDrawColor(...PDF_TABLE_LINE);
-  doc.setLineWidth(0.25);
+  doc.setLineWidth(0.2);
   doc.line(MARGIN, y, PAGE_W - MARGIN, y);
-  return y + 6;
+  return y + PDF_SECTION_GAP_MM;
 }
 
 function drawSectionTitle(doc, y, title, options = {}) {
-  const bandH = 12;
+  const bandH = PDF_SECTION_BAND_HEIGHT_MM;
   if (!options.skipEnsure) {
-    y = ensureSpace(doc, y, bandH + 4);
+    y = ensureSpace(doc, y, bandH + PDF_SECTION_GAP_MM);
   }
 
   doc.setFillColor(...PDF_SECTION_BG);
-  doc.rect(MARGIN, y - 2, CONTENT_W, bandH, 'F');
-  doc.setDrawColor(...CORPORATE_BLUE);
-  doc.setLineWidth(0.35);
-  doc.line(MARGIN, y - 2, PAGE_W - MARGIN, y - 2);
+  doc.rect(MARGIN, y - 1, CONTENT_W, bandH, 'F');
+  doc.setDrawColor(...PDF_TABLE_LINE);
+  doc.setLineWidth(0.2);
+  doc.line(MARGIN, y - 1, PAGE_W - MARGIN, y - 1);
 
   pdfSetFont(doc, 'bold');
   doc.setFontSize(PDF_FONT_SECTION);
   doc.setTextColor(...CORPORATE_BLUE_DARK);
-  doc.text(title.toUpperCase(), MARGIN + 3, y + 6);
+  doc.text(title.toUpperCase(), MARGIN + 3, y + bandH * 0.62);
   touchPdfContentPage(doc);
-  return y + bandH + 3;
+  return y + bandH + PDF_SECTION_GAP_MM;
 }
 
 function normalizeReportValues(data) {
@@ -2442,7 +2440,7 @@ const MATRIX_STATE_COL_W = CONTENT_W - MATRIX_POINT_COL_W;
 const MATRIX_TABLE_HEADER_H = 7;
 const MATRIX_TABLE_ROW_MIN_H = 6;
 const MATRIX_CAT_TITLE_H = 6;
-const MATRIX_CAT_GAP = 5;
+const MATRIX_CAT_GAP = PDF_SECTION_GAP_MM;
 const MATRIX_MIN_KEEP_ROWS = 3;
 
 function pdfContentBottomY() {
@@ -2598,7 +2596,7 @@ async function drawMatrixInspectionBlock(doc, y, field, matrixValue) {
 }
 
 function drawLegalVerdictBlock(doc, y, label, value, opts = {}) {
-  const gapAfter = opts.gapAfter ?? 8;
+  const gapAfter = opts.gapAfter ?? PDF_SECTION_GAP_MM;
   const titleGap = opts.titleGap ?? 6;
   const minBoxH = opts.minBoxH ?? 14;
   const lineFactor = opts.lineFactor ?? 4.5;

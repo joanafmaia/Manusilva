@@ -7,12 +7,26 @@ import {
   MATERIAL_TABLE_PDF_LABEL,
 } from './material-table-field.js';
 
-/** Tipografia (pt) */
-export const PDF_FONT_TITLE = 16;
-export const PDF_FONT_SECTION = 14;
-export const PDF_FONT_SUBTITLE = 12;
-export const PDF_FONT_BODY = 10;
+/** Tipografia compacta (pt) — todos os relatórios */
+export const PDF_FONT_TITLE = 14;
+export const PDF_FONT_SECTION = 11;
+export const PDF_FONT_SUBTITLE = 11;
+export const PDF_FONT_BODY = 9.5;
 export const PDF_FONT_CAPTION = 8;
+
+/** Espaçamento e tabelas compactas */
+export const PDF_SECTION_GAP_MM = 3;
+export const PDF_TABLE_ROW_STEP_MM = 6;
+export const PDF_TABLE_CELL_PADDING = { top: 1.5, right: 3.5, bottom: 1.5, left: 3.5 };
+export const PDF_TABLE_CELL_PADDING_HEAD = { top: 2, right: 3.5, bottom: 2, left: 4 };
+export const PDF_TABLE_MIN_CELL_HEIGHT = 6;
+export const PDF_TITLE_BAR_HEIGHT_MM = 9;
+export const PDF_SECTION_BAND_HEIGHT_MM = 9;
+
+/** Cabeçalho bilateral compacto */
+export const PDF_LOGO_WIDTH_MM = 40;
+export const PDF_LOGO_HEIGHT_MM = 28;
+export const PDF_HEADER_CLIENT_W = 82;
 
 /** Cores institucionais */
 export const PDF_COLOR_CORPORATE_BLUE = [30, 64, 115];
@@ -34,7 +48,8 @@ export const PDF_FOOTER_BLOCK_TOP = PDF_PAGE_H - 28;
 export const PDF_PAGE_NUMBER_Y = PDF_FOOTER_BLOCK_TOP - 8;
 export const PDF_CONTENT_SAFE_BOTTOM_MM = PDF_PAGE_H - PDF_PAGE_NUMBER_Y + 3;
 export const PDF_AUTOTABLE_MARGIN_BOTTOM_MM = PDF_PAGE_H - PDF_FOOTER_BLOCK_TOP + 4;
-export const PDF_FOOTER_TEXT_RGB = [148, 163, 184];
+export const PDF_FOOTER_TEXT_RGB = [75, 75, 75];
+export const PDF_FOOTER_INSTITUTIONAL_RGB = PDF_FOOTER_TEXT_RGB;
 
 /** Tabelas autoTable */
 export const PDF_TABLE_HEAD_FILL = PDF_COLOR_CORPORATE_BLUE;
@@ -42,7 +57,7 @@ export const PDF_TABLE_HEAD_TEXT = PDF_COLOR_WHITE;
 export const PDF_TABLE_LINE = [226, 232, 240];
 export const PDF_TABLE_BODY_FILL = PDF_COLOR_WHITE;
 export const PDF_TABLE_ALT_ROW_FILL = [248, 249, 250];
-export const PDF_SECTION_BG = [248, 250, 252];
+export const PDF_SECTION_BG = [245, 245, 245];
 
 export const PDF_MACHINE_SECTION = 'Informações da Máquina';
 export const PDF_VERIFICATION_SECTION_TITLE = 'Verificações Efetuadas';
@@ -324,7 +339,8 @@ export function buildPdfAutoTableStyles(doc, pdfAutoTableFont, pdfSetFont) {
     styles: {
       font: pdfAutoTableFont(doc),
       fontSize: PDF_FONT_BODY,
-      cellPadding: { top: 3.5, right: 4, bottom: 3.5, left: 4 },
+      cellPadding: PDF_TABLE_CELL_PADDING,
+      minCellHeight: PDF_TABLE_MIN_CELL_HEIGHT,
       lineColor: PDF_TABLE_LINE,
       lineWidth: 0.15,
       textColor: PDF_COLOR_TEXT_DARK,
@@ -332,13 +348,15 @@ export function buildPdfAutoTableStyles(doc, pdfAutoTableFont, pdfSetFont) {
       valign: 'middle',
       overflow: 'linebreak',
     },
-    bodyStyles: { fillColor: PDF_TABLE_BODY_FILL },
+    bodyStyles: { fillColor: PDF_TABLE_BODY_FILL, minCellHeight: PDF_TABLE_MIN_CELL_HEIGHT },
     headStyles: {
       font: pdfAutoTableFont(doc),
       fillColor: PDF_TABLE_HEAD_FILL,
       textColor: PDF_TABLE_HEAD_TEXT,
       fontStyle: 'bold',
       fontSize: PDF_FONT_BODY,
+      cellPadding: PDF_TABLE_CELL_PADDING_HEAD,
+      minCellHeight: PDF_TABLE_MIN_CELL_HEIGHT,
       lineColor: PDF_COLOR_CORPORATE_BLUE_DARK,
       lineWidth: 0.15,
       halign: 'left',
