@@ -76,6 +76,19 @@ export const PDF_FOTO_SECTION_TITLE = 'Registo Fotográfico';
 export const PDF_FOTO_LABEL_ANTES = 'Antes';
 export const PDF_FOTO_LABEL_DEPOIS = 'Depois';
 
+/** Secção universal Antes/Depois — grelha 2 colunas (todos os relatórios com fotos opcionais) */
+export const PDF_INTERVENTION_FOTO_TITLE = 'Fotografias da Intervenção';
+export const PDF_INTERVENTION_FOTO_LABEL_ANTES = 'Foto Antes';
+export const PDF_INTERVENTION_FOTO_LABEL_DEPOIS = 'Foto Depois';
+export const PDF_INTERVENTION_FOTO_HEAD_FONT_PT = 10.5;
+export const PDF_INTERVENTION_FOTO_CAPTION_PT = 8.5;
+export const PDF_INTERVENTION_FOTO_BAR_RADIUS_MM = 1.1;
+export const PDF_INTERVENTION_FOTO_IMG_RADIUS_MM = 1.6;
+export const PDF_INTERVENTION_FOTO_GRID_GAP_MM = 4.23;
+export const PDF_INTERVENTION_FOTO_GRID_MARGIN_TOP_MM = 3.2;
+export const PDF_INTERVENTION_FOTO_MAX_H_MM = 47.6;
+export const PDF_INTERVENTION_FOTO_CAPTION_H_MM = 5;
+
 export const PDF_SCALAR_FIELD_TYPES = new Set([
   'text',
   'date',

@@ -60,6 +60,17 @@ import {
   PDF_FOTO_LABEL_ANTES,
   PDF_FOTO_LABEL_DEPOIS,
   PDF_FOTO_SECTION_TITLE,
+  PDF_INTERVENTION_FOTO_TITLE,
+  PDF_INTERVENTION_FOTO_LABEL_ANTES,
+  PDF_INTERVENTION_FOTO_LABEL_DEPOIS,
+  PDF_INTERVENTION_FOTO_HEAD_FONT_PT,
+  PDF_INTERVENTION_FOTO_CAPTION_PT,
+  PDF_INTERVENTION_FOTO_BAR_RADIUS_MM,
+  PDF_INTERVENTION_FOTO_IMG_RADIUS_MM,
+  PDF_INTERVENTION_FOTO_GRID_GAP_MM,
+  PDF_INTERVENTION_FOTO_GRID_MARGIN_TOP_MM,
+  PDF_INTERVENTION_FOTO_MAX_H_MM,
+  PDF_INTERVENTION_FOTO_CAPTION_H_MM,
   PDF_HEADER_CLIENT_W,
   PDF_LOGO_HEIGHT_MM,
   PDF_LOGO_WIDTH_MM,
@@ -607,14 +618,11 @@ export async function renderInterventionPDF(report) {
       metaBottomGapMm: FOLHA_AVARIAS_SECTION_GAP_MM,
     });
     y = await drawFolhaIntervencaoAvariasBody(doc, y, values, service, pdfContext);
-    y = await drawFolhaIntervencaoFotografiasSection(
-      doc,
-      y,
-      collectFolhaIntervencaoPhotoEntries(data, job),
-    );
     y = await drawFolhaIntervencaoAvariasClosingSection(doc, y, {
       signatures: data.signatures || {},
       values,
+      fotoAntesUrl,
+      fotoDepoisUrl,
     });
   } else if (isReparacaoAvariasBateriaPdf) {
     y = drawTopRowWithClientBlock(doc, clientMeta, job?.numeroOrdem ?? null);
@@ -915,13 +923,10 @@ const RAV_CLOSING_PROFILE = {
 /** Folha Intervenção de Avarias — layout premium com fotografias */
 const FOLHA_AVARIAS_SECTION_GAP_MM = 2.8;
 const FOLHA_AVARIAS_HEAD_FONT_PT = 10;
-const FOLHA_AVARIAS_PHOTO_HEAD_FONT_PT = 10.5;
 const FOLHA_AVARIAS_TABLE_FONT_PT = 9.5;
 const FOLHA_AVARIAS_BAR_RADIUS_MM = 1.1;
 const FOLHA_AVARIAS_RADIUS_MM = 1.6;
 const FOLHA_AVARIAS_CELL_PADDING = { top: 1.06, right: 1.2, bottom: 1.06, left: 1.2 };
-const FOLHA_AVARIAS_PHOTO_GRID_GAP_MM = 4.2;
-const FOLHA_AVARIAS_PHOTO_MAX_H_MM = 39.7;
 const FOLHA_AVARIAS_CLOSING_PROFILE = {
   sigTop: 5,
   sigImg: 15,
@@ -1397,8 +1402,7 @@ function folhaAvariasTableStylePack(doc) {
   };
 }
 
-async function drawFolhaAvariasSectionBar(doc, y, title, opts = {}) {
-  const fontPt = opts.photoSection ? FOLHA_AVARIAS_PHOTO_HEAD_FONT_PT : FOLHA_AVARIAS_HEAD_FONT_PT;
+async function drawFolhaAvariasSectionBar(doc, y, title) {
   const bandH = 5.5;
   y = ensureSpace(doc, y, bandH + 0.8);
   doc.setFillColor(...PDF_SECTION_BG);
@@ -1406,7 +1410,7 @@ async function drawFolhaAvariasSectionBar(doc, y, title, opts = {}) {
   doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
   doc.roundedRect(MARGIN, y, CONTENT_W, bandH, FOLHA_AVARIAS_BAR_RADIUS_MM, FOLHA_AVARIAS_BAR_RADIUS_MM, 'FD');
   pdfSetFont(doc, 'bold');
-  doc.setFontSize(fontPt);
+  doc.setFontSize(FOLHA_AVARIAS_HEAD_FONT_PT);
   doc.setTextColor(...CORPORATE_BLUE);
   doc.text(String(title).toUpperCase(), MARGIN + 2, y + bandH * 0.62);
   touchPdfContentPage(doc);
@@ -1430,66 +1434,104 @@ async function drawFolhaAvariasDashboardTable(doc, y, sectionTitle, options = {}
   });
 }
 
-function collectFolhaIntervencaoPhotoEntries(data, job) {
-  const entries = [];
-  const antes = data?.fotoAntesUrl || job?.fotoAntes || null;
-  const depois = data?.fotoDepoisUrl || job?.fotoDepois || null;
-  if (antes) entries.push({ url: antes, label: 'Antes' });
-  if (depois) entries.push({ url: depois, label: 'Depois' });
-  (data?.photos || []).forEach((photo) => {
-    const url = photo?.dataUrl || photo?.url;
-    if (url) entries.push({ url, label: photo.label || 'Evidência' });
-  });
-  return entries;
+function estimateInterventionFotografiasHeight() {
+  const barH = 5.5;
+  return (
+    barH +
+    PDF_INTERVENTION_FOTO_GRID_MARGIN_TOP_MM +
+    PDF_INTERVENTION_FOTO_MAX_H_MM +
+    PDF_INTERVENTION_FOTO_CAPTION_H_MM +
+    4
+  );
 }
 
-async function drawFolhaIntervencaoFotografiasSection(doc, y, entries) {
-  if (!entries?.length) return y;
+/**
+ * Secção universal Antes/Depois — grelha 2 colunas, só renderiza se houver foto(s).
+ */
+async function drawInterventionFotografiasSection(doc, y, fotoAntesUrl, fotoDepoisUrl, opts = {}) {
+  if (!fotoAntesUrl && !fotoDepoisUrl) return y;
 
-  const cols = 2;
-  const gap = FOLHA_AVARIAS_PHOTO_GRID_GAP_MM;
-  const colW = (CONTENT_W - gap) / cols;
-  const imgH = FOLHA_AVARIAS_PHOTO_MAX_H_MM;
-  const rowCount = Math.ceil(entries.length / cols);
-  const blockH = 8 + rowCount * (imgH + 7);
+  const antes = fotoAntesUrl ? await loadImageForPdf(fotoAntesUrl) : null;
+  const depois = fotoDepoisUrl ? await loadImageForPdf(fotoDepoisUrl) : null;
+  if (!antes && !depois) return y;
 
-  y = ensureKeepTogetherBlock(doc, y, Math.min(blockH, pdfMaxContentHeight()));
-  y = await drawFolhaAvariasSectionBar(doc, y, 'Fotografias da Intervenção', { photoSection: true });
+  const gap = PDF_INTERVENTION_FOTO_GRID_GAP_MM;
+  const colW = (CONTENT_W - gap) / 2;
+  const imgH = PDF_INTERVENTION_FOTO_MAX_H_MM;
+  const barH = 5.5;
+  const gridMarginTop = PDF_INTERVENTION_FOTO_GRID_MARGIN_TOP_MM;
+  const captionH = PDF_INTERVENTION_FOTO_CAPTION_H_MM;
+  const blockH = barH + gridMarginTop + imgH + captionH + 4;
 
-  let rowY = y;
-  for (let i = 0; i < entries.length; i += cols) {
-    if (i > 0) rowY += imgH + 7;
-    const rowItems = entries.slice(i, i + cols);
-    for (let c = 0; c < rowItems.length; c++) {
-      const entry = rowItems[c];
-      const x = MARGIN + c * (colW + gap);
-      const imgData = await loadImageForPdf(entry.url);
-      doc.setDrawColor(...PDF_TABLE_LINE);
-      doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
-      doc.setFillColor(...PDF_TABLE_BODY_FILL);
-      doc.roundedRect(x, rowY, colW, imgH, FOLHA_AVARIAS_RADIUS_MM, FOLHA_AVARIAS_RADIUS_MM, 'FD');
-      if (imgData) {
-        try {
-          const fmt = detectImageFormat(imgData);
-          doc.addImage(imgData, fmt, x + 0.6, rowY + 0.6, colW - 1.2, imgH - 1.2, undefined, 'FAST');
-        } catch {
-          pdfSetFont(doc, 'normal');
-          doc.setFontSize(8);
-          doc.setTextColor(...TEXT_MUTED);
-          doc.text('IMG', x + colW / 2, rowY + imgH / 2, { align: 'center' });
-        }
-      }
-      if (entry.label) {
-        pdfSetFont(doc, 'normal');
-        doc.setFontSize(8);
-        doc.setTextColor(...TEXT_MUTED);
-        doc.text(entry.label, x + colW / 2, rowY + imgH + 3.5, { align: 'center' });
-      }
+  if (!opts.skipEnsure) {
+    y = ensureKeepTogetherBlock(doc, y, Math.min(blockH, pdfMaxContentHeight()));
+  }
+
+  doc.setFillColor(...PDF_SECTION_BG);
+  doc.setDrawColor(...PDF_TABLE_LINE);
+  doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
+  doc.roundedRect(
+    MARGIN,
+    y,
+    CONTENT_W,
+    barH,
+    PDF_INTERVENTION_FOTO_BAR_RADIUS_MM,
+    PDF_INTERVENTION_FOTO_BAR_RADIUS_MM,
+    'FD',
+  );
+  pdfSetFont(doc, 'bold');
+  doc.setFontSize(PDF_INTERVENTION_FOTO_HEAD_FONT_PT);
+  doc.setTextColor(...CORPORATE_BLUE);
+  doc.text(String(PDF_INTERVENTION_FOTO_TITLE).toUpperCase(), MARGIN + 2, y + barH * 0.62);
+  touchPdfContentPage(doc);
+
+  const gridY = y + barH + gridMarginTop;
+  const slots = [
+    { img: antes, label: PDF_INTERVENTION_FOTO_LABEL_ANTES, col: 0 },
+    { img: depois, label: PDF_INTERVENTION_FOTO_LABEL_DEPOIS, col: 1 },
+  ];
+
+  for (const slot of slots) {
+    if (!slot.img) continue;
+    const x = MARGIN + slot.col * (colW + gap);
+    doc.setDrawColor(...PDF_TABLE_LINE);
+    doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
+    doc.setFillColor(...PDF_TABLE_BODY_FILL);
+    doc.roundedRect(
+      x,
+      gridY,
+      colW,
+      imgH,
+      PDF_INTERVENTION_FOTO_IMG_RADIUS_MM,
+      PDF_INTERVENTION_FOTO_IMG_RADIUS_MM,
+      'FD',
+    );
+    try {
+      const fmt = detectImageFormat(slot.img);
+      doc.addImage(
+        slot.img,
+        fmt,
+        x + 0.6,
+        gridY + 0.6,
+        colW - 1.2,
+        imgH - 1.2,
+        undefined,
+        'FAST',
+      );
+    } catch {
+      pdfSetFont(doc, 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(...TEXT_MUTED);
+      doc.text('IMG', x + colW / 2, gridY + imgH / 2, { align: 'center' });
     }
+    pdfSetFont(doc, 'normal');
+    doc.setFontSize(PDF_INTERVENTION_FOTO_CAPTION_PT);
+    doc.setTextColor(...TEXT_MUTED);
+    doc.text(slot.label, x + colW / 2, gridY + imgH + 3.5, { align: 'center' });
   }
 
   touchPdfContentPage(doc);
-  return rowY + imgH + 7 + FOLHA_AVARIAS_SECTION_GAP_MM;
+  return gridY + imgH + captionH + (opts.bottomGap ?? FOLHA_AVARIAS_SECTION_GAP_MM);
 }
 
 async function drawFolhaIntervencaoMaquinaTable(doc, y, values, pdfContext = null) {
@@ -1644,12 +1686,24 @@ async function drawFolhaIntervencaoAvariasBody(doc, y, values, service, pdfConte
 async function drawFolhaIntervencaoAvariasClosingSection(doc, y, opts) {
   const values = opts.values || {};
   const profile = FOLHA_AVARIAS_CLOSING_PROFILE;
+  const hasFotos = Boolean(opts.fotoAntesUrl || opts.fotoDepoisUrl);
 
   y = await drawFolhaIntervencaoOrcamentoBlock(doc, y, values);
 
-  const tailH = 22 + estimateSignaturesHeight(profile) + FOLHA_INSTITUTIONAL_FOOTER_H_MM;
+  const fotoBlockH = hasFotos ? estimateInterventionFotografiasHeight() : 0;
+  const tailH = 22 + fotoBlockH + estimateSignaturesHeight(profile) + FOLHA_INSTITUTIONAL_FOOTER_H_MM;
   y = ensureKeepTogetherBlock(doc, y, Math.min(tailH, pdfMaxContentHeight()));
   y = await drawFolhaIntervencaoEstadoBlock(doc, y, values);
+
+  if (hasFotos) {
+    y = await drawInterventionFotografiasSection(
+      doc,
+      y,
+      opts.fotoAntesUrl,
+      opts.fotoDepoisUrl,
+      { skipEnsure: true },
+    );
+  }
 
   return drawSignaturesFooter(doc, y, opts.signatures || {}, {
     topMargin: profile.sigTop,

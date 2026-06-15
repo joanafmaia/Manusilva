@@ -685,21 +685,6 @@ function mergeRavDualMetricGroups(groups) {
   return result;
 }
 
-function mergeFolhaAvariasPhotoSlot(groups) {
-  const datasIdx = groups.findIndex((g) => g.section === 'Datas de Intervenção');
-  const pedidoIdx = groups.findIndex((g) => g.section === 'Pedido de Orçamento');
-  if (datasIdx < 0 || pedidoIdx < 0 || datasIdx >= pedidoIdx) return groups;
-
-  const result = [];
-  groups.forEach((g, i) => {
-    result.push(g);
-    if (i === datasIdx) {
-      result.push({ section: null, fields: [], _folhaFotografiasSlot: true });
-    }
-  });
-  return result;
-}
-
 export function renderReportFields(service, values = {}, context = {}, options = {}) {
   const tabFilter = options.tab || null;
   let fields = filterReportFields(service?.fields, service);
@@ -721,9 +706,6 @@ export function renderReportFields(service, values = {}, context = {}, options =
   if (service?.id === 'reparacao_avarias_bateria') {
     groups = mergeRavDualMetricGroups(groups);
   }
-  if (service?.id === 'folha_intervencao_avarias') {
-    groups = mergeFolhaAvariasPhotoSlot(groups);
-  }
   if (service?.id === EMPILHADORES_SERVICE_ID && tabFilter === 'checklist') {
     groups = mergeEmpilhadoresChecklistGroups(groups, service);
     return groups
@@ -734,7 +716,7 @@ export function renderReportFields(service, values = {}, context = {}, options =
   }
 
   return groups
-    .map(({ section, fields: sectionFields, _grandesDualFooter, _ravDualMetrics, _folhaFotografiasSlot }) => {
+    .map(({ section, fields: sectionFields, _grandesDualFooter, _ravDualMetrics }) => {
       const hideSectionTitle =
         section &&
         sectionFields.every(
@@ -872,12 +854,6 @@ export function renderReportFields(service, values = {}, context = {}, options =
         sectionTitle = '';
       }
       const isFolhaAvarias = service?.id === 'folha_intervencao_avarias';
-      if (isFolhaAvarias && _folhaFotografiasSlot) {
-        const preview = String(context.folhaFotografiasPreview || '').trim();
-        if (!preview) return '';
-        fieldsHtml = `<div class="folha-fotografias-section">${preview}</div>`;
-        sectionTitle = '';
-      }
       if (isFolhaAvarias && section === 'Informações da Máquina') {
         fieldsHtml = `<div class="folha-dashboard-section">${sectionTitle}${fieldsHtml}</div>`;
         sectionTitle = '';
