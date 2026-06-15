@@ -575,7 +575,7 @@ export async function renderInterventionPDF(report) {
       values,
     });
   } else if (isReparacaoCarregadorPdf) {
-    y = drawReparacaoCarregadorMirrorHeader(doc, clientMeta, techName, report, job, values);
+    y = await drawReparacaoCarregadorTopSection(doc, clientMeta, techName, report, job, values);
     y = drawFolhaTitleBar(doc, y, title);
     y = await drawReparacaoCarregadorBody(doc, y, values, service, pdfContext);
     y = await drawReparacaoCarregadorClosingSection(doc, y, {
@@ -1275,17 +1275,65 @@ function formatPdfCarregadorConclusaoDate(report, job, values = {}) {
   return y && m && d ? `${d}/${m}/${y}` : pdfDisplayValue(raw);
 }
 
-/** Cabeçalho bilateral — Reparação Carregador: logo + metadados (esq.) | Cliente + Etiqueta (dir.) */
-function drawReparacaoCarregadorMirrorHeader(doc, clientMeta, techName, report, job, values) {
+/** Topo bilateral — Reparação Carregador: logo + metadados (esq.) | tabela Identificação Cliente (dir.) */
+async function drawReparacaoCarregadorClienteTable(doc, startY, values, clientMeta) {
+  const rightTableW = CONTENT_W * 0.48;
+  const rightMarginLeft = PAGE_W - MARGIN - rightTableW;
+  const cliente = pdfDisplayValue(values.cliente || clientMeta?.nome);
+  const etiqueta = pdfDisplayValue(values.etiqueta);
+  const labelColW = rightTableW * 0.32;
+
+  await loadJsPdfAutoTable();
+  doc.autoTable(
+    buildFolhaAutoTableConfig(doc, startY, {
+      margin: getPdfAutoTableMargin(rightMarginLeft, MARGIN),
+      tableWidth: rightTableW,
+      head: [
+        [
+          {
+            content: 'IDENTIFICAÇÃO CLIENTE',
+            colSpan: 2,
+            styles: preventivaBateriaSectionHeadStyles(),
+          },
+        ],
+      ],
+      body: [
+        [`Cliente:`, cliente],
+        [`Etiqueta:`, etiqueta],
+      ],
+      headStyles: preventivaBateriaTableHeadStyles(),
+      bodyStyles: {
+        font: pdfAutoTableFont(doc),
+        fillColor: PDF_TABLE_BODY_FILL,
+        textColor: TEXT_DARK,
+        fontStyle: 'normal',
+        fontSize: PDF_FONT_BODY,
+        lineColor: PDF_TABLE_LINE,
+        lineWidth: 0.2,
+        valign: 'middle',
+        halign: 'left',
+      },
+      columnStyles: {
+        0: {
+          cellWidth: labelColW,
+          fontStyle: 'normal',
+          textColor: TEXT_DARK,
+          halign: 'left',
+        },
+        1: { cellWidth: rightTableW - labelColW, halign: 'left' },
+      },
+    }),
+  );
+  touchPdfContentPage(doc);
+  return doc.lastAutoTable.finalY;
+}
+
+async function drawReparacaoCarregadorTopSection(doc, clientMeta, techName, report, job, values) {
   const topY = MARGIN;
   const logoW = PDF_LOGO_WIDTH_MM;
   const logoH = PDF_LOGO_HEIGHT_MM;
-  const rightX = PAGE_W - MARGIN;
-  const rightTextW = CONTENT_W * 0.48;
   const leftColW = CONTENT_W * 0.48;
   const dataConclusao = formatPdfCarregadorConclusaoDate(report, job, values);
-  const cliente = pdfDisplayValue(values.cliente || clientMeta?.nome);
-  const etiqueta = pdfDisplayValue(values.etiqueta || report?.forkliftSerial);
 
   if (isLogoConfigured()) {
     try {
@@ -1306,23 +1354,19 @@ function drawReparacaoCarregadorMirrorHeader(doc, clientMeta, techName, report, 
     drawLogoPlaceholder(doc, MARGIN, topY, logoW, logoH);
   }
 
-  let rightY = topY;
+  const rightBottomY = await drawReparacaoCarregadorClienteTable(doc, topY, values, clientMeta);
+
+  let leftY = topY + logoH + 3;
   pdfSetFont(doc, 'normal');
   doc.setFontSize(PDF_FONT_BODY);
   doc.setTextColor(...TEXT_DARK);
-  doc.text(`Cliente: ${pdfSafeText(cliente)}`, rightX, rightY, { align: 'right', maxWidth: rightTextW });
-  rightY += 5;
-  doc.text(`Etiqueta: ${pdfSafeText(etiqueta)}`, rightX, rightY, { align: 'right', maxWidth: rightTextW });
-  rightY += 5;
-
-  let leftY = topY + logoH + 3;
   doc.text(`Funcionário: ${pdfSafeText(techName)}`, MARGIN, leftY, { maxWidth: leftColW });
   leftY += 5;
   doc.text(`Data de conclusão: ${pdfSafeText(dataConclusao)}`, MARGIN, leftY, { maxWidth: leftColW });
   leftY += 5;
 
   touchPdfContentPage(doc);
-  return Math.max(leftY, rightY) + PREVENTIVA_SECTION_GAP_MM;
+  return Math.max(leftY, rightBottomY) + PREVENTIVA_SECTION_GAP_MM;
 }
 
 async function drawReparacaoCarregadorIdentificacaoTable(doc, y, values, pdfContext = null) {
@@ -1336,19 +1380,23 @@ async function drawReparacaoCarregadorIdentificacaoTable(doc, y, values, pdfCont
     ),
   );
   const dataRececao = formatFolhaInterventionDate(values.data_rececao);
-  const colW = CONTENT_W / 2;
+  const colW = CONTENT_W / 3;
 
   return drawPreventivaBateriaClosedSectionTable(doc, y, {
     sectionTitle: 'IDENTIFICAÇÃO DO CARREGADOR',
-    colSpan: 2,
+    colSpan: 3,
     body: [
-      [`Marca/Modelo: ${marcaModelo}`, `Numero de Série: ${serie}`],
-      [{ content: `Data Receção: ${dataRececao}`, colSpan: 2 }],
+      [
+        `Marca/Modelo: ${marcaModelo}`,
+        `Numero de Série: ${serie}`,
+        `Data Receção: ${dataRececao}`,
+      ],
     ],
-    minBlockH: 44,
+    minBlockH: 32,
     columnStyles: {
       0: { cellWidth: colW, halign: 'left' },
       1: { cellWidth: colW, halign: 'left' },
+      2: { cellWidth: colW, halign: 'left' },
     },
   });
 }
@@ -1412,21 +1460,32 @@ async function drawReparacaoCarregadorResultadoTesteBlock(doc, y, values) {
   });
 }
 
+function mapCarregadorConsumivelRow(row) {
+  const artigo = String(row?.artigo || '').trim();
+  const equipamento = String(row?.equipamento || row?.equip || '').trim();
+  if (equipamento) {
+    return [pdfDisplayValue(artigo), pdfDisplayValue(equipamento), pdfDisplayValue(row?.qtd)];
+  }
+  const split = artigo.match(/^(.+?)\s*\(([^)]+)\)\s*$/);
+  if (split) {
+    return [pdfDisplayValue(split[1].trim()), pdfDisplayValue(split[2].trim()), pdfDisplayValue(row?.qtd)];
+  }
+  return [pdfDisplayValue(artigo), '—', pdfDisplayValue(row?.qtd)];
+}
+
 async function drawReparacaoCarregadorConsumiveisTable(doc, y, rows) {
-  const body =
-    rows.length > 0
-      ? rows.map((row) => [pdfDisplayValue(row.artigo), pdfDisplayValue(row.qtd)])
-      : [['—', '—']];
-  const colW = CONTENT_W / 2;
+  const body = rows.length > 0 ? rows.map((row) => mapCarregadorConsumivelRow(row)) : [['—', '—', '—']];
+  const colW = CONTENT_W / 3;
   return drawPreventivaBateriaClosedSectionTable(doc, y, {
-    sectionTitle: 'CONSUMÍVEIS',
-    colSpan: 2,
-    columnHead: ['Material Colocado / Equipamento', 'Quantidade'],
+    sectionTitle: 'CONSUMIVEIS',
+    colSpan: 3,
+    columnHead: ['Material Colocado', 'Equipamento', 'Quantidade'],
     body,
     minBlockH: 28 + body.length * 7.5,
     columnStyles: {
       0: { cellWidth: colW, halign: 'left' },
       1: { cellWidth: colW, halign: 'left' },
+      2: { cellWidth: colW, halign: 'left' },
     },
   });
 }
@@ -1434,25 +1493,15 @@ async function drawReparacaoCarregadorConsumiveisTable(doc, y, rows) {
 async function drawReparacaoCarregadorFechoBlock(doc, y, values) {
   const concluido = formatFolhaInterventionDate(values.concluido_testado_em);
   const responsavel = pdfDisplayValue(values.responsavel);
-  const nota = pdfDisplayValue(values.nota);
-  const labelColW = CONTENT_W * 0.34;
+  const colW = CONTENT_W / 2;
   return drawPreventivaBateriaClosedSectionTable(doc, y, {
-    sectionTitle: 'FECHO E VALIDAÇÃO',
+    sectionTitle: 'FECHO DE VALIDAÇÃO',
     colSpan: 2,
-    body: [
-      [`Concluido e Testado Em:`, concluido],
-      [`Responsável:`, responsavel],
-      [`Nota:`, nota],
-    ],
-    minBlockH: 44,
+    body: [[`Concluido e Testado Em: ${concluido}`, `Responsável: ${responsavel}`]],
+    minBlockH: 28,
     columnStyles: {
-      0: {
-        cellWidth: labelColW,
-        fontStyle: 'normal',
-        textColor: TEXT_DARK,
-        halign: 'left',
-      },
-      1: { cellWidth: CONTENT_W - labelColW, halign: 'left' },
+      0: { cellWidth: colW, halign: 'left' },
+      1: { cellWidth: colW, halign: 'left' },
     },
   });
 }
