@@ -923,10 +923,10 @@ function renderField(field, value = '', context = {}) {
       html = renderVerificationTogglesField(field, value);
       break;
     case 'matrix_4options':
-      html = renderMatrix4OptionsField(field, value);
+      html = renderMatrix4OptionsField(field, value, context.service);
       break;
     case 'legal_verdict':
-      html = renderLegalVerdictField(field, value);
+      html = renderLegalVerdictField(field, value, context.service);
       break;
     default:
       html = '';
@@ -1839,7 +1839,104 @@ function toggleMatrixAccordionItem(item) {
   toolbar?.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
 }
 
-function renderMatrix4OptionsField(field, value) {
+function splitBalancedCategories(categories) {
+  const mid = Math.ceil((categories || []).length / 2);
+  return [(categories || []).slice(0, mid), (categories || []).slice(mid)];
+}
+
+function renderDl50MatrixCategory(cat, states, options) {
+  const catKey = columnKey(cat.name);
+  const catStates = states[catKey] || {};
+  const filled = cat.items.filter((item) => catStates[columnKey(item)]).length;
+
+  const rows = cat.items
+    .map((item) => {
+      const itemKey = columnKey(item);
+      const selected = catStates[itemKey] || '';
+      const segments = options
+        .map((opt) => {
+          const optClass = MATRIX_OPTION_CLASS[opt] || '';
+          const isSelected = selected === opt ? 'selected' : '';
+          return `
+            <button type="button"
+              class="matrix-opt ${optClass} ${isSelected}"
+              data-value="${escapeHtml(opt)}"
+              aria-label="${escapeHtml(item)} — ${escapeHtml(opt)}"
+              title="${escapeHtml(opt)}">
+              ${escapeHtml(matrixOptionDisplay(opt))}
+            </button>
+          `;
+        })
+        .join('');
+      const defectClass = selected === 'D' ? 'matrix-row--defect' : '';
+      return `
+        <tr class="matrix-row dl50-matrix-row ${defectClass}" data-matrix-item="${itemKey}">
+          <th scope="row" class="dl50-matrix-point">${escapeHtml(item)}</th>
+          <td class="dl50-matrix-state">
+            <div class="matrix-segmented" role="group" aria-label="${escapeHtml(item)}">
+              ${segments}
+            </div>
+          </td>
+        </tr>
+      `;
+    })
+    .join('');
+
+  return `
+    <div class="dl50-matrix-category matrix-accordion-item is-open" data-matrix-category="${catKey}">
+      <div class="dl50-matrix-category-header">
+        <h5 class="dl50-matrix-category-title">${escapeHtml(cat.name)}</h5>
+        <div class="dl50-matrix-category-meta">
+          <span class="matrix-cat-progress" data-matrix-progress>${filled}/${cat.items.length}</span>
+          <button type="button" class="matrix-bulk-good-btn" data-matrix-bulk-good
+            aria-pressed="false"
+            aria-label="Marcar ou limpar todos os pontos de ${escapeHtml(cat.name)} como Bom">✓ Tudo Bom</button>
+        </div>
+      </div>
+      <div class="dl50-matrix-table-wrap">
+        <table class="dl50-matrix-table">
+          <thead>
+            <tr>
+              <th scope="col">Ponto</th>
+              <th scope="col">Est.</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+function renderDl50Matrix4OptionsField(field, value) {
+  const options = field.options || ['B', 'N', 'D', 'N.A.'];
+  const states = value && typeof value === 'object' ? value : {};
+  const categories = field.categories || [];
+  const [leftCats, rightCats] = splitBalancedCategories(categories);
+  const legend = options
+    .map((o) => `<span><strong>${escapeHtml(matrixOptionDisplay(o))}</strong> = ${escapeHtml(matrixLegendLabel(o))}</span>`)
+    .join('');
+
+  const renderColumn = (cats) =>
+    cats.map((cat) => renderDl50MatrixCategory(cat, states, options)).join('');
+
+  return `
+    <div class="form-group field-block matrix-inspection-field dl50-matrix-field" data-matrix-field="${field.id}">
+      <label class="form-label">${escapeHtml(field.label)}</label>
+      <div class="matrix-legend dl50-matrix-legend">${legend}</div>
+      <div class="dl50-matrix-dual-grid">
+        <div class="dl50-matrix-column">${renderColumn(leftCats)}</div>
+        <div class="dl50-matrix-column">${renderColumn(rightCats)}</div>
+      </div>
+    </div>
+  `;
+}
+
+function renderMatrix4OptionsField(field, value, service = null) {
+  if (service?.id === 'inspecao_dl50_2005') {
+    return renderDl50Matrix4OptionsField(field, value);
+  }
+
   const options = field.options || ['B', 'N', 'D', 'N.A.'];
   const states = value && typeof value === 'object' ? value : {};
   const categories = field.categories || [];
@@ -1922,7 +2019,7 @@ function matrixLegendLabel(opt) {
   return map[opt] || opt;
 }
 
-function renderLegalVerdictField(field, value = '') {
+function renderLegalVerdictField(field, value = '', service = null) {
   const options = field.options || [];
   const cards = options
     .map((opt, idx) => {
@@ -1941,12 +2038,17 @@ function renderLegalVerdictField(field, value = '') {
     })
     .join('');
 
-  return `
+  const inner = `
     <div class="form-group field-block legal-verdict-field" data-legal-verdict="${field.id}">
       <label class="form-label">${escapeHtml(field.label)}</label>
       <div class="legal-verdict-options">${cards}</div>
     </div>
   `;
+
+  if (service?.id === 'inspecao_dl50_2005') {
+    return `<div class="dl50-closing-block">${inner}</div>`;
+  }
+  return inner;
 }
 
 function renderGridField(field, value = '') {

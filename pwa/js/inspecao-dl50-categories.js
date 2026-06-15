@@ -259,16 +259,11 @@ export function buildInspecaoDl50MachineTableBody(machine) {
 }
 
 /**
- * Bloco específico DL 50/2005 — periodicidade (equipamento e datas no layout global).
+ * Bloco específico DL 50/2005 — periodicidade integrada no subcabeçalho global.
  */
 export async function drawInspecaoDl50HeaderBlock(doc, y, values, helpers) {
-  const { ensureSpace, drawKeyValueLine } = helpers;
-
-  if (!values.periodicidade_inspecao || !String(values.periodicidade_inspecao).trim()) {
-    return y;
-  }
-
-  y = ensureSpace(doc, y, 12);
-  y = drawKeyValueLine(doc, y, 'Periodicidade Inspeção', values.periodicidade_inspecao, 'status_pills');
+  void doc;
+  void values;
+  void helpers;
   return y;
 }

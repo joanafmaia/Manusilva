@@ -4100,6 +4100,128 @@ body.dark-mode .matrix-bulk-good-btn--active {
   background: #fff;
 }
 
+/* Inspeção DL50 — matriz 2 colunas + fecho protegido */
+.dl50-matrix-dual-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 15px;
+}
+
+@media (min-width: 900px) {
+  .dl50-matrix-dual-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.dl50-matrix-column {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dl50-matrix-category-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.4rem 0.55rem;
+  background: #edf2f7;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px 4px 0 0;
+}
+
+.dl50-matrix-category-title {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #2b6cb0;
+}
+
+.dl50-matrix-category-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+.dl50-matrix-table-wrap {
+  border: 1px solid #e2e8f0;
+  border-top: none;
+  border-radius: 0 0 4px 4px;
+  overflow: hidden;
+}
+
+.dl50-matrix-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 0.84rem;
+}
+
+.dl50-matrix-table thead th {
+  background: #edf2f7;
+  color: #2b6cb0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 3px 4px;
+  border-bottom: 1px solid #e2e8f0;
+  text-align: left;
+}
+
+.dl50-matrix-table thead th:last-child {
+  width: 7.5rem;
+  text-align: center;
+}
+
+.dl50-matrix-table tbody th,
+.dl50-matrix-table tbody td {
+  border-bottom: 1px solid #e2e8f0;
+  padding: 3px 4px;
+  vertical-align: middle;
+  font-size: 0.84rem;
+}
+
+.dl50-matrix-table tbody tr:nth-child(even) th,
+.dl50-matrix-table tbody tr:nth-child(even) td {
+  background: #f8fafc;
+}
+
+.dl50-matrix-point {
+  font-weight: 500;
+  color: #2d3748;
+  text-align: left;
+  word-break: break-word;
+}
+
+.dl50-matrix-state {
+  text-align: center;
+}
+
+.dl50-matrix-state .matrix-segmented {
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.15rem;
+}
+
+.dl50-matrix-legend {
+  margin-bottom: 0.65rem;
+  font-size: 0.78rem;
+}
+
+.dl50-closing-block {
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+.report-fields-section--finalizacao .dl50-closing-block {
+  margin-top: 0.5rem;
+}
+
 .folha-datas-intervencao-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
