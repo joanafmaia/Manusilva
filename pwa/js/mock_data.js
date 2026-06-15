@@ -87,7 +87,6 @@ export const MANUTENCAO_CORRETIVA_MAQUINAS = {
     { type: 'text', id: 'marca', label: 'Marca', section: 'Informações da Máquina' },
     { type: 'text', id: 'modelo', label: 'Modelo', section: 'Informações da Máquina' },
     { type: 'text', id: 'numero_de_serie', label: 'Numero de Série', section: 'Informações da Máquina' },
-    { type: 'date', id: 'data_fabrico', label: 'Data Fabrico', section: 'Informações da Máquina' },
     {
       type: 'verification_toggles',
       id: 'lista_de_verificacoes',

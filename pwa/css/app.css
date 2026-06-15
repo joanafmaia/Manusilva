@@ -3867,6 +3867,19 @@ body.dark-mode .matrix-bulk-good-btn--active {
   flex-shrink: 0;
 }
 
+.verification-list-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.65rem;
+}
+
+.verification-list-toolbar .form-label {
+  margin-bottom: 0;
+}
+
 .verify-progress-ok {
   font-size: 0.72rem;
   font-weight: 600;

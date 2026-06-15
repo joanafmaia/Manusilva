@@ -1393,7 +1393,62 @@ function updateVerificationAccordionProgress(wrap) {
     failEl.textContent = fail > 0 ? `${fail} Não OK` : '';
     failEl.classList.toggle('is-visible', fail > 0);
   }
+  updateVerificationBulkOkBtnState(wrap);
 }
+
+function isVerificationFieldAllOk(wrap) {
+  const items = wrap?.querySelectorAll('[data-verify-item]');
+  if (!items?.length) return false;
+  return Array.from(items).every((input) => !input.checked);
+}
+
+function syncVerificationItemState(input, wrap) {
+  const card = input.closest('.verification-card');
+  const badge = wrap.querySelector(`[data-verify-badge="${input.dataset.verifyItem}"]`);
+  const isFail = input.checked;
+  if (card) {
+    card.classList.toggle('verification-card--ok', !isFail);
+    card.classList.toggle('verification-card--fail', isFail);
+    card.setAttribute(
+      'aria-label',
+      `${card.querySelector('.verification-card-label')?.textContent || ''} — ${isFail ? 'Não OK' : 'OK'}`,
+    );
+  }
+  if (badge) {
+    badge.textContent = isFail ? 'Não OK' : 'OK';
+    badge.classList.toggle('verification-badge--ok', !isFail);
+    badge.classList.toggle('verification-badge--fail', isFail);
+  }
+}
+
+function markVerificationAllOk(wrap) {
+  if (!wrap) return;
+  wrap.querySelectorAll('[data-verify-item]').forEach((input) => {
+    input.checked = false;
+    syncVerificationItemState(input, wrap);
+  });
+  updateVerificationAccordionProgress(wrap);
+  wrap.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+function toggleVerificationAllOk(wrap) {
+  if (!wrap || isVerificationFieldAllOk(wrap)) return;
+  markVerificationAllOk(wrap);
+}
+
+function updateVerificationBulkOkBtnState(wrap) {
+  const bulkBtn = wrap?.querySelector('[data-verification-bulk-ok]');
+  if (!bulkBtn) return;
+  const allOk = isVerificationFieldAllOk(wrap);
+  bulkBtn.classList.toggle('matrix-bulk-good-btn--active', allOk);
+  bulkBtn.setAttribute('aria-pressed', allOk ? 'true' : 'false');
+}
+
+const VERIFICATION_BULK_OK_BTN = `
+  <button type="button" class="matrix-bulk-good-btn" data-verification-bulk-ok
+    aria-pressed="false"
+    aria-label="Marcar todos os pontos como OK">✓ Tudo OK</button>
+`;
 
 function renderVerificationTogglesField(field, value) {
   const items = field.items || [];
@@ -1428,7 +1483,10 @@ function renderVerificationTogglesField(field, value) {
   if (!useAccordion) {
     return `
       <div class="form-group field-block verification-toggles-field" data-verification-field="${field.id}">
-        <label class="form-label">${escapeHtml(field.label)}</label>
+        <div class="verification-list-toolbar">
+          <label class="form-label">${escapeHtml(field.label)}</label>
+          ${VERIFICATION_BULK_OK_BTN}
+        </div>
         ${listHtml}
       </div>
     `;
@@ -1446,6 +1504,7 @@ function renderVerificationTogglesField(field, value) {
         <span class="verification-accordion-meta">
           <span class="verify-progress-ok" data-verify-progress>${ok}/${total} OK</span>
           <span class="verify-progress-fail${fail ? ' is-visible' : ''}" data-verify-fail-count>${fail ? `${fail} Não OK` : ''}</span>
+          ${VERIFICATION_BULK_OK_BTN}
           <span class="matrix-chevron" aria-hidden="true"></span>
         </span>
       </button>
@@ -1760,10 +1819,20 @@ export async function bindFormFieldInteractions(overlay) {
   });
 
   overlay.querySelectorAll('.verification-accordion-header').forEach((header) => {
-    header.addEventListener('click', () => {
+    header.addEventListener('click', (e) => {
+      if (e.target.closest('[data-verification-bulk-ok]')) return;
       const item = header.closest('.verification-accordion-item');
       const isOpen = item?.classList.toggle('is-open');
       header.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    });
+  });
+
+  overlay.querySelectorAll('[data-verification-bulk-ok]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      const wrap = btn.closest('[data-verification-field]');
+      toggleVerificationAllOk(wrap);
     });
   });
 
@@ -1778,19 +1847,7 @@ export async function bindFormFieldInteractions(overlay) {
 
     wrap.querySelectorAll('[data-verify-item]').forEach((input) => {
       const syncCard = () => {
-        const card = input.closest('.verification-card');
-        const badge = wrap.querySelector(`[data-verify-badge="${input.dataset.verifyItem}"]`);
-        const isFail = input.checked;
-        if (card) {
-          card.classList.toggle('verification-card--ok', !isFail);
-          card.classList.toggle('verification-card--fail', isFail);
-          card.setAttribute('aria-label', `${card.querySelector('.verification-card-label')?.textContent || ''} — ${isFail ? 'Não OK' : 'OK'}`);
-        }
-        if (badge) {
-          badge.textContent = isFail ? 'Não OK' : 'OK';
-          badge.classList.toggle('verification-badge--ok', !isFail);
-          badge.classList.toggle('verification-badge--fail', isFail);
-        }
+        syncVerificationItemState(input, wrap);
         updateVerificationAccordionProgress(wrap);
       };
 
@@ -1817,6 +1874,7 @@ export async function bindFormFieldInteractions(overlay) {
       syncCard();
     });
     updateVerificationAccordionProgress(wrap);
+    updateVerificationBulkOkBtnState(wrap);
   });
 
   overlay.querySelectorAll('.material-qty-input').forEach((input) => {
