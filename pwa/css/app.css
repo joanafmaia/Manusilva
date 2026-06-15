@@ -8458,29 +8458,125 @@ body.dark-mode .client-history-status--rejected {
 }
 
 /* Clientes Grandes — tabela Identificação Bateria */
+.form-field-section--grandes {
+  margin-bottom: 10px;
+}
+
+.form-workspace--grandes .rejection-banner,
+.form-workspace--grandes .edit-pending-banner,
+.form-workspace--grandes .form-readonly-banner {
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.grandes-section-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.45rem 0.65rem;
+  background: #edf2f7;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  margin-bottom: 0;
+}
+
+.grandes-section-bar-title {
+  font-size: 10pt;
+  font-weight: 700;
+  color: #2b6cb0;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.grandes-battery-shell {
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.grandes-battery-field {
+  margin: 0;
+}
+
+.grandes-battery-field .grandes-section-bar--table {
+  border: none;
+  border-radius: 6px 6px 0 0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.grandes-battery-hint {
+  margin: 0.35rem 0.65rem 0.5rem;
+  font-size: 0.8125rem;
+}
+
+.grandes-battery-table-wrap {
+  border-top: 1px solid #e2e8f0;
+  border-radius: 0 0 6px 6px;
+  overflow: hidden;
+}
+
 .grandes-battery-field .grandes-battery-scroll {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
-  margin: 0 -0.25rem;
-  padding: 0 0.25rem 0.5rem;
+  margin: 0;
+  padding: 0;
 }
 
 .grandes-battery-table {
   min-width: 52rem;
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 8.5pt;
+}
+
+.grandes-battery-table thead th {
+  background: #edf2f7;
+  color: #2b6cb0;
+  font-size: 8.5pt;
+  font-weight: 700;
+  padding: 3px 4px;
+  border-bottom: 1px solid #e2e8f0;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.grandes-battery-table tbody td {
+  padding: 3px 4px;
+  border-bottom: 1px solid #e2e8f0;
+  color: #2d3748;
+  vertical-align: middle;
+  font-size: 8.5pt;
+}
+
+.grandes-battery-table tbody tr:nth-child(even) td {
+  background: #f8fafc;
+}
+
+.grandes-battery-col--nowrap,
+.grandes-battery-table th[data-col-key='tipo'],
+.grandes-battery-table th[data-col-key='tensao_v'],
+.grandes-battery-table th[data-col-key='densidade'],
+.grandes-battery-table th[data-col-key='curto_circuito'] {
+  white-space: nowrap;
 }
 
 .grandes-battery-table .grandes-battery-idx {
   width: 2rem;
   text-align: center;
-  font-size: 0.75rem;
+  font-size: 8.5pt;
   font-weight: 700;
   color: var(--text-secondary);
   vertical-align: middle;
+  white-space: nowrap;
 }
 
 .grandes-battery-cell {
-  min-width: 5.5rem;
+  min-width: 4.5rem;
   width: 100%;
+  font-size: 8.5pt;
+  padding: 3px 4px;
 }
 
 .grandes-battery-toolbar {
@@ -8489,16 +8585,119 @@ body.dark-mode .client-history-status--rejected {
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
-  margin-top: 0.75rem;
+  margin: 0.5rem 0.65rem 0.65rem;
 }
 
 .grandes-battery-count {
   font-size: 0.8125rem;
 }
 
+.grandes-dashboard-section {
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.grandes-dashboard-section > .form-section-subtitle {
+  margin: 0;
+  padding: 0.45rem 0.65rem;
+  background: #edf2f7;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 10pt;
+  font-weight: 700;
+  color: #2b6cb0;
+  text-transform: uppercase;
+  border-radius: 6px 6px 0 0;
+}
+
+.grandes-dashboard-section .dynamic-table {
+  font-size: 9pt;
+}
+
+.grandes-dashboard-section .dynamic-table thead th {
+  background: #edf2f7;
+  color: #2b6cb0;
+  font-size: 9pt;
+  font-weight: 700;
+  padding: 3px 4px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.grandes-dashboard-section .dynamic-table tbody td {
+  padding: 3px 4px;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 9pt;
+}
+
+.grandes-dashboard-section .dynamic-table tbody tr:nth-child(even) td {
+  background: #f8fafc;
+}
+
+.grandes-observations-box {
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.grandes-observations-box .form-group {
+  margin: 0;
+}
+
+.grandes-observations-box .form-label,
+.grandes-observations-box .form-section-subtitle {
+  display: block;
+  margin: 0;
+  padding: 0.45rem 0.65rem;
+  background: #edf2f7;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 10pt;
+  font-weight: 700;
+  color: #2b6cb0;
+  text-transform: uppercase;
+  border-radius: 6px 6px 0 0;
+}
+
+.grandes-observations-box .form-textarea {
+  border: none;
+  border-radius: 0 0 6px 6px;
+  min-height: 4.5rem;
+  font-size: 9pt;
+  padding: 0.5rem 0.65rem;
+  resize: vertical;
+}
+
+.grandes-closing-shell {
+  width: 100%;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+.grandes-fecho-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  padding: 0 0.7rem 0.65rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+@media print {
+  .grandes-closing-shell,
+  .grandes-battery-shell,
+  .grandes-observations-box,
+  .grandes-dashboard-section {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+}
+
 .dynamic-table-field--grandes .form-input-sm {
-  font-size: 0.8125rem;
-  padding: 0.4rem 0.5rem;
+  font-size: 8.5pt;
+  padding: 3px 4px;
 }
 
 @media (max-width: 640px) {

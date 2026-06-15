@@ -731,12 +731,32 @@ export function renderReportFields(service, values = {}, context = {}, options =
         fieldsHtml = `<div class="corretiva-observations-box">${sectionTitle}${fieldsHtml}</div>`;
         sectionTitle = '';
       }
+      const isGrandes = service?.id === 'manutencao_baterias_grandes';
+      if (isGrandes && section === 'Identificação Bateria') {
+        fieldsHtml = `<div class="grandes-battery-shell">${fieldsHtml}</div>`;
+        sectionTitle = '';
+      }
+      if (
+        isGrandes &&
+        sectionFields.some((f) => isMaterialTableField(f))
+      ) {
+        fieldsHtml = `<div class="grandes-dashboard-section">${sectionTitle}${fieldsHtml}</div>`;
+        sectionTitle = '';
+      }
+      if (
+        isGrandes &&
+        !section &&
+        sectionFields.some((f) => f.id === 'observacoes')
+      ) {
+        fieldsHtml = `<div class="grandes-observations-box">${sectionTitle}${fieldsHtml}</div>`;
+        sectionTitle = '';
+      }
       return `
         <div class="form-field-section form-section-card${
           section === EMPILHADORES_MACHINE_SECTION && service?.id === EMPILHADORES_SERVICE_ID
             ? ' form-field-section--empilhadores-machine'
             : ''
-        }${section === EMPILHADORES_MATERIAL_SECTION ? ' form-field-section--material form-field-section--empilhadores-material' : ''}${section === 'Pedido de Orçamento' ? ' form-field-section--pedido-orcamento' : ''}${isCarregador ? ' form-field-section--carregador' : ''}${isCorretiva ? ' form-field-section--corretiva' : ''}">
+        }${section === EMPILHADORES_MATERIAL_SECTION ? ' form-field-section--material form-field-section--empilhadores-material' : ''}${section === 'Pedido de Orçamento' ? ' form-field-section--pedido-orcamento' : ''}${isCarregador ? ' form-field-section--carregador' : ''}${isCorretiva ? ' form-field-section--corretiva' : ''}${isGrandes ? ' form-field-section--grandes' : ''}">
           ${sectionTitle}
           ${fieldsHtml}
         </div>

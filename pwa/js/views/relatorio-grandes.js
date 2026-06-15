@@ -129,7 +129,13 @@ function renderCell(col, row) {
 
 function renderRow(row, rowIndex) {
   const cells = GRANDES_BATTERY_COLUMNS.map(
-    (col) => `<td data-col-label="${escapeHtml(col.label)}">${renderCell(col, row)}</td>`,
+    (col) => {
+      const nowrapClass =
+        col.key === 'tipo' || col.key === 'tensao_v' || col.key === 'densidade' || col.key === 'curto_circuito'
+          ? ' grandes-battery-col--nowrap'
+          : '';
+      return `<td class="grandes-battery-col${nowrapClass}" data-col-label="${escapeHtml(col.label)}">${renderCell(col, row)}</td>`;
+    },
   ).join('');
 
   return `
@@ -159,28 +165,32 @@ export function renderGrandesBatterySection(field, value) {
     <div class="form-group field-block grandes-battery-field dynamic-table-field dynamic-table-field--grandes"
       data-grandes-baterias="${GRANDES_BATTERY_FIELD_ID}"
       data-field-id="${GRANDES_BATTERY_FIELD_ID}">
-      <label class="form-label">${escapeHtml(field.label || 'Identificação Bateria')}</label>
-      <p class="field-hint text-muted">Adicione uma linha por bateria. Pode registar dezenas de unidades no mesmo relatório.</p>
-      <div class="dynamic-table-wrap glass-card-inner grandes-battery-wrap">
-        <div class="grandes-battery-scroll">
-          <table class="dynamic-table grandes-battery-table">
-            <thead>
-              <tr>
-                <th class="grandes-battery-idx" scope="col">#</th>
-                ${header}
-                <th class="dynamic-table-actions-th" scope="col"></th>
-              </tr>
-            </thead>
-            <tbody class="grandes-battery-body dynamic-table-body">
-              ${body}
-            </tbody>
-          </table>
+      <div class="grandes-section-bar grandes-section-bar--table">
+        <span class="grandes-section-bar-title">${escapeHtml(field.label || 'Identificação Bateria')}</span>
+        <span class="grandes-battery-count text-muted" data-grandes-battery-count>${rows.length} linha(s)</span>
+      </div>
+      <p class="field-hint text-muted grandes-battery-hint">Adicione uma linha por bateria. Pode registar dezenas de unidades no mesmo relatório.</p>
+      <div class="dynamic-table-wrap grandes-battery-wrap">
+        <div class="grandes-battery-table-wrap">
+          <div class="grandes-battery-scroll">
+            <table class="dynamic-table grandes-battery-table">
+              <thead>
+                <tr>
+                  <th class="grandes-battery-idx" scope="col">#</th>
+                  ${header}
+                  <th class="dynamic-table-actions-th" scope="col"></th>
+                </tr>
+              </thead>
+              <tbody class="grandes-battery-body dynamic-table-body">
+                ${body}
+              </tbody>
+            </table>
+          </div>
         </div>
         <div class="grandes-battery-toolbar">
           <button type="button" class="btn-outline dynamic-table-add grandes-battery-add">
             <span aria-hidden="true">+</span> Adicionar bateria
           </button>
-          <span class="grandes-battery-count text-muted" data-grandes-battery-count>${rows.length} linha(s)</span>
         </div>
       </div>
     </div>
@@ -212,9 +222,13 @@ function buildRowElement(rowData = emptyRow()) {
   tr.className = 'grandes-battery-row dynamic-table-row';
   tr.innerHTML = `
     <td class="grandes-battery-idx grandes-battery-row-num"></td>
-    ${GRANDES_BATTERY_COLUMNS.map(
-      (col) => `<td data-col-label="${escapeHtml(col.label)}">${renderCell(col, rowData)}</td>`,
-    ).join('')}
+    ${GRANDES_BATTERY_COLUMNS.map((col) => {
+      const nowrapClass =
+        col.key === 'tipo' || col.key === 'tensao_v' || col.key === 'densidade' || col.key === 'curto_circuito'
+          ? ' grandes-battery-col--nowrap'
+          : '';
+      return `<td class="grandes-battery-col${nowrapClass}" data-col-label="${escapeHtml(col.label)}">${renderCell(col, rowData)}</td>`;
+    }).join('')}
     <td class="dynamic-table-actions grandes-battery-actions">
       <button type="button" class="btn-row-remove grandes-battery-remove"
         title="Remover bateria" aria-label="Remover linha">&times;</button>
