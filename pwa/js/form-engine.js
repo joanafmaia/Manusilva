@@ -375,7 +375,6 @@ export function buildFormPrefill(service, job, _forklift, context = {}) {
     const prefill = {
       data_de_conclusao: job?.date || '',
       estado_maquina: 'Operacional',
-      pedir_orcamento_adicional: 'Não',
     };
     service.fields
       ?.filter((f) => f.type === 'verification_toggles')
@@ -518,6 +517,119 @@ export function bindReportFormTabs(overlay, options = {}) {
   });
 }
 
+const EMPILHADORES_VERIFY_DUAL_SECTION = '__empilhadores_verifications_dual__';
+
+function mergeEmpilhadoresChecklistGroups(groups, service) {
+  if (service?.id !== EMPILHADORES_SERVICE_ID) return groups;
+  const merged = [];
+  let index = 0;
+  while (index < groups.length) {
+    const current = groups[index];
+    const next = groups[index + 1];
+    const externField = current.fields.find((f) => f.id === 'componentes_externos');
+    const internField = next?.fields.find((f) => f.id === 'componentes_internos');
+    if (
+      current.section === 'Verificações Externas' &&
+      externField &&
+      next?.section === 'Verificações Internas' &&
+      internField
+    ) {
+      merged.push({
+        section: EMPILHADORES_VERIFY_DUAL_SECTION,
+        fields: [externField, internField],
+      });
+      index += 2;
+      continue;
+    }
+    merged.push(current);
+    index += 1;
+  }
+  return merged;
+}
+
+function renderEmpilhadoresVerificationTable(field, value) {
+  const items = field.items || [];
+  const states = value && typeof value === 'object' ? value : {};
+  const title = field.pdfTitle || field.section || field.label;
+  const { ok, total } = countVerificationProgress(items, states);
+
+  const rows = items
+    .map((item) => {
+      const spec = normalizeVerifyItem(item);
+      const isFail = states[spec.id] === 'Não OK';
+      const stateClass = isFail ? 'verification-card--fail' : 'verification-card--ok';
+      const badgeClass = isFail ? 'verification-badge--fail' : 'verification-badge--ok';
+      const badgeText = isFail ? 'Não OK' : 'OK';
+      const checked = isFail ? 'checked' : '';
+
+      return `
+        <tr class="verification-card empilhadores-verify-row ${stateClass}" data-verify-card="${spec.id}" role="button" tabindex="0"
+          aria-label="${escapeHtml(spec.label)} — ${badgeText}">
+          <th scope="row" class="empilhadores-verify-point verification-card-label">${escapeHtml(spec.label)}</th>
+          <td class="empilhadores-verify-state verification-card-control">
+            <span class="verification-badge ${badgeClass}" data-verify-badge="${spec.id}">${badgeText}</span>
+            <label class="verification-switch" aria-label="Alternar estado ${escapeHtml(spec.label)}">
+              <input type="checkbox" class="sr-only" data-verify-item="${spec.id}" ${checked}>
+              <span class="verify-track"><span class="verify-thumb"></span></span>
+            </label>
+          </td>
+        </tr>
+      `;
+    })
+    .join('');
+
+  return `
+    <div class="empilhadores-verify-column verification-toggles-field" data-verification-field="${field.id}">
+      <div class="empilhadores-verify-column-header">
+        <h5 class="empilhadores-verify-column-title">${escapeHtml(title)}</h5>
+        <div class="empilhadores-verify-column-meta">
+          <span class="matrix-cat-progress" data-verify-progress>${ok}/${total}</span>
+          ${verificationBulkOkBtnHtml(title)}
+        </div>
+      </div>
+      <div class="empilhadores-verify-table-wrap">
+        <table class="empilhadores-verify-table">
+          <thead>
+            <tr>
+              <th scope="col">Ponto</th>
+              <th scope="col">Est.</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+function renderEmpilhadoresChecklistSection(section, fields, values, context) {
+  if (section === EMPILHADORES_VERIFY_DUAL_SECTION) {
+    const fieldsHtml = `
+      <div class="empilhadores-verifications-dual">
+        ${fields.map((field) => renderEmpilhadoresVerificationTable(field, values[field.id])).join('')}
+      </div>
+    `;
+    return `
+      <div class="form-field-section form-section-card form-field-section--empilhadores-verify">
+        ${fieldsHtml}
+      </div>
+    `;
+  }
+
+  if (section !== EMPILHADORES_MATERIAL_SECTION) return '';
+
+  const sectionTitle = `<h4 class="form-section-subtitle form-section-subtitle--empilhadores-material">${escapeHtml(section)}</h4>`;
+  const fieldsHtml = `<div class="material-substitution-grid material-substitution-grid--empilhadores">${fields
+    .map((f) => renderField(f, values[f.id], context))
+    .join('')}</div>`;
+  return `
+    <div class="form-field-section form-section-card form-field-section--material form-field-section--empilhadores-material">
+      ${sectionTitle}
+      ${fieldsHtml}
+    </div>
+  `;
+}
+
 export function renderReportFields(service, values = {}, context = {}, options = {}) {
   const tabFilter = options.tab || null;
   let fields = filterReportFields(service?.fields, service);
@@ -532,19 +644,28 @@ export function renderReportFields(service, values = {}, context = {}, options =
     return '<p class="text-muted">Sem campos definidos.</p>';
   }
 
-  const groups = groupFieldsBySection(fields).filter(({ fields: sectionFields }) => sectionFields.length);
+  let groups = groupFieldsBySection(fields).filter(({ fields: sectionFields }) => sectionFields.length);
+  if (service?.id === EMPILHADORES_SERVICE_ID && tabFilter === 'checklist') {
+    groups = mergeEmpilhadoresChecklistGroups(groups, service);
+    return groups
+      .map(({ section, fields: sectionFields }) =>
+        renderEmpilhadoresChecklistSection(section, sectionFields, values, context),
+      )
+      .join('');
+  }
+
   return groups
-    .map(({ section, fields }) => {
+    .map(({ section, fields: sectionFields }) => {
       const hideSectionTitle =
         section &&
-        fields.every(
-          (f) => f.type === 'verification_toggles' && f.collapsible && f.section === section
+        sectionFields.every(
+          (f) => f.type === 'verification_toggles' && f.collapsible && f.section === section,
         );
       const sectionTitle =
         section && !hideSectionTitle
           ? `<h4 class="form-section-subtitle">${escapeHtml(section)}</h4>`
           : '';
-      let fieldsHtml = fields.map((f) => renderField(f, values[f.id], context)).join('');
+      let fieldsHtml = sectionFields.map((f) => renderField(f, values[f.id], context)).join('');
       if (
         section === EMPILHADORES_MACHINE_SECTION &&
         service?.id === EMPILHADORES_SERVICE_ID

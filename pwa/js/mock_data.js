@@ -302,7 +302,7 @@ export const MANUTENCAO_PREVENTIVA_EMPILHADORES = {
     { type: 'text', id: 'marca', label: 'Marca', section: 'Informações da Máquina' },
     { type: 'text', id: 'modelo', label: 'Modelo', section: 'Informações da Máquina' },
     { type: 'text', id: 'numero_de_serie', label: 'Nº Série', section: 'Informações da Máquina' },
-    { type: 'number', id: 'horas', label: 'Horas', section: 'Informações da Máquina', min: 0, step: 1 },
+    { type: 'number', id: 'horas', label: 'Horas', section: 'Informações da Máquina', min: 0, step: 1, placeholder: '0' },
     { type: 'text', id: 'n_interno', label: 'Nº Interno', section: 'Informações da Máquina' },
     {
       type: 'verification_toggles',
@@ -415,20 +415,6 @@ export const MANUTENCAO_PREVENTIVA_EMPILHADORES = {
       uiVariant: 'material',
     },
     { type: 'textarea', id: 'observacoes', label: 'Observações' },
-    {
-      type: 'toggle',
-      id: 'pedir_orcamento_adicional',
-      label: 'Pedir orçamento',
-      onValue: 'Sim',
-      offValue: 'Não',
-    },
-    {
-      type: 'textarea',
-      id: 'detalhe_orcamento_adicional',
-      label: 'O que é necessário',
-      dependency: 'pedir_orcamento_adicional:Sim',
-      rows: 4,
-    },
     {
       type: 'status_pills',
       id: 'estado_maquina',

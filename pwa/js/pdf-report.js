@@ -732,6 +732,8 @@ const EMPILHADORES_MACHINE_PDF_SPECS = [
 /** gap 20px entre colunas de verificação */
 const EMPILHADORES_DUAL_VERIFY_GAP_MM = 5.3;
 const EMPILHADORES_VERIFY_COL_BAND_MM = 7;
+const EMPILHADORES_MATERIAL_FONT_PT = 9.5;
+const EMPILHADORES_MATERIAL_COLS = 4;
 
 /** Layout profissional — relatórios com cabeçalho espelho e tabelas fechadas */
 const PREVENTIVA_TITLE_BAR_BG = PDF_SECTION_BG;
@@ -1764,6 +1766,33 @@ function pdfGridCell(label, value) {
   return `${label}: ${pdfDisplayValue(value)}`;
 }
 
+function formatEmpilhadoresHorasPdf(raw) {
+  if (raw === undefined || raw === null || String(raw).trim() === '') return '';
+  const n = Number(raw);
+  if (!Number.isNaN(n)) return Number.isInteger(n) ? String(n) : String(n);
+  return cleanPdfText(raw);
+}
+
+function pdfGridCellEmpilhadoresMachine(label, value, options = {}) {
+  if (options.horas) {
+    const horasText = formatEmpilhadoresHorasPdf(value);
+    return horasText ? `${label}: ${horasText}` : `${label}:`;
+  }
+  return pdfGridCell(label, value);
+}
+
+function buildFourColumnGridBody(cells) {
+  const body = [];
+  for (let i = 0; i < cells.length; i += EMPILHADORES_MATERIAL_COLS) {
+    const row = [];
+    for (let col = 0; col < EMPILHADORES_MATERIAL_COLS; col += 1) {
+      row.push(cells[i + col] || '');
+    }
+    body.push(row);
+  }
+  return body;
+}
+
 function buildTwoColumnGridBody(pairs) {
   const body = [];
   for (let i = 0; i < pairs.length; i += 2) {
@@ -1843,14 +1872,12 @@ async function drawVerificationTableColumn(doc, startY, x, width, title, items, 
   const cellPadding = compact ? PDF_TABLE_CELL_PADDING_COMPACT : PDF_TABLE_CELL_PADDING;
   const minCellHeight = compact ? PDF_TABLE_MIN_CELL_HEIGHT_COMPACT : PDF_TABLE_MIN_CELL_HEIGHT;
 
-  await loadJsPdfAutoTable();
-  doc.autoTable({
-    startY: y,
-    margin: getPdfAutoTableMargin(x, PAGE_W - x - width),
-    tableWidth: width,
+  return drawPdfGridTable(doc, y, {
     head: [['Ponto', 'Est.']],
     body,
-    ...buildPdfAutoTableStyles(doc, pdfAutoTableFont, pdfSetFont),
+    marginLeft: x,
+    marginRight: PAGE_W - x - width,
+    tableWidth: width,
     styles: {
       font: pdfAutoTableFont(doc),
       fontSize: PDF_FONT_TABLE,
@@ -1864,8 +1891,8 @@ async function drawVerificationTableColumn(doc, startY, x, width, title, items, 
     },
     headStyles: {
       font: pdfAutoTableFont(doc),
-      fillColor: PDF_TABLE_HEAD_FILL,
-      textColor: PDF_TABLE_HEAD_TEXT,
+      fillColor: PDF_SECTION_BG,
+      textColor: CORPORATE_BLUE,
       fontStyle: 'bold',
       fontSize: PDF_FONT_TABLE,
       cellPadding,
@@ -1885,7 +1912,7 @@ async function drawVerificationTableColumn(doc, startY, x, width, title, items, 
         fontSize: PDF_FONT_TABLE,
       },
     },
-    didParseCell: mergePdfTableDidParseCell((data) => {
+    didParseCell: (data) => {
       if (compact) {
         data.cell.styles.cellPadding = cellPadding;
         data.cell.styles.minCellHeight = minCellHeight;
@@ -1895,11 +1922,9 @@ async function drawVerificationTableColumn(doc, startY, x, width, title, items, 
         data.cell.styles.textColor = state === 'OK' ? SUCCESS : DANGER;
         data.cell.styles.fontStyle = 'bold';
       }
-    }),
-    didDrawPage: buildPdfAutoTableDidDrawPage(doc),
+    },
+    gapAfter: compact ? 1 : PDF_SECTION_GAP_MM,
   });
-  touchPdfContentPage(doc);
-  return doc.lastAutoTable.finalY;
 }
 
 /** Verificações Externas + Internas — grid 2 colunas (1fr 1fr, gap 20px) */
@@ -1944,25 +1969,37 @@ async function drawEmpilhadoresDualVerificationBlocks(doc, y, left, right) {
   return Math.max(leftEnd, rightEnd) + PDF_SECTION_GAP_MM;
 }
 
-/** Substituição de material — grelha 3 colunas compacta */
+/** Substituição de material — grelha 4 colunas compacta (dashboard) */
 async function drawEmpilhadoresMaterialGrid(doc, y, fields, values, pdfContext) {
   if (!fields.length) return y;
-  const pairs = fields.map((field) => ({
-    label: field.label,
-    value: coercePdfFieldValue(field, values[field.id], pdfContext),
-  }));
-  const body = buildThreeColumnGridBody(pairs);
+  const cells = fields.map((field) =>
+    pdfGridCell(field.label, coercePdfFieldValue(field, values[field.id], pdfContext)),
+  );
+  const body = buildFourColumnGridBody(cells);
   if (!body.length) return y;
 
-  const colW = CONTENT_W / 3;
-  y = ensureSpace(doc, y, 10 + body.length * 5);
+  const colW = CONTENT_W / EMPILHADORES_MATERIAL_COLS;
+  y = ensureSpace(doc, y, 8 + body.length * 4.5);
   return drawPdfGridTable(doc, y, {
     body,
-    columnStyles: {
-      0: { cellWidth: colW, overflow: 'linebreak', fontSize: PDF_FONT_TABLE },
-      1: { cellWidth: colW, overflow: 'linebreak', fontSize: PDF_FONT_TABLE },
-      2: { cellWidth: colW, overflow: 'linebreak', fontSize: PDF_FONT_TABLE },
+    styles: {
+      font: pdfAutoTableFont(doc),
+      fontSize: EMPILHADORES_MATERIAL_FONT_PT,
+      cellPadding: PDF_TABLE_CELL_PADDING_COMPACT,
+      minCellHeight: PDF_TABLE_MIN_CELL_HEIGHT_COMPACT,
+      lineColor: PDF_TABLE_LINE,
+      lineWidth: PDF_TABLE_LINE_WIDTH,
+      textColor: TEXT_DARK,
+      valign: 'middle',
+      overflow: 'linebreak',
     },
+    columnStyles: {
+      0: { cellWidth: colW, overflow: 'linebreak', fontSize: EMPILHADORES_MATERIAL_FONT_PT },
+      1: { cellWidth: colW, overflow: 'linebreak', fontSize: EMPILHADORES_MATERIAL_FONT_PT },
+      2: { cellWidth: colW, overflow: 'linebreak', fontSize: EMPILHADORES_MATERIAL_FONT_PT },
+      3: { cellWidth: colW, overflow: 'linebreak', fontSize: EMPILHADORES_MATERIAL_FONT_PT },
+    },
+    gapAfter: PDF_SECTION_GAP_MM,
   });
 }
 
@@ -2019,15 +2056,22 @@ async function drawPdfGridTable(doc, y, options = {}) {
     marginLeft = MARGIN,
     marginRight = MARGIN,
     tableWidth = CONTENT_W,
+    styles: stylesOverride,
+    headStyles: headStylesOverride,
+    bodyStyles: bodyStylesOverride,
   } = options;
   if (!body?.length && !head?.length) return y;
 
   await loadJsPdfAutoTable();
+  const baseStyles = buildPdfAutoTableStyles(doc, pdfAutoTableFont, pdfSetFont);
   const tableConfig = {
     startY: y,
     margin: getPdfAutoTableMargin(marginLeft, marginRight),
     tableWidth,
-    ...buildPdfAutoTableStyles(doc, pdfAutoTableFont, pdfSetFont),
+    ...baseStyles,
+    styles: { ...baseStyles.styles, ...(stylesOverride || {}) },
+    headStyles: { ...baseStyles.headStyles, ...(headStylesOverride || {}) },
+    bodyStyles: { ...baseStyles.bodyStyles, ...(bodyStylesOverride || {}) },
     columnStyles: columnStyles || {
       0: { cellWidth: tableWidth / 2, overflow: 'linebreak', fontSize: PDF_FONT_TABLE },
       1: { cellWidth: tableWidth / 2, overflow: 'linebreak', fontSize: PDF_FONT_TABLE },
@@ -2178,19 +2222,23 @@ async function drawStandardMachineBlock(doc, y, values, pdfContext = null, servi
 
   const isEmpilhadores = service?.id === EMPILHADORES_SERVICE_ID;
   const specs = isEmpilhadores ? EMPILHADORES_MACHINE_PDF_SPECS : PDF_STANDARD_MACHINE_SPECS;
-  const pairs = specs.map((spec) => {
-    let fallback = null;
-    if (spec.id === 'numero_de_serie') {
-      fallback = pdfContext?.forkliftSerial || pdfContext?.report?.forkliftSerial || null;
-    }
-    return {
-      label: spec.label,
-      value: pdfDisplayValue(resolvePdfStandardFieldValue(values, spec, fallback)),
-    };
-  });
 
   if (isEmpilhadores) {
-    const body = buildThreeColumnGridBody(pairs);
+    const cells = specs.map((spec) => {
+      let fallback = null;
+      if (spec.id === 'numero_de_serie') {
+        fallback = pdfContext?.forkliftSerial || pdfContext?.report?.forkliftSerial || null;
+      }
+      const raw = resolvePdfStandardFieldValue(values, spec, fallback);
+      if (spec.id === 'horas') {
+        return pdfGridCellEmpilhadoresMachine(spec.label, raw, { horas: true });
+      }
+      return pdfGridCell(spec.label, pdfDisplayValue(raw));
+    });
+    const body = [];
+    for (let i = 0; i < cells.length; i += 3) {
+      body.push([cells[i] || '', cells[i + 1] || '', cells[i + 2] || '']);
+    }
     if (!body.length) return y;
     y = ensureSpace(doc, y, 10);
     const colW = CONTENT_W / 3;
@@ -2203,6 +2251,17 @@ async function drawStandardMachineBlock(doc, y, values, pdfContext = null, servi
       },
     });
   }
+
+  const pairs = specs.map((spec) => {
+    let fallback = null;
+    if (spec.id === 'numero_de_serie') {
+      fallback = pdfContext?.forkliftSerial || pdfContext?.report?.forkliftSerial || null;
+    }
+    return {
+      label: spec.label,
+      value: pdfDisplayValue(resolvePdfStandardFieldValue(values, spec, fallback)),
+    };
+  });
 
   return drawSectionScalarGridFromPairs(doc, y, pairs);
 }
