@@ -32,7 +32,6 @@ export const FOLHA_INTERVENCAO_AVARIAS = {
   companyName: 'ManuSilva Manutenção Industrial, Unipessoal, Lda',
   companyAddress: 'Rua São Mamede, Lote Nº1 - Fração D, 4760-725 Ribeirão VNF',
   fields: [
-    { type: 'date', id: 'data_de_conclusao', label: 'Data de Conclusão' },
     { type: 'text', id: 'marca', label: 'Marca', section: 'Informações da Máquina' },
     { type: 'text', id: 'modelo', label: 'Modelo', section: 'Informações da Máquina' },
     { type: 'text', id: 'numero_de_serie', label: 'Número de Série', section: 'Informações da Máquina' },
