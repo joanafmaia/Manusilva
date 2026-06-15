@@ -1343,18 +1343,27 @@ body.dark-mode .offline-sync-banner__icon {
   display: flex;
   align-items: center;
   gap: 0.6rem;
+  width: 100%;
+  margin: 0;
   padding: 0.5rem 0.7rem;
   border: 1px solid var(--border-subtle);
   border-left: 3px solid var(--ws-draft);
   border-radius: var(--radius-sm);
   background: var(--bg-card);
+  font: inherit;
   font-size: 0.8125rem;
+  color: inherit;
+  text-align: left;
   cursor: pointer;
-  transition: border-color var(--transition), box-shadow var(--transition);
+  appearance: none;
+  -webkit-appearance: none;
+  transition: all 0.2s ease;
 }
 
 .tech-job-row:hover,
 .tech-job-row:focus-visible {
+  background-color: #f8fafc;
+  opacity: 0.95;
   box-shadow: 0 2px 10px rgba(15, 23, 42, 0.07);
   outline: none;
 }
@@ -1420,15 +1429,14 @@ body.dark-mode .offline-sync-banner__icon {
   border-radius: 8px;
   background: var(--surface-muted);
   font-size: 0.95rem;
-  cursor: pointer;
+  pointer-events: none;
   transition: border-color var(--transition), background var(--transition);
 }
 
-.tech-job-row-action:hover,
-.tech-job-row-action:focus-visible {
+.tech-job-row:hover .tech-job-row-action,
+.tech-job-row:focus-visible .tech-job-row-action {
   border-color: var(--primary);
   background: var(--primary-glow);
-  outline: none;
 }
 
 @media (max-width: 560px) {
@@ -1481,6 +1489,13 @@ body.dark-mode .offline-sync-banner__icon {
 
 .tech-history-modal-list .tech-job-row {
   cursor: default;
+}
+
+.tech-history-modal-list .tech-job-row:hover,
+.tech-history-modal-list .tech-job-row:focus-visible {
+  background: var(--bg-card);
+  opacity: 1;
+  box-shadow: none;
 }
 
 .form-overlay--readonly .form-panel-footer .btn-secondary,

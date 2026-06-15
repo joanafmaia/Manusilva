@@ -1002,13 +1002,13 @@ function renderTechJobRow(job, report, actionType, { dateOverride, showDate = tr
   const label = `${action.title}: ${client?.name || 'Cliente'} — ${service?.label || 'Relatório'}${isoDate ? ` — ${formatDateLong(isoDate)}` : ''}`;
 
   return `
-    <div class="tech-job-row tech-job-row--${state}" data-row-job="${escapeHtml(jobId)}" data-row-action="${escapeHtml(actionType)}" role="button" tabindex="0" aria-label="${escapeHtml(label)}">
+    <button type="button" class="tech-job-row tech-job-row--${state}" data-row-job="${escapeHtml(jobId)}" data-row-action="${escapeHtml(actionType)}" aria-label="${escapeHtml(label)}">
       ${showDate ? `<span class="tech-job-row-date">${formatRealizadoRowDate(isoDate)}</span>` : ''}
       <span class="tech-job-row-client">${escapeHtml(client?.name || 'Cliente')}</span>
       <span class="tech-job-row-service">${service?.icon || '🔧'} ${escapeHtml(service?.label || job?.serviceType || 'Relatório')}</span>
       ${renderWorkStateBadge(job, report)}
-      <button type="button" class="tech-job-row-action" title="${escapeHtml(action.title)}" aria-label="${escapeHtml(action.title)}">${action.icon}</button>
-    </div>
+      <span class="tech-job-row-action" aria-hidden="true">${action.icon}</span>
+    </button>
   `;
 }
 
@@ -1025,11 +1025,6 @@ function bindTechJobRowsEvents(scope) {
 
   scope.querySelectorAll('.tech-job-row[data-row-job]').forEach((row) => {
     row.addEventListener('click', () => run(row));
-    row.addEventListener('keydown', (e) => {
-      if (e.key !== 'Enter' && e.key !== ' ') return;
-      e.preventDefault();
-      run(row);
-    });
   });
 }
 
