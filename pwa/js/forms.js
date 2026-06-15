@@ -228,6 +228,43 @@ function renderFotoPreviewHtml(url, label) {
   return `<img src="${escapeHtml(url)}" alt="${escapeHtml(label)}" class="foto-antes-depois-img" loading="lazy">`;
 }
 
+function renderFolhaFotografiasPreviewHtml(antesState, depoisState) {
+  const items = [];
+  const antesUrl = fotoDisplayUrl(antesState);
+  const depoisUrl = fotoDisplayUrl(depoisState);
+  if (antesUrl) items.push({ url: antesUrl, label: 'Antes' });
+  if (depoisUrl) items.push({ url: depoisUrl, label: 'Depois' });
+  if (!items.length) return '';
+  const cards = items
+    .map(
+      (item) => `
+    <figure class="folha-foto-card">
+      <img src="${escapeHtml(item.url)}" alt="${escapeHtml(item.label)}" class="folha-foto-img" loading="lazy">
+      <figcaption class="folha-foto-caption">${escapeHtml(item.label)}</figcaption>
+    </figure>`,
+    )
+    .join('');
+  return `
+    <div class="folha-section-bar folha-section-bar--fotos">
+      <span class="folha-section-bar-title">Fotografias da Intervenção</span>
+    </div>
+    <div class="folha-fotografias-grid">${cards}</div>`;
+}
+
+function refreshFolhaFotografiasPreview(overlay) {
+  const section = overlay.querySelector('.folha-fotografias-section');
+  if (!section) return;
+  const preview = renderFolhaFotografiasPreviewHtml(fotoAntesState, fotoDepoisState);
+  const wrapper = section.closest('.form-field-section');
+  if (!preview) {
+    if (wrapper) wrapper.hidden = true;
+    section.innerHTML = '';
+    return;
+  }
+  if (wrapper) wrapper.hidden = false;
+  section.innerHTML = preview;
+}
+
 function buildFormHTML(job, client, tech, service, existingReport, options = {}) {
   const viewOnly = options.viewOnly === true;
   const saved = getFormValues(existingReport);
@@ -239,6 +276,12 @@ function buildFormHTML(job, client, tech, service, existingReport, options = {})
     selectedClientId: saved.cliente_id || client.NIF || client.id,
     lockClient: true,
   };
+  if (service?.id === 'folha_intervencao_avarias') {
+    formContext.folhaFotografiasPreview = renderFolhaFotografiasPreviewHtml(
+      fotoAntesState,
+      fotoDepoisState,
+    );
+  }
   const prefill = buildFormPrefill(service, job, null, formContext);
   const values = mergeFormValues(saved, prefill, service);
   if (service?.id === 'manutencao_baterias_grandes') {
@@ -322,6 +365,7 @@ function buildFormHTML(job, client, tech, service, existingReport, options = {})
   const isCorretivaForm = service?.id === 'manutencao_corretiva_maquinas';
   const isGrandesForm = service?.id === 'manutencao_baterias_grandes';
   const isRavBateriaForm = service?.id === 'reparacao_avarias_bateria';
+  const isFolhaAvariasForm = service?.id === 'folha_intervencao_avarias';
   const finalizacaoPanelBody = `
               <section class="form-section report-fields-section">
                 <div class="report-fields">${fieldsFinalizacao}</div>
@@ -337,10 +381,12 @@ function buildFormHTML(job, client, tech, service, existingReport, options = {})
           ? 'grandes-closing-shell'
           : isRavBateriaForm
             ? 'rav-closing-shell'
-            : '';
+            : isFolhaAvariasForm
+              ? 'folha-closing-shell'
+              : '';
 
   return `
-    <div class="form-workspace form-workspace--report${isCarregadorForm ? ' form-workspace--carregador' : ''}${isCorretivaForm ? ' form-workspace--corretiva' : ''}${isGrandesForm ? ' form-workspace--grandes' : ''}${isRavBateriaForm ? ' form-workspace--rav-bateria' : ''}">
+    <div class="form-workspace form-workspace--report${isCarregadorForm ? ' form-workspace--carregador' : ''}${isCorretivaForm ? ' form-workspace--corretiva' : ''}${isGrandesForm ? ' form-workspace--grandes' : ''}${isRavBateriaForm ? ' form-workspace--rav-bateria' : ''}${isFolhaAvariasForm ? ' form-workspace--folha-avarias' : ''}">
       <div class="form-panel form-panel--premium glass-card">
         <div class="form-panel-header form-panel-header--minimal">
           <button type="button" class="btn-ghost" id="close-form">&larr; Voltar</button>
@@ -490,6 +536,7 @@ function updateFotoPreview(overlay, which) {
     preview.innerHTML = renderFotoPreviewHtml(url, which === 'antes' ? 'Antes' : 'Depois');
   }
   if (clearBtn) clearBtn.hidden = !url;
+  refreshFolhaFotografiasPreview(overlay);
 }
 
 function bindFotoInputs(overlay) {

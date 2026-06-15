@@ -685,6 +685,21 @@ function mergeRavDualMetricGroups(groups) {
   return result;
 }
 
+function mergeFolhaAvariasPhotoSlot(groups) {
+  const datasIdx = groups.findIndex((g) => g.section === 'Datas de Intervenção');
+  const pedidoIdx = groups.findIndex((g) => g.section === 'Pedido de Orçamento');
+  if (datasIdx < 0 || pedidoIdx < 0 || datasIdx >= pedidoIdx) return groups;
+
+  const result = [];
+  groups.forEach((g, i) => {
+    result.push(g);
+    if (i === datasIdx) {
+      result.push({ section: null, fields: [], _folhaFotografiasSlot: true });
+    }
+  });
+  return result;
+}
+
 export function renderReportFields(service, values = {}, context = {}, options = {}) {
   const tabFilter = options.tab || null;
   let fields = filterReportFields(service?.fields, service);
@@ -706,6 +721,9 @@ export function renderReportFields(service, values = {}, context = {}, options =
   if (service?.id === 'reparacao_avarias_bateria') {
     groups = mergeRavDualMetricGroups(groups);
   }
+  if (service?.id === 'folha_intervencao_avarias') {
+    groups = mergeFolhaAvariasPhotoSlot(groups);
+  }
   if (service?.id === EMPILHADORES_SERVICE_ID && tabFilter === 'checklist') {
     groups = mergeEmpilhadoresChecklistGroups(groups, service);
     return groups
@@ -716,7 +734,7 @@ export function renderReportFields(service, values = {}, context = {}, options =
   }
 
   return groups
-    .map(({ section, fields: sectionFields, _grandesDualFooter, _ravDualMetrics }) => {
+    .map(({ section, fields: sectionFields, _grandesDualFooter, _ravDualMetrics, _folhaFotografiasSlot }) => {
       const hideSectionTitle =
         section &&
         sectionFields.every(
@@ -853,17 +871,52 @@ export function renderReportFields(service, values = {}, context = {}, options =
         fieldsHtml = `<div class="rav-estado-final-shell">${sectionTitle}${fieldsHtml}</div>`;
         sectionTitle = '';
       }
+      const isFolhaAvarias = service?.id === 'folha_intervencao_avarias';
+      if (isFolhaAvarias && _folhaFotografiasSlot) {
+        const preview = String(context.folhaFotografiasPreview || '').trim();
+        if (!preview) return '';
+        fieldsHtml = `<div class="folha-fotografias-section">${preview}</div>`;
+        sectionTitle = '';
+      }
+      if (isFolhaAvarias && section === 'Informações da Máquina') {
+        fieldsHtml = `<div class="folha-dashboard-section">${sectionTitle}${fieldsHtml}</div>`;
+        sectionTitle = '';
+      }
+      if (isFolhaAvarias && section === 'Datas de Intervenção') {
+        fieldsHtml = `<div class="folha-dashboard-section folha-dashboard-section--datas">${sectionTitle}${fieldsHtml}</div>`;
+        sectionTitle = '';
+      }
+      if (isFolhaAvarias && section === 'Pedido de Orçamento') {
+        fieldsHtml = `<div class="folha-dashboard-section folha-dashboard-section--orcamento">${sectionTitle}${fieldsHtml}</div>`;
+        sectionTitle = '';
+      }
+      if (isFolhaAvarias && !section && sectionFields.some((f) => isMaterialTableField(f))) {
+        fieldsHtml = `<div class="folha-dashboard-section folha-dashboard-section--material">${sectionTitle}${fieldsHtml}</div>`;
+        sectionTitle = '';
+      }
+      if (
+        isFolhaAvarias &&
+        sectionFields.some((f) => f.id === 'detecao_de_avaria' || f.id === 'resolucao_da_avaria')
+      ) {
+        fieldsHtml = `<div class="folha-text-section">${sectionTitle}${fieldsHtml}</div>`;
+        sectionTitle = '';
+      }
+      if (isFolhaAvarias && sectionFields.some((f) => f.id === 'estado_maquina')) {
+        fieldsHtml = `<div class="folha-estado-final-shell">${sectionTitle}${fieldsHtml}</div>`;
+        sectionTitle = '';
+      }
       return `
         <div class="form-field-section form-section-card${
           section === EMPILHADORES_MACHINE_SECTION && service?.id === EMPILHADORES_SERVICE_ID
             ? ' form-field-section--empilhadores-machine'
             : ''
-        }${section === EMPILHADORES_MATERIAL_SECTION ? ' form-field-section--material form-field-section--empilhadores-material' : ''}${section === 'Pedido de Orçamento' ? ' form-field-section--pedido-orcamento' : ''}${isCarregador ? ' form-field-section--carregador' : ''}${isCorretiva ? ' form-field-section--corretiva' : ''}${isGrandes ? ' form-field-section--grandes' : ''}${isRavBateria ? ' form-field-section--rav-bateria' : ''}">
+        }${section === EMPILHADORES_MATERIAL_SECTION ? ' form-field-section--material form-field-section--empilhadores-material' : ''}${section === 'Pedido de Orçamento' ? ' form-field-section--pedido-orcamento' : ''}${isCarregador ? ' form-field-section--carregador' : ''}${isCorretiva ? ' form-field-section--corretiva' : ''}${isGrandes ? ' form-field-section--grandes' : ''}${isRavBateria ? ' form-field-section--rav-bateria' : ''}${isFolhaAvarias ? ' form-field-section--folha-avarias' : ''}">
           ${sectionTitle}
           ${fieldsHtml}
         </div>
       `;
     })
+    .filter((html) => html.trim())
     .join('');
 }
 

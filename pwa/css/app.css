@@ -8891,6 +8891,210 @@ body.dark-mode .client-history-status--rejected {
   }
 }
 
+/* Folha de Intervenção de Avarias — layout premium */
+.form-field-section--folha-avarias {
+  margin-bottom: 10px;
+}
+
+.form-workspace--folha-avarias .rejection-banner,
+.form-workspace--folha-avarias .edit-pending-banner,
+.form-workspace--folha-avarias .form-readonly-banner {
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.folha-section-bar {
+  display: flex;
+  align-items: center;
+  padding: 0.45rem 0.65rem;
+  background: #edf2f7;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+}
+
+.folha-section-bar-title {
+  font-size: 10.5pt;
+  font-weight: 700;
+  color: #2b6cb0;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.folha-dashboard-section {
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.folha-dashboard-section > .form-section-subtitle {
+  display: block;
+  margin: 0;
+  padding: 0.45rem 0.65rem;
+  background: #edf2f7;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 10pt;
+  font-weight: 700;
+  color: #2b6cb0;
+  text-transform: uppercase;
+  border-radius: 6px 6px 0 0;
+}
+
+.folha-dashboard-section .dynamic-table-wrap {
+  border-radius: 0 0 6px 6px;
+  overflow: hidden;
+}
+
+.folha-dashboard-section .dynamic-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 9.5pt;
+}
+
+.folha-dashboard-section .dynamic-table thead th {
+  background: #edf2f7;
+  color: #2b6cb0;
+  font-size: 9.5pt;
+  font-weight: 700;
+  padding: 4px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.folha-dashboard-section .dynamic-table tbody td {
+  padding: 4px;
+  border-bottom: 1px solid #e2e8f0;
+  color: #2d3748;
+  font-size: 9.5pt;
+  vertical-align: middle;
+}
+
+.folha-dashboard-section .dynamic-table tbody tr:nth-child(even) td {
+  background: #f8fafc;
+}
+
+.folha-dashboard-section .form-row,
+.folha-dashboard-section .form-group {
+  padding: 0.5rem 0.65rem;
+}
+
+.folha-text-section {
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #fff;
+  margin-bottom: 10px;
+}
+
+.folha-text-section > .form-section-subtitle {
+  margin: 0;
+  padding: 0.45rem 0.65rem;
+  background: #edf2f7;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 10pt;
+  font-weight: 700;
+  color: #2b6cb0;
+  text-transform: uppercase;
+  border-radius: 6px 6px 0 0;
+}
+
+.folha-text-section .form-textarea {
+  margin: 0;
+  border: none;
+  border-radius: 0 0 6px 6px;
+  background: #f8fafc;
+  min-height: 4rem;
+  font-size: 9.5pt;
+  padding: 0.5rem 0.65rem;
+  resize: vertical;
+}
+
+.folha-fotografias-section {
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #fff;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+.folha-section-bar--fotos {
+  border-radius: 6px 6px 0 0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.folha-fotografias-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-top: 10px;
+  padding: 0 0.65rem 0.65rem;
+}
+
+.folha-foto-card {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.folha-foto-img {
+  width: 100%;
+  max-height: 150px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+}
+
+.folha-foto-caption {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #64748b;
+  text-align: center;
+}
+
+.folha-estado-final-shell {
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #fff;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+.folha-estado-final-shell > .form-section-subtitle {
+  margin: 0;
+  padding: 0.45rem 0.65rem;
+  background: #edf2f7;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 10pt;
+  font-weight: 700;
+  color: #2b6cb0;
+  text-transform: uppercase;
+  border-radius: 6px 6px 0 0;
+}
+
+.folha-estado-final-shell .status-pills {
+  padding: 0.65rem;
+}
+
+.folha-closing-shell {
+  width: 100%;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+@media print {
+  .folha-closing-shell,
+  .folha-fotografias-section,
+  .folha-estado-final-shell,
+  .folha-dashboard-section,
+  .folha-text-section {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+}
+
 .dynamic-table-field--grandes .form-input-sm {
   font-size: 8.5pt;
   padding: 3px 4px;
