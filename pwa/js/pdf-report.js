@@ -1790,7 +1790,16 @@ function buildThreeColumnGridBody(pairs) {
 }
 
 function isEmpilhadoresMaterialSection(section) {
-  return pdfNormalizeHeading(section || '') === pdfNormalizeHeading(EMPILHADORES_MATERIAL_SECTION);
+  const norm = pdfNormalizeHeading(section || '');
+  return norm.includes('substituicao') && norm.includes('material');
+}
+
+function isEmpilhadoresMaterialField(service, field) {
+  return (
+    service?.id === EMPILHADORES_SERVICE_ID &&
+    Boolean(field) &&
+    isEmpilhadoresMaterialSection(field.section)
+  );
 }
 
 /** Título de secção numa coluna estreita (verificações lado a lado) */
@@ -1960,7 +1969,7 @@ async function drawEmpilhadoresMaterialGrid(doc, y, fields, values, pdfContext) 
 function collectEmpilhadoresMaterialFields(service, values, pdfContext, skipIds = new Set()) {
   return (service?.fields || []).filter((field) => {
     if (skipIds.has(field.id)) return false;
-    if (field.section !== EMPILHADORES_MATERIAL_SECTION) return false;
+    if (!isEmpilhadoresMaterialField(service, field)) return false;
     if (!isPdfScalarField(field)) return false;
     const value = coercePdfFieldValue(field, values[field.id], pdfContext);
     return !isPdfEmptyValue(field, value);
@@ -1969,7 +1978,7 @@ function collectEmpilhadoresMaterialFields(service, values, pdfContext, skipIds 
 
 function markEmpilhadoresMaterialFieldsRendered(service, scalarRenderedIds) {
   (service?.fields || []).forEach((field) => {
-    if (field.section === EMPILHADORES_MATERIAL_SECTION) {
+    if (isEmpilhadoresMaterialField(service, field)) {
       scalarRenderedIds.add(field.id);
     }
   });
@@ -1983,10 +1992,11 @@ async function drawEmpilhadoresMaterialSectionBlock(
   values,
   pdfContext,
   fields = null,
+  skipIds = new Set(),
 ) {
   const materialFields =
     fields ||
-    collectEmpilhadoresMaterialFields(service, values, pdfContext, new Set());
+    collectEmpilhadoresMaterialFields(service, values, pdfContext, skipIds);
   if (!materialFields.length) return y;
 
   y = ensureSpace(doc, y, 10);
@@ -2051,6 +2061,7 @@ function collectPdfScalarFields(service, values, pdfContext, filters = {}) {
   const { section = null, isDl50 = false, skipIds = new Set() } = filters;
   return (service?.fields || []).filter((field) => {
     if (skipIds.has(field.id)) return false;
+    if (isEmpilhadoresMaterialField(service, field)) return false;
     if (INSPECAO_DL50_MACHINE_FIELD_IDS.has(field.id)) return false;
     if (field.section && isMachineInfoSection(field.section)) return false;
     if (field.id === 'declaracao_seguranca') return false;
@@ -2576,6 +2587,7 @@ async function drawReportFieldsSection(doc, y, service, values, pdfContext = nul
     }
 
     if (scalarRenderedIds.has(field.id)) continue;
+    if (isEmpilhadoresMaterialField(service, field)) continue;
     if (machineBlockRendered && INSPECAO_DL50_MACHINE_FIELD_IDS.has(field.id)) continue;
     if (pairedObservationsRendered.has(field.id)) continue;
     if (field.id === 'declaracao_seguranca') continue;
@@ -2618,9 +2630,7 @@ async function drawReportFieldsSection(doc, y, service, values, pdfContext = nul
             service.id === EMPILHADORES_SERVICE_ID &&
             isEmpilhadoresMaterialSection(currentSection);
 
-          if (deferEmpilhadoresMaterial) {
-            // Renderizado logo após as verificações (não aqui)
-          } else {
+          if (!deferEmpilhadoresMaterial) {
             y = ensureSpace(doc, y, 10);
             y = drawSectionTitle(doc, y, currentSection);
             y = drawDivider(doc, y - 4);
@@ -2666,10 +2676,26 @@ async function drawReportFieldsSection(doc, y, service, values, pdfContext = nul
             : null,
         );
         if (!empilhadoresMaterialRendered) {
-          y = await drawEmpilhadoresMaterialSectionBlock(doc, y, service, values, pdfContext);
-          empilhadoresMaterialRendered = true;
-          markEmpilhadoresMaterialFieldsRendered(service, scalarRenderedIds);
-          gridRenderedSections.add(EMPILHADORES_MATERIAL_SECTION);
+          const pendingMaterial = collectEmpilhadoresMaterialFields(
+            service,
+            values,
+            pdfContext,
+            scalarRenderedIds,
+          );
+          if (pendingMaterial.length) {
+            y = await drawEmpilhadoresMaterialSectionBlock(
+              doc,
+              y,
+              service,
+              values,
+              pdfContext,
+              pendingMaterial,
+              scalarRenderedIds,
+            );
+            empilhadoresMaterialRendered = true;
+            markEmpilhadoresMaterialFieldsRendered(service, scalarRenderedIds);
+            gridRenderedSections.add(EMPILHADORES_MATERIAL_SECTION);
+          }
         }
         if (internField) {
           scalarRenderedIds.add(internField.id);
@@ -2783,13 +2809,26 @@ async function drawReportFieldsSection(doc, y, service, values, pdfContext = nul
     y = drawKeyValueLine(doc, y, field.label, value, field.type);
   }
 
-  if (
-    service.id === EMPILHADORES_SERVICE_ID &&
-    !empilhadoresMaterialRendered
-  ) {
-    y = await drawEmpilhadoresMaterialSectionBlock(doc, y, service, values, pdfContext);
-    markEmpilhadoresMaterialFieldsRendered(service, scalarRenderedIds);
-    gridRenderedSections.add(EMPILHADORES_MATERIAL_SECTION);
+  if (service.id === EMPILHADORES_SERVICE_ID && !empilhadoresMaterialRendered) {
+    const pendingMaterial = collectEmpilhadoresMaterialFields(
+      service,
+      values,
+      pdfContext,
+      scalarRenderedIds,
+    );
+    if (pendingMaterial.length) {
+      y = await drawEmpilhadoresMaterialSectionBlock(
+        doc,
+        y,
+        service,
+        values,
+        pdfContext,
+        pendingMaterial,
+        scalarRenderedIds,
+      );
+      markEmpilhadoresMaterialFieldsRendered(service, scalarRenderedIds);
+      gridRenderedSections.add(EMPILHADORES_MATERIAL_SECTION);
+    }
   }
 
   return y + 4;

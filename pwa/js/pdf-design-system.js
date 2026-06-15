@@ -138,6 +138,12 @@ export function isSelfTitledBlockField(field) {
   ].includes(field.type);
 }
 
+export function isEmpilhadoresMaterialSubstitutionSection(section, service) {
+  if (service?.id !== 'manutencao_preventiva_empilhadores' || !section) return false;
+  const norm = pdfNormalizeHeading(section);
+  return norm.includes('substituicao') && norm.includes('material');
+}
+
 export function isMaterialOnlySection(section, service) {
   if (!section) return false;
   const norm = pdfNormalizeHeading(section);
@@ -189,6 +195,7 @@ export function isScalarCompactSection(section, service) {
 export function shouldSkipPdfSectionHeader(section, service, ctx = {}) {
   if (!section) return false;
   if (ctx.machineBlockRendered && isMachineInfoSection(section)) return true;
+  if (isEmpilhadoresMaterialSubstitutionSection(section, service)) return true;
   if (isMaterialOnlySection(section, service)) return true;
   if (isVerificationOnlySection(section, service)) return true;
   if (isSingleSelfTitledSection(section, service)) return true;
