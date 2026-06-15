@@ -3949,21 +3949,28 @@ body.dark-mode .matrix-bulk-good-btn--active {
 }
 
 .folha-pedido-orcamento-block .choice-btn--no.selected {
-  background: rgba(100, 116, 139, 0.14);
-  border-color: rgba(100, 116, 139, 0.45);
-  color: var(--text-secondary, #475569);
+  background: rgba(16, 185, 129, 0.14);
+  border-color: rgba(16, 185, 129, 0.55);
+  color: #047857;
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.12);
 }
 
 .folha-pedido-orcamento-block .choice-btn--yes.selected {
-  background: rgba(239, 68, 68, 0.12);
-  border-color: rgba(239, 68, 68, 0.45);
+  background: rgba(239, 68, 68, 0.14);
+  border-color: rgba(239, 68, 68, 0.55);
   color: #b91c1c;
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.12);
 }
 
 .folha-pedido-orcamento-block .field-conditional {
   margin-top: 0.15rem;
   padding-top: 0.65rem;
   border-top: 1px dashed var(--ms-border-md, var(--border-subtle));
+  max-height: 280px;
+}
+
+.folha-pedido-orcamento-block .field-conditional:not(.is-hidden) {
+  pointer-events: auto;
 }
 
 .folha-pedido-orcamento-block .field-conditional .form-textarea {

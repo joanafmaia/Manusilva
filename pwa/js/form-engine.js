@@ -952,6 +952,11 @@ function resolveDependencySelectedValue(overlay, depId) {
     return pills.querySelector('.status-pill.selected')?.dataset.value ?? null;
   }
 
+  const choiceGroup = overlay.querySelector(`[data-choice-group="${depId}"]`);
+  if (choiceGroup) {
+    return choiceGroup.querySelector('.choice-btn.selected')?.dataset.value ?? null;
+  }
+
   return null;
 }
 
@@ -1844,6 +1849,7 @@ export async function bindFormFieldInteractions(overlay) {
       btn.addEventListener('click', () => {
         group.querySelectorAll('.choice-btn').forEach((b) => b.classList.remove('selected'));
         btn.classList.add('selected');
+        evaluateFieldDependencies(overlay);
       });
     });
   });
