@@ -156,6 +156,7 @@ export function isScalarCompactSection(section, service) {
   }
   if (norm.includes('resultado do teste') || norm.includes('periodicidade')) return true;
   if (norm.includes('fecho')) return true;
+  if (norm.includes('pedido de orcamento')) return true;
   return false;
 }
 
@@ -252,7 +253,12 @@ export const FOLHA_INTERVENCAO_AVARIAS_PDF_FIELD_IDS = new Set([
   'detecao_de_avaria',
   'resolucao_da_avaria',
   'material_utilizado',
+  'visitas_realizadas',
+  'data_1',
+  'data_2',
   'horas_gastas',
+  'pedido_orcamento',
+  'detalhe_pedido_orcamento',
   'estado_maquina',
   'data_de_conclusao',
 ]);

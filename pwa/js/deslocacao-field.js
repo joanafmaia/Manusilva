@@ -52,6 +52,7 @@ export function isDeslocacaoMetaField(field) {
 export const SERVICES_WITH_SECTION_VISITAS = new Set([
   'manutencao_preventiva_bateria',
   'reparacao_avarias_bateria',
+  'folha_intervencao_avarias',
 ]);
 
 /** Campo Deslocação removido de todos os formulários e PDFs */

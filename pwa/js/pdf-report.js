@@ -1196,24 +1196,53 @@ async function drawFolhaIntervencaoMaterialTable(doc, y, rows) {
 }
 
 async function drawFolhaIntervencaoDatasTable(doc, y, values) {
+  const visitas = pdfDisplayValue(formatPdfNumeroVisitas(values));
   const data1 = formatFolhaInterventionDate(
     resolvePdfStandardFieldValue(values, { id: 'data_1' }, values.data_de_conclusao),
   );
   const data2 = formatFolhaInterventionDate(resolvePdfStandardFieldValue(values, { id: 'data_2' }));
   const horasGastas = pdfDisplayValue(resolvePdfStandardFieldValue(values, { id: 'horas_gastas' }));
 
-  const colW = CONTENT_W / 3;
+  const colW = CONTENT_W / 4;
   return drawPreventivaBateriaClosedSectionTable(doc, y, {
     sectionTitle: 'DATAS DE INTERVENÇÃO',
-    colSpan: 3,
-    columnHead: ['Data 1', 'Data 2', 'Horas Gastas'],
-    body: [[data1, data2, horasGastas]],
+    colSpan: 4,
+    columnHead: ['Visitas realizadas', 'Data 1', 'Data 2', 'Horas Gastas'],
+    body: [[visitas, data1, data2, horasGastas]],
     minBlockH: 36,
     bodyStyles: { halign: 'center' },
     columnStyles: {
       0: { cellWidth: colW, halign: 'center' },
       1: { cellWidth: colW, halign: 'center' },
       2: { cellWidth: colW, halign: 'center' },
+      3: { cellWidth: colW, halign: 'center' },
+    },
+  });
+}
+
+async function drawFolhaIntervencaoOrcamentoBlock(doc, y, values) {
+  const pedido = pdfDisplayValue(values.pedido_orcamento);
+  const isSim = String(pedido).toLowerCase() === 'sim';
+  const detalhe = pdfDisplayValue(values.detalhe_pedido_orcamento);
+  const labelColW = CONTENT_W * 0.34;
+  const body = [[`Pedido de Orçamento:`, pedido]];
+  if (isSim) {
+    body.push([`O que é necessário:`, detalhe]);
+  }
+
+  return drawPreventivaBateriaClosedSectionTable(doc, y, {
+    sectionTitle: 'PEDIDO DE ORÇAMENTO',
+    colSpan: 2,
+    body,
+    minBlockH: isSim ? 40 : 28,
+    columnStyles: {
+      0: {
+        cellWidth: labelColW,
+        fontStyle: 'normal',
+        textColor: TEXT_DARK,
+        halign: 'left',
+      },
+      1: { cellWidth: CONTENT_W - labelColW, halign: 'left' },
     },
   });
 }
@@ -1251,9 +1280,10 @@ async function drawFolhaIntervencaoAvariasClosingSection(doc, y, opts) {
   const values = opts.values || {};
   const profile = FOLHA_CLOSING_PROFILE;
   const closingBlockH =
-    36 + estimateSignaturesHeight(profile) + FOLHA_INSTITUTIONAL_FOOTER_H_MM;
+    52 + estimateSignaturesHeight(profile) + FOLHA_INSTITUTIONAL_FOOTER_H_MM;
 
   y = ensureKeepTogetherBlock(doc, y, Math.min(closingBlockH, pdfMaxContentHeight()));
+  y = await drawFolhaIntervencaoOrcamentoBlock(doc, y, values);
   y = await drawFolhaIntervencaoEstadoBlock(doc, y, values);
 
   return drawSignaturesFooter(doc, y, opts.signatures || {}, {

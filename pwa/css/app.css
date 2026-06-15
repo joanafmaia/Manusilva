@@ -3920,6 +3920,56 @@ body.dark-mode .matrix-bulk-good-btn--active {
   gap: 0.65rem;
 }
 
+.folha-datas-intervencao-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem 0.75rem;
+}
+
+@media (min-width: 720px) {
+  .folha-datas-intervencao-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.form-field-section--pedido-orcamento {
+  border-color: rgba(59, 130, 246, 0.22);
+}
+
+.folha-pedido-orcamento-block .choice-field--yes-no .choice-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.folha-pedido-orcamento-block .choice-field--yes-no .choice-btn {
+  min-height: 2.75rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.folha-pedido-orcamento-block .choice-btn--no.selected {
+  background: rgba(100, 116, 139, 0.14);
+  border-color: rgba(100, 116, 139, 0.45);
+  color: var(--text-secondary, #475569);
+}
+
+.folha-pedido-orcamento-block .choice-btn--yes.selected {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.45);
+  color: #b91c1c;
+}
+
+.folha-pedido-orcamento-block .field-conditional {
+  margin-top: 0.15rem;
+  padding-top: 0.65rem;
+  border-top: 1px dashed var(--ms-border-md, var(--border-subtle));
+}
+
+.folha-pedido-orcamento-block .field-conditional .form-textarea {
+  min-height: 5.5rem;
+}
+
 @media (min-width: 480px) {
   .material-substitution-grid {
     grid-template-columns: 1fr 1fr;

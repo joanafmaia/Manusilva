@@ -340,6 +340,8 @@ export function buildFormPrefill(service, job, _forklift, context = {}) {
   if (service.id === 'folha_intervencao_avarias') {
     return {
       data_1: job?.date || '',
+      visitas_realizadas: 1,
+      pedido_orcamento: 'Não',
       material_utilizado: [emptyMaterialRow()],
     };
   }
@@ -544,8 +546,14 @@ export function renderReportFields(service, values = {}, context = {}, options =
       if (section === 'Substituição de Material') {
         fieldsHtml = `<div class="material-substitution-grid">${fieldsHtml}</div>`;
       }
+      if (section === 'Datas de Intervenção') {
+        fieldsHtml = `<div class="folha-datas-intervencao-grid">${fieldsHtml}</div>`;
+      }
+      if (section === 'Pedido de Orçamento') {
+        fieldsHtml = `<div class="folha-pedido-orcamento-block">${fieldsHtml}</div>`;
+      }
       return `
-        <div class="form-field-section form-section-card${section === 'Substituição de Material' ? ' form-field-section--material' : ''}">
+        <div class="form-field-section form-section-card${section === 'Substituição de Material' ? ' form-field-section--material' : ''}${section === 'Pedido de Orçamento' ? ' form-field-section--pedido-orcamento' : ''}">
           ${sectionTitle}
           ${fieldsHtml}
         </div>
@@ -1275,17 +1283,19 @@ function renderDropdownField(field, value = '') {
 }
 
 function renderChoiceField(field, value = '') {
+  const current = value || field.options?.[0] || '';
+  const yesNo = field.uiVariant === 'yesNo';
   const buttons = (field.options || [])
     .map(
       (opt) => `
-      <button type="button" class="choice-btn ${opt === value ? 'selected' : ''}"
+      <button type="button" class="choice-btn${yesNo && opt === 'Sim' ? ' choice-btn--yes' : ''}${yesNo && opt === 'Não' ? ' choice-btn--no' : ''} ${opt === current ? 'selected' : ''}"
         data-value="${escapeHtml(opt)}">${escapeHtml(opt)}</button>
     `
     )
     .join('');
 
   return `
-    <div class="form-group field-block choice-field" data-choice-group="${field.id}">
+    <div class="form-group field-block choice-field${yesNo ? ' choice-field--yes-no' : ''}" data-choice-group="${field.id}">
       <label class="form-label">${escapeHtml(field.label)}</label>
       <div class="choice-options">${buttons}</div>
     </div>
