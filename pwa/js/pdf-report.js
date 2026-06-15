@@ -1957,6 +1957,44 @@ async function drawEmpilhadoresMaterialGrid(doc, y, fields, values, pdfContext) 
   });
 }
 
+function collectEmpilhadoresMaterialFields(service, values, pdfContext, skipIds = new Set()) {
+  return (service?.fields || []).filter((field) => {
+    if (skipIds.has(field.id)) return false;
+    if (field.section !== EMPILHADORES_MATERIAL_SECTION) return false;
+    if (!isPdfScalarField(field)) return false;
+    const value = coercePdfFieldValue(field, values[field.id], pdfContext);
+    return !isPdfEmptyValue(field, value);
+  });
+}
+
+function markEmpilhadoresMaterialFieldsRendered(service, scalarRenderedIds) {
+  (service?.fields || []).forEach((field) => {
+    if (field.section === EMPILHADORES_MATERIAL_SECTION) {
+      scalarRenderedIds.add(field.id);
+    }
+  });
+}
+
+/** Bloco completo — título + grelha de óleos/filtros (sempre após verificações) */
+async function drawEmpilhadoresMaterialSectionBlock(
+  doc,
+  y,
+  service,
+  values,
+  pdfContext,
+  fields = null,
+) {
+  const materialFields =
+    fields ||
+    collectEmpilhadoresMaterialFields(service, values, pdfContext, new Set());
+  if (!materialFields.length) return y;
+
+  y = ensureSpace(doc, y, 10);
+  y = drawSectionTitle(doc, y, EMPILHADORES_MATERIAL_SECTION);
+  y = drawDivider(doc, y - 4);
+  return drawEmpilhadoresMaterialGrid(doc, y, materialFields, values, pdfContext);
+}
+
 /**
  * Grelha autoTable padrão Manusilva — cabeçalho #f1f5f9, linhas #e2e8f0.
  * @param {import('jspdf').jsPDF} doc
@@ -2521,6 +2559,7 @@ async function drawReportFieldsSection(doc, y, service, values, pdfContext = nul
   let currentSection = null;
   const pairedObservationsRendered = new Set();
   let visitasHorasTableRendered = false;
+  let empilhadoresMaterialRendered = false;
 
   for (const field of service.fields) {
     if (
@@ -2575,18 +2614,19 @@ async function drawReportFieldsSection(doc, y, service, values, pdfContext = nul
             });
 
         if (sectionScalars.length) {
-          y = ensureSpace(doc, y, 10);
-          y = drawSectionTitle(doc, y, currentSection);
-          y = drawDivider(doc, y - 4);
-          if (
+          const deferEmpilhadoresMaterial =
             service.id === EMPILHADORES_SERVICE_ID &&
-            isEmpilhadoresMaterialSection(currentSection)
-          ) {
-            y = await drawEmpilhadoresMaterialGrid(doc, y, sectionScalars, values, pdfContext);
+            isEmpilhadoresMaterialSection(currentSection);
+
+          if (deferEmpilhadoresMaterial) {
+            // Renderizado logo após as verificações (não aqui)
           } else {
+            y = ensureSpace(doc, y, 10);
+            y = drawSectionTitle(doc, y, currentSection);
+            y = drawDivider(doc, y - 4);
             y = await drawSectionScalarGrid(doc, y, sectionScalars, values, pdfContext);
+            sectionScalars.forEach((f) => scalarRenderedIds.add(f.id));
           }
-          sectionScalars.forEach((f) => scalarRenderedIds.add(f.id));
         } else if (!skipSectionHeader) {
           y = ensureSpace(doc, y, 10);
           y = drawSectionTitle(doc, y, currentSection);
@@ -2625,6 +2665,12 @@ async function drawReportFieldsSection(doc, y, service, values, pdfContext = nul
               }
             : null,
         );
+        if (!empilhadoresMaterialRendered) {
+          y = await drawEmpilhadoresMaterialSectionBlock(doc, y, service, values, pdfContext);
+          empilhadoresMaterialRendered = true;
+          markEmpilhadoresMaterialFieldsRendered(service, scalarRenderedIds);
+          gridRenderedSections.add(EMPILHADORES_MATERIAL_SECTION);
+        }
         if (internField) {
           scalarRenderedIds.add(internField.id);
           if (internField.section) gridRenderedSections.add(internField.section);
@@ -2735,6 +2781,15 @@ async function drawReportFieldsSection(doc, y, service, values, pdfContext = nul
     }
 
     y = drawKeyValueLine(doc, y, field.label, value, field.type);
+  }
+
+  if (
+    service.id === EMPILHADORES_SERVICE_ID &&
+    !empilhadoresMaterialRendered
+  ) {
+    y = await drawEmpilhadoresMaterialSectionBlock(doc, y, service, values, pdfContext);
+    markEmpilhadoresMaterialFieldsRendered(service, scalarRenderedIds);
+    gridRenderedSections.add(EMPILHADORES_MATERIAL_SECTION);
   }
 
   return y + 4;
