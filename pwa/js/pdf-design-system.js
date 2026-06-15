@@ -256,10 +256,31 @@ export const FOLHA_INTERVENCAO_AVARIAS_PDF_FIELD_IDS = new Set([
   'data_de_conclusao',
 ]);
 
+/** Campos desenhados no layout dedicado — Reparação Carregador */
+export const REPARACAO_CARREGADOR_PDF_FIELD_IDS = new Set([
+  'data_rececao',
+  'concluido_testado_em',
+  'cliente',
+  'cliente_id',
+  'nif',
+  'morada',
+  'localidade',
+  'etiqueta',
+  'responsavel',
+  'marca_modelo',
+  'numero_de_serie',
+  'num_serie',
+  'registo_intervencao',
+  'valor_amperagem_debitado',
+  'consumiveis_material',
+  'deslocacao',
+]);
+
 export const PDF_LAYOUT_SKIP_FIELD_IDS = new Set([
   ...PDF_STANDARD_MACHINE_SPECS.flatMap((s) => [s.id, ...(s.aliases || [])]),
   ...PDF_CLOSING_DIAGNOSTIC_SPECS.flatMap((s) => [s.id, ...(s.aliases || [])]),
   ...FOLHA_INTERVENCAO_AVARIAS_PDF_FIELD_IDS,
+  ...REPARACAO_CARREGADOR_PDF_FIELD_IDS,
   ...PREVENTIVA_BATERIA_ANALYSIS_SPECS.map((s) => s.id),
   'qtd_parafusos_danificados',
   'deslocacao',
