@@ -189,7 +189,12 @@ const SERVICES_WITH_MACHINE_FIELDS = new Set([
   'folha_intervencao_avarias',
   'manutencao_preventiva_empilhadores',
   'manutencao_corretiva_maquinas',
+  'reparacao_carregador',
 ]);
+
+const SERVICE_MACHINE_FIELD_SECTIONS = {
+  reparacao_carregador: 'Identificação Do Carregador',
+};
 
 const EMPILHADORES_MATERIAL_SECTION = 'Substituição de Material';
 
@@ -199,9 +204,11 @@ function filterReportFields(fields, service) {
   return (fields || []).filter((f) => {
     if (isDeslocacaoField(f) || isDeslocacaoMetaField(f)) return false;
     if (isVisitasField(f) && !SERVICES_WITH_SECTION_VISITAS.has(service?.id)) return false;
+    const machineSection = SERVICE_MACHINE_FIELD_SECTIONS[service?.id];
     if (
       SERVICES_WITH_MACHINE_FIELDS.has(service?.id) &&
-      f.section === 'Informações da Máquina'
+      (f.section === 'Informações da Máquina' ||
+        (machineSection && f.section === machineSection))
     ) {
       return true;
     }
@@ -668,9 +675,26 @@ function isClientPickerField(field) {
   return field.label === 'Cliente' && String(field.section || '').includes('Cliente');
 }
 
+function renderLockedClientDisplayField(field, value = '', context = {}) {
+  const nome =
+    value ||
+    context.client?.Nome ||
+    context.client?.name ||
+    '—';
+  return `
+    <div class="${gridEligibleFieldBlockClass('field-block--readonly')}">
+      <label class="form-label">${escapeHtml(field.label)}</label>
+      <div class="form-readonly-value hf-value" aria-readonly="true">${escapeHtml(nome)}</div>
+    </div>
+  `;
+}
+
 function renderField(field, value = '', context = {}) {
   const lockClient = context.lockClient ?? Boolean(context.job);
   if (lockClient && isClientPickerField(field)) {
+    if (context.service?.id === 'reparacao_carregador') {
+      return renderLockedClientDisplayField(field, value, context);
+    }
     return '';
   }
 

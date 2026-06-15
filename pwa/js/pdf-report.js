@@ -143,6 +143,7 @@ async function resolvePdfClientMeta(report, values = {}) {
   const nome = values.cliente || prod?.Nome || dbClient?.name || dbClient?.Nome || '—';
   const morada = values.morada || prod?.Morada || dbClient?.morada || dbClient?.Morada || '';
   const localidade = values.localidade || prod?.Localidade || dbClient?.localidade || dbClient?.Localidade || '';
+  const nif = values.nif || prod?.NIF || dbClient?.NIF || dbClient?.nif || '';
   const cp = values.codigo_postal || prod?.['Código postal'] || dbClient?.['Código postal'] || '';
 
   const street = cleanPdfText(morada);
@@ -158,7 +159,7 @@ async function resolvePdfClientMeta(report, values = {}) {
     }
   }
 
-  return { nome, addressLine: addressLine || '—', addressSubline, localidade };
+  return { nome, addressLine: addressLine || '—', addressSubline, localidade, nif };
 }
 
 function buildPdfRenderContext(report, job, clientMeta, tech) {
@@ -1275,12 +1276,36 @@ function formatPdfCarregadorConclusaoDate(report, job, values = {}) {
   return y && m && d ? `${d}/${m}/${y}` : pdfDisplayValue(raw);
 }
 
+function resolvePdfCarregadorClientMorada(values = {}, clientMeta = {}) {
+  const morada = cleanPdfText(values.morada || clientMeta?.addressLine || '');
+  const localidade = cleanPdfText(values.localidade || clientMeta?.localidade || '');
+  const subline = cleanPdfText(clientMeta?.addressSubline || '');
+  const parts = [];
+  if (morada) parts.push(morada);
+  if (subline && !morada.includes(subline)) parts.push(subline);
+  else if (localidade && !morada.includes(localidade)) parts.push(localidade);
+  return parts.join(', ').trim();
+}
+
+function resolvePdfCarregadorClientNif(values = {}, clientMeta = {}) {
+  const direct = cleanPdfText(values.nif || '');
+  if (direct) return direct;
+  return cleanPdfText(clientMeta?.nif || '');
+}
+
+function buildReparacaoCarregadorClienteTableBody(values = {}, clientMeta = {}) {
+  const cliente = pdfDisplayValue(values.cliente || clientMeta?.nome);
+  const morada = resolvePdfCarregadorClientMorada(values, clientMeta);
+  const nif = resolvePdfCarregadorClientNif(values, clientMeta);
+  const body = [[`Cliente:`, cliente], [`Morada:`, morada || '—']];
+  if (nif) body.push([`NIF:`, nif]);
+  return body;
+}
+
 /** Topo bilateral — Reparação Carregador: logo + metadados (esq.) | tabela Identificação Cliente (dir.) */
 async function drawReparacaoCarregadorClienteTable(doc, startY, values, clientMeta) {
   const rightTableW = CONTENT_W * 0.48;
   const rightMarginLeft = PAGE_W - MARGIN - rightTableW;
-  const cliente = pdfDisplayValue(values.cliente || clientMeta?.nome);
-  const etiqueta = pdfDisplayValue(values.etiqueta);
   const labelColW = rightTableW * 0.32;
 
   await loadJsPdfAutoTable();
@@ -1297,10 +1322,7 @@ async function drawReparacaoCarregadorClienteTable(doc, startY, values, clientMe
           },
         ],
       ],
-      body: [
-        [`Cliente:`, cliente],
-        [`Etiqueta:`, etiqueta],
-      ],
+      body: buildReparacaoCarregadorClienteTableBody(values, clientMeta),
       headStyles: preventivaBateriaTableHeadStyles(),
       bodyStyles: {
         font: pdfAutoTableFont(doc),
