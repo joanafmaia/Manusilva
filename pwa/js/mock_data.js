@@ -467,15 +467,6 @@ export const REPARACAO_AVARIAS_BATERIA = {
   companyAddress: 'Rua São Mamede, Lote Nº1 - Fração D, 4760-725 Ribeirão VNF',
   fields: [
     { type: 'date', id: 'data_de_conclusao', label: 'Data de Conclusão' },
-    {
-      type: 'textarea',
-      id: 'analise_da_bateria',
-      label: 'Análise Da Bateria',
-      section: 'Diagnóstico Técnico',
-      prominent: true,
-      placeholder:
-        'Descreva sintomas, elementos danificados, voltagem do banco, densidade do eletrólito, ligações/pontes e diagnóstico técnico...',
-    },
     createMaterialTableField({ id: 'consumiveis' }),
     {
       type: 'number',

@@ -539,11 +539,8 @@ export function renderReportFields(service, values = {}, context = {}, options =
       if (section === 'Substituição de Material') {
         fieldsHtml = `<div class="material-substitution-grid">${fieldsHtml}</div>`;
       }
-      if (section === 'Diagnóstico Técnico') {
-        fieldsHtml = `<div class="diagnostic-section-highlight">${fieldsHtml}</div>`;
-      }
       return `
-        <div class="form-field-section form-section-card${section === 'Substituição de Material' ? ' form-field-section--material' : ''}${section === 'Diagnóstico Técnico' ? ' form-field-section--diagnostic' : ''}">
+        <div class="form-field-section form-section-card${section === 'Substituição de Material' ? ' form-field-section--material' : ''}">
           ${sectionTitle}
           ${fieldsHtml}
         </div>
