@@ -14,11 +14,12 @@ export const PDF_FONT_SUBTITLE = 11;
 export const PDF_FONT_BODY = 9.5;
 export const PDF_FONT_CAPTION = 8;
 
-/** Espaçamento e tabelas compactas */
-export const PDF_SECTION_GAP_MM = 3;
+/** Espaçamento e tabelas compactas (~10px entre secções, 4px padding vertical nas células) */
+export const PDF_SECTION_GAP_MM = 2.7;
 export const PDF_TABLE_ROW_STEP_MM = 6;
-export const PDF_TABLE_CELL_PADDING = { top: 1.5, right: 3.5, bottom: 1.5, left: 3.5 };
-export const PDF_TABLE_CELL_PADDING_HEAD = { top: 2, right: 3.5, bottom: 2, left: 4 };
+export const PDF_TABLE_CELL_PADDING = { top: 1.1, right: 3.5, bottom: 1.1, left: 3.5 };
+export const PDF_TABLE_CELL_PADDING_HEAD = { top: 1.1, right: 3.5, bottom: 1.1, left: 4 };
+export const PDF_TABLE_LINE_WIDTH = 0.12;
 export const PDF_TABLE_MIN_CELL_HEIGHT = 6;
 export const PDF_TITLE_BAR_HEIGHT_MM = 9;
 export const PDF_SECTION_BAND_HEIGHT_MM = 9;
@@ -28,11 +29,11 @@ export const PDF_LOGO_WIDTH_MM = 40;
 export const PDF_LOGO_HEIGHT_MM = 28;
 export const PDF_HEADER_CLIENT_W = 82;
 
-/** Cores institucionais */
-export const PDF_COLOR_CORPORATE_BLUE = [30, 64, 115];
-export const PDF_COLOR_CORPORATE_BLUE_DARK = [15, 39, 68];
+/** Cores premium — grafite #2D3748, azul técnico #2B6CB0, fundo secção #EDF2F7 */
+export const PDF_COLOR_CORPORATE_BLUE = [43, 108, 176];
+export const PDF_COLOR_CORPORATE_BLUE_DARK = [43, 108, 176];
 export const PDF_COLOR_SLATE_LINE = [100, 116, 139];
-export const PDF_COLOR_TEXT_DARK = [30, 41, 59];
+export const PDF_COLOR_TEXT_DARK = [45, 55, 72];
 export const PDF_COLOR_TEXT_MUTED = [100, 116, 139];
 export const PDF_COLOR_WHITE = [255, 255, 255];
 export const PDF_COLOR_SUCCESS = [16, 185, 129];
@@ -51,13 +52,13 @@ export const PDF_AUTOTABLE_MARGIN_BOTTOM_MM = PDF_PAGE_H - PDF_FOOTER_BLOCK_TOP 
 export const PDF_FOOTER_TEXT_RGB = [75, 75, 75];
 export const PDF_FOOTER_INSTITUTIONAL_RGB = PDF_FOOTER_TEXT_RGB;
 
-/** Tabelas autoTable */
-export const PDF_TABLE_HEAD_FILL = PDF_COLOR_CORPORATE_BLUE;
-export const PDF_TABLE_HEAD_TEXT = PDF_COLOR_WHITE;
+/** Tabelas autoTable — linhas #E2E8F0, cabeçalhos fundo suave + texto grafite */
+export const PDF_SECTION_BG = [237, 242, 247];
+export const PDF_TABLE_HEAD_FILL = PDF_SECTION_BG;
+export const PDF_TABLE_HEAD_TEXT = PDF_COLOR_TEXT_DARK;
 export const PDF_TABLE_LINE = [226, 232, 240];
 export const PDF_TABLE_BODY_FILL = PDF_COLOR_WHITE;
-export const PDF_TABLE_ALT_ROW_FILL = [248, 249, 250];
-export const PDF_SECTION_BG = [245, 245, 245];
+export const PDF_TABLE_ALT_ROW_FILL = [248, 250, 252];
 
 export const PDF_MACHINE_SECTION = 'Informações da Máquina';
 export const PDF_VERIFICATION_SECTION_TITLE = 'Verificações Efetuadas';
@@ -342,7 +343,7 @@ export function buildPdfAutoTableStyles(doc, pdfAutoTableFont, pdfSetFont) {
       cellPadding: PDF_TABLE_CELL_PADDING,
       minCellHeight: PDF_TABLE_MIN_CELL_HEIGHT,
       lineColor: PDF_TABLE_LINE,
-      lineWidth: 0.15,
+      lineWidth: PDF_TABLE_LINE_WIDTH,
       textColor: PDF_COLOR_TEXT_DARK,
       fontStyle: 'normal',
       valign: 'middle',
@@ -357,8 +358,8 @@ export function buildPdfAutoTableStyles(doc, pdfAutoTableFont, pdfSetFont) {
       fontSize: PDF_FONT_BODY,
       cellPadding: PDF_TABLE_CELL_PADDING_HEAD,
       minCellHeight: PDF_TABLE_MIN_CELL_HEIGHT,
-      lineColor: PDF_COLOR_CORPORATE_BLUE_DARK,
-      lineWidth: 0.15,
+      lineColor: PDF_TABLE_LINE,
+      lineWidth: PDF_TABLE_LINE_WIDTH,
       halign: 'left',
       overflow: 'linebreak',
     },

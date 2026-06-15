@@ -86,6 +86,7 @@ import {
   PDF_TABLE_HEAD_FILL,
   PDF_TABLE_HEAD_TEXT,
   PDF_TABLE_LINE,
+  PDF_TABLE_LINE_WIDTH,
   isMachineInfoSection,
   pdfNormalizeHeading,
   reportHasMachineSection,
@@ -787,7 +788,7 @@ function buildFolhaAutoTableConfig(doc, y, overrides = {}) {
       fontSize: PDF_FONT_BODY,
       cellPadding: PDF_TABLE_CELL_PADDING,
       lineColor: PDF_TABLE_LINE,
-      lineWidth: 0.2,
+      lineWidth: PDF_TABLE_LINE_WIDTH,
       textColor: TEXT_DARK,
       fillColor: PDF_TABLE_BODY_FILL,
       valign: 'middle',
@@ -803,11 +804,11 @@ function buildFolhaAutoTableConfig(doc, y, overrides = {}) {
 function preventivaBateriaSectionHeadStyles() {
   return {
     fillColor: FOLHA_TABLE_HEAD_FILL,
-    textColor: CORPORATE_BLUE_DARK,
+    textColor: CORPORATE_BLUE,
     fontStyle: 'bold',
     fontSize: PDF_FONT_SECTION,
     lineColor: PDF_TABLE_LINE,
-    lineWidth: 0.2,
+    lineWidth: PDF_TABLE_LINE_WIDTH,
     halign: 'left',
     valign: 'middle',
     cellPadding: PDF_TABLE_CELL_PADDING_HEAD,
@@ -816,8 +817,15 @@ function preventivaBateriaSectionHeadStyles() {
 
 function preventivaBateriaTableHeadStyles() {
   return {
-    ...preventivaBateriaSectionHeadStyles(),
+    fillColor: FOLHA_TABLE_HEAD_FILL,
+    textColor: TEXT_DARK,
+    fontStyle: 'bold',
+    fontSize: PDF_FONT_BODY,
+    lineColor: PDF_TABLE_LINE,
+    lineWidth: PDF_TABLE_LINE_WIDTH,
     halign: 'center',
+    valign: 'middle',
+    cellPadding: PDF_TABLE_CELL_PADDING_HEAD,
   };
 }
 
@@ -891,7 +899,7 @@ function drawFolhaTitleBar(doc, y, title) {
   doc.rect(MARGIN, y, CONTENT_W, barH, 'FD');
   pdfSetFont(doc, 'bold');
   doc.setFontSize(PDF_FONT_TITLE);
-  doc.setTextColor(...CORPORATE_BLUE_DARK);
+  doc.setTextColor(...CORPORATE_BLUE);
   doc.text(title, MARGIN + CONTENT_W / 2, y + barH * 0.62, { align: 'center' });
   touchPdfContentPage(doc);
   return y + barH + PDF_SECTION_GAP_MM;
@@ -971,7 +979,7 @@ async function drawPreventivaBateriaClosedSectionTable(doc, y, options) {
         fontStyle: 'normal',
         fontSize: PDF_FONT_BODY,
         lineColor: PDF_TABLE_LINE,
-        lineWidth: 0.2,
+        lineWidth: PDF_TABLE_LINE_WIDTH,
         valign: 'middle',
         ...bodyStyles,
       },
@@ -1121,7 +1129,7 @@ async function drawFolhaMaterialTable(doc, y, rows, options = {}) {
         fontStyle: 'bold',
         fontSize: PDF_FONT_BODY,
         lineColor: PDF_TABLE_LINE,
-        lineWidth: 0.2,
+        lineWidth: PDF_TABLE_LINE_WIDTH,
         halign: 'left',
       },
       columnStyles: buildSmartColumnStyles(columns),
@@ -1349,7 +1357,7 @@ async function drawReparacaoCarregadorClienteTable(doc, startY, values) {
         fontStyle: 'normal',
         fontSize: PDF_FONT_BODY,
         lineColor: PDF_TABLE_LINE,
-        lineWidth: 0.2,
+        lineWidth: PDF_TABLE_LINE_WIDTH,
         valign: 'middle',
         halign: 'left',
       },
@@ -1897,13 +1905,13 @@ function drawTopRowWithClientBlock(doc, clientMeta, numeroOrdem = null) {
 function drawTitleBar(doc, y, title) {
   pdfSetFont(doc, 'bold');
   doc.setFontSize(PDF_FONT_TITLE);
-  doc.setTextColor(...CORPORATE_BLUE_DARK);
+  doc.setTextColor(...CORPORATE_BLUE);
   const lines = pdfSplitText(doc, title, CONTENT_W);
   doc.text(lines, MARGIN, y + 4);
   const textH = lines.length * 5.2;
   y += textH + 2;
-  doc.setDrawColor(...CORPORATE_BLUE);
-  doc.setLineWidth(0.35);
+  doc.setDrawColor(...PDF_TABLE_LINE);
+  doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
   doc.line(MARGIN, y, MARGIN + CONTENT_W, y);
   touchPdfContentPage(doc);
   return y + PDF_SECTION_GAP_MM;
@@ -2019,7 +2027,7 @@ function drawSectionTitle(doc, y, title, options = {}) {
 
   pdfSetFont(doc, 'bold');
   doc.setFontSize(PDF_FONT_SECTION);
-  doc.setTextColor(...CORPORATE_BLUE_DARK);
+  doc.setTextColor(...CORPORATE_BLUE);
   doc.text(title.toUpperCase(), MARGIN + 3, y + bandH * 0.62);
   touchPdfContentPage(doc);
   return y + bandH + PDF_SECTION_GAP_MM;
@@ -2557,7 +2565,7 @@ async function drawMatrixInspectionBlock(doc, y, field, matrixValue) {
 
     pdfSetFont(doc, 'bold');
     doc.setFontSize(PDF_FONT_BODY);
-    doc.setTextColor(...CORPORATE_BLUE_DARK);
+    doc.setTextColor(...CORPORATE_BLUE);
     doc.text(cat.name.toUpperCase(), MARGIN, y);
     y += MATRIX_CAT_TITLE_H;
 
@@ -3030,8 +3038,8 @@ function drawDiagnosticAnalysisBlock(doc, y, label, section, value) {
   }
 
   doc.setFillColor(...PDF_SECTION_BG);
-  doc.setDrawColor(...CORPORATE_BLUE);
-  doc.setLineWidth(0.3);
+  doc.setDrawColor(...PDF_TABLE_LINE);
+  doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
 
   const lines = pdfParagraphLines(doc, value, CONTENT_W - 12);
   const textTop = innerTitle ? 14 : 8;
@@ -3042,7 +3050,7 @@ function drawDiagnosticAnalysisBlock(doc, y, label, section, value) {
   if (innerTitle) {
     pdfSetFont(doc, 'bold');
     doc.setFontSize(PDF_FONT_SUBTITLE);
-    doc.setTextColor(...CORPORATE_BLUE_DARK);
+    doc.setTextColor(...CORPORATE_BLUE);
     doc.text(innerTitle.toUpperCase(), MARGIN + 4, y + 7);
   }
 
