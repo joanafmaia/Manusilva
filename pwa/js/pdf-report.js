@@ -117,6 +117,7 @@ import {
   INSPECAO_DL50_MACHINE_FIELD_IDS,
   INSPECAO_DL50_PDF_SKIP_FIELD_IDS,
   resolveInspecaoDl50MachineFields,
+  splitDl50MatrixCategories,
 } from './inspecao-dl50-categories.js';
 
 const DB_KEY = 'manusilva_db';
@@ -743,8 +744,8 @@ const INSPECAO_DL50_MACHINE_PDF_SPECS = [
   },
   { id: 'data_fabrico', label: 'Data Fabrico', aliases: ['data_de_fabrico', 'data_fabricacao'] },
 ];
-/** gap ~16px entre colunas da matriz DL50 */
-const DL50_DUAL_MATRIX_GAP_MM = 4.2;
+/** gap ~20px entre colunas da matriz DL50 */
+const DL50_DUAL_MATRIX_GAP_MM = 5.3;
 const DL50_MATRIX_CAT_BAND_MM = 7;
 const DL50_MATRIX_FONT_PT = 9;
 const DL50_MATRIX_CAT_FONT_PT = 10;
@@ -1862,10 +1863,22 @@ function drawColumnSectionTitle(doc, x, y, width, title, options = {}) {
   doc.line(x, y - 1, x + width, y - 1);
 
   pdfSetFont(doc, 'bold');
-  doc.setFontSize(options.fontSize ?? PDF_FONT_SECTION);
+  const text = String(title).toUpperCase();
+  const maxW = width - 4;
+  let fontSize = options.fontSize ?? PDF_FONT_SECTION;
   doc.setTextColor(...CORPORATE_BLUE);
-  const lines = pdfSplitText(doc, String(title).toUpperCase(), width - 4);
-  doc.text(lines, x + 2, y + bandH * 0.55);
+  if (options.singleLine) {
+    doc.setFontSize(fontSize);
+    while (fontSize > 6 && doc.getTextWidth(text) > maxW) {
+      fontSize -= 0.4;
+      doc.setFontSize(fontSize);
+    }
+    doc.text(text, x + 2, y + bandH * 0.62);
+  } else {
+    doc.setFontSize(fontSize);
+    const lines = pdfSplitText(doc, text, maxW);
+    doc.text(lines, x + 2, y + bandH * 0.55);
+  }
   touchPdfContentPage(doc);
   return y + bandH + (options.gapAfter ?? 1.5);
 }
@@ -3092,26 +3105,6 @@ function estimateMatrixAutoTableHeight(doc, body, pointColWidth = MATRIX_POINT_C
   return height + MATRIX_CAT_GAP;
 }
 
-function splitBalancedCategories(categories) {
-  const left = [];
-  const right = [];
-  let leftWeight = 0;
-  let rightWeight = 0;
-
-  (categories || []).forEach((cat) => {
-    const weight = (cat.items || []).length + 2;
-    if (leftWeight <= rightWeight) {
-      left.push(cat);
-      leftWeight += weight;
-    } else {
-      right.push(cat);
-      rightWeight += weight;
-    }
-  });
-
-  return [left, right];
-}
-
 function estimateDl50CategoryBlockHeight(doc, body, colWidth) {
   const pointColWidth = colWidth * 0.72;
   const titleH = DL50_MATRIX_CAT_BAND_MM + 1;
@@ -3123,17 +3116,21 @@ function estimateDl50CategoryBlockHeight(doc, body, colWidth) {
   return titleH + tableH + 1.5;
 }
 
-async function drawDl50MatrixCategoryTable(doc, x, startY, width, cat, catData) {
+async function drawDl50MatrixCategoryTable(doc, x, startY, width, cat, catData, options = {}) {
   const { body, rowOpts } = buildMatrixCategoryTable(doc, cat, catData);
   if (!body.length) return startY;
 
   const blockH = estimateDl50CategoryBlockHeight(doc, body, width);
-  let y = ensureKeepTogetherBlock(doc, startY, Math.min(blockH, pdfMaxContentHeight()));
+  let y = startY;
+  if (!options.skipKeepTogether) {
+    y = ensureKeepTogetherBlock(doc, startY, Math.min(blockH, pdfMaxContentHeight()));
+  }
 
   y = drawColumnSectionTitle(doc, x, y, width, cat.name, {
     bandH: DL50_MATRIX_CAT_BAND_MM,
     fontSize: DL50_MATRIX_CAT_FONT_PT,
     gapAfter: 1,
+    singleLine: true,
   });
 
   const pointW = width * 0.72;
@@ -3198,7 +3195,7 @@ async function drawDl50MatrixCategoryTable(doc, x, startY, width, cat, catData) 
 
 async function drawDl50DualMatrixInspectionBlock(doc, y, field, matrixValue) {
   const categories = field.categories || [];
-  const [leftCats, rightCats] = splitBalancedCategories(categories);
+  const [leftCats, rightCats] = splitDl50MatrixCategories(categories);
   const gap = DL50_DUAL_MATRIX_GAP_MM;
   const colW = (CONTENT_W - gap) / 2;
   const leftX = MARGIN;
@@ -3207,24 +3204,66 @@ async function drawDl50DualMatrixInspectionBlock(doc, y, field, matrixValue) {
   y = drawSectionTitle(doc, y, getBlockPdfTitle(field) || 'Pontos de Inspeção');
   y = drawDivider(doc, y - 4);
 
-  const startY = y;
-  let leftY = startY;
-  for (const cat of leftCats) {
-    const catKey = columnKey(cat.name);
-    const catData = matrixValue[catKey] || {};
-    leftY = await drawDl50MatrixCategoryTable(doc, leftX, leftY, colW, cat, catData);
-    leftY += 1.2;
+  const rowCount = Math.max(leftCats.length, rightCats.length);
+  for (let i = 0; i < rowCount; i++) {
+    const leftCat = leftCats[i];
+    const rightCat = rightCats[i];
+
+    let leftH = 0;
+    let rightH = 0;
+    if (leftCat) {
+      const { body } = buildMatrixCategoryTable(
+        doc,
+        leftCat,
+        matrixValue[columnKey(leftCat.name)] || {},
+      );
+      if (body.length) leftH = estimateDl50CategoryBlockHeight(doc, body, colW);
+    }
+    if (rightCat) {
+      const { body } = buildMatrixCategoryTable(
+        doc,
+        rightCat,
+        matrixValue[columnKey(rightCat.name)] || {},
+      );
+      if (body.length) rightH = estimateDl50CategoryBlockHeight(doc, body, colW);
+    }
+
+    const rowH = Math.max(leftH, rightH);
+    if (rowH > 0) {
+      y = ensureKeepTogetherBlock(doc, y, Math.min(rowH, pdfMaxContentHeight()));
+    }
+
+    const rowStartY = y;
+    let leftEnd = rowStartY;
+    let rightEnd = rowStartY;
+
+    if (leftCat) {
+      leftEnd = await drawDl50MatrixCategoryTable(
+        doc,
+        leftX,
+        rowStartY,
+        colW,
+        leftCat,
+        matrixValue[columnKey(leftCat.name)] || {},
+        { skipKeepTogether: true },
+      );
+    }
+    if (rightCat) {
+      rightEnd = await drawDl50MatrixCategoryTable(
+        doc,
+        rightX,
+        rowStartY,
+        colW,
+        rightCat,
+        matrixValue[columnKey(rightCat.name)] || {},
+        { skipKeepTogether: true },
+      );
+    }
+
+    y = Math.max(leftEnd, rightEnd) + 1.2;
   }
 
-  let rightY = startY;
-  for (const cat of rightCats) {
-    const catKey = columnKey(cat.name);
-    const catData = matrixValue[catKey] || {};
-    rightY = await drawDl50MatrixCategoryTable(doc, rightX, rightY, colW, cat, catData);
-    rightY += 1.2;
-  }
-
-  return Math.max(leftY, rightY) + PDF_SECTION_GAP_MM;
+  return y + PDF_SECTION_GAP_MM;
 }
 
 async function drawMatrixInspectionBlock(doc, y, field, matrixValue, service = null) {
@@ -3435,11 +3474,14 @@ async function drawReportClosingSection(doc, y, opts) {
     estimateSignaturesHeight(closingProfile);
 
   let closingHeight = estimateClosingHeight(profile);
-  y = ensureKeepTogetherBlock(doc, y, Math.min(closingHeight, pdfMaxContentHeight()));
-  profile = planReportClosingProfile(doc, y, opts);
-  closingHeight = estimateClosingHeight(profile);
-
   const isDl50Closing = opts.service?.id === INSPECAO_DL50_SERVICE_ID;
+
+  if (!isDl50Closing) {
+    y = ensureKeepTogetherBlock(doc, y, Math.min(closingHeight, pdfMaxContentHeight()));
+    profile = planReportClosingProfile(doc, y, opts);
+    closingHeight = estimateClosingHeight(profile);
+  }
+
   if (isDl50Closing) {
     const dl50TailH =
       (hasLegal ? estimateLegalVerdictHeight(doc, opts.legalValue, profile) : 0) +

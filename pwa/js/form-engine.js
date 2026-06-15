@@ -32,6 +32,7 @@ import {
   STANDARD_VISITAS_FIELD,
   VISITAS_FIELD_ID,
 } from './deslocacao-field.js';
+import { splitDl50MatrixCategories } from './inspecao-dl50-categories.js';
 
 export { renderClientCombobox, renderHeaderClientCombobox, bindClientComboboxes, collectClientComboboxValues };
 
@@ -1839,9 +1840,28 @@ function toggleMatrixAccordionItem(item) {
   toolbar?.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
 }
 
-function splitBalancedCategories(categories) {
-  const mid = Math.ceil((categories || []).length / 2);
-  return [(categories || []).slice(0, mid), (categories || []).slice(mid)];
+function renderDl50Matrix4OptionsField(field, value) {
+  const options = field.options || ['B', 'N', 'D', 'N.A.'];
+  const states = value && typeof value === 'object' ? value : {};
+  const categories = field.categories || [];
+  const [leftCats, rightCats] = splitDl50MatrixCategories(categories);
+  const legend = options
+    .map((o) => `<span><strong>${escapeHtml(matrixOptionDisplay(o))}</strong> = ${escapeHtml(matrixLegendLabel(o))}</span>`)
+    .join('');
+
+  const renderColumn = (cats) =>
+    cats.map((cat) => renderDl50MatrixCategory(cat, states, options)).join('');
+
+  return `
+    <div class="form-group field-block matrix-inspection-field dl50-matrix-field" data-matrix-field="${field.id}">
+      <label class="form-label">${escapeHtml(field.label)}</label>
+      <div class="matrix-legend dl50-matrix-legend">${legend}</div>
+      <div class="grid-inspecao">
+        <div class="grid-inspecao-col grid-inspecao-col--left">${renderColumn(leftCats)}</div>
+        <div class="grid-inspecao-col grid-inspecao-col--right">${renderColumn(rightCats)}</div>
+      </div>
+    </div>
+  `;
 }
 
 function renderDl50MatrixCategory(cat, states, options) {
@@ -1903,30 +1923,6 @@ function renderDl50MatrixCategory(cat, states, options) {
           </thead>
           <tbody>${rows}</tbody>
         </table>
-      </div>
-    </div>
-  `;
-}
-
-function renderDl50Matrix4OptionsField(field, value) {
-  const options = field.options || ['B', 'N', 'D', 'N.A.'];
-  const states = value && typeof value === 'object' ? value : {};
-  const categories = field.categories || [];
-  const [leftCats, rightCats] = splitBalancedCategories(categories);
-  const legend = options
-    .map((o) => `<span><strong>${escapeHtml(matrixOptionDisplay(o))}</strong> = ${escapeHtml(matrixLegendLabel(o))}</span>`)
-    .join('');
-
-  const renderColumn = (cats) =>
-    cats.map((cat) => renderDl50MatrixCategory(cat, states, options)).join('');
-
-  return `
-    <div class="form-group field-block matrix-inspection-field dl50-matrix-field" data-matrix-field="${field.id}">
-      <label class="form-label">${escapeHtml(field.label)}</label>
-      <div class="matrix-legend dl50-matrix-legend">${legend}</div>
-      <div class="dl50-matrix-dual-grid">
-        <div class="dl50-matrix-column">${renderColumn(leftCats)}</div>
-        <div class="dl50-matrix-column">${renderColumn(rightCats)}</div>
       </div>
     </div>
   `;

@@ -127,6 +127,30 @@ export const INSPECAO_DL50_LEGAL_OPTIONS = [
   'O empilhador NÃO deve ser utilizado até se efetuarem as reparações',
 ];
 
+/** Coluna esquerda da matriz DL50 (ordem fixa no formulário e PDF) */
+export const DL50_MATRIX_LEFT_NAMES = [
+  'Chassis',
+  'Motor',
+  'Direção',
+  'Rodas',
+  'Sistemas de segurança',
+];
+
+/** Coluna direita da matriz DL50 */
+export const DL50_MATRIX_RIGHT_NAMES = ['Mastro', 'Bateria', 'Sistema de travões', 'Outros'];
+
+function findDl50Category(categories, name) {
+  const target = String(name).toLowerCase();
+  return (categories || []).find((cat) => String(cat?.name || '').toLowerCase() === target) || null;
+}
+
+/** Divide categorias DL50 em duas colunas com distribuição manual fixa */
+export function splitDl50MatrixCategories(categories) {
+  const left = DL50_MATRIX_LEFT_NAMES.map((name) => findDl50Category(categories, name)).filter(Boolean);
+  const right = DL50_MATRIX_RIGHT_NAMES.map((name) => findDl50Category(categories, name)).filter(Boolean);
+  return [left, right];
+}
+
 /* ─── PDF: cabeçalho (Informações da Máquina → Periodicidade) ─── */
 
 /** Alturas (mm) — estrutura Y do cabeçalho no PDF */
