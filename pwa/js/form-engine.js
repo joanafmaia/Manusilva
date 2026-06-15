@@ -1388,10 +1388,11 @@ function updateVerificationAccordionProgress(wrap) {
     else ok += 1;
   });
   const total = items.length;
-  progressEl.textContent = `${ok}/${total} OK`;
+  progressEl.textContent = `${ok}/${total}`;
   if (failEl) {
     failEl.textContent = fail > 0 ? `${fail} Não OK` : '';
     failEl.classList.toggle('is-visible', fail > 0);
+    failEl.hidden = fail <= 0;
   }
   updateVerificationBulkOkBtnState(wrap);
 }
@@ -1431,9 +1432,23 @@ function markVerificationAllOk(wrap) {
   wrap.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
+function clearVerificationAllOk(wrap) {
+  if (!wrap) return;
+  wrap.querySelectorAll('[data-verify-item]').forEach((input) => {
+    input.checked = true;
+    syncVerificationItemState(input, wrap);
+  });
+  updateVerificationAccordionProgress(wrap);
+  wrap.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
 function toggleVerificationAllOk(wrap) {
-  if (!wrap || isVerificationFieldAllOk(wrap)) return;
-  markVerificationAllOk(wrap);
+  if (!wrap) return;
+  if (isVerificationFieldAllOk(wrap)) {
+    clearVerificationAllOk(wrap);
+  } else {
+    markVerificationAllOk(wrap);
+  }
 }
 
 function updateVerificationBulkOkBtnState(wrap) {
@@ -1444,11 +1459,14 @@ function updateVerificationBulkOkBtnState(wrap) {
   bulkBtn.setAttribute('aria-pressed', allOk ? 'true' : 'false');
 }
 
-const VERIFICATION_BULK_OK_BTN = `
-  <button type="button" class="matrix-bulk-good-btn" data-verification-bulk-ok
-    aria-pressed="false"
-    aria-label="Marcar todos os pontos como OK">✓ Tudo OK</button>
-`;
+function verificationBulkOkBtnHtml(title = '') {
+  const scope = title ? ` de ${title}` : '';
+  return `
+    <button type="button" class="matrix-bulk-good-btn" data-verification-bulk-ok
+      aria-pressed="false"
+      aria-label="Marcar ou limpar todos os pontos${scope} como OK">✓ Tudo OK</button>
+  `;
+}
 
 function renderVerificationTogglesField(field, value) {
   const items = field.items || [];
@@ -1483,10 +1501,14 @@ function renderVerificationTogglesField(field, value) {
   if (!useAccordion) {
     return `
       <div class="form-group field-block verification-toggles-field" data-verification-field="${field.id}">
-        <div class="verification-list-toolbar">
-          <label class="form-label">${escapeHtml(field.label)}</label>
-          ${VERIFICATION_BULK_OK_BTN}
+        <div class="verification-inline-toolbar">
+          <label class="matrix-accordion-title verification-inline-title">${escapeHtml(field.label)}</label>
+          <div class="matrix-accordion-meta">
+            <span class="matrix-cat-progress" data-verify-progress>${Object.keys(states).length ? countVerificationProgress(items, states).ok : items.length}/${items.length}</span>
+            ${verificationBulkOkBtnHtml(field.label)}
+          </div>
         </div>
+        <span class="verify-progress-fail verification-inline-fail" data-verify-fail-count hidden></span>
         ${listHtml}
       </div>
     `;
@@ -1497,19 +1519,21 @@ function renderVerificationTogglesField(field, value) {
   const accordionTitle = field.section || field.label;
 
   return `
-    <div class="form-group field-block verification-toggles-field verification-accordion-item ${openClass}"
+    <div class="form-group field-block verification-toggles-field verification-accordion-item matrix-accordion-item ${openClass}"
       data-verification-field="${field.id}" data-collapsible="true">
-      <button type="button" class="verification-accordion-header" aria-expanded="${field.defaultOpen !== false}">
-        <span class="verification-accordion-title">${escapeHtml(accordionTitle)}</span>
-        <span class="verification-accordion-meta">
-          <span class="verify-progress-ok" data-verify-progress>${ok}/${total} OK</span>
-          <span class="verify-progress-fail${fail ? ' is-visible' : ''}" data-verify-fail-count>${fail ? `${fail} Não OK` : ''}</span>
-          ${VERIFICATION_BULK_OK_BTN}
+      <div class="matrix-accordion-toolbar verification-accordion-toolbar" role="button" tabindex="0"
+        aria-expanded="${field.defaultOpen !== false ? 'true' : 'false'}"
+        aria-label="Expandir ou recolher ${escapeHtml(accordionTitle)}">
+        <span class="matrix-accordion-title">${escapeHtml(accordionTitle)}</span>
+        <div class="matrix-accordion-meta">
+          <span class="matrix-cat-progress" data-verify-progress>${ok}/${total}</span>
+          ${verificationBulkOkBtnHtml(accordionTitle)}
           <span class="matrix-chevron" aria-hidden="true"></span>
-        </span>
-      </button>
-      <div class="verification-accordion-panel">
+        </div>
+      </div>
+      <div class="matrix-accordion-panel verification-accordion-panel">
         <p class="verification-group-subtitle">${escapeHtml(field.label)}</p>
+        <span class="verify-progress-fail verification-panel-fail${fail ? ' is-visible' : ''}" data-verify-fail-count>${fail ? `${fail} Não OK` : ''}</span>
         ${listHtml}
       </div>
     </div>
@@ -1818,15 +1842,6 @@ export async function bindFormFieldInteractions(overlay) {
     });
   });
 
-  overlay.querySelectorAll('.verification-accordion-header').forEach((header) => {
-    header.addEventListener('click', (e) => {
-      if (e.target.closest('[data-verification-bulk-ok]')) return;
-      const item = header.closest('.verification-accordion-item');
-      const isOpen = item?.classList.toggle('is-open');
-      header.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
-    });
-  });
-
   overlay.querySelectorAll('[data-verification-bulk-ok]').forEach((btn) => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -1980,11 +1995,11 @@ export async function bindFormFieldInteractions(overlay) {
       toggleMatrixAccordionItem(toolbar.closest('.matrix-accordion-item'));
     };
     toolbar.addEventListener('click', (e) => {
-      if (e.target.closest('[data-matrix-bulk-good]')) return;
+      if (e.target.closest('[data-matrix-bulk-good]') || e.target.closest('[data-verification-bulk-ok]')) return;
       toggle();
     });
     toolbar.addEventListener('keydown', (e) => {
-      if (e.target.closest('[data-matrix-bulk-good]')) return;
+      if (e.target.closest('[data-matrix-bulk-good]') || e.target.closest('[data-verification-bulk-ok]')) return;
       if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();
         toggle();
