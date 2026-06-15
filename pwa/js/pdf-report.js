@@ -520,6 +520,7 @@ export async function renderInterventionPDF(report) {
   const clientMeta = await resolvePdfClientMeta(report, normalizeReportValues(data));
   const isDl50Pdf = report.serviceType === 'inspecao_dl50_2005';
   const isPreventivaBateriaPdf = report.serviceType === 'manutencao_preventiva_bateria';
+  const isFolhaIntervencaoAvariasPdf = report.serviceType === 'folha_intervencao_avarias';
   const fotoAntesUrl = data.fotoAntesUrl || job?.fotoAntes || null;
   const fotoDepoisUrl = data.fotoDepoisUrl || job?.fotoDepois || null;
   const techName = tech?.name || '—';
@@ -545,7 +546,7 @@ export async function renderInterventionPDF(report) {
     simplePhotoLegend: true,
     signatures: data.signatures || {},
     closingValues: values,
-    skipClosingDiagnostic: isPreventivaBateriaPdf,
+    skipClosingDiagnostic: isPreventivaBateriaPdf || isFolhaIntervencaoAvariasPdf,
   };
 
   let y;
@@ -554,6 +555,14 @@ export async function renderInterventionPDF(report) {
     y = drawFolhaTitleBar(doc, y, title);
     y = await drawPreventivaBateriaBody(doc, y, values, service);
     y = await drawPreventivaBateriaClosingSection(doc, y, {
+      signatures: data.signatures || {},
+      values,
+    });
+  } else if (isFolhaIntervencaoAvariasPdf) {
+    y = drawPreventivaBateriaMirrorHeader(doc, clientMeta, techName, report, job, values);
+    y = drawFolhaTitleBar(doc, y, title);
+    y = await drawFolhaIntervencaoAvariasBody(doc, y, values, service, pdfContext);
+    y = await drawFolhaIntervencaoAvariasClosingSection(doc, y, {
       signatures: data.signatures || {},
       values,
     });
@@ -580,7 +589,7 @@ export async function renderInterventionPDF(report) {
 
   touchPdfContentPage(doc);
   trimTrailingBlankPages(doc);
-  if (isPreventivaBateriaPdf) {
+  if (isPreventivaBateriaPdf || isFolhaIntervencaoAvariasPdf) {
     drawFolhaDocumentFooters(doc);
   } else {
     drawPageFooter(doc, report.id);
@@ -1091,65 +1100,142 @@ async function drawFolhaMaterialTable(doc, y, rows, options = {}) {
   return normalizeYAfterAutoTable(doc, y, 8);
 }
 
-async function drawFolhaInterventionMetricsTable(doc, y, values) {
+async function drawFolhaIntervencaoMaquinaTable(doc, y, values, pdfContext = null) {
+  const serieFallback = pdfContext?.forkliftSerial || pdfContext?.report?.forkliftSerial || null;
+  const marca = pdfDisplayValue(resolvePdfStandardFieldValue(values, { id: 'marca' }));
+  const modelo = pdfDisplayValue(resolvePdfStandardFieldValue(values, { id: 'modelo' }));
+  const serie = pdfDisplayValue(
+    resolvePdfStandardFieldValue(
+      values,
+      { id: 'numero_de_serie', aliases: ['num_serie', 'numero_serie', 'n_serie'] },
+      serieFallback,
+    ),
+  );
+  const nInterno = pdfDisplayValue(
+    resolvePdfStandardFieldValue(values, { id: 'n_interno', aliases: ['num_interno'] }),
+  );
+  const horas = pdfDisplayValue(resolvePdfStandardFieldValue(values, { id: 'horas' }));
+
+  const colW = CONTENT_W / 2;
+  return drawPreventivaBateriaClosedSectionTable(doc, y, {
+    sectionTitle: 'INFORMAÇÕES DA MÁQUINA',
+    colSpan: 2,
+    body: [
+      [`Marca: ${marca}`, `Modelo: ${modelo}`],
+      [`Numero de Série: ${serie}`, `Nº Interno: ${nInterno}`],
+      [{ content: `Horas: ${horas}`, colSpan: 2 }],
+    ],
+    minBlockH: 52,
+    columnStyles: {
+      0: { cellWidth: colW, halign: 'left' },
+      1: { cellWidth: colW, halign: 'left' },
+    },
+  });
+}
+
+async function drawFolhaIntervencaoTextSection(doc, y, sectionTitle, text) {
+  const display = pdfDisplayValue(text) || '—';
+  const lineCount = pdfParagraphLines(doc, display, CONTENT_W - 14).length;
+  return drawPreventivaBateriaClosedSectionTable(doc, y, {
+    sectionTitle: sectionTitle.toUpperCase(),
+    colSpan: 2,
+    body: [[{ content: display, colSpan: 2 }]],
+    minBlockH: Math.max(24, lineCount * 5 + 14),
+    bodyStyles: { valign: 'top', halign: 'left' },
+    columnStyles: {
+      0: { cellWidth: CONTENT_W, halign: 'left', valign: 'top' },
+    },
+  });
+}
+
+async function drawFolhaIntervencaoMaterialTable(doc, y, rows) {
+  const columns = MATERIAL_UTILIZADO_COLUMNS;
+  const colKeys = columns.map((c) => columnKey(c));
+  const body =
+    rows.length > 0
+      ? rows.map((row) => colKeys.map((key) => pdfDisplayValue(row[key])))
+      : [['—', '—']];
+  const colW = CONTENT_W / 2;
+  return drawPreventivaBateriaClosedSectionTable(doc, y, {
+    sectionTitle: 'MATERIAL UTILIZADO',
+    colSpan: 2,
+    columnHead: ['Material', 'Quantidade'],
+    body,
+    minBlockH: 28 + body.length * 7.5,
+    columnStyles: {
+      0: { cellWidth: colW, halign: 'left' },
+      1: { cellWidth: colW, halign: 'left' },
+    },
+  });
+}
+
+async function drawFolhaIntervencaoDatasTable(doc, y, values) {
   const data1 = formatFolhaInterventionDate(
     resolvePdfStandardFieldValue(values, { id: 'data_1' }, values.data_de_conclusao),
   );
   const data2 = formatFolhaInterventionDate(resolvePdfStandardFieldValue(values, { id: 'data_2' }));
-  const visitas =
-    pdfDisplayValue(
-      resolvePdfStandardFieldValue(values, {
-        id: VISITAS_FIELD_ID,
-        aliases: ['visitas', 'numero_visitas'],
-      }),
-    ) || formatPdfNumeroVisitas(values);
-  const horas =
-    pdfDisplayValue(
-      resolvePdfStandardFieldValue(values, { id: 'horas', aliases: ['horas_gastas'] }),
-    ) || '—';
+  const horasGastas = pdfDisplayValue(resolvePdfStandardFieldValue(values, { id: 'horas_gastas' }));
 
-  const colW = CONTENT_W / 4;
-  const blockH = 22;
-  y = ensureKeepTogetherBlock(doc, y, blockH + 4);
+  const colW = CONTENT_W / 3;
+  return drawPreventivaBateriaClosedSectionTable(doc, y, {
+    sectionTitle: 'DATAS DE INTERVENÇÃO',
+    colSpan: 3,
+    columnHead: ['Data 1', 'Data 2', 'Horas Gastas'],
+    body: [[data1, data2, horasGastas]],
+    minBlockH: 36,
+    bodyStyles: { halign: 'center' },
+    columnStyles: {
+      0: { cellWidth: colW, halign: 'center' },
+      1: { cellWidth: colW, halign: 'center' },
+      2: { cellWidth: colW, halign: 'center' },
+    },
+  });
+}
 
-  await loadJsPdfAutoTable();
-  doc.autoTable(
-    buildFolhaAutoTableConfig(doc, y, {
-      head: [['Data 1', 'Data 2', 'Nº de Visitas', 'Horas Gastas']],
-      body: [[data1, data2, visitas, horas]],
-      headStyles: {
-        font: pdfAutoTableFont(doc),
-        fillColor: FOLHA_TABLE_HEAD_FILL,
-        textColor: TEXT_DARK,
-        fontStyle: 'bold',
-        fontSize: PDF_FONT_BODY,
-        lineColor: PDF_TABLE_LINE,
-        lineWidth: 0.2,
-        halign: 'center',
-        valign: 'middle',
-      },
-      bodyStyles: {
-        font: pdfAutoTableFont(doc),
-        fillColor: PDF_TABLE_BODY_FILL,
-        textColor: TEXT_DARK,
-        fontStyle: 'normal',
-        fontSize: PDF_FONT_BODY,
-        lineColor: PDF_TABLE_LINE,
-        lineWidth: 0.2,
-        halign: 'center',
-        valign: 'middle',
-      },
-      columnStyles: {
-        0: { cellWidth: colW, halign: 'center' },
-        1: { cellWidth: colW, halign: 'center' },
-        2: { cellWidth: colW, halign: 'center' },
-        3: { cellWidth: colW, halign: 'center' },
-      },
-    }),
-  );
+async function drawFolhaIntervencaoEstadoBlock(doc, y, values) {
+  const estado = pdfDisplayValue(resolvePdfStandardFieldValue(values, { id: 'estado_maquina' }));
+  return drawPreventivaBateriaClosedSectionTable(doc, y, {
+    sectionTitle: 'ESTADO EM QUE FICOU A MÁQUINA',
+    colSpan: 2,
+    body: [[{ content: estado, colSpan: 2 }]],
+    minBlockH: 24,
+    bodyStyles: { halign: 'left', fontStyle: 'normal' },
+    columnStyles: {
+      0: { cellWidth: CONTENT_W, halign: 'left' },
+    },
+  });
+}
 
-  touchPdfContentPage(doc);
-  return normalizeYAfterAutoTable(doc, y, 8);
+async function drawFolhaIntervencaoAvariasBody(doc, y, values, service, pdfContext = null) {
+  y = await drawFolhaIntervencaoMaquinaTable(doc, y, values, pdfContext);
+  y = await drawFolhaIntervencaoTextSection(doc, y, 'Deteção de Avaria', values.detecao_de_avaria);
+  y = await drawFolhaIntervencaoTextSection(doc, y, 'Resolução da Avaria', values.resolucao_da_avaria);
+
+  const materialField = (service?.fields || []).find((f) => isMaterialTableField(f));
+  const rows = materialField
+    ? normalizeMaterialRows(values[materialField.id]).filter(
+        (row) => String(row.artigo || '').trim() || row.qtd,
+      )
+    : [];
+  y = await drawFolhaIntervencaoMaterialTable(doc, y, rows);
+  return drawFolhaIntervencaoDatasTable(doc, y, values);
+}
+
+async function drawFolhaIntervencaoAvariasClosingSection(doc, y, opts) {
+  const values = opts.values || {};
+  const profile = FOLHA_CLOSING_PROFILE;
+  const closingBlockH =
+    36 + estimateSignaturesHeight(profile) + FOLHA_INSTITUTIONAL_FOOTER_H_MM;
+
+  y = ensureKeepTogetherBlock(doc, y, Math.min(closingBlockH, pdfMaxContentHeight()));
+  y = await drawFolhaIntervencaoEstadoBlock(doc, y, values);
+
+  return drawSignaturesFooter(doc, y, opts.signatures || {}, {
+    topMargin: profile.sigTop,
+    imgHeight: profile.sigImg,
+    skipEnsure: true,
+    reserveInstitutionalFooter: true,
+  });
 }
 
 async function drawPreventivaBateriaClosingSection(doc, y, opts) {

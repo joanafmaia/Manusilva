@@ -236,10 +236,30 @@ export const PREVENTIVA_BATERIA_PDF_FIELD_IDS = new Set([
   'data_de_conclusao',
 ]);
 
+/** Campos desenhados no layout dedicado — Folha de Intervenção de Avarias */
+export const FOLHA_INTERVENCAO_AVARIAS_PDF_FIELD_IDS = new Set([
+  'marca',
+  'modelo',
+  'numero_de_serie',
+  'num_serie',
+  'numero_serie',
+  'n_serie',
+  'n_interno',
+  'num_interno',
+  'horas',
+  'detecao_de_avaria',
+  'resolucao_da_avaria',
+  'material_utilizado',
+  'horas_gastas',
+  'estado_maquina',
+  'data_de_conclusao',
+]);
+
 export const PDF_LAYOUT_SKIP_FIELD_IDS = new Set([
   ...PDF_STANDARD_MACHINE_SPECS.flatMap((s) => [s.id, ...(s.aliases || [])]),
   ...PDF_CLOSING_DIAGNOSTIC_SPECS.flatMap((s) => [s.id, ...(s.aliases || [])]),
   ...PREVENTIVA_BATERIA_PDF_FIELD_IDS,
+  ...FOLHA_INTERVENCAO_AVARIAS_PDF_FIELD_IDS,
   'deslocacao',
   'visitas_realizadas',
   'visitas',
