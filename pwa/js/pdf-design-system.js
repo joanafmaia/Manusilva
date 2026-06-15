@@ -155,6 +155,7 @@ export function isScalarCompactSection(section, service) {
     return true;
   }
   if (norm.includes('resultado do teste') || norm.includes('periodicidade')) return true;
+  if (norm.includes('fecho')) return true;
   return false;
 }
 
@@ -271,6 +272,7 @@ export const REPARACAO_CARREGADOR_PDF_FIELD_IDS = new Set([
   'numero_de_serie',
   'num_serie',
   'registo_intervencao',
+  'resultado_teste',
   'valor_amperagem_debitado',
   'consumiveis_material',
   'deslocacao',

@@ -1276,34 +1276,17 @@ function formatPdfCarregadorConclusaoDate(report, job, values = {}) {
   return y && m && d ? `${d}/${m}/${y}` : pdfDisplayValue(raw);
 }
 
-function resolvePdfCarregadorClientMorada(values = {}, clientMeta = {}) {
-  const morada = cleanPdfText(values.morada || clientMeta?.addressLine || '');
-  const localidade = cleanPdfText(values.localidade || clientMeta?.localidade || '');
-  const subline = cleanPdfText(clientMeta?.addressSubline || '');
-  const parts = [];
-  if (morada) parts.push(morada);
-  if (subline && !morada.includes(subline)) parts.push(subline);
-  else if (localidade && !morada.includes(localidade)) parts.push(localidade);
-  return parts.join(', ').trim();
-}
-
-function resolvePdfCarregadorClientNif(values = {}, clientMeta = {}) {
-  const direct = cleanPdfText(values.nif || '');
-  if (direct) return direct;
-  return cleanPdfText(clientMeta?.nif || '');
-}
-
-function buildReparacaoCarregadorClienteTableBody(values = {}, clientMeta = {}) {
-  const cliente = pdfDisplayValue(values.cliente || clientMeta?.nome);
-  const morada = resolvePdfCarregadorClientMorada(values, clientMeta);
-  const nif = resolvePdfCarregadorClientNif(values, clientMeta);
-  const body = [[`Cliente:`, cliente], [`Morada:`, morada || '—']];
-  if (nif) body.push([`NIF:`, nif]);
-  return body;
+function buildReparacaoCarregadorClienteTableBody(values = {}) {
+  const dataRececao = formatFolhaInterventionDate(values.data_rececao);
+  const etiqueta = pdfDisplayValue(values.etiqueta);
+  return [
+    [`Data Receção:`, dataRececao],
+    [`Etiqueta:`, etiqueta],
+  ];
 }
 
 /** Topo bilateral — Reparação Carregador: logo + metadados (esq.) | tabela Identificação Cliente (dir.) */
-async function drawReparacaoCarregadorClienteTable(doc, startY, values, clientMeta) {
+async function drawReparacaoCarregadorClienteTable(doc, startY, values) {
   const rightTableW = CONTENT_W * 0.48;
   const rightMarginLeft = PAGE_W - MARGIN - rightTableW;
   const labelColW = rightTableW * 0.32;
@@ -1322,7 +1305,7 @@ async function drawReparacaoCarregadorClienteTable(doc, startY, values, clientMe
           },
         ],
       ],
-      body: buildReparacaoCarregadorClienteTableBody(values, clientMeta),
+      body: buildReparacaoCarregadorClienteTableBody(values),
       headStyles: preventivaBateriaTableHeadStyles(),
       bodyStyles: {
         font: pdfAutoTableFont(doc),
@@ -1376,7 +1359,7 @@ async function drawReparacaoCarregadorTopSection(doc, clientMeta, techName, repo
     drawLogoPlaceholder(doc, MARGIN, topY, logoW, logoH);
   }
 
-  const rightBottomY = await drawReparacaoCarregadorClienteTable(doc, topY, values, clientMeta);
+  const rightBottomY = await drawReparacaoCarregadorClienteTable(doc, topY, values);
 
   let leftY = topY + logoH + 3;
   pdfSetFont(doc, 'normal');
@@ -1401,24 +1384,16 @@ async function drawReparacaoCarregadorIdentificacaoTable(doc, y, values, pdfCont
       serieFallback,
     ),
   );
-  const dataRececao = formatFolhaInterventionDate(values.data_rececao);
-  const colW = CONTENT_W / 3;
+  const colW = CONTENT_W / 2;
 
   return drawPreventivaBateriaClosedSectionTable(doc, y, {
     sectionTitle: 'IDENTIFICAÇÃO DO CARREGADOR',
-    colSpan: 3,
-    body: [
-      [
-        `Marca/Modelo: ${marcaModelo}`,
-        `Numero de Série: ${serie}`,
-        `Data Receção: ${dataRececao}`,
-      ],
-    ],
-    minBlockH: 32,
+    colSpan: 2,
+    body: [[`Marca/Modelo: ${marcaModelo}`, `Numero de Série: ${serie}`]],
+    minBlockH: 28,
     columnStyles: {
       0: { cellWidth: colW, halign: 'left' },
       1: { cellWidth: colW, halign: 'left' },
-      2: { cellWidth: colW, halign: 'left' },
     },
   });
 }
@@ -1462,22 +1437,38 @@ async function drawReparacaoCarregadorRegistoTable(doc, y, values, pdfContext = 
   });
 }
 
+function normalizeResultadoTesteRows(rows, values = {}) {
+  const list = Array.isArray(rows) ? rows : [];
+  const mapped = list
+    .map((row) => {
+      if (!row || typeof row !== 'object') return null;
+      const amperagem = pdfDisplayValue(
+        row.valor_da_amperagem_debitado ?? row.valor_amperagem_debitado,
+      );
+      const equipamento = pdfDisplayValue(row.equipamento);
+      if (amperagem === '—' && equipamento === '—') return null;
+      return [amperagem, equipamento];
+    })
+    .filter(Boolean);
+  if (mapped.length > 0) return mapped;
+  const legacy = pdfDisplayValue(values.valor_amperagem_debitado);
+  if (legacy !== '—') return [[legacy, '—']];
+  return [['—', '—']];
+}
+
 async function drawReparacaoCarregadorResultadoTesteBlock(doc, y, values) {
-  const amperagem = pdfDisplayValue(values.valor_amperagem_debitado);
-  const labelColW = CONTENT_W * 0.42;
+  const body = normalizeResultadoTesteRows(values.resultado_teste, values);
+  const colW = CONTENT_W / 2;
   return drawPreventivaBateriaClosedSectionTable(doc, y, {
     sectionTitle: 'RESULTADO DO TESTE',
     colSpan: 2,
-    body: [[`Valor da amperagem debitado:`, amperagem]],
-    minBlockH: 28,
+    columnHead: ['Valor da amperagem debitado', 'Equipamento'],
+    body,
+    minBlockH: 28 + body.length * 7.5,
+    bodyStyles: { halign: 'left', valign: 'middle' },
     columnStyles: {
-      0: {
-        cellWidth: labelColW,
-        fontStyle: 'normal',
-        textColor: TEXT_DARK,
-        halign: 'left',
-      },
-      1: { cellWidth: CONTENT_W - labelColW, halign: 'left' },
+      0: { cellWidth: colW, halign: 'left' },
+      1: { cellWidth: colW, halign: 'left' },
     },
   });
 }
@@ -1515,15 +1506,23 @@ async function drawReparacaoCarregadorConsumiveisTable(doc, y, rows) {
 async function drawReparacaoCarregadorFechoBlock(doc, y, values) {
   const concluido = formatFolhaInterventionDate(values.concluido_testado_em);
   const responsavel = pdfDisplayValue(values.responsavel);
-  const colW = CONTENT_W / 2;
+  const labelColW = CONTENT_W * 0.38;
   return drawPreventivaBateriaClosedSectionTable(doc, y, {
-    sectionTitle: 'FECHO DE VALIDAÇÃO',
+    sectionTitle: 'FECHO',
     colSpan: 2,
-    body: [[`Concluido e Testado Em: ${concluido}`, `Responsável: ${responsavel}`]],
-    minBlockH: 28,
+    body: [
+      [`Concluido e Testado Em:`, concluido],
+      [`Responsável:`, responsavel],
+    ],
+    minBlockH: 32,
     columnStyles: {
-      0: { cellWidth: colW, halign: 'left' },
-      1: { cellWidth: colW, halign: 'left' },
+      0: {
+        cellWidth: labelColW,
+        fontStyle: 'normal',
+        textColor: TEXT_DARK,
+        halign: 'left',
+      },
+      1: { cellWidth: CONTENT_W - labelColW, halign: 'left' },
     },
   });
 }

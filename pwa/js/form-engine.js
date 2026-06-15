@@ -329,12 +329,10 @@ export function buildFormPrefill(service, job, _forklift, context = {}) {
       concluido_testado_em: '',
       cliente: nome,
       cliente_id: client?.NIF || client?.id || '',
-      nif: client?.NIF ?? client?.nif ?? '',
-      morada: client?.Morada ?? client?.morada ?? client?.address ?? '',
-      localidade: client?.Localidade ?? client?.localidade ?? '',
       etiqueta: '',
       responsavel: '',
       registo_intervencao: [interventionRow],
+      resultado_teste: [{ valor_da_amperagem_debitado: '', equipamento: '' }],
       consumiveis_material: [emptyMaterialRow()],
     };
   }
