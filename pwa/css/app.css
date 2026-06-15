@@ -8459,7 +8459,7 @@ body.dark-mode .client-history-status--rejected {
 
 /* Clientes Grandes — tabela Identificação Bateria */
 .form-field-section--grandes {
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 .form-workspace--grandes .rejection-banner,
@@ -8536,18 +8536,20 @@ body.dark-mode .client-history-status--rejected {
   color: #2b6cb0;
   font-size: 8.5pt;
   font-weight: 700;
-  padding: 3px 4px;
+  padding: 2px 4px;
   border-bottom: 1px solid #e2e8f0;
   text-align: left;
   white-space: nowrap;
+  line-height: 1.1;
 }
 
 .grandes-battery-table tbody td {
-  padding: 3px 4px;
+  padding: 2px 4px;
   border-bottom: 1px solid #e2e8f0;
   color: #2d3748;
   vertical-align: middle;
   font-size: 8.5pt;
+  line-height: 1.1;
 }
 
 .grandes-battery-table tbody tr:nth-child(even) td {
@@ -8576,7 +8578,8 @@ body.dark-mode .client-history-status--rejected {
   min-width: 4.5rem;
   width: 100%;
   font-size: 8.5pt;
-  padding: 3px 4px;
+  padding: 2px 4px;
+  line-height: 1.1;
 }
 
 .grandes-battery-toolbar {
@@ -8612,26 +8615,41 @@ body.dark-mode .client-history-status--rejected {
 }
 
 .grandes-dashboard-section .dynamic-table {
-  font-size: 9pt;
+  font-size: 8.5pt;
 }
 
 .grandes-dashboard-section .dynamic-table thead th {
   background: #edf2f7;
   color: #2b6cb0;
-  font-size: 9pt;
+  font-size: 8.5pt;
   font-weight: 700;
-  padding: 3px 4px;
+  padding: 2px 4px;
   border-bottom: 1px solid #e2e8f0;
+  line-height: 1.1;
 }
 
 .grandes-dashboard-section .dynamic-table tbody td {
-  padding: 3px 4px;
+  padding: 2px 4px;
   border-bottom: 1px solid #e2e8f0;
-  font-size: 9pt;
+  font-size: 8.5pt;
+  line-height: 1.1;
 }
 
 .grandes-dashboard-section .dynamic-table tbody tr:nth-child(even) td {
   background: #f8fafc;
+}
+
+.grandes-footer-dual {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+  margin-bottom: 8px;
+}
+
+.grandes-footer-dual .grandes-dashboard-section,
+.grandes-footer-dual .grandes-observations-box {
+  margin: 0;
+  min-width: 0;
 }
 
 .grandes-observations-box {
@@ -8662,9 +8680,11 @@ body.dark-mode .client-history-status--rejected {
 .grandes-observations-box .form-textarea {
   border: none;
   border-radius: 0 0 6px 6px;
-  min-height: 4.5rem;
-  font-size: 9pt;
-  padding: 0.5rem 0.65rem;
+  min-height: 3.5rem;
+  max-height: 5.5rem;
+  font-size: 8.5pt;
+  line-height: 1.1;
+  padding: 0.35rem 0.5rem;
   resize: vertical;
 }
 

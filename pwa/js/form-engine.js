@@ -633,6 +633,29 @@ function renderEmpilhadoresChecklistSection(section, fields, values, context) {
   `;
 }
 
+function mergeGrandesDualFooterGroups(groups) {
+  const result = [];
+  let i = 0;
+  while (i < groups.length) {
+    const current = groups[i];
+    const next = groups[i + 1];
+    const hasMaterial = current.fields.some((f) => isMaterialTableField(f));
+    const nextHasObs = next?.fields?.some((f) => f.id === 'observacoes');
+    if (hasMaterial && nextHasObs) {
+      result.push({
+        section: null,
+        fields: [...current.fields, ...next.fields],
+        _grandesDualFooter: true,
+      });
+      i += 2;
+      continue;
+    }
+    result.push(current);
+    i += 1;
+  }
+  return result;
+}
+
 export function renderReportFields(service, values = {}, context = {}, options = {}) {
   const tabFilter = options.tab || null;
   let fields = filterReportFields(service?.fields, service);
@@ -648,6 +671,9 @@ export function renderReportFields(service, values = {}, context = {}, options =
   }
 
   let groups = groupFieldsBySection(fields).filter(({ fields: sectionFields }) => sectionFields.length);
+  if (service?.id === 'manutencao_baterias_grandes') {
+    groups = mergeGrandesDualFooterGroups(groups);
+  }
   if (service?.id === EMPILHADORES_SERVICE_ID && tabFilter === 'checklist') {
     groups = mergeEmpilhadoresChecklistGroups(groups, service);
     return groups
@@ -658,7 +684,7 @@ export function renderReportFields(service, values = {}, context = {}, options =
   }
 
   return groups
-    .map(({ section, fields: sectionFields }) => {
+    .map(({ section, fields: sectionFields, _grandesDualFooter }) => {
       const hideSectionTitle =
         section &&
         sectionFields.every(
@@ -736,14 +762,27 @@ export function renderReportFields(service, values = {}, context = {}, options =
         fieldsHtml = `<div class="grandes-battery-shell">${fieldsHtml}</div>`;
         sectionTitle = '';
       }
-      if (
+      if (isGrandes && _grandesDualFooter) {
+        const materialHtml = sectionFields
+          .filter((f) => isMaterialTableField(f))
+          .map((f) => renderField(f, values[f.id], context))
+          .join('');
+        const obsHtml = sectionFields
+          .filter((f) => f.id === 'observacoes')
+          .map((f) => renderField(f, values[f.id], context))
+          .join('');
+        fieldsHtml = `<div class="grandes-footer-dual">
+          <div class="grandes-dashboard-section">${materialHtml}</div>
+          <div class="grandes-observations-box">${obsHtml}</div>
+        </div>`;
+        sectionTitle = '';
+      } else if (
         isGrandes &&
         sectionFields.some((f) => isMaterialTableField(f))
       ) {
         fieldsHtml = `<div class="grandes-dashboard-section">${sectionTitle}${fieldsHtml}</div>`;
         sectionTitle = '';
-      }
-      if (
+      } else if (
         isGrandes &&
         !section &&
         sectionFields.some((f) => f.id === 'observacoes')
