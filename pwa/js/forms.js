@@ -318,11 +318,17 @@ function buildFormHTML(job, client, tech, service, existingReport, options = {})
   `;
 
   const isDl50Form = service?.id === 'inspecao_dl50_2005';
+  const isCarregadorForm = service?.id === 'reparacao_carregador';
   const finalizacaoPanelBody = `
               <section class="form-section report-fields-section">
                 <div class="report-fields">${fieldsFinalizacao}</div>
               </section>
               ${fotoSection}`;
+  const finalizacaoShellClass = isDl50Form
+    ? 'dl50-closing-shell'
+    : isCarregadorForm
+      ? 'carregador-closing-shell'
+      : '';
 
   return `
     <div class="form-workspace form-workspace--report">
@@ -367,7 +373,7 @@ function buildFormHTML(job, client, tech, service, existingReport, options = {})
             </div>
 
             <div class="report-tab-panel" data-report-panel="finalizacao" id="report-panel-finalizacao" role="tabpanel" aria-labelledby="report-tab-finalizacao" hidden>
-              ${isDl50Form ? `<div class="dl50-closing-shell">${finalizacaoPanelBody}</div>` : finalizacaoPanelBody}
+              ${finalizacaoShellClass ? `<div class="${finalizacaoShellClass}">${finalizacaoPanelBody}</div>` : finalizacaoPanelBody}
             </div>
           </div>
         </div>

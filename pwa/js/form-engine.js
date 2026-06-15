@@ -684,12 +684,37 @@ export function renderReportFields(service, values = {}, context = {}, options =
       if (section === 'Pedido de Orçamento') {
         fieldsHtml = `<div class="folha-pedido-orcamento-block">${fieldsHtml}</div>`;
       }
+      const isCarregador = service?.id === 'reparacao_carregador';
+      if (isCarregador && section === 'Identificação Cliente') {
+        fieldsHtml = `<div class="carregador-cliente-grid">${fieldsHtml}</div>`;
+      }
+      if (isCarregador && section === 'Identificação Do Carregador') {
+        fieldsHtml = `<div class="carregador-identificacao-bar">${fieldsHtml}</div>`;
+      }
+      if (
+        isCarregador &&
+        (section === 'Registo de Intervenção' ||
+          section === 'Resultado do Teste' ||
+          (section && /consum/i.test(section)))
+      ) {
+        fieldsHtml = `<div class="carregador-dashboard-section">${fieldsHtml}</div>`;
+      }
+      if (isCarregador && section === 'Fecho') {
+        fieldsHtml = `<div class="carregador-fecho-fields">${fieldsHtml}</div>`;
+      }
+      if (
+        isCarregador &&
+        !section &&
+        sectionFields.some((f) => f.type === 'dynamic_table' || isMaterialTableField(f))
+      ) {
+        fieldsHtml = `<div class="carregador-dashboard-section">${fieldsHtml}</div>`;
+      }
       return `
         <div class="form-field-section form-section-card${
           section === EMPILHADORES_MACHINE_SECTION && service?.id === EMPILHADORES_SERVICE_ID
             ? ' form-field-section--empilhadores-machine'
             : ''
-        }${section === EMPILHADORES_MATERIAL_SECTION ? ' form-field-section--material form-field-section--empilhadores-material' : ''}${section === 'Pedido de Orçamento' ? ' form-field-section--pedido-orcamento' : ''}">
+        }${section === EMPILHADORES_MATERIAL_SECTION ? ' form-field-section--material form-field-section--empilhadores-material' : ''}${section === 'Pedido de Orçamento' ? ' form-field-section--pedido-orcamento' : ''}${isCarregador ? ' form-field-section--carregador' : ''}">
           ${sectionTitle}
           ${fieldsHtml}
         </div>
@@ -1725,6 +1750,8 @@ function renderDynamicTableField(field, value, context = {}) {
   const variantClass = field.tableVariant
     ? `dynamic-table-field--${field.tableVariant}`
     : '';
+  const carregadorClass =
+    context.service?.id === 'reparacao_carregador' ? ' dynamic-table-field--carregador' : '';
   const addLabel = field.addButtonLabel || 'Adicionar Material';
   const headerCells = columns.map((c) => `<th>${escapeHtml(columnLabel(c))}</th>`).join('');
 
@@ -1747,7 +1774,7 @@ function renderDynamicTableField(field, value, context = {}) {
     .join('');
 
   return `
-    <div class="form-group field-block dynamic-table-field ${variantClass}"
+    <div class="form-group field-block dynamic-table-field ${variantClass}${carregadorClass}"
       data-dynamic-table="${field.id}"
       data-columns='${JSON.stringify(columns)}'
       data-column-types='${JSON.stringify(field.columnTypes || {})}'

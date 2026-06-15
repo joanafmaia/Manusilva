@@ -4273,6 +4273,93 @@ body.dark-mode .matrix-bulk-good-btn--active {
   margin-top: 0.5rem;
 }
 
+/* Reparação Carregador — layout executivo compacto */
+.form-field-section--carregador {
+  margin-bottom: 12px;
+}
+
+.carregador-cliente-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  padding: 0.65rem 0.75rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+}
+
+.carregador-identificacao-bar {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  padding: 0.55rem 0.7rem;
+  background: #edf2f7;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+}
+
+.carregador-identificacao-bar .form-section-subtitle,
+.carregador-cliente-grid .form-section-subtitle {
+  grid-column: 1 / -1;
+  margin: 0 0 0.15rem;
+  font-size: 10pt;
+  font-weight: 700;
+  color: #2b6cb0;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.carregador-dashboard-section .dynamic-table-field--carregador .dynamic-table,
+.carregador-dashboard-section .dynamic-table-field--intervention .dynamic-table,
+.carregador-dashboard-section .dynamic-table-field--carregador_test .dynamic-table,
+.carregador-dashboard-section .dynamic-table-field--material .dynamic-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 9pt;
+}
+
+.carregador-dashboard-section .dynamic-table thead th {
+  background: #edf2f7;
+  color: #2b6cb0;
+  font-size: 9pt;
+  font-weight: 700;
+  padding: 4px;
+  border-bottom: 1px solid #e2e8f0;
+  text-align: left;
+}
+
+.carregador-dashboard-section .dynamic-table tbody td {
+  padding: 4px;
+  border-bottom: 1px solid #e2e8f0;
+  color: #2d3748;
+  font-size: 9pt;
+  vertical-align: middle;
+}
+
+.carregador-dashboard-section .dynamic-table tbody tr:nth-child(even) td {
+  background: #f8fafc;
+}
+
+.carregador-fecho-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.carregador-closing-shell {
+  width: 100%;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+@media print {
+  .carregador-closing-shell,
+  .carregador-fecho-fields {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+}
+
 .folha-datas-intervencao-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
