@@ -4086,6 +4086,13 @@ body.dark-mode .matrix-bulk-good-btn--active {
   letter-spacing: 0.03em;
 }
 
+/* Empilhadores — material: título + grelha sempre juntos (ecrã e impressão) */
+.empilhadores-material-block {
+  margin-top: 15px;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
 .form-field-section--empilhadores-material .material-qty-field {
   border: 1px solid #e2e8f0;
   border-radius: 4px;

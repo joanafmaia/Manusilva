@@ -624,8 +624,10 @@ function renderEmpilhadoresChecklistSection(section, fields, values, context) {
     .join('')}</div>`;
   return `
     <div class="form-field-section form-section-card form-field-section--material form-field-section--empilhadores-material">
-      ${sectionTitle}
-      ${fieldsHtml}
+      <div class="empilhadores-material-block">
+        ${sectionTitle}
+        ${fieldsHtml}
+      </div>
     </div>
   `;
 }

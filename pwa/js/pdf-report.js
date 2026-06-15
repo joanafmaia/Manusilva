@@ -734,6 +734,8 @@ const EMPILHADORES_DUAL_VERIFY_GAP_MM = 5.3;
 const EMPILHADORES_VERIFY_COL_BAND_MM = 7;
 const EMPILHADORES_MATERIAL_FONT_PT = 9.5;
 const EMPILHADORES_MATERIAL_COLS = 4;
+/** ~15px de respiro acima da secção de material */
+const EMPILHADORES_MATERIAL_SECTION_TOP_GAP_MM = 4;
 
 /** Layout profissional — relatórios com cabeçalho espelho e tabelas fechadas */
 const PREVENTIVA_TITLE_BAR_BG = PDF_SECTION_BG;
@@ -1970,7 +1972,14 @@ async function drawEmpilhadoresDualVerificationBlocks(doc, y, left, right) {
 }
 
 /** Substituição de material — grelha 4 colunas compacta (dashboard) */
-async function drawEmpilhadoresMaterialGrid(doc, y, fields, values, pdfContext) {
+function estimateEmpilhadoresMaterialSectionHeight(fieldCount) {
+  const rowCount = Math.ceil(fieldCount / EMPILHADORES_MATERIAL_COLS);
+  const titleH = PDF_SECTION_BAND_HEIGHT_MM + PDF_SECTION_GAP_MM + 2;
+  const tableH = rowCount > 0 ? 4 + rowCount * 5.5 + PDF_SECTION_GAP_MM : 0;
+  return EMPILHADORES_MATERIAL_SECTION_TOP_GAP_MM + titleH + tableH;
+}
+
+async function drawEmpilhadoresMaterialGrid(doc, y, fields, values, pdfContext, options = {}) {
   if (!fields.length) return y;
   const cells = fields.map((field) =>
     pdfGridCell(field.label, coercePdfFieldValue(field, values[field.id], pdfContext)),
@@ -1979,7 +1988,9 @@ async function drawEmpilhadoresMaterialGrid(doc, y, fields, values, pdfContext) 
   if (!body.length) return y;
 
   const colW = CONTENT_W / EMPILHADORES_MATERIAL_COLS;
-  y = ensureSpace(doc, y, 8 + body.length * 4.5);
+  if (!options.skipLeadingEnsure) {
+    y = ensureSpace(doc, y, 8 + body.length * 4.5);
+  }
   return drawPdfGridTable(doc, y, {
     body,
     styles: {
@@ -2036,10 +2047,15 @@ async function drawEmpilhadoresMaterialSectionBlock(
     collectEmpilhadoresMaterialFields(service, values, pdfContext, skipIds);
   if (!materialFields.length) return y;
 
-  y = ensureSpace(doc, y, 10);
-  y = drawSectionTitle(doc, y, EMPILHADORES_MATERIAL_SECTION);
+  const blockH = estimateEmpilhadoresMaterialSectionHeight(materialFields.length);
+  y += EMPILHADORES_MATERIAL_SECTION_TOP_GAP_MM;
+  y = ensureKeepTogetherBlock(doc, y, Math.min(blockH, pdfMaxContentHeight()));
+
+  y = drawSectionTitle(doc, y, EMPILHADORES_MATERIAL_SECTION, { skipEnsure: true });
   y = drawDivider(doc, y - 4);
-  return drawEmpilhadoresMaterialGrid(doc, y, materialFields, values, pdfContext);
+  return drawEmpilhadoresMaterialGrid(doc, y, materialFields, values, pdfContext, {
+    skipLeadingEnsure: true,
+  });
 }
 
 /**
