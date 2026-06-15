@@ -198,7 +198,10 @@ export function findPairedObservationsField(service, materialField) {
 
   for (let i = start + 1; i < fields.length; i += 1) {
     const field = fields[i];
-    if (isObservationsField(field)) return field;
+    if (isObservationsField(field)) {
+      if (normalizeSectionName(field.section).includes('estado final')) break;
+      return field;
+    }
     if (isMaterialTableField(field)) break;
   }
   return null;
