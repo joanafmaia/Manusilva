@@ -709,6 +709,9 @@ export async function generateReportPdfByServiceType(report) {
 
 /* ─── Layout blocks ─── */
 
+const EMPILHADORES_SERVICE_ID = 'manutencao_preventiva_empilhadores';
+const EMPILHADORES_DUAL_VERIFY_GAP_MM = 5;
+
 /** Layout profissional — relatórios com cabeçalho espelho e tabelas fechadas */
 const PREVENTIVA_TITLE_BAR_BG = PDF_SECTION_BG;
 const FOLHA_TITLE_BAR_BG = PREVENTIVA_TITLE_BAR_BG;
@@ -1753,6 +1756,143 @@ function buildTwoColumnGridBody(pairs) {
   return body;
 }
 
+function buildThreeColumnGridBody(pairs) {
+  const body = [];
+  for (let i = 0; i < pairs.length; i += 3) {
+    body.push([
+      pairs[i] ? pdfGridCell(pairs[i].label, pairs[i].value) : '',
+      pairs[i + 1] ? pdfGridCell(pairs[i + 1].label, pairs[i + 1].value) : '',
+      pairs[i + 2] ? pdfGridCell(pairs[i + 2].label, pairs[i + 2].value) : '',
+    ]);
+  }
+  return body;
+}
+
+function isEmpilhadoresMaterialSection(section) {
+  return pdfNormalizeHeading(section || '').includes('substituicao de material');
+}
+
+/** Título de secção numa coluna estreita (verificações lado a lado) */
+function drawColumnSectionTitle(doc, x, y, width, title) {
+  const bandH = PDF_SECTION_BAND_HEIGHT_MM;
+  doc.setFillColor(...PDF_SECTION_BG);
+  doc.rect(x, y - 1, width, bandH, 'F');
+  doc.setDrawColor(...PDF_TABLE_LINE);
+  doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
+  doc.line(x, y - 1, x + width, y - 1);
+
+  pdfSetFont(doc, 'bold');
+  doc.setFontSize(PDF_FONT_SECTION);
+  doc.setTextColor(...CORPORATE_BLUE);
+  const lines = pdfSplitText(doc, String(title).toUpperCase(), width - 4);
+  doc.text(lines, x + 2, y + bandH * 0.55);
+  touchPdfContentPage(doc);
+  return y + bandH + 2;
+}
+
+function buildVerificationTableBody(items, states) {
+  return (items || []).map((item) => {
+    const spec = normalizeVerifyItem(item);
+    const state = states?.[spec.id] || 'OK';
+    return [pdfSafeText(spec.label), state];
+  });
+}
+
+async function drawVerificationTableColumn(doc, startY, x, width, title, items, states) {
+  let y = drawColumnSectionTitle(doc, x, startY, width, title);
+  const body = buildVerificationTableBody(items, states);
+  if (!body.length) return y;
+
+  const pointW = width * 0.7;
+  const stateW = width - pointW;
+
+  await loadJsPdfAutoTable();
+  doc.autoTable({
+    startY: y,
+    margin: getPdfAutoTableMargin(x, PAGE_W - x - width),
+    tableWidth: width,
+    head: [['Ponto', 'Est.']],
+    body,
+    ...buildPdfAutoTableStyles(doc, pdfAutoTableFont, pdfSetFont),
+    columnStyles: {
+      0: { cellWidth: pointW, overflow: 'linebreak', fontSize: PDF_FONT_TABLE },
+      1: {
+        cellWidth: stateW,
+        halign: 'center',
+        overflow: 'linebreak',
+        fontSize: PDF_FONT_TABLE,
+      },
+    },
+    didParseCell: mergePdfTableDidParseCell((data) => {
+      if (data.section === 'body' && data.column.index === 1) {
+        const state = String(data.cell.raw || '');
+        data.cell.styles.textColor = state === 'OK' ? SUCCESS : DANGER;
+        data.cell.styles.fontStyle = 'bold';
+      }
+    }),
+    didDrawPage: buildPdfAutoTableDidDrawPage(doc),
+  });
+  touchPdfContentPage(doc);
+  return doc.lastAutoTable.finalY;
+}
+
+/** Verificações Externas + Internas em 2 colunas paralelas */
+async function drawEmpilhadoresDualVerificationBlocks(doc, y, left, right) {
+  const gap = EMPILHADORES_DUAL_VERIFY_GAP_MM;
+  const colW = (CONTENT_W - gap) / 2;
+  const leftX = MARGIN;
+  const rightX = MARGIN + colW + gap;
+
+  const rowEstimate = Math.max(left?.items?.length || 0, right?.items?.length || 0);
+  y = ensureSpace(doc, y, PDF_SECTION_BAND_HEIGHT_MM + rowEstimate * 4.2 + 12);
+
+  const startY = y;
+  const leftEnd = await drawVerificationTableColumn(
+    doc,
+    startY,
+    leftX,
+    colW,
+    left.title,
+    left.items,
+    left.states,
+  );
+  const rightEnd = right
+    ? await drawVerificationTableColumn(
+        doc,
+        startY,
+        rightX,
+        colW,
+        right.title,
+        right.items,
+        right.states,
+      )
+    : startY;
+
+  return Math.max(leftEnd, rightEnd) + PDF_SECTION_GAP_MM;
+}
+
+/** Substituição de material — grelha 3 colunas compacta */
+async function drawEmpilhadoresMaterialGrid(doc, y, fields, values, pdfContext) {
+  if (!fields.length) return y;
+  const pairs = fields.map((field) => ({
+    label: field.label,
+    value: coercePdfFieldValue(field, values[field.id], pdfContext),
+  }));
+  const body = buildThreeColumnGridBody(pairs);
+  if (!body.length) return y;
+
+  const colW = CONTENT_W / 3;
+  y = ensureSpace(doc, y, 10 + body.length * 5);
+  return drawPdfGridTable(doc, y, {
+    body,
+    columnStyles: {
+      0: { cellWidth: colW, overflow: 'linebreak', fontSize: PDF_FONT_TABLE },
+      1: { cellWidth: colW, overflow: 'linebreak', fontSize: PDF_FONT_TABLE },
+      2: { cellWidth: colW, overflow: 'linebreak', fontSize: PDF_FONT_TABLE },
+    },
+  });
+}
+
 /**
  * Grelha autoTable padrão Manusilva — cabeçalho #f1f5f9, linhas #e2e8f0.
  * @param {import('jspdf').jsPDF} doc
@@ -2351,7 +2491,14 @@ async function drawReportFieldsSection(doc, y, service, values, pdfContext = nul
           y = ensureSpace(doc, y, 10);
           y = drawSectionTitle(doc, y, currentSection);
           y = drawDivider(doc, y - 4);
-          y = await drawSectionScalarGrid(doc, y, sectionScalars, values, pdfContext);
+          if (
+            service.id === EMPILHADORES_SERVICE_ID &&
+            isEmpilhadoresMaterialSection(currentSection)
+          ) {
+            y = await drawEmpilhadoresMaterialGrid(doc, y, sectionScalars, values, pdfContext);
+          } else {
+            y = await drawSectionScalarGrid(doc, y, sectionScalars, values, pdfContext);
+          }
           sectionScalars.forEach((f) => scalarRenderedIds.add(f.id));
         } else if (!skipSectionHeader) {
           y = ensureSpace(doc, y, 10);
@@ -2368,6 +2515,38 @@ async function drawReportFieldsSection(doc, y, service, values, pdfContext = nul
     y = ensureSpace(doc, y, 14);
 
     if (field.type === 'verification_toggles' && value && typeof value === 'object') {
+      if (service.id === EMPILHADORES_SERVICE_ID && field.id === 'componentes_externos') {
+        const internField = (service.fields || []).find((f) => f.id === 'componentes_internos');
+        let internValue = {};
+        if (internField) {
+          internValue = coercePdfFieldValue(internField, values[internField.id], pdfContext);
+          if (typeof internValue !== 'object' || internValue === null) internValue = {};
+        }
+        y = await drawEmpilhadoresDualVerificationBlocks(
+          doc,
+          y,
+          {
+            title: getBlockPdfTitle(field),
+            items: field.items || [],
+            states: value,
+          },
+          internField
+            ? {
+                title: getBlockPdfTitle(internField),
+                items: internField.items || [],
+                states: internValue,
+              }
+            : null,
+        );
+        if (internField) {
+          scalarRenderedIds.add(internField.id);
+          if (internField.section) gridRenderedSections.add(internField.section);
+        }
+        continue;
+      }
+      if (service.id === EMPILHADORES_SERVICE_ID && field.id === 'componentes_internos') {
+        continue;
+      }
       y = await drawVerificationBlock(doc, y, getBlockPdfTitle(field), field.items || [], value);
       continue;
     }
