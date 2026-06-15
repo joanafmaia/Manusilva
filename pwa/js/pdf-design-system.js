@@ -7,22 +7,23 @@ import {
   MATERIAL_TABLE_PDF_LABEL,
 } from './material-table-field.js';
 
-/** Tipografia compacta (pt) — todos os relatórios */
-export const PDF_FONT_TITLE = 14;
-export const PDF_FONT_SECTION = 11;
-export const PDF_FONT_SUBTITLE = 11;
-export const PDF_FONT_BODY = 9.5;
+/** Tipografia premium (pt) — título 13–14, secções 10.5, tabelas 8.5, corpo 9 */
+export const PDF_FONT_TITLE = 13;
+export const PDF_FONT_SECTION = 10.5;
+export const PDF_FONT_SUBTITLE = 10.5;
+export const PDF_FONT_BODY = 9;
+export const PDF_FONT_TABLE = 8.5;
 export const PDF_FONT_CAPTION = 8;
 
-/** Espaçamento e tabelas compactas (~10px entre secções, 4px padding vertical nas células) */
+/** Espaçamento compacto (~10px entre blocos; células 4px vertical / 6px horizontal) */
 export const PDF_SECTION_GAP_MM = 2.7;
-export const PDF_TABLE_ROW_STEP_MM = 6;
-export const PDF_TABLE_CELL_PADDING = { top: 1.1, right: 3.5, bottom: 1.1, left: 3.5 };
-export const PDF_TABLE_CELL_PADDING_HEAD = { top: 1.1, right: 3.5, bottom: 1.1, left: 4 };
-export const PDF_TABLE_LINE_WIDTH = 0.12;
-export const PDF_TABLE_MIN_CELL_HEIGHT = 6;
-export const PDF_TITLE_BAR_HEIGHT_MM = 9;
-export const PDF_SECTION_BAND_HEIGHT_MM = 9;
+export const PDF_TABLE_ROW_STEP_MM = 5;
+export const PDF_TABLE_CELL_PADDING = { top: 1.1, right: 1.6, bottom: 1.1, left: 1.6 };
+export const PDF_TABLE_CELL_PADDING_HEAD = { top: 1.1, right: 1.6, bottom: 1.1, left: 1.6 };
+export const PDF_TABLE_LINE_WIDTH = 0.1;
+export const PDF_TABLE_MIN_CELL_HEIGHT = 5;
+export const PDF_TITLE_BAR_HEIGHT_MM = 8;
+export const PDF_SECTION_BAND_HEIGHT_MM = 8;
 
 /** Cabeçalho bilateral compacto */
 export const PDF_LOGO_WIDTH_MM = 40;
@@ -59,6 +60,7 @@ export const PDF_TABLE_HEAD_TEXT = PDF_COLOR_TEXT_DARK;
 export const PDF_TABLE_LINE = [226, 232, 240];
 export const PDF_TABLE_BODY_FILL = PDF_COLOR_WHITE;
 export const PDF_TABLE_ALT_ROW_FILL = [248, 250, 252];
+export const PDF_CLIENT_BOX_FILL = [248, 250, 252];
 
 export const PDF_MACHINE_SECTION = 'Informações da Máquina';
 export const PDF_VERIFICATION_SECTION_TITLE = 'Verificações Efetuadas';
@@ -332,6 +334,17 @@ export function resolvePdfStandardFieldValue(values, spec, fallback = null) {
   return fallback;
 }
 
+/** Bordas só horizontais (#E2E8F0) — sem linhas verticais */
+export function applyPdfTableHorizontalBorders(data) {
+  data.cell.styles.lineWidth = {
+    top: PDF_TABLE_LINE_WIDTH,
+    right: 0,
+    bottom: PDF_TABLE_LINE_WIDTH,
+    left: 0,
+  };
+  data.cell.styles.lineColor = PDF_TABLE_LINE;
+}
+
 /** Estilos base autoTable — todos os relatórios */
 export function buildPdfAutoTableStyles(doc, pdfAutoTableFont, pdfSetFont) {
   pdfSetFont(doc, 'normal');
@@ -339,7 +352,7 @@ export function buildPdfAutoTableStyles(doc, pdfAutoTableFont, pdfSetFont) {
     theme: 'plain',
     styles: {
       font: pdfAutoTableFont(doc),
-      fontSize: PDF_FONT_BODY,
+      fontSize: PDF_FONT_TABLE,
       cellPadding: PDF_TABLE_CELL_PADDING,
       minCellHeight: PDF_TABLE_MIN_CELL_HEIGHT,
       lineColor: PDF_TABLE_LINE,
@@ -355,7 +368,7 @@ export function buildPdfAutoTableStyles(doc, pdfAutoTableFont, pdfSetFont) {
       fillColor: PDF_TABLE_HEAD_FILL,
       textColor: PDF_TABLE_HEAD_TEXT,
       fontStyle: 'bold',
-      fontSize: PDF_FONT_BODY,
+      fontSize: PDF_FONT_TABLE,
       cellPadding: PDF_TABLE_CELL_PADDING_HEAD,
       minCellHeight: PDF_TABLE_MIN_CELL_HEIGHT,
       lineColor: PDF_TABLE_LINE,
@@ -369,11 +382,14 @@ export function buildPdfAutoTableStyles(doc, pdfAutoTableFont, pdfSetFont) {
 
 export function mergePdfTableDidParseCell(extra) {
   return (data) => {
+    applyPdfTableHorizontalBorders(data);
     if (data.section === 'body' && data.row.index % 2 === 1) {
       data.cell.styles.fillColor = PDF_TABLE_ALT_ROW_FILL;
     }
     if (data.section === 'body') {
-      data.cell.styles.fontSize = PDF_FONT_BODY;
+      data.cell.styles.fontSize = PDF_FONT_TABLE;
+    } else if (data.section === 'head' && data.cell.styles.fontSize !== PDF_FONT_SECTION) {
+      data.cell.styles.fontSize = PDF_FONT_TABLE;
     }
     if (extra) extra(data);
   };
