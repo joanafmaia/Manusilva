@@ -5025,8 +5025,10 @@ body.dark-mode .signature-block {
 
 .foto-antes-depois-img {
   width: 100%;
-  height: 100%;
-  object-fit: cover;
+  height: 220px;
+  max-height: 220px;
+  object-fit: contain;
+  background-color: #f8fafc;
   display: block;
 }
 
@@ -5139,12 +5141,12 @@ body.dark-mode .signature-block {
 .review-foto-img {
   display: block;
   width: 100%;
-  max-height: 250px;
-  height: auto;
-  object-fit: cover;
+  height: 220px;
+  max-height: 220px;
+  object-fit: contain;
   border-radius: 6px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  background: var(--bg-input);
+  background-color: #f8fafc;
 }
 
 .review-foto-caption {
@@ -6118,10 +6120,11 @@ body.dark-mode .rh-list-item__ordem {
 .rh-card__foto-img {
   display: block;
   width: 100%;
-  height: 80px;
-  object-fit: cover;
+  height: 220px;
+  max-height: 220px;
+  object-fit: contain;
   border-radius: 8px;
-  background: #f1f5f9;
+  background-color: #f8fafc;
 }
 
 .rh-card__foto-label {
@@ -6299,6 +6302,7 @@ body.dark-mode .rh-card__btn--pdf {
 }
 
 .review-fotos-grid--compact .review-foto-img {
+  height: 120px;
   max-height: 120px;
 }
 
@@ -9074,8 +9078,10 @@ body.dark-mode .client-history-status--rejected {
 
 .intervention-foto-img {
   width: 100%;
-  max-height: 180px;
-  object-fit: cover;
+  height: 220px;
+  max-height: 220px;
+  object-fit: contain;
+  background-color: #f8fafc;
   border-radius: 6px;
   border: 1px solid #e2e8f0;
 }
