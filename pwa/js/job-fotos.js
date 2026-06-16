@@ -57,6 +57,9 @@ export function resolvePdfFotoSources(job, data = {}) {
   };
 }
 
+/** Alias legado — alguns imports antigos usavam este nome por engano. */
+export { resolvePdfFotoSources as resolvedPdfSources };
+
 /**
  * @param {object|null} job — trabalho (fotoAntes / fotoDepois)
  * @param {object|null} [report] — relatório (data.fotoAntesUrl / fotoDepoisUrl)
