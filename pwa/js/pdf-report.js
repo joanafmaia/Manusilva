@@ -130,6 +130,7 @@ import {
   resolveInspecaoDl50MachineFields,
   splitDl50MatrixCategories,
 } from './inspecao-dl50-categories.js';
+import { resolvePdfFotoSources } from './job-fotos.js';
 
 const DB_KEY = 'manusilva_db';
 const PDF_FOOTER_FONT_SIZE = PDF_FONT_CAPTION;
@@ -560,8 +561,7 @@ export async function renderInterventionPDF(report) {
   const isCorretivaMaquinasPdf = report.serviceType === 'manutencao_corretiva_maquinas';
   const isGrandesBateriasPdf = report.serviceType === 'manutencao_baterias_grandes';
   const isEmpilhadoresPdf = report.serviceType === EMPILHADORES_SERVICE_ID;
-  const fotoAntesUrl = data.fotoAntesUrl || job?.fotoAntes || null;
-  const fotoDepoisUrl = data.fotoDepoisUrl || job?.fotoDepois || null;
+  const { fotoAntesUrl, fotoDepoisUrl } = resolvePdfFotoSources(job, data);
   const techName = tech?.name || '—';
 
   const pdfContext = buildPdfRenderContext(report, job, clientMeta, tech);
@@ -605,6 +605,8 @@ export async function renderInterventionPDF(report) {
     y = await drawPreventivaBateriaClosingSection(doc, y, {
       signatures: data.signatures || {},
       values,
+      fotoAntesUrl,
+      fotoDepoisUrl,
     });
   } else if (isFolhaIntervencaoAvariasPdf) {
     y = drawTopRowWithClientBlock(doc, clientMeta, job?.numeroOrdem ?? null);
@@ -639,6 +641,8 @@ export async function renderInterventionPDF(report) {
     y = await drawRavBateriaClosingSection(doc, y, {
       signatures: data.signatures || {},
       values,
+      fotoAntesUrl,
+      fotoDepoisUrl,
     });
   } else if (isReparacaoCarregadorPdf) {
     y = await drawReparacaoCarregadorTopSection(doc, clientMeta, techName, report, job, values);
@@ -647,6 +651,8 @@ export async function renderInterventionPDF(report) {
     y = await drawReparacaoCarregadorClosingSection(doc, y, {
       signatures: data.signatures || {},
       values,
+      fotoAntesUrl,
+      fotoDepoisUrl,
     });
   } else if (isCorretivaMaquinasPdf) {
     y = drawTopRowWithClientBlock(doc, clientMeta, job?.numeroOrdem ?? null);
@@ -2062,11 +2068,23 @@ async function drawReparacaoCarregadorBody(doc, y, values, service, pdfContext =
 async function drawReparacaoCarregadorClosingSection(doc, y, opts) {
   const values = opts.values || {};
   const profile = CARREGADOR_CLOSING_PROFILE;
+  const hasFotos = Boolean(opts.fotoAntesUrl || opts.fotoDepoisUrl);
+  const fotoBlockH = hasFotos ? estimateInterventionFotografiasHeight() : 0;
   const closingBlockH =
-    22 + estimateSignaturesHeight(profile) + FOLHA_INSTITUTIONAL_FOOTER_H_MM;
+    22 + fotoBlockH + estimateSignaturesHeight(profile) + FOLHA_INSTITUTIONAL_FOOTER_H_MM;
 
   y = ensureKeepTogetherBlock(doc, y, Math.min(closingBlockH, pdfMaxContentHeight()));
   y = await drawReparacaoCarregadorFechoBlock(doc, y, values);
+
+  if (hasFotos) {
+    y = await drawInterventionFotografiasSection(
+      doc,
+      y,
+      opts.fotoAntesUrl,
+      opts.fotoDepoisUrl,
+      { skipEnsure: true },
+    );
+  }
 
   return drawSignaturesFooter(doc, y, opts.signatures || {}, {
     topMargin: profile.sigTop,
@@ -2853,10 +2871,22 @@ async function drawRavBateriaBody(doc, y, service, values) {
 async function drawRavBateriaClosingSection(doc, y, opts) {
   const values = opts.values || {};
   const profile = RAV_CLOSING_PROFILE;
-  const closingBlockH = 32 + estimateSignaturesHeight(profile);
+  const hasFotos = Boolean(opts.fotoAntesUrl || opts.fotoDepoisUrl);
+  const fotoBlockH = hasFotos ? estimateInterventionFotografiasHeight() : 0;
+  const closingBlockH = 32 + fotoBlockH + estimateSignaturesHeight(profile);
 
   y = ensureKeepTogetherBlock(doc, y, Math.min(closingBlockH, pdfMaxContentHeight()));
   y = await drawRavEstadoFinalBlock(doc, y, values);
+
+  if (hasFotos) {
+    y = await drawInterventionFotografiasSection(
+      doc,
+      y,
+      opts.fotoAntesUrl,
+      opts.fotoDepoisUrl,
+      { skipEnsure: true },
+    );
+  }
 
   return drawSignaturesFooter(doc, y, opts.signatures || {}, {
     topMargin: profile.sigTop,
@@ -2868,11 +2898,23 @@ async function drawRavBateriaClosingSection(doc, y, opts) {
 async function drawPreventivaBateriaClosingSection(doc, y, opts) {
   const values = opts.values || {};
   const profile = FOLHA_CLOSING_PROFILE;
+  const hasFotos = Boolean(opts.fotoAntesUrl || opts.fotoDepoisUrl);
+  const fotoBlockH = hasFotos ? estimateInterventionFotografiasHeight() : 0;
   const closingBlockH =
-    48 + estimateSignaturesHeight(profile) + FOLHA_INSTITUTIONAL_FOOTER_H_MM;
+    48 + fotoBlockH + estimateSignaturesHeight(profile) + FOLHA_INSTITUTIONAL_FOOTER_H_MM;
 
   y = ensureKeepTogetherBlock(doc, y, Math.min(closingBlockH, pdfMaxContentHeight()));
   y = await drawPreventivaBateriaEstadoFinalBlock(doc, y, values);
+
+  if (hasFotos) {
+    y = await drawInterventionFotografiasSection(
+      doc,
+      y,
+      opts.fotoAntesUrl,
+      opts.fotoDepoisUrl,
+      { skipEnsure: true },
+    );
+  }
 
   return drawSignaturesFooter(doc, y, opts.signatures || {}, {
     topMargin: profile.sigTop,
@@ -5111,26 +5153,64 @@ async function compressImageForPdf(dataUrl, maxPx = PDF_IMAGE_MAX_PX, quality = 
   });
 }
 
+async function blobToDataUrlForPdf(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(reader.error || new Error('Leitura da imagem falhou.'));
+    reader.readAsDataURL(blob);
+  });
+}
+
+function loadImageViaCanvas(url) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        canvas.getContext('2d').drawImage(img, 0, 0);
+        resolve(canvas.toDataURL('image/jpeg', 0.92));
+      } catch {
+        resolve(null);
+      }
+    };
+    img.onerror = () => resolve(null);
+    img.src = url;
+  });
+}
+
 async function loadImageForPdf(url) {
   if (!url) return null;
   let dataUrl = url;
-  if (!url.startsWith('data:')) {
+  if (url.startsWith('data:')) {
+    return compressImageForPdf(dataUrl);
+  }
+  if (url.startsWith('blob:')) {
     try {
-      const res = await fetch(url, { mode: 'cors' });
+      const res = await fetch(url);
       if (!res.ok) return null;
-      const blob = await res.blob();
-      dataUrl = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-      });
+      dataUrl = await blobToDataUrlForPdf(await res.blob());
+      return compressImageForPdf(dataUrl);
     } catch (err) {
-      console.warn('[PDF] Não foi possível carregar imagem:', url, err);
+      console.warn('[PDF] Não foi possível carregar blob:', url, err);
       return null;
     }
   }
-  return compressImageForPdf(dataUrl);
+  try {
+    const res = await fetch(url, { mode: 'cors' });
+    if (res.ok) {
+      dataUrl = await blobToDataUrlForPdf(await res.blob());
+      return compressImageForPdf(dataUrl);
+    }
+  } catch (err) {
+    console.warn('[PDF] fetch imagem falhou, a tentar canvas:', url, err);
+  }
+  const viaCanvas = await loadImageViaCanvas(url);
+  if (viaCanvas) return compressImageForPdf(viaCanvas);
+  return null;
 }
 
 function detectImageFormat(dataUrl) {

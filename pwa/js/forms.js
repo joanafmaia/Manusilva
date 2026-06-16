@@ -115,9 +115,12 @@ function fotoPersistPayload(state) {
   if (state.cleared) {
     return { url: null, base64: null };
   }
-  const base64 = state.base64 || (String(state.remoteUrl || '').startsWith('data:') ? state.remoteUrl : null);
+  const base64 =
+    state.base64 || (String(state.remoteUrl || '').startsWith('data:') ? state.remoteUrl : null);
+  const http =
+    state.remoteUrl && /^https?:\/\//i.test(String(state.remoteUrl)) ? state.remoteUrl : null;
   return {
-    url: state.previewUrl || base64 || state.remoteUrl || null,
+    url: http || base64 || null,
     base64,
   };
 }

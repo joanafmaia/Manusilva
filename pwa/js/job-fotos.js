@@ -12,7 +12,49 @@ function escapeHtml(text) {
 export function isValidFotoUrl(url) {
   if (url == null) return false;
   const s = String(url).trim();
-  return s.length > 0 && (s.startsWith('http://') || s.startsWith('https://') || s.startsWith('blob:'));
+  return (
+    s.length > 0 &&
+    (s.startsWith('http://') ||
+      s.startsWith('https://') ||
+      s.startsWith('blob:') ||
+      s.startsWith('data:image'))
+  );
+}
+
+function isHttpFotoUrl(url) {
+  return /^https?:\/\//i.test(String(url || '').trim());
+}
+
+function isDataImageUrl(url) {
+  return String(url || '').trim().startsWith('data:image');
+}
+
+/**
+ * Resolve fontes de imagem utilizáveis no PDF (HTTP, data URL ou base64 embutido).
+ * Ignora blob: quando existe base64 equivalente no relatório.
+ */
+export function resolvePdfFotoSources(job, data = {}) {
+  const pick = (slot) => {
+    const urlKey = slot === 'antes' ? 'fotoAntesUrl' : 'fotoDepoisUrl';
+    const base64Key = slot === 'antes' ? 'fotoAntesBase64' : 'fotoDepoisBase64';
+    const jobKey = slot === 'antes' ? 'fotoAntes' : 'fotoDepois';
+
+    const http = [data[urlKey], job?.[jobKey]].find((u) => isHttpFotoUrl(u));
+    if (http) return String(http).trim();
+
+    const embedded = [data[base64Key], data[urlKey], job?.[jobKey]].find((u) => isDataImageUrl(u));
+    if (embedded) return String(embedded).trim();
+
+    const blob = String(data[urlKey] || '').trim();
+    if (blob.startsWith('blob:')) return blob;
+
+    return null;
+  };
+
+  return {
+    fotoAntesUrl: pick('antes'),
+    fotoDepoisUrl: pick('depois'),
+  };
 }
 
 /**
@@ -20,12 +62,10 @@ export function isValidFotoUrl(url) {
  * @param {object|null} [report] — relatório (data.fotoAntesUrl / fotoDepoisUrl)
  */
 export function resolveJobFotos(job, report) {
-  const data = report?.data || {};
-  const antes = job?.fotoAntes || data.fotoAntesUrl || null;
-  const depois = job?.fotoDepois || data.fotoDepoisUrl || null;
+  const { fotoAntesUrl, fotoDepoisUrl } = resolvePdfFotoSources(job, report?.data || {});
   return {
-    antes: isValidFotoUrl(antes) ? String(antes).trim() : null,
-    depois: isValidFotoUrl(depois) ? String(depois).trim() : null,
+    antes: isValidFotoUrl(fotoAntesUrl) ? String(fotoAntesUrl).trim() : null,
+    depois: isValidFotoUrl(fotoDepoisUrl) ? String(fotoDepoisUrl).trim() : null,
   };
 }
 
