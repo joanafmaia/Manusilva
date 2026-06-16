@@ -218,11 +218,35 @@ export function padHasSignature(pad) {
   return isDataUrlSignature(pad.toDataURL?.());
 }
 
-/**
- * Técnico assinou — pad ativo, dados no rascunho ou imagem restaurada.
- * @param {Record<string, SignaturePad>} pads
- * @param {object} [storedSignatures]
- */
+/** Monta payload de assinaturas — só inclui imagens quando existem traços válidos. */
+export function resolveReportSignatures(pads, stored = {}) {
+  const techPad = pads?.technician;
+  const clientPad = pads?.client;
+  const techSigned = padHasSignature(techPad) || isDataUrlSignature(stored.technicianData);
+  const clientSigned = padHasSignature(clientPad) || isDataUrlSignature(stored.clientData);
+
+  const technicianData = techSigned
+    ? commitSignatureSnapshot(techPad) ||
+      (padHasSignature(techPad) ? techPad?.toDataURL?.() : null) ||
+      stored.technicianData ||
+      null
+    : null;
+  const clientData = clientSigned
+    ? commitSignatureSnapshot(clientPad) ||
+      (padHasSignature(clientPad) ? clientPad?.toDataURL?.() : null) ||
+      stored.clientData ||
+      null
+    : null;
+
+  return {
+    technician: Boolean(technicianData),
+    client: Boolean(clientData),
+    technicianData,
+    clientData,
+  };
+}
+
+/** @deprecated Preferir resolveReportSignatures — mantido para compatibilidade. */
 export function technicianSignatureReady(pads, storedSignatures = null) {
   Object.values(pads || {}).forEach(commitSignatureSnapshot);
   if (padHasSignature(pads?.technician)) return true;

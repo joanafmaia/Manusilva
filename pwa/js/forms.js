@@ -39,7 +39,7 @@ import {
   createSignatureBlock,
   initSignaturePads,
   refreshSignaturePads,
-  technicianSignatureReady,
+  resolveReportSignatures,
   padHasSignature,
   commitSignatureSnapshot,
 } from './signatures.js';
@@ -50,7 +50,6 @@ import { ensureJobsLoaded } from './trabalhos-db.js';
 import {
   syncJobFotosAntesDepois,
   ensureFotoUrlsOnTrabalho,
-  formatFotoStorageError,
   attachOfflineFotosToReportData,
   readFileAsDataUrl,
 } from './foto-trabalho-storage.js';
@@ -351,7 +350,8 @@ function buildFormHTML(job, client, tech, service, existingReport, options = {})
       </div>
     </section>
     <section class="form-section form-section--final form-section-card">
-      <h3 class="section-title">Assinaturas Digitais</h3>
+      <h3 class="section-title">Assinaturas Digitais <span class="text-muted section-title-hint">(opcional)</span></h3>
+      <p class="text-muted foto-antes-depois-hint">Pode concluir o relatório com ou sem assinaturas do técnico e do cliente.</p>
       <div class="signatures-grid">
         ${createSignatureBlock('Assinatura do Técnico', 'technician')}
         ${createSignatureBlock('Assinatura do Cliente', 'client')}
@@ -454,21 +454,7 @@ function buildFormHTML(job, client, tech, service, existingReport, options = {})
 }
 
 function resolveFormSignatures(existingReport) {
-  const stored = existingReport?.data?.signatures || {};
-  const techData =
-    signaturePads.technician?.toDataURL?.() ||
-    stored.technicianData ||
-    null;
-  const clientData =
-    signaturePads.client?.toDataURL?.() ||
-    stored.clientData ||
-    null;
-  return {
-    technician: padHasSignature(signaturePads.technician) || Boolean(stored.technicianData),
-    client: padHasSignature(signaturePads.client) || Boolean(stored.clientData),
-    technicianData: techData,
-    clientData: clientData,
-  };
+  return resolveReportSignatures(signaturePads, existingReport?.data?.signatures || {});
 }
 
 function accumulateVisitDates(values, existingReport) {
@@ -612,6 +598,39 @@ function bindFotoInputs(overlay) {
   });
 }
 
+async function persistOptionalJobFotos(jobId, overlay = null) {
+  const hasFotoWork =
+    fotoAntesState.file ||
+    fotoDepoisState.file ||
+    fotoAntesState.cleared ||
+    fotoDepoisState.cleared;
+  if (!hasFotoWork) {
+    return {
+      fotoAntes: fotoAntesState.cleared ? null : fotoAntesState.remoteUrl || null,
+      fotoDepois: fotoDepoisState.cleared ? null : fotoDepoisState.remoteUrl || null,
+    };
+  }
+  try {
+    const result = await persistJobFotos(jobId);
+    if (overlay) {
+      updateFotoPreview(overlay, 'antes');
+      updateFotoPreview(overlay, 'depois');
+    }
+    return result;
+  } catch (err) {
+    console.error('[Form] Upload fotos (opcional):', err);
+    showToast(
+      'Não foi possível guardar as fotos — pode concluir o relatório na mesma.',
+      'warning',
+      7000,
+    );
+    return {
+      fotoAntes: fotoAntesState.remoteUrl || null,
+      fotoDepois: fotoDepoisState.remoteUrl || null,
+    };
+  }
+}
+
 async function persistJobFotos(jobId) {
   const result = await syncJobFotosAntesDepois(jobId, {
     antesFile: fotoAntesState.file,
@@ -728,18 +747,6 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport, opt
     });
   }
 
-  const saveWithFotos = async () => {
-    try {
-      await persistJobFotos(job.id);
-      updateFotoPreview(overlay, 'antes');
-      updateFotoPreview(overlay, 'depois');
-    } catch (err) {
-      console.error('[Form] Upload fotos:', err);
-      showToast(formatFotoStorageError(err), 'error', 9000);
-      throw err;
-    }
-  };
-
   if (!viewOnly) overlay.querySelector('#btn-save-draft')?.addEventListener('click', async () => {
     await formAutosave?.flush?.();
     const draftBtn = overlay.querySelector('#btn-save-draft');
@@ -769,9 +776,7 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport, opt
         return;
       }
 
-      const fotoResult = await persistJobFotos(job.id);
-      updateFotoPreview(overlay, 'antes');
-      updateFotoPreview(overlay, 'depois');
+      const fotoResult = await persistOptionalJobFotos(job.id, overlay);
       report.data.fotoAntesUrl = fotoResult.fotoAntes || report.data.fotoAntesUrl || null;
       report.data.fotoDepoisUrl = fotoResult.fotoDepois || report.data.fotoDepoisUrl || null;
       await ensureFotoUrlsOnTrabalho(job.id, report.data.fotoAntesUrl, report.data.fotoDepoisUrl);
@@ -807,15 +812,12 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport, opt
 
   if (!viewOnly) overlay.querySelector('#btn-submit-report')?.addEventListener('click', async () => {
     ensureSignaturePadsInitialized();
-    const storedSigs = existingReport?.data?.signatures;
-    if (!technicianSignatureReady(signaturePads, storedSigs)) {
-      activateReportTab(overlay, 'finalizacao');
-      refreshSignaturePads(signaturePads);
-      showToast('A assinatura do técnico é obrigatória. Assine na aba Finalização.', 'error');
-      overlay.querySelector('#sig-technician')?.focus?.();
-      return;
+    if (padHasSignature(signaturePads?.technician)) {
+      commitSignatureSnapshot(signaturePads.technician);
     }
-    commitSignatureSnapshot(signaturePads.technician);
+    if (padHasSignature(signaturePads?.client)) {
+      commitSignatureSnapshot(signaturePads.client);
+    }
 
     await formAutosave?.flush?.();
     formAutosave?.destroy();
@@ -852,9 +854,7 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport, opt
         return;
       }
 
-      const fotoResult = await persistJobFotos(job.id);
-      updateFotoPreview(overlay, 'antes');
-      updateFotoPreview(overlay, 'depois');
+      const fotoResult = await persistOptionalJobFotos(job.id, overlay);
       report.data.fotoAntesUrl =
         fotoResult.fotoAntes || report.data.fotoAntesUrl || fotoAntesState.remoteUrl || null;
       report.data.fotoDepoisUrl =
