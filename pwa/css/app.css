@@ -5172,6 +5172,7 @@ body.dark-mode .matrix-bulk-good-btn--active {
   /* Tabelas de resposta — ocupar largura total do bloco (não metade da grelha) */
   body.tech-dashboard-page .form-overlay .form-field-section > .empilhadores-verifications-dual,
   body.tech-dashboard-page .form-overlay .form-field-section > .empilhadores-material-block,
+  body.tech-dashboard-page .form-overlay .form-field-section > .grandes-battery-shell,
   body.tech-dashboard-page .form-overlay .form-field-section > div[class*='-dashboard-section'],
   body.tech-dashboard-page .form-overlay .form-field-section > div[class*='-footer-dual'],
   body.tech-dashboard-page .form-overlay .form-field-section > div[class*='-observations'],
@@ -5183,8 +5184,9 @@ body.dark-mode .matrix-bulk-good-btn--active {
   body.tech-dashboard-page .form-overlay .form-field-section > div[class*='-datas-intervencao'],
   body.tech-dashboard-page .form-overlay .form-field-section > div[class*='-text-section'],
   body.tech-dashboard-page .form-overlay .form-field-section > div[class*='-estado-final'],
-  body.tech-dashboard-page .form-overlay .dynamic-table-field,
-  body.tech-dashboard-page .form-overlay .dynamic-table-wrap {
+  body.tech-dashboard-page .form-overlay .form-field-section .dynamic-table-field,
+  body.tech-dashboard-page .form-overlay .form-field-section .dynamic-table-wrap,
+  body.tech-dashboard-page .form-overlay .form-field-section .grandes-battery-wrap {
     grid-column: 1 / -1;
     width: 100%;
     max-width: 100%;
@@ -5192,8 +5194,16 @@ body.dark-mode .matrix-bulk-good-btn--active {
   }
 
   body.tech-dashboard-page .form-overlay .dynamic-table,
-  body.tech-dashboard-page .form-overlay .empilhadores-verify-table {
+  body.tech-dashboard-page .form-overlay .empilhadores-verify-table,
+  body.tech-dashboard-page .form-overlay .grandes-battery-table {
     width: 100%;
+  }
+
+  body.tech-dashboard-page .form-overlay .grandes-battery-shell,
+  body.tech-dashboard-page .form-overlay .grandes-battery-table-wrap,
+  body.tech-dashboard-page .form-overlay .grandes-battery-scroll {
+    width: 100%;
+    max-width: 100%;
   }
 
   body.tech-dashboard-page .form-overlay .folha-datas-intervencao-grid {
@@ -10826,6 +10836,7 @@ body:not(:has(.theme-toggle-btn:not(.theme-toggle-btn--inline))) .toast-containe
   .field-block:not(.field-block--grid-eligible),
   .empilhadores-verifications-dual,
   .empilhadores-material-block,
+  .grandes-battery-shell,
   .dynamic-table-field,
   div[class*='-dashboard-section'],
   div[class*='-footer-dual'],
