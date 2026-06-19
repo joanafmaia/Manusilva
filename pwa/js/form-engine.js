@@ -564,10 +564,10 @@ function renderEmpilhadoresVerificationTable(field, value) {
       const checked = isFail ? 'checked' : '';
 
       return `
-        <tr class="verification-card empilhadores-verify-row ${stateClass}" data-verify-card="${spec.id}" role="button" tabindex="0"
+        <tr class="checklist-inspection-row verification-card empilhadores-verify-row ${stateClass}" data-verify-card="${spec.id}" role="button" tabindex="0"
           aria-label="${escapeHtml(spec.label)} — ${badgeText}">
-          <th scope="row" class="empilhadores-verify-point verification-card-label">${escapeHtml(spec.label)}</th>
-          <td class="empilhadores-verify-state verification-card-control">
+          <th scope="row" class="checklist-inspection-point empilhadores-verify-point verification-card-label">${escapeHtml(spec.label)}</th>
+          <td class="checklist-inspection-state empilhadores-verify-state verification-card-control">
             <span class="verification-badge ${badgeClass}" data-verify-badge="${spec.id}">${badgeText}</span>
             <label class="verification-switch" aria-label="Alternar estado ${escapeHtml(spec.label)}">
               <input type="checkbox" class="sr-only" data-verify-item="${spec.id}" ${checked}>
@@ -580,16 +580,16 @@ function renderEmpilhadoresVerificationTable(field, value) {
     .join('');
 
   return `
-    <div class="empilhadores-verify-column verification-toggles-field" data-verification-field="${field.id}">
-      <div class="empilhadores-verify-column-header">
-        <h5 class="empilhadores-verify-column-title">${escapeHtml(title)}</h5>
-        <div class="empilhadores-verify-column-meta">
+    <div class="checklist-inspection-column empilhadores-verify-column verification-toggles-field" data-verification-field="${field.id}">
+      <div class="checklist-inspection-header empilhadores-verify-column-header">
+        <h5 class="checklist-inspection-title empilhadores-verify-column-title">${escapeHtml(title)}</h5>
+        <div class="checklist-inspection-meta empilhadores-verify-column-meta">
           <span class="matrix-cat-progress" data-verify-progress>${ok}/${total}</span>
           ${verificationBulkOkBtnHtml(title, { compact: true })}
         </div>
       </div>
-      <div class="empilhadores-verify-table-wrap">
-        <table class="empilhadores-verify-table">
+      <div class="checklist-inspection-table-wrap empilhadores-verify-table-wrap">
+        <table class="checklist-inspection-table checklist-inspection-table--verify empilhadores-verify-table">
           <thead>
             <tr>
               <th scope="col">Ponto</th>
@@ -606,7 +606,7 @@ function renderEmpilhadoresVerificationTable(field, value) {
 function renderEmpilhadoresChecklistSection(section, fields, values, context) {
   if (section === EMPILHADORES_VERIFY_DUAL_SECTION) {
     const fieldsHtml = `
-      <div class="empilhadores-verifications-dual">
+      <div class="checklist-inspection-dual empilhadores-verifications-dual">
         ${fields.map((field) => renderEmpilhadoresVerificationTable(field, values[field.id])).join('')}
       </div>
     `;
@@ -1828,6 +1828,16 @@ function updateVerificationBulkOkBtnState(wrap) {
   bulkBtn.setAttribute('aria-pressed', allOk ? 'true' : 'false');
 }
 
+function matrixBulkGoodBtnHtml(title = '', options = {}) {
+  const scope = title ? ` de ${title}` : '';
+  const label = options.compact ? '✓ B' : '✓ Tudo Bom';
+  return `
+    <button type="button" class="matrix-bulk-good-btn" data-matrix-bulk-good
+      aria-pressed="false"
+      aria-label="Marcar ou limpar todos os pontos${scope} como Bom">${label}</button>
+  `;
+}
+
 function verificationBulkOkBtnHtml(title = '', options = {}) {
   const scope = title ? ` de ${title}` : '';
   const label = options.compact ? '✓ OK' : '✓ Tudo OK';
@@ -1852,9 +1862,9 @@ function renderCorretivaVerificationField(field, value) {
       const badgeText = isFail ? 'Não OK' : 'OK';
       const checked = isFail ? 'checked' : '';
       return `
-        <tr class="corretiva-verify-row ${stateClass}" data-verify-card="${spec.id}">
-          <th scope="row" class="corretiva-verify-point">${escapeHtml(spec.label)}</th>
-          <td class="corretiva-verify-state">
+        <tr class="checklist-inspection-row corretiva-verify-row verification-card ${stateClass}" data-verify-card="${spec.id}">
+          <th scope="row" class="checklist-inspection-point corretiva-verify-point verification-card-label">${escapeHtml(spec.label)}</th>
+          <td class="checklist-inspection-state corretiva-verify-state verification-card-control">
             <span class="verification-badge ${badgeClass}" data-verify-badge="${spec.id}">${badgeText}</span>
             <label class="verification-switch corretiva-verify-switch" aria-label="Alternar ${escapeHtml(spec.label)}">
               <input type="checkbox" class="sr-only" data-verify-item="${spec.id}" ${checked}>
@@ -1868,15 +1878,15 @@ function renderCorretivaVerificationField(field, value) {
 
   return `
     <div class="form-group field-block verification-toggles-field corretiva-verifications-field" data-verification-field="${field.id}">
-      <div class="corretiva-section-bar corretiva-section-bar--table">
-        <span class="corretiva-section-bar-title">${escapeHtml(field.label)}</span>
-        <div class="corretiva-section-bar-meta">
+      <div class="checklist-inspection-header corretiva-section-bar corretiva-section-bar--table">
+        <span class="checklist-inspection-title corretiva-section-bar-title">${escapeHtml(field.label)}</span>
+        <div class="checklist-inspection-meta corretiva-section-bar-meta">
           <span class="matrix-cat-progress" data-verify-progress>${ok}/${total}</span>
-          ${verificationBulkOkBtnHtml(field.label)}
+          ${verificationBulkOkBtnHtml(field.label, { compact: true })}
         </div>
       </div>
-      <div class="corretiva-table-wrap">
-        <table class="corretiva-verify-table">
+      <div class="checklist-inspection-table-wrap corretiva-table-wrap">
+        <table class="checklist-inspection-table checklist-inspection-table--verify corretiva-verify-table">
           <thead>
             <tr>
               <th scope="col">Ponto</th>
@@ -2113,9 +2123,9 @@ function renderDl50Matrix4OptionsField(field, value) {
     <div class="form-group field-block matrix-inspection-field dl50-matrix-field" data-matrix-field="${field.id}">
       <label class="form-label">${escapeHtml(field.label)}</label>
       <div class="matrix-legend dl50-matrix-legend">${legend}</div>
-      <div class="grid-inspecao">
-        <div class="grid-inspecao-col grid-inspecao-col--left">${renderColumn(leftCats)}</div>
-        <div class="grid-inspecao-col grid-inspecao-col--right">${renderColumn(rightCats)}</div>
+      <div class="grid-inspecao checklist-inspection-dual">
+        <div class="grid-inspecao-col grid-inspecao-col--left checklist-inspection-col">${renderColumn(leftCats)}</div>
+        <div class="grid-inspecao-col grid-inspecao-col--right checklist-inspection-col">${renderColumn(rightCats)}</div>
       </div>
     </div>
   `;
@@ -2147,9 +2157,9 @@ function renderDl50MatrixCategory(cat, states, options) {
         .join('');
       const defectClass = selected === 'D' ? 'matrix-row--defect' : '';
       return `
-        <tr class="matrix-row dl50-matrix-row ${defectClass}" data-matrix-item="${itemKey}">
-          <th scope="row" class="dl50-matrix-point">${escapeHtml(item)}</th>
-          <td class="dl50-matrix-state">
+        <tr class="checklist-inspection-row matrix-row dl50-matrix-row ${defectClass}" data-matrix-item="${itemKey}">
+          <th scope="row" class="checklist-inspection-point dl50-matrix-point">${escapeHtml(item)}</th>
+          <td class="checklist-inspection-state dl50-matrix-state">
             <div class="matrix-segmented" role="group" aria-label="${escapeHtml(item)}">
               ${segments}
             </div>
@@ -2160,18 +2170,16 @@ function renderDl50MatrixCategory(cat, states, options) {
     .join('');
 
   return `
-    <div class="dl50-matrix-category matrix-accordion-item is-open" data-matrix-category="${catKey}">
-      <div class="dl50-matrix-category-header">
-        <h5 class="dl50-matrix-category-title">${escapeHtml(cat.name)}</h5>
-        <div class="dl50-matrix-category-meta">
+    <div class="checklist-inspection-column dl50-matrix-category matrix-accordion-item is-open" data-matrix-category="${catKey}">
+      <div class="checklist-inspection-header dl50-matrix-category-header">
+        <h5 class="checklist-inspection-title dl50-matrix-category-title">${escapeHtml(cat.name)}</h5>
+        <div class="checklist-inspection-meta dl50-matrix-category-meta">
           <span class="matrix-cat-progress" data-matrix-progress>${filled}/${cat.items.length}</span>
-          <button type="button" class="matrix-bulk-good-btn" data-matrix-bulk-good
-            aria-pressed="false"
-            aria-label="Marcar ou limpar todos os pontos de ${escapeHtml(cat.name)} como Bom">✓ Tudo Bom</button>
+          ${matrixBulkGoodBtnHtml(cat.name, { compact: true })}
         </div>
       </div>
-      <div class="dl50-matrix-table-wrap">
-        <table class="dl50-matrix-table">
+      <div class="checklist-inspection-table-wrap dl50-matrix-table-wrap">
+        <table class="checklist-inspection-table checklist-inspection-table--matrix dl50-matrix-table">
           <thead>
             <tr>
               <th scope="col">Ponto</th>

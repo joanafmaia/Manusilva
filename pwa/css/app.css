@@ -4091,6 +4091,218 @@ body.dark-mode .matrix-bulk-good-btn--active {
   }
 }
 
+/* ─── Checklist — tabelas de inspeção unificadas (empilhadores, DL50, corretiva) ─── */
+.checklist-inspection-dual,
+.empilhadores-verifications-dual,
+.grid-inspecao {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+@media (min-width: 900px) {
+  .checklist-inspection-dual,
+  .empilhadores-verifications-dual,
+  .grid-inspecao {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+    align-items: start;
+  }
+}
+
+.checklist-inspection-col,
+.grid-inspecao-col {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  width: 100%;
+}
+
+.checklist-inspection-column,
+.empilhadores-verify-column,
+.dl50-matrix-category {
+  min-width: 0;
+  overflow: visible;
+  width: 100%;
+}
+
+.checklist-inspection-header,
+.empilhadores-verify-column-header,
+.dl50-matrix-category-header,
+.corretiva-section-bar--table {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.5rem;
+  margin-bottom: 0.3rem;
+  padding: 0.45rem 0.55rem;
+  background: #edf2f7;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px 4px 0 0;
+  overflow: visible;
+}
+
+.checklist-inspection-title,
+.empilhadores-verify-column-title,
+.dl50-matrix-category-title,
+.corretiva-section-bar-title {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #2b6cb0;
+  line-height: 1.25;
+  flex: 1 1 100%;
+  min-width: 0;
+}
+
+.checklist-inspection-meta,
+.empilhadores-verify-column-meta,
+.dl50-matrix-category-meta,
+.corretiva-section-bar-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1 1 100%;
+  justify-content: flex-end;
+  margin-left: 0;
+}
+
+.checklist-inspection-table-wrap,
+.empilhadores-verify-table-wrap,
+.dl50-matrix-table-wrap,
+.corretiva-table-wrap {
+  border: 1px solid #e2e8f0;
+  border-top: none;
+  border-radius: 0 0 4px 4px;
+  overflow-x: auto;
+  overflow-y: visible;
+}
+
+.checklist-inspection-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 0.8125rem;
+}
+
+.checklist-inspection-table thead th {
+  background: #edf2f7;
+  color: #2b6cb0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 0.35rem 0.45rem;
+  border-bottom: 1px solid #e2e8f0;
+  text-align: left;
+}
+
+.checklist-inspection-table thead th:last-child {
+  text-align: center;
+}
+
+.checklist-inspection-table--verify thead th:last-child {
+  width: 4.25rem;
+}
+
+.checklist-inspection-table--matrix thead th:last-child {
+  width: 7.5rem;
+}
+
+.checklist-inspection-table tbody th,
+.checklist-inspection-table tbody td {
+  border-bottom: 1px solid #e2e8f0;
+  padding: 0.3rem 0.45rem;
+  vertical-align: middle;
+}
+
+.checklist-inspection-point {
+  font-weight: 500;
+  color: #2d3748;
+  text-align: left;
+  word-break: break-word;
+}
+
+.checklist-inspection-state {
+  text-align: center;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.checklist-inspection-table--verify tr.verification-card {
+  display: table-row;
+  min-height: 0;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  gap: 0;
+  box-shadow: none;
+  cursor: pointer;
+  user-select: none;
+}
+
+.checklist-inspection-table--verify tr.verification-card > th,
+.checklist-inspection-table--verify tr.verification-card > td {
+  display: table-cell;
+}
+
+.checklist-inspection-table--verify tr.verification-card--ok,
+.checklist-inspection-table--verify tr.verification-card--fail {
+  border: none;
+  box-shadow: none;
+}
+
+.checklist-inspection-table--verify tr.verification-card--fail th,
+.checklist-inspection-table--verify tr.verification-card--fail td {
+  background: rgba(248, 113, 113, 0.07);
+}
+
+.checklist-inspection-table--verify tr.verification-card--ok:nth-child(even) th,
+.checklist-inspection-table--verify tr.verification-card--ok:nth-child(even) td {
+  background: rgba(248, 250, 252, 0.85);
+}
+
+.checklist-inspection-table--matrix tbody tr:nth-child(even) th,
+.checklist-inspection-table--matrix tbody tr:nth-child(even) td {
+  background: #f8fafc;
+}
+
+.checklist-inspection-table--verify .verification-card-label {
+  font-size: inherit;
+  font-weight: 500;
+  flex: none;
+}
+
+.checklist-inspection-table--verify .verification-card-control {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  width: auto;
+  margin: 0 auto;
+}
+
+.checklist-inspection-table--verify .verification-switch {
+  margin-left: 0;
+  vertical-align: middle;
+}
+
+.checklist-inspection-table--matrix .matrix-segmented {
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.15rem;
+}
+
+.checklist-inspection-table--matrix .matrix-row--defect th,
+.checklist-inspection-table--matrix .matrix-row--defect td {
+  background: rgba(248, 113, 113, 0.07);
+}
+
 /* Empilhadores — verificações lado a lado (tabelas HTML) */
 .empilhadores-verifications-dual {
   display: grid;
@@ -5229,12 +5441,15 @@ body.dark-mode .matrix-bulk-good-btn--active {
     gap: 0.85rem;
   }
 
-  body.tech-dashboard-page .form-overlay .empilhadores-verifications-dual {
+  body.tech-dashboard-page .form-overlay .checklist-inspection-dual,
+  body.tech-dashboard-page .form-overlay .empilhadores-verifications-dual,
+  body.tech-dashboard-page .form-overlay .grid-inspecao {
     grid-template-columns: 1fr;
     gap: 0.85rem;
   }
 
-  body.tech-dashboard-page .form-overlay .form-field-section--empilhadores-verify.form-section-card {
+  body.tech-dashboard-page .form-overlay .form-field-section--empilhadores-verify.form-section-card,
+  body.tech-dashboard-page .form-overlay .matrix-inspection-field.dl50-matrix-field {
     padding: 0.85rem 1rem;
     margin-bottom: 0.85rem;
   }
@@ -5247,71 +5462,109 @@ body.dark-mode .matrix-bulk-good-btn--active {
     padding: 0.85rem 1rem;
   }
 
-  body.tech-dashboard-page .form-overlay .empilhadores-verify-column-header {
+  body.tech-dashboard-page .form-overlay .checklist-inspection-header,
+  body.tech-dashboard-page .form-overlay .empilhadores-verify-column-header,
+  body.tech-dashboard-page .form-overlay .dl50-matrix-category-header,
+  body.tech-dashboard-page .form-overlay .corretiva-section-bar--table {
     align-items: stretch;
     padding: 0.45rem 0.55rem;
     margin-bottom: 0.3rem;
   }
 
-  body.tech-dashboard-page .form-overlay .empilhadores-verify-column-title {
+  body.tech-dashboard-page .form-overlay .checklist-inspection-title,
+  body.tech-dashboard-page .form-overlay .empilhadores-verify-column-title,
+  body.tech-dashboard-page .form-overlay .dl50-matrix-category-title,
+  body.tech-dashboard-page .form-overlay .corretiva-section-bar-title {
     flex: 1 1 100%;
   }
 
-  body.tech-dashboard-page .form-overlay .empilhadores-verify-column-meta {
+  body.tech-dashboard-page .form-overlay .checklist-inspection-meta,
+  body.tech-dashboard-page .form-overlay .empilhadores-verify-column-meta,
+  body.tech-dashboard-page .form-overlay .dl50-matrix-category-meta,
+  body.tech-dashboard-page .form-overlay .corretiva-section-bar-meta {
     flex: 1 1 100%;
     justify-content: flex-end;
     margin-left: 0;
     gap: 0.5rem;
   }
 
+  body.tech-dashboard-page .form-overlay .checklist-inspection-table thead th,
+  body.tech-dashboard-page .form-overlay .checklist-inspection-table tbody th,
+  body.tech-dashboard-page .form-overlay .checklist-inspection-table tbody td,
   body.tech-dashboard-page .form-overlay .empilhadores-verify-table thead th,
   body.tech-dashboard-page .form-overlay .empilhadores-verify-table tbody th,
-  body.tech-dashboard-page .form-overlay .empilhadores-verify-table tbody td {
+  body.tech-dashboard-page .form-overlay .empilhadores-verify-table tbody td,
+  body.tech-dashboard-page .form-overlay .dl50-matrix-table thead th,
+  body.tech-dashboard-page .form-overlay .dl50-matrix-table tbody th,
+  body.tech-dashboard-page .form-overlay .dl50-matrix-table tbody td,
+  body.tech-dashboard-page .form-overlay .corretiva-verify-table thead th,
+  body.tech-dashboard-page .form-overlay .corretiva-verify-table tbody th,
+  body.tech-dashboard-page .form-overlay .corretiva-verify-table tbody td {
     padding: 0.3rem 0.45rem;
   }
 
-  body.tech-dashboard-page .form-overlay .empilhadores-verify-table {
+  body.tech-dashboard-page .form-overlay .checklist-inspection-table,
+  body.tech-dashboard-page .form-overlay .empilhadores-verify-table,
+  body.tech-dashboard-page .form-overlay .dl50-matrix-table,
+  body.tech-dashboard-page .form-overlay .corretiva-verify-table {
     font-size: 0.8125rem;
   }
 
-  body.tech-dashboard-page .form-overlay .empilhadores-verify-table .verification-card-label {
+  body.tech-dashboard-page .form-overlay .checklist-inspection-table--verify .verification-card-label,
+  body.tech-dashboard-page .form-overlay .empilhadores-verify-table .verification-card-label,
+  body.tech-dashboard-page .form-overlay .corretiva-verify-table .verification-card-label {
     font-size: 0.8125rem;
     line-height: 1.25;
     font-weight: 500;
   }
 
-  body.tech-dashboard-page .form-overlay .empilhadores-verify-table .verification-badge {
+  body.tech-dashboard-page .form-overlay .checklist-inspection-table--verify .verification-badge,
+  body.tech-dashboard-page .form-overlay .empilhadores-verify-table .verification-badge,
+  body.tech-dashboard-page .form-overlay .corretiva-verify-table .verification-badge {
     display: none;
   }
 
-  body.tech-dashboard-page .form-overlay .empilhadores-verify-table .verify-track {
+  body.tech-dashboard-page .form-overlay .checklist-inspection-table--verify .verify-track,
+  body.tech-dashboard-page .form-overlay .empilhadores-verify-table .verify-track,
+  body.tech-dashboard-page .form-overlay .corretiva-verify-table .verify-track {
     width: 44px;
     height: 26px;
   }
 
-  body.tech-dashboard-page .form-overlay .empilhadores-verify-table .verify-thumb {
+  body.tech-dashboard-page .form-overlay .checklist-inspection-table--verify .verify-thumb,
+  body.tech-dashboard-page .form-overlay .empilhadores-verify-table .verify-thumb,
+  body.tech-dashboard-page .form-overlay .corretiva-verify-table .verify-thumb {
     width: 20px;
     height: 20px;
     top: 3px;
     left: 3px;
   }
 
-  body.tech-dashboard-page .form-overlay .empilhadores-verify-table .verification-switch input:checked + .verify-track .verify-thumb {
+  body.tech-dashboard-page .form-overlay .checklist-inspection-table--verify .verification-switch input:checked + .verify-track .verify-thumb,
+  body.tech-dashboard-page .form-overlay .empilhadores-verify-table .verification-switch input:checked + .verify-track .verify-thumb,
+  body.tech-dashboard-page .form-overlay .corretiva-verify-table .verification-switch input:checked + .verify-track .verify-thumb {
     transform: translateX(18px);
   }
 
-  body.tech-dashboard-page .form-overlay .empilhadores-verify-table thead th:last-child {
+  body.tech-dashboard-page .form-overlay .checklist-inspection-table--verify thead th:last-child,
+  body.tech-dashboard-page .form-overlay .empilhadores-verify-table thead th:last-child,
+  body.tech-dashboard-page .form-overlay .corretiva-verify-table thead th:last-child {
     width: 3.75rem;
     text-align: center;
     padding-left: 0.2rem;
     padding-right: 0.2rem;
   }
 
-  body.tech-dashboard-page .form-overlay .empilhadores-verify-table tbody td.empilhadores-verify-state {
+  body.tech-dashboard-page .form-overlay .checklist-inspection-table--verify tbody td.checklist-inspection-state,
+  body.tech-dashboard-page .form-overlay .empilhadores-verify-table tbody td.empilhadores-verify-state,
+  body.tech-dashboard-page .form-overlay .corretiva-verify-table tbody td.corretiva-verify-state {
     padding: 0.35rem 0.2rem;
   }
 
-  body.tech-dashboard-page .form-overlay .empilhadores-verify-column-meta .matrix-bulk-good-btn {
+  body.tech-dashboard-page .form-overlay .checklist-inspection-meta .matrix-bulk-good-btn,
+  body.tech-dashboard-page .form-overlay .empilhadores-verify-column-meta .matrix-bulk-good-btn,
+  body.tech-dashboard-page .form-overlay .dl50-matrix-category-meta .matrix-bulk-good-btn,
+  body.tech-dashboard-page .form-overlay .corretiva-section-bar-meta .matrix-bulk-good-btn {
     min-height: 40px;
     padding: 0.35rem 0.65rem;
     font-size: 0.75rem;
@@ -5322,8 +5575,15 @@ body.dark-mode .matrix-bulk-good-btn--active {
     gap: 0.65rem;
   }
 
+  body.tech-dashboard-page .form-overlay .dl50-matrix-legend {
+    margin-bottom: 0.5rem;
+    font-size: 0.75rem;
+  }
+
   /* Tabelas de resposta — ocupar largura total do bloco (não metade da grelha) */
+  body.tech-dashboard-page .form-overlay .form-field-section > .checklist-inspection-dual,
   body.tech-dashboard-page .form-overlay .form-field-section > .empilhadores-verifications-dual,
+  body.tech-dashboard-page .form-overlay .matrix-inspection-field.dl50-matrix-field,
   body.tech-dashboard-page .form-overlay .form-field-section > .empilhadores-material-block,
   body.tech-dashboard-page .form-overlay .form-field-section > .grandes-battery-shell,
   body.tech-dashboard-page .form-overlay .form-field-section > div[class*='-dashboard-section'],
@@ -5347,7 +5607,10 @@ body.dark-mode .matrix-bulk-good-btn--active {
   }
 
   body.tech-dashboard-page .form-overlay .dynamic-table,
+  body.tech-dashboard-page .form-overlay .checklist-inspection-table,
   body.tech-dashboard-page .form-overlay .empilhadores-verify-table,
+  body.tech-dashboard-page .form-overlay .dl50-matrix-table,
+  body.tech-dashboard-page .form-overlay .corretiva-verify-table,
   body.tech-dashboard-page .form-overlay .grandes-battery-table {
     width: 100%;
   }
@@ -5397,21 +5660,29 @@ body.dark-mode .matrix-bulk-good-btn--active {
   }
 }
 
-/* Tablet em paisagem — checklist empilhadores lado a lado com scroll interno */
+/* Tablet em paisagem — checklist com scroll interno nas tabelas */
 @media (min-width: 900px) and (max-width: 1366px) {
-  body.tech-dashboard-page .form-overlay .empilhadores-verifications-dual {
+  body.tech-dashboard-page .form-overlay .checklist-inspection-dual,
+  body.tech-dashboard-page .form-overlay .empilhadores-verifications-dual,
+  body.tech-dashboard-page .form-overlay .grid-inspecao {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.75rem;
     align-items: start;
   }
 
-  body.tech-dashboard-page .form-overlay .empilhadores-verify-table-wrap {
+  body.tech-dashboard-page .form-overlay .checklist-inspection-table-wrap,
+  body.tech-dashboard-page .form-overlay .empilhadores-verify-table-wrap,
+  body.tech-dashboard-page .form-overlay .dl50-matrix-table-wrap,
+  body.tech-dashboard-page .form-overlay .corretiva-table-wrap {
     max-height: min(52vh, 26rem);
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
   }
 
-  body.tech-dashboard-page .form-overlay .empilhadores-verify-table thead th {
+  body.tech-dashboard-page .form-overlay .checklist-inspection-table thead th,
+  body.tech-dashboard-page .form-overlay .empilhadores-verify-table thead th,
+  body.tech-dashboard-page .form-overlay .dl50-matrix-table thead th,
+  body.tech-dashboard-page .form-overlay .corretiva-verify-table thead th {
     position: sticky;
     top: 0;
     z-index: 1;
