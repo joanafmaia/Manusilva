@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { sameEntityId, normalizeEntityId } from '../js/entity-id.js';
 import { fitImageInBox } from '../js/pdf-image-fit.js';
 import { collectSubmitWarnings } from '../js/form-submit-checks.js';
+import { REPARACAO_CARREGADOR } from '../js/mock_data.js';
 
 describe('entity-id', () => {
   it('normaliza e compara ids string/number', () => {
@@ -38,5 +39,17 @@ describe('form-submit-checks', () => {
     assert.ok(warnings.some((w) => w.includes('fotos')));
     assert.ok(warnings.some((w) => w.includes('técnico')));
     assert.ok(warnings.some((w) => w.includes('cliente')));
+    assert.ok(!warnings.some((w) => w.includes('observações')));
+  });
+
+  it('não avisa observações em branco se o relatório não tem esse campo', () => {
+    const warnings = collectSubmitWarnings({
+      report: { data: { values: {} } },
+      service: REPARACAO_CARREGADOR,
+      signaturePads: { technician: { toDataURL: () => 'x' }, client: { toDataURL: () => 'y' } },
+      hasFotoAntes: true,
+      hasFotoDepois: true,
+    });
+    assert.ok(!warnings.some((w) => w.includes('observações')));
   });
 });

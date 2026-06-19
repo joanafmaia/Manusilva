@@ -2,9 +2,21 @@
  * Avisos suaves antes de submeter relatório (não bloqueiam por defeito).
  */
 
+const OBSERVATION_FIELD_IDS = new Set(['observacoes', 'observacoes_finais', 'observacao']);
+
+/**
+ * @param {object} [service]
+ * @returns {string|null}
+ */
+export function resolveObservationsFieldId(service) {
+  const field = (service?.fields || []).find((f) => OBSERVATION_FIELD_IDS.has(f.id));
+  return field?.id || null;
+}
+
 /**
  * @param {object} params
  * @param {object} params.report
+ * @param {object} [params.service]
  * @param {object} [params.signaturePads]
  * @param {boolean} [params.hasFotoAntes]
  * @param {boolean} [params.hasFotoDepois]
@@ -12,6 +24,7 @@
  */
 export function collectSubmitWarnings({
   report,
+  service = null,
   signaturePads = {},
   hasFotoAntes = false,
   hasFotoDepois = false,
@@ -31,8 +44,11 @@ export function collectSubmitWarnings({
   if (!techSig) warnings.push('Sem assinatura do técnico.');
   if (!clientSig) warnings.push('Sem assinatura do cliente.');
 
-  const obs = String(values.observacoes || values.observacoes_finais || '').trim();
-  if (!obs) warnings.push('Campo de observações em branco.');
+  const obsFieldId = resolveObservationsFieldId(service);
+  if (obsFieldId) {
+    const obs = String(values[obsFieldId] || '').trim();
+    if (!obs) warnings.push('Campo de observações em branco.');
+  }
 
   return warnings;
 }

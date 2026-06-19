@@ -935,6 +935,7 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport, opt
 
       const warnings = collectSubmitWarnings({
         report,
+        service,
         signaturePads,
         hasFotoAntes: Boolean(fotoDisplayUrl(fotoAntesState)),
         hasFotoDepois: Boolean(fotoDisplayUrl(fotoDepoisState)),
