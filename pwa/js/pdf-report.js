@@ -364,6 +364,13 @@ function buildGrandesServiceInfoMeta(report, job, values, visitCount) {
   return meta;
 }
 
+function buildEmpilhadoresServiceInfoMeta(report, job, values, visitCount) {
+  const meta = buildConclusionAwareServiceInfoMeta(report, job, values, PDF_SECTION_GAP_MM);
+  meta.visitDatesLine = resolvePdfVisitDatesLine(values, report, job, visitCount);
+  meta.numeroVisitas = visitCount;
+  return meta;
+}
+
 function estimatePdfInterventionFotosOverhead(bottomGapMm = 4) {
   return (
     PDF_INTERVENTION_FOTO_BAR_H_MM +
@@ -688,8 +695,7 @@ export async function renderInterventionPDF(report) {
       isReparacaoCarregadorPdf ||
       isCorretivaMaquinasPdf ||
       isGrandesBateriasPdf ||
-      isDl50Pdf ||
-      isEmpilhadoresPdf,
+      isDl50Pdf,
   };
 
   let y;
@@ -783,13 +789,17 @@ export async function renderInterventionPDF(report) {
     y = drawTitleBar(doc, y, title);
     const visitCount = formatPdfNumeroVisitas(values);
     y = drawServiceInfoBlock(doc, y, {
-      serviceDate: formatPdfServiceDateOnly(report, job, values),
-      visitDatesLine: resolvePdfVisitDatesLine(values, report, job, visitCount),
-      numeroVisitas: SERVICES_WITH_SECTION_VISITAS.has(service.id) ? null : visitCount,
+      ...(isEmpilhadoresPdf
+        ? buildEmpilhadoresServiceInfoMeta(report, job, values, visitCount)
+        : {
+            serviceDate: formatPdfServiceDateOnly(report, job, values),
+            visitDatesLine: resolvePdfVisitDatesLine(values, report, job, visitCount),
+            numeroVisitas: SERVICES_WITH_SECTION_VISITAS.has(service.id) ? null : visitCount,
+            metaBottomGapMm: isDl50Pdf ? DL50_SERVICE_META_BOTTOM_MM : null,
+          }),
       deslocacao: reportIncludesDeslocacao(service) ? values.deslocacao || '—' : null,
       technician: techName || values.tecnico || '',
       periodicidade: isDl50Pdf ? values.periodicidade_inspecao || null : null,
-      metaBottomGapMm: isDl50Pdf ? DL50_SERVICE_META_BOTTOM_MM : null,
     });
     if (reportHasMachineSection(service)) {
       y = drawDivider(doc, y);
@@ -932,6 +942,20 @@ const EMPILHADORES_DUAL_VERIFY_GAP_MM = 5.3;
 const EMPILHADORES_VERIFY_COL_BAND_MM = 7;
 const EMPILHADORES_MATERIAL_FONT_PT = 9.5;
 const EMPILHADORES_MATERIAL_COLS = 4;
+/** Rótulos curtos no PDF — evita quebras de linha na grelha de material */
+const EMPILHADORES_MATERIAL_PDF_LABELS = {
+  litros_oleo_diferencial: 'Óleo Diferencial (L)',
+  litros_oleo_torque: 'Óleo Torque (L)',
+  litros_oleo_hidraulico: 'Óleo Hidráulico (L)',
+  litros_oleo_travoes: 'Óleo Travões (L)',
+  litros_oleo_motor: 'Óleo Motor (L)',
+  qtd_filtro_oleo_motor: 'Filtro Óleo Motor',
+  qtd_filtro_ar: 'Filtro Ar',
+  qtd_filtro_combustivel: 'Filtro Combustível',
+  qtd_kit_gaseificador: 'Kit Gaseificador',
+  qtd_limpeza_lubrificante: 'Limpeza/Lubrificante',
+};
+const EMPILHADORES_MATERIAL_ROW_H_MM = 5.5;
 /** ~15px de respiro acima da secção de material */
 const EMPILHADORES_MATERIAL_SECTION_TOP_GAP_MM = 4;
 
@@ -3525,39 +3549,56 @@ async function drawEmpilhadoresDualVerificationBlocks(doc, y, left, right) {
 }
 
 /** Substituição de material — grelha 4 colunas compacta (dashboard) */
+function formatEmpilhadoresMaterialPdfLabel(field) {
+  return EMPILHADORES_MATERIAL_PDF_LABELS[field.id] || field.label;
+}
+
 async function drawEmpilhadoresMaterialGrid(doc, y, fields, values, pdfContext, options = {}) {
   if (!fields.length) return y;
   const cells = fields.map((field) =>
-    pdfGridCell(field.label, coercePdfFieldValue(field, values[field.id], pdfContext)),
+    pdfGridCell(
+      formatEmpilhadoresMaterialPdfLabel(field),
+      coercePdfFieldValue(field, values[field.id], pdfContext),
+    ),
   );
   const body = buildFourColumnGridBody(cells);
   if (!body.length) return y;
 
   const colW = CONTENT_W / EMPILHADORES_MATERIAL_COLS;
+  const tableStyles = {
+    font: pdfAutoTableFont(doc),
+    fontSize: EMPILHADORES_MATERIAL_FONT_PT,
+    cellPadding: PDF_TABLE_CELL_PADDING_COMPACT,
+    minCellHeight: PDF_TABLE_MIN_CELL_HEIGHT_COMPACT,
+    lineColor: PDF_TABLE_LINE,
+    lineWidth: PDF_TABLE_LINE_WIDTH,
+    textColor: TEXT_DARK,
+    valign: 'middle',
+    overflow: 'linebreak',
+  };
+  const columnStyles = {
+    0: { cellWidth: colW, overflow: 'linebreak', fontSize: EMPILHADORES_MATERIAL_FONT_PT },
+    1: { cellWidth: colW, overflow: 'linebreak', fontSize: EMPILHADORES_MATERIAL_FONT_PT },
+    2: { cellWidth: colW, overflow: 'linebreak', fontSize: EMPILHADORES_MATERIAL_FONT_PT },
+    3: { cellWidth: colW, overflow: 'linebreak', fontSize: EMPILHADORES_MATERIAL_FONT_PT },
+  };
+
   if (!options.skipLeadingEnsure) {
-    y = ensureSpace(doc, y, 8 + body.length * 4.5);
+    y = ensureSpace(doc, y, 8 + body.length * EMPILHADORES_MATERIAL_ROW_H_MM);
   }
-  return drawPdfGridTable(doc, y, {
-    body,
-    styles: {
-      font: pdfAutoTableFont(doc),
-      fontSize: EMPILHADORES_MATERIAL_FONT_PT,
-      cellPadding: PDF_TABLE_CELL_PADDING_COMPACT,
-      minCellHeight: PDF_TABLE_MIN_CELL_HEIGHT_COMPACT,
-      lineColor: PDF_TABLE_LINE,
-      lineWidth: PDF_TABLE_LINE_WIDTH,
-      textColor: TEXT_DARK,
-      valign: 'middle',
-      overflow: 'linebreak',
-    },
-    columnStyles: {
-      0: { cellWidth: colW, overflow: 'linebreak', fontSize: EMPILHADORES_MATERIAL_FONT_PT },
-      1: { cellWidth: colW, overflow: 'linebreak', fontSize: EMPILHADORES_MATERIAL_FONT_PT },
-      2: { cellWidth: colW, overflow: 'linebreak', fontSize: EMPILHADORES_MATERIAL_FONT_PT },
-      3: { cellWidth: colW, overflow: 'linebreak', fontSize: EMPILHADORES_MATERIAL_FONT_PT },
-    },
-    gapAfter: PDF_SECTION_GAP_MM,
-  });
+
+  for (let rowIdx = 0; rowIdx < body.length; rowIdx += 1) {
+    y = ensureSpace(doc, y, EMPILHADORES_MATERIAL_ROW_H_MM + 1);
+    y = await drawPdfGridTable(doc, y, {
+      body: [body[rowIdx]],
+      styles: tableStyles,
+      columnStyles,
+      gapAfter: rowIdx < body.length - 1 ? 0 : PDF_SECTION_GAP_MM,
+      autoTableExtra: { rowPageBreak: 'avoid' },
+    });
+  }
+
+  return y;
 }
 
 function collectEmpilhadoresMaterialFields(service, values, pdfContext, skipIds = new Set()) {
@@ -3991,8 +4032,14 @@ function drawServiceInfoBlock(doc, y, meta) {
 }
 
 async function drawClosingDiagnosticBlock(doc, y, values, service = null) {
+  const isEmpilhadores = service?.id === EMPILHADORES_SERVICE_ID;
   const specs = PDF_CLOSING_DIAGNOSTIC_SPECS.filter((spec) => {
-    if (spec.id === 'horas' && SERVICES_WITH_SECTION_VISITAS.has(service?.id)) return false;
+    if (
+      spec.id === 'horas' &&
+      (SERVICES_WITH_SECTION_VISITAS.has(service?.id) || isEmpilhadores)
+    ) {
+      return false;
+    }
     return true;
   });
   const pairs = specs.map((spec) => ({
@@ -4001,7 +4048,9 @@ async function drawClosingDiagnosticBlock(doc, y, values, service = null) {
   }));
 
   y = ensureSpace(doc, y, 20);
-  y = drawSectionTitle(doc, y, 'Resumo da Intervenção', { skipEnsure: true });
+  y = drawSectionTitle(doc, y, isEmpilhadores ? 'Estado da Máquina' : 'Resumo da Intervenção', {
+    skipEnsure: true,
+  });
   y = drawDivider(doc, y - 4);
   return drawSectionScalarGridFromPairs(doc, y, pairs);
 }
@@ -5084,6 +5133,7 @@ async function drawReportClosingSection(doc, y, opts) {
   const hasLegal = Boolean(opts.legalValue && String(opts.legalValue).trim());
   const hasFotos = Boolean(opts.fotoAntesUrl || opts.fotoDepoisUrl);
   const polaroidOpts = { simpleLegend: Boolean(opts.simplePhotoLegend) };
+  const isEmpilhadoresClosing = opts.service?.id === EMPILHADORES_SERVICE_ID;
 
   let profile = planReportClosingProfile(doc, y, opts);
   const isDl50Closing = opts.service?.id === INSPECAO_DL50_SERVICE_ID;
@@ -5109,24 +5159,59 @@ async function drawReportClosingSection(doc, y, opts) {
     });
   }
 
-  if (hasFotos) {
-    y = ensurePdfClosingTailFits(doc, y, hasFotos, profile, {
-      bottomGap: profile.polaroidBottom ?? 4,
-    });
-    y = await drawInterventionFotografiasSection(
-      doc,
-      y,
-      opts.fotoAntesUrl,
-      opts.fotoDepoisUrl,
-      {
-        skipEnsure: true,
-        bottomGap: profile.polaroidBottom ?? 4,
-        maxImgH: profile.polaroidMm,
-      },
-    );
+  if (isEmpilhadoresClosing && opts.closingValues && !opts.skipClosingDiagnostic) {
+    y = await drawClosingDiagnosticBlock(doc, y, opts.closingValues, opts.service);
   }
 
-  if (opts.closingValues && !opts.skipClosingDiagnostic) {
+  if (hasFotos) {
+    const bottomGap = profile.polaroidBottom ?? 4;
+    if (isEmpilhadoresClosing) {
+      let available = pdfContentBottomY() - y;
+      let maxImgH = resolveAdaptiveClosingPhotoHeight(available, profile, bottomGap);
+      let tailH =
+        estimatePdfInterventionFotosOverhead(bottomGap) + maxImgH + estimateSignaturesHeight(profile);
+
+      if (y + tailH > pdfContentBottomY()) {
+        y = ensureBlockFitsSafeZone(doc, y, tailH);
+        available = pdfContentBottomY() - y;
+        maxImgH = resolveAdaptiveClosingPhotoHeight(available, profile, bottomGap);
+        tailH =
+          estimatePdfInterventionFotosOverhead(bottomGap) + maxImgH + estimateSignaturesHeight(profile);
+        if (y + tailH > pdfContentBottomY()) {
+          y = ensureBlockFitsSafeZone(doc, y, tailH);
+        }
+      }
+
+      y = await drawInterventionFotografiasSection(
+        doc,
+        y,
+        opts.fotoAntesUrl,
+        opts.fotoDepoisUrl,
+        {
+          skipEnsure: true,
+          bottomGap,
+          maxImgH,
+        },
+      );
+    } else {
+      y = ensurePdfClosingTailFits(doc, y, hasFotos, profile, {
+        bottomGap,
+      });
+      y = await drawInterventionFotografiasSection(
+        doc,
+        y,
+        opts.fotoAntesUrl,
+        opts.fotoDepoisUrl,
+        {
+          skipEnsure: true,
+          bottomGap,
+          maxImgH: profile.polaroidMm,
+        },
+      );
+    }
+  }
+
+  if (!isEmpilhadoresClosing && opts.closingValues && !opts.skipClosingDiagnostic) {
     y = await drawClosingDiagnosticBlock(doc, y, opts.closingValues, opts.service);
   }
 
