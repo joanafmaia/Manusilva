@@ -5580,12 +5580,59 @@ body.dark-mode .matrix-bulk-good-btn--active {
     font-size: 0.75rem;
   }
 
+  body.tech-dashboard-page .form-overlay .rav-metrics-dual {
+    grid-template-columns: 1fr;
+    gap: 0.85rem;
+    width: 100%;
+  }
+
+  body.tech-dashboard-page .form-overlay .form-field-section--rav-bateria.form-section-card {
+    padding: 0.85rem 1rem;
+  }
+
+  body.tech-dashboard-page .form-overlay .rav-dashboard-section .dynamic-table,
+  body.tech-dashboard-page .form-overlay .rav-dashboard-section .dynamic-table thead th,
+  body.tech-dashboard-page .form-overlay .rav-dashboard-section .dynamic-table tbody td {
+    font-size: 0.95rem;
+  }
+
+  body.tech-dashboard-page .form-overlay .rav-dashboard-section .dynamic-table thead th,
+  body.tech-dashboard-page .form-overlay .rav-dashboard-section .dynamic-table tbody td {
+    padding: 0.65rem 0.85rem;
+  }
+
+  body.tech-dashboard-page .form-overlay .rav-dashboard-section .dynamic-table input,
+  body.tech-dashboard-page .form-overlay .rav-dashboard-section .dynamic-table select {
+    min-height: 44px;
+    font-size: 0.95rem;
+  }
+
+  body.tech-dashboard-page .form-overlay .rav-dashboard-section > .form-label,
+  body.tech-dashboard-page .form-overlay .rav-dashboard-section > .form-section-subtitle,
+  body.tech-dashboard-page .form-overlay .rav-section-bar-title {
+    font-size: 0.78rem;
+  }
+
+  body.tech-dashboard-page .form-overlay .rav-visitas-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.85rem;
+    padding: 0.85rem 1rem;
+  }
+
+  body.tech-dashboard-page .form-overlay .rav-visitas-fields .form-input {
+    min-height: 52px;
+    font-size: 1rem;
+  }
+
   /* Tabelas de resposta — ocupar largura total do bloco (não metade da grelha) */
   body.tech-dashboard-page .form-overlay .form-field-section > .checklist-inspection-dual,
   body.tech-dashboard-page .form-overlay .form-field-section > .empilhadores-verifications-dual,
   body.tech-dashboard-page .form-overlay .matrix-inspection-field.dl50-matrix-field,
   body.tech-dashboard-page .form-overlay .form-field-section > .empilhadores-material-block,
   body.tech-dashboard-page .form-overlay .form-field-section > .grandes-battery-shell,
+  body.tech-dashboard-page .form-overlay .form-field-section > .rav-metrics-dual,
+  body.tech-dashboard-page .form-overlay .form-field-section > .rav-estado-final-shell,
+  body.tech-dashboard-page .form-overlay .form-field-section > div[class*='-metrics-dual'],
   body.tech-dashboard-page .form-overlay .form-field-section > div[class*='-dashboard-section'],
   body.tech-dashboard-page .form-overlay .form-field-section > div[class*='-footer-dual'],
   body.tech-dashboard-page .form-overlay .form-field-section > div[class*='-observations'],
@@ -5597,6 +5644,9 @@ body.dark-mode .matrix-bulk-good-btn--active {
   body.tech-dashboard-page .form-overlay .form-field-section > div[class*='-datas-intervencao'],
   body.tech-dashboard-page .form-overlay .form-field-section > div[class*='-text-section'],
   body.tech-dashboard-page .form-overlay .form-field-section > div[class*='-estado-final'],
+  body.tech-dashboard-page .form-overlay .form-field-section .rav-metrics-dual .dynamic-table-field,
+  body.tech-dashboard-page .form-overlay .form-field-section .rav-dashboard-section .dynamic-table-field,
+  body.tech-dashboard-page .form-overlay .form-field-section .rav-dashboard-section .dynamic-table-wrap,
   body.tech-dashboard-page .form-overlay .form-field-section .dynamic-table-field,
   body.tech-dashboard-page .form-overlay .form-field-section .dynamic-table-wrap,
   body.tech-dashboard-page .form-overlay .form-field-section .grandes-battery-wrap {
@@ -5660,6 +5710,15 @@ body.dark-mode .matrix-bulk-good-btn--active {
   }
 }
 
+/* Tablet em paisagem — RAV consumíveis + visitas lado a lado */
+@media (min-width: 900px) and (max-width: 1366px) {
+  body.tech-dashboard-page .form-overlay .rav-metrics-dual {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+    align-items: start;
+  }
+}
+
 /* Tablet em paisagem — checklist com scroll interno nas tabelas */
 @media (min-width: 900px) and (max-width: 1366px) {
   body.tech-dashboard-page .form-overlay .checklist-inspection-dual,
@@ -5707,6 +5766,8 @@ body.dark-mode .matrix-bulk-good-btn--active {
   body.tech-dashboard-page .form-overlay #report-panel-geral .report-fields > .form-field-section:has(.matrix-accordion),
   body.tech-dashboard-page .form-overlay #report-panel-geral .report-fields > .form-field-section:has(.verification-accordion),
   body.tech-dashboard-page .form-overlay #report-panel-geral .report-fields > .form-field-section:has(.grandes-battery-shell),
+  body.tech-dashboard-page .form-overlay #report-panel-geral .report-fields > .form-field-section:has(.rav-metrics-dual),
+  body.tech-dashboard-page .form-overlay #report-panel-geral .report-fields > .form-field-section--rav-bateria,
   body.tech-dashboard-page .form-overlay #report-panel-checklist .report-fields > .form-field-section:has(table),
   body.tech-dashboard-page .form-overlay #report-panel-checklist .report-fields > .form-field-section--empilhadores-verify,
   body.tech-dashboard-page .form-overlay #report-panel-geral .report-fields > div[class*='-dashboard-section'],
@@ -9609,9 +9670,17 @@ body.dark-mode .client-history-status--rejected {
 
 .rav-metrics-dual {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
+  grid-template-columns: 1fr;
+  gap: 1rem;
   margin-bottom: 10px;
+  width: 100%;
+}
+
+@media (min-width: 900px) {
+  .rav-metrics-dual {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+  }
 }
 
 .rav-metrics-dual .rav-dashboard-section {
@@ -9642,7 +9711,8 @@ body.dark-mode .client-history-status--rejected {
 
 .rav-dashboard-section .dynamic-table-wrap {
   border-radius: 0 0 6px 6px;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: visible;
 }
 
 .rav-dashboard-section .dynamic-table {
@@ -11282,6 +11352,9 @@ body:not(:has(.theme-toggle-btn:not(.theme-toggle-btn--inline))) .toast-containe
   .empilhadores-verifications-dual,
   .empilhadores-material-block,
   .grandes-battery-shell,
+  .rav-metrics-dual,
+  .rav-estado-final-shell,
+  div[class*='-metrics-dual'],
   .dynamic-table-field,
   div[class*='-dashboard-section'],
   div[class*='-footer-dual'],
