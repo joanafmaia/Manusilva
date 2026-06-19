@@ -499,7 +499,7 @@ export const REPARACAO_AVARIAS_BATERIA = {
     {
       type: 'number',
       id: 'visitas_realizadas',
-      label: 'Nr de Visitas',
+      label: 'N.º de Visitas',
       section: 'Número de Visitas e Tempo',
       min: 1,
       step: 1,
