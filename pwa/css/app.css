@@ -4112,18 +4112,21 @@ body.dark-mode .matrix-bulk-good-btn--active {
 
 .empilhadores-verify-column {
   min-width: 0;
+  overflow: visible;
 }
 
 .empilhadores-verify-column-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.5rem;
   margin-bottom: 0.45rem;
   padding: 0.4rem 0.55rem;
   background: #edf2f7;
   border: 1px solid #e2e8f0;
   border-radius: 4px 4px 0 0;
+  overflow: visible;
 }
 
 .empilhadores-verify-column-title {
@@ -4134,20 +4137,24 @@ body.dark-mode .matrix-bulk-good-btn--active {
   text-transform: uppercase;
   color: #2b6cb0;
   line-height: 1.25;
+  flex: 1 1 8rem;
+  min-width: 0;
 }
 
 .empilhadores-verify-column-meta {
   display: flex;
   align-items: center;
   gap: 0.35rem;
-  flex-shrink: 0;
+  flex: 0 0 auto;
+  margin-left: auto;
 }
 
 .empilhadores-verify-table-wrap {
   border: 1px solid #e2e8f0;
   border-top: none;
   border-radius: 0 0 4px 4px;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: visible;
 }
 
 .empilhadores-verify-table {
@@ -4170,7 +4177,7 @@ body.dark-mode .matrix-bulk-good-btn--active {
 }
 
 .empilhadores-verify-table thead th:last-child {
-  width: 5.5rem;
+  width: 4.25rem;
   text-align: center;
 }
 
@@ -4199,7 +4206,6 @@ body.dark-mode .matrix-bulk-good-btn--active {
 }
 
 .empilhadores-verify-state .verification-switch {
-  margin-left: 0.25rem;
   vertical-align: middle;
 }
 
@@ -4243,8 +4249,23 @@ body.dark-mode .matrix-bulk-good-btn--active {
 }
 
 .empilhadores-verify-table .verification-card-control {
-  gap: 0.35rem;
+  gap: 0;
   justify-content: center;
+  display: inline-flex;
+  align-items: center;
+  width: auto;
+  margin: 0 auto;
+}
+
+.empilhadores-verify-table td.empilhadores-verify-state {
+  vertical-align: middle;
+  text-align: center;
+  line-height: 1;
+}
+
+.empilhadores-verify-table .empilhadores-verify-state .verification-switch {
+  margin-left: 0;
+  vertical-align: middle;
 }
 
 .form-section-subtitle--empilhadores-material {
@@ -5227,8 +5248,20 @@ body.dark-mode .matrix-bulk-good-btn--active {
   }
 
   body.tech-dashboard-page .form-overlay .empilhadores-verify-column-header {
-    padding: 0.35rem 0.5rem;
+    align-items: stretch;
+    padding: 0.45rem 0.55rem;
     margin-bottom: 0.3rem;
+  }
+
+  body.tech-dashboard-page .form-overlay .empilhadores-verify-column-title {
+    flex: 1 1 100%;
+  }
+
+  body.tech-dashboard-page .form-overlay .empilhadores-verify-column-meta {
+    flex: 1 1 100%;
+    justify-content: flex-end;
+    margin-left: 0;
+    gap: 0.5rem;
   }
 
   body.tech-dashboard-page .form-overlay .empilhadores-verify-table thead th,
@@ -5268,14 +5301,21 @@ body.dark-mode .matrix-bulk-good-btn--active {
   }
 
   body.tech-dashboard-page .form-overlay .empilhadores-verify-table thead th:last-child {
-    width: 3.25rem;
+    width: 3.75rem;
     text-align: center;
+    padding-left: 0.2rem;
+    padding-right: 0.2rem;
+  }
+
+  body.tech-dashboard-page .form-overlay .empilhadores-verify-table tbody td.empilhadores-verify-state {
+    padding: 0.35rem 0.2rem;
   }
 
   body.tech-dashboard-page .form-overlay .empilhadores-verify-column-meta .matrix-bulk-good-btn {
-    min-height: 36px;
-    padding: 0.25rem 0.55rem;
-    font-size: 0.72rem;
+    min-height: 40px;
+    padding: 0.35rem 0.65rem;
+    font-size: 0.75rem;
+    line-height: 1;
   }
 
   body.tech-dashboard-page .form-overlay .material-substitution-grid--empilhadores {

@@ -585,7 +585,7 @@ function renderEmpilhadoresVerificationTable(field, value) {
         <h5 class="empilhadores-verify-column-title">${escapeHtml(title)}</h5>
         <div class="empilhadores-verify-column-meta">
           <span class="matrix-cat-progress" data-verify-progress>${ok}/${total}</span>
-          ${verificationBulkOkBtnHtml(title)}
+          ${verificationBulkOkBtnHtml(title, { compact: true })}
         </div>
       </div>
       <div class="empilhadores-verify-table-wrap">
@@ -1828,12 +1828,13 @@ function updateVerificationBulkOkBtnState(wrap) {
   bulkBtn.setAttribute('aria-pressed', allOk ? 'true' : 'false');
 }
 
-function verificationBulkOkBtnHtml(title = '') {
+function verificationBulkOkBtnHtml(title = '', options = {}) {
   const scope = title ? ` de ${title}` : '';
+  const label = options.compact ? '✓ OK' : '✓ Tudo OK';
   return `
     <button type="button" class="matrix-bulk-good-btn" data-verification-bulk-ok
       aria-pressed="false"
-      aria-label="Marcar ou limpar todos os pontos${scope} como OK">✓ Tudo OK</button>
+      aria-label="Marcar ou limpar todos os pontos${scope} como OK">${label}</button>
   `;
 }
 
