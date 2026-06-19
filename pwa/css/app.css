@@ -5169,6 +5169,33 @@ body.dark-mode .matrix-bulk-good-btn--active {
     gap: 1rem;
   }
 
+  /* Tabelas de resposta — ocupar largura total do bloco (não metade da grelha) */
+  body.tech-dashboard-page .form-overlay .form-field-section > .empilhadores-verifications-dual,
+  body.tech-dashboard-page .form-overlay .form-field-section > .empilhadores-material-block,
+  body.tech-dashboard-page .form-overlay .form-field-section > div[class*='-dashboard-section'],
+  body.tech-dashboard-page .form-overlay .form-field-section > div[class*='-footer-dual'],
+  body.tech-dashboard-page .form-overlay .form-field-section > div[class*='-observations'],
+  body.tech-dashboard-page .form-overlay .form-field-section > div[class*='-machine-grid'],
+  body.tech-dashboard-page .form-overlay .form-field-section > div[class*='-cliente-grid'],
+  body.tech-dashboard-page .form-overlay .form-field-section > div[class*='-identificacao-bar'],
+  body.tech-dashboard-page .form-overlay .form-field-section > div[class*='-fecho-fields'],
+  body.tech-dashboard-page .form-overlay .form-field-section > div[class*='-pedido-orcamento'],
+  body.tech-dashboard-page .form-overlay .form-field-section > div[class*='-datas-intervencao'],
+  body.tech-dashboard-page .form-overlay .form-field-section > div[class*='-text-section'],
+  body.tech-dashboard-page .form-overlay .form-field-section > div[class*='-estado-final'],
+  body.tech-dashboard-page .form-overlay .dynamic-table-field,
+  body.tech-dashboard-page .form-overlay .dynamic-table-wrap {
+    grid-column: 1 / -1;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  body.tech-dashboard-page .form-overlay .dynamic-table,
+  body.tech-dashboard-page .form-overlay .empilhadores-verify-table {
+    width: 100%;
+  }
+
   body.tech-dashboard-page .form-overlay .folha-datas-intervencao-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.85rem;
@@ -5218,9 +5245,15 @@ body.dark-mode .matrix-bulk-good-btn--active {
 
   body.tech-dashboard-page .form-overlay #report-panel-geral .report-fields > .form-field-section:has(textarea),
   body.tech-dashboard-page .form-overlay #report-panel-geral .report-fields > .form-field-section:has(.dynamic-table-wrap),
+  body.tech-dashboard-page .form-overlay #report-panel-geral .report-fields > .form-field-section:has(.dynamic-table-field),
+  body.tech-dashboard-page .form-overlay #report-panel-geral .report-fields > .form-field-section:has(table),
+  body.tech-dashboard-page .form-overlay #report-panel-geral .report-fields > .form-field-section:has(.empilhadores-verifications-dual),
+  body.tech-dashboard-page .form-overlay #report-panel-geral .report-fields > .form-field-section--empilhadores-verify,
   body.tech-dashboard-page .form-overlay #report-panel-geral .report-fields > .form-field-section:has(.matrix-accordion),
   body.tech-dashboard-page .form-overlay #report-panel-geral .report-fields > .form-field-section:has(.verification-accordion),
   body.tech-dashboard-page .form-overlay #report-panel-geral .report-fields > .form-field-section:has(.grandes-battery-shell),
+  body.tech-dashboard-page .form-overlay #report-panel-checklist .report-fields > .form-field-section:has(table),
+  body.tech-dashboard-page .form-overlay #report-panel-checklist .report-fields > .form-field-section--empilhadores-verify,
   body.tech-dashboard-page .form-overlay #report-panel-geral .report-fields > div[class*='-dashboard-section'],
   body.tech-dashboard-page .form-overlay #report-panel-geral .report-fields > div[class*='-footer-dual'],
   body.tech-dashboard-page .form-overlay #report-panel-geral .report-fields > div[class*='-observations'],
@@ -10790,7 +10823,21 @@ body:not(:has(.theme-toggle-btn:not(.theme-toggle-btn--inline))) .toast-containe
   .empilhadores-machine-grid,
   .material-substitution-grid,
   .diagnostic-section-highlight,
-  .field-block:not(.field-block--grid-eligible) {
+  .field-block:not(.field-block--grid-eligible),
+  .empilhadores-verifications-dual,
+  .empilhadores-material-block,
+  .dynamic-table-field,
+  div[class*='-dashboard-section'],
+  div[class*='-footer-dual'],
+  div[class*='-observations'],
+  div[class*='-machine-grid'],
+  div[class*='-cliente-grid'],
+  div[class*='-identificacao-bar'],
+  div[class*='-fecho-fields'],
+  div[class*='-pedido-orcamento'],
+  div[class*='-datas-intervencao'],
+  div[class*='-text-section'],
+  div[class*='-estado-final'] {
     grid-column: 1 / -1;
   }
 
