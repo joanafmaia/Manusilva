@@ -405,6 +405,8 @@ export function buildFormPrefill(service, job, _forklift, context = {}) {
     });
     return {
       data_de_conclusao: job?.date || '',
+      horas: '',
+      estado_maquina: 'Operacional',
       [verField?.id || 'lista_de_verificacoes']: verifications,
     };
   }

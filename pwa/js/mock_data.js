@@ -12,7 +12,7 @@ import { createMaterialTableField } from './material-table-field.js';
 /** Secção de óleos/filtros — após verificações no relatório Empilhadores */
 export const EMPILHADORES_MATERIAL_SECTION = 'Substituição de Material na Manutenção';
 
-export const SCHEMA_VERSION = 21;
+export const SCHEMA_VERSION = 22;
 
 export const COMPANY = {
   name: 'ManuSilva Manutenção Industrial, Unipessoal, Lda',
@@ -135,6 +135,22 @@ export const MANUTENCAO_CORRETIVA_MAQUINAS = {
       ],
     },
     { type: 'textarea', id: 'observacoes', label: 'Observações' },
+    {
+      type: 'number',
+      id: 'horas',
+      label: 'Horas',
+      section: 'Resumo da Intervenção',
+      min: 0,
+      step: 0.5,
+      placeholder: '0',
+    },
+    {
+      type: 'status_pills',
+      id: 'estado_maquina',
+      label: 'Estado da Máquina',
+      section: 'Resumo da Intervenção',
+      options: ['Operacional', 'Inoperacional por Segurança', 'Aguardar Peças'],
+    },
   ],
 };
 

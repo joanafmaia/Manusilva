@@ -295,6 +295,65 @@ function formatPdfShortVisitDate(raw) {
   return '';
 }
 
+/** Data de conclusão preenchida no formulário (DD/MM/AAAA) */
+function formatPdfConclusionDate(values = {}) {
+  const raw = values.data_de_conclusao;
+  if (!raw) return '';
+  const [y, m, d] = String(raw).split('T')[0].split('-');
+  return y && m && d ? `${d}/${m}/${y}` : '';
+}
+
+/** Data do trabalho agendado (job), sem fallback para conclusão */
+function formatPdfJobDateOnly(job, report) {
+  const raw = job?.date || report?.submittedAt?.split('T')[0];
+  if (!raw) return '';
+  const [y, m, d] = String(raw).split('T')[0].split('-');
+  return y && m && d ? `${d}/${m}/${y}` : '';
+}
+
+function buildCorretivaServiceInfoMeta(report, job, values, visitCount) {
+  const conclusionDate = formatPdfConclusionDate(values);
+  const jobDate = formatPdfJobDateOnly(job, report);
+  const meta = {
+    visitDatesLine: resolvePdfVisitDatesLine(values, report, job, visitCount),
+    numeroVisitas: visitCount,
+    deslocacao: null,
+    technician: null,
+    metaBottomGapMm: CORRETIVA_SECTION_GAP_MM,
+  };
+
+  if (conclusionDate) {
+    meta.serviceDateLabel = 'Data de Conclusão';
+    meta.serviceDate = conclusionDate;
+    if (jobDate && jobDate !== conclusionDate) {
+      meta.scheduledDateLabel = 'Data do Serviço';
+      meta.scheduledDate = jobDate;
+    }
+  } else {
+    meta.serviceDate = formatPdfServiceDateOnly(report, job, values);
+  }
+
+  return meta;
+}
+
+function estimatePdfInterventionFotosOverhead(bottomGapMm = 4) {
+  return (
+    PDF_INTERVENTION_FOTO_BAR_H_MM +
+    PDF_INTERVENTION_FOTO_GRID_MARGIN_TOP_MM +
+    PDF_INTERVENTION_FOTO_CAPTION_H_MM +
+    bottomGapMm
+  );
+}
+
+function resolveAdaptiveClosingPhotoHeight(availableMm, profile, bottomGap = 2) {
+  const preferred = profile.polaroidMm ?? PDF_INTERVENTION_FOTO_MAX_H_MM;
+  if (availableMm <= 0) return preferred;
+  const maxImg = availableMm - estimatePdfInterventionFotosOverhead(bottomGap) - estimateSignaturesHeight(profile);
+  if (maxImg >= preferred) return preferred;
+  if (maxImg >= 24) return maxImg;
+  return preferred;
+}
+
 /** Data principal do serviço — apenas dia (DD/MM/AAAA), sem hora */
 function formatPdfServiceDateOnly(report, job, values = {}) {
   const raw =
@@ -667,12 +726,8 @@ export async function renderInterventionPDF(report) {
     y = drawCorretivaTitleBar(doc, y, title);
     const visitCount = formatPdfNumeroVisitas(values);
     y = drawServiceInfoBlock(doc, y, {
-      serviceDate: formatPdfServiceDateOnly(report, job, values),
-      visitDatesLine: resolvePdfVisitDatesLine(values, report, job, visitCount),
-      numeroVisitas: visitCount,
-      deslocacao: null,
+      ...buildCorretivaServiceInfoMeta(report, job, values, visitCount),
       technician: techName || values.tecnico || '',
-      metaBottomGapMm: CORRETIVA_SECTION_GAP_MM,
     });
     y = await drawCorretivaMaquinasBody(doc, y, service, values, pdfContext);
     y = await drawCorretivaMaquinasClosingSection(doc, y, {
@@ -2290,7 +2345,9 @@ async function drawCorretivaObservationsBox(doc, y, value) {
 }
 
 async function drawCorretivaResumoRow(doc, y, values) {
-  const horas = pdfDisplayValue(resolvePdfStandardFieldValue(values, { id: 'horas' }));
+  const horas = pdfDisplayValue(
+    resolvePdfStandardFieldValue(values, { id: 'horas', aliases: ['horas_gastas'] }),
+  );
   const estado = pdfDisplayValue(resolvePdfStandardFieldValue(values, { id: 'estado_maquina' }));
   const colW = CONTENT_W / 2;
 
@@ -2331,13 +2388,27 @@ async function drawCorretivaMaquinasClosingSection(doc, y, opts) {
   y = await drawCorretivaResumoRow(doc, y, opts.closingValues || {});
 
   if (hasFotos) {
-    y = ensurePdfClosingTailFits(doc, y, hasFotos, profile, { bottomGap: 2 });
+    const bottomGap = 2;
+    let available = pdfContentBottomY() - y;
+    let maxImgH = resolveAdaptiveClosingPhotoHeight(available, profile, bottomGap);
+    let tailH = estimatePdfInterventionFotosOverhead(bottomGap) + maxImgH + estimateSignaturesHeight(profile);
+
+    if (y + tailH > pdfContentBottomY()) {
+      y = ensureBlockFitsSafeZone(doc, y, tailH);
+      available = pdfContentBottomY() - y;
+      maxImgH = resolveAdaptiveClosingPhotoHeight(available, profile, bottomGap);
+      tailH = estimatePdfInterventionFotosOverhead(bottomGap) + maxImgH + estimateSignaturesHeight(profile);
+      if (y + tailH > pdfContentBottomY()) {
+        y = ensureBlockFitsSafeZone(doc, y, tailH);
+      }
+    }
+
     y = await drawInterventionFotografiasSection(
       doc,
       y,
       opts.fotoAntesUrl,
       opts.fotoDepoisUrl,
-      { skipEnsure: true, bottomGap: 2, maxImgH: profile.polaroidMm },
+      { skipEnsure: true, bottomGap, maxImgH },
     );
   } else {
     y = ensureBlockFitsSafeZone(doc, y, estimateSignaturesHeight(profile));
@@ -3665,7 +3736,16 @@ function drawServiceInfoField(doc, x, y, label, value, options = {}) {
 /** Bloco meta — Data do Serviço, Nº de Visitas e Técnico (subcabeçalho único no topo) */
 function drawServiceInfoBlock(doc, y, meta) {
   const rowItems = [];
-  rowItems.push({ label: 'Data do Serviço', value: meta.serviceDate || '—' });
+  rowItems.push({
+    label: meta.serviceDateLabel || 'Data do Serviço',
+    value: meta.serviceDate || '—',
+  });
+  if (meta.scheduledDate && meta.scheduledDate !== meta.serviceDate) {
+    rowItems.push({
+      label: meta.scheduledDateLabel || 'Data do Serviço',
+      value: meta.scheduledDate,
+    });
+  }
   if (meta.periodicidade != null && String(meta.periodicidade).trim()) {
     rowItems.push({ label: 'Periodicidade Inspeção', value: pdfDisplayValue(meta.periodicidade) });
   }
