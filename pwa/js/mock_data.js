@@ -46,7 +46,7 @@ export const FOLHA_INTERVENCAO_AVARIAS = {
     {
       type: 'number',
       id: 'visitas_realizadas',
-      label: 'Visitas realizadas',
+      label: 'N.º de Visitas',
       section: 'Datas de Intervenção',
       min: 1,
       step: 1,

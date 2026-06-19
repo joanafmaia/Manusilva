@@ -297,10 +297,8 @@ function formatPdfShortVisitDate(raw) {
 
 /** Data de conclusão preenchida no formulário (DD/MM/AAAA) */
 function formatPdfConclusionDate(values = {}) {
-  const raw = values.data_de_conclusao;
-  if (!raw) return '';
-  const [y, m, d] = String(raw).split('T')[0].split('-');
-  return y && m && d ? `${d}/${m}/${y}` : '';
+  const formatted = formatFolhaInterventionDate(values.data_de_conclusao);
+  return formatted === '—' ? '' : formatted;
 }
 
 /** Data do trabalho agendado (job), sem fallback para conclusão */
@@ -366,6 +364,19 @@ function buildGrandesServiceInfoMeta(report, job, values, visitCount) {
 
 function buildEmpilhadoresServiceInfoMeta(report, job, values, visitCount) {
   const meta = buildConclusionAwareServiceInfoMeta(report, job, values, PDF_SECTION_GAP_MM);
+  meta.visitDatesLine = resolvePdfVisitDatesLine(values, report, job, visitCount);
+  meta.numeroVisitas = visitCount;
+  return meta;
+}
+
+function buildFolhaAvariasServiceInfoMeta(report, job, values) {
+  const visitCount = formatPdfNumeroVisitas(values);
+  const meta = buildConclusionAwareServiceInfoMeta(
+    report,
+    job,
+    { ...values, data_de_conclusao: values.data_de_conclusao || values.data_1 || '' },
+    FOLHA_AVARIAS_SECTION_GAP_MM,
+  );
   meta.visitDatesLine = resolvePdfVisitDatesLine(values, report, job, visitCount);
   meta.numeroVisitas = visitCount;
   return meta;
@@ -713,12 +724,9 @@ export async function renderInterventionPDF(report) {
     y = drawTopRowWithClientBlock(doc, clientMeta, job?.numeroOrdem ?? null);
     y = drawFolhaAvariasTitleBar(doc, y, title);
     y = drawServiceInfoBlock(doc, y, {
-      serviceDate: formatPdfServiceDateOnly(report, job, values),
-      visitDatesLine: null,
-      numeroVisitas: null,
+      ...buildFolhaAvariasServiceInfoMeta(report, job, values),
       deslocacao: reportIncludesDeslocacao(service) ? values.deslocacao || '—' : null,
       technician: techName || values.tecnico || '',
-      metaBottomGapMm: FOLHA_AVARIAS_SECTION_GAP_MM,
     });
     y = await drawFolhaIntervencaoAvariasBody(doc, y, values, service, pdfContext);
     y = await drawFolhaIntervencaoAvariasClosingSection(doc, y, {
@@ -1685,7 +1693,7 @@ async function drawFolhaIntervencaoMaquinaTable(doc, y, values, pdfContext = nul
   return drawFolhaAvariasDashboardTable(doc, y, 'Informações da Máquina', {
     body: [
       [`Marca: ${marca}`, `Modelo: ${modelo}`],
-      [`Numero de Série: ${serie}`, `Nº Interno: ${nInterno}`],
+      [`Número de Série: ${serie}`, `Nº Interno: ${nInterno}`],
       [`Horas: ${horas}`, ''],
     ],
     columnStyles: {
@@ -1736,14 +1744,16 @@ async function drawFolhaIntervencaoMaterialTable(doc, y, rows) {
 async function drawFolhaIntervencaoDatasTable(doc, y, values) {
   const visitas = pdfDisplayValue(formatPdfNumeroVisitas(values));
   const data1 = formatFolhaInterventionDate(
-    resolvePdfStandardFieldValue(values, { id: 'data_1' }, values.data_de_conclusao),
+    resolvePdfStandardFieldValue(values, { id: 'data_1' }, values.data_1),
   );
-  const data2 = formatFolhaInterventionDate(resolvePdfStandardFieldValue(values, { id: 'data_2' }));
+  const data2 = formatFolhaInterventionDate(
+    resolvePdfStandardFieldValue(values, { id: 'data_2' }, values.data_2),
+  );
   const horasGastas = pdfDisplayValue(resolvePdfStandardFieldValue(values, { id: 'horas_gastas' }));
   const colW = CONTENT_W / 4;
 
   return drawFolhaAvariasDashboardTable(doc, y, 'Datas de Intervenção', {
-    head: ['Visitas realizadas', 'Data 1', 'Data 2', 'Horas Gastas'],
+    head: ['N.º de visitas', 'Data 1', 'Data 2', 'Horas Gastas'],
     body: [[visitas, data1, data2, horasGastas]],
     bodyStyles: { halign: 'center' },
     columnStyles: {
@@ -1818,26 +1828,50 @@ async function drawFolhaIntervencaoAvariasClosingSection(doc, y, opts) {
   const values = opts.values || {};
   const profile = FOLHA_AVARIAS_CLOSING_PROFILE;
   const hasFotos = Boolean(opts.fotoAntesUrl || opts.fotoDepoisUrl);
+  const bottomGap = profile.polaroidBottom ?? 2;
+  const institutionalMm = FOLHA_INSTITUTIONAL_FOOTER_H_MM;
+  const pedidoSim = String(values.pedido_orcamento || '').toLowerCase() === 'sim';
+
+  let closingBodyH = pedidoSim ? 28 : 20;
+  closingBodyH += 18;
+  let tailH = closingBodyH + estimateSignaturesHeight(profile) + institutionalMm;
+  if (hasFotos) {
+    tailH += estimatePdfInterventionFotosOverhead(bottomGap) + 24;
+  }
+  y = ensureBlockFitsSafeZone(doc, y, tailH);
 
   y = await drawFolhaIntervencaoOrcamentoBlock(doc, y, values);
   y = await drawFolhaIntervencaoEstadoBlock(doc, y, values);
 
   if (hasFotos) {
-    y = ensurePdfClosingTailFits(doc, y, hasFotos, profile, {
-      institutionalFooterMm: FOLHA_INSTITUTIONAL_FOOTER_H_MM,
-    });
+    let available = pdfContentBottomY() - y;
+    let maxImgH = resolveAdaptiveClosingPhotoHeight(available, profile, bottomGap);
+    let fotoTailH =
+      estimatePdfInterventionFotosOverhead(bottomGap) +
+      maxImgH +
+      estimateSignaturesHeight(profile) +
+      institutionalMm;
+
+    if (y + fotoTailH > pdfContentBottomY()) {
+      y = ensureBlockFitsSafeZone(doc, y, fotoTailH);
+      available = pdfContentBottomY() - y;
+      maxImgH = resolveAdaptiveClosingPhotoHeight(available, profile, bottomGap);
+      fotoTailH =
+        estimatePdfInterventionFotosOverhead(bottomGap) +
+        maxImgH +
+        estimateSignaturesHeight(profile) +
+        institutionalMm;
+      if (y + fotoTailH > pdfContentBottomY()) {
+        y = ensureBlockFitsSafeZone(doc, y, fotoTailH);
+      }
+    }
+
     y = await drawInterventionFotografiasSection(
       doc,
       y,
       opts.fotoAntesUrl,
       opts.fotoDepoisUrl,
-      { skipEnsure: true, maxImgH: profile.polaroidMm },
-    );
-  } else {
-    y = ensureBlockFitsSafeZone(
-      doc,
-      y,
-      estimateSignaturesHeight(profile) + FOLHA_INSTITUTIONAL_FOOTER_H_MM,
+      { skipEnsure: true, bottomGap, maxImgH },
     );
   }
 
