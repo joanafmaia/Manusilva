@@ -2,6 +2,7 @@
  * Contingência offline — fila IndexedDB `trabalhos_pendentes` e sincronização com Supabase
  */
 
+import { sameEntityId } from './entity-id.js';
 import { upsertRelatorio, ensureReportsLoaded, mergeReportInCache } from './relatorios-db.js';
 import { patchTrabalho, patchTrabalhoStatus } from './trabalhos-db.js';
 import { isValidFotoUrl } from './job-fotos.js';
@@ -113,7 +114,7 @@ export async function addTrabalhoPendente(entry) {
   const list = await getTrabalhosPendentes();
   const tipo = entry.tipo || 'submit';
   const existingIdx = list.findIndex(
-    (i) => i.tipo === tipo && i.report?.jobId && i.report.jobId === report.jobId,
+    (i) => i.tipo === tipo && i.report?.jobId && sameEntityId(i.report.jobId, report.jobId),
   );
 
   const item = {

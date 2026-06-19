@@ -649,6 +649,7 @@ async function renderRhReviewStack() {
     </div>`;
 
   requestAnimationFrame(() => syncReviewPanelHeight());
+  updateRhBatchToolbar(panel);
 }
 
 function rhReviewModalCallbacks() {
@@ -678,12 +679,89 @@ function rhReviewModalCallbacks() {
 
 let rhReviewPanelBound = false;
 
+function updateRhBatchToolbar(panel) {
+  const checkboxes = [...panel.querySelectorAll('.rh-batch-checkbox:checked')];
+  const btn = panel.querySelector('#rh-batch-approve');
+  const allBox = panel.querySelector('#rh-select-all-pending');
+  const pendingBoxes = [...panel.querySelectorAll('.rh-batch-checkbox')];
+  if (btn) {
+    btn.disabled = checkboxes.length === 0;
+    btn.textContent = `Aprovar selecionados (${checkboxes.length})`;
+  }
+  if (allBox && pendingBoxes.length) {
+    allBox.indeterminate = checkboxes.length > 0 && checkboxes.length < pendingBoxes.length;
+    allBox.checked = checkboxes.length === pendingBoxes.length;
+  }
+}
+
+async function approveSelectedRhReports(panel) {
+  const ids = [...panel.querySelectorAll('.rh-batch-checkbox:checked')].map(
+    (cb) => cb.dataset.batchReportId,
+  );
+  if (!ids.length) return;
+
+  const confirmed = window.confirm(
+    `Aprovar ${ids.length} relatório(s) selecionado(s)?\n\nSerá usado o e-mail do cliente registado na ficha.`,
+  );
+  if (!confirmed) return;
+
+  const btn = panel.querySelector('#rh-batch-approve');
+  if (btn) btn.disabled = true;
+
+  let approved = 0;
+  for (const reportId of ids) {
+    const report = getReport(reportId);
+    if (!report || report.status !== 'pending_review') continue;
+    const client = getClient(report.clientId);
+    const clientEmail = String(client?.email || client?.['E-mail'] || '').trim();
+    const ok = await approveReport(reportId, { clientEmail });
+    if (ok) approved += 1;
+  }
+
+  if (btn) btn.disabled = false;
+
+  if (approved > 0) {
+    showToast(
+      approved === 1 ? '1 relatório aprovado.' : `${approved} relatórios aprovados.`,
+      'success',
+      6000,
+    );
+    await rhReviewModalCallbacks().onApproved?.();
+    await renderRhReviewStack();
+  } else {
+    showToast('Nenhum relatório foi aprovado.', 'warning', 5000);
+  }
+}
+
 function bindRhReviewPanel() {
   const panel = document.getElementById('rh-review-panel');
   if (!panel || rhReviewPanelBound) return;
   rhReviewPanelBound = true;
 
+  panel.addEventListener('change', (e) => {
+    const target = e.target;
+    if (!(target instanceof HTMLInputElement)) return;
+
+    if (target.id === 'rh-select-all-pending') {
+      panel.querySelectorAll('.rh-batch-checkbox').forEach((cb) => {
+        cb.checked = target.checked;
+      });
+      updateRhBatchToolbar(panel);
+      return;
+    }
+
+    if (target.classList.contains('rh-batch-checkbox')) {
+      updateRhBatchToolbar(panel);
+    }
+  });
+
   panel.addEventListener('click', async (e) => {
+    const batchBtn = e.target.closest('#rh-batch-approve');
+    if (batchBtn) {
+      await approveSelectedRhReports(panel);
+      return;
+    }
+
     const filterBtn = e.target.closest('[data-rh-filter]');
     if (filterBtn) {
       const next = filterBtn.dataset.rhFilter;

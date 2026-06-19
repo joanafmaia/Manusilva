@@ -86,7 +86,28 @@ export function buildRhReviewFilterBar(counts, activeFilter = 'pending_review') 
       >${escapeHtml(text)}</button>`;
   }).join('');
 
-  return `<div class="rh-review-filters" role="tablist" aria-label="Filtrar relatórios">${chips}</div>`;
+  const showBatch =
+    activeFilter === 'pending_review' || activeFilter === 'all'
+      ? (counts.pending_review ?? 0) > 0
+      : false;
+
+  const batchBar = showBatch
+    ? `
+    <div class="rh-batch-toolbar" id="rh-batch-toolbar">
+      <label class="rh-batch-select-all">
+        <input type="checkbox" id="rh-select-all-pending" aria-label="Selecionar todos os pendentes">
+        <span>Selecionar pendentes</span>
+      </label>
+      <button type="button" class="btn-success btn-sm" id="rh-batch-approve" disabled>
+        Aprovar selecionados (0)
+      </button>
+    </div>`
+    : '';
+
+  return `<div class="rh-review-filters-wrap">
+    <div class="rh-review-filters" role="tablist" aria-label="Filtrar relatórios">${chips}</div>
+    ${batchBar}
+  </div>`;
 }
 
 /**
@@ -99,6 +120,14 @@ export function buildRhReviewListItem({ job, report, client, tech }) {
   const clientName = client?.name || client?.Nome || '—';
   const techName = tech?.name || '—';
 
+  const batchCheckbox =
+    report?.status === 'pending_review'
+      ? `
+      <label class="rh-list-item__check" aria-label="Selecionar para aprovação em lote">
+        <input type="checkbox" class="rh-batch-checkbox" data-batch-report-id="${escapeHtml(report.id)}">
+      </label>`
+      : '';
+
   return `
     <article
       class="rh-list-item rh-review-stack-card ${statusClass}"
@@ -109,6 +138,7 @@ export function buildRhReviewListItem({ job, report, client, tech }) {
       role="listitem"
     >
       <div class="rh-list-item__summary">
+        ${batchCheckbox}
         <span class="rh-list-item__ordem">${escapeHtml(formatOrdemLabel(job))}</span>
         <div class="rh-list-item__info">
           <span class="rh-list-item__client">${escapeHtml(clientName)}</span>

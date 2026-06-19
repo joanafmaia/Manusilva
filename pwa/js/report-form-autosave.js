@@ -7,7 +7,15 @@ import { mergeReportInCache } from './relatorios-db.js';
 
 const DEBOUNCE_MS = 350;
 const PHOTO_WAIT_POLL_MS = 50;
-const SAVED_INDICATOR_MS = 4500;
+const SAVED_INDICATOR_MS = 12000;
+
+function formatAutosaveTime(date = new Date()) {
+  return date.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' });
+}
+
+function isBrowserOffline() {
+  return typeof navigator !== 'undefined' && navigator.onLine === false;
+}
 
 /** Estados em que o formulário pode ser auto-gravado */
 export function canAutosaveReport(existingReport, job) {
@@ -69,16 +77,26 @@ export function initReportFormAutosave({ overlay, job, existingReport, buildRepo
     statusEl.hidden = false;
 
     if (state === 'pending') {
+      const offlineHint = isBrowserOffline() ? ' (sem rede — guarda no tablet)' : '';
       statusEl.textContent =
         customMessage ||
-        (photoProcessingCount > 0 ? 'A processar foto…' : 'A gravar rascunho…');
+        (photoProcessingCount > 0
+          ? `A processar foto…${offlineHint}`
+          : `A gravar rascunho…${offlineHint}`);
       return;
     }
 
     if (state === 'saved') {
-      statusEl.textContent = customMessage || '✓ Rascunho gravado automaticamente';
+      const offlineHint = isBrowserOffline() ? ' · só no tablet' : '';
+      statusEl.textContent =
+        customMessage || `✓ Gravado às ${formatAutosaveTime()}${offlineHint}`;
       statusEl.classList.add('form-autosave-status--pulse');
-      savedHideTimer = setTimeout(() => setStatus('idle'), SAVED_INDICATOR_MS);
+      savedHideTimer = setTimeout(() => {
+        if (!destroyed && statusEl.dataset.state === 'saved') {
+          statusEl.textContent = `Última gravação: ${formatAutosaveTime()}`;
+          statusEl.hidden = false;
+        }
+      }, SAVED_INDICATOR_MS);
       return;
     }
 

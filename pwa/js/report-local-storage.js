@@ -5,6 +5,7 @@
 
 import { mergeReportInCache, getReportsSnapshot, isUuid } from './relatorios-db.js';
 import { getJobsSnapshot, isJobsCacheLoaded } from './trabalhos-db.js';
+import { sameEntityId } from './entity-id.js';
 import {
   STORE_REPORT_DRAFTS,
   idbDelete,
@@ -172,9 +173,21 @@ export async function saveLocalReportDraft(report) {
 /** @param {string} jobId */
 export async function getLocalReportDraft(jobId) {
   await ensureMigrated();
-  if (!jobId) return null;
+  const key = String(jobId || '').trim();
+  if (!key) return null;
 
-  const record = await idbGet(STORE_REPORT_DRAFTS, jobId);
+  let record = await idbGet(STORE_REPORT_DRAFTS, key);
+  if (!record && jobId != null && String(jobId) !== jobId) {
+    record = await idbGet(STORE_REPORT_DRAFTS, jobId);
+  }
+  if (!record) {
+    const records = await idbGetAll(STORE_REPORT_DRAFTS);
+    record =
+      records.find((entry) => {
+        const draftJobId = entry?.jobId ?? entry?.report?.jobId;
+        return draftJobId != null && String(draftJobId).trim() === key;
+      }) || null;
+  }
   if (!record) return null;
   return mergePhotosIntoReport(record);
 }
@@ -252,7 +265,7 @@ export async function hydrateLocalReportsIntoCache() {
     : null;
 
   for (const draft of drafts) {
-    const server = serverReports.find((r) => r.jobId === draft.jobId);
+    const server = serverReports.find((r) => sameEntityId(r.jobId, draft.jobId));
 
     if (server && LOCKED_SERVER_STATUSES.has(server.status)) {
       // O servidor manda: não deixar o rascunho local "ressuscitar" como Em aberto.

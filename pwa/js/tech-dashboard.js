@@ -14,6 +14,7 @@ import {
   getServiceType,
   getTechnician,
   jobAssignedToTechnician,
+  resolveJobForForm,
   isOffline,
   isNetworkOnline,
   canReachServer,
@@ -27,6 +28,7 @@ import {
   COMPANY,
   escapeHtml,
   applyBrandLogo,
+  showToast,
 } from './app.js';
 import { reportMatchesTechnicianTeam } from './job-technician-utils.js';
 import {
@@ -38,6 +40,7 @@ import { initLogoutButton, renderUserGreeting } from './auth.js';
 import { HistoricoClienteView } from './views/historico-cliente.js';
 import { ensureTrabalhosSemana, isJobsCacheLoaded } from './trabalhos-db.js';
 import { isUuid } from './relatorios-db.js';
+import { triggerTechDataSync } from './tech-sync.js';
 
 /** Âncora da semana visível no calendário (segunda-feira da semana em foco) */
 let currentWeekDate = startOfLocalDay(new Date());
@@ -74,8 +77,13 @@ function loadFormsModule() {
 }
 
 async function openJobFormLazy(jobId, options = {}) {
-  const { openJobForm } = await loadFormsModule();
-  return openJobForm(jobId, options);
+  try {
+    const { openJobForm } = await loadFormsModule();
+    await openJobForm(jobId, options);
+  } catch (err) {
+    console.error('[Tech] Abrir relatório:', err);
+    showToast('Não foi possível abrir este relatório.', 'error', 7000);
+  }
 }
 
 function startOfLocalDay(date) {
@@ -193,20 +201,7 @@ async function loadTechTabData() {
 }
 
 function jobFromDraftReport(report) {
-  const job = report.jobId ? getJob(report.jobId) : null;
-  if (job) return job;
-  if (!report.jobId) return null;
-  return {
-    id: report.jobId,
-    clientId: report.clientId,
-    serviceType: report.serviceType,
-    forkliftSerial: report.forkliftSerial || '',
-    date: report.submittedAt?.split('T')[0] || '',
-    time: '',
-    technicianId: report.technicianId,
-    status: 'scheduled',
-    rejectionNote: null,
-  };
+  return report?.jobId ? resolveJobForForm(report.jobId) : null;
 }
 
 /** Estados de trabalho que excluem o relatório da aba Em Curso. */
@@ -389,6 +384,8 @@ export async function initTechDashboard() {
   renderHeader();
   renderOfflineToggle();
   renderOfflineSyncBar();
+  renderTechSyncStatus();
+  bindTechSyncRefreshButton();
   bindTechCalendarNavigation();
   bindTechJobsTabs();
   bindOfflineSyncButton();
@@ -407,14 +404,19 @@ export async function initTechDashboard() {
     refreshTechCalendar().catch(console.error);
   });
 
-  window.addEventListener('trabalhos-pendentes-changed', renderOfflineSyncBar);
+  window.addEventListener('trabalhos-pendentes-changed', () => {
+    renderOfflineSyncBar();
+    renderTechSyncStatus();
+  });
   window.addEventListener('online', () => {
     renderOfflineToggle();
     renderOfflineSyncBar();
+    renderTechSyncStatus();
   });
   window.addEventListener('offline', () => {
     renderOfflineToggle();
     renderOfflineSyncBar();
+    renderTechSyncStatus();
   });
 
   try {
@@ -439,6 +441,7 @@ export async function initTechDashboard() {
     initTrabalhosOfflineSync();
     sincronizarTrabalhosOffline().catch(console.error);
     renderOfflineSyncBar();
+    renderTechSyncStatus();
 
     await refreshTechCalendar();
 
@@ -491,8 +494,7 @@ function bindOfflineSyncButton() {
     if (labelEl) labelEl.textContent = 'A sincronizar…';
 
     try {
-      const { sincronizarTrabalhosOffline } = await import('./trabalhos-offline.js');
-      const { synced, remaining } = await sincronizarTrabalhosOffline();
+      const { synced, remaining } = await triggerTechDataSync();
       const { showToast } = await import('./app.js');
 
       if (synced > 0) {
@@ -519,8 +521,113 @@ function bindOfflineSyncButton() {
       document.getElementById('offline-sync-bar')?.classList.remove('is-syncing');
       if (labelEl) labelEl.textContent = prevLabel;
       renderOfflineSyncBar();
+      renderTechSyncStatus();
     }
   });
+}
+
+let techSyncRefreshBound = false;
+
+function bindTechSyncRefreshButton() {
+  if (techSyncRefreshBound) return;
+  techSyncRefreshBound = true;
+
+  document.getElementById('tech-sync-refresh-btn')?.addEventListener('click', async () => {
+    const btn = document.getElementById('tech-sync-refresh-btn');
+    const strip = document.getElementById('tech-sync-status');
+    if (!btn || btn.disabled) return;
+
+    if (!canReachServer()) {
+      showToast('Sem ligação à internet.', 'warning', 5000);
+      return;
+    }
+
+    btn.disabled = true;
+    strip?.classList.add('tech-sync-status--syncing');
+    try {
+      const { synced, remaining } = await triggerTechDataSync();
+      if (synced > 0) {
+        showToast(
+          synced === 1 ? '1 relatório sincronizado.' : `${synced} relatórios sincronizados.`,
+          'success',
+          5000,
+        );
+        periodJobsCacheKey = null;
+        techTabDataCacheKey = null;
+        await refreshTechCalendar();
+      } else if (remaining > 0) {
+        showToast('Alguns relatórios ainda aguardam envio.', 'warning', 6000);
+      } else {
+        showToast('Dados atualizados.', 'success', 3500);
+        periodJobsCacheKey = null;
+        techTabDataCacheKey = null;
+        await refreshTechCalendar();
+      }
+    } catch (err) {
+      console.error('[Técnico] Sincronização:', err);
+      showToast('Erro ao sincronizar.', 'error', 7000);
+    } finally {
+      btn.disabled = false;
+      strip?.classList.remove('tech-sync-status--syncing');
+      renderOfflineSyncBar();
+      renderTechSyncStatus();
+    }
+  });
+}
+
+async function renderTechSyncStatus() {
+  const strip = document.getElementById('tech-sync-status');
+  const text = document.getElementById('tech-sync-status-text');
+  const btn = document.getElementById('tech-sync-refresh-btn');
+  if (!strip || !text) return;
+
+  try {
+    const { countTrabalhosPendentes } = await import('./trabalhos-offline.js');
+    const { getAllLocalReportDrafts } = await import('./report-local-storage.js');
+    const pending = await countTrabalhosPendentes();
+    const drafts = (await getAllLocalReportDrafts()).length;
+    const online = canReachServer() && !isOffline();
+
+    strip.classList.remove(
+      'tech-sync-status--ok',
+      'tech-sync-status--warn',
+      'tech-sync-status--offline',
+      'tech-sync-status--syncing',
+    );
+
+    if (!online) {
+      strip.classList.add('tech-sync-status--offline');
+      text.textContent = pending
+        ? `Sem rede · ${pending} relatório(s) por enviar`
+        : drafts
+          ? `Sem rede · ${drafts} rascunho(s) no tablet`
+          : 'Sem rede — dados guardados localmente';
+      if (btn) {
+        btn.hidden = false;
+        btn.disabled = true;
+      }
+      return;
+    }
+
+    if (pending > 0) {
+      strip.classList.add('tech-sync-status--warn');
+      text.textContent = `${pending} relatório(s) aguardam envio`;
+      if (btn) {
+        btn.hidden = false;
+        btn.disabled = false;
+      }
+      return;
+    }
+
+    strip.classList.add('tech-sync-status--ok');
+    text.textContent = drafts
+      ? `Sincronizado · ${drafts} rascunho(s) em aberto`
+      : 'Sincronizado com o servidor';
+    if (btn) btn.hidden = true;
+  } catch (err) {
+    console.warn('[Técnico] Estado de sync:', err);
+    text.textContent = 'Estado de sincronização indisponível';
+  }
 }
 
 function renderOfflineSyncBar() {
@@ -611,6 +718,7 @@ function renderOfflineToggle() {
     setOfflineMode(toggle.checked);
     renderOfflineToggle();
     renderOfflineSyncBar();
+    renderTechSyncStatus();
   };
 }
 
@@ -811,12 +919,7 @@ function renderTechCalendar() {
 }
 
 function openJobFromCalendar(jobId) {
-  const report = getReportForJob(jobId);
-  if (report?.status === 'pending_review') {
-    openJobFormLazy(jobId, { editPending: true }).catch(console.error);
-    return;
-  }
-  openJobFormLazy(jobId).catch(console.error);
+  void openContinueJob(jobId);
 }
 
 function renderTechMonthJobBlock(job) {
@@ -1001,30 +1104,58 @@ function renderTechJobRow(job, report, actionType, { dateOverride, showDate = tr
   const isoDate = dateOverride || job?.date || '';
   const label = `${action.title}: ${client?.name || 'Cliente'} — ${service?.label || 'Relatório'}${isoDate ? ` — ${formatDateLong(isoDate)}` : ''}`;
 
+  const rejectionNote = report?.rejectionNote || job?.rejectionNote || '';
+  const rejectionHtml =
+    state === 'rejected' && rejectionNote
+      ? `<span class="tech-job-row-rejection" title="${escapeHtml(rejectionNote)}">↩ ${escapeHtml(rejectionNote.length > 72 ? `${rejectionNote.slice(0, 72)}…` : rejectionNote)}</span>`
+      : state === 'rejected'
+        ? '<span class="tech-job-row-rejection">↩ Rejeitado — abra para corrigir</span>'
+        : '';
+
   return `
     <button type="button" class="tech-job-row tech-job-row--${state}" data-row-job="${escapeHtml(jobId)}" data-row-action="${escapeHtml(actionType)}" aria-label="${escapeHtml(label)}">
       ${showDate ? `<span class="tech-job-row-date">${formatRealizadoRowDate(isoDate)}</span>` : ''}
       <span class="tech-job-row-client">${escapeHtml(client?.name || 'Cliente')}</span>
       <span class="tech-job-row-service">${service?.icon || '🔧'} ${escapeHtml(service?.label || job?.serviceType || 'Relatório')}</span>
+      ${rejectionHtml}
       ${renderWorkStateBadge(job, report)}
       <span class="tech-job-row-action" aria-hidden="true">${action.icon}</span>
     </button>
   `;
 }
 
+let techJobRowOpening = false;
+
 function bindTechJobRowsEvents(scope) {
-  const run = (row) => {
-    const jobId = row.dataset.rowJob;
-    if (!jobId) return;
-    if (row.dataset.rowAction === 'view') {
-      openJobFormLazy(jobId, { viewOnly: true }).catch(console.error);
-    } else {
-      openContinueJob(jobId);
+  const run = async (row) => {
+    if (techJobRowOpening) return;
+    const jobId = String(row.dataset.rowJob || '').trim();
+    if (!jobId) {
+      showToast('Trabalho sem identificador válido.', 'warning', 5000);
+      return;
+    }
+
+    techJobRowOpening = true;
+    row.disabled = true;
+    row.setAttribute('aria-busy', 'true');
+
+    try {
+      if (row.dataset.rowAction === 'view') {
+        await openJobFormLazy(jobId, { viewOnly: true });
+      } else {
+        await openContinueJob(jobId);
+      }
+    } finally {
+      techJobRowOpening = false;
+      row.disabled = false;
+      row.removeAttribute('aria-busy');
     }
   };
 
   scope.querySelectorAll('.tech-job-row[data-row-job]').forEach((row) => {
-    row.addEventListener('click', () => run(row));
+    row.addEventListener('click', () => {
+      void run(row);
+    });
   });
 }
 
@@ -1141,13 +1272,13 @@ function renderRealizadosPanel(container, techId) {
   });
 }
 
-function openContinueJob(jobId) {
+async function openContinueJob(jobId) {
   const report = getReportForJob(jobId);
   if (report?.status === 'pending_review') {
-    openJobFormLazy(jobId, { editPending: true }).catch(console.error);
+    await openJobFormLazy(jobId, { editPending: true });
     return;
   }
-  openJobFormLazy(jobId).catch(console.error);
+  await openJobFormLazy(jobId);
 }
 
 const TECH_TAB_EMPTY_MESSAGES = {

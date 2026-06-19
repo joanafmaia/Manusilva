@@ -67,10 +67,15 @@ import {
 import { applyThemeToDocument } from './theme.js';
 import { LoginView } from './views/login.js';
 import { AuthService } from './auth.js';
-import {
-  normalizeFaturaCondicao,
+import { normalizeFaturaCondicao,
   normalizeStatusRecebimento,
 } from './billing-constants.js';
+import { sameEntityId, normalizeEntityId } from './entity-id.js';
+import { isDevMockEnabled } from './env.js';
+import { initErrorMonitoring, captureError } from './error-monitor.js';
+
+export { sameEntityId, normalizeEntityId } from './entity-id.js';
+export { captureError } from './error-monitor.js';
 
 export { APP_SESSION_KEY, clearSession, getSession, normalizeSession };
 
@@ -154,6 +159,7 @@ if (typeof window !== 'undefined' && typeof window.addEventListener === 'functio
 
 /** Garante schema seed + cache quente (arranque da app). */
 export function initLocalDatabase() {
+  initErrorMonitoring();
   ensureSeededOnce();
   ensureMemoryCache();
 }
@@ -372,12 +378,14 @@ export function requireAuth(role) {
 /* ─── Lookups ─── */
 
 export function getClient(id) {
-  const raw = (getDB().clients || []).find((c) => c.id === id);
+  const raw = (getDB().clients || []).find((c) => sameEntityId(c.id, id));
   if (raw) {
     const legacy = raw.name ? raw : mapClientToLegacy(raw);
-    const demo = DEMO_CLIENT_FORKLIFTS[id];
-    if (demo?.forklifts?.length && !legacy.forklifts?.length) {
-      legacy.forklifts = demo.forklifts;
+    if (isDevMockEnabled()) {
+      const demo = DEMO_CLIENT_FORKLIFTS[id];
+      if (demo?.forklifts?.length && !legacy.forklifts?.length) {
+        legacy.forklifts = demo.forklifts;
+      }
     }
     return legacy;
   }
@@ -385,22 +393,27 @@ export function getClient(id) {
   const fromCatalog = getClientFromCatalog(id);
   if (fromCatalog) {
     const legacy = mapClientToLegacy(fromCatalog);
-    const demo = DEMO_CLIENT_FORKLIFTS[id];
-    if (demo?.forklifts?.length) legacy.forklifts = demo.forklifts;
+    if (isDevMockEnabled()) {
+      const demo = DEMO_CLIENT_FORKLIFTS[id];
+      if (demo?.forklifts?.length) legacy.forklifts = demo.forklifts;
+    }
     return legacy;
   }
 
-  const demoOnly = DEMO_CLIENT_FORKLIFTS[id];
-  if (demoOnly) {
-    return mapClientToLegacy({
-      id,
-      Nome: demoOnly.Nome || 'Cliente demo',
-      NIF: demoOnly.NIF || '',
-      forklifts: demoOnly.forklifts || [],
-    });
+  if (isDevMockEnabled()) {
+    const demoOnly = DEMO_CLIENT_FORKLIFTS[id];
+    if (demoOnly) {
+      return mapClientToLegacy({
+        id,
+        Nome: demoOnly.Nome || 'Cliente demo',
+        NIF: demoOnly.NIF || '',
+        forklifts: demoOnly.forklifts || [],
+      });
+    }
+    return CLIENTS.find((c) => sameEntityId(c.id, id)) || null;
   }
 
-  return CLIENTS.find((c) => c.id === id) || null;
+  return null;
 }
 
 const TECHNICIAN_COLORS = ['#3b82f6', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#ec4899'];
@@ -779,15 +792,39 @@ export function getForklift(clientId, serial) {
 }
 
 export function getJob(id) {
-  return getJobsSnapshot().find((j) => j.id === id) || null;
+  return getJobsSnapshot().find((j) => sameEntityId(j.id, id)) || null;
 }
 
 export function getReport(id) {
-  return getReportsSnapshot().find((r) => r.id === id) || null;
+  return getReportsSnapshot().find((r) => sameEntityId(r.id, id)) || null;
 }
 
 export function getReportForJob(jobId) {
-  return getReportsSnapshot().find((r) => r.jobId === jobId) || null;
+  return getReportsSnapshot().find((r) => sameEntityId(r.jobId, jobId)) || null;
+}
+
+/**
+ * Resolve trabalho para abrir o formulário — cache Supabase ou fallback a partir do relatório/rascunho.
+ */
+export function resolveJobForForm(jobId) {
+  if (!jobId) return null;
+  const cached = getJob(jobId);
+  if (cached) return cached;
+
+  const report = getReportForJob(jobId);
+  if (!report) return null;
+
+  return {
+    id: String(report.jobId || jobId),
+    clientId: report.clientId != null ? String(report.clientId) : '',
+    serviceType: report.serviceType,
+    forkliftSerial: report.forkliftSerial || '',
+    date: report.submittedAt?.split('T')[0] || '',
+    time: '',
+    technicianId: report.technicianId,
+    status: report.status === 'rejected' ? 'rejected' : 'scheduled',
+    rejectionNote: report.rejectionNote ?? null,
+  };
 }
 
 export function getJobsForTechnician(techId, date) {

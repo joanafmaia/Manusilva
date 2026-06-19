@@ -19,6 +19,7 @@ import {
   getProductionClientsCatalog,
 } from './clients-catalog.js';
 import { getJobsSnapshot } from './trabalhos-db.js';
+import { pdfAddImageContained } from './pdf-image-fit.js';
 import MANUSILVA_LOGO from './logo_data.js';
 import { isLogoConfigured, getPdfLogoFormat } from './brand-ui.js';
 import {
@@ -65,12 +66,19 @@ import {
   PDF_INTERVENTION_FOTO_LABEL_DEPOIS,
   PDF_INTERVENTION_FOTO_HEAD_FONT_PT,
   PDF_INTERVENTION_FOTO_CAPTION_PT,
+  PDF_INTERVENTION_FOTO_BAR_H_MM,
   PDF_INTERVENTION_FOTO_BAR_RADIUS_MM,
   PDF_INTERVENTION_FOTO_IMG_RADIUS_MM,
   PDF_INTERVENTION_FOTO_GRID_GAP_MM,
   PDF_INTERVENTION_FOTO_GRID_MARGIN_TOP_MM,
   PDF_INTERVENTION_FOTO_MAX_H_MM,
   PDF_INTERVENTION_FOTO_CAPTION_H_MM,
+  PDF_INTERVENTION_FOTO_SLOT_FILL,
+  PDF_INTERVENTION_FOTO_IMG_PADDING_MM,
+  PDF_APPENDIX_THUMB_W_MM,
+  PDF_APPENDIX_THUMB_H_MM,
+  PDF_APPENDIX_THUMB_GAP_MM,
+  estimatePdfInterventionFotosHeight,
   PDF_HEADER_CLIENT_W,
   PDF_LOGO_HEIGHT_MM,
   PDF_LOGO_WIDTH_MM,
@@ -1440,19 +1448,12 @@ async function drawFolhaAvariasDashboardTable(doc, y, sectionTitle, options = {}
   });
 }
 
-function estimateInterventionFotografiasHeight() {
-  const barH = 5.5;
-  return (
-    barH +
-    PDF_INTERVENTION_FOTO_GRID_MARGIN_TOP_MM +
-    PDF_INTERVENTION_FOTO_MAX_H_MM +
-    PDF_INTERVENTION_FOTO_CAPTION_H_MM +
-    4
-  );
+function estimateInterventionFotografiasHeight(bottomGap = 4) {
+  return estimatePdfInterventionFotosHeight(bottomGap);
 }
 
 /**
- * Secção universal Antes/Depois — grelha 2 colunas, só renderiza se houver foto(s).
+ * Secção universal Antes/Depois — grelha 2 colunas simétrica (todos os relatórios).
  */
 async function drawInterventionFotografiasSection(doc, y, fotoAntesUrl, fotoDepoisUrl, opts = {}) {
   if (!fotoAntesUrl && !fotoDepoisUrl) return y;
@@ -1464,10 +1465,11 @@ async function drawInterventionFotografiasSection(doc, y, fotoAntesUrl, fotoDepo
   const gap = PDF_INTERVENTION_FOTO_GRID_GAP_MM;
   const colW = (CONTENT_W - gap) / 2;
   const imgH = PDF_INTERVENTION_FOTO_MAX_H_MM;
-  const barH = 5.5;
+  const barH = PDF_INTERVENTION_FOTO_BAR_H_MM;
   const gridMarginTop = PDF_INTERVENTION_FOTO_GRID_MARGIN_TOP_MM;
   const captionH = PDF_INTERVENTION_FOTO_CAPTION_H_MM;
   const blockH = barH + gridMarginTop + imgH + captionH + 4;
+  const imgPad = PDF_INTERVENTION_FOTO_IMG_PADDING_MM;
 
   if (!opts.skipEnsure) {
     y = ensureKeepTogetherBlock(doc, y, Math.min(blockH, pdfMaxContentHeight()));
@@ -1498,11 +1500,10 @@ async function drawInterventionFotografiasSection(doc, y, fotoAntesUrl, fotoDepo
   ];
 
   for (const slot of slots) {
-    if (!slot.img) continue;
     const x = MARGIN + slot.col * (colW + gap);
     doc.setDrawColor(...PDF_TABLE_LINE);
     doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
-    doc.setFillColor(...PDF_TABLE_BODY_FILL);
+    doc.setFillColor(...PDF_INTERVENTION_FOTO_SLOT_FILL);
     doc.roundedRect(
       x,
       gridY,
@@ -1512,28 +1513,27 @@ async function drawInterventionFotografiasSection(doc, y, fotoAntesUrl, fotoDepo
       PDF_INTERVENTION_FOTO_IMG_RADIUS_MM,
       'FD',
     );
-    try {
-      const fmt = detectImageFormat(slot.img);
-      doc.addImage(
-        slot.img,
-        fmt,
-        x + 0.6,
-        gridY + 0.6,
-        colW - 1.2,
-        imgH - 1.2,
-        undefined,
-        'FAST',
-      );
-    } catch {
+
+    if (slot.img) {
+      try {
+        await pdfAddImageContained(doc, slot.img, x, gridY, colW, imgH, { padding: imgPad });
+      } catch {
+        pdfSetFont(doc, 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor(...TEXT_MUTED);
+        doc.text('IMG', x + colW / 2, gridY + imgH / 2, { align: 'center' });
+      }
+    } else {
       pdfSetFont(doc, 'normal');
       doc.setFontSize(8);
       doc.setTextColor(...TEXT_MUTED);
-      doc.text('IMG', x + colW / 2, gridY + imgH / 2, { align: 'center' });
+      doc.text('Sem foto', x + colW / 2, gridY + imgH / 2 - 1, { align: 'center' });
     }
+
     pdfSetFont(doc, 'normal');
     doc.setFontSize(PDF_INTERVENTION_FOTO_CAPTION_PT);
     doc.setTextColor(...TEXT_MUTED);
-    doc.text(slot.label, x + colW / 2, gridY + imgH + 3.5, { align: 'center' });
+    doc.text(slot.label, x + colW / 2, gridY + imgH + 3.8, { align: 'center' });
   }
 
   touchPdfContentPage(doc);
@@ -2314,30 +2314,20 @@ async function drawCorretivaMaquinasBody(doc, y, service, values, pdfContext = n
 async function drawCorretivaMaquinasClosingSection(doc, y, opts) {
   const profile = CORRETIVA_CLOSING_PROFILE;
   const hasFotos = Boolean(opts.fotoAntesUrl || opts.fotoDepoisUrl);
-  const polaroidOpts = { simpleLegend: Boolean(opts.simplePhotoLegend) };
+  const fotoBlockH = hasFotos ? estimateInterventionFotografiasHeight(2) : 0;
   const closingBlockH =
-    18 +
-    (hasFotos ? estimatePolaroidSectionHeight(hasFotos, profile, polaroidOpts) : 0) +
-    estimateSignaturesHeight(profile);
+    18 + fotoBlockH + estimateSignaturesHeight(profile);
 
   y = ensureKeepTogetherBlock(doc, y, Math.min(closingBlockH, pdfMaxContentHeight()));
   y = await drawCorretivaResumoRow(doc, y, opts.closingValues || {});
 
   if (hasFotos) {
-    y = await drawAntesDepoisPolaroidSection(
+    y = await drawInterventionFotografiasSection(
       doc,
       y,
       opts.fotoAntesUrl,
       opts.fotoDepoisUrl,
-      '',
-      {
-        polaroidMm: 28,
-        descH: 0,
-        bottomGap: 2,
-        showSectionHeader: false,
-        simpleLegend: true,
-        skipEnsure: true,
-      },
+      { skipEnsure: true, bottomGap: 2 },
     );
   }
 
@@ -2628,33 +2618,23 @@ async function drawGrandesBateriasClosingSection(doc, y, opts) {
   const service = opts.service;
   const profile = GRANDES_CLOSING_PROFILE;
   const hasFotos = Boolean(opts.fotoAntesUrl || opts.fotoDepoisUrl);
-  const polaroidOpts = { simpleLegend: Boolean(opts.simplePhotoLegend) };
+  const fotoBlockH = hasFotos ? estimateInterventionFotografiasHeight(2) : 0;
   const obsText = values.observacoes != null ? String(values.observacoes).trim() : '';
   const consumableRows = collectGrandesConsumableRows(service, values);
 
   y = await drawGrandesConsumablesObsDualBlock(doc, y, consumableRows, obsText);
 
-  const tailH =
-    14 + estimateSignaturesHeight(profile) +
-    (hasFotos ? estimatePolaroidSectionHeight(hasFotos, profile, polaroidOpts) : 0);
+  const tailH = 14 + estimateSignaturesHeight(profile) + fotoBlockH;
   y = ensureKeepTogetherBlock(doc, y, Math.min(tailH, pdfMaxContentHeight()));
   y = await drawGrandesResumoRow(doc, y, values);
 
   if (hasFotos) {
-    y = await drawAntesDepoisPolaroidSection(
+    y = await drawInterventionFotografiasSection(
       doc,
       y,
       opts.fotoAntesUrl,
       opts.fotoDepoisUrl,
-      '',
-      {
-        polaroidMm: 28,
-        descH: 0,
-        bottomGap: 2,
-        showSectionHeader: false,
-        simpleLegend: true,
-        skipEnsure: true,
-      },
+      { skipEnsure: true, bottomGap: 2 },
     );
   }
 
@@ -4685,11 +4665,9 @@ function estimateLegalVerdictHeight(doc, value, profile) {
   return (profile.legalGap <= 5 ? 5 : 6) + boxH + profile.legalGap;
 }
 
-function estimatePolaroidSectionHeight(hasFotos, profile, opts = {}) {
+function estimatePolaroidSectionHeight(hasFotos, _profile, _opts = {}) {
   if (!hasFotos) return 0;
-  const headerH = profile.sectionHeader ? 17 : 0;
-  const descH = opts.simpleLegend ? 0 : profile.descH;
-  return headerH + descH + profile.polaroidMm + POLAROID_CAPTION_H + profile.polaroidBottom;
+  return estimateInterventionFotografiasHeight(4);
 }
 
 function estimateSignaturesHeight(profile) {
@@ -4776,24 +4754,14 @@ async function drawReportClosingSection(doc, y, opts) {
   }
 
   if (hasFotos) {
-    const photosAndSigsH =
-      estimatePolaroidSectionHeight(hasFotos, profile, polaroidOpts) +
-      estimateSignaturesHeight(profile);
+    const photosAndSigsH = estimateInterventionFotografiasHeight(4) + estimateSignaturesHeight(profile);
     y = ensureKeepTogetherBlock(doc, y, Math.min(photosAndSigsH, pdfMaxContentHeight()));
-    y = await drawAntesDepoisPolaroidSection(
+    y = await drawInterventionFotografiasSection(
       doc,
       y,
       opts.fotoAntesUrl,
       opts.fotoDepoisUrl,
-      opts.fotoLegenda,
-      {
-        polaroidMm: profile.polaroidMm,
-        descH: opts.simplePhotoLegend ? 0 : profile.descH,
-        bottomGap: profile.polaroidBottom,
-        showSectionHeader: profile.sectionHeader,
-        simpleLegend: Boolean(opts.simplePhotoLegend),
-        skipEnsure: true,
-      },
+      { skipEnsure: true, bottomGap: profile.polaroidBottom ?? 4 },
     );
   }
 
@@ -5219,7 +5187,7 @@ function detectImageFormat(dataUrl) {
   return 'JPEG';
 }
 
-function drawPolaroidFrame(doc, x, y, imgData, phaseLabel, description = '', layout = {}) {
+async function drawPolaroidFrame(doc, x, y, imgData, phaseLabel, description = '', layout = {}) {
   const polaroidMm = layout.polaroidMm ?? POLAROID_MM;
   const descH = layout.descH ?? POLAROID_DESC_H;
   const outerW = polaroidMm;
@@ -5249,10 +5217,11 @@ function drawPolaroidFrame(doc, x, y, imgData, phaseLabel, description = '', lay
   doc.roundedRect(x, frameY, outerW, outerH, 2, 2, 'FD');
 
   const imgPad = POLAROID_FRAME_PAD + 1;
-  const imgSize = polaroidMm - imgPad * 2;
+  const imgBoxSize = polaroidMm - imgPad * 2;
   try {
-    const fmt = detectImageFormat(imgData);
-    doc.addImage(imgData, fmt, x + imgPad, frameY + imgPad, imgSize, imgSize, undefined, 'FAST');
+    await pdfAddImageContained(doc, imgData, x + imgPad, frameY + imgPad, imgBoxSize, imgBoxSize, {
+      padding: 0,
+    });
   } catch {
     doc.setFontSize(PDF_FONT_CAPTION);
     doc.setTextColor(...TEXT_MUTED);
@@ -5303,8 +5272,8 @@ async function drawAntesDepoisPolaroidSection(doc, y, fotoAntesUrl, fotoDepoisUr
     const gap = polaroidMm <= 48 ? 8 : 10;
     const totalW = polaroidMm * 2 + gap;
     const startX = MARGIN + (CONTENT_W - totalW) / 2;
-    const h1 = drawPolaroidFrame(doc, startX, y, antes, PDF_FOTO_LABEL_ANTES, '', frameLayout);
-    const h2 = drawPolaroidFrame(
+    const h1 = await drawPolaroidFrame(doc, startX, y, antes, PDF_FOTO_LABEL_ANTES, '', frameLayout);
+    const h2 = await drawPolaroidFrame(
       doc,
       startX + polaroidMm + gap,
       y,
@@ -5319,7 +5288,7 @@ async function drawAntesDepoisPolaroidSection(doc, y, fotoAntesUrl, fotoDepoisUr
   const single = antes || depois;
   const phaseLabel = antes ? PDF_FOTO_LABEL_ANTES : PDF_FOTO_LABEL_DEPOIS;
   const startX = MARGIN + (CONTENT_W - polaroidMm) / 2;
-  const frameH = drawPolaroidFrame(doc, startX, y, single, phaseLabel, '', frameLayout);
+  const frameH = await drawPolaroidFrame(doc, startX, y, single, phaseLabel, '', frameLayout);
   return y + frameH + bottomGap;
 }
 
@@ -5330,9 +5299,9 @@ async function drawPhotosAppendix(doc, y, photos) {
   y = drawSectionTitle(doc, y, 'Anexo Fotográfico — Evidências');
   y = drawDivider(doc, y - 4);
 
-  const thumbW = 42;
-  const thumbH = 32;
-  const gap = 6;
+  const thumbW = PDF_APPENDIX_THUMB_W_MM;
+  const thumbH = PDF_APPENDIX_THUMB_H_MM;
+  const gap = PDF_APPENDIX_THUMB_GAP_MM;
   const perRow = Math.floor((CONTENT_W + gap) / (thumbW + gap));
   let col = 0;
   let rowY = y;
@@ -5344,16 +5313,16 @@ async function drawPhotosAppendix(doc, y, photos) {
 
     doc.setDrawColor(...SLATE_LINE);
     doc.setLineWidth(0.3);
-    doc.setFillColor(248, 250, 252);
+    doc.setFillColor(...PDF_INTERVENTION_FOTO_SLOT_FILL);
     doc.roundedRect(x, rowY, thumbW, thumbH, 1.5, 1.5, 'FD');
 
     const imgData = photo.dataUrl || (await createPlaceholderImage(photo.label));
     try {
-      doc.addImage(imgData, 'PNG', x + 1, rowY + 1, thumbW - 2, thumbH - 6);
+      await pdfAddImageContained(doc, imgData, x, rowY, thumbW, thumbH - 5, { padding: 0.8 });
     } catch {
       doc.setFontSize(7);
       doc.setTextColor(...TEXT_MUTED);
-      doc.text('IMG', x + thumbW / 2, rowY + thumbH / 2, { align: 'center' });
+      doc.text('IMG', x + thumbW / 2, rowY + (thumbH - 5) / 2, { align: 'center' });
     }
 
     pdfSetFont(doc, 'normal');
@@ -5404,14 +5373,15 @@ async function drawSignaturesFooter(doc, y, signatures, opts = {}) {
     { label: 'Assinatura do Cliente', data: signatures.clientData },
   ];
 
-  boxes.forEach((box, i) => {
+  for (let i = 0; i < boxes.length; i += 1) {
+    const box = boxes[i];
     const x = MARGIN + i * (lineW + SIGNATURE_LINE_GAP_MM);
     const lineY = y + imgHeight + 2;
     const sigPad = 2;
 
     if (box.data) {
       try {
-        doc.addImage(box.data, 'PNG', x + sigPad, y, lineW - sigPad * 2, imgHeight - 2);
+        await pdfAddImageContained(doc, box.data, x, y, lineW, imgHeight, { padding: sigPad });
       } catch {
         /* área reservada sem imagem */
       }
@@ -5425,7 +5395,7 @@ async function drawSignaturesFooter(doc, y, signatures, opts = {}) {
     doc.setFontSize(PDF_FONT_CAPTION);
     doc.setTextColor(...TEXT_MUTED);
     doc.text(box.label, x + lineW / 2, lineY + SIGNATURE_LABEL_GAP_MM, { align: 'center' });
-  });
+  }
 
   touchPdfContentPage(doc);
   return y + blockHeight;

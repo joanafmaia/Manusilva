@@ -9,6 +9,7 @@ import {
   insertTrabalhoFromReport,
 } from './trabalhos-db.js';
 import { legacyPrazoToCondicao } from './billing-constants.js';
+import { sameEntityId } from './entity-id.js';
 
 let reportsCache = null;
 /** true só depois de um SELECT completo à tabela relatorios (não rascunhos locais). */
@@ -162,7 +163,7 @@ function upsertCacheEntry(report) {
   if (!report) return;
   if (!reportsCache) reportsCache = [];
   const idx = reportsCache.findIndex(
-    (r) => r.id === report.id || (report.jobId && r.jobId === report.jobId),
+    (r) => sameEntityId(r.id, report.id) || (report.jobId && sameEntityId(r.jobId, report.jobId)),
   );
   if (idx >= 0) reportsCache[idx] = report;
   else reportsCache.unshift(report);
@@ -202,7 +203,7 @@ export function removeReportsForJobFromCache(jobId) {
 
 function findExistingReportId(report) {
   if (report.id && isUuid(report.id)) return report.id;
-  const byJob = reportsCache?.find((r) => report.jobId && r.jobId === report.jobId);
+  const byJob = reportsCache?.find((r) => report.jobId && sameEntityId(r.jobId, report.jobId));
   if (byJob?.id && isUuid(byJob.id)) return byJob.id;
   return null;
 }
@@ -255,7 +256,7 @@ export async function upsertRelatorio(report) {
   const inserted = Array.isArray(data) ? data[0] : data;
   if (!inserted) {
     await ensureReportsLoaded(true);
-    return reportsCache?.find((r) => r.jobId === linkedReport.jobId) || null;
+    return reportsCache?.find((r) => sameEntityId(r.jobId, linkedReport.jobId)) || null;
   }
 
   const saved = mapRowToReport(inserted);

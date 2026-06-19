@@ -54,6 +54,12 @@
         </label>
       </div>
 
+      <div id="tech-sync-status" class="tech-sync-status" role="status" aria-live="polite">
+        <span class="tech-sync-status__dot" aria-hidden="true"></span>
+        <span class="tech-sync-status__text" id="tech-sync-status-text">A verificar sincronização…</span>
+        <button type="button" class="tech-sync-status__btn" id="tech-sync-refresh-btn" hidden>Sincronizar</button>
+      </div>
+
       <div id="offline-sync-bar" class="offline-sync-banner" hidden role="status" aria-live="polite">
         <div class="offline-sync-banner__icon" aria-hidden="true">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

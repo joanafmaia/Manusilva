@@ -10,13 +10,22 @@ import {
   getServiceType,
   getJob,
   getReportForJob,
+  resolveJobForForm,
   submitReport,
   saveReportDraft,
   closeModal,
   escapeHtml,
   formatDateLong,
   showToast,
+  captureError,
+  canReachServer,
 } from './app.js';
+import {
+  diagnoseJobFormOpen,
+  formatJobOpenDiagnosticMessage,
+  diagnosticNeedsSync,
+} from './job-open-diagnostic.js';
+import { collectSubmitWarnings, confirmSubmitWarnings } from './form-submit-checks.js';
 import {
   renderReportFields,
   renderReportFormTabsNav,
@@ -55,7 +64,7 @@ import {
 } from './foto-trabalho-storage.js';
 import { compressImageFile } from './image-compress.js';
 import { resolveReportForJob } from './report-local-storage.js';
-import { canReachServer } from './app.js';
+import { triggerTechDataSync } from './tech-sync.js';
 
 let signaturePads = {};
 let signaturePadsReady = false;
@@ -130,71 +139,124 @@ function fotoPersistPayload(state) {
  */
 export async function openJobForm(jobId, options = {}) {
   const viewOnly = options.viewOnly === true;
-  try {
-    await ensureJobsLoaded();
-    await ensureProductionCatalog();
-  } catch (err) {
-    console.warn('[Form] Pré-carga Supabase antes do relatório:', err);
-  }
-
-  const job = getJob(jobId);
-  if (!job) return;
-
-  const client = getClient(job.clientId);
-  const session = getSession();
-  const tech =
-    getTechnician(session?.technicianId) || getPrimaryTechnicianForJob(job);
-  const service = getServiceType(job.serviceType);
-  const serverReport = getReportForJob(jobId);
-  const editPendingOpt =
-    options.editPending === true ||
-    (options.editPending !== false && serverReport?.status === 'pending_review');
-  const existingReport = await resolveReportForJob(jobId, serverReport, {
-    editPending: editPendingOpt,
-  });
-
-  if (existingReport?.status === 'approved' && !viewOnly) {
-    showToast('Este relatório já foi aprovado pelo RH e não pode ser editado.', 'warning', 5000);
+  if (!jobId) {
+    showToast('Trabalho inválido.', 'error');
     return;
   }
 
-  if (viewOnly) {
-    if (existingReport?.status !== 'approved') {
-      showToast('Este relatório ainda não está concluído.', 'warning', 4500);
+  try {
+    try {
+      await ensureJobsLoaded();
+      await ensureProductionCatalog();
+    } catch (err) {
+      console.warn('[Form] Pré-carga Supabase antes do relatório:', err);
+    }
+
+    const diagnostic = diagnoseJobFormOpen(jobId);
+    const job = diagnostic.job || resolveJobForForm(jobId);
+    if (!job || !diagnostic.ok) {
+      const message = formatJobOpenDiagnosticMessage(diagnostic);
+      if (diagnosticNeedsSync(diagnostic)) {
+        const retry = window.confirm(
+          `${message}\n\nDeseja sincronizar os dados agora e tentar outra vez?`,
+        );
+        if (retry) {
+          try {
+            await triggerTechDataSync();
+            return openJobForm(jobId, options);
+          } catch (syncErr) {
+            captureError(syncErr, { action: 'openJobForm.sync', jobId });
+            showToast('Sincronização falhou. Verifique a ligação à internet.', 'error', 7000);
+            return;
+          }
+        }
+      }
+      showToast(message, 'error', 7000);
       return;
     }
-  }
 
-  const editPending =
-    options.editPending === true ||
-    (options.editPending !== false && existingReport?.status === 'pending_review');
+    let client = getClient(job.clientId);
+    if (!client && job.clientId) {
+      try {
+        await ensureProductionCatalog();
+      } catch (err) {
+        console.warn('[Form] Recarregar catálogo de clientes:', err);
+      }
+      client = getClient(job.clientId);
+    }
+    if (!client) {
+      client = {
+        id: job.clientId || '',
+        name: 'Cliente',
+        Nome: 'Cliente',
+      };
+    }
 
-  clearEdicaoState();
-  if (editPending && existingReport?.status === 'pending_review') {
-    trabalhoIdEmEdicao = jobId;
-    relatorioIdEmEdicao = existingReport.id || null;
-  }
+    const service = getServiceType(job.serviceType);
+    if (!service) {
+      showToast('Tipo de relatório não reconhecido neste dispositivo.', 'error', 7000);
+      return;
+    }
 
-  resetFotoState(job, existingReport);
+    const session = getSession();
+    const tech =
+      getTechnician(session?.technicianId) || getPrimaryTechnicianForJob(job);
+    const serverReport = getReportForJob(jobId);
+    const editPendingOpt =
+      options.editPending === true ||
+      (options.editPending !== false && serverReport?.status === 'pending_review');
+    const existingReport = await resolveReportForJob(jobId, serverReport, {
+      editPending: editPendingOpt,
+    });
 
-  const overlay = document.createElement('div');
-  overlay.id = 'form-overlay';
-  overlay.className = 'form-overlay';
-  overlay.innerHTML = buildFormHTML(job, client, tech, service, existingReport, { viewOnly });
-  document.body.appendChild(overlay);
-  document.body.style.overflow = 'hidden';
+    if (existingReport?.status === 'approved' && !viewOnly) {
+      showToast('Este relatório já foi aprovado pelo RH e não pode ser editado.', 'warning', 5000);
+      return;
+    }
 
-  requestAnimationFrame(() => overlay.classList.add('show'));
-  if (viewOnly) overlay.classList.add('form-overlay--readonly');
+    if (viewOnly) {
+      if (existingReport?.status !== 'approved') {
+        showToast('Este relatório ainda não está concluído.', 'warning', 4500);
+        return;
+      }
+    }
 
-  bindFormEvents(overlay, job, client, tech, service, existingReport, { viewOnly });
+    const editPending =
+      options.editPending === true ||
+      (options.editPending !== false && existingReport?.status === 'pending_review');
 
-  await bindFormFieldInteractions(overlay);
+    clearEdicaoState();
+    if (editPending && existingReport?.status === 'pending_review') {
+      trabalhoIdEmEdicao = jobId;
+      relatorioIdEmEdicao = existingReport.id || null;
+    }
 
-  if (trabalhoIdEmEdicao) {
-    showToast('Pode editar o relatório enquanto aguarda aprovação do RH.', 'info', 4000);
-  } else if (existingReport?.status === 'draft' || existingReport?._localSavedAt) {
-    showToast('Rascunho recuperado automaticamente da memória do tablet.', 'info', 4000);
+    resetFotoState(job, existingReport);
+
+    const overlay = document.createElement('div');
+    overlay.id = 'form-overlay';
+    overlay.className = 'form-overlay';
+    overlay.innerHTML = buildFormHTML(job, client, tech, service, existingReport, { viewOnly });
+    document.body.appendChild(overlay);
+    document.body.style.overflow = 'hidden';
+
+    requestAnimationFrame(() => overlay.classList.add('show'));
+    if (viewOnly) overlay.classList.add('form-overlay--readonly');
+
+    bindFormEvents(overlay, job, client, tech, service, existingReport, { viewOnly });
+
+    await bindFormFieldInteractions(overlay);
+
+    if (trabalhoIdEmEdicao) {
+      showToast('Pode editar o relatório enquanto aguarda aprovação do RH.', 'info', 4000);
+    } else if (existingReport?.status === 'draft' || existingReport?._localSavedAt) {
+      showToast('Rascunho recuperado automaticamente da memória do tablet.', 'info', 4000);
+    }
+  } catch (err) {
+    captureError(err, { action: 'openJobForm', jobId });
+    showToast('Não foi possível abrir este relatório.', 'error', 7000);
+    document.getElementById('form-overlay')?.remove();
+    document.body.style.overflow = '';
   }
 }
 
@@ -277,7 +339,7 @@ function buildFormHTML(job, client, tech, service, existingReport, options = {})
     client,
     job,
     service,
-    selectedClientId: saved.cliente_id || client.NIF || client.id,
+    selectedClientId: saved.cliente_id || client?.NIF || client?.id || job?.clientId || '',
     lockClient: true,
   };
   const prefill = buildFormPrefill(service, job, null, formContext);
@@ -291,16 +353,28 @@ function buildFormHTML(job, client, tech, service, existingReport, options = {})
   const formTitle = getServiceFormTitle(service);
   const tabsNav = service ? renderReportFormTabsNav(service) : '';
   const fieldsGeral = service ? renderReportFields(service, values, formContext, { tab: 'geral' }) : '';
-  const fieldsChecklist = service ? renderReportFields(service, values, formContext, { tab: 'checklist' }) : '';
   const fieldsFinalizacao = service ? renderReportFields(service, values, formContext, { tab: 'finalizacao' }) : '';
   const deslocacaoIntroHtml = official ? renderDeslocacaoIntroBlock(values, formContext) : '';
 
-  const rejectionBanner = job.status === 'rejected' && job.rejectionNote ? `
-    <div class="rejection-banner">
+  const rejectionNote = job.rejectionNote || existingReport?.rejectionNote || '';
+  const isRejected =
+    job.status === 'rejected' ||
+    existingReport?.status === 'rejected';
+
+  const rejectionBanner = isRejected && rejectionNote ? `
+    <div class="rejection-banner rejection-banner--prominent">
       <div class="rejection-icon">⚠</div>
       <div>
-        <strong>Relatório Rejeitado pelo RH</strong>
-        <p>${escapeHtml(job.rejectionNote)}</p>
+        <strong>Relatório rejeitado pelo RH — corrija e volte a submeter</strong>
+        <p class="rejection-banner-note">${escapeHtml(rejectionNote)}</p>
+      </div>
+    </div>
+  ` : isRejected ? `
+    <div class="rejection-banner rejection-banner--prominent">
+      <div class="rejection-icon">⚠</div>
+      <div>
+        <strong>Relatório rejeitado pelo RH</strong>
+        <p class="rejection-banner-note">Corrija os dados e volte a submeter. Contacte o escritório se precisar de detalhe.</p>
       </div>
     </div>
   ` : '';
@@ -426,7 +500,7 @@ function buildFormHTML(job, client, tech, service, existingReport, options = {})
 
             <div class="report-tab-panel" data-report-panel="checklist" id="report-panel-checklist" role="tabpanel" aria-labelledby="report-tab-checklist" hidden>
               <section class="form-section report-fields-section report-fields-section--checklist">
-                <div class="report-fields">${fieldsChecklist}</div>
+                <div class="report-fields" data-lazy-checklist="true"></div>
               </section>
             </div>
 
@@ -682,9 +756,22 @@ function ensureSignaturePadsInitialized() {
   restoreSignaturesFromReport(existingReportRef);
 }
 
-function onReportTabActivated(tabId) {
-  if (tabId !== 'finalizacao') return;
-  ensureSignaturePadsInitialized();
+function onReportTabActivated(tabId, overlay) {
+  if (tabId === 'checklist' && overlay) {
+    const lazyContext = overlay.__lazyFormState;
+    const panel = overlay.querySelector('[data-lazy-checklist="true"]');
+    if (panel && lazyContext && !panel.dataset.lazyLoaded) {
+      panel.dataset.lazyLoaded = 'true';
+      panel.innerHTML = renderReportFields(
+        lazyContext.service,
+        lazyContext.values,
+        lazyContext.formContext,
+        { tab: 'checklist' },
+      );
+      void bindFormFieldInteractions(overlay);
+    }
+  }
+  if (tabId === 'finalizacao') ensureSignaturePadsInitialized();
 }
 
 let existingReportRef = null;
@@ -724,7 +811,24 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport, opt
     closeForm(overlay);
   });
 
-  bindReportFormTabs(overlay, { onTabActivate: onReportTabActivated });
+  const savedValues = getFormValues(existingReport);
+  const formContext = {
+    tech,
+    client,
+    job,
+    service,
+    selectedClientId: savedValues.cliente_id || client?.NIF || client?.id || job?.clientId || '',
+    lockClient: true,
+  };
+  overlay.__lazyFormState = {
+    service,
+    values: mergeFormValues(savedValues, buildFormPrefill(service, job, null, formContext), service),
+    formContext,
+  };
+
+  bindReportFormTabs(overlay, {
+    onTabActivate: (tabId) => onReportTabActivated(tabId, overlay),
+  });
 
   if (!viewOnly) {
     bindFotoInputs(overlay);
@@ -820,8 +924,6 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport, opt
     }
 
     await formAutosave?.flush?.();
-    formAutosave?.destroy();
-    formAutosave = null;
 
     const submitBtn = overlay.querySelector('#btn-submit-report');
     if (submitBtn) submitBtn.disabled = true;
@@ -830,6 +932,20 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport, opt
       let report = buildReportFromForm(overlay, job, existingReport, signaturePads, draftReportId);
       if (relatorioIdEmEdicao) report.id = relatorioIdEmEdicao;
       else if (existingReport?.id) report.id = existingReport.id;
+
+      const warnings = collectSubmitWarnings({
+        report,
+        signaturePads,
+        hasFotoAntes: Boolean(fotoDisplayUrl(fotoAntesState)),
+        hasFotoDepois: Boolean(fotoDisplayUrl(fotoDepoisState)),
+      });
+      if (!confirmSubmitWarnings(warnings)) {
+        if (submitBtn) submitBtn.disabled = false;
+        return;
+      }
+
+      formAutosave?.destroy();
+      formAutosave = null;
 
       const isCorrection = isEdicaoPendenteAtiva(job.id);
       const online = canReachServer();

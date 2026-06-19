@@ -82,12 +82,29 @@ export const PDF_INTERVENTION_FOTO_LABEL_ANTES = 'Foto Antes';
 export const PDF_INTERVENTION_FOTO_LABEL_DEPOIS = 'Foto Depois';
 export const PDF_INTERVENTION_FOTO_HEAD_FONT_PT = 10.5;
 export const PDF_INTERVENTION_FOTO_CAPTION_PT = 8.5;
+export const PDF_INTERVENTION_FOTO_BAR_H_MM = 5.5;
 export const PDF_INTERVENTION_FOTO_BAR_RADIUS_MM = 1.1;
 export const PDF_INTERVENTION_FOTO_IMG_RADIUS_MM = 1.6;
-export const PDF_INTERVENTION_FOTO_GRID_GAP_MM = 4.23;
+export const PDF_INTERVENTION_FOTO_GRID_GAP_MM = 4.2;
 export const PDF_INTERVENTION_FOTO_GRID_MARGIN_TOP_MM = 3.2;
-export const PDF_INTERVENTION_FOTO_MAX_H_MM = 47.6;
-export const PDF_INTERVENTION_FOTO_CAPTION_H_MM = 5;
+export const PDF_INTERVENTION_FOTO_MAX_H_MM = 52;
+export const PDF_INTERVENTION_FOTO_CAPTION_H_MM = 5.5;
+export const PDF_INTERVENTION_FOTO_SLOT_FILL = [248, 250, 252];
+export const PDF_INTERVENTION_FOTO_IMG_PADDING_MM = 1.2;
+export const PDF_APPENDIX_THUMB_W_MM = 42;
+export const PDF_APPENDIX_THUMB_H_MM = 32;
+export const PDF_APPENDIX_THUMB_GAP_MM = 6;
+
+/** Altura reservada da secção de fotos (layout idêntico em todos os relatórios). */
+export function estimatePdfInterventionFotosHeight(bottomGapMm = 4) {
+  return (
+    PDF_INTERVENTION_FOTO_BAR_H_MM +
+    PDF_INTERVENTION_FOTO_GRID_MARGIN_TOP_MM +
+    PDF_INTERVENTION_FOTO_MAX_H_MM +
+    PDF_INTERVENTION_FOTO_CAPTION_H_MM +
+    bottomGapMm
+  );
+}
 
 export const PDF_SCALAR_FIELD_TYPES = new Set([
   'text',

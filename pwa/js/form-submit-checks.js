@@ -1,0 +1,50 @@
+/**
+ * Avisos suaves antes de submeter relatório (não bloqueiam por defeito).
+ */
+
+/**
+ * @param {object} params
+ * @param {object} params.report
+ * @param {object} [params.signaturePads]
+ * @param {boolean} [params.hasFotoAntes]
+ * @param {boolean} [params.hasFotoDepois]
+ * @returns {string[]}
+ */
+export function collectSubmitWarnings({
+  report,
+  signaturePads = {},
+  hasFotoAntes = false,
+  hasFotoDepois = false,
+}) {
+  const warnings = [];
+  const data = report?.data || {};
+  const values = data.values || {};
+
+  if (!hasFotoAntes && !hasFotoDepois) {
+    warnings.push('Não anexou fotos do trabalho (Antes/Depois).');
+  } else if (!hasFotoAntes || !hasFotoDepois) {
+    warnings.push('Só anexou uma das fotos (Antes/Depois).');
+  }
+
+  const techSig = data.signatures?.technician || signaturePads?.technician?.toDataURL?.();
+  const clientSig = data.signatures?.client || signaturePads?.client?.toDataURL?.();
+  if (!techSig) warnings.push('Sem assinatura do técnico.');
+  if (!clientSig) warnings.push('Sem assinatura do cliente.');
+
+  const obs = String(values.observacoes || values.observacoes_finais || '').trim();
+  if (!obs) warnings.push('Campo de observações em branco.');
+
+  return warnings;
+}
+
+/**
+ * @param {string[]} warnings
+ * @returns {boolean} true se o utilizador confirmar
+ */
+export function confirmSubmitWarnings(warnings) {
+  if (!warnings?.length) return true;
+  const list = warnings.map((w) => `• ${w}`).join('\n');
+  return window.confirm(
+    `Antes de submeter, verifique:\n\n${list}\n\nDeseja submeter mesmo assim?`,
+  );
+}
