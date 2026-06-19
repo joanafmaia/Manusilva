@@ -847,6 +847,12 @@ const DL50_MATRIX_CAT_BAND_MM = 7;
 const DL50_MATRIX_FONT_PT = 9;
 const DL50_MATRIX_CAT_FONT_PT = 10;
 const DL50_SERVICE_META_BOTTOM_MM = 4;
+/** Mínimo de linhas visíveis com o título antes de saltar de página */
+const DL50_MIN_ORPHAN_ROWS = 4;
+/** Espaço reservado no fim da checklist para declaração + assinaturas */
+const DL50_CLOSING_RESERVE_MM = 46;
+/** Categorias com muitos pontos — tabela partida em 2 colunas */
+const DL50_SPLIT_TABLE_MIN_ITEMS = 9;
 const EMPILHADORES_DUAL_VERIFY_GAP_MM = 5.3;
 const EMPILHADORES_VERIFY_COL_BAND_MM = 7;
 const EMPILHADORES_MATERIAL_FONT_PT = 9.5;
@@ -4364,6 +4370,52 @@ function buildMatrixCategoryTable(doc, cat, catData) {
   return { body, rowOpts };
 }
 
+/** DL50 — lista todos os pontos; itens sem resposta mostram «—». */
+function buildDl50CategoryTable(doc, cat, catData) {
+  const body = [];
+  const rowOpts = [];
+
+  (cat.items || []).forEach((item) => {
+    const opt = catData[columnKey(item)];
+    body.push([pdfSafeText(item), matrixDisplayState(opt)]);
+    rowOpts.push(opt || null);
+  });
+
+  return { body, rowOpts };
+}
+
+function estimateDl50CategoryOrphanHeight(doc, body, colWidth) {
+  const sample = body.slice(0, DL50_MIN_ORPHAN_ROWS);
+  return estimateDl50CategoryBlockHeight(doc, sample, colWidth);
+}
+
+function ensureDl50CategoryOrphanSpace(doc, y, body, colWidth, maxBottomY = null) {
+  const limit = maxBottomY ?? pdfContentBottomY();
+  const orphanH = estimateDl50CategoryOrphanHeight(doc, body, colWidth);
+  if (orphanH > 0 && y + orphanH > limit) {
+    doc.addPage();
+    touchPdfContentPage(doc);
+    return PDF_PAGE_CONTENT_START_Y;
+  }
+  return y;
+}
+
+function ensureDl50DualRowOrphanSpace(doc, y, leftBody, rightBody, colW) {
+  let orphanH = 0;
+  if (leftBody.length) {
+    orphanH = Math.max(orphanH, estimateDl50CategoryOrphanHeight(doc, leftBody, colW));
+  }
+  if (rightBody.length) {
+    orphanH = Math.max(orphanH, estimateDl50CategoryOrphanHeight(doc, rightBody, colW));
+  }
+  if (orphanH > 0 && y + orphanH > pdfContentBottomY()) {
+    doc.addPage();
+    touchPdfContentPage(doc);
+    return PDF_PAGE_CONTENT_START_Y;
+  }
+  return y;
+}
+
 function estimateMatrixAutoTableHeight(doc, body, pointColWidth = MATRIX_POINT_COL_W) {
   if (!body.length) return 0;
   let height = MATRIX_CAT_TITLE_H + MATRIX_TABLE_HEADER_H;
@@ -4385,23 +4437,7 @@ function estimateDl50CategoryBlockHeight(doc, body, colWidth) {
   return titleH + tableH + 1.5;
 }
 
-async function drawDl50MatrixCategoryTable(doc, x, startY, width, cat, catData, options = {}) {
-  const { body, rowOpts } = buildMatrixCategoryTable(doc, cat, catData);
-  if (!body.length) return startY;
-
-  const blockH = estimateDl50CategoryBlockHeight(doc, body, width);
-  let y = startY;
-  if (!options.skipKeepTogether && blockH <= 42) {
-    y = ensureKeepTogetherBlock(doc, startY, Math.min(blockH, pdfMaxContentHeight()));
-  }
-
-  y = drawColumnSectionTitle(doc, x, y, width, cat.name, {
-    bandH: DL50_MATRIX_CAT_BAND_MM,
-    fontSize: DL50_MATRIX_CAT_FONT_PT,
-    gapAfter: 1,
-    singleLine: true,
-  });
-
+async function drawDl50CategoryGridTable(doc, x, y, width, body, rowOpts) {
   const pointW = width * 0.72;
   const stateW = width - pointW;
   const cellPadding = PDF_TABLE_CELL_PADDING_COMPACT;
@@ -4462,6 +4498,56 @@ async function drawDl50MatrixCategoryTable(doc, x, startY, width, cat, catData, 
   });
 }
 
+async function drawDl50SplitMatrixCategoryTable(doc, x, startY, width, categoryName, body, rowOpts) {
+  const gap = DL50_DUAL_MATRIX_GAP_MM;
+  const halfW = (width - gap) / 2;
+  const mid = Math.ceil(body.length / 2);
+  const leftBody = body.slice(0, mid);
+  const leftOpts = rowOpts.slice(0, mid);
+  const rightBody = body.slice(mid);
+  const rightOpts = rowOpts.slice(mid);
+
+  const titleY = drawColumnSectionTitle(doc, x, startY, width, categoryName, {
+    bandH: DL50_MATRIX_CAT_BAND_MM,
+    fontSize: DL50_MATRIX_CAT_FONT_PT,
+    gapAfter: 1,
+    singleLine: true,
+  });
+  const leftEnd = await drawDl50CategoryGridTable(doc, x, titleY, halfW, leftBody, leftOpts);
+  const rightEnd = await drawDl50CategoryGridTable(
+    doc,
+    x + halfW + gap,
+    titleY,
+    halfW,
+    rightBody,
+    rightOpts,
+  );
+  return Math.max(leftEnd, rightEnd) + 1.5;
+}
+
+async function drawDl50MatrixCategoryTable(doc, x, startY, width, cat, catData, options = {}) {
+  const { body, rowOpts } = buildDl50CategoryTable(doc, cat, catData);
+  if (!body.length) return startY;
+
+  const maxBottomY = options.maxBottomY ?? null;
+  let y = options.skipOrphanCheck
+    ? startY
+    : ensureDl50CategoryOrphanSpace(doc, startY, body, width, maxBottomY);
+
+  if (options.splitDualTable && body.length >= DL50_SPLIT_TABLE_MIN_ITEMS) {
+    return drawDl50SplitMatrixCategoryTable(doc, x, y, width, cat.name, body, rowOpts);
+  }
+
+  y = drawColumnSectionTitle(doc, x, y, width, cat.name, {
+    bandH: DL50_MATRIX_CAT_BAND_MM,
+    fontSize: DL50_MATRIX_CAT_FONT_PT,
+    gapAfter: 1,
+    singleLine: true,
+  });
+
+  return drawDl50CategoryGridTable(doc, x, y, width, body, rowOpts);
+}
+
 async function drawDl50DualMatrixInspectionBlock(doc, y, field, matrixValue) {
   const categories = field.categories || [];
   const [leftCats, rightCats] = splitDl50MatrixCategories(categories);
@@ -4477,32 +4563,24 @@ async function drawDl50DualMatrixInspectionBlock(doc, y, field, matrixValue) {
   for (let i = 0; i < rowCount; i++) {
     const leftCat = leftCats[i];
     const rightCat = rightCats[i];
+    const isSoloLastRow = Boolean(leftCat && !rightCat);
 
-    let leftH = 0;
-    let rightH = 0;
-    if (leftCat) {
-      const { body } = buildMatrixCategoryTable(
-        doc,
-        leftCat,
-        matrixValue[columnKey(leftCat.name)] || {},
-      );
-      if (body.length) leftH = estimateDl50CategoryBlockHeight(doc, body, colW);
-    }
-    if (rightCat) {
-      const { body } = buildMatrixCategoryTable(
-        doc,
-        rightCat,
-        matrixValue[columnKey(rightCat.name)] || {},
-      );
-      if (body.length) rightH = estimateDl50CategoryBlockHeight(doc, body, colW);
+    if (isSoloLastRow) {
+      const catData = matrixValue[columnKey(leftCat.name)] || {};
+      const { body } = buildDl50CategoryTable(doc, leftCat, catData);
+      y = await drawDl50MatrixCategoryTable(doc, MARGIN, y, CONTENT_W, leftCat, catData, {
+        splitDualTable: body.length >= DL50_SPLIT_TABLE_MIN_ITEMS,
+        maxBottomY: pdfContentBottomY() - DL50_CLOSING_RESERVE_MM,
+      });
+      continue;
     }
 
-    const rowH = Math.max(leftH, rightH);
-    if (rowH > 0 && rowH <= 48) {
-      y = ensureKeepTogetherBlock(doc, y, Math.min(rowH, pdfMaxContentHeight()));
-    }
+    const leftData = leftCat ? matrixValue[columnKey(leftCat.name)] || {} : {};
+    const rightData = rightCat ? matrixValue[columnKey(rightCat.name)] || {} : {};
+    const leftBody = leftCat ? buildDl50CategoryTable(doc, leftCat, leftData).body : [];
+    const rightBody = rightCat ? buildDl50CategoryTable(doc, rightCat, rightData).body : [];
 
-    const rowStartY = y;
+    const rowStartY = ensureDl50DualRowOrphanSpace(doc, y, leftBody, rightBody, colW);
     let leftEnd = rowStartY;
     let rightEnd = rowStartY;
 
@@ -4513,8 +4591,8 @@ async function drawDl50DualMatrixInspectionBlock(doc, y, field, matrixValue) {
         rowStartY,
         colW,
         leftCat,
-        matrixValue[columnKey(leftCat.name)] || {},
-        { skipKeepTogether: true },
+        leftData,
+        { skipOrphanCheck: true },
       );
     }
     if (rightCat) {
@@ -4524,8 +4602,8 @@ async function drawDl50DualMatrixInspectionBlock(doc, y, field, matrixValue) {
         rowStartY,
         colW,
         rightCat,
-        matrixValue[columnKey(rightCat.name)] || {},
-        { skipKeepTogether: true },
+        rightData,
+        { skipOrphanCheck: true },
       );
     }
 
@@ -4713,20 +4791,20 @@ function estimateReportClosingHeight(doc, y, opts = {}) {
 }
 
 function planReportClosingProfile(doc, y, opts) {
-  if (
-    opts.service?.id === EMPILHADORES_SERVICE_ID ||
-    opts.service?.id === INSPECAO_DL50_SERVICE_ID
-  ) {
-    return REPORT_CLOSING_PROFILES[REPORT_CLOSING_PROFILES.length - 1];
-  }
-
   const bottom = pdfContentBottomY();
   const available = bottom - y;
   const hasFotos = Boolean(opts.fotoAntesUrl || opts.fotoDepoisUrl);
   const hasLegal = Boolean(opts.legalValue && String(opts.legalValue).trim());
   const polaroidOpts = { simpleLegend: Boolean(opts.simplePhotoLegend) };
 
-  for (const profile of REPORT_CLOSING_PROFILES) {
+  const preferCompact =
+    opts.service?.id === EMPILHADORES_SERVICE_ID ||
+    opts.service?.id === INSPECAO_DL50_SERVICE_ID;
+  const profiles = preferCompact
+    ? [...REPORT_CLOSING_PROFILES].reverse()
+    : REPORT_CLOSING_PROFILES;
+
+  for (const profile of profiles) {
     const total =
       (hasLegal ? estimateLegalVerdictHeight(doc, opts.legalValue, profile) : 0) +
       estimatePolaroidSectionHeight(hasFotos, profile, polaroidOpts) +
@@ -4734,7 +4812,7 @@ function planReportClosingProfile(doc, y, opts) {
     if (total <= available) return profile;
   }
 
-  return REPORT_CLOSING_PROFILES[REPORT_CLOSING_PROFILES.length - 1];
+  return REPORT_CLOSING_PROFILES[preferCompact ? REPORT_CLOSING_PROFILES.length - 1 : 0];
 }
 
 async function drawReportClosingSection(doc, y, opts) {
@@ -4745,11 +4823,19 @@ async function drawReportClosingSection(doc, y, opts) {
   let profile = planReportClosingProfile(doc, y, opts);
   const isDl50Closing = opts.service?.id === INSPECAO_DL50_SERVICE_ID;
 
+  if (isDl50Closing) {
+    const closingH =
+      (hasLegal ? estimateLegalVerdictHeight(doc, opts.legalValue, profile) : 0) +
+      estimateSignaturesHeight(profile);
+    if (closingH > 0 && y + closingH > pdfContentBottomY()) {
+      y = ensureBlockFitsSafeZone(doc, y, closingH);
+      profile = planReportClosingProfile(doc, y, opts);
+    }
+  }
+
   if (hasLegal) {
     const legalH = estimateLegalVerdictHeight(doc, opts.legalValue, profile);
-    if (!isDl50Closing) {
-      y = ensureBlockFitsSafeZone(doc, y, legalH);
-    }
+    y = ensureBlockFitsSafeZone(doc, y, legalH);
     y = drawLegalVerdictBlock(doc, y, opts.legalLabel, opts.legalValue, {
       gapAfter: profile.legalGap,
       titleGap: profile.legalGap <= 5 ? 5 : 6,
@@ -4786,9 +4872,7 @@ async function drawReportClosingSection(doc, y, opts) {
   }
 
   const sigH = estimateSignaturesHeight(profile);
-  if (!isDl50Closing) {
-    y = ensureBlockFitsSafeZone(doc, y, sigH);
-  }
+  y = ensureBlockFitsSafeZone(doc, y, sigH);
   y = await drawSignaturesFooter(doc, y, opts.signatures || {}, {
     topMargin: profile.sigTop,
     imgHeight: profile.sigImg,
