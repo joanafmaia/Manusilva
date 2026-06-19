@@ -5002,6 +5002,246 @@ body.dark-mode .matrix-bulk-good-btn--active {
   transform: translateX(20px);
 }
 
+/* ─── Tablet — formulários do técnico (área de resposta / checklist) ─── */
+@media (min-width: 600px) and (max-width: 1366px) {
+  body.tech-dashboard-page .form-overlay {
+    padding: 0.75rem max(1.25rem, env(safe-area-inset-right))
+      max(0.75rem, env(safe-area-inset-bottom)) max(1.25rem, env(safe-area-inset-left));
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body.tech-dashboard-page .form-overlay .form-panel {
+    max-width: none;
+    width: 100%;
+  }
+
+  body.tech-dashboard-page .form-overlay .form-panel-body {
+    padding: 1.35rem 1.5rem;
+    padding-bottom: max(1.5rem, calc(6rem + env(safe-area-inset-bottom, 0px)));
+  }
+
+  body.tech-dashboard-page .form-overlay .form-section-card {
+    padding: 1.35rem 1.5rem;
+    margin-bottom: 1.35rem;
+  }
+
+  body.tech-dashboard-page .form-overlay .report-fields-section .report-fields {
+    gap: 1.35rem;
+  }
+
+  body.tech-dashboard-page .form-overlay .form-label {
+    font-size: 0.95rem;
+    margin-bottom: 0.5rem;
+  }
+
+  body.tech-dashboard-page .form-overlay .form-input,
+  body.tech-dashboard-page .form-overlay .form-select,
+  body.tech-dashboard-page .form-overlay .form-textarea {
+    min-height: 52px;
+    padding: 0.875rem 1.05rem;
+    font-size: 1rem;
+  }
+
+  body.tech-dashboard-page .form-overlay .form-textarea {
+    min-height: 110px;
+  }
+
+  body.tech-dashboard-page .form-overlay .choice-btn,
+  body.tech-dashboard-page .form-overlay .status-pill,
+  body.tech-dashboard-page .form-overlay .component-toggle-btn,
+  body.tech-dashboard-page .form-overlay .legal-verdict-card {
+    min-height: 52px;
+    font-size: 0.95rem;
+    padding: 0.875rem 1.1rem;
+  }
+
+  body.tech-dashboard-page .form-overlay .matrix-opt {
+    min-height: 50px;
+    font-size: 0.9rem;
+  }
+
+  body.tech-dashboard-page .form-overlay .matrix-item-label {
+    font-size: 0.9rem;
+    margin-bottom: 0.65rem;
+  }
+
+  body.tech-dashboard-page .form-overlay .matrix-accordion-toolbar {
+    min-height: 56px;
+    padding: 0.65rem 1rem;
+  }
+
+  body.tech-dashboard-page .form-overlay .matrix-accordion-title {
+    font-size: 0.95rem;
+  }
+
+  body.tech-dashboard-page .form-overlay .verification-card {
+    min-height: 62px;
+    padding: 1rem 1.15rem;
+    gap: 1.15rem;
+  }
+
+  body.tech-dashboard-page .form-overlay .verification-card-label {
+    font-size: 1rem;
+    line-height: 1.35;
+  }
+
+  body.tech-dashboard-page .form-overlay .verify-track {
+    width: 56px;
+    height: 32px;
+  }
+
+  body.tech-dashboard-page .form-overlay .verify-thumb {
+    width: 26px;
+    height: 26px;
+  }
+
+  body.tech-dashboard-page .form-overlay .verification-switch input:checked + .verify-track .verify-thumb {
+    transform: translateX(24px);
+  }
+
+  body.tech-dashboard-page .form-overlay .verification-badge {
+    min-width: 58px;
+    font-size: 0.75rem;
+    padding: 0.4rem 0.75rem;
+  }
+
+  body.tech-dashboard-page .form-overlay .report-form-tabs {
+    top: 0;
+    padding: 0.85rem 1.5rem;
+    gap: 0.65rem;
+  }
+
+  body.tech-dashboard-page .form-overlay .report-form-tab {
+    min-height: 58px;
+    font-size: 0.85rem;
+    padding: 0.6rem 0.75rem;
+  }
+
+  body.tech-dashboard-page .form-overlay .report-form-tab-icon {
+    font-size: 1.25rem;
+  }
+
+  body.tech-dashboard-page .form-overlay .form-panel-footer {
+    padding: 1rem 1.5rem max(1rem, env(safe-area-inset-bottom, 0px));
+  }
+
+  body.tech-dashboard-page .form-overlay .btn-touch,
+  body.tech-dashboard-page .form-overlay .btn-preview,
+  body.tech-dashboard-page .form-overlay .btn-foto {
+    min-height: 52px;
+    font-size: 1rem;
+  }
+
+  body.tech-dashboard-page .form-overlay .checklist-item {
+    min-height: 56px;
+    padding: 0.9rem 1rem;
+  }
+
+  body.tech-dashboard-page .form-overlay .checklist-item .toggle-switch {
+    width: 26px;
+    height: 26px;
+  }
+
+  body.tech-dashboard-page .form-overlay .checklist-label {
+    font-size: 0.95rem;
+  }
+
+  body.tech-dashboard-page .form-overlay .toggle-field-row {
+    padding: 1.15rem 1.25rem;
+  }
+
+  body.tech-dashboard-page .form-overlay .dynamic-table input,
+  body.tech-dashboard-page .form-overlay .dynamic-table select,
+  body.tech-dashboard-page .form-overlay .dynamic-table textarea {
+    min-height: 44px;
+    font-size: 0.95rem;
+  }
+
+  body.tech-dashboard-page .form-overlay .empilhadores-machine-grid,
+  body.tech-dashboard-page .form-overlay .material-substitution-grid,
+  body.tech-dashboard-page .form-overlay .corretiva-machine-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.85rem;
+  }
+
+  body.tech-dashboard-page .form-overlay .empilhadores-verifications-dual {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+  }
+
+  body.tech-dashboard-page .form-overlay .folha-datas-intervencao-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.85rem;
+  }
+
+  body.tech-dashboard-page .form-overlay .carregador-cliente-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.85rem;
+  }
+
+  body.tech-dashboard-page .form-overlay .foto-antes-depois-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+  }
+
+  body.tech-dashboard-page .form-overlay .signatures-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+  }
+
+  body.tech-dashboard-page .form-overlay .signature-canvas {
+    min-height: 140px;
+  }
+}
+
+/* Tablet em retrato — matriz DL50 com botões maiores (2×2) */
+@media (min-width: 600px) and (max-width: 899px) {
+  body.tech-dashboard-page .form-overlay .matrix-segmented {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.55rem;
+  }
+
+  body.tech-dashboard-page .form-overlay .matrix-opt {
+    min-height: 52px;
+  }
+}
+
+/* Tablet em paisagem — grelha 2 colunas na aba Geral (campos simples) */
+@media (min-width: 900px) and (max-width: 1366px) {
+  body.tech-dashboard-page .form-overlay #report-panel-geral > .report-fields-section .report-fields {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem 1.25rem;
+    align-items: start;
+  }
+
+  body.tech-dashboard-page .form-overlay #report-panel-geral .report-fields > .form-field-section:has(textarea),
+  body.tech-dashboard-page .form-overlay #report-panel-geral .report-fields > .form-field-section:has(.dynamic-table-wrap),
+  body.tech-dashboard-page .form-overlay #report-panel-geral .report-fields > .form-field-section:has(.matrix-accordion),
+  body.tech-dashboard-page .form-overlay #report-panel-geral .report-fields > .form-field-section:has(.verification-accordion),
+  body.tech-dashboard-page .form-overlay #report-panel-geral .report-fields > .form-field-section:has(.grandes-battery-shell),
+  body.tech-dashboard-page .form-overlay #report-panel-geral .report-fields > div[class*='-dashboard-section'],
+  body.tech-dashboard-page .form-overlay #report-panel-geral .report-fields > div[class*='-footer-dual'],
+  body.tech-dashboard-page .form-overlay #report-panel-geral .report-fields > div[class*='-observations'],
+  body.tech-dashboard-page .form-overlay #report-panel-geral .report-fields > div[class*='-machine-grid'],
+  body.tech-dashboard-page .form-overlay #report-panel-geral .report-fields > div[class*='-cliente-grid'],
+  body.tech-dashboard-page .form-overlay #report-panel-geral .report-fields > div[class*='-identificacao-bar'],
+  body.tech-dashboard-page .form-overlay #report-panel-geral .report-fields > div[class*='-fecho-fields'],
+  body.tech-dashboard-page .form-overlay #report-panel-geral .report-fields > div[class*='-pedido-orcamento'],
+  body.tech-dashboard-page .form-overlay #report-panel-geral .report-fields > div[class*='-datas-intervencao'] {
+    grid-column: 1 / -1;
+  }
+
+  body.tech-dashboard-page .form-overlay .folha-datas-intervencao-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  body.tech-dashboard-page .form-overlay .material-substitution-grid--empilhadores {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
 .review-verification-list {
   display: flex;
   flex-direction: column;

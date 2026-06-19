@@ -235,7 +235,7 @@ export async function openJobForm(jobId, options = {}) {
 
     const overlay = document.createElement('div');
     overlay.id = 'form-overlay';
-    overlay.className = 'form-overlay';
+    overlay.className = 'form-overlay form-overlay--tech';
     overlay.innerHTML = buildFormHTML(job, client, tech, service, existingReport, { viewOnly });
     document.body.appendChild(overlay);
     document.body.style.overflow = 'hidden';
