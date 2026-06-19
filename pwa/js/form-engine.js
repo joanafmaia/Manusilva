@@ -368,6 +368,7 @@ export function buildFormPrefill(service, job, _forklift, context = {}) {
       data_de_conclusao: job?.date || '',
       consumiveis: [emptyMaterialRow()],
       visitas_realizadas: 1,
+      estado_final: 'Operacional',
       ...toggles,
     };
   }

@@ -280,8 +280,8 @@ export const PDF_CLOSING_DIAGNOSTIC_SPECS = [
 export const PREVENTIVA_BATERIA_ANALYSIS_SPECS = [
   { id: 'densidade', label: 'Densidade' },
   { id: 'tensao', label: 'Tensão' },
-  { id: 'tensao_media_elementos', label: 'Tensão Media de Elementos', unit: 'V' },
-  { id: 'nivel_eletrolito', label: 'Nivel de Eletrólito' },
+  { id: 'tensao_media_elementos', label: 'Tensão Média de Elementos', unit: 'V' },
+  { id: 'nivel_eletrolito', label: 'Nível de Eletrólito' },
   { id: 'ficha', label: 'Ficha' },
   { id: 'condutividade', label: 'Condutividade' },
   { id: 'parafusos', label: 'Parafusos' },

@@ -1163,7 +1163,9 @@ function drawPreventivaBateriaMirrorHeader(doc, clientMeta, techName, report, jo
   const logoW = PDF_LOGO_WIDTH_MM;
   const logoH = PDF_LOGO_HEIGHT_MM;
   const leftColW = CONTENT_W * 0.48;
-  const dataConclusao = formatPdfServiceDateOnly(report, job, values);
+  const conclusionDate = formatPdfConclusionDate(values);
+  const jobDate = formatPdfJobDateOnly(job, report);
+  const serviceDateFallback = formatPdfServiceDateOnly(report, job, values);
 
   if (isLogoConfigured()) {
     try {
@@ -1192,8 +1194,17 @@ function drawPreventivaBateriaMirrorHeader(doc, clientMeta, techName, report, jo
   doc.setTextColor(...TEXT_DARK);
   doc.text(`Funcionário: ${pdfSafeText(techName)}`, MARGIN, leftY, { maxWidth: leftColW });
   leftY += 4;
-  doc.text(`Data de conclusão: ${pdfSafeText(dataConclusao)}`, MARGIN, leftY, { maxWidth: leftColW });
-  leftY += 4;
+  if (conclusionDate) {
+    doc.text(`Data de Conclusão: ${pdfSafeText(conclusionDate)}`, MARGIN, leftY, { maxWidth: leftColW });
+    leftY += 4;
+    if (jobDate && jobDate !== conclusionDate) {
+      doc.text(`Data do Serviço: ${pdfSafeText(jobDate)}`, MARGIN, leftY, { maxWidth: leftColW });
+      leftY += 4;
+    }
+  } else {
+    doc.text(`Data de Conclusão: ${pdfSafeText(serviceDateFallback)}`, MARGIN, leftY, { maxWidth: leftColW });
+    leftY += 4;
+  }
 
   touchPdfContentPage(doc);
   return Math.max(leftY, topY + clientBoxH) + PDF_SECTION_GAP_MM;
@@ -3071,15 +3082,35 @@ async function drawPreventivaBateriaClosingSection(doc, y, opts) {
   y = await drawPreventivaBateriaEstadoFinalBlock(doc, y, values);
 
   if (hasFotos) {
-    y = ensurePdfClosingTailFits(doc, y, hasFotos, profile, {
-      institutionalFooterMm: FOLHA_INSTITUTIONAL_FOOTER_H_MM,
-    });
+    const bottomGap = 2;
+    let available = pdfContentBottomY() - y;
+    let maxImgH = resolveAdaptiveClosingPhotoHeight(available, profile, bottomGap);
+    let tailH =
+      estimatePdfInterventionFotosOverhead(bottomGap) +
+      maxImgH +
+      estimateSignaturesHeight(profile) +
+      FOLHA_INSTITUTIONAL_FOOTER_H_MM;
+
+    if (y + tailH > pdfContentBottomY()) {
+      y = ensureBlockFitsSafeZone(doc, y, tailH);
+      available = pdfContentBottomY() - y;
+      maxImgH = resolveAdaptiveClosingPhotoHeight(available, profile, bottomGap);
+      tailH =
+        estimatePdfInterventionFotosOverhead(bottomGap) +
+        maxImgH +
+        estimateSignaturesHeight(profile) +
+        FOLHA_INSTITUTIONAL_FOOTER_H_MM;
+      if (y + tailH > pdfContentBottomY()) {
+        y = ensureBlockFitsSafeZone(doc, y, tailH);
+      }
+    }
+
     y = await drawInterventionFotografiasSection(
       doc,
       y,
       opts.fotoAntesUrl,
       opts.fotoDepoisUrl,
-      { skipEnsure: true, maxImgH: profile.polaroidMm },
+      { skipEnsure: true, bottomGap, maxImgH },
     );
   } else {
     y = ensureBlockFitsSafeZone(

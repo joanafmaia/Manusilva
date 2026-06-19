@@ -251,7 +251,7 @@ export const MANUTENCAO_PREVENTIVA_BATERIA = {
     {
       type: 'number',
       id: 'visitas_realizadas',
-      label: 'Nr de Visitas',
+      label: 'N.º de Visitas',
       section: 'Número de Visitas e Tempo',
       min: 1,
       step: 1,
@@ -259,7 +259,13 @@ export const MANUTENCAO_PREVENTIVA_BATERIA = {
     },
     { type: 'number', id: 'horas', label: 'Horas', section: 'Número de Visitas e Tempo', min: 0, step: 0.5 },
     { type: 'textarea', id: 'observacao', label: 'Observações', section: 'Estado final' },
-    { type: 'text', id: 'estado_final', label: 'Estado', section: 'Estado final' },
+    {
+      type: 'status_pills',
+      id: 'estado_final',
+      label: 'Estado',
+      section: 'Estado final',
+      options: ['Operacional', 'Necessita Elementos Novos', 'Inoperacional'],
+    },
   ],
 };
 
