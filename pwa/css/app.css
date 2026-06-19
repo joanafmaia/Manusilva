@@ -4203,6 +4203,50 @@ body.dark-mode .matrix-bulk-good-btn--active {
   vertical-align: middle;
 }
 
+/* Linhas da checklist empilhadores — manter formato tabela (não cartões flex) */
+.empilhadores-verify-table tr.verification-card {
+  display: table-row;
+  min-height: 0;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  gap: 0;
+  box-shadow: none;
+}
+
+.empilhadores-verify-table tr.verification-card > th,
+.empilhadores-verify-table tr.verification-card > td {
+  display: table-cell;
+}
+
+.empilhadores-verify-table tr.verification-card--ok,
+.empilhadores-verify-table tr.verification-card--fail {
+  border: none;
+  box-shadow: none;
+}
+
+.empilhadores-verify-table tr.verification-card--fail th,
+.empilhadores-verify-table tr.verification-card--fail td {
+  background: rgba(248, 113, 113, 0.07);
+}
+
+.empilhadores-verify-table tr.verification-card--ok:nth-child(even) th,
+.empilhadores-verify-table tr.verification-card--ok:nth-child(even) td {
+  background: rgba(248, 250, 252, 0.85);
+}
+
+.empilhadores-verify-table .verification-card-label {
+  font-size: inherit;
+  font-weight: 500;
+  flex: none;
+}
+
+.empilhadores-verify-table .verification-card-control {
+  gap: 0.35rem;
+  justify-content: center;
+}
+
 .form-section-subtitle--empilhadores-material {
   margin-bottom: 0.65rem;
   padding: 0.45rem 0.65rem;
@@ -5074,13 +5118,13 @@ body.dark-mode .matrix-bulk-good-btn--active {
     font-size: 0.95rem;
   }
 
-  body.tech-dashboard-page .form-overlay .verification-card {
+  body.tech-dashboard-page .form-overlay .verification-card:not(.empilhadores-verify-row) {
     min-height: 62px;
     padding: 1rem 1.15rem;
     gap: 1.15rem;
   }
 
-  body.tech-dashboard-page .form-overlay .verification-card-label {
+  body.tech-dashboard-page .form-overlay .verification-card:not(.empilhadores-verify-row) .verification-card-label {
     font-size: 1rem;
     line-height: 1.35;
   }
@@ -5165,8 +5209,77 @@ body.dark-mode .matrix-bulk-good-btn--active {
   }
 
   body.tech-dashboard-page .form-overlay .empilhadores-verifications-dual {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 1rem;
+    grid-template-columns: 1fr;
+    gap: 0.85rem;
+  }
+
+  body.tech-dashboard-page .form-overlay .form-field-section--empilhadores-verify.form-section-card {
+    padding: 0.85rem 1rem;
+    margin-bottom: 0.85rem;
+  }
+
+  body.tech-dashboard-page .form-overlay .report-fields-section--checklist .report-fields {
+    gap: 0.85rem;
+  }
+
+  body.tech-dashboard-page .form-overlay .form-field-section--empilhadores-material.form-section-card {
+    padding: 0.85rem 1rem;
+  }
+
+  body.tech-dashboard-page .form-overlay .empilhadores-verify-column-header {
+    padding: 0.35rem 0.5rem;
+    margin-bottom: 0.3rem;
+  }
+
+  body.tech-dashboard-page .form-overlay .empilhadores-verify-table thead th,
+  body.tech-dashboard-page .form-overlay .empilhadores-verify-table tbody th,
+  body.tech-dashboard-page .form-overlay .empilhadores-verify-table tbody td {
+    padding: 0.3rem 0.45rem;
+  }
+
+  body.tech-dashboard-page .form-overlay .empilhadores-verify-table {
+    font-size: 0.8125rem;
+  }
+
+  body.tech-dashboard-page .form-overlay .empilhadores-verify-table .verification-card-label {
+    font-size: 0.8125rem;
+    line-height: 1.25;
+    font-weight: 500;
+  }
+
+  body.tech-dashboard-page .form-overlay .empilhadores-verify-table .verification-badge {
+    display: none;
+  }
+
+  body.tech-dashboard-page .form-overlay .empilhadores-verify-table .verify-track {
+    width: 44px;
+    height: 26px;
+  }
+
+  body.tech-dashboard-page .form-overlay .empilhadores-verify-table .verify-thumb {
+    width: 20px;
+    height: 20px;
+    top: 3px;
+    left: 3px;
+  }
+
+  body.tech-dashboard-page .form-overlay .empilhadores-verify-table .verification-switch input:checked + .verify-track .verify-thumb {
+    transform: translateX(18px);
+  }
+
+  body.tech-dashboard-page .form-overlay .empilhadores-verify-table thead th:last-child {
+    width: 3.25rem;
+    text-align: center;
+  }
+
+  body.tech-dashboard-page .form-overlay .empilhadores-verify-column-meta .matrix-bulk-good-btn {
+    min-height: 36px;
+    padding: 0.25rem 0.55rem;
+    font-size: 0.72rem;
+  }
+
+  body.tech-dashboard-page .form-overlay .material-substitution-grid--empilhadores {
+    gap: 0.65rem;
   }
 
   /* Tabelas de resposta — ocupar largura total do bloco (não metade da grelha) */
@@ -5241,6 +5354,27 @@ body.dark-mode .matrix-bulk-good-btn--active {
 
   body.tech-dashboard-page .form-overlay .matrix-opt {
     min-height: 52px;
+  }
+}
+
+/* Tablet em paisagem — checklist empilhadores lado a lado com scroll interno */
+@media (min-width: 900px) and (max-width: 1366px) {
+  body.tech-dashboard-page .form-overlay .empilhadores-verifications-dual {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+    align-items: start;
+  }
+
+  body.tech-dashboard-page .form-overlay .empilhadores-verify-table-wrap {
+    max-height: min(52vh, 26rem);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  body.tech-dashboard-page .form-overlay .empilhadores-verify-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
   }
 }
 
