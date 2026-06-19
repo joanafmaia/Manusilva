@@ -122,6 +122,7 @@ export const PDF_SCALAR_FIELD_TYPES = new Set([
 export const PDF_DL50_MACHINE_FIELD_IDS = new Set([
   'marca',
   'modelo',
+  'tipo',
   'numero_de_serie',
   'data_fabrico',
 ]);

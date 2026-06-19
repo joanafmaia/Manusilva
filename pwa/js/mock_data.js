@@ -259,6 +259,7 @@ export const INSPECAO_DL50_2005 = {
     { type: 'date', id: 'data_de_conclusao', label: 'Data de Conclusão' },
     { type: 'text', id: 'marca', label: 'Marca', section: 'Informações da Máquina' },
     { type: 'text', id: 'modelo', label: 'Modelo', section: 'Informações da Máquina' },
+    { type: 'text', id: 'tipo', label: 'Tipo', section: 'Informações da Máquina' },
     { type: 'text', id: 'numero_de_serie', label: 'Nº Série', section: 'Informações da Máquina' },
     { type: 'date', id: 'data_fabrico', label: 'Data Fabrico', section: 'Informações da Máquina' },
     {

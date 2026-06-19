@@ -833,6 +833,7 @@ const EMPILHADORES_MACHINE_PDF_SPECS = [
 const INSPECAO_DL50_MACHINE_PDF_SPECS = [
   { id: 'marca', label: 'Marca' },
   { id: 'modelo', label: 'Modelo' },
+  { id: 'tipo', label: 'Tipo' },
   {
     id: 'numero_de_serie',
     label: 'Nº Série',
