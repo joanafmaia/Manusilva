@@ -722,7 +722,7 @@ export function renderReportFields(service, values = {}, context = {}, options =
         sectionFields.every(
           (f) => f.type === 'verification_toggles' && f.collapsible && f.section === section,
         );
-      const sectionTitle =
+      let sectionTitle =
         section && !hideSectionTitle
           ? `<h4 class="form-section-subtitle">${escapeHtml(section)}</h4>`
           : '';
