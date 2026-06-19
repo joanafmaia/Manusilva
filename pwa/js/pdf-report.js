@@ -311,15 +311,15 @@ function formatPdfJobDateOnly(job, report) {
   return y && m && d ? `${d}/${m}/${y}` : '';
 }
 
-function buildCorretivaServiceInfoMeta(report, job, values, visitCount) {
+function buildConclusionAwareServiceInfoMeta(report, job, values, metaBottomGapMm) {
   const conclusionDate = formatPdfConclusionDate(values);
   const jobDate = formatPdfJobDateOnly(job, report);
   const meta = {
-    visitDatesLine: resolvePdfVisitDatesLine(values, report, job, visitCount),
-    numeroVisitas: visitCount,
+    visitDatesLine: null,
+    numeroVisitas: null,
     deslocacao: null,
     technician: null,
-    metaBottomGapMm: CORRETIVA_SECTION_GAP_MM,
+    metaBottomGapMm,
   };
 
   if (conclusionDate) {
@@ -334,6 +334,22 @@ function buildCorretivaServiceInfoMeta(report, job, values, visitCount) {
   }
 
   return meta;
+}
+
+function buildCorretivaServiceInfoMeta(report, job, values, visitCount) {
+  const meta = buildConclusionAwareServiceInfoMeta(
+    report,
+    job,
+    values,
+    CORRETIVA_SECTION_GAP_MM,
+  );
+  meta.visitDatesLine = resolvePdfVisitDatesLine(values, report, job, visitCount);
+  meta.numeroVisitas = visitCount;
+  return meta;
+}
+
+function buildRavServiceInfoMeta(report, job, values) {
+  return buildConclusionAwareServiceInfoMeta(report, job, values, RAV_SECTION_GAP_MM);
 }
 
 function estimatePdfInterventionFotosOverhead(bottomGapMm = 4) {
@@ -697,12 +713,8 @@ export async function renderInterventionPDF(report) {
     y = drawTopRowWithClientBlock(doc, clientMeta, job?.numeroOrdem ?? null);
     y = drawRavBateriaTitleBar(doc, y, title);
     y = drawServiceInfoBlock(doc, y, {
-      serviceDate: formatPdfServiceDateOnly(report, job, values),
-      visitDatesLine: null,
-      numeroVisitas: null,
-      deslocacao: null,
+      ...buildRavServiceInfoMeta(report, job, values),
       technician: techName || values.tecnico || '',
-      metaBottomGapMm: RAV_SECTION_GAP_MM,
     });
     y = await drawRavBateriaBody(doc, y, service, values);
     y = await drawRavBateriaClosingSection(doc, y, {
@@ -1338,7 +1350,7 @@ async function drawPreventivaBateriaIntervencaoTable(doc, y, values) {
   return drawPreventivaBateriaClosedSectionTable(doc, y, {
     sectionTitle: 'NÚMERO DE VISITAS E TEMPO',
     colSpan: 2,
-    columnHead: ['Nr de visitas', 'Horas'],
+    columnHead: ['N.º de visitas', 'Horas'],
     body: [[visitas, horas]],
     bodyStyles: { halign: 'center' },
     columnStyles: {
@@ -2899,7 +2911,7 @@ async function drawRavVisitasTempoTableAt(doc, startY, values, x, width) {
   let y = await drawRavSectionBar(doc, startY, 'Número de Visitas e Tempo', { x, width });
   const pack = ravTableStylePack(doc);
   return drawPdfGridTable(doc, y, {
-    head: [['Nr de visitas', 'Horas']],
+    head: [['N.º de visitas', 'Horas']],
     body: [[visitas, horas]],
     marginLeft: x,
     marginRight: PAGE_W - x - width,
@@ -2941,31 +2953,67 @@ function ravEstadoFinalColor(estadoText) {
 async function drawRavEstadoFinalBlock(doc, y, values) {
   const observacao = pdfDisplayValue(values.observacao);
   const estado = pdfDisplayValue(values.estado_final);
-  const lines = pdfSplitText(doc, observacao, CONTENT_W - 8);
+  const textW = CONTENT_W - 8;
+  const lines = pdfSplitText(doc, observacao, textW);
   const lineStep = (RAV_TABLE_FONT_PT / 72) * 25.4 * 1.15;
-  const obsBoxH = Math.max(11, Math.min(22, lines.length * lineStep + 3.5));
+  const estadoBandH = 7 + RAV_SECTION_GAP_MM;
+  const obsLabelH = 3.8;
+  const obsTextTop = 7.2;
 
   y = await drawRavSectionBar(doc, y, 'Estado Final');
-  const boxY = y;
-  doc.setFillColor(...PDF_CLIENT_BOX_FILL);
-  doc.setDrawColor(...PDF_TABLE_LINE);
-  doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
-  doc.roundedRect(MARGIN, boxY, CONTENT_W, obsBoxH, RAV_RADIUS_MM, RAV_RADIUS_MM, 'FD');
+
   pdfSetFont(doc, 'normal');
   doc.setFontSize(RAV_TABLE_FONT_PT);
-  doc.setTextColor(...TEXT_MUTED);
-  doc.text('Observação:', MARGIN + 2.5, boxY + 3.8);
-  pdfSetFont(doc, 'normal');
-  doc.setTextColor(...TEXT_DARK);
-  doc.text(lines, MARGIN + 2.5, boxY + 7.2, { lineHeightFactor: 1.15 });
 
-  y = boxY + obsBoxH + 3;
+  let lineIdx = 0;
+  while (lineIdx < lines.length) {
+    const remaining = pdfContentBottomY() - y - estadoBandH;
+    const maxLines = Math.max(1, Math.floor((remaining - obsTextTop - 2) / lineStep));
+    const chunk = lines.slice(lineIdx, lineIdx + maxLines);
+    const obsBoxH = Math.max(11, chunk.length * lineStep + obsTextTop + 2);
+
+    if (remaining < 14 && lineIdx < lines.length) {
+      doc.addPage();
+      touchPdfContentPage(doc);
+      y = PDF_PAGE_CONTENT_START_Y;
+      continue;
+    }
+
+    const boxY = y;
+    doc.setFillColor(...PDF_CLIENT_BOX_FILL);
+    doc.setDrawColor(...PDF_TABLE_LINE);
+    doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
+    doc.roundedRect(MARGIN, boxY, CONTENT_W, obsBoxH, RAV_RADIUS_MM, RAV_RADIUS_MM, 'FD');
+    doc.setTextColor(...TEXT_MUTED);
+    doc.text('Observação:', MARGIN + 2.5, boxY + obsLabelH);
+    doc.setTextColor(...TEXT_DARK);
+    doc.text(chunk, MARGIN + 2.5, boxY + obsTextTop, { lineHeightFactor: 1.15 });
+
+    y = boxY + obsBoxH + 2;
+    lineIdx += chunk.length;
+  }
+
+  if (!lines.length) {
+    const boxY = y;
+    const obsBoxH = 11;
+    doc.setFillColor(...PDF_CLIENT_BOX_FILL);
+    doc.setDrawColor(...PDF_TABLE_LINE);
+    doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
+    doc.roundedRect(MARGIN, boxY, CONTENT_W, obsBoxH, RAV_RADIUS_MM, RAV_RADIUS_MM, 'FD');
+    doc.setTextColor(...TEXT_MUTED);
+    doc.text('Observação:', MARGIN + 2.5, boxY + obsLabelH);
+    doc.setTextColor(...TEXT_DARK);
+    doc.text('—', MARGIN + 2.5, boxY + obsTextTop);
+    y = boxY + obsBoxH + 2;
+  }
+
+  y = ensureSpace(doc, y, estadoBandH);
   pdfSetFont(doc, 'bold');
   doc.setFontSize(RAV_TABLE_FONT_PT);
   doc.setTextColor(...ravEstadoFinalColor(estado));
   doc.text(`Estado: ${estado}`, MARGIN + 2, y + 3.5);
   touchPdfContentPage(doc);
-  return y + 7 + RAV_SECTION_GAP_MM;
+  return y + estadoBandH;
 }
 
 async function drawRavBateriaBody(doc, y, service, values) {
@@ -2980,13 +3028,29 @@ async function drawRavBateriaClosingSection(doc, y, opts) {
   y = await drawRavEstadoFinalBlock(doc, y, values);
 
   if (hasFotos) {
-    y = ensurePdfClosingTailFits(doc, y, hasFotos, profile);
+    const bottomGap = 2;
+    let available = pdfContentBottomY() - y;
+    let maxImgH = resolveAdaptiveClosingPhotoHeight(available, profile, bottomGap);
+    let tailH =
+      estimatePdfInterventionFotosOverhead(bottomGap) + maxImgH + estimateSignaturesHeight(profile);
+
+    if (y + tailH > pdfContentBottomY()) {
+      y = ensureBlockFitsSafeZone(doc, y, tailH);
+      available = pdfContentBottomY() - y;
+      maxImgH = resolveAdaptiveClosingPhotoHeight(available, profile, bottomGap);
+      tailH =
+        estimatePdfInterventionFotosOverhead(bottomGap) + maxImgH + estimateSignaturesHeight(profile);
+      if (y + tailH > pdfContentBottomY()) {
+        y = ensureBlockFitsSafeZone(doc, y, tailH);
+      }
+    }
+
     y = await drawInterventionFotografiasSection(
       doc,
       y,
       opts.fotoAntesUrl,
       opts.fotoDepoisUrl,
-      { skipEnsure: true, maxImgH: profile.polaroidMm },
+      { skipEnsure: true, bottomGap, maxImgH },
     );
   } else {
     y = ensureBlockFitsSafeZone(doc, y, estimateSignaturesHeight(profile));
