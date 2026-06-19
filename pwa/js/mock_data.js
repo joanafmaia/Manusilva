@@ -99,6 +99,22 @@ export const MANUTENCAO_BATERIAS_GRANDES = {
     },
     createMaterialTableField({ id: 'consumiveis_utilizados' }),
     { type: 'textarea', id: 'observacoes', label: 'Observações' },
+    {
+      type: 'number',
+      id: 'horas',
+      label: 'Horas',
+      section: 'Resumo da Intervenção',
+      min: 0,
+      step: 0.5,
+      placeholder: '0',
+    },
+    {
+      type: 'status_pills',
+      id: 'estado_maquina',
+      label: 'Estado Geral',
+      section: 'Resumo da Intervenção',
+      options: ['Operacional', 'Necessita Atenção', 'Inoperacional'],
+    },
   ],
 };
 

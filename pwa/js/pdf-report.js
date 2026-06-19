@@ -352,6 +352,18 @@ function buildRavServiceInfoMeta(report, job, values) {
   return buildConclusionAwareServiceInfoMeta(report, job, values, RAV_SECTION_GAP_MM);
 }
 
+function buildGrandesServiceInfoMeta(report, job, values, visitCount) {
+  const meta = buildConclusionAwareServiceInfoMeta(
+    report,
+    job,
+    values,
+    GRANDES_SECTION_GAP_MM,
+  );
+  meta.visitDatesLine = resolvePdfVisitDatesLine(values, report, job, visitCount);
+  meta.numeroVisitas = visitCount;
+  return meta;
+}
+
 function estimatePdfInterventionFotosOverhead(bottomGapMm = 4) {
   return (
     PDF_INTERVENTION_FOTO_BAR_H_MM +
@@ -754,12 +766,8 @@ export async function renderInterventionPDF(report) {
     y = drawGrandesTitleBar(doc, y, title);
     const visitCount = formatPdfNumeroVisitas(values);
     y = drawServiceInfoBlock(doc, y, {
-      serviceDate: formatPdfServiceDateOnly(report, job, values),
-      visitDatesLine: resolvePdfVisitDatesLine(values, report, job, visitCount),
-      numeroVisitas: visitCount,
-      deslocacao: null,
+      ...buildGrandesServiceInfoMeta(report, job, values, visitCount),
       technician: techName || values.tecnico || '',
-      metaBottomGapMm: GRANDES_SECTION_GAP_MM,
     });
     y = await drawGrandesBateriasBody(doc, y, service, values);
     y = await drawGrandesBateriasClosingSection(doc, y, {
@@ -981,8 +989,6 @@ const GRANDES_BATTERY_CELL_PADDING = { top: 0.53, right: 1.06, bottom: 0.53, lef
 const GRANDES_BATTERY_MIN_CELL_HEIGHT = 3;
 const GRANDES_BATTERY_LINE_HEIGHT = 1.1;
 const GRANDES_DUAL_COL_GAP_MM = 4;
-const GRANDES_OBS_MAX_LINES = 3;
-const GRANDES_OBS_MAX_H_MM = 11;
 const GRANDES_CLOSING_PROFILE = {
   sigTop: 2,
   sigImg: 11,
@@ -1001,7 +1007,7 @@ const GRANDES_BATTERY_PDF_HEADERS = [
 ];
 /** Índices de colunas curtas — sem quebra de palavra no PDF */
 const GRANDES_BATTERY_NOWRAP_COLS = new Set([2, 3, 4, 7]);
-const GRANDES_BATTERY_COL_WIDTHS = [30, 24, 16, 14, 14, 42, 24, 16];
+const GRANDES_BATTERY_COL_WIDTHS = [30, 24, 16, 14, 14, 46, 20, 16];
 
 /** Reparação Avarias Bateria — layout premium simétrico (1 página A4) */
 const RAV_SECTION_GAP_MM = 2.8;
@@ -2620,15 +2626,20 @@ async function drawGrandesSectionBar(doc, y, title, layout = {}) {
   return y + bandH + GRANDES_SECTION_BAR_GAP_MM;
 }
 
+function formatGrandesBatteryCellPdf(key, raw) {
+  if (key === 'nivel_eletrolito') {
+    const text = String(raw || '').trim();
+    if (/reposi[cç][aã]o urgentemente/i.test(text)) return 'Reposição urgente';
+  }
+  return pdfDisplayValue(raw);
+}
+
 function buildGrandesBatteryPdfBody(rows) {
   const keys = getColumnKeys();
   const list = Array.isArray(rows) ? rows : [];
   if (!list.length) return [['—', '—', '—', '—', '—', '—', '—', '—']];
   return list.map((row) =>
-    keys.map((key) => {
-      const raw = row?.[key];
-      return pdfDisplayValue(raw);
-    }),
+    keys.map((key) => formatGrandesBatteryCellPdf(key, row?.[key])),
   );
 }
 
@@ -2692,28 +2703,49 @@ async function drawGrandesConsumablesTableAt(doc, startY, rows, x, width) {
 async function drawGrandesObservationsBoxAt(doc, startY, value, x, width) {
   const text = pdfDisplayValue(value);
   const textWidth = width - 5;
-  let lines = pdfSplitText(doc, text, textWidth);
-  if (lines.length > GRANDES_OBS_MAX_LINES) {
-    lines = lines.slice(0, GRANDES_OBS_MAX_LINES);
-    const last = lines[GRANDES_OBS_MAX_LINES - 1];
-    lines[GRANDES_OBS_MAX_LINES - 1] =
-      last.length > 2 ? `${String(last).slice(0, Math.max(0, last.length - 1))}…` : last;
-  }
+  const allLines = text === '—' ? [] : pdfSplitText(doc, text, textWidth);
   const lineStep = (GRANDES_TABLE_FONT_PT / 72) * 25.4 * GRANDES_BATTERY_LINE_HEIGHT;
-  const boxH = Math.min(GRANDES_OBS_MAX_H_MM, Math.max(7, lines.length * lineStep + 2.5));
 
   let y = await drawGrandesSectionBar(doc, startY, 'Observações', { x, width });
-  const boxY = y;
-  doc.setFillColor(...PDF_TABLE_BODY_FILL);
-  doc.setDrawColor(...PDF_TABLE_LINE);
-  doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
-  doc.roundedRect(x, boxY, width, boxH, GRANDES_RADIUS_MM, GRANDES_RADIUS_MM, 'FD');
-  pdfSetFont(doc, 'normal');
-  doc.setFontSize(GRANDES_TABLE_FONT_PT);
-  doc.setTextColor(...TEXT_DARK);
-  doc.text(lines, x + 2.5, boxY + 3.2, { lineHeightFactor: GRANDES_BATTERY_LINE_HEIGHT });
-  touchPdfContentPage(doc);
-  return boxY + boxH;
+
+  if (!allLines.length) {
+    const boxH = 7;
+    y = ensureSpace(doc, y, boxH + 2);
+    const boxY = y;
+    doc.setFillColor(...PDF_TABLE_BODY_FILL);
+    doc.setDrawColor(...PDF_TABLE_LINE);
+    doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
+    doc.roundedRect(x, boxY, width, boxH, GRANDES_RADIUS_MM, GRANDES_RADIUS_MM, 'FD');
+    pdfSetFont(doc, 'normal');
+    doc.setFontSize(GRANDES_TABLE_FONT_PT);
+    doc.setTextColor(...TEXT_DARK);
+    doc.text('—', x + 2.5, boxY + 3.2);
+    touchPdfContentPage(doc);
+    return boxY + boxH;
+  }
+
+  let lineIdx = 0;
+  while (lineIdx < allLines.length) {
+    const remaining = pdfContentBottomY() - y;
+    const maxLines = Math.max(1, Math.floor((remaining - 2.5) / lineStep));
+    const chunk = allLines.slice(lineIdx, lineIdx + maxLines);
+    const boxH = Math.max(7, chunk.length * lineStep + 2.5);
+    y = ensureSpace(doc, y, boxH + 2);
+    const boxY = y;
+    doc.setFillColor(...PDF_TABLE_BODY_FILL);
+    doc.setDrawColor(...PDF_TABLE_LINE);
+    doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
+    doc.roundedRect(x, boxY, width, boxH, GRANDES_RADIUS_MM, GRANDES_RADIUS_MM, 'FD');
+    pdfSetFont(doc, 'normal');
+    doc.setFontSize(GRANDES_TABLE_FONT_PT);
+    doc.setTextColor(...TEXT_DARK);
+    doc.text(chunk, x + 2.5, boxY + 3.2, { lineHeightFactor: GRANDES_BATTERY_LINE_HEIGHT });
+    touchPdfContentPage(doc);
+    y = boxY + boxH;
+    lineIdx += chunk.length;
+  }
+
+  return y;
 }
 
 async function drawGrandesConsumablesObsDualBlock(doc, y, consumableRows, obsText) {
@@ -2737,7 +2769,7 @@ async function drawGrandesResumoRow(doc, y, values) {
   y = await drawGrandesSectionBar(doc, y, 'Resumo da Intervenção');
   const pack = grandesTableStylePack(doc);
   return drawPdfGridTable(doc, y, {
-    body: [[`Horas: ${horas}`, `Estado da Máquina: ${estado}`]],
+    body: [[`Horas: ${horas}`, `Estado Geral: ${estado}`]],
     columnStyles: {
       0: { cellWidth: colW, halign: 'left', fontSize: GRANDES_TABLE_FONT_PT },
       1: { cellWidth: colW, halign: 'left', fontSize: GRANDES_TABLE_FONT_PT },
@@ -2773,13 +2805,29 @@ async function drawGrandesBateriasClosingSection(doc, y, opts) {
   y = await drawGrandesResumoRow(doc, y, values);
 
   if (hasFotos) {
-    y = ensurePdfClosingTailFits(doc, y, hasFotos, profile, { bottomGap: 2 });
+    const bottomGap = 2;
+    let available = pdfContentBottomY() - y;
+    let maxImgH = resolveAdaptiveClosingPhotoHeight(available, profile, bottomGap);
+    let tailH =
+      estimatePdfInterventionFotosOverhead(bottomGap) + maxImgH + estimateSignaturesHeight(profile);
+
+    if (y + tailH > pdfContentBottomY()) {
+      y = ensureBlockFitsSafeZone(doc, y, tailH);
+      available = pdfContentBottomY() - y;
+      maxImgH = resolveAdaptiveClosingPhotoHeight(available, profile, bottomGap);
+      tailH =
+        estimatePdfInterventionFotosOverhead(bottomGap) + maxImgH + estimateSignaturesHeight(profile);
+      if (y + tailH > pdfContentBottomY()) {
+        y = ensureBlockFitsSafeZone(doc, y, tailH);
+      }
+    }
+
     y = await drawInterventionFotografiasSection(
       doc,
       y,
       opts.fotoAntesUrl,
       opts.fotoDepoisUrl,
-      { skipEnsure: true, bottomGap: 2, maxImgH: profile.polaroidMm },
+      { skipEnsure: true, bottomGap, maxImgH },
     );
   } else {
     y = ensureBlockFitsSafeZone(doc, y, estimateSignaturesHeight(profile));
@@ -3887,7 +3935,7 @@ function drawServiceInfoBlock(doc, y, meta) {
     rowItems.push({ label: 'Periodicidade Inspeção', value: pdfDisplayValue(meta.periodicidade) });
   }
   if (meta.numeroVisitas != null) {
-    rowItems.push({ label: 'Nº de Visitas', value: pdfDisplayValue(meta.numeroVisitas) });
+    rowItems.push({ label: 'N.º de Visitas', value: pdfDisplayValue(meta.numeroVisitas) });
   }
   if (meta.deslocacao != null) {
     rowItems.push({ label: 'Deslocação', value: pdfDisplayValue(meta.deslocacao) });

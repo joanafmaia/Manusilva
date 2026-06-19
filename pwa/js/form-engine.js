@@ -354,6 +354,8 @@ export function buildFormPrefill(service, job, _forklift, context = {}) {
       data_de_conclusao: job?.date || '',
       [GRANDES_BATTERY_FIELD_ID]: [{}],
       consumiveis_utilizados: [emptyMaterialRow()],
+      visitas_realizadas: 1,
+      estado_maquina: 'Operacional',
     };
   }
 
