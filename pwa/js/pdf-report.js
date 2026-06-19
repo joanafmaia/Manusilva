@@ -1024,13 +1024,22 @@ function formatFolhaInterventionDate(raw) {
   const pure = String(raw ?? '').trim();
   if (!pure) return '—';
   const iso = pure.includes('T') ? pure.split('T')[0] : pure;
-  if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+    const [y, m, d] = iso.split('-');
+    return `${d}/${m}/${y}`;
+  }
   const parts = iso.split(/[/-]/);
   if (parts.length === 3) {
     if (parts[0].length === 4) {
-      return `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
+      const y = parts[0];
+      const m = parts[1].padStart(2, '0');
+      const d = parts[2].padStart(2, '0');
+      return `${d}/${m}/${y}`;
     }
-    return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+    const d = parts[0].padStart(2, '0');
+    const m = parts[1].padStart(2, '0');
+    const y = parts[2];
+    return `${d}/${m}/${y}`;
   }
   return pdfDisplayValue(raw) || '—';
 }
@@ -1787,18 +1796,6 @@ async function drawFolhaIntervencaoAvariasClosingSection(doc, y, opts) {
   });
 }
 
-function formatPdfCarregadorConclusaoDate(report, job, values = {}) {
-  const raw =
-    values.concluido_testado_em ||
-    values.data_de_conclusao ||
-    job?.date ||
-    report?.submittedAt?.split('T')[0];
-  if (!raw) return '—';
-  const iso = String(raw).includes('T') ? String(raw).split('T')[0] : String(raw);
-  const [y, m, d] = iso.split('-');
-  return y && m && d ? `${d}/${m}/${y}` : pdfDisplayValue(raw);
-}
-
 function drawCarregadorTitleBar(doc, y, title) {
   const barH = 5.5;
   y = ensureSpace(doc, y, barH + CARREGADOR_SECTION_GAP_MM);
@@ -1825,7 +1822,31 @@ function drawCarregadorMetaCell(doc, x, y, label, value, maxW) {
   doc.text(pdfSafeText(value) || '—', x, y + 3.2, { maxWidth: maxW });
 }
 
-function drawCarregadorIdentificacaoClienteBox(doc, topY, values, techName, dataConclusao) {
+/** Nome do cliente abaixo do logótipo — sem morada */
+function drawCarregadorClientNameBlock(doc, topY, clientMeta) {
+  const logoH = PDF_LOGO_HEIGHT_MM;
+  const textW = PDF_HEADER_CLIENT_W;
+  const name = pdfSafeText(clientMeta?.nome);
+  if (!name) return 0;
+
+  const nameLines = pdfSplitText(doc, name, textW);
+  const blockY = topY + logoH + 2;
+
+  pdfSetFont(doc, 'bold');
+  doc.setFontSize(PDF_FONT_CAPTION);
+  doc.setTextColor(...CORPORATE_BLUE);
+  doc.text('CLIENTE', MARGIN, blockY);
+
+  pdfSetFont(doc, 'bold');
+  doc.setFontSize(PDF_FONT_BODY);
+  doc.setTextColor(...TEXT_DARK);
+  doc.text(nameLines, MARGIN, blockY + 4.2);
+
+  touchPdfContentPage(doc);
+  return 2 + 4.2 + nameLines.length * 3.6;
+}
+
+function drawCarregadorIdentificacaoClienteBox(doc, topY, values, techName) {
   const blockW = PDF_HEADER_CLIENT_W;
   const blockX = PAGE_W - MARGIN - blockW;
   const blockPad = 2.5;
@@ -1850,14 +1871,13 @@ function drawCarregadorIdentificacaoClienteBox(doc, topY, values, techName, data
   drawCarregadorMetaCell(doc, blockX + blockPad, lineY, 'Data Receção', dataRececao, colW);
   drawCarregadorMetaCell(doc, blockX + blockPad + colW + 2, lineY, 'Etiqueta', etiqueta, colW);
   lineY += rowH;
-  drawCarregadorMetaCell(doc, blockX + blockPad, lineY, 'Funcionário', techName, colW);
   drawCarregadorMetaCell(
     doc,
-    blockX + blockPad + colW + 2,
+    blockX + blockPad,
     lineY,
-    'Data de Conclusão',
-    dataConclusao,
-    colW,
+    'Funcionário',
+    techName,
+    blockW - blockPad * 2,
   );
 
   return blockH;
@@ -1940,11 +1960,12 @@ async function drawCarregadorDashboardTable(doc, y, sectionTitle, columnHead, bo
 }
 
 async function drawReparacaoCarregadorTopSection(doc, clientMeta, techName, report, job, values) {
-  void clientMeta;
+  void report;
+  void job;
+  void values;
   const topY = MARGIN;
   const logoW = PDF_LOGO_WIDTH_MM;
   const logoH = PDF_LOGO_HEIGHT_MM;
-  const dataConclusao = formatPdfCarregadorConclusaoDate(report, job, values);
 
   if (isLogoConfigured()) {
     try {
@@ -1965,9 +1986,10 @@ async function drawReparacaoCarregadorTopSection(doc, clientMeta, techName, repo
     drawLogoPlaceholder(doc, MARGIN, topY, logoW, logoH);
   }
 
-  const boxH = drawCarregadorIdentificacaoClienteBox(doc, topY, values, techName, dataConclusao);
+  const clientNameH = drawCarregadorClientNameBlock(doc, topY, clientMeta);
+  const boxH = drawCarregadorIdentificacaoClienteBox(doc, topY, values, techName);
   touchPdfContentPage(doc);
-  return Math.max(topY + logoH, topY + boxH) + CARREGADOR_SECTION_GAP_MM;
+  return Math.max(topY + logoH + clientNameH, topY + boxH) + CARREGADOR_SECTION_GAP_MM;
 }
 
 async function drawReparacaoCarregadorIdentificacaoTable(doc, y, values, pdfContext = null) {
@@ -2022,7 +2044,7 @@ async function drawReparacaoCarregadorRegistoTable(doc, y, values, pdfContext = 
     doc,
     y,
     'REGISTO DE INTERVENÇÃO',
-    ['Data Intervenção', 'Serviço Efectuado/ Equipamento', 'Horas', 'Tecnico'],
+    ['Data Intervenção', 'Serviço Efectuado/ Equipamento', 'Horas', 'Técnico'],
     body,
     {
       0: { cellWidth: colW * 0.85, halign: 'center' },
@@ -2138,15 +2160,35 @@ async function drawReparacaoCarregadorClosingSection(doc, y, opts) {
   y = await drawReparacaoCarregadorFechoBlock(doc, y, values);
 
   if (hasFotos) {
-    y = ensurePdfClosingTailFits(doc, y, hasFotos, profile, {
-      institutionalFooterMm: FOLHA_INSTITUTIONAL_FOOTER_H_MM,
-    });
+    const bottomGap = 2;
+    let available = pdfContentBottomY() - y;
+    let maxImgH = resolveAdaptiveClosingPhotoHeight(available, profile, bottomGap);
+    let tailH =
+      estimatePdfInterventionFotosOverhead(bottomGap) +
+      maxImgH +
+      estimateSignaturesHeight(profile) +
+      FOLHA_INSTITUTIONAL_FOOTER_H_MM;
+
+    if (y + tailH > pdfContentBottomY()) {
+      y = ensureBlockFitsSafeZone(doc, y, tailH);
+      available = pdfContentBottomY() - y;
+      maxImgH = resolveAdaptiveClosingPhotoHeight(available, profile, bottomGap);
+      tailH =
+        estimatePdfInterventionFotosOverhead(bottomGap) +
+        maxImgH +
+        estimateSignaturesHeight(profile) +
+        FOLHA_INSTITUTIONAL_FOOTER_H_MM;
+      if (y + tailH > pdfContentBottomY()) {
+        y = ensureBlockFitsSafeZone(doc, y, tailH);
+      }
+    }
+
     y = await drawInterventionFotografiasSection(
       doc,
       y,
       opts.fotoAntesUrl,
       opts.fotoDepoisUrl,
-      { skipEnsure: true, maxImgH: profile.polaroidMm },
+      { skipEnsure: true, bottomGap, maxImgH },
     );
   } else {
     y = ensureBlockFitsSafeZone(

@@ -455,7 +455,7 @@ export const REPARACAO_CARREGADOR = {
       id: 'registo_intervencao',
       label: 'Registo de Intervenção',
       section: 'Registo de Intervenção',
-      columns: ['Data Intervenção', 'Serviço Efectuado/ Equipamento', 'Horas', 'Tecnico'],
+      columns: ['Data Intervenção', 'Serviço Efectuado/ Equipamento', 'Horas', 'Técnico'],
       columnTypes: { data_intervencao: 'date', horas: 'number' },
       newRowDefaults: {
         data_intervencao: '$jobDate',
