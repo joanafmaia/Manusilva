@@ -864,6 +864,8 @@ const FOLHA_INSTITUTIONAL_FOOTER_H_MM = 20;
 const FOLHA_CLOSING_PROFILE = {
   sigTop: 8,
   sigImg: 18,
+  polaroidMm: 48,
+  polaroidBottom: 4,
 };
 
 /** Reparação Carregador — layout executivo compacto (1 página A4) */
@@ -873,6 +875,8 @@ const CARREGADOR_HEAD_FONT_PT = 10;
 const CARREGADOR_CLOSING_PROFILE = {
   sigTop: 3,
   sigImg: 13,
+  polaroidMm: 40,
+  polaroidBottom: 3,
 };
 /** ~6px — cantos arredondados executivos */
 const CARREGADOR_RADIUS_MM = 1.6;
@@ -886,6 +890,8 @@ const CORRETIVA_BAR_RADIUS_MM = 1.1;
 const CORRETIVA_CLOSING_PROFILE = {
   sigTop: 3,
   sigImg: 13,
+  polaroidMm: 40,
+  polaroidBottom: 2,
 };
 
 /** Clientes Grandes — Manutenção Baterias (tabela larga compacta, 1 página A4) */
@@ -907,6 +913,8 @@ const GRANDES_OBS_MAX_H_MM = 11;
 const GRANDES_CLOSING_PROFILE = {
   sigTop: 2,
   sigImg: 11,
+  polaroidMm: 38,
+  polaroidBottom: 2,
 };
 const GRANDES_BATTERY_PDF_HEADERS = [
   'Máquina',
@@ -933,6 +941,8 @@ const RAV_DUAL_COL_GAP_MM = 5.3;
 const RAV_CLOSING_PROFILE = {
   sigTop: 4,
   sigImg: 14,
+  polaroidMm: 42,
+  polaroidBottom: 3,
 };
 
 /** Folha Intervenção de Avarias — layout premium com fotografias */
@@ -945,6 +955,8 @@ const FOLHA_AVARIAS_CELL_PADDING = { top: 1.06, right: 1.2, bottom: 1.06, left: 
 const FOLHA_AVARIAS_CLOSING_PROFILE = {
   sigTop: 5,
   sigImg: 15,
+  polaroidMm: 46,
+  polaroidBottom: 4,
 };
 
 function formatFolhaInterventionDate(raw) {
@@ -1156,12 +1168,7 @@ async function drawPreventivaBateriaClosedSectionTable(doc, y, options) {
     columnStyles,
     headStyles,
     bodyStyles,
-    minBlockH = 20,
   } = options;
-
-  const rowCount = body?.length || 0;
-  const blockH = minBlockH + (columnHead ? 6 : 0) + rowCount * PDF_TABLE_ROW_STEP_MM + 4;
-  y = ensureKeepTogetherBlock(doc, y, Math.min(blockH, pdfMaxContentHeight()));
 
   const head = [
     [
@@ -1212,7 +1219,6 @@ async function drawPreventivaBateriaAnalysisTable(doc, y, values) {
     sectionTitle: 'ANÁLISE DA BATERIA',
     colSpan: 2,
     body,
-    minBlockH: 14 + body.length * PDF_TABLE_ROW_STEP_MM,
     columnStyles: {
       0: {
         cellWidth: labelColW,
@@ -1238,7 +1244,6 @@ async function drawPreventivaBateriaConsumiveisTable(doc, y, rows) {
     colSpan: 2,
     columnHead: ['Material', 'Quantidade'],
     body,
-    minBlockH: 28 + body.length * PDF_TABLE_ROW_STEP_MM,
     columnStyles: {
       0: { cellWidth: colW, halign: 'left' },
       1: { cellWidth: colW, halign: 'left' },
@@ -1265,7 +1270,6 @@ async function drawPreventivaBateriaIntervencaoTable(doc, y, values) {
     colSpan: 2,
     columnHead: ['Nr de visitas', 'Horas'],
     body: [[visitas, horas]],
-    minBlockH: 36,
     bodyStyles: { halign: 'center' },
     columnStyles: {
       0: { cellWidth: colW, halign: 'center' },
@@ -1287,7 +1291,6 @@ async function drawEstadoFinalClosedBlock(doc, y, values, options = {}) {
     sectionTitle: 'ESTADO FINAL',
     colSpan: 2,
     body,
-    minBlockH: 40,
     columnStyles: {
       0: {
         cellWidth: labelColW,
@@ -1322,9 +1325,6 @@ async function drawFolhaMaterialTable(doc, y, rows, options = {}) {
   const colKeys = columns.map((c) => columnKey(c));
   const headLabels = options.headLabels || columns.map((c) => formatTableHeaderLabel(c));
   const body = rows.map((row) => colKeys.map((key) => pdfDisplayValue(row[key])));
-  const blockH = 10 + 12 + rows.length * 8 + 10;
-  y = ensureKeepTogetherBlock(doc, y, blockH);
-
   const sectionTitle = (options.sectionTitle || getMaterialTablePdfLabel()).toUpperCase();
   pdfSetFont(doc, 'bold');
   doc.setFontSize(PDF_FONT_CAPTION);
@@ -1465,11 +1465,12 @@ async function drawInterventionFotografiasSection(doc, y, fotoAntesUrl, fotoDepo
 
   const gap = PDF_INTERVENTION_FOTO_GRID_GAP_MM;
   const colW = (CONTENT_W - gap) / 2;
-  const imgH = PDF_INTERVENTION_FOTO_MAX_H_MM;
+  const imgH = opts.maxImgH ?? PDF_INTERVENTION_FOTO_MAX_H_MM;
   const barH = PDF_INTERVENTION_FOTO_BAR_H_MM;
   const gridMarginTop = PDF_INTERVENTION_FOTO_GRID_MARGIN_TOP_MM;
   const captionH = PDF_INTERVENTION_FOTO_CAPTION_H_MM;
-  const blockH = barH + gridMarginTop + imgH + captionH + 4;
+  const bottomGap = opts.bottomGap ?? 4;
+  const blockH = barH + gridMarginTop + imgH + captionH + bottomGap;
   const imgPad = PDF_INTERVENTION_FOTO_IMG_PADDING_MM;
 
   if (!opts.skipEnsure) {
@@ -1538,7 +1539,7 @@ async function drawInterventionFotografiasSection(doc, y, fotoAntesUrl, fotoDepo
   }
 
   touchPdfContentPage(doc);
-  return gridY + imgH + captionH + (opts.bottomGap ?? FOLHA_AVARIAS_SECTION_GAP_MM);
+  return gridY + imgH + captionH + bottomGap;
 }
 
 async function drawFolhaIntervencaoMaquinaTable(doc, y, values, pdfContext = null) {
@@ -1696,19 +1697,24 @@ async function drawFolhaIntervencaoAvariasClosingSection(doc, y, opts) {
   const hasFotos = Boolean(opts.fotoAntesUrl || opts.fotoDepoisUrl);
 
   y = await drawFolhaIntervencaoOrcamentoBlock(doc, y, values);
-
-  const fotoBlockH = hasFotos ? estimateInterventionFotografiasHeight() : 0;
-  const tailH = 22 + fotoBlockH + estimateSignaturesHeight(profile) + FOLHA_INSTITUTIONAL_FOOTER_H_MM;
-  y = ensureKeepTogetherBlock(doc, y, Math.min(tailH, pdfMaxContentHeight()));
   y = await drawFolhaIntervencaoEstadoBlock(doc, y, values);
 
   if (hasFotos) {
+    y = ensurePdfClosingTailFits(doc, y, hasFotos, profile, {
+      institutionalFooterMm: FOLHA_INSTITUTIONAL_FOOTER_H_MM,
+    });
     y = await drawInterventionFotografiasSection(
       doc,
       y,
       opts.fotoAntesUrl,
       opts.fotoDepoisUrl,
-      { skipEnsure: true },
+      { skipEnsure: true, maxImgH: profile.polaroidMm },
+    );
+  } else {
+    y = ensureBlockFitsSafeZone(
+      doc,
+      y,
+      estimateSignaturesHeight(profile) + FOLHA_INSTITUTIONAL_FOOTER_H_MM,
     );
   }
 
@@ -1860,9 +1866,6 @@ async function drawCarregadorSectionBar(doc, y, title) {
 }
 
 async function drawCarregadorDashboardTable(doc, y, sectionTitle, columnHead, body, columnStyles) {
-  const rowCount = body?.length || 0;
-  const blockH = 8 + (columnHead?.length ? 5 : 0) + rowCount * 4.2;
-  y = ensureKeepTogetherBlock(doc, y, Math.min(blockH, pdfMaxContentHeight()));
   y = await drawCarregadorSectionBar(doc, y, sectionTitle);
 
   const pack = carregadorTableStylePack(doc);
@@ -2070,20 +2073,25 @@ async function drawReparacaoCarregadorClosingSection(doc, y, opts) {
   const values = opts.values || {};
   const profile = CARREGADOR_CLOSING_PROFILE;
   const hasFotos = Boolean(opts.fotoAntesUrl || opts.fotoDepoisUrl);
-  const fotoBlockH = hasFotos ? estimateInterventionFotografiasHeight() : 0;
-  const closingBlockH =
-    22 + fotoBlockH + estimateSignaturesHeight(profile) + FOLHA_INSTITUTIONAL_FOOTER_H_MM;
 
-  y = ensureKeepTogetherBlock(doc, y, Math.min(closingBlockH, pdfMaxContentHeight()));
   y = await drawReparacaoCarregadorFechoBlock(doc, y, values);
 
   if (hasFotos) {
+    y = ensurePdfClosingTailFits(doc, y, hasFotos, profile, {
+      institutionalFooterMm: FOLHA_INSTITUTIONAL_FOOTER_H_MM,
+    });
     y = await drawInterventionFotografiasSection(
       doc,
       y,
       opts.fotoAntesUrl,
       opts.fotoDepoisUrl,
-      { skipEnsure: true },
+      { skipEnsure: true, maxImgH: profile.polaroidMm },
+    );
+  } else {
+    y = ensureBlockFitsSafeZone(
+      doc,
+      y,
+      estimateSignaturesHeight(profile) + FOLHA_INSTITUTIONAL_FOOTER_H_MM,
     );
   }
 
@@ -2209,8 +2217,6 @@ async function drawCorretivaVerificationTable(doc, y, field, states) {
   });
   if (!body.length) return y;
 
-  const blockH = 8 + PDF_TABLE_MIN_CELL_HEIGHT_COMPACT + body.length * 4.2;
-  y = ensureKeepTogetherBlock(doc, y, Math.min(blockH, pdfMaxContentHeight()));
   y = await drawCorretivaSectionBar(doc, y, getBlockPdfTitle(field) || 'Verificações Efetuadas');
 
   const pointW = CONTENT_W * 0.72;
@@ -2257,10 +2263,10 @@ async function drawCorretivaObservationsBox(doc, y, value) {
   const text = pdfDisplayValue(value);
   const lines = pdfSplitText(doc, text, CONTENT_W - 6);
   const boxH = Math.max(14, lines.length * 3.8 + 6);
-  const blockH = 8 + boxH;
 
-  y = ensureKeepTogetherBlock(doc, y, Math.min(blockH, pdfMaxContentHeight()));
+  y = ensureSpace(doc, y, 8);
   y = await drawCorretivaSectionBar(doc, y, 'Observações');
+  y = ensureSpace(doc, y, boxH);
 
   const boxY = y;
   doc.setFillColor(...PDF_TABLE_BODY_FILL);
@@ -2315,21 +2321,20 @@ async function drawCorretivaMaquinasBody(doc, y, service, values, pdfContext = n
 async function drawCorretivaMaquinasClosingSection(doc, y, opts) {
   const profile = CORRETIVA_CLOSING_PROFILE;
   const hasFotos = Boolean(opts.fotoAntesUrl || opts.fotoDepoisUrl);
-  const fotoBlockH = hasFotos ? estimateInterventionFotografiasHeight(2) : 0;
-  const closingBlockH =
-    18 + fotoBlockH + estimateSignaturesHeight(profile);
 
-  y = ensureKeepTogetherBlock(doc, y, Math.min(closingBlockH, pdfMaxContentHeight()));
   y = await drawCorretivaResumoRow(doc, y, opts.closingValues || {});
 
   if (hasFotos) {
+    y = ensurePdfClosingTailFits(doc, y, hasFotos, profile, { bottomGap: 2 });
     y = await drawInterventionFotografiasSection(
       doc,
       y,
       opts.fotoAntesUrl,
       opts.fotoDepoisUrl,
-      { skipEnsure: true, bottomGap: 2 },
+      { skipEnsure: true, bottomGap: 2, maxImgH: profile.polaroidMm },
     );
+  } else {
+    y = ensureBlockFitsSafeZone(doc, y, estimateSignaturesHeight(profile));
   }
 
   return drawSignaturesFooter(doc, y, opts.signatures || {}, {
@@ -2619,24 +2624,23 @@ async function drawGrandesBateriasClosingSection(doc, y, opts) {
   const service = opts.service;
   const profile = GRANDES_CLOSING_PROFILE;
   const hasFotos = Boolean(opts.fotoAntesUrl || opts.fotoDepoisUrl);
-  const fotoBlockH = hasFotos ? estimateInterventionFotografiasHeight(2) : 0;
   const obsText = values.observacoes != null ? String(values.observacoes).trim() : '';
   const consumableRows = collectGrandesConsumableRows(service, values);
 
   y = await drawGrandesConsumablesObsDualBlock(doc, y, consumableRows, obsText);
-
-  const tailH = 14 + estimateSignaturesHeight(profile) + fotoBlockH;
-  y = ensureKeepTogetherBlock(doc, y, Math.min(tailH, pdfMaxContentHeight()));
   y = await drawGrandesResumoRow(doc, y, values);
 
   if (hasFotos) {
+    y = ensurePdfClosingTailFits(doc, y, hasFotos, profile, { bottomGap: 2 });
     y = await drawInterventionFotografiasSection(
       doc,
       y,
       opts.fotoAntesUrl,
       opts.fotoDepoisUrl,
-      { skipEnsure: true, bottomGap: 2 },
+      { skipEnsure: true, bottomGap: 2, maxImgH: profile.polaroidMm },
     );
+  } else {
+    y = ensureBlockFitsSafeZone(doc, y, estimateSignaturesHeight(profile));
   }
 
   return drawSignaturesFooter(doc, y, opts.signatures || {}, {
@@ -2853,20 +2857,20 @@ async function drawRavBateriaClosingSection(doc, y, opts) {
   const values = opts.values || {};
   const profile = RAV_CLOSING_PROFILE;
   const hasFotos = Boolean(opts.fotoAntesUrl || opts.fotoDepoisUrl);
-  const fotoBlockH = hasFotos ? estimateInterventionFotografiasHeight() : 0;
-  const closingBlockH = 32 + fotoBlockH + estimateSignaturesHeight(profile);
 
-  y = ensureKeepTogetherBlock(doc, y, Math.min(closingBlockH, pdfMaxContentHeight()));
   y = await drawRavEstadoFinalBlock(doc, y, values);
 
   if (hasFotos) {
+    y = ensurePdfClosingTailFits(doc, y, hasFotos, profile);
     y = await drawInterventionFotografiasSection(
       doc,
       y,
       opts.fotoAntesUrl,
       opts.fotoDepoisUrl,
-      { skipEnsure: true },
+      { skipEnsure: true, maxImgH: profile.polaroidMm },
     );
+  } else {
+    y = ensureBlockFitsSafeZone(doc, y, estimateSignaturesHeight(profile));
   }
 
   return drawSignaturesFooter(doc, y, opts.signatures || {}, {
@@ -2880,20 +2884,25 @@ async function drawPreventivaBateriaClosingSection(doc, y, opts) {
   const values = opts.values || {};
   const profile = FOLHA_CLOSING_PROFILE;
   const hasFotos = Boolean(opts.fotoAntesUrl || opts.fotoDepoisUrl);
-  const fotoBlockH = hasFotos ? estimateInterventionFotografiasHeight() : 0;
-  const closingBlockH =
-    48 + fotoBlockH + estimateSignaturesHeight(profile) + FOLHA_INSTITUTIONAL_FOOTER_H_MM;
 
-  y = ensureKeepTogetherBlock(doc, y, Math.min(closingBlockH, pdfMaxContentHeight()));
   y = await drawPreventivaBateriaEstadoFinalBlock(doc, y, values);
 
   if (hasFotos) {
+    y = ensurePdfClosingTailFits(doc, y, hasFotos, profile, {
+      institutionalFooterMm: FOLHA_INSTITUTIONAL_FOOTER_H_MM,
+    });
     y = await drawInterventionFotografiasSection(
       doc,
       y,
       opts.fotoAntesUrl,
       opts.fotoDepoisUrl,
-      { skipEnsure: true },
+      { skipEnsure: true, maxImgH: profile.polaroidMm },
+    );
+  } else {
+    y = ensureBlockFitsSafeZone(
+      doc,
+      y,
+      estimateSignaturesHeight(profile) + FOLHA_INSTITUTIONAL_FOOTER_H_MM,
     );
   }
 
@@ -3254,13 +3263,6 @@ async function drawEmpilhadoresDualVerificationBlocks(doc, y, left, right) {
 }
 
 /** Substituição de material — grelha 4 colunas compacta (dashboard) */
-function estimateEmpilhadoresMaterialSectionHeight(fieldCount) {
-  const rowCount = Math.ceil(fieldCount / EMPILHADORES_MATERIAL_COLS);
-  const titleH = PDF_SECTION_BAND_HEIGHT_MM + PDF_SECTION_GAP_MM + 2;
-  const tableH = rowCount > 0 ? 4 + rowCount * 5.5 + PDF_SECTION_GAP_MM : 0;
-  return EMPILHADORES_MATERIAL_SECTION_TOP_GAP_MM + titleH + tableH;
-}
-
 async function drawEmpilhadoresMaterialGrid(doc, y, fields, values, pdfContext, options = {}) {
   if (!fields.length) return y;
   const cells = fields.map((field) =>
@@ -3329,9 +3331,8 @@ async function drawEmpilhadoresMaterialSectionBlock(
     collectEmpilhadoresMaterialFields(service, values, pdfContext, skipIds);
   if (!materialFields.length) return y;
 
-  const blockH = estimateEmpilhadoresMaterialSectionHeight(materialFields.length);
   y += EMPILHADORES_MATERIAL_SECTION_TOP_GAP_MM;
-  y = ensureKeepTogetherBlock(doc, y, Math.min(blockH, pdfMaxContentHeight()));
+  y = ensureSpace(doc, y, 12);
 
   y = drawSectionTitle(doc, y, EMPILHADORES_MATERIAL_SECTION, { skipEnsure: true });
   y = drawDivider(doc, y - 4);
@@ -4301,7 +4302,7 @@ function pdfMaxContentHeight() {
 
 /**
  * Mantém o bloco inteiro na mesma página quando couber numa página.
- * Se não couber no espaço restante, salta para página nova antes de desenhar.
+ * Blocos maiores que uma página podem partir no espaço restante.
  */
 function ensureKeepTogetherBlock(doc, y, blockHeight) {
   const pageBottom = pdfContentBottomY();
@@ -4316,12 +4317,28 @@ function ensureKeepTogetherBlock(doc, y, blockHeight) {
   }
 
   const remaining = pageBottom - y;
-  if (remaining < maxOnPage * 0.2) {
+  if (remaining < maxOnPage * 0.12) {
     doc.addPage();
     touchPdfContentPage(doc);
     return PDF_PAGE_CONTENT_START_Y;
   }
   return y;
+}
+
+function estimatePdfClosingTailHeight(hasFotos, profile, opts = {}) {
+  const bottomGap = opts.bottomGap ?? profile?.polaroidBottom ?? 4;
+  const institutionalFooterMm = opts.institutionalFooterMm ?? 0;
+  return (
+    estimatePolaroidSectionHeight(hasFotos, profile, { bottomGap }) +
+    estimateSignaturesHeight(profile) +
+    institutionalFooterMm
+  );
+}
+
+function ensurePdfClosingTailFits(doc, y, hasFotos, profile, opts = {}) {
+  const tailH = estimatePdfClosingTailHeight(hasFotos, profile, opts);
+  if (tailH <= 0) return y;
+  return ensureKeepTogetherBlock(doc, y, Math.min(tailH, pdfMaxContentHeight()));
 }
 
 function ensureBlockFitsPage(doc, y, blockHeight) {
@@ -4374,7 +4391,7 @@ async function drawDl50MatrixCategoryTable(doc, x, startY, width, cat, catData, 
 
   const blockH = estimateDl50CategoryBlockHeight(doc, body, width);
   let y = startY;
-  if (!options.skipKeepTogether) {
+  if (!options.skipKeepTogether && blockH <= 42) {
     y = ensureKeepTogetherBlock(doc, startY, Math.min(blockH, pdfMaxContentHeight()));
   }
 
@@ -4481,7 +4498,7 @@ async function drawDl50DualMatrixInspectionBlock(doc, y, field, matrixValue) {
     }
 
     const rowH = Math.max(leftH, rightH);
-    if (rowH > 0) {
+    if (rowH > 0 && rowH <= 48) {
       y = ensureKeepTogetherBlock(doc, y, Math.min(rowH, pdfMaxContentHeight()));
     }
 
@@ -4666,9 +4683,17 @@ function estimateLegalVerdictHeight(doc, value, profile) {
   return (profile.legalGap <= 5 ? 5 : 6) + boxH + profile.legalGap;
 }
 
-function estimatePolaroidSectionHeight(hasFotos, _profile, _opts = {}) {
+function estimatePolaroidSectionHeight(hasFotos, profile, opts = {}) {
   if (!hasFotos) return 0;
-  return estimateInterventionFotografiasHeight(4);
+  const imgH = profile?.polaroidMm ?? PDF_INTERVENTION_FOTO_MAX_H_MM;
+  const bottomGap = opts.bottomGap ?? profile?.polaroidBottom ?? 4;
+  return (
+    PDF_INTERVENTION_FOTO_BAR_H_MM +
+    PDF_INTERVENTION_FOTO_GRID_MARGIN_TOP_MM +
+    imgH +
+    PDF_INTERVENTION_FOTO_CAPTION_H_MM +
+    bottomGap
+  );
 }
 
 function estimateSignaturesHeight(profile) {
@@ -4718,28 +4743,7 @@ async function drawReportClosingSection(doc, y, opts) {
   const polaroidOpts = { simpleLegend: Boolean(opts.simplePhotoLegend) };
 
   let profile = planReportClosingProfile(doc, y, opts);
-  const estimateClosingHeight = (closingProfile) =>
-    (hasLegal ? estimateLegalVerdictHeight(doc, opts.legalValue, closingProfile) : 0) +
-    estimatePolaroidSectionHeight(hasFotos, closingProfile, polaroidOpts) +
-    estimateSignaturesHeight(closingProfile);
-
-  let closingHeight = estimateClosingHeight(profile);
   const isDl50Closing = opts.service?.id === INSPECAO_DL50_SERVICE_ID;
-
-  if (!isDl50Closing) {
-    y = ensureKeepTogetherBlock(doc, y, Math.min(closingHeight, pdfMaxContentHeight()));
-    profile = planReportClosingProfile(doc, y, opts);
-    closingHeight = estimateClosingHeight(profile);
-  }
-
-  if (isDl50Closing) {
-    const dl50TailH =
-      (hasLegal ? estimateLegalVerdictHeight(doc, opts.legalValue, profile) : 0) +
-      (hasFotos ? estimatePolaroidSectionHeight(hasFotos, profile, polaroidOpts) : 0) +
-      estimateSignaturesHeight(profile);
-    y = ensureKeepTogetherBlock(doc, y, Math.min(dl50TailH, pdfMaxContentHeight()));
-    profile = planReportClosingProfile(doc, y, opts);
-  }
 
   if (hasLegal) {
     const legalH = estimateLegalVerdictHeight(doc, opts.legalValue, profile);
@@ -4755,14 +4759,19 @@ async function drawReportClosingSection(doc, y, opts) {
   }
 
   if (hasFotos) {
-    const photosAndSigsH = estimateInterventionFotografiasHeight(4) + estimateSignaturesHeight(profile);
-    y = ensureKeepTogetherBlock(doc, y, Math.min(photosAndSigsH, pdfMaxContentHeight()));
+    y = ensurePdfClosingTailFits(doc, y, hasFotos, profile, {
+      bottomGap: profile.polaroidBottom ?? 4,
+    });
     y = await drawInterventionFotografiasSection(
       doc,
       y,
       opts.fotoAntesUrl,
       opts.fotoDepoisUrl,
-      { skipEnsure: true, bottomGap: profile.polaroidBottom ?? 4 },
+      {
+        skipEnsure: true,
+        bottomGap: profile.polaroidBottom ?? 4,
+        maxImgH: profile.polaroidMm,
+      },
     );
   }
 
@@ -4914,16 +4923,13 @@ async function drawMaterialAndObservationsBlock(
 
   const columns = materialField.columns?.length ? materialField.columns : MATERIAL_UTILIZADO_COLUMNS;
   const materialTitle = getMaterialTablePdfLabel();
-  let blockH =
+  const contentBlockH =
     (materialEmpty ? 0 : estimateDynamicTableBlockHeight(columns, materialRows)) +
     (obsEmpty ? 0 : estimateLongTextBlockHeight(doc, obsValue));
 
-  const anchorsClosing = fieldAnchorsReportClosing(pdfContext?.service, materialField);
-  if (anchorsClosing && pdfContext?.closingOpts) {
-    blockH += estimateReportClosingHeight(doc, y, pdfContext.closingOpts);
+  if (contentBlockH > 0 && contentBlockH <= 50) {
+    y = ensureKeepTogetherBlock(doc, y, Math.min(contentBlockH, pdfMaxContentHeight()));
   }
-
-  y = ensureKeepTogetherBlock(doc, y, Math.min(blockH, pdfMaxContentHeight()));
 
   if (!materialEmpty) {
     y = await drawDynamicTableBlock(
@@ -4938,8 +4944,7 @@ async function drawMaterialAndObservationsBlock(
 
   if (!obsEmpty) {
     y = drawLongTextBlock(doc, y, obsField.label, obsValue, {
-      keepTogetherApplied: true,
-      closingAnchor: anchorsClosing,
+      closingAnchor: fieldAnchorsReportClosing(pdfContext?.service, materialField),
       pdfContext,
     });
   }
@@ -5055,15 +5060,6 @@ function drawDiagnosticAnalysisBlock(doc, y, label, section, value) {
 function drawLongTextBlock(doc, y, label, value, options = {}) {
   prepareObservationsTypography(doc);
   const paragraphs = pdfObservationParagraphs(doc, value, CONTENT_W);
-  let blockHeight = measureObservationsBlockHeight(doc, value, true);
-
-  if (options.closingAnchor && options.pdfContext?.closingOpts) {
-    blockHeight += estimateReportClosingHeight(doc, y, options.pdfContext.closingOpts);
-  }
-
-  if (!options.keepTogetherApplied) {
-    y = ensureKeepTogetherBlock(doc, y, Math.min(blockHeight, pdfMaxContentHeight()));
-  }
 
   y = drawSectionTitle(doc, y, label, { skipEnsure: true });
 
@@ -5072,9 +5068,6 @@ function drawLongTextBlock(doc, y, label, value, options = {}) {
   doc.setTextColor(...TEXT_DARK);
 
   paragraphs.forEach((lines) => {
-    const paragraphHeight = measureObservationLinesHeight(lines);
-    y = ensureKeepTogetherBlock(doc, y, Math.min(paragraphHeight, pdfMaxContentHeight()));
-
     lines.forEach((line) => {
       if (y + OBS_LINE_HEIGHT > pdfContentBottomY()) {
         doc.addPage();
