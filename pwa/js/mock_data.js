@@ -149,23 +149,18 @@ export const MANUTENCAO_PREVENTIVA_BATERIA = {
   fields: [
     { type: 'date', id: 'data_de_conclusao', label: 'Data de Conclusão' },
     {
-      type: 'number',
+      type: 'status_pills',
       id: 'densidade',
       label: 'Densidade',
       section: 'Análise Da Bateria',
-      min: 0,
-      step: 0.01,
-      placeholder: 'Ex: 1,28',
+      options: ['Normal', 'Irregular'],
     },
     {
-      type: 'number',
+      type: 'status_pills',
       id: 'tensao',
       label: 'Tensão',
       section: 'Análise Da Bateria',
-      min: 0,
-      step: 0.1,
-      unit: 'V',
-      placeholder: 'Ex: 48',
+      options: ['Normal', 'Irregular'],
     },
     {
       type: 'number',

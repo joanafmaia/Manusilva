@@ -975,7 +975,7 @@ function formatDynamicCellDisplayValue(val) {
 function getFieldUnit(field) {
   if (field?.unit) return String(field.unit);
   if (field?.id === 'deslocacao') return 'Km';
-  if (field?.id === 'tensao' || field?.id === 'tensao_media_elementos' || field?.id === 'tensao_v') {
+  if (field?.id === 'tensao_media_elementos' || field?.id === 'tensao_v') {
     return 'V';
   }
   return '';

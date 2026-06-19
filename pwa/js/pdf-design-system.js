@@ -277,7 +277,7 @@ export const PDF_CLOSING_DIAGNOSTIC_SPECS = [
 /** Ordem e rótulos originais — Análise da Bateria (PDF Manutenção Preventiva) */
 export const PREVENTIVA_BATERIA_ANALYSIS_SPECS = [
   { id: 'densidade', label: 'Densidade' },
-  { id: 'tensao', label: 'Tensão', unit: 'V' },
+  { id: 'tensao', label: 'Tensão' },
   { id: 'tensao_media_elementos', label: 'Tensão Media de Elementos', unit: 'V' },
   { id: 'nivel_eletrolito', label: 'Nivel de Eletrólito' },
   { id: 'ficha', label: 'Ficha' },
