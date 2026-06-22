@@ -1097,7 +1097,7 @@ function drawPdfSectionTitleBar(doc, y, title, options = {}) {
   const bandH = options.bandH ?? PDF_SECTION_TITLE_BAR_H_MM;
   const gapAfter = options.gapAfter ?? PDF_SECTION_GAP_MM;
   const fontSize = options.fontSize ?? PDF_FONT_SECTION;
-  const align = options.align ?? (width < CONTENT_W * 0.55 ? 'left' : 'center');
+  const align = options.align ?? 'left';
 
   if (!options.skipEnsure) {
     y = ensureSpace(doc, y, bandH + gapAfter);
@@ -1238,20 +1238,6 @@ function buildFolhaAutoTableConfig(doc, y, overrides = {}) {
   };
 }
 
-function preventivaBateriaSectionHeadStyles() {
-  return {
-    fillColor: FOLHA_TABLE_HEAD_FILL,
-    textColor: CORPORATE_BLUE,
-    fontStyle: 'bold',
-    fontSize: PDF_FONT_SECTION,
-    lineColor: PDF_TABLE_LINE,
-    lineWidth: PDF_TABLE_LINE_WIDTH,
-    halign: 'center',
-    valign: 'middle',
-    cellPadding: PDF_TABLE_CELL_PADDING_HEAD,
-  };
-}
-
 function preventivaBateriaTableHeadStyles() {
   return {
     fillColor: FOLHA_TABLE_HEAD_FILL,
@@ -1353,7 +1339,6 @@ function buildPreventivaBateriaAnalysisRows(values) {
 async function drawPreventivaBateriaClosedSectionTable(doc, y, options) {
   const {
     sectionTitle,
-    colSpan,
     columnHead,
     body,
     columnStyles,
@@ -1361,15 +1346,16 @@ async function drawPreventivaBateriaClosedSectionTable(doc, y, options) {
     bodyStyles,
   } = options;
 
-  const head = [
-    [
-      {
-        content: sectionTitle,
-        colSpan,
-        styles: preventivaBateriaSectionHeadStyles(),
-      },
-    ],
-  ];
+  if (sectionTitle) {
+    y = drawPdfSectionTitleBar(doc, y, sectionTitle, {
+      bandH: PDF_SECTION_TITLE_BAR_H_MM,
+      gapAfter: 0.8,
+      fontSize: PDF_FONT_SECTION,
+      align: 'left',
+    });
+  }
+
+  const head = [];
   if (columnHead?.length) {
     head.push(
       columnHead.map((label) => ({
@@ -1382,7 +1368,7 @@ async function drawPreventivaBateriaClosedSectionTable(doc, y, options) {
   await loadJsPdfAutoTable();
   doc.autoTable(
     buildFolhaAutoTableConfig(doc, y, {
-      head,
+      head: head.length ? head : undefined,
       body,
       headStyles: headStyles || preventivaBateriaTableHeadStyles(),
       bodyStyles: {
@@ -1408,7 +1394,6 @@ async function drawPreventivaBateriaAnalysisTable(doc, y, values) {
   const labelColW = CONTENT_W * 0.46;
   return drawPreventivaBateriaClosedSectionTable(doc, y, {
     sectionTitle: 'ANÁLISE DA BATERIA',
-    colSpan: 2,
     body,
     columnStyles: {
       0: {
@@ -1432,7 +1417,6 @@ async function drawPreventivaBateriaConsumiveisTable(doc, y, rows) {
   const colW = CONTENT_W / 2;
   return drawPreventivaBateriaClosedSectionTable(doc, y, {
     sectionTitle: 'CONSUMÍVEIS',
-    colSpan: 2,
     columnHead: ['Material', 'Quantidade'],
     body,
     columnStyles: {
@@ -1458,7 +1442,6 @@ async function drawPreventivaBateriaIntervencaoTable(doc, y, values) {
   const colW = CONTENT_W / 2;
   return drawPreventivaBateriaClosedSectionTable(doc, y, {
     sectionTitle: 'NÚMERO DE VISITAS E TEMPO',
-    colSpan: 2,
     columnHead: ['N.º de visitas', 'Horas'],
     body: [[visitas, horas]],
     bodyStyles: { halign: 'center' },
@@ -1480,7 +1463,6 @@ async function drawEstadoFinalClosedBlock(doc, y, values, options = {}) {
   const labelColW = CONTENT_W * 0.22;
   return drawPreventivaBateriaClosedSectionTable(doc, y, {
     sectionTitle: 'ESTADO FINAL',
-    colSpan: 2,
     body,
     columnStyles: {
       0: {
@@ -1516,12 +1498,13 @@ async function drawFolhaMaterialTable(doc, y, rows, options = {}) {
   const colKeys = columns.map((c) => columnKey(c));
   const headLabels = options.headLabels || columns.map((c) => formatTableHeaderLabel(c));
   const body = rows.map((row) => colKeys.map((key) => pdfDisplayValue(row[key])));
-  const sectionTitle = (options.sectionTitle || getMaterialTablePdfLabel()).toUpperCase();
-  pdfSetFont(doc, 'bold');
-  doc.setFontSize(PDF_FONT_CAPTION);
-  doc.setTextColor(...CORPORATE_BLUE);
-  doc.text(sectionTitle, MARGIN, y + 4);
-  y += 8;
+  const sectionTitle = options.sectionTitle || getMaterialTablePdfLabel();
+  y = drawPdfSectionTitleBar(doc, y, sectionTitle, {
+    bandH: PDF_SECTION_TITLE_BAR_H_MM,
+    gapAfter: 0.8,
+    fontSize: PDF_FONT_SECTION,
+    align: 'left',
+  });
 
   await loadJsPdfAutoTable();
   doc.autoTable(
@@ -2665,7 +2648,6 @@ async function drawGrandesSectionBar(doc, y, title, layout = {}) {
     bandH: GRANDES_SECTION_BAR_H_MM,
     gapAfter: GRANDES_SECTION_BAR_GAP_MM,
     fontSize: GRANDES_HEAD_FONT_PT,
-    align: width < CONTENT_W * 0.55 ? 'left' : 'center',
   });
 }
 
@@ -2937,7 +2919,6 @@ async function drawRavSectionBar(doc, y, title, layout = {}) {
     bandH: 5.5,
     gapAfter: 0.8,
     fontSize: RAV_HEAD_FONT_PT,
-    align: width < CONTENT_W * 0.55 ? 'left' : 'center',
   });
 }
 
@@ -4901,11 +4882,13 @@ async function drawMatrixInspectionBlock(doc, y, field, matrixValue, service = n
       MATRIX_TABLE_ROW_MIN_H * MATRIX_MIN_KEEP_ROWS;
     y = ensureBlockFitsPage(doc, y, catHeight, minOrphan);
 
-    pdfSetFont(doc, 'bold');
-    doc.setFontSize(PDF_FONT_BODY);
-    doc.setTextColor(...CORPORATE_BLUE);
-    doc.text(cat.name.toUpperCase(), MARGIN, y);
-    y += MATRIX_CAT_TITLE_H;
+    y = drawPdfSectionTitleBar(doc, y, cat.name, {
+      bandH: MATRIX_CAT_TITLE_H,
+      gapAfter: 0,
+      fontSize: PDF_FONT_BODY,
+      skipEnsure: true,
+      align: 'left',
+    });
 
     pdfSetFont(doc, 'normal');
     doc.autoTable({
@@ -4943,20 +4926,22 @@ async function drawMatrixInspectionBlock(doc, y, field, matrixValue, service = n
 
 function drawLegalVerdictBlock(doc, y, label, value, opts = {}) {
   const gapAfter = opts.gapAfter ?? PDF_SECTION_GAP_MM;
-  const titleGap = opts.titleGap ?? 6;
   const minBoxH = opts.minBoxH ?? 14;
   const lineFactor = opts.lineFactor ?? 4.5;
+  const sectionGap = 0.8;
 
   const lines = pdfSplitText(doc, value, CONTENT_W - 10);
   const boxH = Math.max(minBoxH, lines.length * lineFactor + 6);
-  const blockHeight = titleGap + boxH + gapAfter + 6;
+  const blockHeight = PDF_SECTION_TITLE_BAR_H_MM + sectionGap + boxH + gapAfter + 6;
   y = ensureBlockFitsSafeZone(doc, y, blockHeight);
 
-  pdfSetFont(doc, 'bold');
-  doc.setFontSize(8.5);
-  doc.setTextColor(...CORPORATE_BLUE);
-  doc.text(label.toUpperCase(), MARGIN, y);
-  y += titleGap;
+  y = drawPdfSectionTitleBar(doc, y, label, {
+    bandH: PDF_SECTION_TITLE_BAR_H_MM,
+    gapAfter: sectionGap,
+    fontSize: PDF_FONT_SECTION,
+    skipEnsure: true,
+    align: 'left',
+  });
 
   let rgb = TEXT_DARK;
   let borderRgb = SLATE_LINE;
