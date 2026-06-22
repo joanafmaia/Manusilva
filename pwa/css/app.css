@@ -5687,15 +5687,6 @@ body.dark-mode .matrix-bulk-good-btn--active {
     gap: 1rem;
   }
 
-  body.tech-dashboard-page .form-overlay .signatures-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 1rem;
-  }
-
-  body.tech-dashboard-page .form-overlay .signature-canvas {
-    min-height: 140px;
-  }
 }
 
 /* Tablet em retrato — matriz DL50 com botões maiores (2×2) */
@@ -5853,6 +5844,27 @@ body.dark-mode .signature-block {
   position: relative;
   height: 120px;
   background: var(--signature-canvas-bg, #ffffff);
+}
+
+/* Painel do técnico: assinaturas empilhadas e zona de desenho ampla (PDF inalterado) */
+body.tech-dashboard-page .form-overlay .signatures-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+body.tech-dashboard-page .form-overlay .signature-canvas-wrap,
+body.tech-dashboard-page .form-overlay .signature-canvas {
+  height: min(200px, 30vh);
+  min-height: 160px;
+}
+
+@media (min-width: 600px) {
+  body.tech-dashboard-page .form-overlay .signature-canvas-wrap,
+  body.tech-dashboard-page .form-overlay .signature-canvas {
+    height: min(240px, 32vh);
+    min-height: 200px;
+  }
 }
 
 .signature-canvas {
