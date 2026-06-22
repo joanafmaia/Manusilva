@@ -6567,6 +6567,7 @@ body.dark-mode .rh-section {
 .rh-list-item__service {
   color: #475569;
   font-weight: 600;
+  word-break: break-word;
 }
 
 .rh-list-item__age {
@@ -6589,9 +6590,58 @@ body.dark-mode .rh-section {
 }
 
 .rh-list-item__summary {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
   max-height: none;
+  min-height: 0;
+}
+
+.rh-list-item__row--main {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+}
+
+.rh-list-item__row--main .rh-list-item__check {
+  flex-shrink: 0;
+  margin-right: 0;
+  margin-top: 2px;
+}
+
+.rh-list-item__row--main .rh-list-item__ordem {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.rh-list-item__row--actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
   flex-wrap: wrap;
-  row-gap: 6px;
+  padding-top: 2px;
+  border-top: 1px solid rgba(226, 232, 240, 0.85);
+}
+
+.rh-list-item__info-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 6px;
+  min-width: 0;
+}
+
+.rh-list-item__info-top .rh-list-item__client {
+  flex: 1;
+  min-width: 0;
+}
+
+.rh-list-item__info-top .rh-list-item__status {
+  flex-shrink: 0;
+  margin-top: 1px;
 }
 
 .rh-list-item__quick-actions {
@@ -6703,6 +6753,10 @@ body.dark-mode .rh-section {
 .dashboard-team-list-empty span {
   color: var(--text-muted);
   font-size: 0.8125rem;
+}
+
+body.dark-mode .rh-list-item__row--actions {
+  border-top-color: rgba(71, 85, 105, 0.5);
 }
 
 body.dark-mode .rh-list-item__service {
@@ -6940,7 +6994,7 @@ body.dark-mode .rh-filter-chip.is-active {
 .rh-review-stack {
   display: flex;
   flex-direction: column;
-  gap: 0;
+  gap: 8px;
 }
 
 .rh-review-stack-card {
@@ -6952,7 +7006,7 @@ body.dark-mode .rh-filter-chip.is-active {
   border: 1px solid #e2e8f0;
   border-left-width: 4px;
   border-radius: 10px;
-  margin-bottom: 8px;
+  margin-bottom: 0;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
   overflow: hidden;
   transition: box-shadow 0.2s ease, border-color 0.2s ease;
@@ -6965,11 +7019,11 @@ body.dark-mode .rh-filter-chip.is-active {
 
 .rh-list-item__summary {
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: 8px;
-  padding: 10px 10px 10px 12px;
-  min-height: 56px;
-  max-height: 100px;
+  padding: 10px 12px;
+  min-height: auto;
+  max-height: none;
 }
 
 .rh-list-item.is-expanded .rh-list-item__summary {

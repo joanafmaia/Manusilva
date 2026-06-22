@@ -183,19 +183,25 @@ export function buildRhReviewListItem({ job, report, client, tech }) {
       role="listitem"
     >
       <div class="rh-list-item__summary">
-        ${batchCheckbox}
-        <span class="rh-list-item__ordem">${escapeHtml(formatOrdemLabel(job))}</span>
-        <div class="rh-list-item__info">
-          <span class="rh-list-item__client">${escapeHtml(clientName)}</span>
-          <span class="rh-list-item__meta">
-            <span class="rh-list-item__service">${service?.icon || '🔧'} ${escapeHtml(serviceLabel)}</span>
-            <span class="rh-list-item__age">${escapeHtml(age)}</span>
-          </span>
-          <span class="rh-list-item__tech">${escapeHtml(techName)}</span>
+        <div class="rh-list-item__row rh-list-item__row--main">
+          ${batchCheckbox}
+          <span class="rh-list-item__ordem">${escapeHtml(formatOrdemLabel(job))}</span>
+          <div class="rh-list-item__info">
+            <div class="rh-list-item__info-top">
+              <span class="rh-list-item__client">${escapeHtml(clientName)}</span>
+              <span class="rh-list-item__status">${renderReportWorkStateBadge(report, job)}</span>
+            </div>
+            <span class="rh-list-item__meta">
+              <span class="rh-list-item__service">${service?.icon || '🔧'} ${escapeHtml(serviceLabel)}</span>
+              <span class="rh-list-item__age">${escapeHtml(age)}</span>
+            </span>
+            <span class="rh-list-item__tech">${escapeHtml(techName)}</span>
+          </div>
         </div>
-        <span class="rh-list-item__status">${renderReportWorkStateBadge(report, job)}</span>
-        ${quickActions}
-        <button type="button" class="rh-list-item__open-btn" data-panel-open="${escapeHtml(report.id)}">Rever</button>
+        <div class="rh-list-item__row rh-list-item__row--actions">
+          ${quickActions}
+          <button type="button" class="rh-list-item__open-btn" data-panel-open="${escapeHtml(report.id)}">Rever</button>
+        </div>
       </div>
     </article>
   `;
