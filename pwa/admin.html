@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/app.css?v=form-layout-v15">
+  <link rel="stylesheet" href="css/app.css?v=rh-panel-v1">
 </head>
 <body class="admin-rh-page">
   <script src="js/theme-boot.js"></script>
@@ -27,8 +27,8 @@
 
       <nav class="sidebar-nav" aria-label="Secções do painel">
         <a href="#calendar" class="nav-item active" data-admin-tab="calendario">📅 Calendário de Equipa</a>
-        <a href="#pending" class="nav-item" data-admin-tab="relatorios">📋 Revisão de Relatórios</a>
-        <a href="#billing" class="nav-item" data-admin-tab="faturacao">💶 Faturação</a>
+        <a href="#pending" class="nav-item" data-admin-tab="relatorios">📋 Revisão de Relatórios <span class="nav-badge" id="nav-badge-relatorios" hidden>0</span></a>
+        <a href="#billing" class="nav-item" data-admin-tab="faturacao">💶 Faturação <span class="nav-badge nav-badge--billing" id="nav-badge-faturacao" hidden>0</span></a>
         <a href="#clients" class="nav-item" data-admin-tab="clientes">🏢 Clientes / Empresas</a>
         <a href="#employees" class="nav-item" data-admin-tab="funcionarios">👷 Funcionários</a>
       </nav>
@@ -50,13 +50,21 @@
             <button type="button" id="theme-toggle" class="theme-toggle-btn theme-toggle-btn--inline btn-ghost btn-sm" aria-label="Alternar tema" title="Alternar tema">
               <span id="theme-icon" aria-hidden="true"></span>
             </button>
+            <button type="button" class="btn-outline btn-sm" id="btn-go-pending" hidden>Ir aos pendentes</button>
+            <button type="button" class="btn-outline btn-sm" id="btn-approve-valid-email" hidden>Aprovar com e-mail válido</button>
             <button class="btn-primary" id="btn-assign-work" style="width:auto">+ Atribuir Trabalho</button>
           </div>
         </header>
 
+        <div class="admin-ops-summary glass-card" id="admin-ops-summary" hidden aria-live="polite"></div>
+
         <!-- Aba: Calendário + Relatórios -->
         <div class="admin-tab-view is-active" data-admin-tab="calendario relatorios" id="admin-tab-ops">
-          <div class="admin-split-layout" id="calendar">
+          <div class="admin-ops-mobile-toggle" id="admin-ops-mobile-toggle" role="tablist" aria-label="Vista calendário ou relatórios">
+            <button type="button" class="active" data-ops-mobile="calendario">Calendário</button>
+            <button type="button" data-ops-mobile="relatorios">Relatórios</button>
+          </div>
+          <div class="admin-split-layout admin-split-layout--calendar" id="calendar">
             <section class="admin-panel glass-card admin-split-calendar">
               <div class="panel-header">
                 <h2>Calendário de Equipa</h2>
@@ -74,6 +82,7 @@
                   <button id="prev-week" aria-label="Anterior">‹</button>
                   <span id="calendar-title"></span>
                   <button id="next-week" aria-label="Seguinte">›</button>
+                  <button type="button" id="cal-today-btn" class="btn-ghost btn-sm cal-today-btn">Hoje</button>
                 </div>
                 <div id="calendar-grid"></div>
               </div>

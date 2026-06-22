@@ -31,6 +31,10 @@ import {
   renderReportWorkStateBadge,
   resolveWorkStateFromReport,
 } from './calendar-event-state.js';
+import {
+  formatReportAge,
+  getReportUrgencyLevel,
+} from './rh-panel-utils.js';
 
 /** @deprecated Preferir `resolveWorkStateFromReport` + `getCalendarEventStateMeta` */
 export const REPORT_STATUS_PANEL_META = {
@@ -71,7 +75,9 @@ const RH_FILTER_TABS = [
 ];
 
 /** Barra de filtros rápidos no topo do painel RH */
-export function buildRhReviewFilterBar(counts, activeFilter = 'pending_review') {
+export function buildRhReviewFilterBar(counts, activeFilter = 'pending_review', options = {}) {
+  const { techId = 'all', search = '', technicians = [] } = options;
+
   const chips = RH_FILTER_TABS.map(({ id, label, icon }) => {
     const count = counts[id] ?? 0;
     const isActive = activeFilter === id;
@@ -105,6 +111,26 @@ export function buildRhReviewFilterBar(counts, activeFilter = 'pending_review') 
     : '';
 
   return `<div class="rh-review-filters-wrap">
+    <div class="rh-review-search-row">
+      <input
+        type="search"
+        class="form-input rh-review-search"
+        id="rh-review-search"
+        placeholder="Pesquisar cliente ou OP…"
+        value="${escapeHtml(search)}"
+        autocomplete="off"
+        aria-label="Pesquisar relatórios"
+      >
+      <select class="form-select-sm rh-review-tech-filter" id="rh-review-tech-filter" aria-label="Filtrar por técnico">
+        <option value="all"${techId === 'all' ? ' selected' : ''}>Todos os técnicos</option>
+        ${technicians
+          .map(
+            (t) =>
+              `<option value="${escapeHtml(t.id)}"${String(techId) === String(t.id) ? ' selected' : ''}>${escapeHtml(t.name)}</option>`,
+          )
+          .join('')}
+      </select>
+    </div>
     <div class="rh-review-filters" role="tablist" aria-label="Filtrar relatórios">${chips}</div>
     ${batchBar}
   </div>`;
@@ -119,6 +145,16 @@ export function buildRhReviewListItem({ job, report, client, tech }) {
   const statusClass = statusMeta.cardClass;
   const clientName = client?.name || client?.Nome || '—';
   const techName = tech?.name || '—';
+  const service = getServiceType(report?.serviceType || job?.serviceType);
+  const serviceLabel = service?.label || report?.serviceType || '—';
+  const age = formatReportAge(report?.submittedAt);
+  const urgency = getReportUrgencyLevel(report?.submittedAt, report?.status);
+  const urgencyClass =
+    urgency === 'urgent'
+      ? 'rh-list-item--urgent'
+      : urgency === 'warning'
+        ? 'rh-list-item--warning'
+        : '';
 
   const batchCheckbox =
     report?.status === 'pending_review'
@@ -128,9 +164,18 @@ export function buildRhReviewListItem({ job, report, client, tech }) {
       </label>`
       : '';
 
+  const quickActions =
+    report?.status === 'pending_review'
+      ? `
+      <div class="rh-list-item__quick-actions" role="group" aria-label="Ações rápidas">
+        <button type="button" class="rh-quick-btn rh-quick-btn--approve" data-quick-approve="${escapeHtml(report.id)}" title="Aprovar" aria-label="Aprovar relatório">✓</button>
+        <button type="button" class="rh-quick-btn rh-quick-btn--reject" data-quick-reject="${escapeHtml(report.id)}" title="Rejeitar" aria-label="Rejeitar relatório">✕</button>
+      </div>`
+      : '';
+
   return `
     <article
-      class="rh-list-item rh-review-stack-card ${statusClass}"
+      class="rh-list-item rh-review-stack-card ${statusClass} ${urgencyClass}"
       data-job-id="${escapeHtml(job?.id || '')}"
       data-report-id="${escapeHtml(report.id)}"
       data-report-status="${escapeHtml(report?.status || '')}"
@@ -142,16 +187,21 @@ export function buildRhReviewListItem({ job, report, client, tech }) {
         <span class="rh-list-item__ordem">${escapeHtml(formatOrdemLabel(job))}</span>
         <div class="rh-list-item__info">
           <span class="rh-list-item__client">${escapeHtml(clientName)}</span>
+          <span class="rh-list-item__meta">
+            <span class="rh-list-item__service">${service?.icon || '🔧'} ${escapeHtml(serviceLabel)}</span>
+            <span class="rh-list-item__age">${escapeHtml(age)}</span>
+          </span>
           <span class="rh-list-item__tech">${escapeHtml(techName)}</span>
         </div>
         <span class="rh-list-item__status">${renderReportWorkStateBadge(report, job)}</span>
+        ${quickActions}
         <button type="button" class="rh-list-item__open-btn" data-panel-open="${escapeHtml(report.id)}">Rever</button>
       </div>
     </article>
   `;
 }
 
-function openRhRejectDialog(reportId, onRejected) {
+export function openRhRejectDialog(reportId, onRejected) {
   const content = `
     <p class="text-muted mb-4">Escreva uma nota de correção para o técnico:</p>
     <textarea id="reject-note" class="form-textarea" rows="4" placeholder="Ex: Faltam fotos do componente substituído..."></textarea>
@@ -205,6 +255,7 @@ export async function openRhReviewModal(reportId, callbacks = {}) {
   const service = getServiceType(report.serviceType);
   const fieldsHTML = renderReportValuesForReview(service, report.data?.values || {});
   const showWorkflow = report.status === 'pending_review';
+  const hasNext = Boolean(showWorkflow && callbacks.getNextReportId?.(reportId));
 
   const statusLabel = getCalendarEventStateMeta(resolveWorkStateFromReport(report, job)).label;
 
@@ -215,6 +266,7 @@ export async function openRhReviewModal(reportId, callbacks = {}) {
     tech,
     fieldsHTML,
     showWorkflow,
+    showApproveNext: hasNext,
   });
 
   const overlay = openModal(
@@ -230,22 +282,34 @@ export async function openRhReviewModal(reportId, callbacks = {}) {
   overlay.querySelector('#modal-close-review')?.addEventListener('click', closeModal);
 
   if (showWorkflow) {
-    overlay.querySelector('#modal-approve')?.addEventListener('click', async () => {
-      const btn = overlay.querySelector('#modal-approve');
+    const runApprove = async (andNext = false) => {
+      const btn = overlay.querySelector(andNext ? '#modal-approve-next' : '#modal-approve');
       const emailErr = await validateReviewClientEmail(overlay);
       if (emailErr) {
         showToast(emailErr, 'error');
         return;
       }
-      btn.disabled = true;
+      if (btn) btn.disabled = true;
       const clientEmail = readReviewClientEmail(overlay);
       const ok = await approveReport(reportId, { clientEmail });
-      btn.disabled = false;
-      if (ok) {
-        closeModal();
-        callbacks.onApproved?.();
+      if (btn) btn.disabled = false;
+      if (!ok) return;
+
+      closeModal();
+      await callbacks.onApproved?.();
+
+      if (andNext) {
+        const nextId = callbacks.getNextReportId?.(reportId);
+        if (nextId) {
+          await openRhReviewModal(nextId, callbacks);
+        } else {
+          showToast('Não há mais relatórios pendentes na fila atual.', 'info');
+        }
       }
-    });
+    };
+
+    overlay.querySelector('#modal-approve')?.addEventListener('click', () => runApprove(false));
+    overlay.querySelector('#modal-approve-next')?.addEventListener('click', () => runApprove(true));
 
     overlay.querySelector('#modal-reject')?.addEventListener('click', () => {
       closeModal();
@@ -266,6 +330,7 @@ export function buildRhReviewModalContent({
   tech,
   fieldsHTML,
   showWorkflow = true,
+  showApproveNext = false,
 }) {
   const data = report?.data || {};
   const submittedDate = report?.submittedAt
@@ -278,6 +343,7 @@ export function buildRhReviewModalContent({
     ? `
         <button type="button" class="btn-danger btn-touch review-action-btn" id="modal-reject">Rejeitar</button>
         <button type="button" class="btn-success btn-touch review-action-btn" id="modal-approve">Aprovar</button>
+        ${showApproveNext ? '<button type="button" class="btn-primary btn-touch review-action-btn" id="modal-approve-next">Aprovar e seguinte</button>' : ''}
       `
     : `<button type="button" class="btn-secondary btn-touch review-action-btn" id="modal-close-review">Fechar</button>`;
 

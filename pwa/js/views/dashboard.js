@@ -19,17 +19,38 @@ import { getClientSubmittedReports } from './historico-cliente.js';
 
 let metricsRoot = null;
 
-export async function initMetricsPanel(root) {
+export async function initMetricsPanel(root, onAction) {
   metricsRoot = root;
   if (!metricsRoot) return;
   await ensureProductionCatalog();
-  await refreshMetricsPanel();
+  await refreshMetricsPanel(onAction);
 }
 
-export async function refreshMetricsPanel() {
+export async function refreshMetricsPanel(onAction) {
   if (!metricsRoot) return;
   await ensureProductionCatalog();
   metricsRoot.innerHTML = renderMetricsSection(computeDashboardMetrics());
+  bindMetricsPanelActions(metricsRoot, onAction);
+}
+
+function bindMetricsPanelActions(root, handlers = {}) {
+  if (!root || !handlers) return;
+
+  const trigger = (action) => {
+    const fn = handlers[action];
+    if (typeof fn === 'function') fn();
+  };
+
+  root.querySelectorAll('[data-metric-action]').forEach((el) => {
+    const action = el.dataset.metricAction;
+    el.addEventListener('click', () => trigger(action));
+    el.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        trigger(action);
+      }
+    });
+  });
 }
 
 /** @deprecated Use initMetricsPanel — mantido para compatibilidade */

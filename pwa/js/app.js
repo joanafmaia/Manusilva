@@ -847,9 +847,10 @@ export const RH_PANEL_REPORT_STATUSES = new Set([
   'rejected',
 ]);
 
+/** Mais antigo primeiro — prioridade FIFO na fila RH */
 function sortReportsForRhPanel(a, b) {
-  return String(b.submittedAt || b.approvedAt || '').localeCompare(
-    String(a.submittedAt || a.approvedAt || ''),
+  return String(a.submittedAt || a.approvedAt || '').localeCompare(
+    String(b.submittedAt || b.approvedAt || ''),
   );
 }
 

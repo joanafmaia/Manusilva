@@ -10,6 +10,7 @@ import {
   getTechnician,
   getServiceType,
   getPendingReports,
+  getPendingBillingReports,
   getAdminReviewReports,
   getRhPanelReportCounts,
   getReport,
@@ -52,6 +53,14 @@ import { initMetricsPanel, refreshMetricsPanel } from './views/dashboard.js';
 import { initClientsApp } from './views/clients-app.js';
 import { initEmployeesPanel, refreshTechniciansList } from './views/rh-registry.js';
 import { initFaturacaoPanel, refreshFaturacaoPanel } from './views/faturacao.js';
+import {
+  loadRhReviewFilters,
+  saveRhReviewFilters,
+  filterRhReports,
+  getNextPendingReportId,
+  buildRhOpsSummaryText,
+} from './rh-panel-utils.js';
+import { computeDashboardMetrics } from './views/dashboard-metrics.js';
 
 /** Aba ativa do painel admin (controlada pela sidebar) */
 let currentTab = 'calendario';
@@ -67,8 +76,14 @@ const ADMIN_TAB_BY_NAV = {
 let calendarView = 'week';
 let filterTechId = 'all';
 let currentWeekOffset = 0;
+/** Vista mobile: calendário ou relatórios (ecrãs < 1024px) */
+let opsMobileView = 'calendario';
+
+const savedRhFilters = loadRhReviewFilters();
 /** Filtro ativo no painel RH — por defeito mostra pendentes */
-let rhReviewFilter = 'pending_review';
+let rhReviewFilter = savedRhFilters.status || 'pending_review';
+let rhReviewTechFilter = savedRhFilters.techId || 'all';
+let rhReviewSearch = savedRhFilters.search || '';
 const RH_EMPTY_MESSAGES = {
   all: 'Nenhum relatório no histórico.',
   pending_review: 'Nenhum relatório pendente de aprovação neste momento.',
@@ -96,11 +111,58 @@ function isOpsTabActive() {
 function refreshOpsTab() {
   renderCalendar();
   renderSidebar();
-  updatePendingCount();
+  updateAdminChrome();
   renderRhReviewStack().catch(console.error);
   if (currentTab === 'calendario') {
-    refreshMetricsPanel().catch(console.error);
+    refreshMetricsPanel(getMetricActionHandlers()).catch(console.error);
   }
+}
+
+function persistRhReviewFilters() {
+  saveRhReviewFilters({
+    status: rhReviewFilter,
+    techId: rhReviewTechFilter,
+    search: rhReviewSearch,
+  });
+}
+
+function getRhFilteredReports() {
+  const base = getAdminReviewReports(rhReviewFilter);
+  return filterRhReports(base, {
+    techId: rhReviewTechFilter,
+    search: rhReviewSearch,
+  });
+}
+
+function getMetricActionHandlers() {
+  return {
+    'go-pending': () => {
+      rhReviewFilter = 'pending_review';
+      persistRhReviewFilters();
+      setAdminTab('relatorios');
+      renderRhReviewStack().catch(console.error);
+    },
+    'go-billing': () => setAdminTab('faturacao'),
+    'go-calendar-today': () => {
+      currentWeekOffset = 0;
+      setAdminTab('calendario');
+      renderCalendar();
+    },
+    'go-calendar-week': () => {
+      currentWeekOffset = 0;
+      setAdminTab('calendario');
+      renderCalendar();
+    },
+    'go-clients': () => setAdminTab('clientes'),
+    'go-employees': () => setAdminTab('funcionarios'),
+  };
+}
+
+function updateAdminChrome() {
+  updatePendingCount();
+  updateSidebarBadges();
+  updateOpsSummary();
+  updateHeaderShortcuts();
 }
 
 function refreshClientesTab() {
@@ -203,8 +265,13 @@ function bindReviewPanelHeightSync() {
 export function setAdminTab(tab) {
   if (!tab) return;
   currentTab = tab;
+  if (tab === 'relatorios') opsMobileView = 'relatorios';
+  if (tab === 'calendario') opsMobileView = 'calendario';
   updateAdminTabUI();
   flushDirtyAdminTab(tab);
+  if (tab === 'relatorios' || tab === 'calendario') {
+    updateOpsSummary();
+  }
   document.querySelector('.admin-main')?.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -223,6 +290,27 @@ function updateAdminTabUI() {
   document.querySelectorAll('.nav-item[data-admin-tab]').forEach((item) => {
     item.classList.toggle('active', item.dataset.adminTab === currentTab);
   });
+
+  const split = document.getElementById('calendar');
+  if (split) {
+    split.classList.toggle('admin-split-layout--calendar', currentTab === 'calendario');
+    split.classList.toggle('admin-split-layout--review', currentTab === 'relatorios');
+    split.classList.toggle(
+      'admin-split-layout--mobile-calendar',
+      opsMobileView === 'calendario',
+    );
+    split.classList.toggle(
+      'admin-split-layout--mobile-relatorios',
+      opsMobileView === 'relatorios',
+    );
+  }
+
+  const mobileToggle = document.getElementById('admin-ops-mobile-toggle');
+  if (mobileToggle) {
+    mobileToggle.querySelectorAll('[data-ops-mobile]').forEach((btn) => {
+      btn.classList.toggle('active', btn.dataset.opsMobile === opsMobileView);
+    });
+  }
 
   const showSplit = currentTab === 'calendario' || currentTab === 'relatorios';
   if (showSplit) {
@@ -274,9 +362,13 @@ export async function initAdminDashboard() {
     bindCalendarJobInteractions();
     bindRhReviewPanel();
     bindAssignWork();
-    updatePendingCount();
+    bindOpsMobileToggle();
+    bindHeaderShortcuts();
+    bindCalTodayBtn();
+    updateAdminChrome();
     renderRhReviewStack().catch(console.error);
     updateAdminTabUI();
+    showMorningSummary();
   } catch (err) {
     console.error('[Admin] Erro ao iniciar painel:', err);
     showToast('Erro ao carregar o calendário. Veja a consola (F12).', 'error');
@@ -332,7 +424,7 @@ export async function initAdminDashboard() {
 
   await Promise.all([
     metricsRoot
-      ? initMetricsPanel(metricsRoot).catch((err) => {
+      ? initMetricsPanel(metricsRoot, getMetricActionHandlers()).catch((err) => {
           console.error('[Admin] Métricas:', err);
         })
       : Promise.resolve(),
@@ -407,6 +499,155 @@ function bindViewToggle() {
   });
 }
 
+function bindCalTodayBtn() {
+  const btn = document.getElementById('cal-today-btn');
+  if (!btn || btn.dataset.bound === 'true') return;
+  btn.dataset.bound = 'true';
+  btn.addEventListener('click', () => {
+    currentWeekOffset = 0;
+    renderCalendar();
+  });
+}
+
+function bindOpsMobileToggle() {
+  const root = document.getElementById('admin-ops-mobile-toggle');
+  if (!root || root.dataset.bound === 'true') return;
+  root.dataset.bound = 'true';
+  root.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-ops-mobile]');
+    if (!btn) return;
+    opsMobileView = btn.dataset.opsMobile || 'calendario';
+    if (opsMobileView === 'relatorios') currentTab = 'relatorios';
+    if (opsMobileView === 'calendario') currentTab = 'calendario';
+    document.querySelectorAll('.nav-item[data-admin-tab]').forEach((item) => {
+      item.classList.toggle('active', item.dataset.adminTab === currentTab);
+    });
+    updateAdminTabUI();
+  });
+}
+
+function bindHeaderShortcuts() {
+  const goPending = document.getElementById('btn-go-pending');
+  if (goPending && goPending.dataset.bound !== 'true') {
+    goPending.dataset.bound = 'true';
+    goPending.addEventListener('click', () => {
+      rhReviewFilter = 'pending_review';
+      persistRhReviewFilters();
+      setAdminTab('relatorios');
+      renderRhReviewStack().catch(console.error);
+    });
+  }
+
+  const approveValid = document.getElementById('btn-approve-valid-email');
+  if (approveValid && approveValid.dataset.bound !== 'true') {
+    approveValid.dataset.bound = 'true';
+    approveValid.addEventListener('click', () => {
+      approveAllWithValidEmail().catch(console.error);
+    });
+  }
+}
+
+function isValidClientEmail(email) {
+  const e = String(email || '').trim();
+  return e.length > 3 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+}
+
+async function approveAllWithValidEmail() {
+  const pending = getPendingReports();
+  const eligible = pending.filter((r) => {
+    const client = getClient(r.clientId);
+    const email = String(client?.email || client?.['E-mail'] || '').trim();
+    return isValidClientEmail(email);
+  });
+
+  if (!eligible.length) {
+    showToast('Nenhum relatório pendente com e-mail de cliente válido.', 'warning');
+    return;
+  }
+
+  const confirmed = window.confirm(
+    `Aprovar ${eligible.length} relatório(s) com e-mail válido na ficha do cliente?`,
+  );
+  if (!confirmed) return;
+
+  let approved = 0;
+  for (const report of eligible) {
+    const client = getClient(report.clientId);
+    const clientEmail = String(client?.email || client?.['E-mail'] || '').trim();
+    const ok = await approveReport(report.id, { clientEmail });
+    if (ok) approved += 1;
+  }
+
+  if (approved > 0) {
+    showToast(
+      approved === 1 ? '1 relatório aprovado.' : `${approved} relatórios aprovados.`,
+      'success',
+      6000,
+    );
+    await rhReviewModalCallbacks().onApproved?.();
+    await renderRhReviewStack();
+  } else {
+    showToast('Nenhum relatório foi aprovado.', 'warning');
+  }
+}
+
+function showMorningSummary() {
+  const metrics = computeDashboardMetrics();
+  const text = buildRhOpsSummaryText(metrics);
+  showToast(`Resumo: ${text}`, 'info', 7000);
+}
+
+function updateOpsSummary() {
+  const el = document.getElementById('admin-ops-summary');
+  if (!el) return;
+  if (!isOpsTabActive()) {
+    el.hidden = true;
+    return;
+  }
+  const metrics = computeDashboardMetrics();
+  el.hidden = false;
+  el.innerHTML = `<p class="admin-ops-summary-text"><strong>Resumo:</strong> ${escapeHtml(buildRhOpsSummaryText(metrics))}</p>`;
+}
+
+function updateSidebarBadges() {
+  const pending = getPendingReports().length;
+  const billing = getPendingBillingReports().length;
+
+  const relBadge = document.getElementById('nav-badge-relatorios');
+  if (relBadge) {
+    relBadge.textContent = String(pending);
+    relBadge.hidden = pending <= 0;
+  }
+
+  const fatBadge = document.getElementById('nav-badge-faturacao');
+  if (fatBadge) {
+    fatBadge.textContent = String(billing);
+    fatBadge.hidden = billing <= 0;
+  }
+}
+
+function updateHeaderShortcuts() {
+  const pending = getPendingReports().length;
+  const goBtn = document.getElementById('btn-go-pending');
+  const approveBtn = document.getElementById('btn-approve-valid-email');
+
+  if (goBtn) {
+    goBtn.hidden = pending <= 0;
+    goBtn.textContent = pending === 1 ? 'Ir ao pendente' : `Ir aos ${pending} pendentes`;
+  }
+
+  if (approveBtn) {
+    const eligible = getPendingReports().filter((r) => {
+      const client = getClient(r.clientId);
+      const email = String(client?.email || client?.['E-mail'] || '').trim();
+      return isValidClientEmail(email);
+    }).length;
+    approveBtn.hidden = eligible <= 0;
+    approveBtn.textContent =
+      eligible === 1 ? 'Aprovar 1 com e-mail válido' : `Aprovar ${eligible} com e-mail válido`;
+  }
+}
+
 function getCalendarDates() {
   const base = new Date();
   base.setDate(base.getDate() + currentWeekOffset * 7);
@@ -430,6 +671,8 @@ function renderCalendar() {
   const jobs = getAllJobs().filter(
     (j) => filterTechId === 'all' || jobAssignedToTechnician(j, filterTechId),
   );
+  const jobsInRange = jobs.filter((j) => dates.includes(j.date));
+  const weekEmpty = jobsInRange.length === 0;
 
   const firstDate = new Date(dates[0] + 'T00:00:00');
   if (calendarView === 'list') {
@@ -442,24 +685,33 @@ function renderCalendar() {
 
   if (calendarView === 'list') {
     grid.className = 'calendar-grid calendar-agenda-list';
-    grid.innerHTML = renderAgendaList(jobs, dates);
-    bindAgendaSwipeRows(grid);
+    grid.innerHTML = weekEmpty
+      ? renderCalendarEmptyState()
+      : renderAgendaList(jobs, dates);
+    if (!weekEmpty) bindAgendaSwipeRows(grid);
   } else if (calendarView === 'week') {
     grid.className = 'calendar-grid calendar-week';
-    grid.innerHTML = dates.map((date) => {
-      const dayJobs = jobs.filter((j) => j.date === date);
-      return `
-        <div class="cal-col ${isToday(date) ? 'today-col' : ''}">
+    if (weekEmpty) {
+      grid.innerHTML = renderCalendarEmptyState();
+    } else {
+      grid.innerHTML = dates
+        .map((date) => {
+          const dayJobs = jobs.filter((j) => j.date === date);
+          const emptyDay = dayJobs.length === 0;
+          return `
+        <div class="cal-col ${isToday(date) ? 'today-col' : ''}${emptyDay ? ' cal-col--empty' : ''}">
           <div class="cal-col-header">
             <span>${getDayLabel(date)}</span>
             <strong>${getDayNumber(date)}</strong>
           </div>
           <div class="cal-col-body">
-            ${dayJobs.map((j) => renderCalendarBlock(j)).join('') || '<span class="cal-empty">—</span>'}
+            ${dayJobs.map((j) => renderCalendarBlock(j)).join('') || '<span class="cal-empty">Sem trabalhos</span>'}
           </div>
         </div>
       `;
-    }).join('');
+        })
+        .join('');
+    }
   } else {
     grid.className = 'calendar-grid calendar-month';
     const startDay = firstDate.getDay();
@@ -479,7 +731,34 @@ function renderCalendar() {
     grid.innerHTML = html;
   }
 
+  if (weekEmpty && (calendarView === 'list' || calendarView === 'week')) {
+    bindCalendarEmptyStateActions();
+  }
+
   requestAnimationFrame(() => syncReviewPanelHeight());
+}
+
+function renderCalendarEmptyState() {
+  return `
+    <div class="cal-empty-state">
+      <p class="cal-empty-state-title">Sem trabalhos neste período</p>
+      <p class="cal-empty-state-hint text-muted">Não há serviços agendados para a semana ou mês selecionado.</p>
+      <div class="cal-empty-state-actions">
+        <button type="button" class="btn-outline btn-sm" id="cal-empty-today">Ir para hoje</button>
+        <button type="button" class="btn-primary btn-sm" id="cal-empty-assign">+ Atribuir trabalho</button>
+      </div>
+    </div>
+  `;
+}
+
+function bindCalendarEmptyStateActions() {
+  document.getElementById('cal-empty-today')?.addEventListener('click', () => {
+    currentWeekOffset = 0;
+    renderCalendar();
+  });
+  document.getElementById('cal-empty-assign')?.addEventListener('click', () => {
+    document.getElementById('btn-assign-work')?.click();
+  });
 }
 
 function renderCalendarBlock(job, compact = false) {
@@ -608,20 +887,27 @@ async function renderRhReviewStack() {
     console.warn('[Admin] Dados para painel de relatórios:', err);
   }
 
-  updatePendingCount();
+  updateAdminChrome();
 
   const counts = getRhPanelReportCounts();
-  const reports = getAdminReviewReports(rhReviewFilter);
+  const reports = getRhFilteredReports();
 
   const { buildRhReviewListItem, buildRhReviewFilterBar } = await import(
     './report-review-rh-modal.js'
   );
 
-  const filterBar = buildRhReviewFilterBar(counts, rhReviewFilter);
+  const filterBar = buildRhReviewFilterBar(counts, rhReviewFilter, {
+    techId: rhReviewTechFilter,
+    search: rhReviewSearch,
+    technicians: getAllTechnicians(),
+  });
 
   let stackHtml;
   if (!reports.length) {
-    const emptyMsg = RH_EMPTY_MESSAGES[rhReviewFilter] || RH_EMPTY_MESSAGES.all;
+    const hasFilters = rhReviewTechFilter !== 'all' || String(rhReviewSearch).trim();
+    const emptyMsg = hasFilters
+      ? 'Nenhum relatório corresponde aos filtros aplicados.'
+      : RH_EMPTY_MESSAGES[rhReviewFilter] || RH_EMPTY_MESSAGES.all;
     stackHtml = `<p class="rh-review-panel-empty">${escapeHtml(emptyMsg)}</p>`;
   } else {
     const cards = reports
@@ -653,7 +939,9 @@ async function renderRhReviewStack() {
 }
 
 function rhReviewModalCallbacks() {
+  const queue = () => getRhFilteredReports();
   return {
+    getNextReportId: (currentId) => getNextPendingReportId(currentId, queue()),
     onApproved: async () => {
       if (isOpsTabActive()) {
         refreshOpsTab();
@@ -670,6 +958,7 @@ function rhReviewModalCallbacks() {
       if (isOpsTabActive()) {
         renderCalendar();
         await renderRhReviewStack();
+        updateAdminChrome();
       } else {
         adminTabDirty.ops = true;
       }
@@ -738,9 +1027,31 @@ function bindRhReviewPanel() {
   if (!panel || rhReviewPanelBound) return;
   rhReviewPanelBound = true;
 
-  panel.addEventListener('change', (e) => {
+  let searchDebounce = null;
+
+  panel.addEventListener('input', (e) => {
     const target = e.target;
     if (!(target instanceof HTMLInputElement)) return;
+    if (target.id === 'rh-review-search') {
+      rhReviewSearch = target.value;
+      persistRhReviewFilters();
+      clearTimeout(searchDebounce);
+      searchDebounce = setTimeout(() => {
+        renderRhReviewStack().catch(console.error);
+      }, 280);
+    }
+  });
+
+  panel.addEventListener('change', (e) => {
+    const target = e.target;
+    if (!(target instanceof HTMLInputElement) && !(target instanceof HTMLSelectElement)) return;
+
+    if (target.id === 'rh-review-tech-filter') {
+      rhReviewTechFilter = target.value;
+      persistRhReviewFilters();
+      renderRhReviewStack().catch(console.error);
+      return;
+    }
 
     if (target.id === 'rh-select-all-pending') {
       panel.querySelectorAll('.rh-batch-checkbox').forEach((cb) => {
@@ -767,8 +1078,22 @@ function bindRhReviewPanel() {
       const next = filterBtn.dataset.rhFilter;
       if (next && next !== rhReviewFilter) {
         rhReviewFilter = next;
+        persistRhReviewFilters();
         await renderRhReviewStack();
       }
+      return;
+    }
+
+    const quickApprove = e.target.closest('[data-quick-approve]');
+    if (quickApprove?.dataset.quickApprove) {
+      await quickApproveRhReport(quickApprove.dataset.quickApprove);
+      return;
+    }
+
+    const quickReject = e.target.closest('[data-quick-reject]');
+    if (quickReject?.dataset.quickReject) {
+      const { openRhRejectDialog } = await import('./report-review-rh-modal.js');
+      openRhRejectDialog(quickReject.dataset.quickReject, rhReviewModalCallbacks().onRejected);
       return;
     }
 
@@ -778,6 +1103,33 @@ function bindRhReviewPanel() {
       await openRhReviewModal(openBtn.dataset.panelOpen, rhReviewModalCallbacks());
     }
   });
+}
+
+async function quickApproveRhReport(reportId) {
+  const report = getReport(reportId);
+  if (!report || report.status !== 'pending_review') return;
+
+  const client = getClient(report.clientId);
+  const clientEmail = String(client?.email || client?.['E-mail'] || '').trim();
+  if (!isValidClientEmail(clientEmail)) {
+    showToast('E-mail do cliente em falta ou inválido. Abra «Rever» para corrigir.', 'error');
+    return;
+  }
+
+  const job = report.jobId ? getJob(report.jobId) : null;
+  const ordem =
+    job?.numeroOrdem != null
+      ? `OP-2026-${String(job.numeroOrdem).padStart(2, '0')}`
+      : 'este relatório';
+  const confirmed = window.confirm(`Aprovar ${ordem} e enviar para o cliente?`);
+  if (!confirmed) return;
+
+  const ok = await approveReport(reportId, { clientEmail });
+  if (ok) {
+    showToast('Relatório aprovado.', 'success');
+    await rhReviewModalCallbacks().onApproved?.();
+    await renderRhReviewStack();
+  }
 }
 
 /** Swipe para a esquerda na vista Agenda — revela Eliminar */
@@ -902,11 +1254,18 @@ function openJobDetailModal(jobId) {
 
   const client = getClient(job.clientId);
   const service = getServiceType(job.serviceType);
+  const report = getReportForJob(job.id);
   const modalTitle = `${service?.icon || '🔧'} ${client?.name || 'Serviço'} — ${formatDateLong(job.date)}`;
+
+  const reviewBtn =
+    report?.status === 'pending_review'
+      ? `<button type="button" class="btn-primary" id="job-detail-review">Rever relatório</button>`
+      : '';
 
   const actions = `
     <button type="button" class="btn-ghost" id="job-detail-close">Fechar</button>
     <button type="button" class="btn-danger" id="job-detail-delete">Eliminar</button>
+    ${reviewBtn}
   `;
 
   const overlay = openModal(modalTitle, buildJobDetailContent(job), actions);
@@ -915,6 +1274,16 @@ function openJobDetailModal(jobId) {
   overlay.querySelector('#job-detail-delete')?.addEventListener('click', () => {
     closeModal();
     confirmDeleteJob(jobId);
+  });
+  overlay.querySelector('#job-detail-review')?.addEventListener('click', async () => {
+    closeModal();
+    if (report?.id) {
+      rhReviewFilter = 'pending_review';
+      persistRhReviewFilters();
+      setAdminTab('relatorios');
+      const { openRhReviewModal } = await import('./report-review-rh-modal.js');
+      await openRhReviewModal(report.id, rhReviewModalCallbacks());
+    }
   });
 }
 

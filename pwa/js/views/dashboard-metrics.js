@@ -1,5 +1,5 @@
 /**
- * Métricas rápidas do painel RH — sem renderizar a lista de clientes.
+ * Métricas rápidas do painel RH — KPIs acionáveis + resumo de equipa.
  */
 
 import {
@@ -15,6 +15,7 @@ import {
   isProductionCatalogReady,
 } from '../clients-catalog.js';
 import { getTeamStatsSummary } from '../team-stats.js';
+import { computeExtendedRhMetrics } from '../rh-panel-utils.js';
 
 export function computeDashboardMetrics(db = getDB()) {
   const catalog = isProductionCatalogReady()
@@ -26,7 +27,7 @@ export function computeDashboardMetrics(db = getDB()) {
   const weekSet = new Set(getWeekDates());
   const team = getTeamStatsSummary(getAllTechnicians());
 
-  return {
+  const base = {
     totalClients: catalog.length,
     pendingReports: pending.length,
     jobsToday: jobs.filter((j) => j.date === today).length,
@@ -41,42 +42,123 @@ export function computeDashboardMetrics(db = getDB()) {
       : '—',
     teamMonthLabel: team.monthLabel,
   };
+
+  return computeExtendedRhMetrics(base);
+}
+
+function renderMetricCard(card) {
+  const actionAttr = card.action ? ` data-metric-action="${card.action}"` : '';
+  const btnRole = card.action ? ' role="button" tabindex="0"' : '';
+  return `
+    <article class="dashboard-metric-card dashboard-metric-card--${card.accent} dashboard-metric-card--${card.size || 'primary'}${card.action ? ' dashboard-metric-card--clickable' : ''}"${actionAttr}${btnRole} aria-label="${card.label}">
+      <p class="dashboard-metric-value">${card.value}</p>
+      <p class="dashboard-metric-label">${card.label}</p>
+    </article>
+  `;
 }
 
 export function renderMetricsSection(metrics) {
-  const cards = [
-    { label: `Mais saídas — ${metrics.teamMonthLabel}`, value: metrics.teamTopMonth, accent: 'success' },
-    { label: 'Intervenções concluídas (total)', value: metrics.teamTotalConcluidos, accent: 'primary' },
-    { label: 'Clientes no catálogo', value: metrics.totalClients, accent: 'primary' },
-    { label: 'Relatórios pendentes', value: metrics.pendingReports, accent: 'warning' },
-    { label: 'Trabalhos hoje', value: metrics.jobsToday, accent: 'primary' },
-    { label: 'Trabalhos esta semana', value: metrics.jobsThisWeek, accent: 'muted' },
-    { label: 'Agendados', value: metrics.scheduled, accent: 'muted' },
-    { label: 'Em progresso', value: metrics.inProgress, accent: 'success' },
-    { label: 'Técnicos ativos', value: metrics.technicians, accent: 'muted' },
+  const primaryCards = [
     {
-      label: 'Relatórios por faturar',
+      label: 'Relatórios pendentes RH',
+      value: metrics.pendingReports,
+      accent: metrics.pendingReports > 0 ? 'warning' : 'muted',
+      action: 'go-pending',
+    },
+    {
+      label: 'Por faturar',
       value: metrics.pendingBilling,
-      // Laranja de alerta quando há relatórios aprovados à espera de fatura
       accent: metrics.pendingBilling > 0 ? 'billing-alert' : 'muted',
+      action: 'go-billing',
+    },
+    {
+      label: 'Trabalhos hoje',
+      value: metrics.jobsToday,
+      accent: 'primary',
+      action: 'go-calendar-today',
+    },
+    {
+      label: 'Concluídos esta semana',
+      value: metrics.completedThisWeek,
+      accent: 'success',
+      action: 'go-calendar-week',
     },
   ];
+
+  const avgLabel =
+    metrics.avgApprovalHours != null
+      ? `${metrics.avgApprovalHours}h em média`
+      : '—';
+
+  const secondaryCards = [
+    {
+      label: `Mais saídas — ${metrics.teamMonthLabel}`,
+      value: metrics.teamTopMonth,
+      accent: 'success',
+      size: 'secondary',
+    },
+    {
+      label: 'Tempo médio de aprovação',
+      value: avgLabel,
+      accent: 'muted',
+      size: 'secondary',
+    },
+    {
+      label: 'Pendentes por técnico (top)',
+      value: metrics.topPendingTech,
+      accent: metrics.pendingReports > 0 ? 'warning' : 'muted',
+      size: 'secondary',
+    },
+    {
+      label: 'Clientes no catálogo',
+      value: metrics.totalClients,
+      accent: 'muted',
+      size: 'secondary',
+      action: 'go-clients',
+    },
+    {
+      label: 'Trabalhos esta semana',
+      value: metrics.jobsThisWeek,
+      accent: 'muted',
+      size: 'secondary',
+    },
+    {
+      label: 'Técnicos ativos',
+      value: metrics.technicians,
+      accent: 'muted',
+      size: 'secondary',
+      action: 'go-employees',
+    },
+  ];
+
+  const pendingByTechRows = Object.entries(metrics.pendingByTech || {})
+    .sort((a, b) => b[1] - a[1])
+    .map(
+      ([name, count]) =>
+        `<li><span>${name}</span><strong>${count}</strong></li>`,
+    )
+    .join('');
+
+  const teamList =
+    pendingByTechRows ||
+    '<li class="dashboard-team-list-empty"><span>Sem pendentes</span></li>';
 
   return `
     <section class="dashboard-metrics rh-section" data-dashboard-metrics aria-labelledby="dashboard-metrics-title">
       <h3 id="dashboard-metrics-title" class="dashboard-section-title">Métricas rápidas</h3>
-      <div class="dashboard-metrics-grid">
-        ${cards
-          .map(
-            (c) => `
-          <article class="dashboard-metric-card dashboard-metric-card--${c.accent}">
-            <p class="dashboard-metric-value">${c.value}</p>
-            <p class="dashboard-metric-label">${c.label}</p>
-          </article>
-        `,
-          )
-          .join('')}
+      <div class="dashboard-metrics-grid dashboard-metrics-grid--primary">
+        ${primaryCards.map(renderMetricCard).join('')}
       </div>
+      <details class="dashboard-metrics-more">
+        <summary>Mais indicadores</summary>
+        <div class="dashboard-metrics-grid dashboard-metrics-grid--secondary">
+          ${secondaryCards.map(renderMetricCard).join('')}
+        </div>
+        <div class="dashboard-team-pending">
+          <h4 class="dashboard-team-pending-title">Pendentes por técnico</h4>
+          <ul class="dashboard-team-pending-list">${teamList}</ul>
+        </div>
+      </details>
     </section>
   `;
 }
