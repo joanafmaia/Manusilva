@@ -103,6 +103,10 @@ import {
   PDF_TABLE_MIN_CELL_HEIGHT,
   PDF_TABLE_ROW_STEP_MM,
   PDF_TITLE_BAR_HEIGHT_MM,
+  PDF_DOCUMENT_TITLE_BAR_H_MM,
+  PDF_BAR_RADIUS_MM,
+  PDF_CONTENT_BOX_RADIUS_MM,
+  PDF_SECTION_TITLE_BAR_H_MM,
   PDF_STANDARD_MACHINE_SPECS,
   PDF_CLOSING_DIAGNOSTIC_SPECS,
   PDF_LAYOUT_SKIP_FIELD_IDS,
@@ -1070,6 +1074,73 @@ const FOLHA_AVARIAS_CLOSING_PROFILE = {
   polaroidBottom: 4,
 };
 
+/** Barra de título do documento — centrada, cantos arredondados (padrão corretiva) */
+function drawPdfDocumentTitleBar(doc, y, title, gapAfter = PDF_SECTION_GAP_MM) {
+  const barH = PDF_DOCUMENT_TITLE_BAR_H_MM;
+  y = ensureSpace(doc, y, barH + gapAfter);
+  doc.setFillColor(...PDF_SECTION_BG);
+  doc.setDrawColor(...PDF_TABLE_LINE);
+  doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
+  doc.roundedRect(MARGIN, y, CONTENT_W, barH, PDF_BAR_RADIUS_MM, PDF_BAR_RADIUS_MM, 'FD');
+  pdfSetFont(doc, 'bold');
+  doc.setFontSize(PDF_FONT_SUBTITLE);
+  doc.setTextColor(...CORPORATE_BLUE);
+  doc.text(title, MARGIN + CONTENT_W / 2, y + barH * 0.62, { align: 'center' });
+  touchPdfContentPage(doc);
+  return y + barH + gapAfter;
+}
+
+/** Barra de título de secção — cantos arredondados */
+function drawPdfSectionTitleBar(doc, y, title, options = {}) {
+  const x = options.x ?? MARGIN;
+  const width = options.width ?? CONTENT_W;
+  const bandH = options.bandH ?? PDF_SECTION_TITLE_BAR_H_MM;
+  const gapAfter = options.gapAfter ?? PDF_SECTION_GAP_MM;
+  const fontSize = options.fontSize ?? PDF_FONT_SECTION;
+  const align = options.align ?? (width < CONTENT_W * 0.55 ? 'left' : 'center');
+
+  if (!options.skipEnsure) {
+    y = ensureSpace(doc, y, bandH + gapAfter);
+  }
+
+  doc.setFillColor(...PDF_SECTION_BG);
+  doc.setDrawColor(...PDF_TABLE_LINE);
+  doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
+  doc.roundedRect(x, y, width, bandH, PDF_BAR_RADIUS_MM, PDF_BAR_RADIUS_MM, 'FD');
+
+  pdfSetFont(doc, 'bold');
+  doc.setTextColor(...CORPORATE_BLUE);
+  const text = String(title).toUpperCase();
+  const maxW = width - 4;
+  let fs = fontSize;
+  doc.setFontSize(fs);
+
+  if (options.multiline) {
+    doc.text(pdfSplitText(doc, text, maxW), x + 2, y + bandH * 0.55);
+  } else {
+    while (fs > 6 && doc.getTextWidth(text) > maxW) {
+      fs -= 0.4;
+      doc.setFontSize(fs);
+    }
+    if (align === 'center') {
+      doc.text(text, x + width / 2, y + bandH * 0.62, { align: 'center' });
+    } else {
+      doc.text(text, x + 2, y + bandH * 0.62);
+    }
+  }
+
+  touchPdfContentPage(doc);
+  return y + bandH + gapAfter;
+}
+
+/** Caixa de conteúdo textual — bordas arredondadas uniformes */
+function drawPdfContentBox(doc, x, y, width, height, fill = PDF_TABLE_BODY_FILL) {
+  doc.setFillColor(...fill);
+  doc.setDrawColor(...PDF_TABLE_LINE);
+  doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
+  doc.roundedRect(x, y, width, height, PDF_CONTENT_BOX_RADIUS_MM, PDF_CONTENT_BOX_RADIUS_MM, 'FD');
+}
+
 function formatFolhaInterventionDate(raw) {
   const pure = String(raw ?? '').trim();
   if (!pure) return '—';
@@ -1249,18 +1320,7 @@ function drawPreventivaBateriaMirrorHeader(doc, clientMeta, techName, report, jo
 }
 
 function drawFolhaTitleBar(doc, y, title) {
-  const barH = PDF_TITLE_BAR_HEIGHT_MM;
-  y = ensureSpace(doc, y, barH + PDF_SECTION_GAP_MM);
-  doc.setFillColor(...PREVENTIVA_TITLE_BAR_BG);
-  doc.setDrawColor(...PDF_TABLE_LINE);
-  doc.setLineWidth(0.2);
-  doc.rect(MARGIN, y, CONTENT_W, barH, 'FD');
-  pdfSetFont(doc, 'bold');
-  doc.setFontSize(PDF_FONT_TITLE);
-  doc.setTextColor(...CORPORATE_BLUE);
-  doc.text(title, MARGIN + CONTENT_W / 2, y + barH * 0.62, { align: 'center' });
-  touchPdfContentPage(doc);
-  return y + barH + PDF_SECTION_GAP_MM;
+  return drawPdfDocumentTitleBar(doc, y, title, PDF_SECTION_GAP_MM);
 }
 
 function resolvePreventivaBateriaAnalysisValue(spec, values) {
@@ -1486,18 +1546,7 @@ async function drawFolhaMaterialTable(doc, y, rows, options = {}) {
 }
 
 function drawFolhaAvariasTitleBar(doc, y, title) {
-  const barH = 5.5;
-  y = ensureSpace(doc, y, barH + FOLHA_AVARIAS_SECTION_GAP_MM);
-  doc.setFillColor(...PDF_SECTION_BG);
-  doc.setDrawColor(...PDF_TABLE_LINE);
-  doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
-  doc.roundedRect(MARGIN, y, CONTENT_W, barH, FOLHA_AVARIAS_BAR_RADIUS_MM, FOLHA_AVARIAS_BAR_RADIUS_MM, 'FD');
-  pdfSetFont(doc, 'bold');
-  doc.setFontSize(PDF_FONT_SUBTITLE);
-  doc.setTextColor(...CORPORATE_BLUE);
-  doc.text(title, MARGIN + CONTENT_W / 2, y + barH * 0.62, { align: 'center' });
-  touchPdfContentPage(doc);
-  return y + barH + FOLHA_AVARIAS_SECTION_GAP_MM;
+  return drawPdfDocumentTitleBar(doc, y, title, FOLHA_AVARIAS_SECTION_GAP_MM);
 }
 
 function folhaAvariasTableStylePack(doc) {
@@ -1549,18 +1598,11 @@ function folhaAvariasTableStylePack(doc) {
 }
 
 async function drawFolhaAvariasSectionBar(doc, y, title) {
-  const bandH = 5.5;
-  y = ensureSpace(doc, y, bandH + 0.8);
-  doc.setFillColor(...PDF_SECTION_BG);
-  doc.setDrawColor(...PDF_TABLE_LINE);
-  doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
-  doc.roundedRect(MARGIN, y, CONTENT_W, bandH, FOLHA_AVARIAS_BAR_RADIUS_MM, FOLHA_AVARIAS_BAR_RADIUS_MM, 'FD');
-  pdfSetFont(doc, 'bold');
-  doc.setFontSize(FOLHA_AVARIAS_HEAD_FONT_PT);
-  doc.setTextColor(...CORPORATE_BLUE);
-  doc.text(String(title).toUpperCase(), MARGIN + 2, y + bandH * 0.62);
-  touchPdfContentPage(doc);
-  return y + bandH + 0.8;
+  return drawPdfSectionTitleBar(doc, y, title, {
+    bandH: 5.5,
+    gapAfter: 0.8,
+    fontSize: FOLHA_AVARIAS_HEAD_FONT_PT,
+  });
 }
 
 async function drawFolhaAvariasDashboardTable(doc, y, sectionTitle, options = {}) {
@@ -1710,10 +1752,7 @@ async function drawFolhaIntervencaoTextSection(doc, y, sectionTitle, text) {
 
   y = await drawFolhaAvariasSectionBar(doc, y, sectionTitle);
   const boxY = y;
-  doc.setFillColor(...PDF_TABLE_BODY_FILL);
-  doc.setDrawColor(...PDF_TABLE_LINE);
-  doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
-  doc.roundedRect(MARGIN, boxY, CONTENT_W, boxH, FOLHA_AVARIAS_RADIUS_MM, FOLHA_AVARIAS_RADIUS_MM, 'FD');
+  drawPdfContentBox(doc, MARGIN, boxY, CONTENT_W, boxH);
   pdfSetFont(doc, 'normal');
   doc.setFontSize(FOLHA_AVARIAS_TABLE_FONT_PT);
   doc.setTextColor(...TEXT_DARK);
@@ -1884,18 +1923,7 @@ async function drawFolhaIntervencaoAvariasClosingSection(doc, y, opts) {
 }
 
 function drawCarregadorTitleBar(doc, y, title) {
-  const barH = 5.5;
-  y = ensureSpace(doc, y, barH + CARREGADOR_SECTION_GAP_MM);
-  doc.setFillColor(...PDF_SECTION_BG);
-  doc.setDrawColor(...PDF_TABLE_LINE);
-  doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
-  doc.roundedRect(MARGIN, y, CONTENT_W, barH, CARREGADOR_RADIUS_MM, CARREGADOR_RADIUS_MM, 'FD');
-  pdfSetFont(doc, 'bold');
-  doc.setFontSize(PDF_FONT_SUBTITLE);
-  doc.setTextColor(...CORPORATE_BLUE);
-  doc.text(title, MARGIN + CONTENT_W / 2, y + barH * 0.62, { align: 'center' });
-  touchPdfContentPage(doc);
-  return y + barH + CARREGADOR_SECTION_GAP_MM;
+  return drawPdfDocumentTitleBar(doc, y, title, CARREGADOR_SECTION_GAP_MM);
 }
 
 function drawCarregadorMetaCell(doc, x, y, label, value, maxW) {
@@ -2019,18 +2047,11 @@ function carregadorTableStylePack(doc) {
 }
 
 async function drawCarregadorSectionBar(doc, y, title) {
-  const bandH = 6;
-  y = ensureSpace(doc, y, bandH + 2);
-  doc.setFillColor(...PDF_SECTION_BG);
-  doc.setDrawColor(...PDF_TABLE_LINE);
-  doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
-  doc.roundedRect(MARGIN, y, CONTENT_W, bandH, CARREGADOR_RADIUS_MM, CARREGADOR_RADIUS_MM, 'FD');
-  pdfSetFont(doc, 'bold');
-  doc.setFontSize(CARREGADOR_HEAD_FONT_PT);
-  doc.setTextColor(...CORPORATE_BLUE);
-  doc.text(String(title).toUpperCase(), MARGIN + 2, y + bandH * 0.62);
-  touchPdfContentPage(doc);
-  return y + bandH + 1.2;
+  return drawPdfSectionTitleBar(doc, y, title, {
+    bandH: 6,
+    gapAfter: 1.2,
+    fontSize: CARREGADOR_HEAD_FONT_PT,
+  });
 }
 
 async function drawCarregadorDashboardTable(doc, y, sectionTitle, columnHead, body, columnStyles) {
@@ -2294,18 +2315,7 @@ async function drawReparacaoCarregadorClosingSection(doc, y, opts) {
 }
 
 function drawCorretivaTitleBar(doc, y, title) {
-  const barH = 5.5;
-  y = ensureSpace(doc, y, barH + CORRETIVA_SECTION_GAP_MM);
-  doc.setFillColor(...PDF_SECTION_BG);
-  doc.setDrawColor(...PDF_TABLE_LINE);
-  doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
-  doc.roundedRect(MARGIN, y, CONTENT_W, barH, CORRETIVA_BAR_RADIUS_MM, CORRETIVA_BAR_RADIUS_MM, 'FD');
-  pdfSetFont(doc, 'bold');
-  doc.setFontSize(PDF_FONT_SUBTITLE);
-  doc.setTextColor(...CORPORATE_BLUE);
-  doc.text(title, MARGIN + CONTENT_W / 2, y + barH * 0.62, { align: 'center' });
-  touchPdfContentPage(doc);
-  return y + barH + CORRETIVA_SECTION_GAP_MM;
+  return drawPdfDocumentTitleBar(doc, y, title, CORRETIVA_SECTION_GAP_MM);
 }
 
 function corretivaTableStylePack(doc) {
@@ -2357,18 +2367,11 @@ function corretivaTableStylePack(doc) {
 }
 
 async function drawCorretivaSectionBar(doc, y, title) {
-  const bandH = 6;
-  y = ensureSpace(doc, y, bandH + 2);
-  doc.setFillColor(...PDF_SECTION_BG);
-  doc.setDrawColor(...PDF_TABLE_LINE);
-  doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
-  doc.roundedRect(MARGIN, y, CONTENT_W, bandH, CORRETIVA_BAR_RADIUS_MM, CORRETIVA_BAR_RADIUS_MM, 'FD');
-  pdfSetFont(doc, 'bold');
-  doc.setFontSize(CORRETIVA_HEAD_FONT_PT);
-  doc.setTextColor(...CORPORATE_BLUE);
-  doc.text(String(title).toUpperCase(), MARGIN + 2, y + bandH * 0.62);
-  touchPdfContentPage(doc);
-  return y + bandH + 1.2;
+  return drawPdfSectionTitleBar(doc, y, title, {
+    bandH: 6,
+    gapAfter: 1.2,
+    fontSize: CORRETIVA_HEAD_FONT_PT,
+  });
 }
 
 async function drawCorretivaMachineBlock(doc, y, values, pdfContext = null) {
@@ -2459,10 +2462,7 @@ async function drawCorretivaObservationsBox(doc, y, value) {
   y = ensureSpace(doc, y, boxH);
 
   const boxY = y;
-  doc.setFillColor(...PDF_TABLE_BODY_FILL);
-  doc.setDrawColor(...PDF_TABLE_LINE);
-  doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
-  doc.roundedRect(MARGIN, boxY, CONTENT_W, boxH, CORRETIVA_RADIUS_MM, CORRETIVA_RADIUS_MM, 'FD');
+  drawPdfContentBox(doc, MARGIN, boxY, CONTENT_W, boxH);
 
   pdfSetFont(doc, 'normal');
   doc.setFontSize(CORRETIVA_FONT_PT);
@@ -2551,18 +2551,7 @@ async function drawCorretivaMaquinasClosingSection(doc, y, opts) {
 }
 
 function drawGrandesTitleBar(doc, y, title) {
-  const barH = 5;
-  y = ensureSpace(doc, y, barH + GRANDES_SECTION_GAP_MM);
-  doc.setFillColor(...PDF_SECTION_BG);
-  doc.setDrawColor(...PDF_TABLE_LINE);
-  doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
-  doc.roundedRect(MARGIN, y, CONTENT_W, barH, GRANDES_BAR_RADIUS_MM, GRANDES_BAR_RADIUS_MM, 'FD');
-  pdfSetFont(doc, 'bold');
-  doc.setFontSize(PDF_FONT_SUBTITLE);
-  doc.setTextColor(...CORPORATE_BLUE);
-  doc.text(title, MARGIN + CONTENT_W / 2, y + barH * 0.62, { align: 'center' });
-  touchPdfContentPage(doc);
-  return y + barH + GRANDES_SECTION_GAP_MM;
+  return drawPdfDocumentTitleBar(doc, y, title, GRANDES_SECTION_GAP_MM);
 }
 
 function grandesBatteryTableStylePack(doc) {
@@ -2670,18 +2659,14 @@ function grandesTableStylePack(doc) {
 
 async function drawGrandesSectionBar(doc, y, title, layout = {}) {
   const { x = MARGIN, width = CONTENT_W } = layout;
-  const bandH = GRANDES_SECTION_BAR_H_MM;
-  y = ensureSpace(doc, y, bandH + GRANDES_SECTION_BAR_GAP_MM);
-  doc.setFillColor(...PDF_SECTION_BG);
-  doc.setDrawColor(...PDF_TABLE_LINE);
-  doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
-  doc.roundedRect(x, y, width, bandH, GRANDES_BAR_RADIUS_MM, GRANDES_BAR_RADIUS_MM, 'FD');
-  pdfSetFont(doc, 'bold');
-  doc.setFontSize(GRANDES_HEAD_FONT_PT);
-  doc.setTextColor(...CORPORATE_BLUE);
-  doc.text(String(title).toUpperCase(), x + 2, y + bandH * 0.62);
-  touchPdfContentPage(doc);
-  return y + bandH + GRANDES_SECTION_BAR_GAP_MM;
+  return drawPdfSectionTitleBar(doc, y, title, {
+    x,
+    width,
+    bandH: GRANDES_SECTION_BAR_H_MM,
+    gapAfter: GRANDES_SECTION_BAR_GAP_MM,
+    fontSize: GRANDES_HEAD_FONT_PT,
+    align: width < CONTENT_W * 0.55 ? 'left' : 'center',
+  });
 }
 
 function formatGrandesBatteryCellPdf(key, raw) {
@@ -2770,10 +2755,7 @@ async function drawGrandesObservationsBoxAt(doc, startY, value, x, width) {
     const boxH = 7;
     y = ensureSpace(doc, y, boxH + 2);
     const boxY = y;
-    doc.setFillColor(...PDF_TABLE_BODY_FILL);
-    doc.setDrawColor(...PDF_TABLE_LINE);
-    doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
-    doc.roundedRect(x, boxY, width, boxH, GRANDES_RADIUS_MM, GRANDES_RADIUS_MM, 'FD');
+    drawPdfContentBox(doc, x, boxY, width, boxH);
     pdfSetFont(doc, 'normal');
     doc.setFontSize(GRANDES_TABLE_FONT_PT);
     doc.setTextColor(...TEXT_DARK);
@@ -2790,10 +2772,7 @@ async function drawGrandesObservationsBoxAt(doc, startY, value, x, width) {
     const boxH = Math.max(7, chunk.length * lineStep + 2.5);
     y = ensureSpace(doc, y, boxH + 2);
     const boxY = y;
-    doc.setFillColor(...PDF_TABLE_BODY_FILL);
-    doc.setDrawColor(...PDF_TABLE_LINE);
-    doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
-    doc.roundedRect(x, boxY, width, boxH, GRANDES_RADIUS_MM, GRANDES_RADIUS_MM, 'FD');
+    drawPdfContentBox(doc, x, boxY, width, boxH);
     pdfSetFont(doc, 'normal');
     doc.setFontSize(GRANDES_TABLE_FONT_PT);
     doc.setTextColor(...TEXT_DARK);
@@ -2899,18 +2878,7 @@ async function drawGrandesBateriasClosingSection(doc, y, opts) {
 }
 
 function drawRavBateriaTitleBar(doc, y, title) {
-  const barH = 5.5;
-  y = ensureSpace(doc, y, barH + RAV_SECTION_GAP_MM);
-  doc.setFillColor(...PDF_SECTION_BG);
-  doc.setDrawColor(...PDF_TABLE_LINE);
-  doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
-  doc.roundedRect(MARGIN, y, CONTENT_W, barH, RAV_BAR_RADIUS_MM, RAV_BAR_RADIUS_MM, 'FD');
-  pdfSetFont(doc, 'bold');
-  doc.setFontSize(PDF_FONT_SUBTITLE);
-  doc.setTextColor(...CORPORATE_BLUE);
-  doc.text(title, MARGIN + CONTENT_W / 2, y + barH * 0.62, { align: 'center' });
-  touchPdfContentPage(doc);
-  return y + barH + RAV_SECTION_GAP_MM;
+  return drawPdfDocumentTitleBar(doc, y, title, RAV_SECTION_GAP_MM);
 }
 
 function ravTableStylePack(doc) {
@@ -2963,18 +2931,14 @@ function ravTableStylePack(doc) {
 
 async function drawRavSectionBar(doc, y, title, layout = {}) {
   const { x = MARGIN, width = CONTENT_W } = layout;
-  const bandH = 5.5;
-  y = ensureSpace(doc, y, bandH + 0.8);
-  doc.setFillColor(...PDF_SECTION_BG);
-  doc.setDrawColor(...PDF_TABLE_LINE);
-  doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
-  doc.roundedRect(x, y, width, bandH, RAV_BAR_RADIUS_MM, RAV_BAR_RADIUS_MM, 'FD');
-  pdfSetFont(doc, 'bold');
-  doc.setFontSize(RAV_HEAD_FONT_PT);
-  doc.setTextColor(...CORPORATE_BLUE);
-  doc.text(String(title).toUpperCase(), x + 2, y + bandH * 0.62);
-  touchPdfContentPage(doc);
-  return y + bandH + 0.8;
+  return drawPdfSectionTitleBar(doc, y, title, {
+    x,
+    width,
+    bandH: 5.5,
+    gapAfter: 0.8,
+    fontSize: RAV_HEAD_FONT_PT,
+    align: width < CONTENT_W * 0.55 ? 'left' : 'center',
+  });
 }
 
 function collectRavConsumableRows(service, values) {
@@ -3097,10 +3061,7 @@ async function drawRavEstadoFinalBlock(doc, y, values) {
     }
 
     const boxY = y;
-    doc.setFillColor(...PDF_CLIENT_BOX_FILL);
-    doc.setDrawColor(...PDF_TABLE_LINE);
-    doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
-    doc.roundedRect(MARGIN, boxY, CONTENT_W, obsBoxH, RAV_RADIUS_MM, RAV_RADIUS_MM, 'FD');
+    drawPdfContentBox(doc, MARGIN, boxY, CONTENT_W, obsBoxH, PDF_CLIENT_BOX_FILL);
     doc.setTextColor(...TEXT_MUTED);
     doc.text('Observação:', MARGIN + 2.5, boxY + obsLabelH);
     doc.setTextColor(...TEXT_DARK);
@@ -3113,10 +3074,7 @@ async function drawRavEstadoFinalBlock(doc, y, values) {
   if (!lines.length) {
     const boxY = y;
     const obsBoxH = 11;
-    doc.setFillColor(...PDF_CLIENT_BOX_FILL);
-    doc.setDrawColor(...PDF_TABLE_LINE);
-    doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
-    doc.roundedRect(MARGIN, boxY, CONTENT_W, obsBoxH, RAV_RADIUS_MM, RAV_RADIUS_MM, 'FD');
+    drawPdfContentBox(doc, MARGIN, boxY, CONTENT_W, obsBoxH, PDF_CLIENT_BOX_FILL);
     doc.setTextColor(...TEXT_MUTED);
     doc.text('Observação:', MARGIN + 2.5, boxY + obsLabelH);
     doc.setTextColor(...TEXT_DARK);
@@ -3434,32 +3392,15 @@ function isEmpilhadoresMaterialField(service, field) {
 
 /** Título de secção numa coluna estreita (verificações lado a lado) */
 function drawColumnSectionTitle(doc, x, y, width, title, options = {}) {
-  const bandH = options.bandH ?? PDF_SECTION_BAND_HEIGHT_MM;
-  doc.setFillColor(...PDF_SECTION_BG);
-  doc.rect(x, y - 1, width, bandH, 'F');
-  doc.setDrawColor(...PDF_TABLE_LINE);
-  doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
-  doc.line(x, y - 1, x + width, y - 1);
-
-  pdfSetFont(doc, 'bold');
-  const text = String(title).toUpperCase();
-  const maxW = width - 4;
-  let fontSize = options.fontSize ?? PDF_FONT_SECTION;
-  doc.setTextColor(...CORPORATE_BLUE);
-  if (options.singleLine) {
-    doc.setFontSize(fontSize);
-    while (fontSize > 6 && doc.getTextWidth(text) > maxW) {
-      fontSize -= 0.4;
-      doc.setFontSize(fontSize);
-    }
-    doc.text(text, x + 2, y + bandH * 0.62);
-  } else {
-    doc.setFontSize(fontSize);
-    const lines = pdfSplitText(doc, text, maxW);
-    doc.text(lines, x + 2, y + bandH * 0.55);
-  }
-  touchPdfContentPage(doc);
-  return y + bandH + (options.gapAfter ?? 1.5);
+  return drawPdfSectionTitleBar(doc, y, title, {
+    x,
+    width,
+    bandH: options.bandH ?? PDF_SECTION_BAND_HEIGHT_MM,
+    gapAfter: options.gapAfter ?? 1.5,
+    fontSize: options.fontSize ?? PDF_FONT_SECTION,
+    align: 'left',
+    multiline: !options.singleLine,
+  });
 }
 
 function buildVerificationTableBody(items, states) {
@@ -3839,18 +3780,7 @@ function drawTopRowWithClientBlock(doc, clientMeta, numeroOrdem = null) {
 }
 
 function drawTitleBar(doc, y, title) {
-  pdfSetFont(doc, 'bold');
-  doc.setFontSize(PDF_FONT_TITLE);
-  doc.setTextColor(...CORPORATE_BLUE);
-  const lines = pdfSplitText(doc, title, CONTENT_W);
-  doc.text(lines, MARGIN, y + 4);
-  const textH = lines.length * 5.2;
-  y += textH + 2;
-  doc.setDrawColor(...PDF_TABLE_LINE);
-  doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
-  doc.line(MARGIN, y, MARGIN + CONTENT_W, y);
-  touchPdfContentPage(doc);
-  return y + PDF_SECTION_GAP_MM;
+  return drawPdfDocumentTitleBar(doc, y, title, PDF_SECTION_GAP_MM);
 }
 
 async function drawStandardMachineBlock(doc, y, values, pdfContext = null, service = null) {
@@ -4034,7 +3964,7 @@ function drawServiceInfoBlock(doc, y, meta) {
   doc.setFillColor(...PDF_CLIENT_BOX_FILL);
   doc.setDrawColor(...PDF_TABLE_LINE);
   doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
-  doc.roundedRect(MARGIN, boxY, CONTENT_W, boxH, 1.5, 1.5, 'FD');
+  doc.roundedRect(MARGIN, boxY, CONTENT_W, boxH, PDF_BAR_RADIUS_MM, PDF_BAR_RADIUS_MM, 'FD');
 
   const rowY = boxY + boxPad + boxInnerH * 0.72;
   const slotCount = Math.max(rowItems.length, 1);
@@ -4097,23 +4027,11 @@ function drawDivider(doc, y) {
 }
 
 function drawSectionTitle(doc, y, title, options = {}) {
-  const bandH = PDF_SECTION_BAND_HEIGHT_MM;
-  if (!options.skipEnsure) {
-    y = ensureSpace(doc, y, bandH + PDF_SECTION_GAP_MM);
-  }
-
-  doc.setFillColor(...PDF_SECTION_BG);
-  doc.rect(MARGIN, y - 1, CONTENT_W, bandH, 'F');
-  doc.setDrawColor(...PDF_TABLE_LINE);
-  doc.setLineWidth(0.2);
-  doc.line(MARGIN, y - 1, PAGE_W - MARGIN, y - 1);
-
-  pdfSetFont(doc, 'bold');
-  doc.setFontSize(PDF_FONT_SECTION);
-  doc.setTextColor(...CORPORATE_BLUE);
-  doc.text(title.toUpperCase(), MARGIN + 3, y + bandH * 0.62);
-  touchPdfContentPage(doc);
-  return y + bandH + PDF_SECTION_GAP_MM;
+  return drawPdfSectionTitleBar(doc, y, title, {
+    skipEnsure: options.skipEnsure,
+    bandH: PDF_SECTION_BAND_HEIGHT_MM,
+    gapAfter: PDF_SECTION_GAP_MM,
+  });
 }
 
 function normalizeReportValues(data) {
@@ -5056,7 +4974,15 @@ function drawLegalVerdictBlock(doc, y, label, value, opts = {}) {
   doc.setDrawColor(...borderRgb);
   doc.setLineWidth(0.5);
   doc.setFillColor(255, 255, 255);
-  doc.roundedRect(MARGIN, y, CONTENT_W, boxH, 2, 2, 'FD');
+  doc.roundedRect(
+    MARGIN,
+    y,
+    CONTENT_W,
+    boxH,
+    PDF_CONTENT_BOX_RADIUS_MM,
+    PDF_CONTENT_BOX_RADIUS_MM,
+    'FD',
+  );
 
   pdfSetFont(doc, 'bold');
   doc.setFontSize(8);
@@ -5496,18 +5422,14 @@ function drawDiagnosticAnalysisBlock(doc, y, label, section, value) {
 
   y = ensureSpace(doc, y, 28);
   if (bandTitle) {
-    y = drawSectionTitle(doc, y, bandTitle, { skipEnsure: true });
+    y = drawPdfSectionTitleBar(doc, y, bandTitle, { skipEnsure: true });
   }
-
-  doc.setFillColor(...PDF_SECTION_BG);
-  doc.setDrawColor(...PDF_TABLE_LINE);
-  doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
 
   const lines = pdfParagraphLines(doc, value, CONTENT_W - 12);
   const textTop = innerTitle ? 14 : 8;
   const boxH = Math.max(24, lines.length * 5 + textTop + 8);
   y = ensureSpace(doc, y, boxH + 6);
-  doc.roundedRect(MARGIN, y, CONTENT_W, boxH, 2, 2, 'FD');
+  drawPdfContentBox(doc, MARGIN, y, CONTENT_W, boxH);
 
   if (innerTitle) {
     pdfSetFont(doc, 'bold');
@@ -5526,29 +5448,53 @@ function drawDiagnosticAnalysisBlock(doc, y, label, section, value) {
 }
 
 function drawLongTextBlock(doc, y, label, value, options = {}) {
+  void options;
   prepareObservationsTypography(doc);
-  const paragraphs = pdfObservationParagraphs(doc, value, CONTENT_W);
-
-  y = drawSectionTitle(doc, y, label, { skipEnsure: true });
-
-  prepareObservationsTypography(doc);
-  doc.setFontSize(PDF_FONT_BODY);
-  doc.setTextColor(...TEXT_DARK);
-
-  paragraphs.forEach((lines) => {
-    lines.forEach((line) => {
-      if (y + OBS_LINE_HEIGHT > pdfContentBottomY()) {
-        doc.addPage();
-        touchPdfContentPage(doc);
-        y = PDF_PAGE_CONTENT_START_Y;
-      }
-      if (line) doc.text(line, MARGIN, y);
-      y += line ? OBS_LINE_HEIGHT : OBS_EMPTY_LINE_HEIGHT;
-    });
+  const allLines = [];
+  pdfObservationParagraphs(doc, value, CONTENT_W - 8).forEach((lines) => {
+    lines.forEach((line) => allLines.push(line));
   });
 
+  y = drawPdfSectionTitleBar(doc, y, label, { skipEnsure: true });
+
+  if (!allLines.length) {
+    const boxH = 12;
+    y = ensureSpace(doc, y, boxH + OBS_BOTTOM_PAD);
+    const boxY = y;
+    drawPdfContentBox(doc, MARGIN, boxY, CONTENT_W, boxH);
+    prepareObservationsTypography(doc);
+    doc.setFontSize(PDF_FONT_BODY);
+    doc.setTextColor(...TEXT_DARK);
+    doc.text('—', MARGIN + 2.5, boxY + 4.5);
+    touchPdfContentPage(doc);
+    return boxY + boxH + OBS_BOTTOM_PAD;
+  }
+
+  let lineIdx = 0;
+  while (lineIdx < allLines.length) {
+    const maxLines = Math.max(
+      1,
+      Math.floor((pdfContentBottomY() - y - 6) / OBS_LINE_HEIGHT),
+    );
+    const chunk = allLines.slice(lineIdx, lineIdx + maxLines);
+    const boxH = Math.max(12, chunk.length * OBS_LINE_HEIGHT + 5);
+    y = ensureSpace(doc, y, boxH + 2);
+    const boxY = y;
+    drawPdfContentBox(doc, MARGIN, boxY, CONTENT_W, boxH);
+    prepareObservationsTypography(doc);
+    doc.setFontSize(PDF_FONT_BODY);
+    doc.setTextColor(...TEXT_DARK);
+    let textY = boxY + 4.5;
+    chunk.forEach((line) => {
+      if (line) doc.text(line, MARGIN + 2.5, textY);
+      textY += line ? OBS_LINE_HEIGHT : OBS_EMPTY_LINE_HEIGHT;
+    });
+    y = boxY + boxH + OBS_BOTTOM_PAD;
+    lineIdx += chunk.length;
+  }
+
   touchPdfContentPage(doc);
-  return y + OBS_BOTTOM_PAD;
+  return y;
 }
 
 const PDF_IMAGE_MAX_PX = 900;

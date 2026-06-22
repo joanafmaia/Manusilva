@@ -33,6 +33,13 @@ export const PDF_TABLE_MIN_CELL_HEIGHT = 5;
 export const PDF_TITLE_BAR_HEIGHT_MM = 8;
 export const PDF_SECTION_BAND_HEIGHT_MM = 8;
 
+/** Barra de título do documento — alinhamento centrado (padrão corretiva) */
+export const PDF_DOCUMENT_TITLE_BAR_H_MM = 5.5;
+export const PDF_BAR_RADIUS_MM = 1.1;
+/** Caixas de texto / observações */
+export const PDF_CONTENT_BOX_RADIUS_MM = 1.6;
+export const PDF_SECTION_TITLE_BAR_H_MM = 6;
+
 /** Cabeçalho bilateral compacto */
 export const PDF_LOGO_WIDTH_MM = 40;
 export const PDF_LOGO_HEIGHT_MM = 28;
