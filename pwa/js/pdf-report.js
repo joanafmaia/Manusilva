@@ -1246,7 +1246,7 @@ function preventivaBateriaSectionHeadStyles() {
     fontSize: PDF_FONT_SECTION,
     lineColor: PDF_TABLE_LINE,
     lineWidth: PDF_TABLE_LINE_WIDTH,
-    halign: 'left',
+    halign: 'center',
     valign: 'middle',
     cellPadding: PDF_TABLE_CELL_PADDING_HEAD,
   };
