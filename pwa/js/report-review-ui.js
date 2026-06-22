@@ -134,10 +134,10 @@ export function bindReviewFotoClicks(root) {
  * @param {{ job: object|null, report: object }} ctx
  */
 export function bindReviewPdfButton(overlay, { job, report }) {
-  const btn = overlay?.querySelector('#modal-pdf-preview');
-  if (!btn) return;
+  const buttons = overlay?.querySelectorAll('#modal-pdf-preview, #modal-pdf-preview-footer, .review-btn-pdf');
+  if (!buttons?.length) return;
 
-  btn.addEventListener('click', async () => {
+  const onClick = async () => {
     const urlPdf = job?.urlPdf && isValidFotoUrl(job.urlPdf) ? job.urlPdf : null;
 
     if (urlPdf) {
@@ -145,7 +145,9 @@ export function bindReviewPdfButton(overlay, { job, report }) {
       return;
     }
 
-    btn.disabled = true;
+    buttons.forEach((b) => {
+      b.disabled = true;
+    });
     try {
       const { previewReportPDF } = await import('./pdf-preview.js');
       const { showToast } = await import('./app.js');
@@ -156,7 +158,13 @@ export function bindReviewPdfButton(overlay, { job, report }) {
       const { showToast } = await import('./app.js');
       showToast('Não foi possível gerar a pré-visualização do PDF.', 'error');
     } finally {
-      btn.disabled = false;
+      buttons.forEach((b) => {
+        b.disabled = false;
+      });
     }
+  };
+
+  buttons.forEach((btn) => {
+    btn.addEventListener('click', onClick);
   });
 }

@@ -21,6 +21,7 @@ import {
   renderGrandesBatterySection,
   collect as collectGrandesBatteryRows,
   GRANDES_BATTERY_FIELD_ID,
+  GRANDES_BATTERY_COLUMNS,
   getColumnLabels,
   getColumnKeys,
 } from './views/relatorio-grandes.js';
@@ -1308,12 +1309,72 @@ export function evaluateFieldDependencies(overlay) {
   });
 }
 
+function reviewGrandesCellAlert(key, val) {
+  const t = String(val || '');
+  if (key === 'nivel_eletrolito' && /reposi|abaixo|urgent/i.test(t)) return 'warning';
+  if (key === 'curto_circuito' && /^sim$/i.test(t.trim())) return 'danger';
+  return '';
+}
+
+function renderGrandesBatteryReviewCards(rows) {
+  if (!Array.isArray(rows) || !rows.length) {
+    return '<p class="text-muted">Sem baterias registadas.</p>';
+  }
+
+  return `<div class="review-battery-cards">${rows
+    .map((row, index) => {
+      const title = row.maquina
+        ? `Bateria ${index + 1} — ${row.maquina}`
+        : `Bateria ${index + 1}`;
+      const cells = GRANDES_BATTERY_COLUMNS.map((col) => {
+        const val = row[col.key];
+        const display = val == null || String(val).trim() === '' ? '—' : String(val);
+        const alert = reviewGrandesCellAlert(col.key, display);
+        return `
+          <div class="review-battery-card__row${alert ? ` review-battery-card__row--${alert}` : ''}">
+            <span class="review-battery-card__label">${escapeHtml(col.label)}</span>
+            <span class="review-battery-card__value">${escapeHtml(display)}</span>
+          </div>`;
+      }).join('');
+
+      return `
+        <article class="review-battery-card">
+          <h6 class="review-battery-card__title">${escapeHtml(title)}</h6>
+          ${cells}
+        </article>`;
+    })
+    .join('')}</div>`;
+}
+
+function renderReviewDynamicTable(field, labels, keys, rows) {
+  const head = labels
+    .map((c) => `<th>${escapeHtml(columnLabel(c))}</th>`)
+    .join('');
+  const body = rows
+    .map(
+      (row) =>
+        `<tr>${keys.map((k) => `<td>${escapeHtml(row[k] || '—')}</td>`).join('')}</tr>`,
+    )
+    .join('');
+
+  return `
+    <div class="review-field">
+      <strong>${escapeHtml(field.label)}</strong>
+      <div class="review-table-scroll">
+        <table class="review-dynamic-table review-dynamic-table--wide">
+          <thead><tr>${head}</tr></thead>
+          <tbody>${body || '<tr><td colspan="99" class="text-muted">Sem linhas</td></tr>'}</tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
 export function renderReportValuesForReview(service, values = {}) {
   if (!service?.fields?.length) return '<p class="text-muted">—</p>';
 
   const groups = groupFieldsBySection(service.fields);
   const html = groups
-    .map(({ section, fields }) => {
+    .map(({ section, fields }, groupIndex) => {
       const items = fields
         .map((field) => {
           if (!shouldShowFieldInReview(field, values)) return '';
@@ -1392,28 +1453,21 @@ export function renderReportValuesForReview(service, values = {}) {
           if (field.dependency && !isDependencyMet(field, values)) return '';
 
           if (
-            (field.type === 'dynamic_table' || field.type === 'grandes_identificacao_baterias') &&
+            field.type === 'grandes_identificacao_baterias' &&
             Array.isArray(val)
           ) {
-            const labels =
-              field.type === 'grandes_identificacao_baterias' ? getColumnLabels() : field.columns || [];
-            const keys =
-              field.type === 'grandes_identificacao_baterias'
-                ? getColumnKeys()
-                : labels.map((c) => columnKey(c));
-            const head = labels.map((c) => `<th>${escapeHtml(columnLabel(c))}</th>`).join('');
-            const body = val
-              .map(
-                (row) =>
-                  `<tr>${keys.map((k) => `<td>${escapeHtml(row[k] || '—')}</td>`).join('')}</tr>`,
-              )
-              .join('');
             return `
               <div class="review-field">
                 <strong>${escapeHtml(field.label)}</strong>
-                <table class="review-dynamic-table"><thead><tr>${head}</tr></thead><tbody>${body || '<tr><td colspan="99" class="text-muted">Sem linhas</td></tr>'}</tbody></table>
+                ${renderGrandesBatteryReviewCards(val)}
               </div>
             `;
+          }
+
+          if (field.type === 'dynamic_table' && Array.isArray(val)) {
+            const labels = field.columns || [];
+            const keys = labels.map((c) => columnKey(c));
+            return renderReviewDynamicTable(field, labels, keys, val);
           }
 
           const pillClass = field.type === 'status_pills' ? getStatusPillClass(val) : '';
@@ -1428,7 +1482,10 @@ export function renderReportValuesForReview(service, values = {}) {
         .join('');
       if (!items) return '';
       return section
-        ? `<div class="review-section"><h5>${escapeHtml(section)}</h5>${items}</div>`
+        ? `<details class="review-section-fold"${groupIndex === 0 ? ' open' : ''}>
+            <summary class="review-section-fold__summary">${escapeHtml(section)}</summary>
+            <div class="review-section-fold__body">${items}</div>
+          </details>`
         : items;
     })
     .filter(Boolean)

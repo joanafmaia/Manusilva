@@ -35,6 +35,18 @@ import {
   formatReportAge,
   getReportUrgencyLevel,
 } from './rh-panel-utils.js';
+import {
+  computeReviewChecks,
+  reviewHasBlockingIssues,
+  renderReviewValidationPanel,
+  buildReviewExecutiveBullets,
+  renderReviewExecutiveList,
+  renderReviewTabsNav,
+  bindReviewTabs,
+  bindRejectNoteTemplates,
+  renderRejectNoteTemplates,
+  reviewJobHasFotos,
+} from './report-review-enhanced.js';
 
 /** @deprecated Preferir `resolveWorkStateFromReport` + `getCalendarEventStateMeta` */
 export const REPORT_STATUS_PANEL_META = {
@@ -210,6 +222,7 @@ export function buildRhReviewListItem({ job, report, client, tech }) {
 export function openRhRejectDialog(reportId, onRejected) {
   const content = `
     <p class="text-muted mb-4">Escreva uma nota de correção para o técnico:</p>
+    ${renderRejectNoteTemplates()}
     <textarea id="reject-note" class="form-textarea" rows="4" placeholder="Ex: Faltam fotos do componente substituído..."></textarea>
   `;
   const actions = `
@@ -217,6 +230,7 @@ export function openRhRejectDialog(reportId, onRejected) {
     <button type="button" class="btn-danger" id="confirm-reject">Enviar Rejeição</button>
   `;
   const overlay = openModal('Rejeitar Relatório', content, actions);
+  bindRejectNoteTemplates(overlay);
   overlay.querySelector('#cancel-reject')?.addEventListener('click', closeModal);
   overlay.querySelector('#confirm-reject')?.addEventListener('click', async () => {
     const note = overlay.querySelector('#reject-note')?.value?.trim();
@@ -259,7 +273,8 @@ export async function openRhReviewModal(reportId, callbacks = {}) {
   const client = getClient(report.clientId);
   const tech = getTechnician(report.technicianId);
   const service = getServiceType(report.serviceType);
-  const fieldsHTML = renderReportValuesForReview(service, report.data?.values || {});
+  const values = report.data?.values || {};
+  const fieldsHTML = renderReportValuesForReview(service, values);
   const showWorkflow = report.status === 'pending_review';
   const hasNext = Boolean(showWorkflow && callbacks.getNextReportId?.(reportId));
 
@@ -270,6 +285,8 @@ export async function openRhReviewModal(reportId, callbacks = {}) {
     report,
     client,
     tech,
+    service,
+    values,
     fieldsHTML,
     showWorkflow,
     showApproveNext: hasNext,
@@ -279,16 +296,25 @@ export async function openRhReviewModal(reportId, callbacks = {}) {
     `${service?.icon || '📋'} ${escapeHtml(service?.label || 'Relatório')} — ${escapeHtml(statusLabel)}`,
     content,
     '',
-    { review: true },
+    { review: true, reviewWide: true },
   );
 
   bindReviewFotoClicks(overlay);
   bindReviewPdfButton(overlay, { job, report });
+  bindReviewTabs(overlay);
 
   overlay.querySelector('#modal-close-review')?.addEventListener('click', closeModal);
 
   if (showWorkflow) {
     const runApprove = async (andNext = false) => {
+      const checks = computeReviewChecks({ report, job, client, values });
+      if (reviewHasBlockingIssues(checks)) {
+        const proceed = window.confirm(
+          'Ainda há verificações em falha (a vermelho). Deseja aprovar na mesma?',
+        );
+        if (!proceed) return;
+      }
+
       const btn = overlay.querySelector(andNext ? '#modal-approve-next' : '#modal-approve');
       const emailErr = await validateReviewClientEmail(overlay);
       if (emailErr) {
@@ -327,13 +353,15 @@ export async function openRhReviewModal(reportId, callbacks = {}) {
 }
 
 /**
- * Corpo da modal de revisão RH — grelha 2 colunas (info | fotos + ações).
+ * Corpo da modal de revisão RH — validação, tabs e ações fixas.
  */
 export function buildRhReviewModalContent({
   job,
   report,
   client,
   tech,
+  service,
+  values = {},
   fieldsHTML,
   showWorkflow = true,
   showApproveNext = false,
@@ -344,6 +372,17 @@ export function buildRhReviewModalContent({
     : job?.date || '';
   const dateLabel = submittedDate ? formatDateLong(submittedDate) : '—';
   const contactField = renderReviewClientEmailField(client, { editable: showWorkflow });
+  const hasFotos = reviewJobHasFotos(job, report);
+  const checks = computeReviewChecks({ report, job, client, values });
+  const validationHtml = renderReviewValidationPanel(checks);
+  const executiveHtml = renderReviewExecutiveList(
+    buildReviewExecutiveBullets({ service, report, job, client, tech, values }),
+  );
+  const fotosHtml = hasFotos ? renderReviewFotosSection(job, report) : '';
+  const serviceLine = service
+    ? `${service.icon || '📋'} ${service.label || report?.serviceType || '—'}`
+    : '—';
+  const queueAge = report?.submittedAt ? formatReportAge(report.submittedAt) : '';
 
   const workflowHtml = showWorkflow
     ? `
@@ -354,48 +393,65 @@ export function buildRhReviewModalContent({
     : `<button type="button" class="btn-secondary btn-touch review-action-btn" id="modal-close-review">Fechar</button>`;
 
   return `
-    <div class="review-detail review-detail--grid">
-      <div class="review-col review-col--info">
-        <header class="review-meta-card">
+    <div class="review-shell${hasFotos ? ' review-shell--has-fotos' : ' review-shell--no-fotos'}">
+      <header class="review-meta-card review-meta-card--enhanced">
+        <div class="review-meta-card__top">
           <div class="review-ordem-block">
             <span class="review-ordem-kicker">Ordem Nº</span>
             <span class="review-ordem-num">${escapeHtml(formatOrdemLabel(job))}</span>
           </div>
-          <p class="review-meta-row"><strong>Cliente:</strong> ${escapeHtml(client?.name || client?.Nome || '—')}</p>
-          <p class="review-meta-row"><strong>Técnico:</strong> ${escapeHtml(tech?.name || '—')}</p>
-          ${contactField}
-          <p class="review-meta-row"><strong>Data:</strong> ${escapeHtml(dateLabel)}</p>
-          ${report?.forkliftSerial ? `<p class="review-meta-row"><strong>Máquina:</strong> ${escapeHtml(report.forkliftSerial)}</p>` : ''}
-        </header>
+          ${queueAge ? `<span class="review-queue-badge">${escapeHtml(queueAge)}</span>` : ''}
+        </div>
+        <p class="review-meta-row"><strong>Serviço:</strong> ${escapeHtml(serviceLine)}</p>
+        <p class="review-meta-row"><strong>Cliente:</strong> ${escapeHtml(client?.name || client?.Nome || '—')}</p>
+        <p class="review-meta-row"><strong>Técnico:</strong> ${escapeHtml(tech?.name || '—')}</p>
+        ${contactField}
+        <p class="review-meta-row"><strong>Data:</strong> ${escapeHtml(dateLabel)}</p>
+        ${report?.forkliftSerial ? `<p class="review-meta-row"><strong>Máquina:</strong> ${escapeHtml(report.forkliftSerial)}</p>` : ''}
+      </header>
 
-        <section class="review-block">
-          <h4 class="review-section-title">Dados do Relatório</h4>
-          <div class="review-fields-wrap">${fieldsHTML}</div>
-        </section>
+      ${validationHtml}
 
-        <section class="review-block review-block--compact">
-          <h4 class="review-section-title">Assinaturas</h4>
-          <p class="review-signatures">
-            Técnico: ${data.signatures?.technician ? '✓ Assinado' : '✗ Pendente'}
-            · Cliente: ${data.signatures?.client ? '✓ Assinado' : '✗ Pendente'}
-          </p>
-        </section>
+      ${renderReviewTabsNav('resumo')}
 
-        <section class="review-section review-section--pdf">
-          <p class="review-pdf-status review-pdf-status--pending">Use «Pré-visualizar PDF» para ver o relatório com os dados atuais. O PDF oficial é gerado na aprovação.</p>
-        </section>
+      <div class="review-tab-panels">
+        <div class="review-tab-panel is-active" data-review-panel="resumo" role="tabpanel">
+          <section class="review-block">
+            <h4 class="review-section-title">Resumo executivo</h4>
+            ${executiveHtml}
+          </section>
+          ${fotosHtml}
+          <section class="review-block review-block--compact">
+            <h4 class="review-section-title">Assinaturas</h4>
+            <p class="review-signatures">
+              Técnico: ${data.signatures?.technician ? '✓ Assinado' : '✗ Pendente'}
+              · Cliente: ${data.signatures?.client ? '✓ Assinado' : '✗ Pendente'}
+            </p>
+          </section>
+        </div>
 
-        <div class="review-col-footer">
-          <button type="button" class="btn-primary btn-touch review-btn-pdf" id="modal-pdf-preview">Pré-visualizar PDF</button>
+        <div class="review-tab-panel" data-review-panel="pdf" role="tabpanel" hidden>
+          <div class="review-pdf-tab">
+            <p class="review-pdf-tab__lead">Pré-visualize o documento tal como o cliente o receberá após aprovação.</p>
+            <button type="button" class="btn-primary btn-touch review-btn-pdf review-btn-pdf--hero" id="modal-pdf-preview">Gerar pré-visualização PDF</button>
+            <p class="text-muted review-pdf-tab__hint">O PDF oficial é gerado automaticamente ao aprovar.</p>
+          </div>
+        </div>
+
+        <div class="review-tab-panel" data-review-panel="dados" role="tabpanel" hidden>
+          <section class="review-block">
+            <h4 class="review-section-title">Dados do relatório</h4>
+            <div class="review-fields-wrap">${fieldsHTML}</div>
+          </section>
         </div>
       </div>
 
-      <div class="review-col review-col--media">
-        ${renderReviewFotosSection(job, report)}
-        <div class="review-workflow-actions">
+      <footer class="review-sticky-footer">
+        <button type="button" class="btn-outline btn-touch review-btn-pdf" id="modal-pdf-preview-footer" title="Pré-visualizar PDF">PDF</button>
+        <div class="review-sticky-footer__actions">
           ${workflowHtml}
         </div>
-      </div>
+      </footer>
     </div>
   `;
 }
