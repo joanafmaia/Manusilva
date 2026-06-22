@@ -36,11 +36,18 @@ import {
   renderWorkStateBadge,
   resolveCalendarEventState,
 } from './calendar-event-state.js';
-import { initLogoutButton, renderUserGreeting } from './auth.js';
+import { initLogoutButton } from './auth.js';
 import { HistoricoClienteView } from './views/historico-cliente.js';
 import { ensureTrabalhosSemana, isJobsCacheLoaded } from './trabalhos-db.js';
 import { isUuid } from './relatorios-db.js';
 import { triggerTechDataSync } from './tech-sync.js';
+import {
+  filterJobsBySearch,
+  filterRealizadosBySearch,
+  renderTechClientInfoSheet,
+  resolveTechActionLabel,
+} from './tech-panel-utils.js';
+import { requestTechNotificationPermission } from './tech-notifications.js';
 
 /** Âncora da semana visível no calendário (segunda-feira da semana em foco) */
 let currentWeekDate = startOfLocalDay(new Date());
@@ -56,10 +63,14 @@ const TECH_MONTH_WEEKDAYS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
 const TECH_MONTH_JOBS_VISIBLE = 4;
 
 const TECH_JOBS_TABS = {
-  em_curso: { id: 'em_curso', label: 'Em Curso / Pendentes', subtitle: 'Relatórios em aberto' },
+  em_curso: { id: 'em_curso', label: 'Em Curso', subtitle: 'Relatórios em aberto' },
   agendados: { id: 'agendados', label: 'Agendados', subtitle: 'Dia selecionado' },
-  realizados: { id: 'realizados', label: 'Histórico de Realizados', subtitle: 'Concluídos' },
+  realizados: { id: 'realizados', label: 'Realizados', subtitle: 'Concluídos' },
 };
+
+const TECH_CAL_COMPACT_KEY = 'tech_calendar_compact';
+let techCalendarCompact = localStorage.getItem(TECH_CAL_COMPACT_KEY) === '1';
+let techJobsSearchQuery = '';
 
 /** Aba ativa no arranque: Agendados (vista semanal do calendário). */
 let techJobsTab = 'agendados';
@@ -138,6 +149,7 @@ function setTechJobsTab(tabId) {
   if (!TECH_JOBS_TABS[tabId] || techJobsTab === tabId) return;
   techJobsTab = tabId;
   techTabDataCacheKey = null;
+  techJobsSearchQuery = '';
 
   document.querySelectorAll('[data-tech-jobs-tab]').forEach((btn) => {
     const active = btn.dataset.techJobsTab === tabId;
@@ -148,10 +160,14 @@ function setTechJobsTab(tabId) {
   const title = document.getElementById('tech-jobs-section-title');
   if (title) title.textContent = TECH_JOBS_TABS[tabId].label;
 
+  const searchInput = document.getElementById('tech-jobs-search');
+  if (searchInput) searchInput.value = '';
+
+  updateTechJobsToolbarVisibility();
   updateTechCalendarWrapVisibility();
+  updateTechTabBadges();
 
   if (tabId === 'agendados') {
-    // Calendário volta a ser visível — garante grelha/dados atualizados
     refreshTechCalendar()
       .then(() => scheduleCalendarResize())
       .catch(console.error);
@@ -161,6 +177,15 @@ function setTechJobsTab(tabId) {
   loadTechTabData()
     .then(() => renderJobs())
     .catch(console.error);
+}
+
+function updateTechJobsToolbarVisibility() {
+  const toolbar = document.getElementById('tech-jobs-toolbar');
+  const search = document.getElementById('tech-jobs-search');
+  if (!toolbar || !search) return;
+  const showSearch = techJobsTab !== 'realizados';
+  toolbar.hidden = !showSearch;
+  search.hidden = !showSearch;
 }
 
 function bindTechJobsTabs() {
@@ -339,9 +364,18 @@ const TECH_JOBS_SHELL_HTML = `
       <h2 id="tech-jobs-section-title">Agendados</h2>
       <span class="date-label" id="selected-date-label"></span>
     </div>
-    <p class="text-muted tech-greeting">
-      Olá, <strong id="user-name"></strong>
-    </p>
+    <div id="tech-day-summary" class="tech-day-summary" aria-live="polite"></div>
+    <div id="tech-rejected-banner" class="tech-rejected-banner" hidden></div>
+    <div class="tech-jobs-toolbar" id="tech-jobs-toolbar">
+      <input
+        type="search"
+        id="tech-jobs-search"
+        class="tech-jobs-search"
+        placeholder="Pesquisar cliente ou serviço…"
+        autocomplete="off"
+        aria-label="Pesquisar trabalhos"
+      >
+    </div>
     <div class="jobs-list" id="jobs-list"></div>
   </section>
 `;
@@ -350,7 +384,9 @@ export function restoreTechDashboard() {
   const app = document.getElementById('app');
   if (!app) return;
   app.innerHTML = TECH_JOBS_SHELL_HTML;
-  renderUserGreeting('user-name');
+  bindTechJobsSearch();
+  updateTechJobsToolbarVisibility();
+  updateTechCalendarCompactUi();
   updateTechCalendarWrapVisibility();
   const title = document.getElementById('tech-jobs-section-title');
   if (title) title.textContent = TECH_JOBS_TABS[techJobsTab].label;
@@ -379,17 +415,21 @@ export async function initTechDashboard() {
 
   // UI básica primeiro — navegação e botão Sair nunca ficam bloqueados
   // por falhas na recolha de dados do Supabase.
-  renderUserGreeting('user-name');
   initLogoutButton();
   renderHeader();
   renderOfflineToggle();
-  renderOfflineSyncBar();
-  renderTechSyncStatus();
-  bindTechSyncRefreshButton();
+  renderTechConnectivityBar();
+  bindTechConnectivityActions();
+  bindTechOfflineMenu();
+  bindTechJobsSearch();
+  bindTechGoToday();
+  bindTechCalendarCompact();
+  updateTechCalendarCompactUi();
   bindTechCalendarNavigation();
   bindTechJobsTabs();
-  bindOfflineSyncButton();
+  updateTechJobsToolbarVisibility();
   updateTechCalendarWrapVisibility();
+  requestTechNotificationPermission().catch(() => {});
 
   window.addEventListener('jobs-updated', () => {
     periodJobsCacheKey = null;
@@ -398,25 +438,28 @@ export async function initTechDashboard() {
   });
   window.addEventListener('db-updated', () => {
     renderOfflineToggle();
-    renderOfflineSyncBar();
+    renderTechConnectivityBar();
+    updateTechTabBadges();
+    renderTechDaySummary();
+    renderTechRejectedBanner();
     periodJobsCacheKey = null;
     techTabDataCacheKey = null;
     refreshTechCalendar().catch(console.error);
   });
 
   window.addEventListener('trabalhos-pendentes-changed', () => {
-    renderOfflineSyncBar();
-    renderTechSyncStatus();
+    renderTechConnectivityBar();
+    renderTechDaySummary();
   });
   window.addEventListener('online', () => {
     renderOfflineToggle();
-    renderOfflineSyncBar();
-    renderTechSyncStatus();
+    renderTechConnectivityBar();
+    renderTechDaySummary();
   });
   window.addEventListener('offline', () => {
     renderOfflineToggle();
-    renderOfflineSyncBar();
-    renderTechSyncStatus();
+    renderTechConnectivityBar();
+    renderTechDaySummary();
   });
 
   try {
@@ -440,8 +483,10 @@ export async function initTechDashboard() {
     await migrateLegacyOfflineQueue(getDB, updateDB);
     initTrabalhosOfflineSync();
     sincronizarTrabalhosOffline().catch(console.error);
-    renderOfflineSyncBar();
-    renderTechSyncStatus();
+    renderTechConnectivityBar();
+    updateTechTabBadges();
+    renderTechDaySummary();
+    renderTechRejectedBanner();
 
     await refreshTechCalendar();
 
@@ -471,209 +516,316 @@ export async function initTechDashboard() {
   }
 }
 
-let offlineSyncBound = false;
+let techConnectivityBound = false;
 
-function bindOfflineSyncButton() {
-  if (offlineSyncBound) return;
-  offlineSyncBound = true;
+async function runTechDataSync() {
+  if (!canReachServer()) {
+    showToast('Sem ligação à internet. Os dados continuam guardados neste tablet.', 'warning', 6000);
+    return;
+  }
 
-  document.getElementById('offline-sync-btn')?.addEventListener('click', async () => {
-    const btn = document.getElementById('offline-sync-btn');
-    if (!btn || btn.disabled) return;
+  const bar = document.getElementById('tech-connectivity-bar');
+  const syncBtn = document.getElementById('tech-connectivity-sync-btn');
+  if (syncBtn) syncBtn.disabled = true;
+  bar?.classList.add('tech-connectivity-bar--syncing');
 
-    if (!canReachServer()) {
-      const { showToast } = await import('./app.js');
-      showToast('Sem ligação à internet. O relatório continua guardado neste dispositivo.', 'warning', 6000);
-      return;
+  try {
+    const { synced, remaining } = await triggerTechDataSync();
+    if (synced > 0) {
+      showToast(
+        synced === 1 ? '1 relatório enviado com sucesso.' : `${synced} relatórios enviados com sucesso.`,
+        'success',
+        5000,
+      );
+      periodJobsCacheKey = null;
+      techTabDataCacheKey = null;
+      await refreshTechCalendar();
+    } else if (remaining > 0) {
+      showToast('Não foi possível enviar agora. Tente novamente dentro de momentos.', 'warning', 6000);
+    } else {
+      showToast('Dados atualizados.', 'success', 3500);
+      periodJobsCacheKey = null;
+      techTabDataCacheKey = null;
+      await refreshTechCalendar();
     }
+  } catch (err) {
+    console.error('[Técnico] Sincronização:', err);
+    showToast('Erro ao sincronizar. Os dados continuam guardados neste dispositivo.', 'error', 7000);
+  } finally {
+    if (syncBtn) syncBtn.disabled = false;
+    bar?.classList.remove('tech-connectivity-bar--syncing');
+    renderTechConnectivityBar();
+    renderTechDaySummary();
+  }
+}
 
-    btn.disabled = true;
-    document.getElementById('offline-sync-bar')?.classList.add('is-syncing');
-    const labelEl = btn.querySelector('.offline-sync-banner__action-label');
-    const prevLabel = labelEl?.textContent || 'Sincronizar Agora';
-    if (labelEl) labelEl.textContent = 'A sincronizar…';
+function bindTechConnectivityActions() {
+  if (techConnectivityBound) return;
+  techConnectivityBound = true;
+  document.getElementById('tech-connectivity-sync-btn')?.addEventListener('click', () => {
+    void runTechDataSync();
+  });
+}
 
-    try {
-      const { synced, remaining } = await triggerTechDataSync();
-      const { showToast } = await import('./app.js');
+let techOfflineMenuBound = false;
 
-      if (synced > 0) {
-        showToast(
-          synced === 1
-            ? '1 relatório enviado com sucesso.'
-            : `${synced} relatórios enviados com sucesso.`,
-          'success',
-          5000,
-        );
-        periodJobsCacheKey = null;
-        await refreshTechCalendar();
-      } else if (remaining > 0) {
-        showToast('Não foi possível enviar agora. Tente novamente dentro de momentos.', 'warning', 6000);
-      } else {
-        showToast('Não há relatórios pendentes.', 'info', 3500);
-      }
-    } catch (err) {
-      console.error('[Técnico] Sincronização manual:', err);
-      const { showToast } = await import('./app.js');
-      showToast('Erro ao sincronizar. Os dados continuam guardados neste dispositivo.', 'error', 7000);
-    } finally {
-      btn.disabled = false;
-      document.getElementById('offline-sync-bar')?.classList.remove('is-syncing');
-      if (labelEl) labelEl.textContent = prevLabel;
-      renderOfflineSyncBar();
-      renderTechSyncStatus();
+function bindTechOfflineMenu() {
+  if (techOfflineMenuBound) return;
+  techOfflineMenuBound = true;
+
+  const menuBtn = document.getElementById('tech-offline-menu-btn');
+  const menu = document.getElementById('tech-offline-menu');
+  menuBtn?.addEventListener('click', () => {
+    const open = menu?.hidden !== false;
+    if (menu) menu.hidden = !open;
+    menuBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!menu || menu.hidden) return;
+    if (e.target.closest('#tech-offline-menu') || e.target.closest('#tech-offline-menu-btn')) return;
+    menu.hidden = true;
+    menuBtn?.setAttribute('aria-expanded', 'false');
+  });
+}
+
+function bindTechGoToday() {
+  document.getElementById('tech-go-today')?.addEventListener('click', () => {
+    goToToday();
+  });
+}
+
+function goToToday() {
+  const today = getTodayIso();
+  currentWeekDate = startOfLocalDay(new Date());
+  weekDates = getWeekDates(currentWeekDate);
+  selectedDate = today;
+  periodJobsCacheKey = null;
+  techTabDataCacheKey = null;
+
+  if (techJobsTab !== 'agendados') {
+    setTechJobsTab('agendados');
+    return;
+  }
+
+  refreshTechCalendar().catch(console.error);
+}
+
+function bindTechCalendarCompact() {
+  document.getElementById('tech-calendar-compact-btn')?.addEventListener('click', () => {
+    techCalendarCompact = !techCalendarCompact;
+    localStorage.setItem(TECH_CAL_COMPACT_KEY, techCalendarCompact ? '1' : '0');
+    updateTechCalendarCompactUi();
+  });
+}
+
+function updateTechCalendarCompactUi() {
+  const wrap = document.getElementById('tech-calendar-wrap');
+  const btn = document.getElementById('tech-calendar-compact-btn');
+  wrap?.classList.toggle('tech-calendar-wrap--compact', techCalendarCompact);
+  if (btn) {
+    btn.setAttribute('aria-pressed', techCalendarCompact ? 'true' : 'false');
+    btn.textContent = techCalendarCompact ? '▴' : '▾';
+    btn.title = techCalendarCompact ? 'Expandir calendário' : 'Calendário compacto';
+  }
+}
+
+function bindTechJobsSearch() {
+  const input = document.getElementById('tech-jobs-search');
+  if (!input || input.dataset.bound === '1') return;
+  input.dataset.bound = '1';
+  input.addEventListener('input', () => {
+    techJobsSearchQuery = input.value || '';
+    renderJobs();
+  });
+}
+
+function getRejectedJobsForTech(techId) {
+  return getJobsSnapshot()
+    .filter((job) => {
+      if (!jobAssignedToTechnician(job, techId)) return false;
+      const report = getReportForJob(job.id);
+      return resolveCalendarEventState(job, report) === 'rejected';
+    })
+    .sort(sortJobsByDateTime);
+}
+
+function getTodayAgendadosCount(techId) {
+  const today = getTodayIso();
+  return getJobsSnapshot().filter((job) => {
+    if (!jobAssignedToTechnician(job, techId)) return false;
+    if (toPureDate(job.date) !== today) return false;
+    const report = getReportForJob(job.id);
+    return AGENDADOS_VISIBLE_STATES.has(resolveCalendarEventState(job, report));
+  }).length;
+}
+
+function updateTechTabBadges() {
+  const session = requireAuth('technician');
+  if (!session?.technicianId) return;
+  const techId = session.technicianId;
+
+  const counts = {
+    em_curso: getEmCursoJobs(techId).length,
+    agendados: getTodayAgendadosCount(techId),
+    realizados: getRealizadosItems(techId).length,
+  };
+
+  Object.entries(counts).forEach(([tabId, count]) => {
+    const badge = document.getElementById(`tech-tab-badge-${tabId}`);
+    if (!badge) return;
+    if (count > 0) {
+      badge.hidden = false;
+      badge.textContent = count > 99 ? '99+' : String(count);
+    } else {
+      badge.hidden = true;
     }
   });
 }
 
-let techSyncRefreshBound = false;
+async function renderTechDaySummary() {
+  const el = document.getElementById('tech-day-summary');
+  if (!el) return;
 
-function bindTechSyncRefreshButton() {
-  if (techSyncRefreshBound) return;
-  techSyncRefreshBound = true;
+  const session = requireAuth('technician');
+  if (!session?.technicianId) {
+    el.innerHTML = '';
+    return;
+  }
 
-  document.getElementById('tech-sync-refresh-btn')?.addEventListener('click', async () => {
-    const btn = document.getElementById('tech-sync-refresh-btn');
-    const strip = document.getElementById('tech-sync-status');
-    if (!btn || btn.disabled) return;
+  const techId = session.technicianId;
+  const userName = session.name || 'técnico';
 
-    if (!canReachServer()) {
-      showToast('Sem ligação à internet.', 'warning', 5000);
-      return;
-    }
+  const today = getTodayIso();
+  const todayJobs = getTodayAgendadosCount(techId);
+  const emCurso = getEmCursoJobs(techId).length;
+  const rejected = getRejectedJobsForTech(techId).length;
 
-    btn.disabled = true;
-    strip?.classList.add('tech-sync-status--syncing');
-    try {
-      const { synced, remaining } = await triggerTechDataSync();
-      if (synced > 0) {
-        showToast(
-          synced === 1 ? '1 relatório sincronizado.' : `${synced} relatórios sincronizados.`,
-          'success',
-          5000,
-        );
-        periodJobsCacheKey = null;
-        techTabDataCacheKey = null;
-        await refreshTechCalendar();
-      } else if (remaining > 0) {
-        showToast('Alguns relatórios ainda aguardam envio.', 'warning', 6000);
-      } else {
-        showToast('Dados atualizados.', 'success', 3500);
-        periodJobsCacheKey = null;
-        techTabDataCacheKey = null;
-        await refreshTechCalendar();
-      }
-    } catch (err) {
-      console.error('[Técnico] Sincronização:', err);
-      showToast('Erro ao sincronizar.', 'error', 7000);
-    } finally {
-      btn.disabled = false;
-      strip?.classList.remove('tech-sync-status--syncing');
-      renderOfflineSyncBar();
-      renderTechSyncStatus();
-    }
+  let pendingSync = 0;
+  try {
+    const { countTrabalhosPendentes } = await import('./trabalhos-offline.js');
+    pendingSync = await countTrabalhosPendentes();
+  } catch {
+    pendingSync = 0;
+  }
+
+  const todayLabel = formatDateLong(today);
+
+  const parts = [
+    `<strong>${todayJobs}</strong> agendado${todayJobs === 1 ? '' : 's'} hoje`,
+    `<strong>${emCurso}</strong> em curso`,
+    pendingSync
+      ? `<strong>${pendingSync}</strong> por sincronizar`
+      : '<span class="tech-day-summary__ok">sincronizado</span>',
+  ];
+
+  el.innerHTML = `
+    <p class="tech-day-summary__greeting">Olá, <strong>${escapeHtml(userName)}</strong></p>
+    <p class="tech-day-summary__stats">${todayLabel} · ${parts.join(' · ')}${
+      rejected ? ` · <span class="tech-day-summary__warn"><strong>${rejected}</strong> rejeitado${rejected === 1 ? '' : 's'}</span>` : ''
+    }</p>
+  `;
+}
+
+function renderTechRejectedBanner() {
+  const banner = document.getElementById('tech-rejected-banner');
+  if (!banner) return;
+
+  const session = requireAuth('technician');
+  if (!session?.technicianId) {
+    banner.hidden = true;
+    return;
+  }
+
+  const rejected = getRejectedJobsForTech(session.technicianId);
+  if (!rejected.length) {
+    banner.hidden = true;
+    banner.innerHTML = '';
+    return;
+  }
+
+  const first = rejected[0];
+  const client = getClient(first.clientId);
+  const report = getReportForJob(first.id);
+  const note = report?.rejectionNote || first.rejectionNote || '';
+  const more = rejected.length > 1 ? ` (+${rejected.length - 1} outro${rejected.length > 2 ? 's' : ''})` : '';
+
+  banner.hidden = false;
+  banner.innerHTML = `
+    <div class="tech-rejected-banner__content">
+      <span class="tech-rejected-banner__icon" aria-hidden="true">↩</span>
+      <div class="tech-rejected-banner__text">
+        <strong>Relatório rejeitado</strong> — ${escapeHtml(client?.name || 'Cliente')}${more}
+        ${note ? `<span class="tech-rejected-banner__note">${escapeHtml(note.length > 120 ? `${note.slice(0, 120)}…` : note)}</span>` : ''}
+      </div>
+      <button type="button" class="btn-primary btn-sm tech-rejected-banner__action" data-rejected-job="${escapeHtml(first.id)}">Corrigir</button>
+    </div>
+  `;
+
+  banner.querySelector('[data-rejected-job]')?.addEventListener('click', () => {
+    void openContinueJob(first.id);
   });
 }
 
-async function renderTechSyncStatus() {
-  const strip = document.getElementById('tech-sync-status');
-  const text = document.getElementById('tech-sync-status-text');
-  const btn = document.getElementById('tech-sync-refresh-btn');
-  if (!strip || !text) return;
+async function renderTechConnectivityBar() {
+  const bar = document.getElementById('tech-connectivity-bar');
+  const text = document.getElementById('tech-connectivity-text');
+  const syncBtn = document.getElementById('tech-connectivity-sync-btn');
+  if (!bar || !text) return;
 
   try {
     const { countTrabalhosPendentes } = await import('./trabalhos-offline.js');
     const { getAllLocalReportDrafts } = await import('./report-local-storage.js');
     const pending = await countTrabalhosPendentes();
     const drafts = (await getAllLocalReportDrafts()).length;
-    const online = canReachServer() && !isOffline();
+    const manualOffline = isOffline();
+    const networkOffline = !isNetworkOnline();
+    const online = canReachServer() && !manualOffline;
 
-    strip.classList.remove(
-      'tech-sync-status--ok',
-      'tech-sync-status--warn',
-      'tech-sync-status--offline',
-      'tech-sync-status--syncing',
+    bar.classList.remove(
+      'tech-connectivity-bar--ok',
+      'tech-connectivity-bar--warn',
+      'tech-connectivity-bar--offline',
+      'tech-connectivity-bar--syncing',
     );
 
     if (!online) {
-      strip.classList.add('tech-sync-status--offline');
-      text.textContent = pending
-        ? `Sem rede · ${pending} relatório(s) por enviar`
-        : drafts
-          ? `Sem rede · ${drafts} rascunho(s) no tablet`
-          : 'Sem rede — dados guardados localmente';
-      if (btn) {
-        btn.hidden = false;
-        btn.disabled = true;
+      bar.classList.add('tech-connectivity-bar--offline');
+      if (networkOffline) {
+        text.textContent = pending
+          ? `Sem rede · ${pending} relatório(s) por enviar`
+          : 'Sem rede — dados guardados no tablet';
+      } else {
+        text.textContent = pending
+          ? `Modo offline · ${pending} por enviar`
+          : 'Modo offline — dados guardados no tablet';
+      }
+      if (syncBtn) {
+        syncBtn.hidden = pending <= 0;
+        syncBtn.disabled = !canReachServer();
       }
       return;
     }
 
     if (pending > 0) {
-      strip.classList.add('tech-sync-status--warn');
+      bar.classList.add('tech-connectivity-bar--warn');
       text.textContent = `${pending} relatório(s) aguardam envio`;
-      if (btn) {
-        btn.hidden = false;
-        btn.disabled = false;
+      if (syncBtn) {
+        syncBtn.hidden = false;
+        syncBtn.disabled = false;
       }
       return;
     }
 
-    strip.classList.add('tech-sync-status--ok');
+    bar.classList.add('tech-connectivity-bar--ok');
     text.textContent = drafts
       ? `Sincronizado · ${drafts} rascunho(s) em aberto`
       : 'Sincronizado com o servidor';
-    if (btn) btn.hidden = true;
+    if (syncBtn) syncBtn.hidden = true;
   } catch (err) {
     console.warn('[Técnico] Estado de sync:', err);
     text.textContent = 'Estado de sincronização indisponível';
   }
-}
-
-function renderOfflineSyncBar() {
-  const bar = document.getElementById('offline-sync-bar');
-  const title = document.getElementById('offline-sync-title');
-  const desc = document.getElementById('offline-sync-desc');
-  const countEl = document.getElementById('offline-sync-count');
-  const btn = document.getElementById('offline-sync-btn');
-  if (!bar) return;
-
-  import('./trabalhos-offline.js')
-    .then(async ({ countTrabalhosPendentes }) => {
-      const count = await countTrabalhosPendentes();
-      if (!count) {
-        bar.hidden = true;
-        return;
-      }
-
-      bar.hidden = false;
-
-      if (title) {
-        title.textContent =
-          count === 1
-            ? '🔄 Tens 1 relatório pendente.'
-            : `🔄 Tens ${count} relatórios pendentes.`;
-      }
-
-      if (countEl) {
-        countEl.hidden = false;
-        countEl.textContent = String(count);
-      }
-
-      if (desc) {
-        desc.textContent = canReachServer()
-          ? 'Pronto para enviar ao servidor.'
-          : 'Em segurança no tablet até recuperar ligação à internet.';
-      }
-
-      if (btn) {
-        btn.disabled = false;
-        btn.title = canReachServer()
-          ? 'Enviar relatórios guardados neste dispositivo'
-          : 'Sem rede — os relatórios permanecem guardados no tablet';
-      }
-    })
-    .catch(console.error);
 }
 
 function renderHeader() {
@@ -717,8 +869,8 @@ function renderOfflineToggle() {
   toggle.onchange = () => {
     setOfflineMode(toggle.checked);
     renderOfflineToggle();
-    renderOfflineSyncBar();
-    renderTechSyncStatus();
+    renderTechConnectivityBar();
+    renderTechDaySummary();
   };
 }
 
@@ -915,6 +1067,10 @@ function renderTechCalendar() {
   } else {
     renderCalendarStrip();
   }
+  updateTechTabBadges();
+  renderTechDaySummary();
+  renderTechRejectedBanner();
+  updateTechJobsToolbarVisibility();
   renderJobs();
 }
 
@@ -1085,9 +1241,7 @@ function renderCalendarStrip() {
   });
 }
 
-/* ─── Linha compacta padrão (todas as abas) ───
-   [Data] | [Cliente] | [Tipo de Relatório] | [Etiqueta Estado] | [Ação]
-   Borda esquerda com a cor oficial do estado. (Serviços são ao dia — sem hora.) */
+/* ─── Cartão de trabalho (2 linhas, toque amplo) ─── */
 
 const TECH_ROW_ACTIONS = {
   view: { icon: '👁️', title: 'Visualizar relatório' },
@@ -1100,28 +1254,83 @@ function renderTechJobRow(job, report, actionType, { dateOverride, showDate = tr
   const client = getClient(job?.clientId || report?.clientId);
   const service = getServiceType(job?.serviceType || report?.serviceType);
   const action = TECH_ROW_ACTIONS[actionType] || TECH_ROW_ACTIONS.view;
+  const actionLabel = resolveTechActionLabel(actionType, state);
   const jobId = job?.id || report?.jobId || '';
+  const clientId = job?.clientId || report?.clientId || '';
   const isoDate = dateOverride || job?.date || '';
   const label = `${action.title}: ${client?.name || 'Cliente'} — ${service?.label || 'Relatório'}${isoDate ? ` — ${formatDateLong(isoDate)}` : ''}`;
+  const reportId = report?.id || '';
 
   const rejectionNote = report?.rejectionNote || job?.rejectionNote || '';
   const rejectionHtml =
-    state === 'rejected' && rejectionNote
-      ? `<span class="tech-job-row-rejection" title="${escapeHtml(rejectionNote)}">↩ ${escapeHtml(rejectionNote.length > 72 ? `${rejectionNote.slice(0, 72)}…` : rejectionNote)}</span>`
-      : state === 'rejected'
-        ? '<span class="tech-job-row-rejection">↩ Rejeitado — abra para corrigir</span>'
-        : '';
+    state === 'rejected'
+      ? `<p class="tech-job-card__rejection">↩ ${
+          rejectionNote
+            ? escapeHtml(rejectionNote.length > 100 ? `${rejectionNote.slice(0, 100)}…` : rejectionNote)
+            : 'Rejeitado — corrija e reenvie'
+        }</p>`
+      : '';
+
+  const pdfBtn =
+    actionType === 'view' && reportId
+      ? `<button type="button" class="tech-job-card__pdf" data-row-pdf="${escapeHtml(reportId)}" data-row-pdf-job="${escapeHtml(jobId)}" aria-label="Ver PDF">PDF</button>`
+      : '';
 
   return `
-    <button type="button" class="tech-job-row tech-job-row--${state}" data-row-job="${escapeHtml(jobId)}" data-row-action="${escapeHtml(actionType)}" aria-label="${escapeHtml(label)}">
-      ${showDate ? `<span class="tech-job-row-date">${formatRealizadoRowDate(isoDate)}</span>` : ''}
-      <span class="tech-job-row-client">${escapeHtml(client?.name || 'Cliente')}</span>
-      <span class="tech-job-row-service">${service?.icon || '🔧'} ${escapeHtml(service?.label || job?.serviceType || 'Relatório')}</span>
-      ${rejectionHtml}
-      ${renderWorkStateBadge(job, report)}
-      <span class="tech-job-row-action" aria-hidden="true">${action.icon}</span>
-    </button>
+    <div class="tech-job-card tech-job-card--${state}">
+      <button type="button" class="tech-job-card__main" data-row-job="${escapeHtml(jobId)}" data-row-action="${escapeHtml(actionType)}" aria-label="${escapeHtml(label)}">
+        <div class="tech-job-card__row tech-job-card__row--top">
+          ${showDate ? `<span class="tech-job-card__date">${formatRealizadoRowDate(isoDate)}</span>` : ''}
+          <span class="tech-job-card__client">${escapeHtml(client?.name || 'Cliente')}</span>
+          ${renderWorkStateBadge(job, report)}
+        </div>
+        <div class="tech-job-card__row tech-job-card__row--bottom">
+          <span class="tech-job-card__service">${service?.icon || '🔧'} ${escapeHtml(service?.label || job?.serviceType || 'Relatório')}</span>
+          <span class="tech-job-card__cta">${escapeHtml(actionLabel)}</span>
+        </div>
+        ${rejectionHtml}
+      </button>
+      <div class="tech-job-card__aside">
+        ${
+          clientId
+            ? `<button type="button" class="tech-job-card__info" data-client-info="${escapeHtml(clientId)}" aria-label="Informação do cliente">ℹ️</button>`
+            : ''
+        }
+        ${pdfBtn}
+      </div>
+    </div>
   `;
+}
+
+async function openReportPdfQuick(reportId, jobId) {
+  const report =
+    getReportsSnapshot().find((r) => String(r.id) === String(reportId)) ||
+    (jobId ? getReportForJob(jobId) : null);
+  if (!report) {
+    showToast('Relatório não encontrado.', 'warning', 5000);
+    return;
+  }
+  try {
+    const previewModule = await import('./pdf-preview.js');
+    await previewModule.previewReportPDF(report);
+  } catch (err) {
+    console.error('[Tech] PDF:', err);
+    showToast('Não foi possível abrir o PDF.', 'error', 6000);
+  }
+}
+
+function openTechClientInfo(clientId) {
+  const client = getClient(clientId);
+  if (!client) {
+    showToast('Cliente não encontrado no catálogo.', 'warning', 5000);
+    return;
+  }
+  const existing = document.querySelector('.tech-client-sheet');
+  existing?.remove();
+  const sheet = renderTechClientInfoSheet(client, {
+    onHistory: () => openTechClientHistory(clientId),
+  });
+  document.body.appendChild(sheet);
 }
 
 let techJobRowOpening = false;
@@ -1152,9 +1361,23 @@ function bindTechJobRowsEvents(scope) {
     }
   };
 
-  scope.querySelectorAll('.tech-job-row[data-row-job]').forEach((row) => {
+  scope.querySelectorAll('.tech-job-card__main[data-row-job]').forEach((row) => {
     row.addEventListener('click', () => {
       void run(row);
+    });
+  });
+
+  scope.querySelectorAll('[data-client-info]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openTechClientInfo(btn.dataset.clientInfo);
+    });
+  });
+
+  scope.querySelectorAll('[data-row-pdf]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      void openReportPdfQuick(btn.dataset.rowPdf, btn.dataset.rowPdfJob);
     });
   });
 }
@@ -1183,14 +1406,9 @@ function formatRealizadoMonthLabel(isoDate) {
 }
 
 function filterRealizadosItems(items) {
-  const query = realizadosSearchQuery.trim().toLowerCase();
-  if (!query) return items;
-  return items.filter((item) => {
-    const client = getClient(item.report.clientId || item.job?.clientId);
-    const clientName = String(client?.name || '').toLowerCase();
-    const service = getServiceType(item.report.serviceType || item.job?.serviceType);
-    const serviceLabel = String(service?.label || '').toLowerCase();
-    return clientName.includes(query) || serviceLabel.includes(query);
+  return filterRealizadosBySearch(items, realizadosSearchQuery, {
+    getClient,
+    getService: getServiceType,
   });
 }
 
@@ -1315,48 +1533,63 @@ function renderJobs() {
   const container = document.getElementById('jobs-list');
   if (!container || !session) return;
 
-  // Esvazia a lista antes de injetar as novas linhas filtradas,
-  // para não deixar lixo visual de consultas anteriores.
   container.innerHTML = '';
 
   updateJobsSectionHeader();
+  updateTechJobsToolbarVisibility();
   const techId = session.technicianId;
+
+  const searchInput = document.getElementById('tech-jobs-search');
+  if (searchInput && searchInput.value !== techJobsSearchQuery) {
+    searchInput.value = techJobsSearchQuery;
+  }
 
   if (techJobsTab === 'realizados') {
     renderRealizadosPanel(container, techId);
     return;
   }
 
+  const jobFilterOpts = {
+    getClient,
+    getService: getServiceType,
+    getReport: getReportForJob,
+  };
+
   if (techJobsTab === 'agendados') {
-    const jobs = getAgendadosJobs(techId);
+    let jobs = getAgendadosJobs(techId);
+    jobs = filterJobsBySearch(jobs, techJobsSearchQuery, jobFilterOpts);
+
     if (!jobs.length) {
-      // Layout compacto: nota discreta + trabalhos do resto da semana
+      const emptyMsg = techJobsSearchQuery.trim()
+        ? 'Nenhum resultado para esta pesquisa.'
+        : TECH_TAB_EMPTY_MESSAGES.agendados;
       container.innerHTML = `
         <div class="agendados-empty-note" role="status">
           <span aria-hidden="true">📅</span>
-          <p>${TECH_TAB_EMPTY_MESSAGES.agendados}</p>
+          <p>${emptyMsg}</p>
         </div>
-        ${renderAgendadosWeekPreview(techId)}
+        ${techJobsSearchQuery.trim() ? '' : renderAgendadosWeekPreview(techId)}
       `;
     } else {
-      // Aba diária: o dia já está selecionado no calendário — a linha começa pelo cliente.
       container.innerHTML = `
         <div class="tech-job-rows">
           ${jobs.map((job) => renderAgendadosRow(job, { showDate: false })).join('')}
         </div>
-        ${renderAgendadosWeekPreview(techId)}
+        ${techJobsSearchQuery.trim() ? '' : renderAgendadosWeekPreview(techId)}
       `;
     }
     bindTechJobRowsEvents(container);
     return;
   }
 
-  const jobs = getEmCursoJobs(techId);
+  let jobs = getEmCursoJobs(techId);
+  jobs = filterJobsBySearch(jobs, techJobsSearchQuery, jobFilterOpts);
+
   if (!jobs.length) {
     container.innerHTML = `
       <div class="empty-state glass-card">
         <div class="empty-icon">📋</div>
-        <p>${TECH_TAB_EMPTY_MESSAGES.em_curso}</p>
+        <p>${techJobsSearchQuery.trim() ? 'Nenhum resultado para esta pesquisa.' : TECH_TAB_EMPTY_MESSAGES.em_curso}</p>
       </div>
     `;
     return;

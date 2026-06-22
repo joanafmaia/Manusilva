@@ -14,6 +14,8 @@ import {
   removeReportsForJobFromCache,
 } from './relatorios-db.js';
 import { removeLocalReportDraft } from './report-local-storage.js';
+import { maybeNotifyTechReportRejected } from './tech-notifications.js';
+import { getJob } from './app.js';
 
 let channel = null;
 
@@ -100,7 +102,12 @@ export async function initTechRealtime() {
       'postgres_changes',
       { event: 'UPDATE', schema: 'public', table: 'relatorios' },
       (payload) => {
-        mergeReportFromRealtime(payload.new);
+        const prevStatus = payload.old?.status;
+        const report = mergeReportFromRealtime(payload.new);
+        if (report?.status === 'rejected' && prevStatus !== 'rejected') {
+          const job = report.jobId ? getJob(report.jobId) : null;
+          maybeNotifyTechReportRejected(report, job);
+        }
         notifyChange();
       },
     )

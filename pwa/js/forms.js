@@ -19,6 +19,7 @@ import {
   showToast,
   captureError,
   canReachServer,
+  isOffline,
 } from './app.js';
 import {
   diagnoseJobFormOpen,
@@ -38,6 +39,7 @@ import {
   mergeFormValues,
   isOfficialTemplate,
   renderDeslocacaoIntroBlock,
+  analyzeReportFormTabs,
 } from './form-engine.js';
 import {
   migrateLegacyBatteryRows,
@@ -467,6 +469,13 @@ function buildFormHTML(job, client, tech, service, existingReport, options = {})
       <div class="form-panel form-panel--premium glass-card">
         <div class="form-panel-header form-panel-header--minimal">
           <button type="button" class="btn-ghost" id="close-form">&larr; Voltar</button>
+          <div class="form-tech-status-bar">
+            <div class="form-offline-chip" id="form-offline-chip" hidden>Offline — alterações guardadas neste tablet</div>
+            <div class="form-progress" id="form-progress-wrap">
+              <span class="form-progress__label" id="form-progress-label">Dados · 1/3</span>
+              <div class="form-progress__track" aria-hidden="true"><div class="form-progress__fill" id="form-progress-fill"></div></div>
+            </div>
+          </div>
           <span id="form-autosave-status" class="form-autosave-status" hidden aria-live="polite"></span>
         </div>
 
@@ -510,15 +519,18 @@ function buildFormHTML(job, client, tech, service, existingReport, options = {})
           </div>
         </div>
 
-        <div class="form-panel-footer form-panel-footer--stacked">
+        <div class="form-panel-footer form-panel-footer--stacked form-panel-footer--sticky">
           <button type="button" class="btn-preview" id="btn-preview-pdf">
             <span class="btn-preview-icon" aria-hidden="true">👁️</span>
             Pré-visualizar Relatório
           </button>
-          ${viewOnly ? '' : `
-          <p class="form-footer-hint text-muted">Gravar Rascunho mantém o relatório <strong>em aberto</strong> para novas visitas. Concluir envia-o para aprovação do RH.</p>
+          ${viewOnly ? `
           <div class="form-panel-footer-row">
-            <button type="button" class="btn-secondary btn-touch" id="btn-save-draft">Gravar Rascunho</button>
+            <button type="button" class="btn-primary btn-touch" id="btn-view-pdf-full">Ver PDF do relatório</button>
+          </div>` : `
+          <p class="form-footer-hint text-muted">Guardar e sair mantém o relatório <strong>em aberto</strong>. Concluir envia-o para aprovação do RH.</p>
+          <div class="form-panel-footer-row">
+            <button type="button" class="btn-secondary btn-touch" id="btn-save-draft">Guardar e sair</button>
             <button type="button" class="btn-primary btn-touch" id="btn-submit-report">Concluir Relatório</button>
           </div>`}
         </div>
@@ -590,6 +602,37 @@ function buildReportFromForm(overlay, job, existingReport, signaturePads, report
   };
 }
 
+function updateFormProgress(overlay, service, activeTabId) {
+  const tabs = analyzeReportFormTabs(service);
+  const order = ['geral', 'checklist', 'finalizacao'].filter((id) => tabs[id]);
+  const idx = Math.max(0, order.indexOf(activeTabId));
+  const total = order.length || 1;
+  const labels = { geral: 'Dados', checklist: 'Checklist', finalizacao: 'Finalização' };
+  const label = overlay.querySelector('#form-progress-label');
+  const fill = overlay.querySelector('#form-progress-fill');
+  if (label) {
+    label.textContent = `${labels[activeTabId] || 'Secção'} · ${idx + 1}/${total}`;
+  }
+  if (fill) fill.style.width = `${((idx + 1) / total) * 100}%`;
+}
+
+function updateFormOfflineChip(overlay) {
+  const chip = overlay.querySelector('#form-offline-chip');
+  if (!chip) return;
+  chip.hidden = canReachServer() && !isOffline();
+}
+
+function bindFormOfflineStatus(overlay) {
+  updateFormOfflineChip(overlay);
+  const refresh = () => updateFormOfflineChip(overlay);
+  window.addEventListener('online', refresh);
+  window.addEventListener('offline', refresh);
+  overlay.__offlineCleanup = () => {
+    window.removeEventListener('online', refresh);
+    window.removeEventListener('offline', refresh);
+  };
+}
+
 function updateFotoPreview(overlay, which) {
   const state = which === 'antes' ? fotoAntesState : fotoDepoisState;
   const preview = overlay.querySelector(`#foto-${which}-preview`);
@@ -629,6 +672,7 @@ function bindFotoInputs(overlay) {
         state.base64 = compressed.dataUrl;
         state.previewUrl = URL.createObjectURL(compressed.file);
         updateFotoPreview(overlay, which);
+        showToast(`Foto ${which === 'antes' ? 'Antes' : 'Depois'} guardada ✓`, 'success', 2500);
       } catch (err) {
         console.error('[Form] Foto compressão:', err);
         try {
@@ -637,6 +681,7 @@ function bindFotoInputs(overlay) {
           state.base64 = fallback;
           state.previewUrl = URL.createObjectURL(file);
           updateFotoPreview(overlay, which);
+          showToast(`Foto ${which === 'antes' ? 'Antes' : 'Depois'} guardada ✓`, 'success', 2500);
         } catch (fallbackErr) {
           console.error('[Form] Foto base64:', fallbackErr);
           state.file = null;
@@ -827,8 +872,14 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport, opt
   };
 
   bindReportFormTabs(overlay, {
-    onTabActivate: (tabId) => onReportTabActivated(tabId, overlay),
+    onTabActivate: (tabId) => {
+      onReportTabActivated(tabId, overlay);
+      updateFormProgress(overlay, service, tabId);
+    },
   });
+
+  updateFormProgress(overlay, service, 'geral');
+  bindFormOfflineStatus(overlay);
 
   if (!viewOnly) {
     bindFotoInputs(overlay);
@@ -898,20 +949,30 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport, opt
     }
   });
 
-  overlay.querySelector('#btn-preview-pdf')?.addEventListener('click', async () => {
-    const btn = overlay.querySelector('#btn-preview-pdf');
-    btn.disabled = true;
+  const openPdfPreview = async (btn) => {
+    if (btn) btn.disabled = true;
     let previewModule;
     try {
-      const report = buildReportFromForm(overlay, job, existingReport, signaturePads, draftReportId);
+      const report =
+        viewOnly && existingReport
+          ? existingReport
+          : buildReportFromForm(overlay, job, existingReport, signaturePads, draftReportId);
       previewModule = await import('./pdf-preview.js');
       await previewModule.previewReportPDF(report);
     } catch (err) {
       console.error(err);
+      showToast('Não foi possível gerar o PDF.', 'error', 6000);
     } finally {
       previewModule?.showPdfPreviewLoading?.(false);
-      btn.disabled = false;
+      if (btn) btn.disabled = false;
     }
+  };
+
+  overlay.querySelector('#btn-preview-pdf')?.addEventListener('click', () => {
+    void openPdfPreview(overlay.querySelector('#btn-preview-pdf'));
+  });
+  overlay.querySelector('#btn-view-pdf-full')?.addEventListener('click', () => {
+    void openPdfPreview(overlay.querySelector('#btn-view-pdf-full'));
   });
 
   if (!viewOnly) overlay.querySelector('#btn-submit-report')?.addEventListener('click', async () => {
@@ -1000,6 +1061,7 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport, opt
 }
 
 function closeForm(overlay) {
+  overlay?.__offlineCleanup?.();
   clearEdicaoState();
   existingReportRef = null;
   signaturesRestoredFromReport = false;
