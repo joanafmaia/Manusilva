@@ -35,7 +35,6 @@ export function maybeNotifyTechReportRejected(report, job) {
     const n = new Notification('Relatório rejeitado — Manusilva', {
       body,
       tag: `report-rejected-${report.id || report.jobId || 'unknown'}`,
-      renotify: true,
     });
     n.onclick = () => {
       window.focus();

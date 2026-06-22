@@ -77,6 +77,78 @@ let techJobsTab = 'agendados';
 let techJobsTabsBound = false;
 let techTabDataCacheKey = null;
 
+/** Evita re-renderizações em cascata (realtime + sync) que sobrecarregam o tablet. */
+let techDashboardRefreshTimer = null;
+let techDashboardListenersBound = false;
+let techDashboardRefreshInFlight = false;
+let cachedPendingSyncCount = 0;
+let techOfflineDepsPromise = null;
+
+async function loadTechOfflineDeps() {
+  if (!techOfflineDepsPromise) {
+    techOfflineDepsPromise = Promise.all([
+      import('./trabalhos-offline.js'),
+      import('./report-local-storage.js'),
+    ]).then(([offline, storage]) => ({ offline, storage }));
+  }
+  return techOfflineDepsPromise;
+}
+
+async function refreshPendingSyncCount() {
+  try {
+    const { offline } = await loadTechOfflineDeps();
+    cachedPendingSyncCount = await offline.countTrabalhosPendentes();
+  } catch {
+    cachedPendingSyncCount = 0;
+  }
+  return cachedPendingSyncCount;
+}
+
+function scheduleTechDashboardRefresh() {
+  if (techDashboardRefreshTimer) clearTimeout(techDashboardRefreshTimer);
+  techDashboardRefreshTimer = setTimeout(() => {
+    techDashboardRefreshTimer = null;
+    periodJobsCacheKey = null;
+    techTabDataCacheKey = null;
+    refreshTechCalendar().catch(console.error);
+  }, 280);
+}
+
+async function refreshTechDashboardChrome() {
+  renderOfflineToggle();
+  await refreshPendingSyncCount();
+  await renderTechConnectivityBar();
+  updateTechTabBadges();
+  renderTechDaySummary();
+  renderTechRejectedBanner();
+  updateTechJobsToolbarVisibility();
+}
+
+function bindTechDashboardDataListeners() {
+  if (techDashboardListenersBound) return;
+  techDashboardListenersBound = true;
+
+  window.addEventListener('jobs-updated', scheduleTechDashboardRefresh);
+  window.addEventListener('db-updated', scheduleTechDashboardRefresh);
+  window.addEventListener('trabalhos-pendentes-changed', () => {
+    refreshTechDashboardChrome().catch(console.error);
+  });
+  window.addEventListener('online', () => {
+    refreshTechDashboardChrome().catch(console.error);
+  });
+  window.addEventListener('offline', () => {
+    refreshTechDashboardChrome().catch(console.error);
+  });
+}
+
+function bindNotificationPermissionOnGesture() {
+  const ask = () => {
+    requestTechNotificationPermission().catch(() => {});
+  };
+  document.addEventListener('click', ask, { once: true, passive: true });
+  document.addEventListener('touchstart', ask, { once: true, passive: true });
+}
+
 /** Carrega `forms.js` (+ `form-engine.js`) só ao abrir um relatório no tablet. */
 let formsModulePromise = null;
 
@@ -429,38 +501,8 @@ export async function initTechDashboard() {
   bindTechJobsTabs();
   updateTechJobsToolbarVisibility();
   updateTechCalendarWrapVisibility();
-  requestTechNotificationPermission().catch(() => {});
-
-  window.addEventListener('jobs-updated', () => {
-    periodJobsCacheKey = null;
-    techTabDataCacheKey = null;
-    refreshTechCalendar().catch(console.error);
-  });
-  window.addEventListener('db-updated', () => {
-    renderOfflineToggle();
-    renderTechConnectivityBar();
-    updateTechTabBadges();
-    renderTechDaySummary();
-    renderTechRejectedBanner();
-    periodJobsCacheKey = null;
-    techTabDataCacheKey = null;
-    refreshTechCalendar().catch(console.error);
-  });
-
-  window.addEventListener('trabalhos-pendentes-changed', () => {
-    renderTechConnectivityBar();
-    renderTechDaySummary();
-  });
-  window.addEventListener('online', () => {
-    renderOfflineToggle();
-    renderTechConnectivityBar();
-    renderTechDaySummary();
-  });
-  window.addEventListener('offline', () => {
-    renderOfflineToggle();
-    renderTechConnectivityBar();
-    renderTechDaySummary();
-  });
+  bindTechDashboardDataListeners();
+  bindNotificationPermissionOnGesture();
 
   try {
     const { hydrateLocalReportsIntoCache } = await import('./report-local-storage.js');
@@ -483,11 +525,6 @@ export async function initTechDashboard() {
     await migrateLegacyOfflineQueue(getDB, updateDB);
     initTrabalhosOfflineSync();
     sincronizarTrabalhosOffline().catch(console.error);
-    renderTechConnectivityBar();
-    updateTechTabBadges();
-    renderTechDaySummary();
-    renderTechRejectedBanner();
-
     await refreshTechCalendar();
 
     // Realtime: quando o RH cria/altera/elimina trabalhos ou relatórios,
@@ -554,8 +591,7 @@ async function runTechDataSync() {
   } finally {
     if (syncBtn) syncBtn.disabled = false;
     bar?.classList.remove('tech-connectivity-bar--syncing');
-    renderTechConnectivityBar();
-    renderTechDaySummary();
+    refreshTechDashboardChrome().catch(console.error);
   }
 }
 
@@ -695,20 +731,12 @@ async function renderTechDaySummary() {
 
   const techId = session.technicianId;
   const userName = session.name || 'técnico';
+  const pendingSync = cachedPendingSyncCount;
 
   const today = getTodayIso();
   const todayJobs = getTodayAgendadosCount(techId);
   const emCurso = getEmCursoJobs(techId).length;
   const rejected = getRejectedJobsForTech(techId).length;
-
-  let pendingSync = 0;
-  try {
-    const { countTrabalhosPendentes } = await import('./trabalhos-offline.js');
-    pendingSync = await countTrabalhosPendentes();
-  } catch {
-    pendingSync = 0;
-  }
-
   const todayLabel = formatDateLong(today);
 
   const parts = [
@@ -774,10 +802,9 @@ async function renderTechConnectivityBar() {
   if (!bar || !text) return;
 
   try {
-    const { countTrabalhosPendentes } = await import('./trabalhos-offline.js');
-    const { getAllLocalReportDrafts } = await import('./report-local-storage.js');
-    const pending = await countTrabalhosPendentes();
-    const drafts = (await getAllLocalReportDrafts()).length;
+    const { storage } = await loadTechOfflineDeps();
+    const pending = cachedPendingSyncCount;
+    const drafts = (await storage.getAllLocalReportDrafts()).length;
     const manualOffline = isOffline();
     const networkOffline = !isNetworkOnline();
     const online = canReachServer() && !manualOffline;
@@ -850,7 +877,7 @@ function renderOfflineToggle() {
   const effectivelyOffline = manualOffline || networkOffline;
 
   toggle.checked = manualOffline;
-  label.textContent = effectivelyOffline ? 'Offline' : 'Online';
+  if (label) label.textContent = effectivelyOffline ? 'Offline' : 'Online';
 
   const badgeLabel = document.getElementById('connection-badge-label');
   if (badge) {
@@ -869,8 +896,7 @@ function renderOfflineToggle() {
   toggle.onchange = () => {
     setOfflineMode(toggle.checked);
     renderOfflineToggle();
-    renderTechConnectivityBar();
-    renderTechDaySummary();
+    refreshTechDashboardChrome().catch(console.error);
   };
 }
 
@@ -989,13 +1015,18 @@ async function loadPeriodJobsFromSupabase() {
 }
 
 async function refreshTechCalendar() {
+  if (techDashboardRefreshInFlight) return;
+  techDashboardRefreshInFlight = true;
   try {
     await loadPeriodJobsFromSupabase();
     await loadTechTabData();
+    renderTechCalendar();
+    await refreshTechDashboardChrome();
   } catch (err) {
     console.error('[Técnico] Calendário:', err);
+  } finally {
+    techDashboardRefreshInFlight = false;
   }
-  renderTechCalendar();
 }
 
 function updateTechCalendarVisibility() {
@@ -1067,10 +1098,6 @@ function renderTechCalendar() {
   } else {
     renderCalendarStrip();
   }
-  updateTechTabBadges();
-  renderTechDaySummary();
-  renderTechRejectedBanner();
-  updateTechJobsToolbarVisibility();
   renderJobs();
 }
 
