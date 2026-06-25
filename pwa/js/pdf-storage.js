@@ -25,11 +25,12 @@ export function sanitizePdfFilenameSegment(text) {
  */
 export function buildOrdemPdfStorageFilename(job, report, tipoTrabalhoLabel) {
   const ordem = job?.numeroOrdem;
-  if (ordem == null || !Number.isFinite(Number(ordem))) {
-    throw new Error('Trabalho sem número de ordem. Executa supabase-migration-numero-ordem.sql.');
-  }
   const tipo = sanitizePdfFilenameSegment(tipoTrabalhoLabel || report?.serviceType || 'relatorio');
-  return `Ordem_${ordem}_${tipo}.pdf`;
+  if (ordem != null && Number.isFinite(Number(ordem))) {
+    return `Ordem_${ordem}_${tipo}.pdf`;
+  }
+  const stamp = String(job?.id || report?.jobId || report?.id || Date.now()).replace(/-/g, '').slice(0, 12);
+  return `Teste_${stamp}_${tipo}.pdf`;
 }
 
 export function formatPdfStorageError(err) {

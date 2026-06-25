@@ -16,6 +16,7 @@ import { getClientFromCatalog } from '../clients-catalog.js';
 import { mapClientToLegacy } from '../mock_data.js';
 import { openReportReviewModal, downloadReportPDF } from '../report-review-modal.js';
 import { openClientProfilePanel } from './client-profile-drawer.js';
+import { isTestClient, TEST_JOB_ORDEM_LABEL } from '../client-test-utils.js';
 
 /** Tipos de relatório técnico de bateria (MS. 061) */
 export const BATTERY_REPORT_SERVICE_TYPES = new Set([
@@ -68,10 +69,13 @@ function reportBelongsToClient(report, clientId) {
   return aliases.has(String(report.clientId));
 }
 
-function formatOrdemDisplay(numeroOrdem) {
-  if (numeroOrdem == null || numeroOrdem === '') return '—';
-  const padded = String(numeroOrdem).padStart(2, '0');
-  return `OP-2026-${padded}`;
+function formatOrdemDisplay(numeroOrdem, client = null) {
+  if (numeroOrdem != null && numeroOrdem !== '') {
+    const padded = String(numeroOrdem).padStart(2, '0');
+    return `OP-2026-${padded}`;
+  }
+  if (isTestClient(client)) return TEST_JOB_ORDEM_LABEL;
+  return '—';
 }
 
 function getClientHistoryReports(clientId, { batteryOnly = true } = {}) {
@@ -110,7 +114,7 @@ function enrichReportRow(report, clientMeta) {
   const tech = getTechnician(report.technicianId);
   const dateRaw = report.submittedAt || job?.date || '';
   const dateStr = dateRaw ? formatDateLong(String(dateRaw).split('T')[0]) : '—';
-  const ordem = formatOrdemDisplay(job?.numeroOrdem);
+  const ordem = formatOrdemDisplay(job?.numeroOrdem, clientMeta.legacy);
   const machine = report.forkliftSerial || job?.forkliftSerial || '—';
   const serviceLabel = service?.label || report.serviceType || '—';
   const searchBlob = [clientMeta.nome, ordem, machine, serviceLabel, tech?.name || '']

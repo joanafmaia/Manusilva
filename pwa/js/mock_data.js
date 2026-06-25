@@ -701,6 +701,8 @@ export function mapClientToLegacy(record) {
     localidade: loc,
     pais: record['País/Região'] ?? record.pais ?? 'Portugal',
     condicao_pagamento: record.condicao_pagamento ?? record.condicaoPagamento ?? '',
+    ehTeste: record.ehTeste === true || record.eh_teste === true,
+    eh_teste: record.ehTeste === true || record.eh_teste === true,
     forklifts: record.forklifts || [],
   };
 }

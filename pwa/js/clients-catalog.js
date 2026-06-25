@@ -37,6 +37,7 @@ export function normalizeClientRecord(raw, index = 0) {
     Telemovel: raw.telemovel ?? raw.Telemovel ?? raw.phone ?? '',
     condicao_pagamento:
       raw.condicao_pagamento ?? raw['Condição de pagamento'] ?? raw.condicaoPagamento ?? '',
+    ehTeste: raw.eh_teste === true || raw.ehTeste === true,
     forklifts: raw.forklifts || [],
   };
 }

@@ -7890,6 +7890,25 @@ body.dark-mode .rh-card__btn--pdf {
   outline-offset: 1px;
 }
 
+.cal-block--teste {
+  border-left-style: dashed;
+  opacity: 0.92;
+}
+
+.cal-block--teste::after {
+  content: 'TESTE';
+  display: inline-block;
+  margin-left: 0.35rem;
+  padding: 0 0.25rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--text-muted, #6b7280);
+  border: 1px dashed currentColor;
+  border-radius: 3px;
+  vertical-align: middle;
+}
+
 .cal-block:hover { transform: translateX(2px); }
 
 /* Agenda RH — lista com swipe para eliminar */

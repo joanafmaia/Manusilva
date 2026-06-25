@@ -29,6 +29,7 @@ import {
   formatClientUpdateError,
   resetProductionCatalogCache,
 } from './clients-catalog.js';
+import { isTestClient } from './client-test-utils.js';
 import {
   ensureJobsLoaded,
   getJobsSnapshot,
@@ -1222,6 +1223,7 @@ export async function approveReport(reportId, options = {}) {
   const client = getClient(report.clientId);
   const service = getServiceType(report.serviceType);
   const clientEmailInput = String(options.clientEmail ?? '').trim();
+  const testClient = isTestClient(client);
 
   if (clientEmailInput) {
     const { isValidEmail } = await import('./validators.js');
@@ -1240,14 +1242,14 @@ export async function approveReport(reportId, options = {}) {
     if (!job) {
       job = await insertTrabalhoFromReport(report);
       if (!job?.id) {
-        showToast('Não foi possível criar o trabalho para numerar a ordem.', 'error');
+        showToast('Não foi possível criar o trabalho para o relatório.', 'error');
         return null;
       }
       reportForPdf = { ...report, jobId: job.id };
       await upsertRelatorio(reportForPdf);
     }
 
-    if (job.numeroOrdem == null) {
+    if (job.numeroOrdem == null && !testClient) {
       await ensureJobsLoaded(true);
       job = getJob(job.id) || job;
     }
@@ -1300,7 +1302,13 @@ export async function approveReport(reportId, options = {}) {
     const recipientEmail =
       clientEmailInput || client?.email || client?.['E-mail'] || '';
 
-    if (emailSynced) {
+    if (testClient) {
+      showToast(
+        'Relatório de teste aprovado — PDF guardado. Sem envio de e-mail ao cliente.',
+        'success',
+        6000,
+      );
+    } else if (emailSynced) {
       showToast(
         'Relatório aprovado e email do cliente atualizado na base de dados!',
         'success',
@@ -1312,9 +1320,11 @@ export async function approveReport(reportId, options = {}) {
         'success',
         7000,
       );
+    } else if (!emailSynced) {
+      showToast('Relatório aprovado, mas o cliente não tem e-mail registado.', 'warning');
     }
 
-    if (recipientEmail) {
+    if (recipientEmail && !testClient) {
       const values = report?.data?.values || {};
       const tipoRelatorio =
         report.serviceType === 'inspecao_dl50_2005'
@@ -1347,8 +1357,6 @@ export async function approveReport(reportId, options = {}) {
           8000,
         );
       });
-    } else if (!emailSynced) {
-      showToast('Relatório aprovado, mas o cliente não tem e-mail registado.', 'warning');
     }
 
     return filename;
@@ -1393,6 +1401,7 @@ export async function rejectReport(reportId, note) {
 
 export async function assignJob(jobData) {
   try {
+    const client = getClient(jobData.clientId);
     const job = await insertTrabalho({
       ...jobData,
       status: 'scheduled',
@@ -1404,7 +1413,11 @@ export async function assignJob(jobData) {
       window.dispatchEvent(new CustomEvent('db-updated'));
       return null;
     }
-    showToast('Trabalho atribuído e guardado na base de dados.', 'success');
+    if (isTestClient(client)) {
+      showToast('Trabalho de teste criado — não consome número OP oficial.', 'info', 5500);
+    } else {
+      showToast('Trabalho atribuído e guardado na base de dados.', 'success');
+    }
     window.dispatchEvent(new CustomEvent('db-updated'));
     return job.id;
   } catch (err) {

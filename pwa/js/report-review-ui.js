@@ -3,6 +3,8 @@
  */
 
 import { escapeHtml } from './app.js';
+import { getClient } from './app.js';
+import { isTestClient, TEST_JOB_ORDEM_LABEL } from './client-test-utils.js';
 import { resolveJobFotos, isValidFotoUrl } from './job-fotos.js';
 
 function escapeAttr(str) {
@@ -40,9 +42,13 @@ export async function validateReviewClientEmail(root, inputId = 'review-client-e
   return null;
 }
 
-export function formatOrdemLabel(job) {
-  if (job?.numeroOrdem == null) return '—';
-  return `OP-2026-${String(job.numeroOrdem).padStart(2, '0')}`;
+export function formatOrdemLabel(job, clientHint = null) {
+  if (job?.numeroOrdem != null) {
+    return `OP-2026-${String(job.numeroOrdem).padStart(2, '0')}`;
+  }
+  const client = clientHint || (job?.clientId ? getClient(job.clientId) : null);
+  if (isTestClient(client)) return TEST_JOB_ORDEM_LABEL;
+  return '—';
 }
 
 /** Fotos compactas para cartões do painel RH (lado a lado, 80px). */

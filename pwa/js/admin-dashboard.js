@@ -47,6 +47,8 @@ import {
   renderWorkStateBadge,
 } from './calendar-event-state.js';
 import { ensureProductionCatalog, formatClientsLoadError } from './clients-catalog.js';
+import { isTestClient } from './client-test-utils.js';
+import { formatOrdemLabel } from './report-review-ui.js';
 import { renderClientCombobox, bindClientComboboxes } from './client-combobox.js';
 import { forceLogout, renderUserGreeting } from './auth.js';
 import { initMetricsPanel, refreshMetricsPanel } from './views/dashboard.js';
@@ -778,7 +780,8 @@ function renderCalendarBlock(job, compact = false) {
   const report = getReportForJob(job.id);
   const stateClass = getCalendarEventStateClass(job, report);
   const sizeClass = compact ? 'cal-block cal-block-sm' : 'cal-block';
-  const cls = `${sizeClass} cal-block--interactive ${stateClass}`;
+  const testClass = isTestClient(client) ? ' cal-block--teste' : '';
+  const cls = `${sizeClass} cal-block--interactive ${stateClass}${testClass}`;
   const label = `${client?.name || 'Cliente'} — ${service?.label || 'Serviço'}`;
   return `
     <button type="button" class="${cls}" data-job-id="${job.id}" style="--tech-color:${tech?.color || '#3b82f6'}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">
@@ -1134,11 +1137,11 @@ async function quickApproveRhReport(reportId) {
   }
 
   const job = report.jobId ? getJob(report.jobId) : null;
-  const ordem =
-    job?.numeroOrdem != null
-      ? `OP-2026-${String(job.numeroOrdem).padStart(2, '0')}`
-      : 'este relatório';
-  const confirmed = window.confirm(`Aprovar ${ordem} e enviar para o cliente?`);
+  const ordem = formatOrdemLabel(job, client);
+  const confirmMsg = isTestClient(client)
+    ? `Aprovar relatório de teste (${ordem})? Não será enviado e-mail ao cliente.`
+    : `Aprovar ${ordem} e enviar para o cliente?`;
+  const confirmed = window.confirm(confirmMsg);
   if (!confirmed) return;
 
   const ok = await approveReport(reportId, { clientEmail });
@@ -1334,15 +1337,19 @@ function confirmDeleteJob(jobId) {
   });
 }
 
-function formatOrdemOp2026(numeroOrdem) {
-  if (numeroOrdem == null) return 'nova ordem';
-  return `Ordem OP-2026-${String(numeroOrdem).padStart(2, '0')}`;
+function formatOrdemOp2026(numeroOrdem, client = null) {
+  if (numeroOrdem != null) {
+    return `Ordem OP-2026-${String(numeroOrdem).padStart(2, '0')}`;
+  }
+  if (isTestClient(client)) return 'Trabalho de teste (sem OP oficial)';
+  return 'nova ordem';
 }
 
 function showPendingReportNotification(report) {
   const tech = getTechnician(report.technicianId);
   const job = report.jobId ? getJob(report.jobId) : null;
-  const ordem = formatOrdemOp2026(job?.numeroOrdem);
+  const client = getClient(report.clientId);
+  const ordem = formatOrdemOp2026(job?.numeroOrdem, client);
 
   showNotificationToast(
     'Novo Relatório Pendente!',
@@ -1449,6 +1456,9 @@ async function openAssignModal() {
         <p class="assign-tech-hint text-muted" id="assign-tech-hint" hidden>Selecione pelo menos um técnico.</p>
       </div>
       ${renderClientCombobox({ fieldId: 'assign-client', label: 'Cliente / Empresa' })}
+      <p class="text-muted assign-test-hint" id="assign-test-hint" hidden>
+        Cliente de teste — o trabalho não recebe número OP oficial (só simulação).
+      </p>
       <div class="form-group">
         <label class="form-label">Tipo de Serviço</label>
         <select class="form-select" id="assign-service" required>
@@ -1469,6 +1479,23 @@ async function openAssignModal() {
 
   const overlay = openModal('Atribuir Trabalho', content, actions);
   await bindClientComboboxes(overlay);
+
+  const testHint = overlay.querySelector('#assign-test-hint');
+  const assignClientCombo = overlay.querySelector(
+    '[data-client-combobox][data-field-id="assign-client"]',
+  );
+  const syncAssignTestHint = () => {
+    const clientId = assignClientCombo?.querySelector('.client-combobox-id')?.value || '';
+    const client = clientId ? getClient(clientId) : null;
+    if (testHint) testHint.hidden = !isTestClient(client);
+  };
+  assignClientCombo?.querySelector('.client-combobox-input')?.addEventListener('input', syncAssignTestHint);
+  assignClientCombo?.addEventListener('mousedown', (e) => {
+    if (e.target.closest('.client-combobox-option')) setTimeout(syncAssignTestHint, 0);
+  });
+  assignClientCombo?.querySelector('.client-combobox-clear')?.addEventListener('click', () => {
+    setTimeout(syncAssignTestHint, 0);
+  });
 
   const dateInput = overlay.querySelector('#assign-date');
   dateInput.value = new Date().toISOString().split('T')[0];
