@@ -196,19 +196,28 @@ function escapeHtml(value) {
     .replace(/'/g, '&#39;');
 }
 
+function formatOpEmailLabel(numeroOrdem) {
+  if (numeroOrdem == null || numeroOrdem === '') return '';
+  const n = Number(numeroOrdem);
+  if (!Number.isFinite(n)) return '';
+  return `OP-2026-${String(n).padStart(2, '0')}`;
+}
+
 function buildSubject(payload = {}) {
   const company = payload.clienteNome || payload.nomeEmpresa || payload.clientName || 'Empresa';
   const tipoRelatorio = String(payload.tipoRelatorio || '').toLowerCase();
+  const op = formatOpEmailLabel(payload.numeroOrdem);
+  const opSuffix = op ? ` - ${op}` : '';
 
   if (tipoRelatorio === 'dl50-2005') {
-    return `ManuSilva - Inspeção DL 50/2005 - ${company}`;
+    return `ManuSilva - Inspeção DL 50/2005 - ${company}${opSuffix}`;
   }
 
   if (tipoRelatorio === 'baterias') {
-    return `ManuSilva - Manutenção de Baterias - ${company}`;
+    return `ManuSilva - Manutenção de Baterias - ${company}${opSuffix}`;
   }
 
-  return `ManuSilva - Relatório Técnico - ${company}`;
+  return `ManuSilva - Relatório Técnico - ${company}${opSuffix}`;
 }
 
 function isSafeHttpUrl(value) {
@@ -242,6 +251,8 @@ function buildHtmlBody(payload = {}, options = {}) {
       : tipoRelatorio === 'baterias'
         ? 'manutenção de baterias'
         : 'intervenção técnica';
+  const op = formatOpEmailLabel(payload.numeroOrdem);
+  const opText = op ? `, ordem <strong>${escapeHtml(op)}</strong>` : '';
 
   const pdfBlock = pdfUrl
     ? `<p style="margin:18px 0 0 0;">
@@ -278,7 +289,7 @@ function buildHtmlBody(payload = {}, options = {}) {
                 </p>
                 <p style="margin:0;font-size:14px;line-height:1.65;color:#334155;">
                   Segue o relatório de ${escapeHtml(serviceLabel)} referente à intervenção de <strong>${data}</strong>
-                  (técnico: ${tecnico}).
+                  (técnico: ${tecnico}${opText}).
                 </p>
                 ${pdfBlock}
                 ${attachmentNote}

@@ -17,25 +17,48 @@
 
   <div class="admin-app">
     <aside class="admin-sidebar">
+      <button type="button" class="admin-sidebar-toggle" id="admin-sidebar-toggle" aria-label="Recolher menu lateral" aria-expanded="true" title="Recolher menu">
+        <span class="admin-sidebar-toggle-icon" aria-hidden="true">‹</span>
+      </button>
       <div class="sidebar-brand">
         <div class="brand-logo-sm brand-logo-slot" id="brand-logo" data-brand-logo aria-label="ManuSilva">MS</div>
-        <div>
+        <div class="sidebar-brand-text">
           <strong id="brand-name" data-hide-if-logo>Manusilva</strong>
-          <p class="text-muted" style="font-size:0.7rem;margin:0">Painel RH</p>
+          <p class="text-muted sidebar-brand-sub">Painel RH</p>
         </div>
       </div>
 
       <nav class="sidebar-nav" aria-label="Secções do painel">
-        <a href="#calendar" class="nav-item active" data-admin-tab="calendario">📅 Calendário de Equipa</a>
-        <a href="#pending" class="nav-item" data-admin-tab="relatorios">📋 Revisão de Relatórios <span class="nav-badge" id="nav-badge-relatorios" hidden>0</span></a>
-        <a href="#billing" class="nav-item" data-admin-tab="faturacao">💶 Faturação <span class="nav-badge nav-badge--billing" id="nav-badge-faturacao" hidden>0</span></a>
-        <a href="#clients" class="nav-item" data-admin-tab="clientes">🏢 Clientes / Empresas</a>
-        <a href="#employees" class="nav-item" data-admin-tab="funcionarios">👷 Funcionários</a>
+        <a href="#calendar" class="nav-item active" data-admin-tab="calendario" title="Calendário de Equipa">
+          <span class="nav-item-icon" aria-hidden="true">📅</span>
+          <span class="nav-item-label">Calendário de Equipa</span>
+        </a>
+        <a href="#pending" class="nav-item" data-admin-tab="relatorios" title="Revisão de Relatórios">
+          <span class="nav-item-icon" aria-hidden="true">📋</span>
+          <span class="nav-item-label">Revisão de Relatórios</span>
+          <span class="nav-badge" id="nav-badge-relatorios" hidden>0</span>
+        </a>
+        <a href="#billing" class="nav-item" data-admin-tab="faturacao" title="Faturação">
+          <span class="nav-item-icon" aria-hidden="true">💶</span>
+          <span class="nav-item-label">Faturação</span>
+          <span class="nav-badge nav-badge--billing" id="nav-badge-faturacao" hidden>0</span>
+        </a>
+        <a href="#clients" class="nav-item" data-admin-tab="clientes" title="Clientes / Empresas">
+          <span class="nav-item-icon" aria-hidden="true">🏢</span>
+          <span class="nav-item-label">Clientes / Empresas</span>
+        </a>
+        <a href="#employees" class="nav-item" data-admin-tab="funcionarios" title="Funcionários">
+          <span class="nav-item-icon" aria-hidden="true">👷</span>
+          <span class="nav-item-label">Funcionários</span>
+        </a>
       </nav>
 
       <div class="sidebar-footer">
-        <p style="font-size:0.8rem;margin:0 0 0.5rem">Olá, <strong id="user-name"></strong></p>
-        <button class="btn-outline btn-sm" id="logout-btn" style="width:100%">Terminar Sessão</button>
+        <p class="sidebar-footer-greeting">Olá, <strong id="user-name"></strong></p>
+        <button class="btn-outline btn-sm sidebar-logout-btn" id="logout-btn" type="button">
+          <span class="sidebar-logout-icon" aria-hidden="true">⎋</span>
+          <span class="sidebar-logout-label">Terminar Sessão</span>
+        </button>
       </div>
     </aside>
 

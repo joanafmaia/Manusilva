@@ -77,6 +77,7 @@ const ADMIN_TAB_BY_NAV = {
 };
 
 const ADMIN_MOBILE_LAYOUT_MQ = '(max-width: 767px), (max-width: 1024px) and (orientation: portrait)';
+const ADMIN_SIDEBAR_COLLAPSED_KEY = 'admin_sidebar_collapsed';
 
 function isAdminMobileLayout() {
   return window.matchMedia(ADMIN_MOBILE_LAYOUT_MQ).matches;
@@ -337,6 +338,29 @@ function updateAdminTabUI() {
   }
 }
 
+function bindAdminSidebarToggle() {
+  const app = document.querySelector('.admin-app');
+  const btn = document.getElementById('admin-sidebar-toggle');
+  if (!app || !btn || btn.dataset.bound === '1') return;
+  btn.dataset.bound = '1';
+
+  const applyCollapsed = (collapsed) => {
+    app.classList.toggle('admin-sidebar--collapsed', collapsed);
+    btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+    btn.title = collapsed ? 'Expandir menu' : 'Recolher menu';
+    btn.setAttribute('aria-label', collapsed ? 'Expandir menu lateral' : 'Recolher menu lateral');
+    syncReviewPanelHeight();
+  };
+
+  applyCollapsed(localStorage.getItem(ADMIN_SIDEBAR_COLLAPSED_KEY) === '1');
+
+  btn.addEventListener('click', () => {
+    const collapsed = !app.classList.contains('admin-sidebar--collapsed');
+    localStorage.setItem(ADMIN_SIDEBAR_COLLAPSED_KEY, collapsed ? '1' : '0');
+    applyCollapsed(collapsed);
+  });
+}
+
 function bindAdminNavigation() {
   document.querySelectorAll('.nav-item').forEach((item) => {
     item.addEventListener('click', (e) => {
@@ -376,6 +400,7 @@ export async function initAdminDashboard() {
   try {
     renderSidebar();
     renderCalendar();
+    bindAdminSidebarToggle();
     bindReviewPanelHeightSync();
     bindViewToggle();
     bindCalendarJobInteractions();

@@ -5809,15 +5809,15 @@ body.dark-mode .matrix-bulk-good-btn--active {
   }
 }
 
-/* Tablet em paisagem — aba Geral: secções a largura total; 2 colunas só dentro de cada secção */
+/* Tablet em paisagem — abas Geral/Checklist/Finalização: secções a largura total */
 @media (min-width: 768px) and (max-width: 1366px) and (orientation: landscape) {
-  body.tech-dashboard-page .form-overlay #report-panel-geral .report-fields {
+  body.tech-dashboard-page .form-overlay :is(#report-panel-geral, #report-panel-checklist, #report-panel-finalizacao) .report-fields {
     display: flex;
     flex-direction: column;
     gap: 1.25rem;
   }
 
-  body.tech-dashboard-page .form-overlay #report-panel-geral .form-field-section {
+  body.tech-dashboard-page .form-overlay :is(#report-panel-geral, #report-panel-checklist, #report-panel-finalizacao) .form-field-section {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 1rem 1.25rem;
@@ -5825,35 +5825,46 @@ body.dark-mode .matrix-bulk-good-btn--active {
     width: 100%;
   }
 
-  body.tech-dashboard-page .form-overlay #report-panel-geral .form-section-subtitle,
-  body.tech-dashboard-page .form-overlay #report-panel-geral .empilhadores-machine-grid,
-  body.tech-dashboard-page .form-overlay #report-panel-geral .corretiva-machine-grid,
-  body.tech-dashboard-page .form-overlay #report-panel-geral .material-substitution-grid,
-  body.tech-dashboard-page .form-overlay #report-panel-geral .diagnostic-section-highlight,
-  body.tech-dashboard-page .form-overlay #report-panel-geral .field-block:not(.field-block--grid-eligible),
-  body.tech-dashboard-page .form-overlay #report-panel-geral .empilhadores-verifications-dual,
-  body.tech-dashboard-page .form-overlay #report-panel-geral .empilhadores-material-block,
-  body.tech-dashboard-page .form-overlay #report-panel-geral .grandes-battery-shell,
-  body.tech-dashboard-page .form-overlay #report-panel-geral .rav-metrics-dual,
-  body.tech-dashboard-page .form-overlay #report-panel-geral .rav-estado-final-shell,
-  body.tech-dashboard-page .form-overlay #report-panel-geral div[class*='-metrics-dual'],
-  body.tech-dashboard-page .form-overlay #report-panel-geral .dynamic-table-field,
-  body.tech-dashboard-page .form-overlay #report-panel-geral .dynamic-table-wrap,
-  body.tech-dashboard-page .form-overlay #report-panel-geral div[class*='-dashboard-section'],
-  body.tech-dashboard-page .form-overlay #report-panel-geral div[class*='-footer-dual'],
-  body.tech-dashboard-page .form-overlay #report-panel-geral div[class*='-observations'],
-  body.tech-dashboard-page .form-overlay #report-panel-geral div[class*='-machine-grid'],
-  body.tech-dashboard-page .form-overlay #report-panel-geral div[class*='-cliente-grid'],
-  body.tech-dashboard-page .form-overlay #report-panel-geral div[class*='-identificacao-bar'],
-  body.tech-dashboard-page .form-overlay #report-panel-geral div[class*='-fecho-fields'],
-  body.tech-dashboard-page .form-overlay #report-panel-geral div[class*='-pedido-orcamento'],
-  body.tech-dashboard-page .form-overlay #report-panel-geral div[class*='-datas-intervencao'],
-  body.tech-dashboard-page .form-overlay #report-panel-geral div[class*='-text-section'],
-  body.tech-dashboard-page .form-overlay #report-panel-geral div[class*='-estado-final'],
-  body.tech-dashboard-page .form-overlay #report-panel-geral .folha-pedido-orcamento-block,
-  body.tech-dashboard-page .form-overlay #report-panel-geral .carregador-cliente-grid,
-  body.tech-dashboard-page .form-overlay #report-panel-geral .carregador-identificacao-bar,
-  body.tech-dashboard-page .form-overlay #report-panel-geral .carregador-fecho-fields {
+  body.tech-dashboard-page .form-overlay :is(#report-panel-geral, #report-panel-checklist, #report-panel-finalizacao) .form-section-subtitle,
+  body.tech-dashboard-page .form-overlay :is(#report-panel-geral, #report-panel-checklist, #report-panel-finalizacao) .empilhadores-machine-grid,
+  body.tech-dashboard-page .form-overlay :is(#report-panel-geral, #report-panel-checklist, #report-panel-finalizacao) .corretiva-machine-grid,
+  body.tech-dashboard-page .form-overlay :is(#report-panel-geral, #report-panel-checklist, #report-panel-finalizacao) .material-substitution-grid,
+  body.tech-dashboard-page .form-overlay :is(#report-panel-geral, #report-panel-checklist, #report-panel-finalizacao) .diagnostic-section-highlight,
+  body.tech-dashboard-page .form-overlay :is(#report-panel-geral, #report-panel-checklist, #report-panel-finalizacao) .field-block:not(.field-block--grid-eligible),
+  body.tech-dashboard-page .form-overlay :is(#report-panel-geral, #report-panel-checklist, #report-panel-finalizacao) .empilhadores-verifications-dual,
+  body.tech-dashboard-page .form-overlay :is(#report-panel-geral, #report-panel-checklist, #report-panel-finalizacao) .empilhadores-material-block,
+  body.tech-dashboard-page .form-overlay :is(#report-panel-geral, #report-panel-checklist, #report-panel-finalizacao) .grandes-battery-shell,
+  body.tech-dashboard-page .form-overlay :is(#report-panel-geral, #report-panel-checklist, #report-panel-finalizacao) .rav-metrics-dual,
+  body.tech-dashboard-page .form-overlay :is(#report-panel-geral, #report-panel-checklist, #report-panel-finalizacao) .rav-estado-final-shell,
+  body.tech-dashboard-page .form-overlay :is(#report-panel-geral, #report-panel-checklist, #report-panel-finalizacao) div[class*='-metrics-dual'],
+  body.tech-dashboard-page .form-overlay :is(#report-panel-geral, #report-panel-checklist, #report-panel-finalizacao) .dynamic-table-field,
+  body.tech-dashboard-page .form-overlay :is(#report-panel-geral, #report-panel-checklist, #report-panel-finalizacao) .dynamic-table-wrap,
+  body.tech-dashboard-page .form-overlay :is(#report-panel-geral, #report-panel-checklist, #report-panel-finalizacao) div[class*='-dashboard-section'],
+  body.tech-dashboard-page .form-overlay :is(#report-panel-geral, #report-panel-checklist, #report-panel-finalizacao) div[class*='-footer-dual'],
+  body.tech-dashboard-page .form-overlay :is(#report-panel-geral, #report-panel-checklist, #report-panel-finalizacao) div[class*='-observations'],
+  body.tech-dashboard-page .form-overlay :is(#report-panel-geral, #report-panel-checklist, #report-panel-finalizacao) div[class*='-machine-grid'],
+  body.tech-dashboard-page .form-overlay :is(#report-panel-geral, #report-panel-checklist, #report-panel-finalizacao) div[class*='-cliente-grid'],
+  body.tech-dashboard-page .form-overlay :is(#report-panel-geral, #report-panel-checklist, #report-panel-finalizacao) div[class*='-identificacao-bar'],
+  body.tech-dashboard-page .form-overlay :is(#report-panel-geral, #report-panel-checklist, #report-panel-finalizacao) div[class*='-fecho-fields'],
+  body.tech-dashboard-page .form-overlay :is(#report-panel-geral, #report-panel-checklist, #report-panel-finalizacao) div[class*='-pedido-orcamento'],
+  body.tech-dashboard-page .form-overlay :is(#report-panel-geral, #report-panel-checklist, #report-panel-finalizacao) div[class*='-datas-intervencao'],
+  body.tech-dashboard-page .form-overlay :is(#report-panel-geral, #report-panel-checklist, #report-panel-finalizacao) div[class*='-text-section'],
+  body.tech-dashboard-page .form-overlay :is(#report-panel-geral, #report-panel-checklist, #report-panel-finalizacao) div[class*='-estado-final'],
+  body.tech-dashboard-page .form-overlay :is(#report-panel-geral, #report-panel-checklist, #report-panel-finalizacao) .folha-pedido-orcamento-block,
+  body.tech-dashboard-page .form-overlay :is(#report-panel-geral, #report-panel-checklist, #report-panel-finalizacao) .carregador-cliente-grid,
+  body.tech-dashboard-page .form-overlay :is(#report-panel-geral, #report-panel-checklist, #report-panel-finalizacao) .carregador-identificacao-bar,
+  body.tech-dashboard-page .form-overlay :is(#report-panel-geral, #report-panel-checklist, #report-panel-finalizacao) .carregador-fecho-fields,
+  body.tech-dashboard-page .form-overlay :is(#report-panel-geral, #report-panel-checklist, #report-panel-finalizacao) .checklist-inspection-dual,
+  body.tech-dashboard-page .form-overlay :is(#report-panel-geral, #report-panel-checklist, #report-panel-finalizacao) .checklist-inspection-table-wrap,
+  body.tech-dashboard-page .form-overlay :is(#report-panel-geral, #report-panel-checklist, #report-panel-finalizacao) .matrix-inspection-field,
+  body.tech-dashboard-page .form-overlay :is(#report-panel-geral, #report-panel-checklist, #report-panel-finalizacao) .matrix-accordion,
+  body.tech-dashboard-page .form-overlay :is(#report-panel-geral, #report-panel-checklist, #report-panel-finalizacao) .verification-accordion,
+  body.tech-dashboard-page .form-overlay :is(#report-panel-geral, #report-panel-checklist, #report-panel-finalizacao) .form-field-section--empilhadores-verify,
+  body.tech-dashboard-page .form-overlay #report-panel-finalizacao .signatures-grid,
+  body.tech-dashboard-page .form-overlay #report-panel-finalizacao .signature-block,
+  body.tech-dashboard-page .form-overlay #report-panel-finalizacao .foto-antes-depois-grid,
+  body.tech-dashboard-page .form-overlay #report-panel-finalizacao .dl50-closing-block,
+  body.tech-dashboard-page .form-overlay #report-panel-finalizacao .photo-grid {
     grid-column: 1 / -1;
     width: 100%;
     max-width: 100%;
@@ -5871,6 +5882,16 @@ body.dark-mode .matrix-bulk-good-btn--active {
   body.tech-dashboard-page .form-overlay .empilhadores-machine-grid,
   body.tech-dashboard-page .form-overlay .corretiva-machine-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  body.tech-dashboard-page .form-overlay #report-panel-finalizacao .signatures-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+  }
+
+  body.tech-dashboard-page .form-overlay #report-panel-finalizacao .signature-block {
+    margin: 0;
   }
 }
 
@@ -6292,6 +6313,129 @@ body.tech-dashboard-page .form-overlay .signature-canvas {
 }
 
 .sidebar-nav { flex: 1; }
+
+.nav-item-icon {
+  flex-shrink: 0;
+  width: 1.25rem;
+  text-align: center;
+  line-height: 1;
+}
+
+.nav-item-label {
+  flex: 1;
+  min-width: 0;
+}
+
+.sidebar-brand-text {
+  min-width: 0;
+}
+
+.sidebar-brand-sub {
+  font-size: 0.7rem;
+  margin: 0;
+}
+
+.sidebar-footer-greeting {
+  font-size: 0.8rem;
+  margin: 0 0 0.5rem;
+}
+
+.sidebar-logout-btn {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+}
+
+.sidebar-logout-icon {
+  display: none;
+  line-height: 1;
+}
+
+.admin-sidebar-toggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  margin: 0 0 0.75rem auto;
+  padding: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.admin-sidebar-toggle:hover {
+  background: var(--primary-glow);
+  color: var(--text-primary);
+}
+
+.admin-sidebar-toggle-icon {
+  display: block;
+  font-size: 1.1rem;
+  line-height: 1;
+  transition: transform 0.2s ease;
+}
+
+.admin-app.admin-sidebar--collapsed {
+  grid-template-columns: 4.5rem 1fr;
+}
+
+.admin-app.admin-sidebar--collapsed .admin-sidebar {
+  padding: 1rem 0.5rem;
+  align-items: stretch;
+}
+
+.admin-app.admin-sidebar--collapsed .sidebar-brand {
+  justify-content: center;
+  padding: 0;
+  margin-bottom: 1rem;
+}
+
+.admin-app.admin-sidebar--collapsed .sidebar-brand-text,
+.admin-app.admin-sidebar--collapsed .nav-item-label,
+.admin-app.admin-sidebar--collapsed .sidebar-footer-greeting,
+.admin-app.admin-sidebar--collapsed .sidebar-logout-label,
+.admin-app.admin-sidebar--collapsed .nav-badge {
+  display: none;
+}
+
+.admin-app.admin-sidebar--collapsed .nav-item {
+  justify-content: center;
+  gap: 0;
+  padding: 0.65rem;
+}
+
+.admin-app.admin-sidebar--collapsed .sidebar-logout-btn {
+  width: 2.5rem;
+  height: 2.5rem;
+  margin: 0 auto;
+  padding: 0;
+}
+
+.admin-app.admin-sidebar--collapsed .sidebar-logout-icon {
+  display: inline;
+}
+
+.admin-app.admin-sidebar--collapsed .admin-sidebar-toggle-icon {
+  transform: rotate(180deg);
+}
+
+@media (min-width: 768px) and (max-width: 1366px) {
+  .admin-sidebar-toggle {
+    display: inline-flex;
+  }
+}
+
+@media (min-width: 1367px) {
+  .admin-app.admin-sidebar--collapsed {
+    grid-template-columns: 260px 1fr;
+  }
+}
 
 .nav-item {
   display: flex;
@@ -11936,6 +12080,10 @@ body:not(:has(.theme-toggle-btn:not(.theme-toggle-btn--inline))) .toast-containe
 @media (min-width: 768px) and (max-width: 1366px) and (orientation: landscape) {
   .admin-app {
     grid-template-columns: 200px 1fr;
+  }
+
+  .admin-app.admin-sidebar--collapsed {
+    grid-template-columns: 4.5rem 1fr;
   }
 
   .admin-sidebar {

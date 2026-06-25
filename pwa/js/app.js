@@ -317,7 +317,7 @@ export function updateDB(updater) {
 
 /**
  * Dispara envio de e-mail oficial via Serverless Function (`/api/enviar-email`).
- * @param {{ tipoRelatorio?: string, reportId?: string, clienteNome?: string, nome_empresa?: string, tecnico?: string, dataConclusao?: string, to?: string, serieFrota?: string, pdfUrl?: string, pdfFilename?: string, pdfBase64?: string }} [meta]
+ * @param {{ tipoRelatorio?: string, reportId?: string, clienteNome?: string, nome_empresa?: string, tecnico?: string, dataConclusao?: string, to?: string, serieFrota?: string, numeroOrdem?: number | null, pdfUrl?: string, pdfFilename?: string, pdfBase64?: string }} [meta]
  */
 export async function sendOfficialReportEmail(meta = {}) {
   const session = getSession();
@@ -347,6 +347,7 @@ export async function sendOfficialReportEmail(meta = {}) {
       dataConclusao: dateStamp,
       tipoRelatorio,
       serieFrota,
+      numeroOrdem: meta.numeroOrdem ?? null,
       pdfUrl: meta.pdfUrl,
       pdfFilename: meta.pdfFilename,
       pdfBase64: meta.pdfBase64,
@@ -1352,6 +1353,7 @@ export async function approveReport(reportId, options = {}) {
         tecnico: values.tecnico || getTechnician(report.technicianId)?.name || '',
         dataConclusao: values.data_de_conclusao || String(report.submittedAt || '').split('T')[0] || '',
         serieFrota: values.numero_de_serie || report.forkliftSerial || '',
+        numeroOrdem: job?.numeroOrdem ?? null,
         to: recipientEmail,
         pdfUrl: publicPdfUrl,
         pdfFilename: attachPdf ? filename : undefined,
