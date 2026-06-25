@@ -52,7 +52,7 @@ import { forceLogout, renderUserGreeting } from './auth.js';
 import { initMetricsPanel, refreshMetricsPanel } from './views/dashboard.js';
 import { initClientsApp } from './views/clients-app.js';
 import { initEmployeesPanel, refreshTechniciansList } from './views/rh-registry.js';
-import { initFaturacaoPanel, refreshFaturacaoPanel } from './views/faturacao.js';
+import { initFaturacaoPanel, refreshFaturacaoPanel, queueBillingReportFocus } from './views/faturacao.js';
 import {
   loadRhReviewFilters,
   saveRhReviewFilters,
@@ -260,6 +260,15 @@ function bindReviewPanelHeightSync() {
   reviewPanelHeightObserver.observe(cal);
 
   window.addEventListener('resize', syncReviewPanelHeight, { passive: true });
+}
+
+/** Abre Faturação e destaca um relatório aprovado por faturar. */
+export async function navigateToBillingReport(reportId) {
+  if (!reportId) return;
+  queueBillingReportFocus(reportId);
+  setAdminTab('faturacao');
+  adminTabDirty.faturacao = false;
+  await refreshFaturacaoPanel();
 }
 
 export function setAdminTab(tab) {
@@ -942,6 +951,7 @@ function rhReviewModalCallbacks() {
   const queue = () => getRhFilteredReports();
   return {
     getNextReportId: (currentId) => getNextPendingReportId(currentId, queue()),
+    navigateToBilling: (reportId) => navigateToBillingReport(reportId),
     onApproved: async () => {
       if (isOpsTabActive()) {
         refreshOpsTab();
@@ -998,7 +1008,11 @@ async function approveSelectedRhReports(panel) {
   if (btn) btn.disabled = true;
 
   let approved = 0;
-  for (const reportId of ids) {
+  const total = ids.length;
+  for (let i = 0; i < ids.length; i += 1) {
+    const reportId = ids[i];
+    if (btn) btn.textContent = `A aprovar ${i + 1}/${total}…`;
+
     const report = getReport(reportId);
     if (!report || report.status !== 'pending_review') continue;
     const client = getClient(report.clientId);
@@ -1007,7 +1021,10 @@ async function approveSelectedRhReports(panel) {
     if (ok) approved += 1;
   }
 
-  if (btn) btn.disabled = false;
+  if (btn) {
+    btn.disabled = false;
+    btn.textContent = 'Aprovar selecionados';
+  }
 
   if (approved > 0) {
     showToast(

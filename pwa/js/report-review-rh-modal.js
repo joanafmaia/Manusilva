@@ -277,6 +277,7 @@ export async function openRhReviewModal(reportId, callbacks = {}) {
   const fieldsHTML = renderReportValuesForReview(service, values);
   const showWorkflow = report.status === 'pending_review';
   const hasNext = Boolean(showWorkflow && callbacks.getNextReportId?.(reportId));
+  const showBilling = Boolean(showWorkflow && callbacks.navigateToBilling);
 
   const statusLabel = getCalendarEventStateMeta(resolveWorkStateFromReport(report, job)).label;
 
@@ -290,6 +291,7 @@ export async function openRhReviewModal(reportId, callbacks = {}) {
     fieldsHTML,
     showWorkflow,
     showApproveNext: hasNext,
+    showApproveBilling: showBilling,
   });
 
   const overlay = openModal(
@@ -306,7 +308,9 @@ export async function openRhReviewModal(reportId, callbacks = {}) {
   overlay.querySelector('#modal-close-review')?.addEventListener('click', closeModal);
 
   if (showWorkflow) {
-    const runApprove = async (andNext = false) => {
+    const runApprove = async (mode = 'single') => {
+      const andNext = mode === 'next';
+      const andBilling = mode === 'billing';
       const checks = computeReviewChecks({ report, job, client, values });
       if (reviewHasBlockingIssues(checks)) {
         const proceed = window.confirm(
@@ -315,7 +319,9 @@ export async function openRhReviewModal(reportId, callbacks = {}) {
         if (!proceed) return;
       }
 
-      const btn = overlay.querySelector(andNext ? '#modal-approve-next' : '#modal-approve');
+      const btnId =
+        andBilling ? '#modal-approve-billing' : andNext ? '#modal-approve-next' : '#modal-approve';
+      const btn = overlay.querySelector(btnId);
       const emailErr = await validateReviewClientEmail(overlay);
       if (emailErr) {
         showToast(emailErr, 'error');
@@ -330,6 +336,11 @@ export async function openRhReviewModal(reportId, callbacks = {}) {
       closeModal();
       await callbacks.onApproved?.();
 
+      if (andBilling && callbacks.navigateToBilling) {
+        await callbacks.navigateToBilling(reportId);
+        return;
+      }
+
       if (andNext) {
         const nextId = callbacks.getNextReportId?.(reportId);
         if (nextId) {
@@ -340,12 +351,32 @@ export async function openRhReviewModal(reportId, callbacks = {}) {
       }
     };
 
-    overlay.querySelector('#modal-approve')?.addEventListener('click', () => runApprove(false));
-    overlay.querySelector('#modal-approve-next')?.addEventListener('click', () => runApprove(true));
+    overlay.querySelector('#modal-approve')?.addEventListener('click', () => runApprove('single'));
+    overlay.querySelector('#modal-approve-next')?.addEventListener('click', () => runApprove('next'));
+    overlay.querySelector('#modal-approve-billing')?.addEventListener('click', () =>
+      runApprove('billing'),
+    );
 
     overlay.querySelector('#modal-reject')?.addEventListener('click', () => {
       closeModal();
       openRhRejectDialog(reportId, callbacks.onRejected);
+    });
+
+    overlay.addEventListener('keydown', (e) => {
+      if (e.target.closest('input, textarea, select')) return;
+      if (e.altKey && e.key.toLowerCase() === 'a') {
+        e.preventDefault();
+        runApprove(hasNext && e.shiftKey ? 'next' : 'single');
+      }
+      if (e.altKey && e.key.toLowerCase() === 'f' && showBilling) {
+        e.preventDefault();
+        runApprove('billing');
+      }
+      if (e.altKey && e.key.toLowerCase() === 'r') {
+        e.preventDefault();
+        closeModal();
+        openRhRejectDialog(reportId, callbacks.onRejected);
+      }
     });
   }
 
@@ -365,6 +396,7 @@ export function buildRhReviewModalContent({
   fieldsHTML,
   showWorkflow = true,
   showApproveNext = false,
+  showApproveBilling = false,
 }) {
   const data = report?.data || {};
   const submittedDate = report?.submittedAt
@@ -386,9 +418,10 @@ export function buildRhReviewModalContent({
 
   const workflowHtml = showWorkflow
     ? `
-        <button type="button" class="btn-danger btn-touch review-action-btn" id="modal-reject">Rejeitar</button>
-        <button type="button" class="btn-success btn-touch review-action-btn" id="modal-approve">Aprovar</button>
-        ${showApproveNext ? '<button type="button" class="btn-primary btn-touch review-action-btn" id="modal-approve-next">Aprovar e seguinte</button>' : ''}
+        <button type="button" class="btn-danger btn-touch review-action-btn" id="modal-reject" title="Alt+R">Rejeitar</button>
+        <button type="button" class="btn-success btn-touch review-action-btn" id="modal-approve" title="Alt+A">Aprovar</button>
+        ${showApproveNext ? '<button type="button" class="btn-primary btn-touch review-action-btn" id="modal-approve-next" title="Alt+Shift+A">Aprovar e seguinte</button>' : ''}
+        ${showApproveBilling ? '<button type="button" class="btn-outline btn-touch review-action-btn" id="modal-approve-billing" title="Alt+F">Aprovar e faturar</button>' : ''}
       `
     : `<button type="button" class="btn-secondary btn-touch review-action-btn" id="modal-close-review">Fechar</button>`;
 

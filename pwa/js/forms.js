@@ -66,6 +66,10 @@ import {
 } from './foto-trabalho-storage.js';
 import { compressImageFile } from './image-compress.js';
 import { resolveReportForJob } from './report-local-storage.js';
+import {
+  applyServerConflictChoice,
+  resolveReportOpenConflict,
+} from './tech-data-conflict.js';
 import { triggerTechDataSync } from './tech-sync.js';
 
 let signaturePads = {};
@@ -207,9 +211,28 @@ export async function openJobForm(jobId, options = {}) {
     const editPendingOpt =
       options.editPending === true ||
       (options.editPending !== false && serverReport?.status === 'pending_review');
-    const existingReport = await resolveReportForJob(jobId, serverReport, {
+
+    const conflictChoice = await resolveReportOpenConflict(jobId, serverReport, {
       editPending: editPendingOpt,
+      viewOnly,
     });
+    if (conflictChoice === 'cancel') return;
+
+    let existingReport;
+    if (conflictChoice === 'server') {
+      await applyServerConflictChoice(jobId);
+      existingReport = serverReport || null;
+    } else if (conflictChoice === 'local') {
+      const { getLocalReportDraft } = await import('./report-local-storage.js');
+      const local = await getLocalReportDraft(jobId);
+      existingReport = local
+        ? { ...serverReport, ...local, status: local.status || serverReport?.status || 'draft' }
+        : serverReport || null;
+    } else {
+      existingReport = await resolveReportForJob(jobId, serverReport, {
+        editPending: editPendingOpt,
+      });
+    }
 
     if (existingReport?.status === 'approved' && !viewOnly) {
       showToast('Este relatório já foi aprovado pelo RH e não pode ser editado.', 'warning', 5000);

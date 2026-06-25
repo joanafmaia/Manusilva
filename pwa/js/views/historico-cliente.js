@@ -93,6 +93,17 @@ export function getClientSubmittedReports(clientId) {
   return getClientHistoryReports(clientId, { batteryOnly: false });
 }
 
+/** Última intervenção concluída do cliente (qualquer tipo de relatório). */
+export function getLastClientIntervention(clientId) {
+  const reports = getClientSubmittedReports(clientId).filter(
+    (r) => r.status === 'approved' || r.submittedAt,
+  );
+  if (!reports.length) return null;
+  return enrichReportRow(reports[0], {
+    nome: getClient(clientId)?.name || getClient(clientId)?.Nome || 'Cliente',
+  });
+}
+
 function enrichReportRow(report, clientMeta) {
   const job = report.jobId ? getJob(report.jobId) : null;
   const service = getServiceType(report.serviceType);

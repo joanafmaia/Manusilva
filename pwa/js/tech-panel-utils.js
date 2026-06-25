@@ -51,12 +51,25 @@ export function filterRealizadosBySearch(items, query, { getClient, getService }
   });
 }
 
-export function renderTechClientInfoSheet(client, { onHistory, onClose } = {}) {
+export function renderTechClientInfoSheet(client, { onHistory, onLastPdf, lastIntervention, onClose } = {}) {
   const name = client?.Nome || client?.name || 'Cliente';
   const address = buildClientAddress(client);
   const phone = buildClientPhone(client);
   const wazeUrl = buildWazeUrl(address);
   const telHref = phone ? `tel:${phone.replace(/[^\d+]/g, '')}` : '';
+
+  const lastHtml = lastIntervention
+    ? `
+        <div class="tech-client-sheet__row tech-client-sheet__row--last">
+          <span class="tech-client-sheet__label">Última intervenção</span>
+          <p class="tech-client-sheet__value">
+            <span class="tech-client-sheet__last-date">${escapeHtml(lastIntervention.dateStr)}</span>
+            — ${escapeHtml(lastIntervention.serviceLabel)}
+            ${lastIntervention.ordem && lastIntervention.ordem !== '—' ? `<span class="tech-client-sheet__last-ordem">(${escapeHtml(lastIntervention.ordem)})</span>` : ''}
+          </p>
+        </div>
+      `
+    : '';
 
   const sheet = document.createElement('div');
   sheet.className = 'tech-client-sheet';
@@ -71,6 +84,7 @@ export function renderTechClientInfoSheet(client, { onHistory, onClose } = {}) {
         <button type="button" class="btn-ghost btn-sm" data-close-client-sheet aria-label="Fechar">✕</button>
       </header>
       <div class="tech-client-sheet__body">
+        ${lastHtml}
         <div class="tech-client-sheet__row">
           <span class="tech-client-sheet__label">Morada</span>
           <p class="tech-client-sheet__value">${address ? escapeHtml(address) : '—'}</p>
@@ -88,6 +102,11 @@ export function renderTechClientInfoSheet(client, { onHistory, onClose } = {}) {
         ${
           wazeUrl
             ? `<a href="${escapeHtml(wazeUrl)}" class="btn-secondary btn-touch tech-client-sheet__waze" target="_blank" rel="noopener noreferrer">Abrir no Waze</a>`
+            : ''
+        }
+        ${
+          lastIntervention && typeof onLastPdf === 'function'
+            ? '<button type="button" class="btn-primary btn-touch" data-client-last-pdf>PDF último relatório</button>'
             : ''
         }
         ${
@@ -109,6 +128,12 @@ export function renderTechClientInfoSheet(client, { onHistory, onClose } = {}) {
   sheet.querySelector('[data-client-history]')?.addEventListener('click', () => {
     sheet.remove();
     onHistory?.();
+  });
+
+  sheet.querySelector('[data-client-last-pdf]')?.addEventListener('click', () => {
+    const reportId = lastIntervention?.report?.id;
+    sheet.remove();
+    onLastPdf?.(reportId, lastIntervention?.report?.jobId);
   });
 
   return sheet;

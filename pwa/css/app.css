@@ -13315,3 +13315,173 @@ body.tech-dashboard-page #offline-sync-bar {
     font-size: 0.8125rem;
   }
 }
+
+/* ─── Dark mode — formulários (segunda passagem) ─── */
+
+body.dark-mode .form-overlay {
+  background: var(--bg-deep);
+  color: var(--text-main);
+}
+
+body.dark-mode .form-overlay .form-section-card,
+body.dark-mode .form-overlay .form-panel--premium,
+body.dark-mode .form-overlay .glass-card-inner,
+body.dark-mode .form-overlay .dynamic-table-wrap.glass-card-inner {
+  background: var(--ms-card-bg, var(--bg-card));
+  border-color: var(--ms-border-md, var(--border-subtle));
+  color: var(--text-main);
+}
+
+body.dark-mode .form-overlay .form-section-card--intro .form-fixed-header.glass-card-inner,
+body.dark-mode .form-overlay .form-section-card--intro .job-client-header.glass-card-inner,
+body.dark-mode .form-overlay .form-section-card .glass-card-inner {
+  background: var(--surface-muted, var(--bg-card));
+}
+
+body.dark-mode .form-overlay input:not([type='checkbox']):not([type='radio']),
+body.dark-mode .form-overlay textarea,
+body.dark-mode .form-overlay select,
+body.dark-mode .form-overlay .form-input,
+body.dark-mode .form-overlay .form-select {
+  background: var(--bg-input);
+  border-color: var(--border-subtle);
+  color: var(--text-main);
+}
+
+body.dark-mode .form-overlay .dynamic-table th,
+body.dark-mode .form-overlay .matrix-table th,
+body.dark-mode .form-overlay .dl50-table th,
+body.dark-mode .form-overlay .grandes-baterias-table th,
+body.dark-mode .form-overlay table thead th {
+  background: var(--ms-table-head-bg, var(--surface-muted));
+  color: var(--text-main);
+  border-color: var(--border-subtle);
+}
+
+body.dark-mode .form-overlay .dynamic-table td,
+body.dark-mode .form-overlay .matrix-table td,
+body.dark-mode .form-overlay .dl50-table td,
+body.dark-mode .form-overlay .grandes-baterias-table td,
+body.dark-mode .form-overlay table tbody td {
+  background: var(--bg-card);
+  border-color: var(--border-subtle);
+  color: var(--text-main);
+}
+
+body.dark-mode .form-overlay .matrix-accordion,
+body.dark-mode .form-overlay .verification-accordion,
+body.dark-mode .form-overlay .accordion-panel,
+body.dark-mode .form-overlay .field-block--nested {
+  background: var(--surface-muted);
+  border-color: var(--border-subtle);
+}
+
+body.dark-mode .form-workspace--carregador .rejection-banner,
+body.dark-mode .form-workspace--carregador .edit-pending-banner,
+body.dark-mode .form-workspace--corretiva .rejection-banner,
+body.dark-mode .form-workspace--corretiva .edit-pending-banner,
+body.dark-mode .form-overlay .rejection-banner,
+body.dark-mode .form-overlay .edit-pending-banner,
+body.dark-mode .form-overlay .form-readonly-banner {
+  background: var(--surface-warning-bg);
+  color: var(--surface-warning-text, var(--text-main));
+  border-color: var(--border-subtle);
+}
+
+body.dark-mode .form-overlay .signature-block,
+body.dark-mode .form-overlay .signature-canvas-wrap {
+  background: var(--bg-card);
+  border-color: var(--border-subtle);
+}
+
+body.dark-mode .form-overlay .btn-foto,
+body.dark-mode .form-overlay .foto-thumb,
+body.dark-mode .form-overlay .foto-preview-card {
+  background: var(--surface-muted);
+  border-color: var(--border-subtle);
+}
+
+body.dark-mode .form-overlay .section-title,
+body.dark-mode .form-overlay .form-section-subtitle,
+body.dark-mode .form-overlay label,
+body.dark-mode .form-overlay .form-label {
+  color: var(--text-main);
+}
+
+body.dark-mode .form-overlay .text-muted,
+body.dark-mode .form-overlay .form-footer-hint {
+  color: var(--text-muted);
+}
+
+/* Conflito offline / dados desatualizados */
+.tech-conflict-dialog__lead {
+  margin: 0 0 0.75rem;
+  font-weight: 600;
+}
+
+.tech-conflict-dialog__hint {
+  margin: 0 0 1rem;
+  font-size: 0.875rem;
+}
+
+.tech-conflict-dialog__options {
+  display: grid;
+  gap: 0.65rem;
+  margin-bottom: 1.25rem;
+}
+
+.tech-conflict-option {
+  padding: 0.75rem 1rem;
+  border-radius: var(--ms-radius-md, 0.375rem);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-muted);
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.tech-conflict-dialog__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+/* Sheet cliente — última intervenção */
+.tech-client-sheet__row--last {
+  padding-bottom: 0.75rem;
+  margin-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.tech-client-sheet__last-date {
+  font-weight: 600;
+}
+
+.tech-client-sheet__last-ordem {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+/* Faturação — filtros e destaque */
+.faturacao-filter-actions {
+  margin-top: 0.75rem;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.faturacao-row--highlight {
+  animation: faturacao-row-flash 1.2s ease-in-out 3;
+  outline: 2px solid var(--ms-accent, #2563eb);
+  outline-offset: -2px;
+}
+
+@keyframes faturacao-row-flash {
+  0%,
+  100% {
+    background: transparent;
+  }
+  50% {
+    background: color-mix(in srgb, var(--ms-accent, #2563eb) 18%, transparent);
+  }
+}

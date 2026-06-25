@@ -37,7 +37,7 @@ import {
   resolveCalendarEventState,
 } from './calendar-event-state.js';
 import { initLogoutButton } from './auth.js';
-import { HistoricoClienteView } from './views/historico-cliente.js';
+import { HistoricoClienteView, getLastClientIntervention } from './views/historico-cliente.js';
 import { ensureTrabalhosSemana, isJobsCacheLoaded } from './trabalhos-db.js';
 import { isUuid } from './relatorios-db.js';
 import { triggerTechDataSync } from './tech-sync.js';
@@ -1354,7 +1354,10 @@ function openTechClientInfo(clientId) {
   }
   const existing = document.querySelector('.tech-client-sheet');
   existing?.remove();
+  const lastIntervention = getLastClientIntervention(clientId);
   const sheet = renderTechClientInfoSheet(client, {
+    lastIntervention,
+    onLastPdf: (reportId, jobId) => openReportPdfQuick(reportId, jobId),
     onHistory: () => openTechClientHistory(clientId),
   });
   document.body.appendChild(sheet);

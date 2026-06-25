@@ -14,10 +14,22 @@ import {
   removeReportsForJobFromCache,
 } from './relatorios-db.js';
 import { removeLocalReportDraft } from './report-local-storage.js';
-import { maybeNotifyTechReportRejected } from './tech-notifications.js';
-import { getJob } from './app.js';
+import {
+  maybeNotifyTechJobScheduled,
+  maybeNotifyTechReportApproved,
+  maybeNotifyTechReportRejected,
+} from './tech-notifications.js';
+import { getJob, getTechnician } from './app.js';
+import { getSession } from './session.js';
 
 let channel = null;
+
+function currentTechMatch() {
+  const session = getSession();
+  if (!session?.technicianId) return null;
+  const tech = getTechnician(session.technicianId);
+  return { techId: session.technicianId, techName: tech?.name };
+}
 
 /** Re-renderiza a aba ativa da dashboard (mesmo fluxo do evento db-updated). */
 function notifyChange() {
@@ -71,7 +83,9 @@ export async function initTechRealtime() {
       'postgres_changes',
       { event: 'INSERT', schema: 'public', table: 'trabalhos' },
       (payload) => {
-        mergeJobFromRealtime(payload.new);
+        const job = mergeJobFromRealtime(payload.new);
+        const match = currentTechMatch();
+        if (job && match) maybeNotifyTechJobScheduled(job, match);
         notifyChange();
       },
     )
@@ -104,9 +118,13 @@ export async function initTechRealtime() {
       (payload) => {
         const prevStatus = payload.old?.status;
         const report = mergeReportFromRealtime(payload.new);
+        const job = report?.jobId ? getJob(report.jobId) : null;
+        const match = currentTechMatch();
         if (report?.status === 'rejected' && prevStatus !== 'rejected') {
-          const job = report.jobId ? getJob(report.jobId) : null;
           maybeNotifyTechReportRejected(report, job);
+        }
+        if (report?.status === 'approved' && prevStatus !== 'approved' && match) {
+          maybeNotifyTechReportApproved(report, job, match);
         }
         notifyChange();
       },

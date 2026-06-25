@@ -56,7 +56,10 @@ const billingFilters = {
   to: '',
   clientId: '',
   clientNome: '',
+  recebimentoStatus: 'all',
 };
+
+let highlightReportId = null;
 
 function loadChartJs() {
   if (window.Chart) return Promise.resolve(window.Chart);
@@ -201,6 +204,12 @@ function invoiceMatchesFilters(report) {
   if (billingFilters.clientId && String(report.clientId) !== String(billingFilters.clientId)) {
     return false;
   }
+  if (billingFilters.recebimentoStatus === 'pendente' && report.statusRecebimento !== 'pendente') {
+    return false;
+  }
+  if (billingFilters.recebimentoStatus === 'pago' && report.statusRecebimento !== 'pago') {
+    return false;
+  }
   return true;
 }
 
@@ -307,6 +316,8 @@ function renderFiltersSection() {
   const year = new Date().getFullYear();
   const opt = (value, label) =>
     `<option value="${value}"${billingFilters.period === value ? ' selected' : ''}>${label}</option>`;
+  const statusOpt = (value, label) =>
+    `<option value="${value}"${billingFilters.recebimentoStatus === value ? ' selected' : ''}>${label}</option>`;
 
   return `
     <section class="faturacao-filters rh-section glass-card" aria-label="Filtros do controlo de faturação">
@@ -319,6 +330,14 @@ function renderFiltersSection() {
             ${opt('last_month', 'Mês Passado')}
             ${opt('year', `Ano de ${year}`)}
             ${opt('custom', 'Intervalo Personalizado')}
+          </select>
+        </div>
+        <div class="form-group faturacao-filter-group">
+          <label class="form-label" for="faturacao-recebimento">Estado</label>
+          <select class="form-select" id="faturacao-recebimento">
+            ${statusOpt('all', 'Todos')}
+            ${statusOpt('pendente', 'Pendentes de pagamento')}
+            ${statusOpt('pago', 'Recebidos')}
           </select>
         </div>
         <div class="faturacao-filter-custom"${isCustom ? '' : ' hidden'}>
@@ -340,6 +359,11 @@ function renderFiltersSection() {
             compact: true,
           })}
         </div>
+      </div>
+      <div class="faturacao-filter-actions">
+        <button type="button" class="btn-outline btn-sm" id="faturacao-export-csv">
+          Exportar CSV
+        </button>
       </div>
     </section>
   `;
@@ -639,7 +663,13 @@ async function softRefreshFaturacaoPanel() {
 
   const invoices = getFilteredInvoices();
   const metrics = computeFilteredMetrics(invoices);
-  const billingRows = buildBillingRows(getPendingBillingReports());
+  let billingReports = getPendingBillingReports();
+  if (billingFilters.clientId) {
+    billingReports = billingReports.filter(
+      (r) => String(r.clientId) === String(billingFilters.clientId),
+    );
+  }
+  const billingRows = buildBillingRows(billingReports);
   const receivableRows = buildReceivableRows(getPendingPaymentInvoices());
 
   replaceMountedSection('.faturacao-kpis', renderKpis(metrics));
@@ -670,6 +700,15 @@ function bindFilterEvents() {
     const customWrap = root.querySelector('.faturacao-filter-custom');
     if (customWrap) customWrap.hidden = billingFilters.period !== 'custom';
     applyBillingFilters().catch(console.error);
+  });
+
+  root.querySelector('#faturacao-recebimento')?.addEventListener('change', (e) => {
+    billingFilters.recebimentoStatus = e.target.value || 'all';
+    applyBillingFilters().catch(console.error);
+  });
+
+  root.querySelector('#faturacao-export-csv')?.addEventListener('click', () => {
+    exportFilteredInvoicesCsv();
   });
 
   root.querySelector('#faturacao-from')?.addEventListener('change', (e) => {
@@ -839,10 +878,79 @@ function bindTableActions() {
   });
 }
 
+function csvEscape(value) {
+  const s = String(value ?? '');
+  if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
+}
+
+function exportFilteredInvoicesCsv() {
+  const invoices = getFilteredInvoices();
+  if (!invoices.length) {
+    showToast('Não há faturas para exportar nos filtros atuais.', 'info');
+    return;
+  }
+
+  const header = ['Data', 'Cliente', 'NIF', 'Nº Fatura', 'Valor (EUR)', 'Estado', 'Condição'];
+  const lines = [header.join(';')];
+
+  invoices.forEach((report) => {
+    const meta = resolveClientMeta(report.clientId);
+    const row = [
+      invoiceDateOf(report),
+      meta.nome,
+      meta.nif,
+      report.numeroFatura || '',
+      Number(report.valorFaturado) || 0,
+      labelStatusRecebimento(report.statusRecebimento),
+      labelFaturaCondicao(report.faturaCondicaoPagamento),
+    ].map(csvEscape);
+    lines.push(row.join(';'));
+  });
+
+  const blob = new Blob([`\uFEFF${lines.join('\n')}`], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const stamp = new Date().toISOString().split('T')[0];
+  a.href = url;
+  a.download = `faturacao-${stamp}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast(`${invoices.length} linha(s) exportada(s).`, 'success');
+}
+
+/** Destaca relatório após refresh do painel de faturação. */
+export function queueBillingReportFocus(reportId) {
+  highlightReportId = reportId ? String(reportId) : null;
+}
+
+/** Destaca e faz scroll até um relatório na tabela «por faturar». */
+export function focusBillingReport(reportId) {
+  if (!reportId || !mountRoot) return;
+  highlightReportId = String(reportId);
+  const row = mountRoot.querySelector(`[data-report-id="${CSS.escape(highlightReportId)}"]`);
+  if (!row) return;
+  row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  row.classList.add('faturacao-row--highlight');
+  setTimeout(() => row.classList.remove('faturacao-row--highlight'), 4500);
+  highlightReportId = null;
+}
+
+function applyBillingHighlight() {
+  if (!highlightReportId) return;
+  focusBillingReport(highlightReportId);
+}
+
 function renderPanel() {
   const invoices = getFilteredInvoices();
   const metrics = computeFilteredMetrics(invoices);
-  const billingRows = buildBillingRows(getPendingBillingReports());
+  let billingReports = getPendingBillingReports();
+  if (billingFilters.clientId) {
+    billingReports = billingReports.filter(
+      (r) => String(r.clientId) === String(billingFilters.clientId),
+    );
+  }
+  const billingRows = buildBillingRows(billingReports);
   const receivableRows = buildReceivableRows(getPendingPaymentInvoices());
 
   return `
@@ -887,6 +995,7 @@ export async function refreshFaturacaoPanel(options = {}) {
   bindFilterEvents();
   bindClientComboboxes(mountRoot).catch(console.error);
   await updateChartData(computeFilteredMetrics());
+  applyBillingHighlight();
 }
 
 export function initFaturacaoPanel(root) {
