@@ -5809,38 +5809,55 @@ body.dark-mode .matrix-bulk-good-btn--active {
   }
 }
 
-/* Tablet em paisagem — grelha 2 colunas na aba Geral (campos simples) */
+/* Tablet em paisagem — aba Geral: secções a largura total; 2 colunas só dentro de cada secção */
 @media (min-width: 768px) and (max-width: 1366px) and (orientation: landscape) {
-  body.tech-dashboard-page .form-overlay #report-panel-geral > .report-fields-section .report-fields {
+  body.tech-dashboard-page .form-overlay #report-panel-geral .report-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+
+  body.tech-dashboard-page .form-overlay #report-panel-geral .form-field-section {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 1rem 1.25rem;
     align-items: start;
+    width: 100%;
   }
 
-  body.tech-dashboard-page .form-overlay #report-panel-geral .report-fields > .form-field-section:has(textarea),
-  body.tech-dashboard-page .form-overlay #report-panel-geral .report-fields > .form-field-section:has(.dynamic-table-wrap),
-  body.tech-dashboard-page .form-overlay #report-panel-geral .report-fields > .form-field-section:has(.dynamic-table-field),
-  body.tech-dashboard-page .form-overlay #report-panel-geral .report-fields > .form-field-section:has(table),
-  body.tech-dashboard-page .form-overlay #report-panel-geral .report-fields > .form-field-section:has(.empilhadores-verifications-dual),
-  body.tech-dashboard-page .form-overlay #report-panel-geral .report-fields > .form-field-section--empilhadores-verify,
-  body.tech-dashboard-page .form-overlay #report-panel-geral .report-fields > .form-field-section:has(.matrix-accordion),
-  body.tech-dashboard-page .form-overlay #report-panel-geral .report-fields > .form-field-section:has(.verification-accordion),
-  body.tech-dashboard-page .form-overlay #report-panel-geral .report-fields > .form-field-section:has(.grandes-battery-shell),
-  body.tech-dashboard-page .form-overlay #report-panel-geral .report-fields > .form-field-section:has(.rav-metrics-dual),
-  body.tech-dashboard-page .form-overlay #report-panel-geral .report-fields > .form-field-section--rav-bateria,
-  body.tech-dashboard-page .form-overlay #report-panel-checklist .report-fields > .form-field-section:has(table),
-  body.tech-dashboard-page .form-overlay #report-panel-checklist .report-fields > .form-field-section--empilhadores-verify,
-  body.tech-dashboard-page .form-overlay #report-panel-geral .report-fields > div[class*='-dashboard-section'],
-  body.tech-dashboard-page .form-overlay #report-panel-geral .report-fields > div[class*='-footer-dual'],
-  body.tech-dashboard-page .form-overlay #report-panel-geral .report-fields > div[class*='-observations'],
-  body.tech-dashboard-page .form-overlay #report-panel-geral .report-fields > div[class*='-machine-grid'],
-  body.tech-dashboard-page .form-overlay #report-panel-geral .report-fields > div[class*='-cliente-grid'],
-  body.tech-dashboard-page .form-overlay #report-panel-geral .report-fields > div[class*='-identificacao-bar'],
-  body.tech-dashboard-page .form-overlay #report-panel-geral .report-fields > div[class*='-fecho-fields'],
-  body.tech-dashboard-page .form-overlay #report-panel-geral .report-fields > div[class*='-pedido-orcamento'],
-  body.tech-dashboard-page .form-overlay #report-panel-geral .report-fields > div[class*='-datas-intervencao'] {
+  body.tech-dashboard-page .form-overlay #report-panel-geral .form-section-subtitle,
+  body.tech-dashboard-page .form-overlay #report-panel-geral .empilhadores-machine-grid,
+  body.tech-dashboard-page .form-overlay #report-panel-geral .corretiva-machine-grid,
+  body.tech-dashboard-page .form-overlay #report-panel-geral .material-substitution-grid,
+  body.tech-dashboard-page .form-overlay #report-panel-geral .diagnostic-section-highlight,
+  body.tech-dashboard-page .form-overlay #report-panel-geral .field-block:not(.field-block--grid-eligible),
+  body.tech-dashboard-page .form-overlay #report-panel-geral .empilhadores-verifications-dual,
+  body.tech-dashboard-page .form-overlay #report-panel-geral .empilhadores-material-block,
+  body.tech-dashboard-page .form-overlay #report-panel-geral .grandes-battery-shell,
+  body.tech-dashboard-page .form-overlay #report-panel-geral .rav-metrics-dual,
+  body.tech-dashboard-page .form-overlay #report-panel-geral .rav-estado-final-shell,
+  body.tech-dashboard-page .form-overlay #report-panel-geral div[class*='-metrics-dual'],
+  body.tech-dashboard-page .form-overlay #report-panel-geral .dynamic-table-field,
+  body.tech-dashboard-page .form-overlay #report-panel-geral .dynamic-table-wrap,
+  body.tech-dashboard-page .form-overlay #report-panel-geral div[class*='-dashboard-section'],
+  body.tech-dashboard-page .form-overlay #report-panel-geral div[class*='-footer-dual'],
+  body.tech-dashboard-page .form-overlay #report-panel-geral div[class*='-observations'],
+  body.tech-dashboard-page .form-overlay #report-panel-geral div[class*='-machine-grid'],
+  body.tech-dashboard-page .form-overlay #report-panel-geral div[class*='-cliente-grid'],
+  body.tech-dashboard-page .form-overlay #report-panel-geral div[class*='-identificacao-bar'],
+  body.tech-dashboard-page .form-overlay #report-panel-geral div[class*='-fecho-fields'],
+  body.tech-dashboard-page .form-overlay #report-panel-geral div[class*='-pedido-orcamento'],
+  body.tech-dashboard-page .form-overlay #report-panel-geral div[class*='-datas-intervencao'],
+  body.tech-dashboard-page .form-overlay #report-panel-geral div[class*='-text-section'],
+  body.tech-dashboard-page .form-overlay #report-panel-geral div[class*='-estado-final'],
+  body.tech-dashboard-page .form-overlay #report-panel-geral .folha-pedido-orcamento-block,
+  body.tech-dashboard-page .form-overlay #report-panel-geral .carregador-cliente-grid,
+  body.tech-dashboard-page .form-overlay #report-panel-geral .carregador-identificacao-bar,
+  body.tech-dashboard-page .form-overlay #report-panel-geral .carregador-fecho-fields {
     grid-column: 1 / -1;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
   }
 
   body.tech-dashboard-page .form-overlay .folha-datas-intervencao-grid {
@@ -5848,6 +5865,11 @@ body.dark-mode .matrix-bulk-good-btn--active {
   }
 
   body.tech-dashboard-page .form-overlay .material-substitution-grid--empilhadores {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  body.tech-dashboard-page .form-overlay .empilhadores-machine-grid,
+  body.tech-dashboard-page .form-overlay .corretiva-machine-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
