@@ -247,12 +247,13 @@ const SERVICE_FORM_TITLES = {
   folha_intervencao_avarias: 'Folha de Intervenção de Avarias',
   reparacao_avarias_bateria: 'Relatório de Reparação de Baterias',
   reparacao_carregador: 'Relatório de Reparação de Carregador',
-  inspecao_dl50_2005: 'Inspeção DL 50/2005',
+  inspecao_dl50_2005: 'Inspeção da Máquina Decreto-Lei 50/2005',
 };
 
-/** Título curto do formulário (ecrã técnico) */
+/** Título curto do formulário (ecrã técnico) — alinhado com `title` dos templates oficiais */
 export function getServiceFormTitle(service) {
   if (!service) return 'Relatório';
+  if (isOfficialTemplate(service) && service.title) return service.title;
   return SERVICE_FORM_TITLES[service.id] || service.label || service.title || 'Relatório';
 }
 
