@@ -76,10 +76,16 @@ const ADMIN_TAB_BY_NAV = {
   '#employees': 'funcionarios',
 };
 
+const ADMIN_MOBILE_LAYOUT_MQ = '(max-width: 767px), (max-width: 1024px) and (orientation: portrait)';
+
+function isAdminMobileLayout() {
+  return window.matchMedia(ADMIN_MOBILE_LAYOUT_MQ).matches;
+}
+
 let calendarView = 'week';
 let filterTechId = 'all';
 let currentWeekOffset = 0;
-/** Vista mobile: calendário ou relatórios (ecrãs < 1024px) */
+/** Vista mobile: calendário ou relatórios (telemóvel / tablet em retrato) */
 let opsMobileView = 'calendario';
 
 const savedRhFilters = loadRhReviewFilters();
@@ -239,7 +245,7 @@ function syncReviewPanelHeight() {
   const panel = document.querySelector('.admin-review-panel');
   if (!cal || !panel) return;
 
-  if (window.matchMedia('(max-width: 1024px)').matches) {
+  if (isAdminMobileLayout()) {
     panel.style.removeProperty('height');
     panel.style.removeProperty('max-height');
     return;
@@ -305,15 +311,16 @@ function updateAdminTabUI() {
 
   const split = document.getElementById('calendar');
   if (split) {
+    const mobileLayout = isAdminMobileLayout();
     split.classList.toggle('admin-split-layout--calendar', currentTab === 'calendario');
     split.classList.toggle('admin-split-layout--review', currentTab === 'relatorios');
     split.classList.toggle(
       'admin-split-layout--mobile-calendar',
-      opsMobileView === 'calendario',
+      mobileLayout && opsMobileView === 'calendario',
     );
     split.classList.toggle(
       'admin-split-layout--mobile-relatorios',
-      opsMobileView === 'relatorios',
+      mobileLayout && opsMobileView === 'relatorios',
     );
   }
 
@@ -380,6 +387,10 @@ export async function initAdminDashboard() {
     updateAdminChrome();
     renderRhReviewStack().catch(console.error);
     updateAdminTabUI();
+    window.matchMedia(ADMIN_MOBILE_LAYOUT_MQ).addEventListener('change', () => {
+      updateAdminTabUI();
+      syncReviewPanelHeight();
+    });
     showMorningSummary();
   } catch (err) {
     console.error('[Admin] Erro ao iniciar painel:', err);
