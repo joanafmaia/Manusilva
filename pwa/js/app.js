@@ -1124,6 +1124,8 @@ export async function saveReportDraft(report, options = {}) {
   try {
     const saved = await upsertRelatorio(draft);
     if (saved) mergeReportInCache(saved);
+    const { upsertClienteEquipamentosFromReport } = await import('./cliente-equipamentos-db.js');
+    void upsertClienteEquipamentosFromReport(saved || draft);
     window.dispatchEvent(new CustomEvent('db-updated'));
     if (!silent) {
       showToast(
@@ -1198,6 +1200,9 @@ export async function submitReport(report, options = {}) {
 
     if (!(await hasTrabalhoPendente(pendingId))) {
       await removeLocalReportDraft(final.jobId);
+      const syncedReport = getReportForJob(final.jobId) || final;
+      const { upsertClienteEquipamentosFromReport } = await import('./cliente-equipamentos-db.js');
+      void upsertClienteEquipamentosFromReport(syncedReport);
       window.dispatchEvent(new CustomEvent('db-updated'));
       showToast(
         isCorrection
@@ -1307,6 +1312,9 @@ export async function approveReport(reportId, options = {}) {
     }
 
     window.dispatchEvent(new CustomEvent('db-updated'));
+
+    const { upsertClienteEquipamentosFromReport } = await import('./cliente-equipamentos-db.js');
+    void upsertClienteEquipamentosFromReport(reportForPdf);
 
     let emailSynced = false;
     if (clientEmailInput && report.clientId) {

@@ -107,7 +107,21 @@ export async function resolveClientProfile(clientId) {
   await ensureProductionCatalog();
   const catalog = getProductionClientsCatalog({ warn: false });
   const catalogRecord = getClientFromCatalog(clientId, catalog);
-  return enrichLegacyClient(clientId, catalogRecord);
+  const profile = enrichLegacyClient(clientId, catalogRecord);
+
+  try {
+    const { fetchClienteEquipamentos } = await import('../cliente-equipamentos-db.js');
+    const { equipamentosToForklifts } = await import('../cliente-equipamentos.js');
+    const equipamentos = await fetchClienteEquipamentos(clientId);
+    const fromDb = equipamentosToForklifts(equipamentos);
+    if (fromDb.length) {
+      profile.forklifts = fromDb;
+    }
+  } catch (err) {
+    console.warn('[ClientProfile] Equipamentos:', err);
+  }
+
+  return profile;
 }
 
 function escapeAttr(str) {

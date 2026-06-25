@@ -26,6 +26,12 @@ import {
   formatJobOpenDiagnosticMessage,
   diagnosticNeedsSync,
 } from './job-open-diagnostic.js';
+import {
+  buildEquipmentFormPrefill,
+  renderEquipamentoPicker,
+  bindEquipamentoPicker,
+  attachEquipamentoDatalists,
+} from './cliente-equipamentos.js';
 import { collectSubmitWarnings, confirmSubmitWarnings } from './form-submit-checks.js';
 import {
   renderReportFields,
@@ -258,10 +264,23 @@ export async function openJobForm(jobId, options = {}) {
 
     resetFotoState(job, existingReport);
 
+    let equipamentos = [];
+    if (!viewOnly && job.clientId) {
+      try {
+        const { fetchClienteEquipamentos } = await import('./cliente-equipamentos-db.js');
+        equipamentos = await fetchClienteEquipamentos(job.clientId);
+      } catch (err) {
+        console.warn('[Form] Equipamentos do cliente:', err);
+      }
+    }
+
     const overlay = document.createElement('div');
     overlay.id = 'form-overlay';
     overlay.className = 'form-overlay form-overlay--tech';
-    overlay.innerHTML = buildFormHTML(job, client, tech, service, existingReport, { viewOnly });
+    overlay.innerHTML = buildFormHTML(job, client, tech, service, existingReport, {
+      viewOnly,
+      equipamentos,
+    });
     document.body.appendChild(overlay);
     document.body.style.overflow = 'hidden';
 
@@ -271,6 +290,11 @@ export async function openJobForm(jobId, options = {}) {
     bindFormEvents(overlay, job, client, tech, service, existingReport, { viewOnly });
 
     await bindFormFieldInteractions(overlay);
+
+    if (!viewOnly && equipamentos.length) {
+      bindEquipamentoPicker(overlay, equipamentos, service);
+      attachEquipamentoDatalists(overlay, equipamentos);
+    }
 
     if (trabalhoIdEmEdicao) {
       showToast('Pode editar o relatório enquanto aguarda aprovação do RH.', 'info', 4000);
@@ -368,10 +392,15 @@ function buildFormHTML(job, client, tech, service, existingReport, options = {})
     lockClient: true,
   };
   const prefill = buildFormPrefill(service, job, null, formContext);
-  const values = mergeFormValues(saved, prefill, service);
+  let values = mergeFormValues(saved, prefill, service);
   if (service?.id === 'manutencao_baterias_grandes') {
     values[GRANDES_BATTERY_FIELD_ID] = migrateLegacyBatteryRows(values);
   }
+  const equipamentos = options.equipamentos || [];
+  const equipmentPrefill = buildEquipmentFormPrefill(service, job, equipamentos, values);
+  values = mergeFormValues(values, equipmentPrefill, service);
+  const equipamentoPickerHtml =
+    options.viewOnly === true ? '' : renderEquipamentoPicker(equipamentos, service);
   const official = isOfficialTemplate(service);
   const clientHeader = renderJobClientHeader(client);
   const lockedClientFields = renderLockedClientHiddenFields(client, values);
@@ -526,6 +555,7 @@ function buildFormHTML(job, client, tech, service, existingReport, options = {})
               </div>
               <section class="form-section report-fields-section">
                 ${official ? '' : '<h3 class="section-title">Dados do Relatório</h3>'}
+                ${equipamentoPickerHtml}
                 <div class="report-fields">${fieldsGeral}</div>
               </section>
             </div>
