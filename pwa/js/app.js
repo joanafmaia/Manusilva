@@ -1437,6 +1437,38 @@ export async function assignJob(jobData) {
   }
 }
 
+/** Altera a data de um trabalho já agendado (calendário RH). */
+export async function rescheduleJob(jobId, newDate) {
+  const date = String(newDate ?? '')
+    .trim()
+    .split('T')[0];
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    showToast('Introduza uma data válida.', 'error');
+    return false;
+  }
+
+  const job = getJob(jobId);
+  if (!job) {
+    showToast('Trabalho não encontrado.', 'error');
+    return false;
+  }
+  if (job.date === date) {
+    showToast('O trabalho já está marcado para essa data.', 'info');
+    return true;
+  }
+
+  try {
+    await patchTrabalho(jobId, { date });
+    window.dispatchEvent(new CustomEvent('db-updated'));
+    showToast(`Trabalho reagendado para ${formatDateLong(date)}.`, 'success');
+    return true;
+  } catch (err) {
+    console.error('[ManuSilva] rescheduleJob:', err);
+    showToast(formatTrabalhosError(err), 'error', 9000);
+    return false;
+  }
+}
+
 /** Remove trabalho na Supabase e relatórios locais associados */
 export async function deleteJob(jobId) {
   try {

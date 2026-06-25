@@ -251,6 +251,7 @@ export async function patchTrabalho(jobId, patch = {}) {
   if (patch.urlPdf !== undefined) update.url_pdf = patch.urlPdf;
   if (patch.fotoAntes !== undefined) update.foto_antes = patch.fotoAntes;
   if (patch.fotoDepois !== undefined) update.foto_depois = patch.fotoDepois;
+  if (patch.date !== undefined) update.data = formatDateOnly(patch.date) || null;
 
   const supabase = await getAuthenticatedSupabaseClient();
   const { error } = await supabase.from('trabalhos').update(update).eq('id', jobId);
@@ -268,6 +269,7 @@ export async function patchTrabalho(jobId, patch = {}) {
       if (patch.urlPdf !== undefined) job.urlPdf = patch.urlPdf;
       if (patch.fotoAntes !== undefined) job.fotoAntes = patch.fotoAntes;
       if (patch.fotoDepois !== undefined) job.fotoDepois = patch.fotoDepois;
+      if (patch.date !== undefined) job.date = formatDateOnly(patch.date);
     }
   }
 }

@@ -18,6 +18,7 @@ import {
   rejectReport,
   assignJob,
   deleteJob,
+  rescheduleJob,
   getJob,
   warmJobs,
   getReportForJob,
@@ -1284,6 +1285,7 @@ function openJobDetailModal(jobId) {
 
   const actions = `
     <button type="button" class="btn-ghost" id="job-detail-close">Fechar</button>
+    <button type="button" class="btn-secondary" id="job-detail-reschedule">Alterar data</button>
     <button type="button" class="btn-danger" id="job-detail-delete">Eliminar</button>
     ${reviewBtn}
   `;
@@ -1291,6 +1293,10 @@ function openJobDetailModal(jobId) {
   const overlay = openModal(modalTitle, buildJobDetailContent(job), actions);
 
   overlay.querySelector('#job-detail-close')?.addEventListener('click', closeModal);
+  overlay.querySelector('#job-detail-reschedule')?.addEventListener('click', () => {
+    closeModal();
+    openRescheduleJobModal(jobId);
+  });
   overlay.querySelector('#job-detail-delete')?.addEventListener('click', () => {
     closeModal();
     confirmDeleteJob(jobId);
@@ -1303,6 +1309,57 @@ function openJobDetailModal(jobId) {
       setAdminTab('relatorios');
       const { openRhReviewModal } = await import('./report-review-rh-modal.js');
       await openRhReviewModal(report.id, rhReviewModalCallbacks());
+    }
+  });
+}
+
+function openRescheduleJobModal(jobId) {
+  const job = getJob(jobId);
+  if (!job) {
+    showToast('Trabalho não encontrado.', 'error');
+    return;
+  }
+
+  const client = getClient(job.clientId);
+  const service = getServiceType(job.serviceType);
+  const label = `${client?.name || 'Cliente'} — ${service?.label || 'Serviço'}`;
+
+  const content = `
+    <p class="text-muted" style="margin-bottom:1rem">${escapeHtml(label)}</p>
+    <div class="form-group">
+      <label class="form-label" for="reschedule-job-date">Nova data</label>
+      <input type="date" class="form-input" id="reschedule-job-date" value="${escapeHtml(job.date)}" required>
+    </div>
+    <p class="text-muted" style="margin-top:0.5rem;font-size:0.8125rem">
+      Data atual: <strong>${escapeHtml(formatDateLong(job.date))}</strong>. O técnico verá o trabalho no novo dia.
+    </p>
+  `;
+
+  const actions = `
+    <button type="button" class="btn-ghost" id="cancel-reschedule-job">Cancelar</button>
+    <button type="button" class="btn-primary" id="confirm-reschedule-job">Guardar data</button>
+  `;
+
+  const overlay = openModal('Alterar data do trabalho', content, actions);
+  const dateInput = overlay.querySelector('#reschedule-job-date');
+
+  overlay.querySelector('#cancel-reschedule-job')?.addEventListener('click', closeModal);
+  overlay.querySelector('#confirm-reschedule-job')?.addEventListener('click', async () => {
+    const btn = overlay.querySelector('#confirm-reschedule-job');
+    const newDate = dateInput?.value?.trim();
+    if (!newDate) {
+      showToast('Selecione uma data.', 'error');
+      return;
+    }
+    btn.disabled = true;
+    btn.textContent = 'A guardar…';
+    const ok = await rescheduleJob(jobId, newDate);
+    if (ok) {
+      closeModal();
+      renderCalendar();
+    } else {
+      btn.disabled = false;
+      btn.textContent = 'Guardar data';
     }
   });
 }
