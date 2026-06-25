@@ -1315,13 +1315,7 @@ export async function approveReport(reportId, options = {}) {
     const recipientEmail =
       clientEmailInput || client?.email || client?.['E-mail'] || '';
 
-    if (testClient) {
-      showToast(
-        'Relatório de teste aprovado — PDF guardado. Sem envio de e-mail ao cliente.',
-        'success',
-        6000,
-      );
-    } else if (emailSynced) {
+    if (emailSynced) {
       showToast(
         'Relatório aprovado e email do cliente atualizado na base de dados!',
         'success',
@@ -1337,7 +1331,7 @@ export async function approveReport(reportId, options = {}) {
       showToast('Relatório aprovado, mas o cliente não tem e-mail registado.', 'warning');
     }
 
-    if (recipientEmail && !testClient) {
+    if (recipientEmail) {
       const values = report?.data?.values || {};
       const tipoRelatorio =
         report.serviceType === 'inspecao_dl50_2005'

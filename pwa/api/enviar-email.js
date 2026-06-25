@@ -220,10 +220,11 @@ function isSafeHttpUrl(value) {
   }
 }
 
-function buildHtmlBody(payload = {}) {
+function buildHtmlBody(payload = {}, options = {}) {
   const company = escapeHtml(payload.clienteNome || payload.nomeEmpresa || payload.clientName || 'Cliente');
   const tecnico = escapeHtml(payload.tecnico || payload.technician || 'Não informado');
   const pdfUrl = isSafeHttpUrl(payload.pdfUrl) ? String(payload.pdfUrl).trim() : '';
+  const hasAttachment = Boolean(options.hasPdfAttachment);
   const data = escapeHtml(
     payload.dataConclusao ||
       payload.data ||
@@ -237,99 +238,66 @@ function buildHtmlBody(payload = {}) {
   const tipoRelatorio = String(payload.tipoRelatorio || '').toLowerCase();
   const serviceLabel =
     tipoRelatorio === 'dl50-2005'
-      ? 'Inspeção DL 50/2005'
+      ? 'inspeção DL 50/2005'
       : tipoRelatorio === 'baterias'
-        ? 'Manutenção de Baterias'
-        : 'Relatório Técnico';
+        ? 'manutenção de baterias'
+        : 'intervenção técnica';
+
+  const pdfBlock = pdfUrl
+    ? `<p style="margin:18px 0 0 0;">
+        <a href="${escapeHtml(pdfUrl)}" target="_blank" rel="noopener noreferrer" style="display:inline-block;background:#0f172a;color:#ffffff;text-decoration:none;padding:10px 18px;border-radius:8px;font-size:13px;font-weight:600;">
+          Ver relatório PDF
+        </a>
+      </p>`
+    : '';
+
+  const attachmentNote = hasAttachment
+    ? `<p style="margin:12px 0 0 0;font-size:13px;line-height:1.5;color:#64748b;">
+        O documento encontra-se também em anexo a este e-mail.
+      </p>`
+    : '';
 
   return `
 <!doctype html>
 <html lang="pt">
-  <body style="margin:0;padding:0;background:#f1f5f9;font-family:Inter,Segoe UI,Arial,sans-serif;color:#0f172a;">
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="padding:28px 14px;">
+  <body style="margin:0;padding:0;background:#f8fafc;font-family:Segoe UI,Arial,sans-serif;color:#0f172a;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="padding:24px 12px;">
       <tr>
         <td align="center">
-          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:700px;background:#ffffff;border:1px solid #dbe3ef;border-radius:16px;overflow:hidden;box-shadow:0 8px 30px rgba(15,23,42,0.08);">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#ffffff;border:1px solid #e2e8f0;border-radius:10px;">
             <tr>
-              <td style="padding:22px 26px;background:#0f172a;color:#ffffff;">
-                <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
-                  <tr>
-                    <td style="font-size:20px;font-weight:700;line-height:1.25;letter-spacing:0.2px;">
-                      Relatório Técnico ManuSilva
-                    </td>
-                    <td align="right">
-                      <span style="display:inline-block;background:#1e293b;color:#e2e8f0;border:1px solid #334155;padding:6px 11px;border-radius:999px;font-size:11px;font-weight:700;letter-spacing:0.4px;text-transform:uppercase;">
-                        ${escapeHtml(serviceLabel)}
-                      </span>
-                    </td>
-                  </tr>
-                </table>
+              <td style="padding:20px 24px 16px 24px;border-bottom:1px solid #e2e8f0;">
+                <p style="margin:0;font-size:16px;font-weight:700;color:#0f172a;">ManuSilva</p>
+                <p style="margin:4px 0 0 0;font-size:12px;color:#64748b;">Relatório técnico</p>
               </td>
             </tr>
             <tr>
-              <td style="padding:26px;">
-                <div style="margin:0 0 16px 0;padding:14px 16px;border:1px solid #dbe3ef;border-left:4px solid #0f172a;background:#f8fafc;border-radius:10px;">
-                  <p style="margin:0;font-size:15px;line-height:1.6;color:#0f172a;">
-                    <strong>Exmos. Senhores ${company},</strong>
-                  </p>
-                </div>
-                <p style="margin:0 0 16px 0;font-size:14px;line-height:1.75;color:#334155;">
-                  Informamos que foi concluído e aprovado um relatório técnico da vossa operação.
-                  Segue abaixo o resumo formal da intervenção executada pela nossa equipa.
+              <td style="padding:20px 24px;">
+                <p style="margin:0 0 14px 0;font-size:14px;line-height:1.6;color:#0f172a;">
+                  Exmos. Senhores <strong>${company}</strong>,
                 </p>
-                <p style="margin:0 0 14px 0;font-size:14px;line-height:1.65;color:#0f172a;font-weight:600;">
-                  Detalhes da intervenção
+                <p style="margin:0;font-size:14px;line-height:1.65;color:#334155;">
+                  Segue o relatório de ${escapeHtml(serviceLabel)} referente à intervenção de <strong>${data}</strong>
+                  (técnico: ${tecnico}).
                 </p>
-
-                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:separate;border-spacing:0;border:1px solid #dbe3ef;border-radius:12px;overflow:hidden;background:#ffffff;">
-                  <tr>
-                    <td style="width:36%;padding:13px 14px;background:#f8fafc;border-bottom:1px solid #e2e8f0;color:#475569;font-size:12px;font-weight:700;letter-spacing:0.3px;text-transform:uppercase;">Técnico</td>
-                    <td style="padding:13px 14px;border-bottom:1px solid #e2e8f0;font-size:13px;color:#0f172a;font-weight:500;">${tecnico}</td>
-                  </tr>
-                  <tr>
-                    <td style="padding:13px 14px;background:#f8fafc;border-bottom:1px solid #e2e8f0;color:#475569;font-size:12px;font-weight:700;letter-spacing:0.3px;text-transform:uppercase;">Data</td>
-                    <td style="padding:13px 14px;border-bottom:1px solid #e2e8f0;font-size:13px;color:#0f172a;font-weight:500;">${data}</td>
-                  </tr>
-                </table>
-
-                ${
-                  pdfUrl
-                    ? `
-                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:20px 0 0 0;">
-                  <tr>
-                    <td align="center" style="padding:18px 16px;background:#f8fafc;border:1px solid #dbe3ef;border-radius:12px;">
-                      <p style="margin:0 0 12px 0;font-size:13px;line-height:1.6;color:#475569;">
-                        O relatório técnico em PDF está disponível para consulta e descarga:
-                      </p>
-                      <a href="${escapeHtml(pdfUrl)}" target="_blank" rel="noopener noreferrer" style="display:inline-block;background:#0f172a;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:700;letter-spacing:0.2px;">
-                        Descarregar relatório PDF
-                      </a>
-                    </td>
-                  </tr>
-                </table>`
-                    : ''
-                }
-
-                <p style="margin:20px 0 0 0;font-size:14px;line-height:1.7;color:#334155;">
-                  Permanecemos à disposição para qualquer esclarecimento técnico adicional.
+                ${pdfBlock}
+                ${attachmentNote}
+                <p style="margin:18px 0 0 0;font-size:14px;line-height:1.6;color:#334155;">
+                  Com os melhores cumprimentos,<br>
+                  <strong>ManuSilva</strong>
                 </p>
               </td>
             </tr>
             <tr>
-              <td style="padding:20px 26px;background:#f8fafc;border-top:1px solid #e2e8f0;">
-                <p style="margin:0 0 6px 0;font-size:14px;line-height:1.6;color:#0f172a;font-weight:700;">
-                  ManuSilva — Manutenção de Baterias e Empilhadores
-                </p>
-                <p style="margin:0 0 2px 0;font-size:12px;line-height:1.6;color:#475569;">
+              <td style="padding:14px 24px 18px 24px;background:#f8fafc;border-top:1px solid #e2e8f0;">
+                <p style="margin:0 0 4px 0;font-size:11px;line-height:1.5;color:#64748b;">
                   Rua São Mamede, Lote Nº1 - Fração D, 4760-725 Ribeirão VNF
                 </p>
-                <p style="margin:0 0 10px 0;font-size:12px;line-height:1.6;color:#475569;">
+                <p style="margin:0 0 8px 0;font-size:11px;line-height:1.5;color:#64748b;">
                   ${escapeHtml(CONTACT_EMAIL)} · ${escapeHtml(CONTACT_PHONE)} · ${escapeHtml(CONTACT_WEBSITE)}
                 </p>
-                <p style="margin:0;font-size:10px;line-height:1.55;color:#64748b;">
-                  Nota de confidencialidade: esta comunicação e quaisquer anexos podem conter informação confidencial e legalmente protegida,
-                  destinada exclusivamente ao destinatário identificado. Se recebeu este e-mail por engano, solicitamos a eliminação imediata
-                  e a notificação ao remetente, sendo proibida a divulgação, cópia ou utilização do seu conteúdo sem autorização.
+                <p style="margin:0;font-size:10px;line-height:1.45;color:#94a3b8;">
+                  Informação confidencial destinada ao destinatário. Se recebeu este e-mail por engano, elimine-o e avise o remetente.
                 </p>
               </td>
             </tr>
@@ -434,7 +402,7 @@ module.exports = async function handler(req, res) {
       from: EMAIL_USER,
       to: recipient,
       subject: buildSubject(payload),
-      html: buildHtmlBody(payload),
+      html: buildHtmlBody(payload, { hasPdfAttachment: attachments.length > 0 }),
       attachments: attachments.length ? attachments : undefined,
     });
 
