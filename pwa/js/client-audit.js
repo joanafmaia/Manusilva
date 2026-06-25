@@ -12,6 +12,8 @@ const FIELD_LABELS = {
   codigo_postal: 'Código postal',
   localidade: 'Localidade',
   condicao_pagamento: 'Condição de pagamento',
+  plus_code: 'Plus Code',
+  zona_rota: 'Zona / Rota',
 };
 
 function resolveActor() {

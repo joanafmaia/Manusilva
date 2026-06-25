@@ -12,6 +12,22 @@ export function buildClientAddress(client) {
   return [morada, cp, localidade].filter(Boolean).join(', ');
 }
 
+/** Plus Code (Google) — preferido para navegação quando existir. */
+export function buildClientPlusCode(client) {
+  if (!client) return '';
+  return String(client.plusCode || client.plus_code || '').trim();
+}
+
+/**
+ * Destino para Waze: Plus Code se existir (mais preciso em zonas industriais),
+ * senão morada completa.
+ */
+export function buildWazeNavigationQuery(client) {
+  const plusCode = buildClientPlusCode(client);
+  if (plusCode) return plusCode;
+  return buildClientAddress(client);
+}
+
 export function buildClientPhone(client) {
   if (!client) return '';
   return String(
@@ -54,8 +70,11 @@ export function filterRealizadosBySearch(items, query, { getClient, getService }
 export function renderTechClientInfoSheet(client, { onHistory, onLastPdf, lastIntervention, onClose } = {}) {
   const name = client?.Nome || client?.name || 'Cliente';
   const address = buildClientAddress(client);
+  const plusCode = buildClientPlusCode(client);
+  const wazeQuery = buildWazeNavigationQuery(client);
+  const wazeUrl = buildWazeUrl(wazeQuery);
+  const wazeUsesPlusCode = Boolean(plusCode);
   const phone = buildClientPhone(client);
-  const wazeUrl = buildWazeUrl(address);
   const telHref = phone ? `tel:${phone.replace(/[^\d+]/g, '')}` : '';
 
   const lastHtml = lastIntervention
@@ -89,6 +108,14 @@ export function renderTechClientInfoSheet(client, { onHistory, onLastPdf, lastIn
           <span class="tech-client-sheet__label">Morada</span>
           <p class="tech-client-sheet__value">${address ? escapeHtml(address) : '—'}</p>
         </div>
+        ${
+          plusCode
+            ? `<div class="tech-client-sheet__row">
+          <span class="tech-client-sheet__label">Plus Code</span>
+          <p class="tech-client-sheet__value">${escapeHtml(plusCode)}</p>
+        </div>`
+            : ''
+        }
         <div class="tech-client-sheet__row">
           <span class="tech-client-sheet__label">Contacto</span>
           <p class="tech-client-sheet__value">${
@@ -101,7 +128,7 @@ export function renderTechClientInfoSheet(client, { onHistory, onLastPdf, lastIn
       <footer class="tech-client-sheet__footer">
         ${
           wazeUrl
-            ? `<a href="${escapeHtml(wazeUrl)}" class="btn-secondary btn-touch tech-client-sheet__waze" target="_blank" rel="noopener noreferrer">Abrir no Waze</a>`
+            ? `<a href="${escapeHtml(wazeUrl)}" class="btn-secondary btn-touch tech-client-sheet__waze" target="_blank" rel="noopener noreferrer" title="${wazeUsesPlusCode ? 'Navegação por Plus Code (ponto GPS)' : 'Navegação por morada'}">Abrir no Waze</a>`
             : ''
         }
         ${

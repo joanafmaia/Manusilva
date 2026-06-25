@@ -18,6 +18,8 @@ const ALLOWED_FIELDS = [
   'codigo_postal',
   'localidade',
   'condicao_pagamento',
+  'plus_code',
+  'zona_rota',
 ];
 
 function getBearerToken(req) {
@@ -37,6 +39,12 @@ function normalizePatch(body = {}) {
   if (body.localidade !== undefined) patch.localidade = String(body.localidade ?? '').trim() || null;
   if (body.condicao_pagamento !== undefined) {
     patch.condicao_pagamento = String(body.condicao_pagamento ?? '').trim() || null;
+  }
+  if (body.plus_code !== undefined) {
+    patch.plus_code = String(body.plus_code ?? '').trim() || null;
+  }
+  if (body.zona_rota !== undefined) {
+    patch.zona_rota = String(body.zona_rota ?? '').trim() || null;
   }
   return patch;
 }

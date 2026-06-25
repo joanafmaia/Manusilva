@@ -60,6 +60,11 @@ function enrichLegacyClient(clientId, catalogRecord) {
     catalogRecord?.condicao_pagamento ||
     '';
 
+  const plusCode =
+    legacy?.plusCode || legacy?.plus_code || catalogRecord?.plusCode || catalogRecord?.plus_code || '';
+  const zonaRota =
+    legacy?.zonaRota || legacy?.zona_rota || catalogRecord?.zonaRota || catalogRecord?.zona_rota || '';
+
   return {
     id: clientId,
     nome: legacy?.name || legacy?.Nome || catalogRecord?.Nome || '—',
@@ -74,6 +79,10 @@ function enrichLegacyClient(clientId, catalogRecord) {
     phoneRaw: phone,
     condicaoPagamento: condicaoRaw || '—',
     condicaoPagamentoRaw: condicaoRaw || '',
+    plusCode: plusCode || '—',
+    plusCodeRaw: plusCode || '',
+    zonaRota: zonaRota || '—',
+    zonaRotaRaw: zonaRota || '',
     forklifts: legacy?.forklifts || [],
   };
 }
@@ -169,6 +178,8 @@ function renderAddressEditBlock(profile) {
       ${renderEditableField('Código postal', 'client-ficha-cp', profile.cpRaw, 'text')}
       ${renderEditableField('Localidade', 'client-ficha-localidade', profile.localidadeRaw, 'text')}
     </div>
+    ${renderEditableField('Plus Code', 'client-ficha-plus-code', profile.plusCodeRaw, 'text')}
+    ${renderEditableField('Zona / Rota', 'client-ficha-zona-rota', profile.zonaRotaRaw, 'text')}
   `;
 }
 
@@ -187,11 +198,19 @@ function renderViewField(label, valueHtml, { copyValue = '', copyLabel = '' } = 
 export function renderClientProfilePanel(profile, { editing = false } = {}) {
   const moradaBlock = editing
     ? renderAddressEditBlock(profile)
-    : renderViewField(
-        'Morada completa',
-        escapeHtml(profile.morada),
-        { copyValue: profile.morada, copyLabel: 'morada' },
-      );
+    : `
+        ${renderViewField(
+          'Morada completa',
+          escapeHtml(profile.morada),
+          { copyValue: profile.morada, copyLabel: 'morada' },
+        )}
+        ${renderViewField(
+          'Plus Code',
+          escapeHtml(profile.plusCode),
+          { copyValue: profile.plusCode !== '—' ? profile.plusCode : '', copyLabel: 'Plus Code' },
+        )}
+        ${renderViewField('Zona / Rota', escapeHtml(profile.zonaRota))}
+      `;
 
   const emailBlock = editing
     ? renderEditableField('E-mail de contacto', 'client-ficha-email', profile.emailRaw || '', 'email')
@@ -288,6 +307,8 @@ function readEditForm(shell) {
     morada: shell.querySelector('#client-ficha-morada')?.value?.trim() ?? '',
     codigo_postal: shell.querySelector('#client-ficha-cp')?.value?.trim() ?? '',
     localidade: shell.querySelector('#client-ficha-localidade')?.value?.trim() ?? '',
+    plus_code: shell.querySelector('#client-ficha-plus-code')?.value?.trim() ?? '',
+    zona_rota: shell.querySelector('#client-ficha-zona-rota')?.value?.trim() ?? '',
     email: shell.querySelector('#client-ficha-email')?.value?.trim() ?? '',
     telemovel: shell.querySelector('#client-ficha-phone')?.value?.trim() ?? '',
     condicao_pagamento: shell.querySelector('#client-ficha-pagamento')?.value?.trim() ?? '',
@@ -312,6 +333,8 @@ function bindClientProfilePanel(shell, profile, options = {}) {
     morada: p.moradaRaw || '',
     codigo_postal: p.cpRaw || '',
     localidade: p.localidadeRaw || '',
+    plus_code: p.plusCodeRaw || '',
+    zona_rota: p.zonaRotaRaw || '',
     email: p.emailRaw || '',
     telemovel: p.phoneRaw || '',
     condicao_pagamento: p.condicaoPagamentoRaw || '',

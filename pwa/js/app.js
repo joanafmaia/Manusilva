@@ -652,7 +652,7 @@ export async function addClient(payload) {
 /**
  * Atualiza dados cadastrais de um cliente no Supabase.
  * @param {string|number} clientId
- * @param {{ email?: string, morada?: string, telemovel?: string, codigo_postal?: string, localidade?: string, condicao_pagamento?: string }} patch
+ * @param {{ email?: string, morada?: string, telemovel?: string, codigo_postal?: string, localidade?: string, condicao_pagamento?: string, plus_code?: string, zona_rota?: string }} patch
  * @param {{ origem?: string, silent?: boolean }} [options]
  */
 export async function updateClient(clientId, patch = {}, options = {}) {
@@ -681,6 +681,12 @@ export async function updateClient(clientId, patch = {}, options = {}) {
   if (patch.condicao_pagamento !== undefined) {
     row.condicao_pagamento = String(patch.condicao_pagamento ?? '').trim() || null;
   }
+  if (patch.plus_code !== undefined) {
+    row.plus_code = String(patch.plus_code ?? '').trim() || null;
+  }
+  if (patch.zona_rota !== undefined) {
+    row.zona_rota = String(patch.zona_rota ?? '').trim() || null;
+  }
 
   if (!Object.keys(row).length) {
     if (!options.silent) showToast('Nenhum dado para atualizar.', 'warning');
@@ -699,6 +705,8 @@ export async function updateClient(clientId, patch = {}, options = {}) {
       codigo_postal: existing?.['Código postal'] || '',
       localidade: existing?.Localidade || '',
       condicao_pagamento: existing?.condicao_pagamento || '',
+      plus_code: existing?.plusCode || '',
+      zona_rota: existing?.zonaRota || '',
     };
 
     const supabase = await getSupabaseClient();
@@ -737,6 +745,8 @@ export async function updateClient(clientId, patch = {}, options = {}) {
         codigo_postal: record['Código postal'] || '',
         localidade: record.Localidade || '',
         condicao_pagamento: record.condicao_pagamento || '',
+        plus_code: record.plusCode || '',
+        zona_rota: record.zonaRota || '',
       },
       { origem: options.origem || 'rh_ficha' },
     );
