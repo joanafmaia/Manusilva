@@ -162,12 +162,33 @@ export async function downloadReportPDF(reportId) {
     return;
   }
 
-  const { getJob } = await import('./app.js');
+  await ensureJobsLoaded();
   const job = report.jobId ? getJob(report.jobId) : null;
+  const service = getServiceType(report.serviceType);
+  const { PDF_DOCUMENT_TITLES } = await import('./mock_data.js');
+  const { buildReportPdfFilename } = await import('./pdf-storage.js');
+  const { downloadPdfBlob } = await import('./pdf-preview.js');
+
+  const filename = buildReportPdfFilename(job, report, {
+    serviceTitle: PDF_DOCUMENT_TITLES[report.serviceType] || service?.label,
+  });
+
   if (job?.urlPdf) {
-    window.open(job.urlPdf, '_blank');
-    showToast('A abrir PDF…', 'info');
-    return;
+    const { showPdfPreviewLoading } = await import('./pdf-preview.js');
+    showPdfPreviewLoading(true, 'A preparar PDF…');
+    try {
+      const res = await fetch(job.urlPdf);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
+      downloadPdfBlob(blob, filename);
+      showToast('PDF descarregado.', 'success');
+      return;
+    } catch (err) {
+      console.warn('[PDF] Falha ao obter PDF do Storage, a gerar de novo:', err);
+    } finally {
+      const { showPdfPreviewLoading: hide } = await import('./pdf-preview.js');
+      hide(false);
+    }
   }
 
   const { showPdfPreviewLoading } = await import('./pdf-preview.js');
@@ -175,11 +196,12 @@ export async function downloadReportPDF(reportId) {
 
   try {
     const { importPdfReport } = await import('./pdf-loader.js');
-    const { generateInterventionPDF } = await importPdfReport();
-    await generateInterventionPDF({
+    const { renderInterventionPDF } = await importPdfReport();
+    const doc = await renderInterventionPDF({
       ...report,
       submittedAt: report.submittedAt || new Date().toISOString(),
     });
+    doc.save(filename);
     showToast('PDF descarregado.', 'success');
   } catch (err) {
     console.error('[PDF]', err);

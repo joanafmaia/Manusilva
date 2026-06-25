@@ -17,20 +17,38 @@ export function sanitizePdfFilenameSegment(text) {
     .replace(/_+/g, '_');
 }
 
+/** Sufixo OP para nomes de ficheiro, ex.: OP-2026-35 */
+export function formatOpPdfFilenameSuffix(numeroOrdem) {
+  if (numeroOrdem == null || !Number.isFinite(Number(numeroOrdem))) return null;
+  return `OP-2026-${String(numeroOrdem).padStart(2, '0')}`;
+}
+
 /**
- * Ordem_${numero_ordem}_${tipo_trabalho}.pdf
+ * Nome canónico do PDF: título do relatório + número OP.
+ * Ex.: Relatorio_Manutencao_Preventiva_Bateria_OP-2026-35.pdf
  * @param {{ numeroOrdem?: number | null }} job
- * @param {{ serviceType?: string }} report
- * @param {string} [tipoTrabalhoLabel] rótulo legível do tipo de serviço
+ * @param {{ serviceType?: string, jobId?: string, id?: string }} report
+ * @param {{ serviceTitle?: string, tipoTrabalhoLabel?: string }} [options]
+ */
+export function buildReportPdfFilename(job, report, options = {}) {
+  const tipo = sanitizePdfFilenameSegment(
+    options.serviceTitle || options.tipoTrabalhoLabel || report?.serviceType || 'relatorio',
+  );
+  const op = formatOpPdfFilenameSuffix(job?.numeroOrdem);
+  if (op) {
+    return `${tipo}_${op}.pdf`;
+  }
+  const stamp = String(job?.id || report?.jobId || report?.id || Date.now())
+    .replace(/-/g, '')
+    .slice(0, 12);
+  return `Teste_${tipo}_${stamp}.pdf`;
+}
+
+/**
+ * @deprecated Preferir buildReportPdfFilename — mantido para compatibilidade.
  */
 export function buildOrdemPdfStorageFilename(job, report, tipoTrabalhoLabel) {
-  const ordem = job?.numeroOrdem;
-  const tipo = sanitizePdfFilenameSegment(tipoTrabalhoLabel || report?.serviceType || 'relatorio');
-  if (ordem != null && Number.isFinite(Number(ordem))) {
-    return `Ordem_${ordem}_${tipo}.pdf`;
-  }
-  const stamp = String(job?.id || report?.jobId || report?.id || Date.now()).replace(/-/g, '').slice(0, 12);
-  return `Teste_${stamp}_${tipo}.pdf`;
+  return buildReportPdfFilename(job, report, { tipoTrabalhoLabel });
 }
 
 export function formatPdfStorageError(err) {

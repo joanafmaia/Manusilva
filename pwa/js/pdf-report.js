@@ -19,6 +19,7 @@ import {
   getProductionClientsCatalog,
 } from './clients-catalog.js';
 import { getJobsSnapshot } from './trabalhos-db.js';
+import { buildReportPdfFilename } from './pdf-storage.js';
 import { pdfAddImageContained } from './pdf-image-fit.js';
 import MANUSILVA_LOGO from './logo_data.js';
 import { isLogoConfigured, getPdfLogoFormat } from './brand-ui.js';
@@ -636,9 +637,13 @@ export async function loadJsPDF() {
 }
 
 function getReportFilename(report) {
-  const safeSerial = (report.forkliftSerial || 'report').replace(/[^\w-]/g, '_');
-  const dateStamp = (report.submittedAt || new Date().toISOString()).slice(0, 10);
-  return `Manusilva_${report.serviceType}_${safeSerial}_${dateStamp}.pdf`;
+  const job = report?.jobId
+    ? getJobsSnapshot().find((j) => String(j.id) === String(report.jobId))
+    : null;
+  const service = getServiceType(report?.serviceType);
+  const serviceTitle =
+    PDF_DOCUMENT_TITLES[report?.serviceType] || service?.label || report?.serviceType;
+  return buildReportPdfFilename(job, report, { serviceTitle });
 }
 
 function yieldToMain() {
@@ -1170,12 +1175,16 @@ function buildFolhaInstitutionalFooterLines() {
   return [COMPANY.name, COMPANY.address, contact].filter(Boolean);
 }
 
-function drawFolhaInstitutionalFooter(doc) {
-  const total = doc.getNumberOfPages();
-  doc.setPage(total);
+function drawFolhaInstitutionalPageFooter(doc, pageNumber, totalPages) {
+  doc.setPage(pageNumber);
 
   const footerTop = PDF_FOOTER_BLOCK_TOP;
   const footerLines = buildFolhaInstitutionalFooterLines();
+
+  pdfSetFont(doc, 'normal');
+  doc.setFontSize(PDF_FONT_CAPTION);
+  doc.setTextColor(...TEXT_MUTED);
+  doc.text(`${pageNumber} / ${totalPages}`, PAGE_W / 2, PDF_PAGE_NUMBER_Y, { align: 'center' });
 
   doc.setDrawColor(...PDF_TABLE_LINE);
   doc.setLineWidth(0.2);
@@ -1197,18 +1206,8 @@ function drawFolhaInstitutionalFooter(doc) {
 function drawFolhaDocumentFooters(doc) {
   const total = doc.getNumberOfPages();
   for (let i = 1; i <= total; i++) {
-    doc.setPage(i);
-    pdfSetFont(doc, 'normal');
-    doc.setFontSize(PDF_FONT_CAPTION);
-    doc.setTextColor(...TEXT_MUTED);
-    doc.text(`${i} / ${total}`, PAGE_W / 2, PDF_PAGE_NUMBER_Y, { align: 'center' });
-    if (i < total) {
-      doc.setDrawColor(...PDF_TABLE_LINE);
-      doc.setLineWidth(0.15);
-      doc.line(MARGIN, PDF_FOOTER_BLOCK_TOP, PAGE_W - MARGIN, PDF_FOOTER_BLOCK_TOP);
-    }
+    drawFolhaInstitutionalPageFooter(doc, i, total);
   }
-  drawFolhaInstitutionalFooter(doc);
 }
 
 function buildFolhaAutoTableConfig(doc, y, overrides = {}) {

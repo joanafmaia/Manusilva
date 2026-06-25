@@ -16,6 +16,7 @@ import {
   SERVICE_TYPES,
   reportTemplates,
   JOB_STATUSES,
+  PDF_DOCUMENT_TITLES,
   seedDatabase,
 } from './mock_data.js';
 import {
@@ -43,7 +44,7 @@ import {
 import {
   uploadTrabalhoPdf,
   formatPdfStorageError,
-  buildOrdemPdfStorageFilename,
+  buildReportPdfFilename,
 } from './pdf-storage.js';
 import {
   ensureReportsLoaded,
@@ -1269,7 +1270,9 @@ export async function approveReport(reportId, options = {}) {
     const { renderInterventionPDF } = await importPdfReport();
 
     const doc = await renderInterventionPDF(reportForPdf);
-    const filename = buildOrdemPdfStorageFilename(job, reportForPdf, service?.label);
+    const filename = buildReportPdfFilename(job, reportForPdf, {
+      serviceTitle: PDF_DOCUMENT_TITLES[report.serviceType] || service?.label,
+    });
 
     const pdfBlob = doc.output('blob');
     const pdfArrayBuffer = await pdfBlob.arrayBuffer();

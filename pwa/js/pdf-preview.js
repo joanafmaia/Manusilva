@@ -29,6 +29,11 @@ function downloadBlob(blob, filename) {
   setTimeout(() => URL.revokeObjectURL(url), 500);
 }
 
+/** Descarrega um Blob PDF com nome de ficheiro definido. */
+export function downloadPdfBlob(blob, filename) {
+  downloadBlob(blob, filename);
+}
+
 /**
  * @param {{ blobUrl: string, blob: Blob, filename: string, pageCount?: number }} payload
  */
