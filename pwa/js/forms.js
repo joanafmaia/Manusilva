@@ -1065,6 +1065,9 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport, opt
     if (btn) btn.disabled = true;
     let previewModule;
     try {
+      if (service?.id === 'manutencao_preventiva_empilhadores') {
+        flushEmpilhadoresChecklistToStore(overlay);
+      }
       const report =
         viewOnly && existingReport
           ? existingReport

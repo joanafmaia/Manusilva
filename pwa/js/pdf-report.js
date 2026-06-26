@@ -719,13 +719,15 @@ export async function renderInterventionPDF(report) {
 
   const pdfContext = buildPdfRenderContext(report, job, clientMeta, tech);
   let pdfService = service;
-  let values = mapReportValuesForPdf(data, service, pdfContext);
-  values = { ...values, ...resolveInspecaoDl50MachineFields(values, pdfContext) };
+  let seedValues = normalizeReportValues(data);
   if (isEmpilhadoresPdf) {
     const machineIndex = resolveEmpilhadoresPdfMachineIndex(report);
-    values = flattenEmpilhadoresValues(values, machineIndex);
+    seedValues = flattenEmpilhadoresValues(seedValues, machineIndex);
+    delete seedValues.maquinas;
     pdfService = buildEmpilhadoresPdfService(service, machineIndex);
   }
+  let values = mapReportValuesForPdf(data, pdfService, pdfContext, seedValues);
+  values = { ...values, ...resolveInspecaoDl50MachineFields(values, pdfContext) };
   pdfContext.values = values;
   pdfContext.service = pdfService;
   pdfContext.closingOpts = {
@@ -4211,6 +4213,10 @@ function coercePdfFieldValue(field, raw, pdfContext = null) {
       .filter((item) => item && item !== 'null' && item !== 'undefined');
   }
 
+  if (type === 'empilhadores_maquinas') {
+    return Array.isArray(value) ? value : raw;
+  }
+
   if (type === 'dynamic_table' || type === 'grandes_identificacao_baterias') {
     if (!Array.isArray(value)) return [];
     const columnKeys = (field?.columns || getColumnLabels()).map((c) => columnKey(c));
@@ -4247,10 +4253,11 @@ function coercePdfFieldValue(field, raw, pdfContext = null) {
 }
 
 /** Aplica coerção a todos os campos do template antes de desenhar */
-function mapReportValuesForPdf(data, service, pdfContext = null) {
-  const values = { ...normalizeReportValues(data) };
+function mapReportValuesForPdf(data, service, pdfContext = null, seedValues = null) {
+  const values = { ...(seedValues || normalizeReportValues(data)) };
 
   (service?.fields || []).forEach((field) => {
+    if (field.type === 'empilhadores_maquinas') return;
     if (values[field.id] === undefined) return;
     if (isMaterialTableField(field)) {
       values[field.id] = normalizeMaterialRows(values[field.id]);

@@ -118,7 +118,14 @@ export function normalizeEmpilhadoresMaquinaRow(raw = {}) {
 
 /** Converte rascunhos antigos (campos únicos no topo) para array de máquinas. */
 export function migrateLegacyEmpilhadoresMaquinas(values = {}) {
-  const existing = values[EMPILHADORES_MAQUINAS_FIELD_ID];
+  let existing = values[EMPILHADORES_MAQUINAS_FIELD_ID];
+  if (typeof existing === 'string') {
+    try {
+      existing = JSON.parse(existing);
+    } catch {
+      existing = null;
+    }
+  }
   if (Array.isArray(existing) && existing.length) {
     return existing.map(normalizeEmpilhadoresMaquinaRow);
   }
@@ -234,13 +241,34 @@ export function buildEmpilhadoresPdfService(service, machineIndex = 0) {
 
 function readStore(overlay) {
   const input = overlay.querySelector('[data-empilhadores-maquinas-store]');
-  if (!input?.value) return [];
-  try {
-    const parsed = JSON.parse(input.value);
-    return Array.isArray(parsed) ? parsed.map(normalizeEmpilhadoresMaquinaRow) : [];
-  } catch {
-    return [];
+  if (input?.value) {
+    try {
+      const parsed = JSON.parse(input.value);
+      if (Array.isArray(parsed) && parsed.length) {
+        return parsed.map(normalizeEmpilhadoresMaquinaRow);
+      }
+    } catch {
+      /* tentar fonte inicial */
+    }
   }
+
+  const wrap = overlay.querySelector('[data-empilhadores-maquinas]');
+  const encoded = wrap?.dataset?.initialMaquinas;
+  if (encoded) {
+    try {
+      const parsed = JSON.parse(decodeURIComponent(encoded));
+      if (Array.isArray(parsed) && parsed.length) {
+        const rows = parsed.map(normalizeEmpilhadoresMaquinaRow);
+        writeStore(overlay, rows);
+        delete wrap.dataset.initialMaquinas;
+        return rows;
+      }
+    } catch {
+      /* ignorar */
+    }
+  }
+
+  return [];
 }
 
 function writeStore(overlay, maquinas) {
@@ -375,13 +403,14 @@ export function renderEmpilhadoresMaquinasSection(field, value) {
   });
   const header = EMPILHADORES_ID_COLUMNS.map((c) => `<th>${escapeHtml(c.label)}</th>`).join('');
   const body = rows.map((row, i) => renderIdRow(row, i)).join('');
-  const storeJson = escapeHtml(JSON.stringify(rows));
+  const initialStore = encodeURIComponent(JSON.stringify(rows));
 
   return `
     <div class="form-group field-block empilhadores-maquinas-field dynamic-table-field"
       data-empilhadores-maquinas="${EMPILHADORES_MAQUINAS_FIELD_ID}"
-      data-field-id="${EMPILHADORES_MAQUINAS_FIELD_ID}">
-      <input type="hidden" data-empilhadores-maquinas-store value="${storeJson}">
+      data-field-id="${EMPILHADORES_MAQUINAS_FIELD_ID}"
+      data-initial-maquinas="${initialStore}">
+      <input type="hidden" data-empilhadores-maquinas-store value="">
       <div class="empilhadores-maquinas-section-bar">
         <span class="empilhadores-maquinas-section-title">${escapeHtml(field.label || 'Máquinas da Visita')}</span>
         <span class="empilhadores-maquinas-count text-muted" data-empilhadores-maquinas-count>${rows.length} máquina(s)</span>
