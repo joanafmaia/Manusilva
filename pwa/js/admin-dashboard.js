@@ -766,35 +766,87 @@ function getCalendarDates() {
   return dates;
 }
 
-function renderAdminCalendarVisitChips(dayJobs, { compact = false } = {}) {
-  const { folders } = groupJobsByVisita(
+function renderAdminCalendarVisitaFolder(folder, { compact = false, listMode = false, defaultOpen = !compact } = {}) {
+  const client = getClient(folder.jobs[0]?.clientId);
+  const name = client?.name || 'Cliente';
+  const count = folder.jobCount || folder.jobs.length;
+  const label = compact
+    ? String(count)
+    : `${name} · ${count} trabalho${count === 1 ? '' : 's'}`;
+  const renderJob = listMode
+    ? (j) => renderAgendaListItem(j)
+    : (j) => renderCalendarBlock(j, compact);
+  const jobBlocks = folder.jobs.map(renderJob).join('');
+  const openClass = defaultOpen ? ' cal-visita-folder--open' : '';
+
+  return `
+    <div class="cal-visita-folder${compact ? ' cal-visita-folder--compact' : ''}${openClass}" data-visita-key="${escapeHtml(folder.visitKey)}">
+      <div class="cal-visita-folder__head">
+        <button
+          type="button"
+          class="cal-visita-folder__toggle"
+          data-cal-visita-toggle="${escapeHtml(folder.visitKey)}"
+          aria-expanded="${defaultOpen ? 'true' : 'false'}"
+          title="${escapeHtml(compact ? `Visita — ${name} — ${count} trabalhos` : 'Expandir ou recolher pasta')}"
+        >
+          <span class="cal-visita-folder__icon" aria-hidden="true">📁</span>
+          <span class="cal-visita-folder__label">${escapeHtml(label)}</span>
+          <span class="cal-visita-folder__chevron" aria-hidden="true">›</span>
+        </button>
+        <button
+          type="button"
+          class="cal-visita-folder__panel"
+          data-visita-scroll="${escapeHtml(folder.visitKey)}"
+          title="Abrir pasta da visita no painel de relatórios"
+          aria-label="${escapeHtml(`Abrir pasta da visita — ${name}`)}"
+        >↗</button>
+      </div>
+      <div class="cal-visita-folder__body"${defaultOpen ? '' : ' hidden'}>
+        ${jobBlocks}
+      </div>
+    </div>`;
+}
+
+/** Pastas com trabalhos dentro + trabalhos avulsos (sem duplicar na lista). */
+function renderAdminCalendarDayContent(dayJobs, options = {}) {
+  const { compact = false, listMode = false, defaultOpen = !compact, maxSlots = null } = options;
+
+  if (!dayJobs.length) {
+    return '<span class="cal-empty">Sem trabalhos</span>';
+  }
+
+  const { folders, singles } = groupJobsByVisita(
     dayJobs,
     getAllJobs(),
     getReportsSnapshot(),
   );
-  if (!folders.length) return '';
 
-  return folders
-    .map((folder) => {
-      const client = getClient(folder.jobs[0]?.clientId);
-      const name = client?.name || 'Cliente';
-      const count = folder.jobCount || folder.jobs.length;
-      const label = compact
-        ? `Visita ${name} — ${count} trabalhos`
-        : `${name} · ${count} trabalho${count === 1 ? '' : 's'}`;
-      return `
-        <button
-          type="button"
-          class="cal-visita-chip${compact ? ' cal-visita-chip--compact' : ''}"
-          data-visita-scroll="${escapeHtml(folder.visitKey)}"
-          title="Abrir pasta da visita no painel de relatórios"
-          aria-label="${escapeHtml(`Abrir pasta da visita — ${label}`)}"
-        >
-          <span class="cal-visita-chip__icon" aria-hidden="true">📁</span>
-          <span class="cal-visita-chip__text">${escapeHtml(compact ? String(count) : label)}</span>
-        </button>`;
+  const slots = [
+    ...folders.map((folder) => ({ type: 'folder', folder, jobCount: folder.jobs.length })),
+    ...singles.map((job) => ({ type: 'single', job, jobCount: 1 })),
+  ];
+  const visibleSlots = maxSlots != null ? slots.slice(0, maxSlots) : slots;
+  const hiddenJobCount =
+    maxSlots != null
+      ? dayJobs.length
+        - visibleSlots.reduce((n, slot) => n + slot.jobCount, 0)
+      : 0;
+
+  const renderJob = listMode
+    ? (j) => renderAgendaListItem(j)
+    : (j) => renderCalendarBlock(j, compact);
+
+  const contentHtml = visibleSlots
+    .map((slot) => {
+      if (slot.type === 'folder') {
+        return renderAdminCalendarVisitaFolder(slot.folder, { compact, listMode, defaultOpen });
+      }
+      return renderJob(slot.job);
     })
     .join('');
+
+  const moreHtml = hiddenJobCount > 0 ? `<span class="cal-more">+${hiddenJobCount}</span>` : '';
+  return contentHtml + moreHtml;
 }
 
 async function openVisitaInReviewPanel(visitKey) {
@@ -880,8 +932,7 @@ function renderCalendar() {
             <strong>${getDayNumber(date)}</strong>
           </div>
           <div class="cal-col-body">
-            ${renderAdminCalendarVisitChips(dayJobs)}
-            ${dayJobs.map((j) => renderCalendarBlock(j)).join('') || '<span class="cal-empty">Sem trabalhos</span>'}
+            ${renderAdminCalendarDayContent(dayJobs, { defaultOpen: true })}
           </div>
         </div>
       `;
@@ -899,9 +950,7 @@ function renderCalendar() {
       html += `
         <div class="cal-cell ${isToday(date) ? 'today-cell' : ''}">
           <span class="cal-cell-day">${getDayNumber(date)}</span>
-          ${renderAdminCalendarVisitChips(dayJobs, { compact: true })}
-          ${dayJobs.slice(0, 3).map((j) => renderCalendarBlock(j, true)).join('')}
-          ${dayJobs.length > 3 ? `<span class="cal-more">+${dayJobs.length - 3}</span>` : ''}
+          ${renderAdminCalendarDayContent(dayJobs, { compact: true, defaultOpen: false, maxSlots: 3 })}
         </div>
       `;
     });
@@ -978,8 +1027,7 @@ function renderAgendaList(jobs, dates) {
       return `
         <section class="agenda-day-group" aria-label="${escapeHtml(formatDateLong(date))}">
           <h3 class="agenda-day-heading">${escapeHtml(formatDateLong(date))}</h3>
-          ${renderAdminCalendarVisitChips(dayJobs)}
-          ${dayJobs.map((j) => renderAgendaListItem(j)).join('')}
+          ${renderAdminCalendarDayContent(dayJobs, { listMode: true, defaultOpen: false })}
         </section>
       `;
     })
@@ -1026,6 +1074,20 @@ function bindCalendarJobInteractions() {
       e.preventDefault();
       e.stopPropagation();
       void openVisitaInReviewPanel(visitBtn.dataset.visitaScroll);
+      return;
+    }
+
+    const folderToggle = e.target.closest('[data-cal-visita-toggle]');
+    if (folderToggle) {
+      e.preventDefault();
+      e.stopPropagation();
+      const folder = folderToggle.closest('.cal-visita-folder');
+      const body = folder?.querySelector('.cal-visita-folder__body');
+      if (!body) return;
+      const open = body.hidden;
+      body.hidden = !open;
+      folderToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+      folder?.classList.toggle('cal-visita-folder--open', open);
       return;
     }
 

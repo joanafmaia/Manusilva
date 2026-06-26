@@ -8181,6 +8181,127 @@ body.dark-mode .rh-card__btn--pdf {
   margin-bottom: 0.45rem;
 }
 
+.cal-visita-folder {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin-bottom: 0.1rem;
+  border: 1px dashed color-mix(in srgb, var(--primary) 40%, var(--border-subtle));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--primary) 5%, var(--bg-card));
+  overflow: hidden;
+}
+
+.cal-visita-folder__head {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  min-width: 0;
+}
+
+.cal-visita-folder__toggle {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-width: 0;
+  padding: 0.35rem 0.4rem;
+  border: 0;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 600;
+  line-height: 1.25;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cal-visita-folder__toggle:hover,
+.cal-visita-folder__toggle:focus-visible {
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+}
+
+.cal-visita-folder__icon {
+  flex-shrink: 0;
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
+.cal-visita-folder__label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cal-visita-folder__chevron {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  transition: transform 0.15s ease;
+}
+
+.cal-visita-folder--open .cal-visita-folder__chevron {
+  transform: rotate(90deg);
+}
+
+.cal-visita-folder__panel {
+  flex-shrink: 0;
+  width: 1.75rem;
+  padding: 0;
+  border: 0;
+  border-left: 1px solid color-mix(in srgb, var(--primary) 25%, var(--border-subtle));
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.cal-visita-folder__panel:hover,
+.cal-visita-folder__panel:focus-visible {
+  background: color-mix(in srgb, var(--primary) 16%, transparent);
+  color: var(--text-primary);
+}
+
+.cal-visita-folder__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0 0.35rem 0.35rem;
+}
+
+.cal-visita-folder__body .cal-block {
+  margin: 0;
+}
+
+.cal-visita-folder--compact {
+  margin-bottom: 0.2rem;
+}
+
+.cal-visita-folder--compact .cal-visita-folder__toggle {
+  padding: 0.2rem 0.35rem;
+  font-size: 0.62rem;
+}
+
+.cal-visita-folder--compact .cal-visita-folder__icon {
+  font-size: 0.72rem;
+}
+
+.cal-visita-folder--compact .cal-visita-folder__panel {
+  width: 1.5rem;
+  font-size: 0.65rem;
+}
+
+.agenda-day-group .cal-visita-folder {
+  margin-bottom: 0.45rem;
+}
+
+.agenda-day-group .cal-visita-folder__body .agenda-swipe-row {
+  margin-bottom: 0;
+}
+
 .cal-block {
   padding: 0.4rem 0.5rem;
   border-radius: 6px;
