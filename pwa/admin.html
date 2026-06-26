@@ -3,6 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <meta name="theme-color" content="#0f172a">
   <title>Manusilva — Administração</title>
   <link rel="manifest" href="manifest.json">
@@ -160,21 +163,28 @@
   <script src="js/vendor/jszip.min.js" data-jszip defer></script>
   <script src="js/vendor/jspdf.plugin.autotable.min.js" data-jspdf-autotable defer></script>
   <script type="module">
-    import { initLocalDatabase } from './js/app.js?v=assign-multi-tech';
-    import { initAdminDashboard } from './js/admin-dashboard.js?v=assign-multi-tech';
-    import { applyThemeToDocument, themeToggleIcon, toggleTheme } from './js/theme.js?v=assign-multi-tech';
+    const { APP_BUILD_ID } = await import('./js/build-version.js');
+    const v = APP_BUILD_ID;
+    const { ensureFreshAppBuild } = await import(`./js/app-version.js?v=${v}`);
+    if (await ensureFreshAppBuild()) {
+      /* recarrega com build novo */
+    } else {
+      const { initLocalDatabase } = await import(`./js/app.js?v=${v}`);
+      const { initAdminDashboard } = await import(`./js/admin-dashboard.js?v=${v}`);
+      const { applyThemeToDocument, themeToggleIcon, toggleTheme } = await import(`./js/theme.js?v=${v}`);
 
-    applyThemeToDocument();
-    const themeBtn = document.getElementById('theme-toggle');
-    const themeIcon = document.getElementById('theme-icon');
-    if (themeIcon) themeIcon.textContent = themeToggleIcon();
-    themeBtn?.addEventListener('click', () => {
-      const next = toggleTheme();
-      if (themeIcon) themeIcon.textContent = themeToggleIcon(next);
-    });
+      applyThemeToDocument();
+      const themeBtn = document.getElementById('theme-toggle');
+      const themeIcon = document.getElementById('theme-icon');
+      if (themeIcon) themeIcon.textContent = themeToggleIcon();
+      themeBtn?.addEventListener('click', () => {
+        const next = toggleTheme();
+        if (themeIcon) themeIcon.textContent = themeToggleIcon(next);
+      });
 
-    initLocalDatabase();
-    await initAdminDashboard();
+      initLocalDatabase();
+      await initAdminDashboard();
+    }
   </script>
 </body>
 </html>

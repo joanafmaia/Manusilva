@@ -37,8 +37,15 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script type="module">
-    import { bootstrapApp } from './js/app.js';
-    bootstrapApp('app');
+    const { APP_BUILD_ID } = await import('./js/build-version.js');
+    const v = APP_BUILD_ID;
+    const { ensureFreshAppBuild } = await import(`./js/app-version.js?v=${v}`);
+    if (await ensureFreshAppBuild()) {
+      /* recarrega com build novo */
+    } else {
+      const { bootstrapApp } = await import(`./js/app.js?v=${v}`);
+      bootstrapApp('app');
+    }
   </script>
 </body>
 </html>
