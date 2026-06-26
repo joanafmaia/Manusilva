@@ -188,6 +188,18 @@ function drawOrcamentoTable(doc, linhas, startY) {
   return y + 4;
 }
 
+function drawLabelValueLine(doc, y, label, value) {
+  if (!canDrawBodyLine(y)) return y;
+  pdfSetFont(doc, 'bold');
+  doc.setFontSize(PDF_FONT_BODY);
+  doc.setTextColor(...PDF_COLOR_TEXT_DARK);
+  doc.text(label, MARGIN, y);
+  const labelW = doc.getTextWidth(label);
+  pdfSetFont(doc, 'normal');
+  doc.text(pdfSafeText(value), MARGIN + labelW, y);
+  return advanceBodyY(y, 5);
+}
+
 /** Caixa no fundo da folha 1 — aprovação do cliente (esq.) e encerramento Manusilva (inf. dir.). */
 function drawClientApprovalBox(doc) {
   const boxY = APPROVAL_TOP;
@@ -349,18 +361,31 @@ export async function renderOrcamentoPDF(report) {
 
   y = drawOrcamentoTable(doc, fill.linhas, y);
 
-  const terms = [
-    `Taxa de Saída – ${fill.taxa_saida === '—' ? '_______' : fill.taxa_saida} €`,
-    `Prazo de Entrega: ${fill.prazo_entrega === '—' ? '_______________' : fill.prazo_entrega}`,
-    `Forma de Pagamento: ${fill.forma_pagamento}`,
-    `Validade do orçamento – ${fill.validade_orcamento}`,
+  y = drawLabelValueLine(
+    doc,
+    y,
+    'Taxa de Saída – ',
+    `${fill.taxa_saida === '—' ? '_______' : fill.taxa_saida} €`,
+  );
+  y = drawLabelValueLine(
+    doc,
+    y,
+    'Prazo de Entrega: ',
+    fill.prazo_entrega === '—' ? '_______________' : fill.prazo_entrega,
+  );
+  y = drawLabelValueLine(doc, y, 'Forma de Pagamento: ', fill.forma_pagamento);
+  y = drawLabelValueLine(doc, y, 'Validade do orçamento – ', fill.validade_orcamento);
+
+  const totals = [
     `Subtotal (s/ IVA): ${fill.subtotal} €`,
     `IVA (23%): ${fill.iva} €`,
     `Total: ${fill.total_geral} €`,
-    'A estes valores acresce o valor do Iva.',
   ];
-  terms.forEach((line) => {
+  totals.forEach((line) => {
     if (!canDrawBodyLine(y)) return;
+    pdfSetFont(doc, 'normal');
+    doc.setFontSize(PDF_FONT_BODY);
+    doc.setTextColor(...PDF_COLOR_TEXT_DARK);
     doc.text(line, MARGIN, y);
     y = advanceBodyY(y, 5);
   });
