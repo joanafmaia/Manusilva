@@ -8,7 +8,6 @@ import {
   getJobsForTechnician,
   getJobsSnapshot,
   getReportsSnapshot,
-  getReportsSnapshot,
   getReportForJob,
   getJob,
   getClient,
