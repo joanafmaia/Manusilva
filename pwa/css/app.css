@@ -7306,6 +7306,72 @@ body.dark-mode .rh-filter-chip.is-active {
   flex-shrink: 0;
 }
 
+.rh-visita-folder {
+  border: 1px solid var(--ms-border-md);
+  border-radius: 12px;
+  background: var(--ms-card-bg);
+  box-shadow: var(--ms-shadow-sm);
+  overflow: hidden;
+}
+
+.rh-visita-folder__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--ms-border-sm);
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.03), transparent);
+}
+
+.rh-visita-folder__heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+}
+
+.rh-visita-folder__icon {
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.rh-visita-folder__title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--ms-text);
+}
+
+.rh-visita-folder__meta {
+  margin: 4px 0 0;
+  font-size: 0.78rem;
+  color: var(--ms-text-muted);
+}
+
+.rh-visita-folder__actions {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+.rh-visita-folder__email-hint {
+  font-size: 0.75rem;
+  max-width: 11rem;
+  text-align: right;
+}
+
+.rh-visita-folder__reports {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+}
+
+.rh-visita-folder__reports .rh-list-item {
+  border-radius: 8px;
+}
+
 .rh-list-item {
   background: var(--ms-card-bg);
   border: 1px solid var(--ms-border-md);
@@ -13903,6 +13969,68 @@ body.dark-mode .client-ficha-value {
 /* Cartões de trabalho (substituem .tech-job-row em listas) */
 .tech-job-rows {
   gap: 0.55rem;
+}
+
+.tech-visita-folder {
+  margin-bottom: 0.55rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  overflow: hidden;
+}
+
+.tech-visita-folder__header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.7rem 0.8rem;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tech-visita-folder__icon {
+  font-size: 1.15rem;
+}
+
+.tech-visita-folder__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.tech-visita-folder__client {
+  font-weight: 700;
+  font-size: 0.92rem;
+}
+
+.tech-visita-folder__meta {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.tech-visita-folder__chevron {
+  font-size: 1.1rem;
+  color: var(--text-muted);
+  transition: transform 0.15s ease;
+}
+
+.tech-visita-folder.is-open .tech-visita-folder__chevron {
+  transform: rotate(90deg);
+}
+
+.tech-visita-folder__body {
+  padding: 0 0.45rem 0.55rem;
+}
+
+.tech-visita-folder__body .tech-job-rows {
+  gap: 0.45rem;
 }
 
 .tech-job-card {

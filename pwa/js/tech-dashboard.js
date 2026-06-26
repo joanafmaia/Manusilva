@@ -48,6 +48,7 @@ import {
   resolveTechActionLabel,
 } from './tech-panel-utils.js';
 import { requestTechNotificationPermission } from './tech-notifications.js';
+import { groupJobsByVisita } from './visita-cliente.js';
 
 /** Âncora da semana visível no calendário (segunda-feira da semana em foco) */
 let currentWeekDate = startOfLocalDay(new Date());
@@ -383,6 +384,47 @@ function getRestOfWeekScheduledJobs(techId) {
 }
 
 /** Linha da aba Agendados: rejeitados reabrem para correção (borda vermelha). */
+function renderTechJobsListHtml(jobs, rowRenderer) {
+  const { folders, singles } = groupJobsByVisita(jobs);
+  const folderHtml = folders
+    .map((folder) => {
+      const client = getClient(folder.jobs[0]?.clientId);
+      const dateLabel = folder.jobs[0]?.date ? formatDateLong(folder.jobs[0].date) : '';
+      const rows = folder.jobs.map((job) => rowRenderer(job)).join('');
+      return `
+        <div class="tech-visita-folder" data-visita-key="${escapeHtml(folder.visitKey)}">
+          <button type="button" class="tech-visita-folder__header" data-visita-toggle="${escapeHtml(folder.visitKey)}" aria-expanded="false">
+            <span class="tech-visita-folder__icon" aria-hidden="true">📁</span>
+            <span class="tech-visita-folder__text">
+              <span class="tech-visita-folder__client">${escapeHtml(client?.name || 'Cliente')}</span>
+              <span class="tech-visita-folder__meta">${escapeHtml(dateLabel)} · ${folder.jobCount} trabalhos</span>
+            </span>
+            <span class="tech-visita-folder__chevron" aria-hidden="true">›</span>
+          </button>
+          <div class="tech-visita-folder__body" hidden>
+            <div class="tech-job-rows">${rows}</div>
+          </div>
+        </div>`;
+    })
+    .join('');
+  const singleHtml = singles.map((job) => rowRenderer(job)).join('');
+  return `${folderHtml}<div class="tech-job-rows">${singleHtml}</div>`;
+}
+
+function bindTechVisitaFolderToggles(scope) {
+  scope.querySelectorAll('[data-visita-toggle]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const folder = btn.closest('.tech-visita-folder');
+      const body = folder?.querySelector('.tech-visita-folder__body');
+      if (!body) return;
+      const open = body.hidden;
+      body.hidden = !open;
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      folder?.classList.toggle('is-open', open);
+    });
+  });
+}
+
 function renderAgendadosRow(job, options = {}) {
   const report = getReportForJob(job.id);
   const state = resolveCalendarEventState(job, report);
@@ -1602,13 +1644,12 @@ function renderJobs() {
       `;
     } else {
       container.innerHTML = `
-        <div class="tech-job-rows">
-          ${jobs.map((job) => renderAgendadosRow(job, { showDate: false })).join('')}
-        </div>
+        ${renderTechJobsListHtml(jobs, (job) => renderAgendadosRow(job, { showDate: false }))}
         ${techJobsSearchQuery.trim() ? '' : renderAgendadosWeekPreview(techId)}
       `;
     }
     bindTechJobRowsEvents(container);
+    bindTechVisitaFolderToggles(container);
     return;
   }
 
@@ -1625,10 +1666,9 @@ function renderJobs() {
     return;
   }
 
-  container.innerHTML = `
-    <div class="tech-job-rows">
-      ${jobs.map((job) => renderTechJobRow(job, getReportForJob(job.id), 'continue')).join('')}
-    </div>
-  `;
+  container.innerHTML = renderTechJobsListHtml(jobs, (job) =>
+    renderTechJobRow(job, getReportForJob(job.id), 'continue'),
+  );
   bindTechJobRowsEvents(container);
+  bindTechVisitaFolderToggles(container);
 }

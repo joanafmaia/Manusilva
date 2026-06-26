@@ -366,6 +366,10 @@ function buildSubject(payload = {}) {
     return `ManuSilva - Manutenção de Baterias - ${company}${opSuffix}`;
   }
 
+  if (tipoRelatorio === 'visita') {
+    return `ManuSilva - Relatórios da Visita - ${company}${opSuffix}`;
+  }
+
   return `ManuSilva - Relatório Técnico - ${company}${opSuffix}`;
 }
 
@@ -518,7 +522,9 @@ function buildHtmlBody(payload = {}, options = {}) {
       ? 'inspeção DL 50/2005'
       : tipoRelatorio === 'baterias'
         ? 'manutenção de baterias'
-        : 'intervenção técnica';
+        : tipoRelatorio === 'visita'
+          ? 'visita técnica (vários relatórios)'
+          : 'intervenção técnica';
 
   return `
 <!doctype html>

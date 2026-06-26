@@ -40,6 +40,13 @@ import {
 } from './rh-panel-utils.js';
 import { reportHasPedidoOrcamento, reportOrcamentoPorPreparar } from './pedido-orcamento.js';
 import {
+  parseVisitaKey,
+  groupReportsByVisita,
+  sortVisitaFoldersNewestFirst,
+  sortVisitaReportsNewestFirst,
+  summarizeVisitaEmailStatus,
+} from './visita-cliente.js';
+import {
   computeReviewChecks,
   reviewHasBlockingIssues,
   renderReviewValidationPanel,
@@ -228,6 +235,115 @@ export function buildRhReviewListItem({ job, report, client, tech }) {
       </div>
     </article>
   `;
+}
+
+/**
+ * Pasta RH — vários relatórios do mesmo cliente/dia/técnico.
+ */
+export function buildRhVisitaFolder({
+  visitKey,
+  reports = [],
+  jobCount = 0,
+  client,
+  tech,
+  allReports = [],
+  getJobFn = getJob,
+}) {
+  const parsed = parseVisitaKey(visitKey);
+  const clientName = client?.name || client?.Nome || '—';
+  const techName = tech?.name || '—';
+  const dateLabel = parsed?.date ? formatDateLong(parsed.date) : '—';
+  const sortedReports = sortVisitaReportsNewestFirst(reports);
+  const emailStatus = summarizeVisitaEmailStatus(visitKey, allReports, getJobFn);
+
+  const itemsHtml = sortedReports
+    .map((report) => {
+      const job = report.jobId ? getJobFn(report.jobId) : null;
+      return buildRhReviewListItem({
+        job,
+        report,
+        client: client || getClient(report.clientId),
+        tech: tech || getTechnician(report.technicianId),
+      });
+    })
+    .join('');
+
+  let emailBtn = '';
+  if (emailStatus.approvedCount > 0) {
+    if (emailStatus.pendingEmailCount > 0) {
+      emailBtn = `<button type="button" class="btn-primary btn-sm rh-visita-folder__email-btn" data-visita-email="${escapeHtml(visitKey)}" title="Enviar todos os relatórios aprovados ainda não enviados">
+          Enviar e-mail da visita (${emailStatus.pendingEmailCount})
+        </button>`;
+    } else {
+      emailBtn = `<button type="button" class="btn-outline btn-sm rh-visita-folder__email-btn" data-visita-email="${escapeHtml(visitKey)}" title="Reenviar todos os relatórios aprovados da visita">
+          Reenviar e-mail da visita
+        </button>`;
+    }
+  } else {
+    emailBtn = `<span class="rh-visita-folder__email-hint text-muted">Aprove relatórios para enviar ao cliente</span>`;
+  }
+
+  return `
+    <section class="rh-visita-folder" data-visita-key="${escapeHtml(visitKey)}" role="listitem">
+      <header class="rh-visita-folder__header">
+        <div class="rh-visita-folder__heading">
+          <span class="rh-visita-folder__icon" aria-hidden="true">📁</span>
+          <div>
+            <h4 class="rh-visita-folder__title">${escapeHtml(clientName)}</h4>
+            <p class="rh-visita-folder__meta">
+              ${escapeHtml(dateLabel)} · ${escapeHtml(techName)} · ${jobCount} trabalho${jobCount === 1 ? '' : 's'}
+            </p>
+          </div>
+        </div>
+        <div class="rh-visita-folder__actions">
+          ${emailBtn}
+        </div>
+      </header>
+      <div class="rh-visita-folder__reports" role="list">
+        ${itemsHtml}
+      </div>
+    </section>
+  `;
+}
+
+/**
+ * Lista RH com pastas de visita quando aplicável.
+ */
+export function buildRhReviewGroupedStack(reports, { getJobFn = getJob, allReports = reports } = {}) {
+  const { folders, singles } = groupReportsByVisita(reports, getJobFn);
+  const sortedFolders = sortVisitaFoldersNewestFirst(folders);
+
+  const folderHtml = sortedFolders
+    .map((folder) => {
+      const first = folder.reports[0];
+      const job = first?.jobId ? getJobFn(first.jobId) : null;
+      const client = getClient(first?.clientId || job?.clientId);
+      const tech = getTechnician(first?.technicianId || job?.technicianId);
+      return buildRhVisitaFolder({
+        visitKey: folder.visitKey,
+        reports: folder.reports,
+        jobCount: folder.jobCount,
+        client,
+        tech,
+        allReports,
+        getJobFn,
+      });
+    })
+    .join('');
+
+  const singleHtml = singles
+    .map((report) => {
+      const job = report.jobId ? getJobFn(report.jobId) : null;
+      return buildRhReviewListItem({
+        job,
+        report,
+        client: getClient(report.clientId),
+        tech: getTechnician(report.technicianId),
+      });
+    })
+    .join('');
+
+  return `${folderHtml}${singleHtml}`;
 }
 
 export function openRhRejectDialog(reportId, onRejected) {

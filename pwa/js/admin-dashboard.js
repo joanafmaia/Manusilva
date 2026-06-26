@@ -996,9 +996,11 @@ async function renderRhReviewStack() {
   const counts = getRhPanelReportCounts();
   const reports = getRhFilteredReports();
 
-  const { buildRhReviewListItem, buildRhReviewFilterBar } = await import(
+  const { buildRhReviewGroupedStack, buildRhReviewFilterBar } = await import(
     './report-review-rh-modal.js'
   );
+
+  const allReports = getReportsSnapshot();
 
   const filterBar = buildRhReviewFilterBar(counts, rhReviewFilter, {
     techId: rhReviewTechFilter,
@@ -1014,20 +1016,10 @@ async function renderRhReviewStack() {
       : RH_EMPTY_MESSAGES[rhReviewFilter] || RH_EMPTY_MESSAGES.all;
     stackHtml = `<p class="rh-review-panel-empty">${escapeHtml(emptyMsg)}</p>`;
   } else {
-    const cards = reports
-      .map((report) => {
-        const job = report.jobId ? getJob(report.jobId) : null;
-        const client = getClient(report.clientId);
-        const tech = getTechnician(report.technicianId);
-
-        return buildRhReviewListItem({
-          job,
-          report,
-          client,
-          tech,
-        });
-      })
-      .join('');
+    const cards = buildRhReviewGroupedStack(reports, {
+      getJobFn: getJob,
+      allReports,
+    });
 
     stackHtml = `<div class="rh-review-stack" role="list">${cards}</div>`;
   }
@@ -1209,6 +1201,21 @@ function bindRhReviewPanel() {
       return;
     }
 
+    const visitEmailBtn = e.target.closest('[data-visita-email]');
+    if (visitEmailBtn?.dataset.visitaEmail) {
+      const visitKey = visitEmailBtn.dataset.visitaEmail;
+      const { summarizeVisitaEmailStatus } = await import('./visita-cliente.js');
+      const { sendVisitaClienteEmail } = await import('./app.js');
+      const status = summarizeVisitaEmailStatus(visitKey, getReportsSnapshot(), getJob);
+      const clientId = visitKey.split('|')[0];
+      const client = getClient(clientId);
+      const clientEmail = String(client?.email || client?.['E-mail'] || '').trim();
+      const force = status.pendingEmailCount === 0 && status.approvedCount > 0;
+      const ok = await sendVisitaClienteEmail(visitKey, { clientEmail, force });
+      if (ok) await renderRhReviewStack();
+      return;
+    }
+
     const openBtn = e.target.closest('[data-panel-open]');
     if (openBtn?.dataset.panelOpen) {
       const { openRhReviewModal } = await import('./report-review-rh-modal.js');
@@ -1230,9 +1237,13 @@ async function quickApproveRhReport(reportId) {
 
   const job = report.jobId ? getJob(report.jobId) : null;
   const ordem = formatOrdemLabel(job, client);
+  const { getReportVisitaKey, isMultiTrabalhoVisita } = await import('./visita-cliente.js');
+  const multiVisita = isMultiTrabalhoVisita(getReportVisitaKey(report, job), getAllJobs());
   const confirmMsg = isTestClient(client)
     ? `Aprovar relatório de teste (${ordem})? Não será enviado e-mail ao cliente.`
-    : `Aprovar ${ordem} e enviar para o cliente?`;
+    : multiVisita
+      ? `Aprovar ${ordem}? O e-mail ao cliente será enviado manualmente na pasta da visita.`
+      : `Aprovar ${ordem} e enviar para o cliente?`;
   const confirmed = window.confirm(confirmMsg);
   if (!confirmed) return;
 
