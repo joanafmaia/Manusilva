@@ -59,3 +59,24 @@ export const SERVICES_WITH_SECTION_VISITAS = new Set([
 export function reportIncludesDeslocacao(_service) {
   return false;
 }
+
+/** Folha de Avarias só tem Data 1 e Data 2 — evita valores absurdos (ex.: 12 visitas num dia). */
+export function normalizeVisitasForService(serviceId, values = {}) {
+  const out = { ...values };
+  let visitas = Number(out[VISITAS_FIELD_ID] ?? out.visitas ?? 1);
+  if (!Number.isFinite(visitas) || visitas < 1) visitas = 1;
+  visitas = Math.round(visitas);
+
+  if (serviceId === 'folha_intervencao_avarias') {
+    const filledDates = ['data_1', 'data_2'].filter((key) => {
+      const raw = String(out[key] ?? '').trim();
+      return raw && raw !== '—';
+    }).length;
+    visitas = Math.min(visitas, 2);
+    if (filledDates > 0) visitas = Math.min(visitas, filledDates);
+  }
+
+  out[VISITAS_FIELD_ID] = visitas;
+  if (out.visitas != null) out.visitas = visitas;
+  return out;
+}

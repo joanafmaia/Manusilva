@@ -69,7 +69,7 @@ import {
   commitSignatureSnapshot,
 } from './signatures.js';
 import { initReportFormAutosave } from './report-form-autosave.js';
-import { VISITAS_FIELD_ID, VISIT_DATES_FIELD_ID } from './deslocacao-field.js';
+import { VISITAS_FIELD_ID, VISIT_DATES_FIELD_ID, normalizeVisitasForService } from './deslocacao-field.js';
 import { ensureProductionCatalog } from './clients-catalog.js';
 import { ensureJobsLoaded } from './trabalhos-db.js';
 import {
@@ -635,6 +635,7 @@ function accumulateVisitDates(values, existingReport) {
 
 function buildReportFromForm(overlay, job, existingReport, signaturePads, reportId) {
   const values = collectReportValues(overlay);
+  Object.assign(values, normalizeVisitasForService(job.serviceType, values));
   accumulateVisitDates(values, existingReport);
   const editingPending = isEdicaoPendenteAtiva(job.id);
   return {

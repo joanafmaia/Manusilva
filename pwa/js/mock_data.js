@@ -49,6 +49,7 @@ export const FOLHA_INTERVENCAO_AVARIAS = {
       label: 'N.º de Visitas',
       section: 'Datas de Intervenção',
       min: 1,
+      max: 2,
       step: 1,
       placeholder: '1',
     },

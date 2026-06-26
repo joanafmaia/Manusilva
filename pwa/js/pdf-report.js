@@ -41,7 +41,7 @@ import {
   isEmpilhadoresMultiMaquinaReport,
   maquinaRowLabel,
 } from './views/relatorio-empilhadores-maquinas.js';
-import { reportIncludesDeslocacao, SERVICES_WITH_SECTION_VISITAS, VISITAS_FIELD_ID, VISIT_DATES_FIELD_ID, DESLOCACAO_BASE_FIELD_ID } from './deslocacao-field.js';
+import { reportIncludesDeslocacao, SERVICES_WITH_SECTION_VISITAS, VISITAS_FIELD_ID, VISIT_DATES_FIELD_ID, DESLOCACAO_BASE_FIELD_ID, normalizeVisitasForService } from './deslocacao-field.js';
 import {
   buildPdfAutoTableStyles,
   getBlockPdfTitle,
@@ -443,17 +443,23 @@ function resolvePdfVisitDatesLine(values, report, job, visitCount) {
     if (values?.[key]) dates.push(values[key]);
   }
 
-  dates = [...new Set(dates.map(formatPdfShortVisitDate).filter(Boolean))];
+  const uniqueDates = [];
+  const seen = new Set();
+  dates.forEach((raw) => {
+    const short = formatPdfShortVisitDate(raw);
+    if (short && !seen.has(short)) {
+      seen.add(short);
+      uniqueDates.push(short);
+    }
+  });
 
-  const serviceShort = formatPdfShortVisitDate(job?.date || values?.data_de_conclusao);
-  if (serviceShort && !dates.includes(serviceShort)) dates.unshift(serviceShort);
+  const serviceShort = formatPdfShortVisitDate(
+    job?.date || values?.data_de_conclusao || values?.data_1,
+  );
+  if (serviceShort && !seen.has(serviceShort)) uniqueDates.unshift(serviceShort);
 
-  if (!dates.length && serviceShort) dates = [serviceShort];
-  while (dates.length < n && serviceShort) {
-    dates.push(serviceShort);
-  }
-
-  return dates.slice(0, n).join(', ');
+  if (!uniqueDates.length && serviceShort) return serviceShort;
+  return uniqueDates.join(', ');
 }
 
 function isPdfLayoutReservedField(fieldId, service = null) {
@@ -4255,6 +4261,10 @@ function coercePdfFieldValue(field, raw, pdfContext = null) {
 /** Aplica coerção a todos os campos do template antes de desenhar */
 function mapReportValuesForPdf(data, service, pdfContext = null, seedValues = null) {
   const values = { ...(seedValues || normalizeReportValues(data)) };
+
+  if (service?.id) {
+    Object.assign(values, normalizeVisitasForService(service.id, values));
+  }
 
   (service?.fields || []).forEach((field) => {
     if (field.type === 'empilhadores_maquinas') return;
