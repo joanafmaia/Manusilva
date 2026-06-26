@@ -6,6 +6,7 @@
     "test": "node --test pwa/tests/*.test.mjs"
   },
   "dependencies": {
+    "jszip": "^3.10.1",
     "nodemailer": "^7.0.13"
   }
 }

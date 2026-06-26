@@ -68,6 +68,8 @@ export function mapRowToReport(row) {
       fotoDepoisUrl: dados.fotoDepoisUrl || null,
       urlPdfOrcamento: dados.urlPdfOrcamento || null,
       orcamentoPdfFilename: dados.orcamentoPdfFilename || null,
+      urlDocxOrcamento: dados.urlDocxOrcamento || null,
+      orcamentoDocxFilename: dados.orcamentoDocxFilename || null,
     },
   };
 }
@@ -103,6 +105,8 @@ export function mapReportToRow(report) {
       fotoDepoisUrl: data.fotoDepoisUrl || null,
       urlPdfOrcamento: data.urlPdfOrcamento || null,
       orcamentoPdfFilename: data.orcamentoPdfFilename || null,
+      urlDocxOrcamento: data.urlDocxOrcamento || null,
+      orcamentoDocxFilename: data.orcamentoDocxFilename || null,
     },
   };
 }

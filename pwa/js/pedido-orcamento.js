@@ -17,7 +17,17 @@ export function getReportOrcamentoPdfUrl(report) {
   return url && String(url).trim() ? String(url).trim() : null;
 }
 
+export function getReportOrcamentoDocxUrl(report) {
+  const url = report?.data?.urlDocxOrcamento;
+  return url && String(url).trim() ? String(url).trim() : null;
+}
+
 export function getReportOrcamentoPdfFilename(report) {
   const name = report?.data?.orcamentoPdfFilename;
+  return name && String(name).trim() ? String(name).trim() : null;
+}
+
+export function getReportOrcamentoDocxFilename(report) {
+  const name = report?.data?.orcamentoDocxFilename;
   return name && String(name).trim() ? String(name).trim() : null;
 }

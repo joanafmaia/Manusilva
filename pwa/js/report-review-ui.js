@@ -8,6 +8,7 @@ import { isTestClient, TEST_JOB_ORDEM_LABEL } from './client-test-utils.js';
 import { resolveJobFotos, isValidFotoUrl } from './job-fotos.js';
 import {
   getPedidoOrcamentoDetalhe,
+  getReportOrcamentoDocxUrl,
   getReportOrcamentoPdfUrl,
   reportHasPedidoOrcamento,
 } from './pedido-orcamento.js';
@@ -126,30 +127,39 @@ export function renderReviewPdfSection(job) {
     </section>`;
 }
 
-/** Destaque RH quando o técnico pediu orçamento (Sim). */
+/** Destaque RH quando o técnico pediu orçamento (Sim) — modelo MS.015. */
 export function renderReviewOrcamentoBanner(report) {
   if (!reportHasPedidoOrcamento(report)) return '';
-  const url = getReportOrcamentoPdfUrl(report);
+  const pdfUrl = getReportOrcamentoPdfUrl(report);
+  const docxUrl = getReportOrcamentoDocxUrl(report);
   const detalhe = getPedidoOrcamentoDetalhe(report);
   const preview = detalhe
     ? detalhe.length > 160
       ? `${detalhe.slice(0, 157)}…`
       : detalhe
     : '';
+  const ready = pdfUrl && docxUrl;
   return `
-    <section class="review-orcamento-banner" aria-label="Pedido de orçamento">
+    <section class="review-orcamento-banner" aria-label="Pedido de orçamento MS.015">
       <div class="review-orcamento-banner__head">
         <span class="review-orcamento-badge">Pedido de orçamento</span>
+        <span class="review-orcamento-kicker">MS.015 — Proposta Comercial</span>
         ${
-          url
+          ready
             ? '<span class="review-orcamento-status review-orcamento-status--ok">Folha anexada</span>'
-            : '<span class="review-orcamento-status">Folha pendente</span>'
+            : '<span class="review-orcamento-status">A gerar folha…</span>'
         }
       </div>
       ${preview ? `<p class="review-orcamento-preview text-muted">${escapeHtml(preview)}</p>` : ''}
-      <button type="button" class="btn-outline btn-touch review-btn-orcamento" id="modal-orcamento-pdf">
-        ${url ? 'Abrir folha de orçamento' : 'Gerar e abrir folha de orçamento'}
-      </button>
+      <div class="review-orcamento-actions">
+        <button type="button" class="btn-primary btn-touch review-btn-orcamento" id="modal-orcamento-docx">
+          ${docxUrl ? 'Abrir Word (MS.015)' : 'Gerar Word (MS.015)'}
+        </button>
+        <button type="button" class="btn-outline btn-touch review-btn-orcamento" id="modal-orcamento-pdf">
+          ${pdfUrl ? 'Pré-visualizar PDF' : 'Gerar PDF'}
+        </button>
+      </div>
+      <p class="text-muted review-orcamento-hint">O Word é o documento editável (taxa de saída, prazos, valores). O PDF serve para consulta rápida.</p>
     </section>`;
 }
 
@@ -158,31 +168,60 @@ export function renderReviewOrcamentoBanner(report) {
  * @param {{ report: object, onUpdated?: (report: object) => void }} ctx
  */
 export function bindReviewOrcamentoButton(overlay, { report, onUpdated } = {}) {
-  const btn = overlay?.querySelector('#modal-orcamento-pdf');
-  if (!btn || !reportHasPedidoOrcamento(report)) return;
+  if (!reportHasPedidoOrcamento(report)) return;
 
-  btn.addEventListener('click', async () => {
+  const openUrl = async (url, label) => {
+    if (!url) return false;
+    window.open(url, '_blank', 'noopener,noreferrer');
+    return true;
+  };
+
+  const ensureDocs = async () => {
+    const { showToast, getReport } = await import('./app.js');
+    let current = getReport(report.id) || report;
+    if (getReportOrcamentoPdfUrl(current) && getReportOrcamentoDocxUrl(current)) {
+      return current;
+    }
+    showToast('A gerar proposta MS.015…', 'info', 3500);
+    const { attachOrcamentoPdfToReport } = await import('./orcamento-pdf-service.js');
+    current = (await attachOrcamentoPdfToReport(current, { force: true })) || current;
+    onUpdated?.(current);
+    return current;
+  };
+
+  overlay.querySelector('#modal-orcamento-docx')?.addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
     btn.disabled = true;
     try {
-      const { showToast, getReport } = await import('./app.js');
-      let current = getReport(report.id) || report;
-      let url = getReportOrcamentoPdfUrl(current);
-      if (!url) {
-        showToast('A gerar folha de pedido de orçamento…', 'info', 3000);
-        const { attachOrcamentoPdfToReport } = await import('./orcamento-pdf-service.js');
-        current = (await attachOrcamentoPdfToReport(current)) || current;
-        url = getReportOrcamentoPdfUrl(current);
-        onUpdated?.(current);
+      let current = await ensureDocs();
+      const url = getReportOrcamentoDocxUrl(current);
+      if (!(await openUrl(url))) {
+        const { showToast } = await import('./app.js');
+        showToast('Não foi possível gerar o Word MS.015.', 'error');
       }
-      if (!url) {
-        showToast('Não foi possível gerar a folha de orçamento.', 'error');
-        return;
-      }
-      window.open(url, '_blank', 'noopener,noreferrer');
     } catch (err) {
-      console.error('[Revisão] Orçamento:', err);
+      console.error('[Revisão] Orçamento DOCX:', err);
       const { showToast } = await import('./app.js');
-      showToast('Erro ao abrir a folha de orçamento.', 'error');
+      showToast('Erro ao abrir o Word MS.015.', 'error');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  overlay.querySelector('#modal-orcamento-pdf')?.addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    btn.disabled = true;
+    try {
+      let current = await ensureDocs();
+      const url = getReportOrcamentoPdfUrl(current);
+      if (!(await openUrl(url))) {
+        const { showToast } = await import('./app.js');
+        showToast('Não foi possível gerar o PDF da proposta.', 'error');
+      }
+    } catch (err) {
+      console.error('[Revisão] Orçamento PDF:', err);
+      const { showToast } = await import('./app.js');
+      showToast('Erro ao abrir o PDF da proposta.', 'error');
     } finally {
       btn.disabled = false;
     }
