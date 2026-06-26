@@ -57,7 +57,6 @@ import {
 } from './relatorios-db.js';
 import {
   isRhOrcamentoQueueReport,
-  isRhPendingReviewWithoutOrcamento,
   reportOrcamentoPorPreparar,
 } from './pedido-orcamento.js';
 import {
@@ -1340,9 +1339,7 @@ export function getAllJobs() {
 }
 
 export function getPendingReports() {
-  return dedupeReportsByJobPreferNewest(getPendingReviewReportsSnapshot()).filter(
-    isRhPendingReviewWithoutOrcamento,
-  );
+  return dedupeReportsByJobPreferNewest(getPendingReviewReportsSnapshot());
 }
 
 function getRhPanelReportsRaw() {
@@ -1381,9 +1378,9 @@ function sortReportsForRhPanel(a, b) {
 /** Relatórios visíveis no painel RH (com filtro opcional por estado) */
 export function getAdminReviewReports(filter = 'all') {
   if (filter === 'pending_review') {
-    return dedupeReportsByJobPreferNewest(getPendingReviewReportsSnapshot())
-      .filter(isRhPendingReviewWithoutOrcamento)
-      .sort(sortReportsForRhPanel);
+    return dedupeReportsByJobPreferNewest(getPendingReviewReportsSnapshot()).sort(
+      sortReportsForRhPanel,
+    );
   }
   if (filter === 'orcamento_pendente') {
     return getRhOrcamentoQueueReports().sort(sortReportsForRhPanel);
@@ -1399,7 +1396,7 @@ export function getRhPanelReportCounts() {
   const pendingReview = dedupeReportsByJobPreferNewest(getPendingReviewReportsSnapshot());
   return {
     all: list.length,
-    pending_review: pendingReview.filter(isRhPendingReviewWithoutOrcamento).length,
+    pending_review: pendingReview.length,
     orcamento_pendente: getRhOrcamentoQueueReports().length,
     draft: list.filter((r) => r.status === 'draft').length,
     approved: list.filter((r) => r.status === 'approved').length,

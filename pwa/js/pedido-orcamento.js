@@ -15,7 +15,7 @@ export function reportOrcamentoPorPreparar(report) {
   return !meta?.atualizadoEm;
 }
 
-/** Fila RH «Orçamento» — relatório com pedido de orçamento pendente de aprovação ou MS.015 por preparar. */
+/** Fila RH «Orçamento» — pedido de orçamento (pode coincidir com Pendente RH até o relatório ser aprovado). */
 export function isRhOrcamentoQueueReport(report) {
   if (!reportHasPedidoOrcamento(report)) return false;
   if (report?.status === 'pending_review') return true;
@@ -23,9 +23,9 @@ export function isRhOrcamentoQueueReport(report) {
   return false;
 }
 
-/** Fila RH «Pendente RH» — aprovação do relatório técnico sem pedido de orçamento. */
-export function isRhPendingReviewWithoutOrcamento(report) {
-  return report?.status === 'pending_review' && !reportHasPedidoOrcamento(report);
+/** Fila RH «Pendente RH» — qualquer relatório técnico à espera de aprovação (inclui pedido de orçamento). */
+export function isRhPendingReviewReport(report) {
+  return report?.status === 'pending_review';
 }
 
 export function reportOrcamentoGuardado(report) {
