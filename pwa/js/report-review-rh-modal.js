@@ -263,7 +263,7 @@ export function openRhRejectDialog(reportId, onRejected) {
  * @param {{ onApproved?: () => void, onRejected?: () => void }} [callbacks]
  */
 export async function openRhReviewModal(reportId, callbacks = {}) {
-  const report = getReport(reportId);
+  let report = getReport(reportId);
   if (!report) {
     showToast('Relatório não encontrado.', 'error');
     return;
