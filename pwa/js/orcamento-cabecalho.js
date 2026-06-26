@@ -17,9 +17,6 @@ function buildDefaultsFromReport(report) {
   const values = report?.data?.values || {};
   const client = getClient(report?.clientId);
 
-  const clienteNome =
-    String(values.nome_empresa || values.cliente || client?.name || client?.Nome || '').trim();
-
   const clienteAc =
     String(values.responsavel || client?.contact || client?.contacto || '').trim() ||
     'Exmos. Senhores';
@@ -42,7 +39,6 @@ function buildDefaultsFromReport(report) {
   }
 
   return {
-    clienteNome,
     clienteAc,
     maquina,
     matricula,
@@ -52,7 +48,17 @@ function buildDefaultsFromReport(report) {
   };
 }
 
-/** Valores do cabeçalho — meta RH sobrepõe o relatório técnico. */
+/** Nome «PARA» — sempre o cliente do relatório (não editável na proposta). */
+export function resolveOrcamentoClienteNome(report) {
+  const values = report?.data?.values || {};
+  const client = getClient(report?.clientId);
+  return (
+    String(values.nome_empresa || values.cliente || client?.name || client?.Nome || '').trim() ||
+    '—'
+  );
+}
+
+/** Valores do cabeçalho — meta RH sobrepõe o relatório técnico (exceto cliente). */
 export function resolveOrcamentoCabecalho(report) {
   const meta = readOrcamentoMeta(report);
   const defaults = buildDefaultsFromReport(report);
@@ -65,7 +71,7 @@ export function resolveOrcamentoCabecalho(report) {
   };
 
   return {
-    clienteNome: pick('clienteNome'),
+    clienteNome: resolveOrcamentoClienteNome(report),
     clienteAc: pick('clienteAc') || 'Exmos. Senhores',
     maquina: pick('maquina'),
     matricula: pick('matricula'),
@@ -75,10 +81,10 @@ export function resolveOrcamentoCabecalho(report) {
   };
 }
 
-export function readOrcamentoCabecalhoFromDom(root) {
+export function readOrcamentoCabecalhoFromDom(root, report) {
   const read = (field) => root?.querySelector(`[data-orc-field="${field}"]`)?.value?.trim() || '';
   return {
-    clienteNome: read('clienteNome'),
+    clienteNome: resolveOrcamentoClienteNome(report),
     clienteAc: read('clienteAc') || 'Exmos. Senhores',
     maquina: read('maquina'),
     matricula: read('matricula'),

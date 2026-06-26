@@ -91,10 +91,11 @@ export function renderOrcamentoEditor(report, { client } = {}) {
       <section class="review-orc-cabecalho" aria-label="Dados da proposta MS.015">
         <h4 class="review-orc-cabecalho__title">Dados da proposta</h4>
         <div class="review-orc-cabecalho__grid">
-          <label class="review-orc-field">
+          <div class="review-orc-field review-orc-field--readonly">
             <span>Para (cliente)</span>
-            <input type="text" class="review-orc-input" data-orc-field="clienteNome" value="${escapeHtml(cab.clienteNome)}" placeholder="Nome da empresa" />
-          </label>
+            <p class="review-orc-readonly" aria-readonly="true">${escapeHtml(cab.clienteNome) || '—'}</p>
+            <span class="review-orc-field-hint text-muted">Sempre o cliente deste relatório.</span>
+          </div>
           <label class="review-orc-field">
             <span>A/C.</span>
             <input type="text" class="review-orc-input" data-orc-field="clienteAc" value="${escapeHtml(cab.clienteAc)}" placeholder="Destinatário / contacto" />
@@ -277,7 +278,7 @@ export function bindOrcamentoEditor(container, { report, onUpdated } = {}) {
   refreshLineTotals(root);
 
   const saveMeta = async () => {
-    const meta = readOrcamentoFormFromDom(root);
+    const meta = readOrcamentoFormFromDom(root, currentReport);
     const { saveAndRegenerateOrcamento } = await import('./orcamento-pdf-service.js');
     const saved = await saveAndRegenerateOrcamento(currentReport, meta);
     if (!saved) throw new Error('Não foi possível guardar a proposta.');
@@ -338,7 +339,7 @@ export function bindOrcamentoEditor(container, { report, onUpdated } = {}) {
         await import('./app.js');
       const { isValidEmail } = await import('./validators.js');
 
-      const meta = readOrcamentoFormFromDom(root);
+      const meta = readOrcamentoFormFromDom(root, currentReport);
       const email = String(meta.emailDestinatario || '').trim();
       if (!email) {
         showToast('Indique o e-mail para envio da proposta.', 'error');

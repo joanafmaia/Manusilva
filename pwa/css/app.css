@@ -11363,6 +11363,22 @@ details[open] .expand-icon { transform: rotate(90deg); }
   line-height: 1.4;
 }
 
+.review-orc-field--readonly {
+  margin-bottom: 0;
+}
+
+.review-orc-readonly {
+  margin: 0;
+  padding: 0.4rem 0.5rem;
+  border-radius: 6px;
+  background: rgba(15, 23, 42, 0.04);
+  border: 1px solid var(--border-subtle);
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--text-primary, #0f172a);
+}
+
 .review-orc-field--email {
   margin-bottom: 0.75rem;
 }

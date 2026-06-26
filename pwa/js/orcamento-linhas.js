@@ -162,7 +162,7 @@ export function buildOrcamentoMetaDraft(report, numeroReservado = null) {
   };
 }
 
-export function readOrcamentoFormFromDom(root) {
+export function readOrcamentoFormFromDom(root, report) {
   const linhas = [];
   root?.querySelectorAll('[data-orcamento-linha]').forEach((row) => {
     const descricao = row.querySelector('[data-orc-field="descricao"]')?.value?.trim() || '';
@@ -181,7 +181,7 @@ export function readOrcamentoFormFromDom(root) {
   const prazoEntrega = root.querySelector('[data-orc-field="prazoEntrega"]')?.value?.trim() || '';
   const emailDestinatario =
     root.querySelector('[data-orc-field="emailDestinatario"]')?.value?.trim() || '';
-  const cabecalho = readOrcamentoCabecalhoFromDom(root);
+  const cabecalho = readOrcamentoCabecalhoFromDom(root, report);
   const totals = computeOrcamentoTotals(linhas, taxaSaida);
   const meta = getReportOrcamentoMetaFromDom(root);
 
