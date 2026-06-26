@@ -320,8 +320,9 @@ export function updateDB(updater) {
  * @param {{ tipoRelatorio?: string, reportId?: string, clienteNome?: string, nome_empresa?: string, tecnico?: string, dataConclusao?: string, to?: string, serieFrota?: string, numeroOrdem?: number | null, pdfUrl?: string, pdfFilename?: string, pdfBase64?: string }} [meta]
  */
 export async function sendOfficialReportEmail(meta = {}) {
-  const session = getSession();
-  if (!session?.token) {
+  const { getFreshAccessToken } = await import('./supabase-client.js');
+  const token = await getFreshAccessToken();
+  if (!token) {
     throw new Error('Sessão expirada. Inicie sessão novamente para enviar o e-mail.');
   }
 
@@ -337,7 +338,7 @@ export async function sendOfficialReportEmail(meta = {}) {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${session.token}`,
+      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify({
       to: meta.to,

@@ -2,7 +2,7 @@
  * Cliente Supabase (browser) — requer o script CDN em index.html / admin.html / dashboard.html
  */
 
-import { clearSession, getRawSession } from './session.js';
+import { clearSession, getRawSession, setRawSession } from './session.js';
 
 const SUPABASE_URL = 'https://zhfbezrevosmbmcbyskw.supabase.co';
 /** Chave anon (public) — Supabase → Settings → API. Não uses a secret key aqui. */
@@ -106,6 +106,20 @@ export function handleFatalAuthSessionError(reason) {
   window.location.href = LOGIN_URL;
 }
 
+/** Mantém `app_session.token` alinhado com o JWT ativo do Supabase (após refresh). */
+function persistAppSessionTokens(session) {
+  if (!session?.access_token) return;
+  const raw = getRawSession();
+  if (!raw) return;
+  const refreshToken = session.refresh_token || raw.refreshToken || '';
+  if (raw.token === session.access_token && raw.refreshToken === refreshToken) return;
+  setRawSession({
+    ...raw,
+    token: session.access_token,
+    refreshToken,
+  });
+}
+
 export async function getSupabaseClient() {
   const sdk = await waitForSupabaseSdk();
   if (!supabaseClient) {
@@ -122,8 +136,10 @@ async function validateSupabaseSession(supabase, session) {
     handleFatalAuthSessionError(userError.message);
     return null;
   }
+  if (userError) return null;
 
-  return session;
+  const { data } = await supabase.auth.getSession();
+  return data?.session || session;
 }
 
 /** Garante que o JWT da sessão local está ativo no cliente Supabase (RLS authenticated). */
@@ -137,7 +153,11 @@ export async function ensureSupabaseAuthSession() {
   }
 
   if (existing?.session?.access_token) {
-    return validateSupabaseSession(supabase, existing.session);
+    const validated = await validateSupabaseSession(supabase, existing.session);
+    if (validated?.access_token) {
+      persistAppSessionTokens(validated);
+    }
+    return validated;
   }
 
   const appSession = getRawSession();
@@ -158,7 +178,19 @@ export async function ensureSupabaseAuthSession() {
     return null;
   }
 
-  return validateSupabaseSession(supabase, data?.session || null);
+  const validated = await validateSupabaseSession(supabase, data?.session || null);
+  if (validated?.access_token) {
+    persistAppSessionTokens(validated);
+  }
+  return validated;
+}
+
+/** JWT válido para APIs serverless (`/api/enviar-email`, etc.). */
+export async function getFreshAccessToken() {
+  const session = await ensureSupabaseAuthSession();
+  if (!session?.access_token) return null;
+  persistAppSessionTokens(session);
+  return session.access_token;
 }
 
 /**
