@@ -37,6 +37,7 @@ import { loadJsPDF } from './pdf-report.js';
 
 const MARGIN = PDF_MARGIN;
 const CONTENT_W = PDF_CONTENT_W;
+const PAGE_W = PDF_PAGE_W;
 const PAGE_BOTTOM = 287;
 /** Espaço reservado no fundo da folha 1 para a caixa de aprovação do cliente. */
 const APPROVAL_BOX_H = 50;
