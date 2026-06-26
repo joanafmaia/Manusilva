@@ -1,6 +1,6 @@
 /**
  * PDF — Proposta Comercial MS.015
- * Folha 1: proposta + encerramento Manusilva + caixa de aprovação do cliente
+ * Folha 1: proposta + caixa de aprovação (cliente à esq., encerramento Manusilva à dir.)
  * Folha 2: Garantia de Reparação, Prazo de reparação e Condições Gerais (fixo)
  */
 
@@ -40,10 +40,9 @@ const CONTENT_W = PDF_CONTENT_W;
 const PAGE_W = PDF_PAGE_W;
 const PAGE_BOTTOM = 287;
 /** Espaço reservado no fundo da folha 1 para a caixa de aprovação do cliente. */
-const APPROVAL_BOX_H = 50;
+const APPROVAL_BOX_H = 52;
 const APPROVAL_TOP = PAGE_BOTTOM - APPROVAL_BOX_H - 6;
-const CLOSING_TOP = APPROVAL_TOP - 24;
-const BODY_MAX_Y = CLOSING_TOP - 8;
+const BODY_MAX_Y = APPROVAL_TOP - 8;
 
 let legalTextCache = null;
 
@@ -189,24 +188,14 @@ function drawOrcamentoTable(doc, linhas, startY) {
   return y + 4;
 }
 
-function drawCompanyClosing(doc) {
-  const y = CLOSING_TOP;
-
-  pdfSetFont(doc, 'normal');
-  doc.setFontSize(PDF_FONT_BODY);
-  doc.setTextColor(...PDF_COLOR_TEXT_DARK);
-  doc.text('De V. Exas.', MARGIN, y);
-  doc.text('Atentamente', MARGIN, y + 5.5);
-  pdfSetFont(doc, 'bold');
-  doc.text('MANUSILVA,LDA', MARGIN, y + 11);
-}
-
-/** Caixa no fundo da folha 1 para impressão, assinatura e carimbo do cliente. */
+/** Caixa no fundo da folha 1 — aprovação do cliente (esq.) e encerramento Manusilva (inf. dir.). */
 function drawClientApprovalBox(doc) {
   const boxY = APPROVAL_TOP;
   const boxX = MARGIN;
   const boxW = CONTENT_W;
   const pad = 4;
+  const rightX = boxX + boxW - pad;
+  const leftColW = boxW * 0.58;
 
   doc.setDrawColor(30, 41, 59);
   doc.setLineWidth(0.45);
@@ -225,17 +214,24 @@ function drawClientApprovalBox(doc) {
   pdfSplitText(
     doc,
     'Declaro que aceito o presente orçamento e valores apresentados',
-    boxW - pad * 2,
+    leftColW - pad * 2,
   ).forEach((line) => {
     doc.text(line, boxX + pad, ty);
     ty += 4.5;
   });
 
-  ty = boxY + APPROVAL_BOX_H - 8;
   doc.setFontSize(8);
   doc.setTextColor(...PDF_COLOR_TEXT_MUTED);
-  doc.text('Assinatura e carimbo do cliente', boxX + pad, ty);
+  doc.text('Assinatura e carimbo do cliente', boxX + pad, boxY + APPROVAL_BOX_H - 8);
+
+  const closingY = boxY + APPROVAL_BOX_H - 20;
+  pdfSetFont(doc, 'normal');
+  doc.setFontSize(PDF_FONT_BODY);
   doc.setTextColor(...PDF_COLOR_TEXT_DARK);
+  doc.text('De V. Exas.', rightX, closingY, { align: 'right' });
+  doc.text('Atentamente', rightX, closingY + 5.5, { align: 'right' });
+  pdfSetFont(doc, 'bold');
+  doc.text('MANUSILVA,LDA', rightX, closingY + 11, { align: 'right' });
 
   return boxY + APPROVAL_BOX_H;
 }
@@ -362,12 +358,6 @@ export async function renderOrcamentoPDF(report) {
   });
 
   doc.setPage(1);
-
-  doc.setDrawColor(...PDF_TABLE_LINE);
-  doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
-  doc.line(MARGIN, CLOSING_TOP - 5, MARGIN + CONTENT_W, CLOSING_TOP - 5);
-
-  drawCompanyClosing(doc);
   drawClientApprovalBox(doc);
 
   if (legalText) {
