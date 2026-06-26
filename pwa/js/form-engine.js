@@ -711,6 +711,38 @@ function mergeRavDualMetricGroups(groups) {
 
 export function renderReportFields(service, values = {}, context = {}, options = {}) {
   const tabFilter = options.tab || null;
+
+  if (service?.id === EMPILHADORES_SERVICE_ID && tabFilter === 'checklist') {
+    const maquinas = migrateLegacyEmpilhadoresMaquinas(values);
+    const activeIndex = Number(context.activeMaquinaIndex) || 0;
+    const safeIndex = Math.max(0, Math.min(activeIndex, maquinas.length - 1));
+    const machineValues = maquinaRowToFlatValues(
+      maquinas[safeIndex] || emptyEmpilhadoresMaquinaRow(),
+    );
+    const selectorHtml = renderEmpilhadoresMaquinaSelector(maquinas, safeIndex);
+    let empGroups = groupFieldsBySection(EMPILHADORES_PER_MACHINE_FIELD_DEFS).filter(
+      ({ fields: sectionFields }) => sectionFields.length,
+    );
+    empGroups = mergeEmpilhadoresChecklistGroups(empGroups, service);
+    const checklistHtml = empGroups
+      .map(({ section, fields: sectionFields }) =>
+        renderEmpilhadoresChecklistSection(section, sectionFields, machineValues, context),
+      )
+      .join('');
+    const tailFields = EMPILHADORES_PER_MACHINE_FIELD_DEFS.filter(
+      (f) => f.id === 'observacoes' || f.id === 'estado_maquina',
+    );
+    const tailHtml = tailFields
+      .map((f) => renderField(f, machineValues[f.id], context))
+      .join('');
+    return `
+      <div data-empilhadores-checklist="true">
+        ${selectorHtml}
+        ${checklistHtml}
+        <div class="empilhadores-maquina-tail-fields form-field-section form-section-card">${tailHtml}</div>
+      </div>`;
+  }
+
   let fields = filterReportFields(service?.fields, service);
   if (tabFilter) {
     fields = fields.filter((field) => getReportFieldTab(field, service) === tabFilter);
@@ -729,36 +761,6 @@ export function renderReportFields(service, values = {}, context = {}, options =
   }
   if (service?.id === 'reparacao_avarias_bateria') {
     groups = mergeRavDualMetricGroups(groups);
-  }
-  if (service?.id === EMPILHADORES_SERVICE_ID && tabFilter === 'checklist') {
-    const maquinas = migrateLegacyEmpilhadoresMaquinas(values);
-    const activeIndex = Number(context.activeMaquinaIndex) || 0;
-    const safeIndex = Math.max(0, Math.min(activeIndex, maquinas.length - 1));
-    const machineValues = maquinaRowToFlatValues(
-      maquinas[safeIndex] || emptyEmpilhadoresMaquinaRow(),
-    );
-    const selectorHtml = renderEmpilhadoresMaquinaSelector(maquinas, safeIndex);
-    let groups = groupFieldsBySection(EMPILHADORES_PER_MACHINE_FIELD_DEFS).filter(
-      ({ fields: sectionFields }) => sectionFields.length,
-    );
-    groups = mergeEmpilhadoresChecklistGroups(groups, service);
-    const checklistHtml = groups
-      .map(({ section, fields: sectionFields }) =>
-        renderEmpilhadoresChecklistSection(section, sectionFields, machineValues, context),
-      )
-      .join('');
-    const tailFields = EMPILHADORES_PER_MACHINE_FIELD_DEFS.filter(
-      (f) => f.id === 'observacoes' || f.id === 'estado_maquina',
-    );
-    const tailHtml = tailFields
-      .map((f) => renderField(f, machineValues[f.id], context))
-      .join('');
-    return `
-      <div data-empilhadores-checklist="true">
-        ${selectorHtml}
-        ${checklistHtml}
-        <div class="empilhadores-maquina-tail-fields form-field-section form-section-card">${tailHtml}</div>
-      </div>`;
   }
 
   return groups
