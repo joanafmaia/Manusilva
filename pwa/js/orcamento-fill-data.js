@@ -11,7 +11,6 @@ import {
   suggestOrcamentoLinhas,
 } from './orcamento-linhas.js';
 import { resolveOrcamentoCabecalho } from './orcamento-cabecalho.js';
-import { getPedidoOrcamentoDetalhe } from './pedido-orcamento.js';
 
 const MESES_PT = [
   'Janeiro',
@@ -100,7 +99,13 @@ export function buildOrcamentoFillData(report, job = null) {
     intro_servico: resolveOrcamentoIntro(report?.serviceType),
     maquina: display(cabecalho.maquina),
     matricula: display(cabecalho.matricula),
+    marca: display(cabecalho.marca),
+    modelo: display(cabecalho.modelo),
+    tipo: display(cabecalho.tipo),
+    numero_serie: display(cabecalho.numeroSerie),
+    numero_interno: display(cabecalho.numeroInterno),
     reparacao_necessaria: display(cabecalho.reparacaoNecessaria),
+    observacoes_tecnico: display(cabecalho.observacoesTecnico),
     taxa_saida: taxaSaida === '' ? '—' : formatEuro(taxaSaida),
     prazo_entrega: prazoEntrega || '—',
     forma_pagamento: display(cabecalho.formaPagamento),

@@ -100,19 +100,36 @@ export function renderOrcamentoEditor(report, { client } = {}) {
             <input type="text" class="review-orc-input" data-orc-field="clienteAc" value="${escapeHtml(cab.clienteAc)}" placeholder="Destinatário / contacto" />
           </label>
           <label class="review-orc-field">
-            <span>Máquina / equipamento</span>
-            <input type="text" class="review-orc-input" data-orc-field="maquina" value="${escapeHtml(cab.maquina)}" placeholder="Marca / modelo / tipo / bateria" />
-            <span class="review-orc-field-hint text-muted">Sugerido a partir do relatório técnico — pode editar.</span>
+            <span>Marca</span>
+            <input type="text" class="review-orc-input" data-orc-field="marca" value="${escapeHtml(cab.marca)}" placeholder="Marca" />
           </label>
           <label class="review-orc-field">
-            <span>Matrícula / n.º interno</span>
-            <input type="text" class="review-orc-input" data-orc-field="matricula" value="${escapeHtml(cab.matricula)}" placeholder="N.º série, interno ou matrícula" />
+            <span>Modelo</span>
+            <input type="text" class="review-orc-input" data-orc-field="modelo" value="${escapeHtml(cab.modelo)}" placeholder="Modelo" />
+          </label>
+          <label class="review-orc-field">
+            <span>Tipo</span>
+            <input type="text" class="review-orc-input" data-orc-field="tipo" value="${escapeHtml(cab.tipo)}" placeholder="Tipo de equipamento" />
+          </label>
+          <label class="review-orc-field">
+            <span>N.º Série</span>
+            <input type="text" class="review-orc-input" data-orc-field="numeroSerie" value="${escapeHtml(cab.numeroSerie)}" placeholder="Número de série" />
+          </label>
+          <label class="review-orc-field">
+            <span>Número Interno</span>
+            <input type="text" class="review-orc-input" data-orc-field="numeroInterno" value="${escapeHtml(cab.numeroInterno)}" placeholder="N.º interno / matrícula" />
             <span class="review-orc-field-hint text-muted">Sugerido a partir do relatório técnico — pode editar.</span>
           </label>
         </div>
         <label class="review-orc-field review-orc-field--full">
           <span>Na reparação precisa</span>
-          <textarea class="review-orc-input review-orc-textarea" data-orc-field="reparacaoNecessaria" rows="3" placeholder="Descrição dos trabalhos a orçamentar">${escapeHtml(cab.reparacaoNecessaria)}</textarea>
+          <textarea class="review-orc-input review-orc-textarea" data-orc-field="reparacaoNecessaria" rows="3" placeholder="Detalhe do pedido de orçamento do técnico">${escapeHtml(cab.reparacaoNecessaria)}</textarea>
+          <span class="review-orc-field-hint text-muted">Texto do pedido de orçamento no relatório — pode editar.</span>
+        </label>
+        <label class="review-orc-field review-orc-field--full">
+          <span>Observações do técnico</span>
+          <textarea class="review-orc-input review-orc-textarea" data-orc-field="observacoesTecnico" rows="3" placeholder="Observações do relatório técnico">${escapeHtml(cab.observacoesTecnico)}</textarea>
+          <span class="review-orc-field-hint text-muted">Apoio à faturação — sugerido do relatório, pode editar.</span>
         </label>
       </section>
 

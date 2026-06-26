@@ -321,12 +321,30 @@ export async function renderOrcamentoPDF(report) {
   y = advanceBodyY(y, 4);
 
   if (canDrawBodyLine(y, 28)) {
-    pdfSetFont(doc, 'bold');
-    doc.text(`Máquina – ${pdfSafeText(fill.maquina)}`, MARGIN, y);
-    y = advanceBodyY(y, 6);
-    pdfSetFont(doc, 'normal');
-    doc.text(`Matrícula: ${pdfSafeText(fill.matricula)}`, MARGIN, y);
-    y = advanceBodyY(y, 6);
+    const equipRows = [
+      ['Marca', fill.marca],
+      ['Modelo', fill.modelo],
+      ['Tipo', fill.tipo],
+      ['N.º Série', fill.numero_serie],
+      ['Número Interno', fill.numero_interno],
+    ].filter(([, value]) => value !== '—');
+
+    if (!equipRows.length) {
+      equipRows.push(['Máquina', fill.maquina], ['Matrícula', fill.matricula]);
+    }
+
+    equipRows.forEach(([label, value]) => {
+      if (!canDrawBodyLine(y)) return;
+      pdfSetFont(doc, 'bold');
+      const prefix = `${label}: `;
+      doc.text(prefix, MARGIN, y);
+      const prefixW = doc.getTextWidth(prefix);
+      pdfSetFont(doc, 'normal');
+      doc.text(pdfSafeText(value), MARGIN + prefixW, y);
+      y = advanceBodyY(y, 5.5);
+    });
+
+    y = advanceBodyY(y, 2);
     pdfSetFont(doc, 'bold');
     doc.text('Na reparação precisa:', MARGIN, y);
     y = advanceBodyY(y, 6);
@@ -336,7 +354,20 @@ export async function renderOrcamentoPDF(report) {
       doc.text(line, MARGIN, y);
       y = advanceBodyY(y, 4.5);
     });
-    y = advanceBodyY(y, 6);
+    y = advanceBodyY(y, 4);
+
+    if (fill.observacoes_tecnico !== '—') {
+      pdfSetFont(doc, 'bold');
+      doc.text('Observações do técnico:', MARGIN, y);
+      y = advanceBodyY(y, 6);
+      pdfSetFont(doc, 'normal');
+      pdfSplitText(doc, pdfSafeText(fill.observacoes_tecnico), CONTENT_W).forEach((line) => {
+        if (!canDrawBodyLine(y)) return;
+        doc.text(line, MARGIN, y);
+        y = advanceBodyY(y, 4.5);
+      });
+      y = advanceBodyY(y, 4);
+    }
   }
 
   y = drawOrcamentoTable(doc, fill.linhas, y);
