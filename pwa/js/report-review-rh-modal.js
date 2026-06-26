@@ -319,12 +319,6 @@ export async function openRhReviewModal(reportId, callbacks = {}) {
   });
   bindReviewTabs(overlay);
 
-  if (reportHasPedidoOrcamento(report)) {
-    void import('./orcamento-pdf-service.js')
-      .then(({ attachOrcamentoPdfToReport }) => attachOrcamentoPdfToReport(report))
-      .catch((err) => console.warn('[RH] Folha de orçamento:', err));
-  }
-
   overlay.querySelector('#modal-close-review')?.addEventListener('click', closeModal);
 
   if (showWorkflow) {
@@ -450,8 +444,8 @@ export function buildRhReviewModalContent({
     editable: showWorkflow || canResendEmail,
     hint:
       canResendEmail && !showWorkflow
-        ? 'Confirme o e-mail antes de reenviar. Se alterar, a base de dados do cliente será atualizada.'
-        : undefined,
+        ? 'E-mail para reenvio do relatório técnico. Se alterar, a base de dados do cliente será atualizada.'
+        : 'E-mail para envio do relatório técnico após aprovação. A proposta MS.015 usa outro destinatário.',
   });
   const hasFotos = reviewJobHasFotos(job, report);
   const checks = computeReviewChecks({ report, job, client, values });

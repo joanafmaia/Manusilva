@@ -349,6 +349,7 @@ export async function sendOfficialReportEmail(meta = {}) {
       tipoRelatorio,
       serieFrota,
       numeroOrdem: meta.numeroOrdem ?? null,
+      orcamentoNumero: meta.orcamentoNumero,
       pdfUrl: meta.pdfUrl,
       pdfFilename: meta.pdfFilename,
       pdfBase64: meta.pdfBase64,
@@ -361,6 +362,52 @@ export async function sendOfficialReportEmail(meta = {}) {
       .filter(Boolean)
       .join(' | ');
     throw new Error(details || 'Falha ao enviar e-mail pela API.');
+  }
+
+  return true;
+}
+
+/**
+ * Envia proposta comercial MS.015 por e-mail (destinatário independente do relatório).
+ */
+export async function sendOrcamentoProposalEmail(meta = {}) {
+  const { getFreshAccessToken } = await import('./supabase-client.js');
+  const token = await getFreshAccessToken();
+  if (!token) {
+    throw new Error('Sessão expirada. Inicie sessão novamente para enviar a proposta.');
+  }
+
+  const dateStamp =
+    meta.dataConclusao ||
+    new Date().toLocaleDateString('pt-PT', { year: 'numeric', month: '2-digit', day: '2-digit' });
+
+  const response = await fetch('/api/enviar-email', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      to: meta.to,
+      reportId: meta.reportId,
+      clienteNome: meta.clienteNome || meta.nome_empresa || 'Cliente não indicado',
+      tecnico: meta.tecnico || 'Técnico não indicado',
+      dataConclusao: dateStamp,
+      tipoRelatorio: 'orcamento',
+      orcamentoNumero: meta.orcamentoNumero || '',
+      numeroOrdem: meta.numeroOrdem ?? null,
+      pdfUrl: meta.pdfUrl,
+      pdfFilename: meta.pdfFilename,
+      pdfBase64: meta.pdfBase64,
+    }),
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    const details = [err.error, err.hint, err.code, err.responseCode]
+      .filter(Boolean)
+      .join(' | ');
+    throw new Error(details || 'Falha ao enviar e-mail da proposta.');
   }
 
   return true;

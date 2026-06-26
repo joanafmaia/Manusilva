@@ -175,11 +175,14 @@ export function readOrcamentoFormFromDom(root) {
 
   const taxaSaida = root.querySelector('[data-orc-field="taxaSaida"]')?.value?.trim() || '';
   const prazoEntrega = root.querySelector('[data-orc-field="prazoEntrega"]')?.value?.trim() || '';
+  const emailDestinatario =
+    root.querySelector('[data-orc-field="emailDestinatario"]')?.value?.trim() || '';
   const totals = computeOrcamentoTotals(linhas, taxaSaida);
   const meta = getReportOrcamentoMetaFromDom(root);
 
   return {
     ...meta,
+    emailDestinatario,
     taxaSaida: taxaSaida === '' ? '' : formatEuro(taxaSaida),
     prazoEntrega,
     linhas: normalizeOrcamentoLinhas(linhas),

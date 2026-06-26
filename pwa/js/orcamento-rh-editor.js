@@ -1,5 +1,5 @@
 /**
- * Editor RH — linhas de orçamento MS.015 (artigos, preços, taxa de saída).
+ * Editor RH — linhas de orçamento MS.015 (artigos, preços, e-mail da proposta).
  */
 
 import {
@@ -13,6 +13,10 @@ import {
   readOrcamentoFormFromDom,
   suggestOrcamentoLinhas,
 } from './orcamento-linhas.js';
+import {
+  getReportOrcamentoDocxUrl,
+  getReportOrcamentoPdfUrl,
+} from './pedido-orcamento.js';
 
 function escapeHtml(value) {
   return String(value ?? '')
@@ -20,6 +24,12 @@ function escapeHtml(value) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+function defaultOrcamentoEmail(report, client) {
+  const meta = getReportOrcamentoMeta(report);
+  if (meta?.emailDestinatario) return String(meta.emailDestinatario).trim();
+  return '';
 }
 
 function renderLinhaRow(row, index) {
@@ -50,22 +60,23 @@ function renderTotals(meta) {
   };
 }
 
-export function renderReviewOrcamentoEditor(report) {
+export function renderOrcamentoEditor(report, { client } = {}) {
   const meta = getReportOrcamentoMeta(report) || buildOrcamentoMetaDraft(report);
   const linhas = suggestOrcamentoLinhas(report);
   const numeroLabel =
     meta.numeroFormatado ||
     (meta.numeroSequencial
       ? formatOrcamentoNumeroLabel(meta.numeroSequencial, meta.ano)
-      : 'Atribuído ao gerar');
+      : 'Atribuído ao guardar');
   const totals = renderTotals({ ...meta, linhas });
   const taxaSaida = meta.taxaSaida != null ? String(meta.taxaSaida) : '';
   const prazoEntrega = escapeHtml(meta.prazoEntrega || '');
+  const emailDestinatario = escapeHtml(defaultOrcamentoEmail(report, client));
+  const clienteEmailHint = escapeHtml(client?.email || client?.['E-mail'] || '');
 
   return `
-    <div class="review-orcamento-editor" id="review-orcamento-editor">
+    <div class="review-orcamento-editor" id="orcamento-editor">
       <div class="review-orcamento-editor__head">
-        <h4 class="review-orcamento-editor__title">Proposta MS.015 — valores</h4>
         <p class="review-orcamento-editor__numero">
           Orçamento nº
           <strong data-orc-numero-formatado>${escapeHtml(numeroLabel)}</strong>
@@ -73,6 +84,21 @@ export function renderReviewOrcamentoEditor(report) {
           <span class="sr-only" data-orc-numero-ano>${escapeHtml(String(meta.ano || new Date().getFullYear()))}</span>
         </p>
       </div>
+
+      <label class="review-orc-field review-orc-field--email">
+        <span>Enviar proposta para</span>
+        <input
+          type="email"
+          class="review-orc-input"
+          data-orc-field="emailDestinatario"
+          value="${emailDestinatario}"
+          autocomplete="email"
+          placeholder="compras@empresa.pt"
+        />
+        <span class="review-orc-field-hint text-muted">
+          E-mail da proposta comercial — pode ser diferente do relatório técnico${clienteEmailHint ? ` (ficha cliente: ${clienteEmailHint})` : ''}.
+        </span>
+      </label>
 
       <div class="review-orc-table-wrap">
         <table class="review-orc-table">
@@ -112,11 +138,19 @@ export function renderReviewOrcamentoEditor(report) {
         <div class="review-orcamento-editor__total-line"><span>Total</span><strong data-orc-total>${totals.total} €</strong></div>
       </div>
 
-      <div class="review-orcamento-editor__actions">
-        <button type="button" class="btn-primary btn-touch" id="review-orc-save">Guardar e atualizar proposta</button>
+      <div class="review-orcamento-editor__actions review-orcamento-editor__actions--split">
+        <button type="button" class="btn-primary btn-touch" id="review-orc-save">Guardar proposta</button>
+        <button type="button" class="btn-outline btn-touch" id="orcamento-docx">Abrir Word</button>
+        <button type="button" class="btn-outline btn-touch" id="orcamento-pdf">Ver PDF</button>
+        <button type="button" class="btn-success btn-touch" id="orcamento-send-email">Enviar proposta por e-mail</button>
       </div>
-      <p class="text-muted review-orcamento-editor__hint">Preencha os preços e guarde — o Word e o PDF serão regenerados com o número de orçamento oficial.</p>
+      <p class="text-muted review-orcamento-editor__hint">Guarde antes de enviar. O e-mail inclui apenas a proposta MS.015, não o relatório técnico.</p>
     </div>`;
+}
+
+/** @deprecated usar renderOrcamentoEditor */
+export function renderReviewOrcamentoEditor(report) {
+  return renderOrcamentoEditor(report);
 }
 
 function refreshLineTotals(root) {
@@ -130,9 +164,15 @@ function refreshLineTotals(root) {
 
   const meta = readOrcamentoFormFromDom(root);
   const totals = computeOrcamentoTotals(meta.linhas, meta.taxaSaida);
-  root.querySelector('[data-orc-subtotal]')?.replaceChildren(document.createTextNode(`${formatEuro(totals.subtotal)} €`));
-  root.querySelector('[data-orc-iva]')?.replaceChildren(document.createTextNode(`${formatEuro(totals.iva)} €`));
-  root.querySelector('[data-orc-total]')?.replaceChildren(document.createTextNode(`${formatEuro(totals.total)} €`));
+  root.querySelector('[data-orc-subtotal]')?.replaceChildren(
+    document.createTextNode(`${formatEuro(totals.subtotal)} €`),
+  );
+  root.querySelector('[data-orc-iva]')?.replaceChildren(
+    document.createTextNode(`${formatEuro(totals.iva)} €`),
+  );
+  root.querySelector('[data-orc-total]')?.replaceChildren(
+    document.createTextNode(`${formatEuro(totals.total)} €`),
+  );
 }
 
 function bindLinhaEvents(root) {
@@ -170,38 +210,54 @@ function bindLinhaEvents(root) {
   });
 }
 
+async function ensureOrcamentoDocs(report) {
+  const { showToast } = await import('./app.js');
+  let current = report;
+  if (!getReportOrcamentoPdfUrl(current) || !getReportOrcamentoDocxUrl(current)) {
+    showToast('A gerar proposta MS.015…', 'info', 3500);
+    const { attachOrcamentoPdfToReport } = await import('./orcamento-pdf-service.js');
+    current = (await attachOrcamentoPdfToReport(current, { force: true })) || current;
+  }
+  return current;
+}
+
 /**
- * @param {HTMLElement} overlay
+ * @param {HTMLElement} container
  * @param {{ report: object, onUpdated?: (report: object) => void }} ctx
  */
-export function bindReviewOrcamentoEditor(overlay, { report, onUpdated } = {}) {
-  const root = overlay.querySelector('#review-orcamento-editor');
+export function bindOrcamentoEditor(container, { report, onUpdated } = {}) {
+  const root = container?.querySelector('#orcamento-editor');
   if (!root) return;
+
+  let currentReport = report;
 
   bindLinhaEvents(root);
   refreshLineTotals(root);
+
+  const saveMeta = async () => {
+    const meta = readOrcamentoFormFromDom(root);
+    const { saveAndRegenerateOrcamento } = await import('./orcamento-pdf-service.js');
+    const saved = await saveAndRegenerateOrcamento(currentReport, meta);
+    if (!saved) throw new Error('Não foi possível guardar a proposta.');
+    currentReport = saved;
+    onUpdated?.(saved);
+    const formatado = saved.data?.orcamento?.numeroFormatado;
+    if (formatado) {
+      root.querySelector('[data-orc-numero-formatado]')?.replaceChildren(
+        document.createTextNode(formatado),
+      );
+    }
+    return saved;
+  };
 
   root.querySelector('#review-orc-save')?.addEventListener('click', async (e) => {
     const btn = e.currentTarget;
     btn.disabled = true;
     try {
       const { showToast } = await import('./app.js');
-      const meta = readOrcamentoFormFromDom(root);
       showToast('A guardar proposta MS.015…', 'info', 3000);
-      const { saveAndRegenerateOrcamento } = await import('./orcamento-pdf-service.js');
-      const saved = await saveAndRegenerateOrcamento(report, meta);
-      if (!saved) {
-        showToast('Não foi possível guardar a proposta.', 'error');
-        return;
-      }
-      onUpdated?.(saved);
-      const formatado = saved.data?.orcamento?.numeroFormatado;
-      if (formatado) {
-        root.querySelector('[data-orc-numero-formatado]')?.replaceChildren(
-          document.createTextNode(formatado),
-        );
-      }
-      showToast('Proposta MS.015 atualizada.', 'success');
+      await saveMeta();
+      showToast('Proposta MS.015 guardada.', 'success');
     } catch (err) {
       console.error('[RH] Guardar orçamento:', err);
       const { showToast } = await import('./app.js');
@@ -210,4 +266,112 @@ export function bindReviewOrcamentoEditor(overlay, { report, onUpdated } = {}) {
       btn.disabled = false;
     }
   });
+
+  const openDoc = async (kind) => {
+    const btn = root.querySelector(kind === 'docx' ? '#orcamento-docx' : '#orcamento-pdf');
+    if (btn) btn.disabled = true;
+    try {
+      const { showToast } = await import('./app.js');
+      const saved = await ensureOrcamentoDocs(currentReport);
+      currentReport = saved;
+      onUpdated?.(saved);
+      const url =
+        kind === 'docx'
+          ? getReportOrcamentoDocxUrl(saved)
+          : getReportOrcamentoPdfUrl(saved);
+      if (!url) {
+        showToast('Não foi possível gerar o documento.', 'error');
+        return;
+      }
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } catch (err) {
+      console.error('[Orçamento] Abrir documento:', err);
+      const { showToast } = await import('./app.js');
+      showToast('Erro ao abrir o documento.', 'error');
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  };
+
+  root.querySelector('#orcamento-docx')?.addEventListener('click', () => openDoc('docx'));
+  root.querySelector('#orcamento-pdf')?.addEventListener('click', () => openDoc('pdf'));
+
+  root.querySelector('#orcamento-send-email')?.addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    btn.disabled = true;
+    try {
+      const { showToast, getClient, getJob, getTechnician, sendOrcamentoProposalEmail } =
+        await import('./app.js');
+      const { isValidEmail } = await import('./validators.js');
+
+      const meta = readOrcamentoFormFromDom(root);
+      const email = String(meta.emailDestinatario || '').trim();
+      if (!email) {
+        showToast('Indique o e-mail para envio da proposta.', 'error');
+        return;
+      }
+      if (!isValidEmail(email)) {
+        showToast('E-mail da proposta inválido.', 'error');
+        return;
+      }
+
+      showToast('A preparar envio da proposta…', 'info', 3000);
+      const saved = await saveMeta();
+      currentReport = saved;
+      onUpdated?.(saved);
+
+      const pdfUrl = getReportOrcamentoPdfUrl(saved);
+      if (!pdfUrl) {
+        showToast('Gere o PDF da proposta antes de enviar.', 'error');
+        return;
+      }
+
+      const values = saved.data?.values || {};
+      const client = getClient(saved.clientId);
+      const job = saved.jobId ? getJob(saved.jobId) : null;
+      const tech = getTechnician(saved.technicianId);
+
+      await sendOrcamentoProposalEmail({
+        to: email,
+        reportId: saved.id,
+        clienteNome: values.nome_empresa || values.cliente || client?.name || client?.Nome || '',
+        tecnico: values.tecnico || tech?.name || '',
+        dataConclusao:
+          values.data_de_conclusao || String(saved.submittedAt || '').split('T')[0] || '',
+        orcamentoNumero: saved.data?.orcamento?.numeroFormatado || '',
+        numeroOrdem: job?.numeroOrdem ?? null,
+        pdfUrl,
+        pdfFilename: saved.data?.orcamentoPdfFilename || undefined,
+      });
+
+      const { updateRelatorio, mergeReportInCache } = await import('./relatorios-db.js');
+      const withSent = await updateRelatorio(saved.id, {
+        data: {
+          orcamento: {
+            ...(saved.data?.orcamento || {}),
+            emailDestinatario: email,
+            enviadoEm: new Date().toISOString(),
+          },
+        },
+      });
+      if (withSent) {
+        mergeReportInCache(withSent);
+        currentReport = withSent;
+        onUpdated?.(withSent);
+      }
+
+      showToast(`Proposta enviada para ${email}.`, 'success', 6000);
+    } catch (err) {
+      console.error('[Orçamento] Envio e-mail:', err);
+      const { showToast } = await import('./app.js');
+      showToast(err?.message || 'Falha ao enviar a proposta.', 'error', 8000);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+}
+
+/** @deprecated usar bindOrcamentoEditor */
+export function bindReviewOrcamentoEditor(overlay, ctx) {
+  bindOrcamentoEditor(overlay, ctx);
 }

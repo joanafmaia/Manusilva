@@ -99,13 +99,19 @@ function isFreeEmailDomain(domain) {
   return FREE_EMAIL_DOMAINS.has(String(domain || '').toLowerCase());
 }
 
-async function fetchApprovedReport(reportId, token) {
+async function fetchReportForEmail(reportId, token, tipoRelatorio) {
   const id = encodeURIComponent(String(reportId).trim());
+  const isOrcamento = String(tipoRelatorio || '').toLowerCase() === 'orcamento';
+  const estadoFilter = isOrcamento ? '' : '&estado=eq.approved';
   const rows = await supabaseGet(
-    `/rest/v1/relatorios?id=eq.${id}&estado=eq.approved&select=id,cliente_id,estado,aprovado_em`,
+    `/rest/v1/relatorios?id=eq.${id}${estadoFilter}&select=id,cliente_id,estado,aprovado_em`,
     token,
   );
   return Array.isArray(rows) ? rows[0] || null : null;
+}
+
+async function fetchApprovedReport(reportId, token) {
+  return fetchReportForEmail(reportId, token, 'relatorio');
 }
 
 async function fetchClienteEmail(clienteId, token) {
@@ -209,6 +215,12 @@ function buildSubject(payload = {}) {
   const op = formatOpEmailLabel(payload.numeroOrdem);
   const opSuffix = op ? ` - ${op}` : '';
 
+  if (tipoRelatorio === 'orcamento') {
+    const numero = String(payload.orcamentoNumero || '').trim();
+    const numSuffix = numero ? ` nº ${numero}` : '';
+    return `ManuSilva - Proposta Comercial${numSuffix} - ${company}${opSuffix}`;
+  }
+
   if (tipoRelatorio === 'dl50-2005') {
     return `ManuSilva - Inspeção DL 50/2005 - ${company}${opSuffix}`;
   }
@@ -245,19 +257,13 @@ function buildHtmlBody(payload = {}, options = {}) {
       }),
   );
   const tipoRelatorio = String(payload.tipoRelatorio || '').toLowerCase();
-  const serviceLabel =
-    tipoRelatorio === 'dl50-2005'
-      ? 'inspeção DL 50/2005'
-      : tipoRelatorio === 'baterias'
-        ? 'manutenção de baterias'
-        : 'intervenção técnica';
   const op = formatOpEmailLabel(payload.numeroOrdem);
   const opText = op ? `, ordem <strong>${escapeHtml(op)}</strong>` : '';
 
   const pdfBlock = pdfUrl
     ? `<p style="margin:18px 0 0 0;">
         <a href="${escapeHtml(pdfUrl)}" target="_blank" rel="noopener noreferrer" style="display:inline-block;background:#0f172a;color:#ffffff;text-decoration:none;padding:10px 18px;border-radius:8px;font-size:13px;font-weight:600;">
-          Ver relatório PDF
+          ${tipoRelatorio === 'orcamento' ? 'Ver proposta PDF' : 'Ver relatório PDF'}
         </a>
       </p>`
     : '';
@@ -267,6 +273,74 @@ function buildHtmlBody(payload = {}, options = {}) {
         O documento encontra-se também em anexo a este e-mail.
       </p>`
     : '';
+
+  if (tipoRelatorio === 'orcamento') {
+    const numero = escapeHtml(String(payload.orcamentoNumero || '').trim());
+    const numeroLine = numero
+      ? `<p style="margin:0 0 10px 0;font-size:14px;line-height:1.6;color:#334155;">
+          Proposta comercial <strong>${numero}</strong>${opText}.
+        </p>`
+      : '';
+
+    return `
+<!doctype html>
+<html lang="pt">
+  <body style="margin:0;padding:0;background:#f8fafc;font-family:Segoe UI,Arial,sans-serif;color:#0f172a;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="padding:24px 12px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#ffffff;border:1px solid #e2e8f0;border-radius:10px;">
+            <tr>
+              <td style="padding:20px 24px 16px 24px;border-bottom:1px solid #e2e8f0;">
+                <p style="margin:0;font-size:16px;font-weight:700;color:#0f172a;">ManuSilva</p>
+                <p style="margin:4px 0 0 0;font-size:12px;color:#64748b;">Proposta comercial MS.015</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:20px 24px;">
+                <p style="margin:0 0 14px 0;font-size:14px;line-height:1.6;color:#0f172a;">
+                  Exmos. Senhores <strong>${company}</strong>,
+                </p>
+                ${numeroLine}
+                <p style="margin:0;font-size:14px;line-height:1.65;color:#334155;">
+                  Vimos por este meio enviar a nossa proposta comercial referente à intervenção de <strong>${data}</strong>
+                  (técnico: ${tecnico}).
+                </p>
+                ${pdfBlock}
+                ${attachmentNote}
+                <p style="margin:18px 0 0 0;font-size:14px;line-height:1.6;color:#334155;">
+                  Com os melhores cumprimentos,<br>
+                  <strong>ManuSilva</strong>
+                </p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:14px 24px 18px 24px;background:#f8fafc;border-top:1px solid #e2e8f0;">
+                <p style="margin:0 0 4px 0;font-size:11px;line-height:1.5;color:#64748b;">
+                  Rua São Mamede, Lote Nº1 - Fração D, 4760-725 Ribeirão VNF
+                </p>
+                <p style="margin:0 0 8px 0;font-size:11px;line-height:1.5;color:#64748b;">
+                  ${escapeHtml(CONTACT_EMAIL)} · ${escapeHtml(CONTACT_PHONE)} · ${escapeHtml(CONTACT_WEBSITE)}
+                </p>
+                <p style="margin:0;font-size:10px;line-height:1.45;color:#94a3b8;">
+                  Informação confidencial destinada ao destinatário. Se recebeu este e-mail por engano, elimine-o e avise o remetente.
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+  }
+
+  const serviceLabel =
+    tipoRelatorio === 'dl50-2005'
+      ? 'inspeção DL 50/2005'
+      : tipoRelatorio === 'baterias'
+        ? 'manutenção de baterias'
+        : 'intervenção técnica';
 
   return `
 <!doctype html>
@@ -358,9 +432,14 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: 'Destinatário (to) em falta.' });
     }
 
-    const report = await fetchApprovedReport(reportId, token);
+    const tipoRelatorio = String(payload.tipoRelatorio || 'outro').toLowerCase();
+    const report = await fetchReportForEmail(reportId, token, tipoRelatorio);
     if (!report) {
-      return res.status(404).json({ error: 'Relatório aprovado não encontrado.' });
+      const msg =
+        tipoRelatorio === 'orcamento'
+          ? 'Relatório não encontrado.'
+          : 'Relatório aprovado não encontrado.';
+      return res.status(404).json({ error: msg });
     }
 
     const registeredEmail = await fetchClienteEmail(report.cliente_id, token);
