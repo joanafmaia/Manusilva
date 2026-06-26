@@ -3,12 +3,14 @@
  * por técnico, a partir dos snapshots Supabase já carregados no painel RH.
  */
 
-import { getReportsSnapshot } from './relatorios-db.js';
+import { getReportsSnapshot, dedupeReportsByJobPreferNewest } from './relatorios-db.js';
 import { getJobsSnapshot } from './trabalhos-db.js';
 import { reportMatchesTechnicianTeam } from './job-technician-utils.js';
 
 function getApprovedReports() {
-  return getReportsSnapshot().filter((r) => r.status === 'approved');
+  return dedupeReportsByJobPreferNewest(
+    getReportsSnapshot().filter((r) => r.status === 'approved'),
+  );
 }
 
 function findJob(jobId) {

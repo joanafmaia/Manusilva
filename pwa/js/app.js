@@ -1302,7 +1302,11 @@ export function getReport(id) {
 }
 
 export function getReportForJob(jobId) {
-  return getReportsSnapshot().find((r) => sameEntityId(r.jobId, jobId)) || null;
+  if (jobId == null || jobId === '') return null;
+  const matches = getReportsSnapshot().filter((r) => sameEntityId(r.jobId, jobId));
+  if (!matches.length) return null;
+  if (matches.length === 1) return matches[0];
+  return dedupeReportsByJobPreferNewest(matches)[0] || matches[0];
 }
 
 /**
