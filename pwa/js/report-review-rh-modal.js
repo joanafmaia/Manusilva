@@ -25,6 +25,8 @@ import {
   validateReviewClientEmail,
   bindReviewFotoClicks,
   bindReviewPdfButton,
+  bindReviewOrcamentoButton,
+  renderReviewOrcamentoBanner,
 } from './report-review-ui.js';
 import { ensureJobsLoaded } from './trabalhos-db.js';
 import {
@@ -36,6 +38,7 @@ import {
   formatReportAge,
   getReportUrgencyLevel,
 } from './rh-panel-utils.js';
+import { reportHasPedidoOrcamento } from './pedido-orcamento.js';
 import {
   computeReviewChecks,
   reviewHasBlockingIssues,
@@ -161,6 +164,9 @@ export function buildRhReviewListItem({ job, report, client, tech }) {
   const service = getServiceType(report?.serviceType || job?.serviceType);
   const serviceLabel = service?.label || report?.serviceType || '—';
   const age = formatReportAge(report?.submittedAt);
+  const orcamentoBadge = reportHasPedidoOrcamento(report)
+    ? '<span class="rh-list-item__orcamento-badge" title="Pedido de orçamento">Orçamento</span>'
+    : '';
   const urgency = getReportUrgencyLevel(report?.submittedAt, report?.status);
   const urgencyClass =
     urgency === 'urgent'
@@ -202,6 +208,7 @@ export function buildRhReviewListItem({ job, report, client, tech }) {
           <div class="rh-list-item__info">
             <div class="rh-list-item__info-top">
               <span class="rh-list-item__client">${escapeHtml(clientName)}</span>
+              ${orcamentoBadge}
               <span class="rh-list-item__status">${renderReportWorkStateBadge(report, job)}</span>
             </div>
             <span class="rh-list-item__meta">
@@ -304,7 +311,14 @@ export async function openRhReviewModal(reportId, callbacks = {}) {
 
   bindReviewFotoClicks(overlay);
   bindReviewPdfButton(overlay, { job, report });
+  bindReviewOrcamentoButton(overlay, { report });
   bindReviewTabs(overlay);
+
+  if (reportHasPedidoOrcamento(report)) {
+    void import('./orcamento-pdf-service.js')
+      .then(({ attachOrcamentoPdfToReport }) => attachOrcamentoPdfToReport(report))
+      .catch((err) => console.warn('[RH] Folha de orçamento:', err));
+  }
 
   overlay.querySelector('#modal-close-review')?.addEventListener('click', closeModal);
 
@@ -477,6 +491,8 @@ export function buildRhReviewModalContent({
         <p class="review-meta-row"><strong>Data:</strong> ${escapeHtml(dateLabel)}</p>
         ${report?.forkliftSerial ? `<p class="review-meta-row"><strong>Máquina:</strong> ${escapeHtml(report.forkliftSerial)}</p>` : ''}
       </header>
+
+      ${renderReviewOrcamentoBanner(report)}
 
       ${validationHtml}
 

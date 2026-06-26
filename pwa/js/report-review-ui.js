@@ -6,6 +6,11 @@ import { escapeHtml } from './app.js';
 import { getClient } from './app.js';
 import { isTestClient, TEST_JOB_ORDEM_LABEL } from './client-test-utils.js';
 import { resolveJobFotos, isValidFotoUrl } from './job-fotos.js';
+import {
+  getPedidoOrcamentoDetalhe,
+  getReportOrcamentoPdfUrl,
+  reportHasPedidoOrcamento,
+} from './pedido-orcamento.js';
 
 function escapeAttr(str) {
   return String(str ?? '').replace(/"/g, '&quot;');
@@ -119,6 +124,69 @@ export function renderReviewPdfSection(job) {
     <section class="review-section review-section--pdf">
       <p class="review-pdf-status review-pdf-status--pending">PDF indisponível — será gerado automaticamente após aprovação. Use «Pré-visualizar PDF» para ver o relatório com os dados atuais.</p>
     </section>`;
+}
+
+/** Destaque RH quando o técnico pediu orçamento (Sim). */
+export function renderReviewOrcamentoBanner(report) {
+  if (!reportHasPedidoOrcamento(report)) return '';
+  const url = getReportOrcamentoPdfUrl(report);
+  const detalhe = getPedidoOrcamentoDetalhe(report);
+  const preview = detalhe
+    ? detalhe.length > 160
+      ? `${detalhe.slice(0, 157)}…`
+      : detalhe
+    : '';
+  return `
+    <section class="review-orcamento-banner" aria-label="Pedido de orçamento">
+      <div class="review-orcamento-banner__head">
+        <span class="review-orcamento-badge">Pedido de orçamento</span>
+        ${
+          url
+            ? '<span class="review-orcamento-status review-orcamento-status--ok">Folha anexada</span>'
+            : '<span class="review-orcamento-status">Folha pendente</span>'
+        }
+      </div>
+      ${preview ? `<p class="review-orcamento-preview text-muted">${escapeHtml(preview)}</p>` : ''}
+      <button type="button" class="btn-outline btn-touch review-btn-orcamento" id="modal-orcamento-pdf">
+        ${url ? 'Abrir folha de orçamento' : 'Gerar e abrir folha de orçamento'}
+      </button>
+    </section>`;
+}
+
+/**
+ * @param {HTMLElement} overlay
+ * @param {{ report: object, onUpdated?: (report: object) => void }} ctx
+ */
+export function bindReviewOrcamentoButton(overlay, { report, onUpdated } = {}) {
+  const btn = overlay?.querySelector('#modal-orcamento-pdf');
+  if (!btn || !reportHasPedidoOrcamento(report)) return;
+
+  btn.addEventListener('click', async () => {
+    btn.disabled = true;
+    try {
+      const { showToast, getReport } = await import('./app.js');
+      let current = getReport(report.id) || report;
+      let url = getReportOrcamentoPdfUrl(current);
+      if (!url) {
+        showToast('A gerar folha de pedido de orçamento…', 'info', 3000);
+        const { attachOrcamentoPdfToReport } = await import('./orcamento-pdf-service.js');
+        current = (await attachOrcamentoPdfToReport(current)) || current;
+        url = getReportOrcamentoPdfUrl(current);
+        onUpdated?.(current);
+      }
+      if (!url) {
+        showToast('Não foi possível gerar a folha de orçamento.', 'error');
+        return;
+      }
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } catch (err) {
+      console.error('[Revisão] Orçamento:', err);
+      const { showToast } = await import('./app.js');
+      showToast('Erro ao abrir a folha de orçamento.', 'error');
+    } finally {
+      btn.disabled = false;
+    }
+  });
 }
 
 /** Rodapé da modal (layout simples — histórico de clientes, etc.) */

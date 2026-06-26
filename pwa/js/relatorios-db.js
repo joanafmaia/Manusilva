@@ -66,6 +66,8 @@ export function mapRowToReport(row) {
       photos: Array.isArray(dados.photos) ? dados.photos : [],
       fotoAntesUrl: dados.fotoAntesUrl || null,
       fotoDepoisUrl: dados.fotoDepoisUrl || null,
+      urlPdfOrcamento: dados.urlPdfOrcamento || null,
+      orcamentoPdfFilename: dados.orcamentoPdfFilename || null,
     },
   };
 }
@@ -99,6 +101,8 @@ export function mapReportToRow(report) {
       photos: Array.isArray(data.photos) ? data.photos : [],
       fotoAntesUrl: data.fotoAntesUrl || null,
       fotoDepoisUrl: data.fotoDepoisUrl || null,
+      urlPdfOrcamento: data.urlPdfOrcamento || null,
+      orcamentoPdfFilename: data.orcamentoPdfFilename || null,
     },
   };
 }

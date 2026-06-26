@@ -140,6 +140,16 @@ export function buildReviewExecutiveBullets({ service, report, job, client, tech
     }
   }
 
+  if (String(values.pedido_orcamento || '').trim().toLowerCase() === 'sim') {
+    const detalhe = String(values.detalhe_pedido_orcamento || '').trim();
+    bullets.push({
+      text: detalhe
+        ? `Pedido de orçamento: ${detalhe.length > 90 ? `${detalhe.slice(0, 87)}…` : detalhe}`
+        : 'Pedido de orçamento: Sim (sem detalhe)',
+      tone: 'warning',
+    });
+  }
+
   const rows = values.identificacao_baterias;
   if (Array.isArray(rows) && rows.length) {
     bullets.push({
