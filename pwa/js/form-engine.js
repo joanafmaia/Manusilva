@@ -1604,18 +1604,11 @@ function gridEligibleFieldBlockClass(extraClasses = '') {
   return extraClasses ? `${base} ${extraClasses}` : base;
 }
 
-/** Campos de texto que devem abrir teclado numérico no tablet/telemóvel. */
-const NUMERIC_KEYBOARD_FIELD_IDS = new Set(['n_interno']);
-
 function renderTextField(field, value = '') {
-  // type="text" + inputmode/pattern: teclado numérico sem as setas do type="number"
-  const numericAttrs = NUMERIC_KEYBOARD_FIELD_IDS.has(field.id)
-    ? ' inputmode="numeric" pattern="[0-9]*"'
-    : '';
   return `
     <div class="${gridEligibleFieldBlockClass()}">
       <label class="form-label">${escapeHtml(field.label)}</label>
-      <input type="text" class="form-input" data-field-id="${field.id}" data-field-kind="text"${numericAttrs}
+      <input type="text" class="form-input" data-field-id="${field.id}" data-field-kind="text"
         value="${escapeHtml(String(value))}" placeholder="${escapeHtml(field.placeholder || '')}">
     </div>
   `;
