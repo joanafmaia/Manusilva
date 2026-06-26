@@ -13,6 +13,7 @@ import {
   readOrcamentoFormFromDom,
   suggestOrcamentoLinhas,
 } from './orcamento-linhas.js';
+import { resolveOrcamentoCabecalho } from './orcamento-cabecalho.js';
 import {
   getReportOrcamentoDocxUrl,
   getReportOrcamentoPdfUrl,
@@ -73,6 +74,7 @@ export function renderOrcamentoEditor(report, { client } = {}) {
   const prazoEntrega = escapeHtml(meta.prazoEntrega || '');
   const emailDestinatario = escapeHtml(defaultOrcamentoEmail(report, client));
   const clienteEmailHint = escapeHtml(client?.email || client?.['E-mail'] || '');
+  const cab = resolveOrcamentoCabecalho(report);
 
   return `
     <div class="review-orcamento-editor" id="orcamento-editor">
@@ -84,6 +86,32 @@ export function renderOrcamentoEditor(report, { client } = {}) {
           <span class="sr-only" data-orc-numero-ano>${escapeHtml(String(meta.ano || new Date().getFullYear()))}</span>
         </p>
       </div>
+
+      <section class="review-orc-cabecalho" aria-label="Dados da proposta MS.015">
+        <h4 class="review-orc-cabecalho__title">Dados da proposta</h4>
+        <div class="review-orc-cabecalho__grid">
+          <label class="review-orc-field">
+            <span>Para (cliente)</span>
+            <input type="text" class="review-orc-input" data-orc-field="clienteNome" value="${escapeHtml(cab.clienteNome)}" placeholder="Nome da empresa" />
+          </label>
+          <label class="review-orc-field">
+            <span>A/C.</span>
+            <input type="text" class="review-orc-input" data-orc-field="clienteAc" value="${escapeHtml(cab.clienteAc)}" placeholder="Destinatário / contacto" />
+          </label>
+          <label class="review-orc-field">
+            <span>Máquina</span>
+            <input type="text" class="review-orc-input" data-orc-field="maquina" value="${escapeHtml(cab.maquina)}" placeholder="Marca / modelo / tipo" />
+          </label>
+          <label class="review-orc-field">
+            <span>Matrícula / n.º interno</span>
+            <input type="text" class="review-orc-input" data-orc-field="matricula" value="${escapeHtml(cab.matricula)}" placeholder="N.º série ou interno" />
+          </label>
+        </div>
+        <label class="review-orc-field review-orc-field--full">
+          <span>Na reparação precisa</span>
+          <textarea class="review-orc-input review-orc-textarea" data-orc-field="reparacaoNecessaria" rows="3" placeholder="Descrição dos trabalhos a orçamentar">${escapeHtml(cab.reparacaoNecessaria)}</textarea>
+        </label>
+      </section>
 
       <label class="review-orc-field review-orc-field--email">
         <span>Enviar proposta para</span>
@@ -129,6 +157,14 @@ export function renderOrcamentoEditor(report, { client } = {}) {
         <label class="review-orc-field">
           <span>Prazo de entrega</span>
           <input type="text" class="review-orc-input" data-orc-field="prazoEntrega" value="${prazoEntrega}" placeholder="ex.: 5 dias úteis" />
+        </label>
+        <label class="review-orc-field">
+          <span>Forma de pagamento</span>
+          <input type="text" class="review-orc-input" data-orc-field="formaPagamento" value="${escapeHtml(cab.formaPagamento)}" placeholder="Pronto Pagamento" />
+        </label>
+        <label class="review-orc-field">
+          <span>Validade do orçamento</span>
+          <input type="text" class="review-orc-input" data-orc-field="validadeOrcamento" value="${escapeHtml(cab.validadeOrcamento)}" placeholder="10 Dias" />
         </label>
       </div>
 

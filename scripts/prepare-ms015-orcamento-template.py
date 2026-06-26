@@ -87,6 +87,22 @@ def patch_taxa_prazo_totais(xml: str) -> str:
     )
     xml = replace_paragraph_containing(xml, "Prazo de Entrega", prazo_para)
 
+    forma_para = (
+        '<w:p w14:paraId="MS015FP1" w14:textId="MS015FP1" w:rsidR="00MS0150" w:rsidRDefault="00MS0150">'
+        '<w:pPr><w:spacing w:after="0"/></w:pPr>'
+        '<w:r><w:rPr><w:sz w:val="24"/><w:szCs w:val="24"/><w:u w:val="single"/></w:rPr>'
+        "<w:t xml:space=\"preserve\">Forma de Pagamento: {forma_pagamento}</w:t></w:r></w:p>"
+    )
+    xml = replace_paragraph_containing(xml, "Forma de Paga", forma_para)
+
+    validade_para = (
+        '<w:p w14:paraId="MS015VD1" w14:textId="MS015VD1" w:rsidR="00MS0150" w:rsidRDefault="00MS0150">'
+        '<w:pPr><w:spacing w:after="0"/></w:pPr>'
+        '<w:r><w:rPr><w:sz w:val="24"/><w:szCs w:val="24"/><w:u w:val="single"/></w:rPr>'
+        "<w:t xml:space=\"preserve\">Validade do or\u00e7amento \u2013 {validade_orcamento}</w:t></w:r></w:p>"
+    )
+    xml = replace_paragraph_containing(xml, "Validade do or", validade_para)
+
     totais_para = (
         '<w:p w14:paraId="MS015TT1" w14:textId="MS015TT1" w:rsidR="00MS0150" w:rsidRDefault="00MS0150">'
         '<w:pPr><w:spacing w:after="0"/></w:pPr>'

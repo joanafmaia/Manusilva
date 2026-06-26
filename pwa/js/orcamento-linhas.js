@@ -4,6 +4,7 @@
 
 import { normalizeMaterialRows } from './material-table-field.js';
 import { getPedidoOrcamentoDetalhe } from './pedido-orcamento.js';
+import { readOrcamentoCabecalhoFromDom, resolveOrcamentoCabecalho } from './orcamento-cabecalho.js';
 
 const IVA_RATE = 0.23;
 const MIN_LINHAS_VAZIAS = 3;
@@ -142,12 +143,15 @@ export function buildOrcamentoMetaDraft(report, numeroReservado = null) {
   const taxaSaida = existing?.taxaSaida ?? '';
   const prazoEntrega = existing?.prazoEntrega ?? '';
   const totals = computeOrcamentoTotals(linhas, taxaSaida);
+  const cabecalho = resolveOrcamentoCabecalho(report);
 
   return {
     numeroSequencial: sequencial,
     ano,
     numeroFormatado:
       sequencial != null ? formatOrcamentoNumeroLabel(sequencial, ano) : existing?.numeroFormatado || null,
+    emailDestinatario: existing?.emailDestinatario ?? '',
+    ...cabecalho,
     taxaSaida: taxaSaida === '' ? '' : formatEuro(taxaSaida),
     prazoEntrega: String(prazoEntrega || ''),
     linhas,
@@ -177,11 +181,13 @@ export function readOrcamentoFormFromDom(root) {
   const prazoEntrega = root.querySelector('[data-orc-field="prazoEntrega"]')?.value?.trim() || '';
   const emailDestinatario =
     root.querySelector('[data-orc-field="emailDestinatario"]')?.value?.trim() || '';
+  const cabecalho = readOrcamentoCabecalhoFromDom(root);
   const totals = computeOrcamentoTotals(linhas, taxaSaida);
   const meta = getReportOrcamentoMetaFromDom(root);
 
   return {
     ...meta,
+    ...cabecalho,
     emailDestinatario,
     taxaSaida: taxaSaida === '' ? '' : formatEuro(taxaSaida),
     prazoEntrega,

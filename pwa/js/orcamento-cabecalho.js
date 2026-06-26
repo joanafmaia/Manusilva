@@ -1,0 +1,86 @@
+/**
+ * Cabeçalho editável da proposta MS.015 (valores por defeito do relatório técnico).
+ */
+
+import { getClient } from './app.js';
+import { getPedidoOrcamentoDetalhe } from './pedido-orcamento.js';
+
+export const ORCAMENTO_FORMA_PAGAMENTO_DEFAULT = 'Pronto Pagamento';
+export const ORCAMENTO_VALIDADE_DEFAULT = '10 Dias';
+
+function readOrcamentoMeta(report) {
+  const meta = report?.data?.orcamento;
+  return meta && typeof meta === 'object' ? meta : {};
+}
+
+function buildDefaultsFromReport(report) {
+  const values = report?.data?.values || {};
+  const client = getClient(report?.clientId);
+
+  const clienteNome =
+    String(values.nome_empresa || values.cliente || client?.name || client?.Nome || '').trim();
+
+  const clienteAc =
+    String(values.responsavel || client?.contact || client?.contacto || '').trim() ||
+    'Exmos. Senhores';
+
+  const maquinaParts = [values.marca, values.modelo, values.tipo]
+    .map((v) => String(v || '').trim())
+    .filter(Boolean);
+  const maquina = maquinaParts.join(' / ');
+
+  const matricula = String(
+    values.n_interno || values.numero_de_serie || report?.forkliftSerial || '',
+  ).trim();
+
+  let reparacaoNecessaria = getPedidoOrcamentoDetalhe(report);
+  const obs = String(values.observacoes || '').trim();
+  if (obs) {
+    reparacaoNecessaria = reparacaoNecessaria
+      ? `${reparacaoNecessaria}\n\nObservações: ${obs}`
+      : obs;
+  }
+
+  return {
+    clienteNome,
+    clienteAc,
+    maquina,
+    matricula,
+    reparacaoNecessaria: String(reparacaoNecessaria || '').trim(),
+    formaPagamento: ORCAMENTO_FORMA_PAGAMENTO_DEFAULT,
+    validadeOrcamento: ORCAMENTO_VALIDADE_DEFAULT,
+  };
+}
+
+/** Valores do cabeçalho — meta RH sobrepõe o relatório técnico. */
+export function resolveOrcamentoCabecalho(report) {
+  const meta = readOrcamentoMeta(report);
+  const defaults = buildDefaultsFromReport(report);
+
+  return {
+    clienteNome: String(meta.clienteNome ?? defaults.clienteNome).trim(),
+    clienteAc: String(meta.clienteAc ?? defaults.clienteAc).trim() || 'Exmos. Senhores',
+    maquina: String(meta.maquina ?? defaults.maquina).trim(),
+    matricula: String(meta.matricula ?? defaults.matricula).trim(),
+    reparacaoNecessaria: String(meta.reparacaoNecessaria ?? defaults.reparacaoNecessaria).trim(),
+    formaPagamento:
+      String(meta.formaPagamento ?? defaults.formaPagamento).trim() ||
+      ORCAMENTO_FORMA_PAGAMENTO_DEFAULT,
+    validadeOrcamento:
+      String(meta.validadeOrcamento ?? defaults.validadeOrcamento).trim() ||
+      ORCAMENTO_VALIDADE_DEFAULT,
+  };
+}
+
+export function readOrcamentoCabecalhoFromDom(root) {
+  const read = (field) => root?.querySelector(`[data-orc-field="${field}"]`)?.value?.trim() || '';
+  return {
+    clienteNome: read('clienteNome'),
+    clienteAc: read('clienteAc') || 'Exmos. Senhores',
+    maquina: read('maquina'),
+    matricula: read('matricula'),
+    reparacaoNecessaria: read('reparacaoNecessaria'),
+    formaPagamento: read('formaPagamento') || ORCAMENTO_FORMA_PAGAMENTO_DEFAULT,
+    validadeOrcamento: read('validadeOrcamento') || ORCAMENTO_VALIDADE_DEFAULT,
+  };
+}

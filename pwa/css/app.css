@@ -11331,6 +11331,38 @@ details[open] .expand-icon { transform: rotate(90deg); }
   border-top: 1px solid var(--border-subtle);
 }
 
+.review-orc-cabecalho {
+  margin-bottom: 0.85rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.review-orc-cabecalho__title {
+  margin: 0 0 0.55rem;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+}
+
+.review-orc-cabecalho__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.55rem 0.65rem;
+  margin-bottom: 0.55rem;
+}
+
+.review-orc-field--full {
+  grid-column: 1 / -1;
+}
+
+.review-orc-textarea {
+  min-height: 4.5rem;
+  resize: vertical;
+  line-height: 1.4;
+}
+
 .review-orc-field--email {
   margin-bottom: 0.75rem;
 }

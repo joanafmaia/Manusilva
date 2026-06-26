@@ -170,8 +170,8 @@ export async function renderOrcamentoPDF(report) {
   const terms = [
     `Taxa de Saída – ${fill.taxa_saida === '—' ? '_______' : fill.taxa_saida} €`,
     `Prazo de Entrega: ${fill.prazo_entrega === '—' ? '_______________' : fill.prazo_entrega}`,
-    'Forma de Pagamento: Pronto Pagamento',
-    'Validade do orçamento – 10 Dias',
+    `Forma de Pagamento: ${fill.forma_pagamento}`,
+    `Validade do orçamento – ${fill.validade_orcamento}`,
     `Subtotal (s/ IVA): ${fill.subtotal} €`,
     `IVA (23%): ${fill.iva} €`,
     `Total: ${fill.total_geral} €`,

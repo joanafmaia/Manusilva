@@ -2,7 +2,7 @@
  * Dados para preencher o template MS.015 (Proposta Comercial / Orçamentos).
  */
 
-import { getClient, getJob, getServiceType } from './app.js';
+import { getJob } from './app.js';
 import {
   computeOrcamentoTotals,
   formatEuro,
@@ -10,6 +10,7 @@ import {
   normalizeOrcamentoLinhas,
   suggestOrcamentoLinhas,
 } from './orcamento-linhas.js';
+import { resolveOrcamentoCabecalho } from './orcamento-cabecalho.js';
 import { getPedidoOrcamentoDetalhe } from './pedido-orcamento.js';
 
 const MESES_PT = [
@@ -62,16 +63,9 @@ export function resolveOrcamentoIntro(serviceType) {
 
 export function buildOrcamentoFillData(report, job = null) {
   const values = report?.data?.values || {};
-  const client = getClient(report?.clientId);
   const resolvedJob = job || (report?.jobId ? getJob(report.jobId) : null);
   const year = new Date().getFullYear();
-
-  const clienteNome =
-    String(values.nome_empresa || values.cliente || client?.name || client?.Nome || '').trim() ||
-    '—';
-
-  const clienteAc =
-    String(values.responsavel || client?.contact || client?.contacto || '').trim() || 'Exmos. Senhores';
+  const cabecalho = resolveOrcamentoCabecalho(report);
 
   const orcamentoMeta = getReportOrcamentoMeta(report);
   const orcamentoNumero =
@@ -93,30 +87,24 @@ export function buildOrcamentoFillData(report, job = null) {
     values.data_de_conclusao || report?.submittedAt || report?.approvedAt,
   );
 
-  const maquinaParts = [values.marca, values.modelo, values.tipo].map((v) => String(v || '').trim()).filter(Boolean);
-  const maquina = maquinaParts.join(' / ') || '—';
-
-  const matricula =
-    String(values.n_interno || values.numero_de_serie || report?.forkliftSerial || '').trim() || '—';
-
-  let reparacao = getPedidoOrcamentoDetalhe(report);
-  const obs = String(values.observacoes || '').trim();
-  if (obs) {
-    reparacao = reparacao ? `${reparacao}\n\nObservações: ${obs}` : obs;
-  }
-  if (!reparacao) reparacao = '—';
+  const display = (value) => {
+    const text = String(value ?? '').trim();
+    return text || '—';
+  };
 
   return {
-    cliente_nome: clienteNome,
-    cliente_ac: clienteAc,
+    cliente_nome: display(cabecalho.clienteNome),
+    cliente_ac: display(cabecalho.clienteAc),
     orcamento_numero: orcamentoNumero,
     data_extenso: dataExtenso,
     intro_servico: resolveOrcamentoIntro(report?.serviceType),
-    maquina,
-    matricula,
-    reparacao_necessaria: reparacao,
+    maquina: display(cabecalho.maquina),
+    matricula: display(cabecalho.matricula),
+    reparacao_necessaria: display(cabecalho.reparacaoNecessaria),
     taxa_saida: taxaSaida === '' ? '—' : formatEuro(taxaSaida),
     prazo_entrega: prazoEntrega || '—',
+    forma_pagamento: display(cabecalho.formaPagamento),
+    validade_orcamento: display(cabecalho.validadeOrcamento),
     subtotal: formatEuro(totals.subtotal),
     iva: formatEuro(totals.iva),
     total_geral: formatEuro(totals.total),
