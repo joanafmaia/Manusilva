@@ -54,6 +54,7 @@ import {
 } from './views/relatorio-grandes.js';
 import {
   EMPILHADORES_MAQUINAS_FIELD_ID,
+  collectEmpilhadoresMaquinas,
   flushEmpilhadoresChecklistToStore,
   initEmpilhadoresMaquinasForm,
   migrateLegacyEmpilhadoresMaquinas,
@@ -903,7 +904,7 @@ function onReportTabActivated(tabId, overlay) {
       panel.dataset.lazyLoaded = 'true';
       const values = { ...lazyContext.values };
       if (lazyContext.service?.id === 'manutencao_preventiva_empilhadores') {
-        values[EMPILHADORES_MAQUINAS_FIELD_ID] = migrateLegacyEmpilhadoresMaquinas(values);
+        values[EMPILHADORES_MAQUINAS_FIELD_ID] = collectEmpilhadoresMaquinas(overlay);
         lazyContext.values = values;
       }
       panel.innerHTML = renderReportFields(

@@ -274,26 +274,31 @@ function collectChecklistFromPanel(overlay) {
 }
 
 export function flushEmpilhadoresChecklistToStore(overlay) {
-  const panel = overlay.querySelector('[data-empilhadores-checklist]');
-  if (!panel) return;
-  const store = readStore(overlay);
-  const idRows = collectIdRowsFromTable(overlay);
-  const count = Math.max(store.length, idRows.length, 1);
-  while (store.length < count) store.push(emptyEmpilhadoresMaquinaRow());
-  const activeIdx = getActiveMaquinaIndex(overlay);
-  const checklist = collectChecklistFromPanel(overlay);
-  if (store[activeIdx]) {
-    store[activeIdx] = normalizeEmpilhadoresMaquinaRow({ ...store[activeIdx], ...checklist });
-  }
-  idRows.forEach((idPart, index) => {
-    store[index] = normalizeEmpilhadoresMaquinaRow({ ...store[index], ...idPart });
-  });
-  writeStore(overlay, store);
+  collectEmpilhadoresMaquinas(overlay);
 }
 
 export function collectEmpilhadoresMaquinas(overlay) {
-  flushEmpilhadoresChecklistToStore(overlay);
-  return readStore(overlay);
+  const store = readStore(overlay);
+  const idRows = collectIdRowsFromTable(overlay);
+  const count = Math.max(idRows.length, store.length, 1);
+  while (store.length < count) store.push(emptyEmpilhadoresMaquinaRow());
+  while (store.length > count) store.pop();
+
+  idRows.forEach((idPart, index) => {
+    store[index] = normalizeEmpilhadoresMaquinaRow({ ...store[index], ...idPart });
+  });
+
+  const panel = overlay.querySelector('[data-empilhadores-checklist]');
+  if (panel) {
+    const activeIdx = getActiveMaquinaIndex(overlay);
+    const checklist = collectChecklistFromPanel(overlay);
+    if (store[activeIdx]) {
+      store[activeIdx] = normalizeEmpilhadoresMaquinaRow({ ...store[activeIdx], ...checklist });
+    }
+  }
+
+  writeStore(overlay, store);
+  return store.map(normalizeEmpilhadoresMaquinaRow);
 }
 
 function renderIdCell(col, row) {
@@ -353,7 +358,8 @@ export function renderEmpilhadoresMaquinasSection(field, value) {
         <span class="empilhadores-maquinas-count text-muted" data-empilhadores-maquinas-count>${rows.length} máquina(s)</span>
       </div>
       <p class="field-hint text-muted empilhadores-maquinas-hint">
-        Adicione uma linha por máquina intervencionada na mesma visita. O checklist é preenchido separadamente em cada máquina.
+        Adicione uma linha por máquina intervencionada na mesma visita.
+        O checklist (verificações externas/internas, material, observações e estado) preenche-se na aba <strong>Checklist</strong> — uma máquina de cada vez.
       </p>
       <div class="dynamic-table-wrap empilhadores-maquinas-wrap">
         <div class="empilhadores-maquinas-table-wrap">
@@ -417,17 +423,8 @@ function updateCount(wrap) {
 }
 
 function syncStoreRowCount(overlay) {
-  flushEmpilhadoresChecklistToStore(overlay);
-  const store = readStore(overlay);
-  const idRows = collectIdRowsFromTable(overlay);
-  const count = Math.max(idRows.length, 1);
-  while (store.length < count) store.push(emptyEmpilhadoresMaquinaRow());
-  while (store.length > count) store.pop();
-  idRows.forEach((idPart, index) => {
-    store[index] = normalizeEmpilhadoresMaquinaRow({ ...store[index], ...idPart });
-  });
-  writeStore(overlay, store);
-  return store;
+  collectEmpilhadoresMaquinas(overlay);
+  return readStore(overlay);
 }
 
 function buildIdRowElement(rowData = emptyEmpilhadoresMaquinaRow()) {
