@@ -15,6 +15,7 @@ import {
   showToast,
   approveReport,
   rejectReport,
+  resendApprovedReportEmail,
 } from './app.js';
 import {
   formatOrdemLabel,
@@ -378,6 +379,28 @@ export async function openRhReviewModal(reportId, callbacks = {}) {
         openRhRejectDialog(reportId, callbacks.onRejected);
       }
     });
+  } else if (report.status === 'approved') {
+    overlay.querySelector('#modal-resend-email')?.addEventListener('click', async () => {
+      const emailErr = await validateReviewClientEmail(overlay);
+      if (emailErr) {
+        showToast(emailErr, 'error');
+        return;
+      }
+      const clientEmail = readReviewClientEmail(overlay);
+      const fallbackEmail = client?.email || client?.['E-mail'] || '';
+      if (!clientEmail && !fallbackEmail) {
+        showToast('Indique o e-mail do cliente para reenviar.', 'warning');
+        return;
+      }
+
+      const btn = overlay.querySelector('#modal-resend-email');
+      if (btn) btn.disabled = true;
+      const ok = await resendApprovedReportEmail(reportId, {
+        clientEmail: clientEmail || undefined,
+      });
+      if (btn) btn.disabled = false;
+      if (ok) closeModal();
+    });
   }
 
   return overlay;
@@ -403,7 +426,14 @@ export function buildRhReviewModalContent({
     ? String(report.submittedAt).split('T')[0]
     : job?.date || '';
   const dateLabel = submittedDate ? formatDateLong(submittedDate) : '—';
-  const contactField = renderReviewClientEmailField(client, { editable: showWorkflow });
+  const canResendEmail = report?.status === 'approved';
+  const contactField = renderReviewClientEmailField(client, {
+    editable: showWorkflow || canResendEmail,
+    hint:
+      canResendEmail && !showWorkflow
+        ? 'Confirme o e-mail antes de reenviar. Se alterar, a base de dados do cliente será atualizada.'
+        : undefined,
+  });
   const hasFotos = reviewJobHasFotos(job, report);
   const checks = computeReviewChecks({ report, job, client, values });
   const validationHtml = renderReviewValidationPanel(checks);
@@ -423,7 +453,12 @@ export function buildRhReviewModalContent({
         ${showApproveNext ? '<button type="button" class="btn-primary btn-touch review-action-btn" id="modal-approve-next" title="Alt+Shift+A">Aprovar e seguinte</button>' : ''}
         ${showApproveBilling ? '<button type="button" class="btn-outline btn-touch review-action-btn" id="modal-approve-billing" title="Alt+F">Aprovar e faturar</button>' : ''}
       `
-    : `<button type="button" class="btn-secondary btn-touch review-action-btn" id="modal-close-review">Fechar</button>`;
+    : canResendEmail
+      ? `
+        <button type="button" class="btn-primary btn-touch review-action-btn" id="modal-resend-email">Reenviar e-mail ao cliente</button>
+        <button type="button" class="btn-secondary btn-touch review-action-btn" id="modal-close-review">Fechar</button>
+      `
+      : `<button type="button" class="btn-secondary btn-touch review-action-btn" id="modal-close-review">Fechar</button>`;
 
   return `
     <div class="review-shell${hasFotos ? ' review-shell--has-fotos' : ' review-shell--no-fotos'}">
@@ -467,7 +502,11 @@ export function buildRhReviewModalContent({
           <div class="review-pdf-tab">
             <p class="review-pdf-tab__lead">Pré-visualize o documento tal como o cliente o receberá após aprovação.</p>
             <button type="button" class="btn-primary btn-touch review-btn-pdf review-btn-pdf--hero" id="modal-pdf-preview">Gerar pré-visualização PDF</button>
-            <p class="text-muted review-pdf-tab__hint">O PDF oficial é gerado automaticamente ao aprovar.</p>
+            <p class="text-muted review-pdf-tab__hint">${
+              canResendEmail && job?.urlPdf
+                ? 'PDF oficial disponível — pode reenviar o e-mail ao cliente no rodapé.'
+                : 'O PDF oficial é gerado automaticamente ao aprovar.'
+            }</p>
           </div>
         </div>
 

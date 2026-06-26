@@ -14,17 +14,22 @@ function escapeAttr(str) {
 /**
  * Campo de e-mail do cliente na revisão — editável antes da aprovação.
  */
-export function renderReviewClientEmailField(client, { editable = false, inputId = 'review-client-email' } = {}) {
+export function renderReviewClientEmailField(
+  client,
+  { editable = false, inputId = 'review-client-email', hint } = {},
+) {
   const email = client?.email || client?.['E-mail'] || '';
   if (!editable) {
     return `<p class="review-meta-row"><strong>Contacto:</strong> ${escapeHtml(email || '—')}</p>`;
   }
+  const hintText =
+    hint || 'Se alterar o e-mail, a base de dados do cliente será atualizada na aprovação.';
   return `
     <div class="review-email-field form-group">
       <label class="form-label" for="${escapeHtml(inputId)}">E-mail do Cliente</label>
       <input type="email" class="form-input client-profile-edit-input" id="${escapeHtml(inputId)}" name="review-client-email"
         value="${escapeAttr(email)}" autocomplete="email" placeholder="email@empresa.pt">
-      <p class="text-muted review-email-hint">Se alterar o e-mail, a base de dados do cliente será atualizada na aprovação.</p>
+      <p class="text-muted review-email-hint">${escapeHtml(hintText)}</p>
     </div>
   `;
 }

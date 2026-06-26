@@ -366,6 +366,110 @@ export async function sendOfficialReportEmail(meta = {}) {
   return true;
 }
 
+/**
+ * Reenvia o e-mail oficial de um relatório já aprovado (ex.: falha de sessão na 1.ª aprovação).
+ * @param {string} reportId
+ * @param {{ clientEmail?: string }} [options]
+ */
+export async function resendApprovedReportEmail(reportId, options = {}) {
+  await ensureJobsLoaded(true);
+
+  const report = getReport(reportId);
+  if (!report) {
+    showToast('Relatório não encontrado.', 'error');
+    return false;
+  }
+  if (report.status !== 'approved') {
+    showToast('Só é possível reenviar e-mail de relatórios já aprovados.', 'warning');
+    return false;
+  }
+
+  const client = getClient(report.clientId);
+  const job = report.jobId ? getJob(report.jobId) : null;
+  const service = getServiceType(report.serviceType);
+  const clientEmailInput = String(options.clientEmail ?? '').trim();
+
+  if (clientEmailInput) {
+    const { isValidEmail } = await import('./validators.js');
+    if (!isValidEmail(clientEmailInput)) {
+      showToast('Introduza um e-mail de cliente válido.', 'error');
+      return false;
+    }
+    if (report.clientId) {
+      await syncClientEmailIfChanged(report.clientId, clientEmailInput);
+    }
+  }
+
+  const recipientEmail =
+    clientEmailInput || client?.email || client?.['E-mail'] || '';
+  if (!recipientEmail) {
+    showToast('O cliente não tem e-mail registado. Indique um e-mail antes de reenviar.', 'warning');
+    return false;
+  }
+
+  const publicPdfUrl = job?.urlPdf || null;
+  if (!publicPdfUrl) {
+    showToast('PDF do relatório não encontrado no Storage. Contacte suporte técnico.', 'error');
+    return false;
+  }
+
+  const values = report?.data?.values || {};
+  const tipoRelatorio =
+    report.serviceType === 'inspecao_dl50_2005'
+      ? 'dl50-2005'
+      : report.serviceType === 'manutencao_baterias_grandes'
+        ? 'baterias'
+        : 'outro';
+  const filename =
+    report.pdfFilename ||
+    buildReportPdfFilename(job, report, {
+      serviceTitle: PDF_DOCUMENT_TITLES[report.serviceType] || service?.label,
+    });
+
+  let pdfBase64;
+  let pdfFilename;
+  const MAX_BASE64_LEN = 3_000_000;
+  try {
+    const res = await fetch(publicPdfUrl);
+    if (res.ok) {
+      const buf = await res.arrayBuffer();
+      const b64 = arrayBufferToBase64(buf);
+      if (b64.length > 0 && b64.length <= MAX_BASE64_LEN) {
+        pdfBase64 = b64;
+        pdfFilename = filename;
+      }
+    }
+  } catch (err) {
+    console.warn('[Email] Anexo PDF no reenvio:', err);
+  }
+
+  showToast(`A reenviar e-mail para ${recipientEmail}...`, 'info', 5000);
+
+  try {
+    await sendOfficialReportEmail({
+      tipoRelatorio,
+      reportId: report.id,
+      clienteNome: values.nome_empresa || values.cliente || client?.name || client?.Nome || '',
+      nome_empresa: values.nome_empresa || '',
+      tecnico: values.tecnico || getTechnician(report.technicianId)?.name || '',
+      dataConclusao:
+        values.data_de_conclusao || String(report.approvedAt || report.submittedAt || '').split('T')[0] || '',
+      serieFrota: values.numero_de_serie || report.forkliftSerial || '',
+      numeroOrdem: job?.numeroOrdem ?? null,
+      to: recipientEmail,
+      pdfUrl: publicPdfUrl,
+      pdfFilename,
+      pdfBase64,
+    });
+    showToast(`E-mail reenviado para ${recipientEmail}.`, 'success', 6000);
+    return true;
+  } catch (err) {
+    console.error('[Email] Reenvio falhou:', err);
+    showToast(`Falha ao reenviar e-mail. ${err?.message || ''}`.trim(), 'error', 8000);
+    return false;
+  }
+}
+
 export function requireAuth(role) {
   const session = getSession();
   if (!session) {
