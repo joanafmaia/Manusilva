@@ -11296,6 +11296,160 @@ details[open] .expand-icon { transform: rotate(90deg); }
   line-height: 1.4;
 }
 
+.review-orcamento-numero {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-primary, #0f172a);
+}
+
+.review-orcamento-editor {
+  margin: 0.75rem 0 0.85rem;
+  padding: 0.75rem;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.65);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.review-orcamento-editor__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.35rem 0.75rem;
+  margin-bottom: 0.65rem;
+}
+
+.review-orcamento-editor__title {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.review-orcamento-editor__numero {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.review-orc-table-wrap {
+  overflow-x: auto;
+  margin-bottom: 0.5rem;
+}
+
+.review-orc-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+
+.review-orc-table th,
+.review-orc-table td {
+  padding: 0.35rem 0.4rem;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+  vertical-align: middle;
+}
+
+.review-orc-table th {
+  text-align: left;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+}
+
+.review-orc-input {
+  width: 100%;
+  min-width: 0;
+  padding: 0.35rem 0.45rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  font-size: 0.78rem;
+  background: #fff;
+}
+
+.review-orc-input--qty {
+  max-width: 4.5rem;
+  text-align: center;
+}
+
+.review-orc-input--money {
+  max-width: 6.5rem;
+  text-align: right;
+}
+
+.review-orc-total {
+  white-space: nowrap;
+  font-weight: 600;
+  text-align: right;
+  min-width: 4.5rem;
+}
+
+.review-orc-row-actions {
+  width: 2rem;
+  text-align: center;
+}
+
+.review-orc-remove {
+  width: 1.75rem;
+  height: 1.75rem;
+  border: none;
+  border-radius: 6px;
+  background: rgba(239, 68, 68, 0.12);
+  color: #b91c1c;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.review-orcamento-editor__toolbar {
+  margin-bottom: 0.65rem;
+}
+
+.review-orcamento-editor__extras {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.65rem;
+  margin-bottom: 0.65rem;
+}
+
+.review-orc-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.review-orcamento-editor__totals {
+  display: grid;
+  gap: 0.35rem;
+  max-width: 280px;
+  margin-left: auto;
+  margin-bottom: 0.65rem;
+  font-size: 0.78rem;
+}
+
+.review-orcamento-editor__totals > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.review-orcamento-editor__total-line {
+  padding-top: 0.35rem;
+  border-top: 1px solid rgba(15, 23, 42, 0.12);
+  font-size: 0.85rem;
+}
+
+.review-orcamento-editor__actions {
+  margin-bottom: 0.35rem;
+}
+
+.review-orcamento-editor__hint {
+  margin: 0;
+  font-size: 0.72rem;
+}
+
 .review-btn-orcamento {
   flex: 1 1 140px;
   max-width: 220px;

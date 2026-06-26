@@ -38,6 +38,77 @@ def remove_second_machine_block(xml: str) -> str:
     return xml[:p_start] + xml[p_end + len("</w:p>") :]
 
 
+def replace_paragraph_containing(xml: str, needle: str, replacement: str) -> str:
+    for match in re.finditer(r"<w:p\b[^>]*>.*?</w:p>", xml, re.DOTALL):
+        block = match.group(0)
+        if needle in block:
+            return xml[: match.start()] + replacement + xml[match.end() :]
+    raise SystemExit(f"Parágrafo com {needle!r} não encontrado.")
+
+
+def paragraph_start_before(xml: str, idx: int) -> int:
+    pos = 0
+    last = 0
+    for match in re.finditer(r"<w:p\b", xml):
+        if match.start() > idx:
+            return last
+        last = match.start()
+    return last
+
+
+def insert_orcamento_table_marker(xml: str) -> str:
+    idx = xml.find("Taxa de Sa")
+    if idx < 0:
+        raise SystemExit("Taxa de Saída não encontrada no modelo.")
+    p_start = paragraph_start_before(xml, idx)
+    marker = (
+        '<w:p w14:paraId="MS015TBL0" w14:textId="MS015TBL0" w:rsidR="00MS0150" w:rsidRDefault="00MS0150">'
+        '<w:pPr><w:spacing w:after="120" w:line="240" w:lineRule="auto"/></w:pPr>'
+        '<w:r><w:rPr><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr>'
+        "<w:t>[[TABELA_ORCAMENTO]]</w:t></w:r></w:p>"
+    )
+    return xml[:p_start] + marker + xml[p_start:]
+
+
+def patch_taxa_prazo_totais(xml: str) -> str:
+    taxa_para = (
+        '<w:p w14:paraId="MS015TX1" w14:textId="MS015TX1" w:rsidR="00MS0150" w:rsidRDefault="00MS0150">'
+        '<w:pPr><w:spacing w:after="0"/></w:pPr>'
+        '<w:r><w:rPr><w:b/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr>'
+        "<w:t xml:space=\"preserve\">Taxa de Sa\u00edda \u2013 {taxa_saida} \u20ac</w:t></w:r></w:p>"
+    )
+    xml = replace_paragraph_containing(xml, "Taxa de Sa", taxa_para)
+
+    prazo_para = (
+        '<w:p w14:paraId="MS015PZ1" w14:textId="MS015PZ1" w:rsidR="00MS0150" w:rsidRDefault="00MS0150">'
+        '<w:pPr><w:spacing w:after="0"/></w:pPr>'
+        '<w:r><w:rPr><w:sz w:val="24"/><w:szCs w:val="24"/><w:u w:val="single"/></w:rPr>'
+        "<w:t xml:space=\"preserve\">Prazo de Entrega: {prazo_entrega}</w:t></w:r></w:p>"
+    )
+    xml = replace_paragraph_containing(xml, "Prazo de Entrega", prazo_para)
+
+    totais_para = (
+        '<w:p w14:paraId="MS015TT1" w14:textId="MS015TT1" w:rsidR="00MS0150" w:rsidRDefault="00MS0150">'
+        '<w:pPr><w:spacing w:after="0"/></w:pPr>'
+        '<w:r><w:rPr><w:b/><w:sz w:val="22"/><w:szCs w:val="22"/></w:rPr>'
+        "<w:t xml:space=\"preserve\">Subtotal (s/ IVA): {subtotal} \u20ac</w:t></w:r></w:p>"
+        '<w:p w14:paraId="MS015TT2" w14:textId="MS015TT2" w:rsidR="00MS0150" w:rsidRDefault="00MS0150">'
+        '<w:pPr><w:spacing w:after="0"/></w:pPr>'
+        '<w:r><w:rPr><w:sz w:val="22"/><w:szCs w:val="22"/></w:rPr>'
+        "<w:t xml:space=\"preserve\">IVA (23%): {iva} \u20ac</w:t></w:r></w:p>"
+        '<w:p w14:paraId="MS015TT3" w14:textId="MS015TT3" w:rsidR="00MS0150" w:rsidRDefault="00MS0150">'
+        '<w:pPr><w:spacing w:after="60"/></w:pPr>'
+        '<w:r><w:rPr><w:b/><w:sz w:val="22"/><w:szCs w:val="22"/></w:rPr>'
+        "<w:t xml:space=\"preserve\">Total: {total_geral} \u20ac</w:t></w:r></w:p>"
+    )
+    needle = "A estes valores acresce"
+    idx = xml.find(needle)
+    if idx < 0:
+        raise SystemExit("Linha de IVA não encontrada no modelo.")
+    p_start = paragraph_start_before(xml, idx)
+    return xml[:p_start] + totais_para + xml[p_start:]
+
+
 def rebuild_orcamento_header(xml: str) -> str:
     """Substitui número/data de exemplo por placeholders num único bloco."""
     start = xml.find("<w:t>Or")
@@ -100,6 +171,8 @@ def main() -> None:
         )
         xml = xml.replace(needle, insert, 1)
         xml = remove_second_machine_block(xml)
+        xml = insert_orcamento_table_marker(xml)
+        xml = patch_taxa_prazo_totais(xml)
 
         out_buf = xml.encode("utf-8")
         entries = {name: zin.read(name) for name in zin.namelist()}

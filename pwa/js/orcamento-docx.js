@@ -3,7 +3,8 @@
  */
 
 import { buildOrcamentoFillData, escapeXmlText } from './orcamento-fill-data.js';
-import { formatOpPdfFilenameSuffix } from './pdf-storage.js';
+import { buildOrcamentoWordTableXml } from './orcamento-table-xml.js';
+import { getReportOrcamentoMeta } from './orcamento-linhas.js';
 import { getJob } from './app.js';
 
 const TEMPLATE_URL = 'assets/templates/MS.015-orcamento-template.docx';
@@ -54,9 +55,18 @@ export async function renderOrcamentoDOCX(report, job = null) {
   const data = buildOrcamentoFillData(report, job);
 
   Object.entries(data).forEach(([key, value]) => {
+    if (key === 'linhas') return;
     const safe = escapeXmlText(value);
     xml = xml.split(`{${key}}`).join(safe);
   });
+
+  const tableXml = buildOrcamentoWordTableXml(data.linhas || []);
+  if (xml.includes('[[TABELA_ORCAMENTO]]')) {
+    xml = xml.replace(
+      /<w:p\b[^>]*>[\s\S]*?\[\[TABELA_ORCAMENTO\]\][\s\S]*?<\/w:p>/,
+      tableXml,
+    );
+  }
 
   zip.file('word/document.xml', xml);
   return zip.generateAsync({
@@ -67,11 +77,17 @@ export async function renderOrcamentoDOCX(report, job = null) {
 }
 
 export function buildOrcamentoDocxFilename(report, job = null) {
+  const meta = getReportOrcamentoMeta(report);
+  if (meta?.numeroSequencial && meta?.ano) {
+    return `MS015_Orcamento_${meta.numeroSequencial}-0_${meta.ano}.docx`;
+  }
   const resolvedJob = job || (report?.jobId ? getJob(report.jobId) : null);
-  const op = formatOpPdfFilenameSuffix(resolvedJob?.numeroOrdem);
-  if (op) return `Proposta_Comercial_${op}.docx`;
+  const op = resolvedJob?.numeroOrdem;
+  if (op != null && Number.isFinite(Number(op))) {
+    return `MS015_Orcamento_OP${op}.docx`;
+  }
   const stamp = String(report?.id || Date.now())
     .replace(/-/g, '')
     .slice(0, 12);
-  return `Proposta_Comercial_${stamp}.docx`;
+  return `MS015_Orcamento_${stamp}.docx`;
 }

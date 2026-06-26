@@ -311,7 +311,12 @@ export async function openRhReviewModal(reportId, callbacks = {}) {
 
   bindReviewFotoClicks(overlay);
   bindReviewPdfButton(overlay, { job, report });
-  bindReviewOrcamentoButton(overlay, { report });
+  bindReviewOrcamentoButton(overlay, {
+    report,
+    onUpdated: (updated) => {
+      report = updated;
+    },
+  });
   bindReviewTabs(overlay);
 
   if (reportHasPedidoOrcamento(report)) {

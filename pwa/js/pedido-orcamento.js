@@ -31,3 +31,9 @@ export function getReportOrcamentoDocxFilename(report) {
   const name = report?.data?.orcamentoDocxFilename;
   return name && String(name).trim() ? String(name).trim() : null;
 }
+
+export function getReportOrcamentoNumero(report) {
+  const meta = report?.data?.orcamento;
+  if (!meta || typeof meta !== 'object') return null;
+  return meta.numeroFormatado || null;
+}

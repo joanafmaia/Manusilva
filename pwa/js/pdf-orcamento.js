@@ -5,7 +5,12 @@
 import { COMPANY } from './mock_data.js';
 import { getJob } from './app.js';
 import { buildOrcamentoFillData } from './orcamento-fill-data.js';
-import { formatOpPdfFilenameSuffix } from './pdf-storage.js';
+import {
+  computeLinhaTotal,
+  formatEuro,
+  getReportOrcamentoMeta,
+  normalizeOrcamentoLinhas,
+} from './orcamento-linhas.js';
 import { ensurePdfFonts, pdfSetFont, pdfSafeText, pdfSplitText } from './pdf-font.js';
 import {
   PDF_COLOR_CORPORATE_BLUE,
@@ -54,6 +59,49 @@ function drawLine(doc, y, bold = false) {
   doc.setFontSize(PDF_FONT_BODY);
   doc.setTextColor(...PDF_COLOR_TEXT_DARK);
   return y + 5;
+}
+
+function drawOrcamentoTable(doc, linhas, startY) {
+  const rows = normalizeOrcamentoLinhas(linhas).filter(
+    (r) => r.descricao || r.precoUnit || r.qtd !== '1',
+  );
+  const dataRows = rows.length ? rows : [{ descricao: '—', qtd: '1', precoUnit: '', total: '' }];
+
+  const colX = [MARGIN, MARGIN + 98, MARGIN + 112, MARGIN + 148, MARGIN + CONTENT_W];
+  const rowH = 6.5;
+  let y = startY;
+
+  const drawRow = (cells, { bold = false, fill = false } = {}) => {
+    y = ensurePage(doc, y, rowH + 2);
+    if (fill) {
+      doc.setFillColor(241, 245, 249);
+      doc.rect(MARGIN, y - 4.2, CONTENT_W, rowH, 'F');
+    }
+    pdfSetFont(doc, bold ? 'bold' : 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(...PDF_COLOR_TEXT_DARK);
+    doc.text(pdfSafeText(cells[0]), colX[0] + 1, y);
+    doc.text(pdfSafeText(cells[1]), colX[2] - 2, y, { align: 'right' });
+    doc.text(pdfSafeText(cells[2]), colX[3] - 2, y, { align: 'right' });
+    doc.text(pdfSafeText(cells[3]), colX[4] - 1, y, { align: 'right' });
+    doc.setDrawColor(203, 213, 225);
+    doc.line(MARGIN, y + 1.5, MARGIN + CONTENT_W, y + 1.5);
+    return y + rowH;
+  };
+
+  y = drawRow(['Descrição / Artigo', 'Qtd.', 'Preço Unit.', 'Total'], { bold: true, fill: true });
+  dataRows.forEach((row) => {
+    const total =
+      row.total ||
+      (computeLinhaTotal(row) > 0 ? formatEuro(computeLinhaTotal(row)) : '');
+    y = drawRow([
+      row.descricao || '—',
+      row.qtd || '1',
+      row.precoUnit ? formatEuro(row.precoUnit) : '',
+      total,
+    ]);
+  });
+  return y + 4;
 }
 
 /**
@@ -117,11 +165,16 @@ export async function renderOrcamentoPDF(report) {
   });
   y += 8;
 
+  y = drawOrcamentoTable(doc, fill.linhas, y);
+
   const terms = [
-    'Taxa de Saída –  € _______________',
-    'Prazo de Entrega: _______________',
+    `Taxa de Saída – ${fill.taxa_saida === '—' ? '_______' : fill.taxa_saida} €`,
+    `Prazo de Entrega: ${fill.prazo_entrega === '—' ? '_______________' : fill.prazo_entrega}`,
     'Forma de Pagamento: Pronto Pagamento',
     'Validade do orçamento – 10 Dias',
+    `Subtotal (s/ IVA): ${fill.subtotal} €`,
+    `IVA (23%): ${fill.iva} €`,
+    `Total: ${fill.total_geral} €`,
     'A estes valores acresce o valor do Iva.',
   ];
   terms.forEach((line) => {
@@ -177,11 +230,17 @@ export async function renderOrcamentoPDF(report) {
 }
 
 export function buildOrcamentoPdfFilename(report, job = null) {
+  const meta = getReportOrcamentoMeta(report);
+  if (meta?.numeroSequencial && meta?.ano) {
+    return `MS015_Orcamento_${meta.numeroSequencial}-0_${meta.ano}.pdf`;
+  }
   const resolvedJob = job || (report?.jobId ? getJob(report.jobId) : null);
-  const op = formatOpPdfFilenameSuffix(resolvedJob?.numeroOrdem);
-  if (op) return `Proposta_Comercial_${op}.pdf`;
+  const op = resolvedJob?.numeroOrdem;
+  if (op != null && Number.isFinite(Number(op))) {
+    return `MS015_Orcamento_OP${op}.pdf`;
+  }
   const stamp = String(report?.id || Date.now())
     .replace(/-/g, '')
     .slice(0, 12);
-  return `Proposta_Comercial_${stamp}.pdf`;
+  return `MS015_Orcamento_${stamp}.pdf`;
 }

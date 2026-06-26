@@ -70,6 +70,7 @@ export function mapRowToReport(row) {
       orcamentoPdfFilename: dados.orcamentoPdfFilename || null,
       urlDocxOrcamento: dados.urlDocxOrcamento || null,
       orcamentoDocxFilename: dados.orcamentoDocxFilename || null,
+      orcamento: dados.orcamento && typeof dados.orcamento === 'object' ? dados.orcamento : null,
     },
   };
 }
@@ -107,6 +108,7 @@ export function mapReportToRow(report) {
       orcamentoPdfFilename: data.orcamentoPdfFilename || null,
       urlDocxOrcamento: data.urlDocxOrcamento || null,
       orcamentoDocxFilename: data.orcamentoDocxFilename || null,
+      orcamento: data.orcamento && typeof data.orcamento === 'object' ? data.orcamento : null,
     },
   };
 }

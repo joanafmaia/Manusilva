@@ -12,6 +12,8 @@ import {
   getReportOrcamentoPdfUrl,
   reportHasPedidoOrcamento,
 } from './pedido-orcamento.js';
+import { renderReviewOrcamentoEditor, bindReviewOrcamentoEditor } from './orcamento-rh-editor.js';
+import { getReportOrcamentoMeta } from './orcamento-linhas.js';
 
 function escapeAttr(str) {
   return String(str ?? '').replace(/"/g, '&quot;');
@@ -139,11 +141,14 @@ export function renderReviewOrcamentoBanner(report) {
       : detalhe
     : '';
   const ready = pdfUrl && docxUrl;
+  const meta = getReportOrcamentoMeta(report);
+  const numeroLabel = meta?.numeroFormatado;
   return `
     <section class="review-orcamento-banner" aria-label="Pedido de orçamento MS.015">
       <div class="review-orcamento-banner__head">
         <span class="review-orcamento-badge">Pedido de orçamento</span>
         <span class="review-orcamento-kicker">MS.015 — Proposta Comercial</span>
+        ${numeroLabel ? `<span class="review-orcamento-numero">nº ${escapeHtml(numeroLabel)}</span>` : ''}
         ${
           ready
             ? '<span class="review-orcamento-status review-orcamento-status--ok">Folha anexada</span>'
@@ -151,6 +156,7 @@ export function renderReviewOrcamentoBanner(report) {
         }
       </div>
       ${preview ? `<p class="review-orcamento-preview text-muted">${escapeHtml(preview)}</p>` : ''}
+      ${renderReviewOrcamentoEditor(report)}
       <div class="review-orcamento-actions">
         <button type="button" class="btn-primary btn-touch review-btn-orcamento" id="modal-orcamento-docx">
           ${docxUrl ? 'Abrir Word (MS.015)' : 'Gerar Word (MS.015)'}
@@ -159,7 +165,7 @@ export function renderReviewOrcamentoBanner(report) {
           ${pdfUrl ? 'Pré-visualizar PDF' : 'Gerar PDF'}
         </button>
       </div>
-      <p class="text-muted review-orcamento-hint">O Word é o documento editável (taxa de saída, prazos, valores). O PDF serve para consulta rápida.</p>
+      <p class="text-muted review-orcamento-hint">Preencha artigos e preços acima, guarde, e depois abra o Word ou PDF. O número de orçamento é sequencial e único.</p>
     </section>`;
 }
 
@@ -169,6 +175,8 @@ export function renderReviewOrcamentoBanner(report) {
  */
 export function bindReviewOrcamentoButton(overlay, { report, onUpdated } = {}) {
   if (!reportHasPedidoOrcamento(report)) return;
+
+  bindReviewOrcamentoEditor(overlay, { report, onUpdated });
 
   const openUrl = async (url, label) => {
     if (!url) return false;

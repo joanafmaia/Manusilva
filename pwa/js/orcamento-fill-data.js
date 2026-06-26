@@ -3,6 +3,13 @@
  */
 
 import { getClient, getJob, getServiceType } from './app.js';
+import {
+  computeOrcamentoTotals,
+  formatEuro,
+  getReportOrcamentoMeta,
+  normalizeOrcamentoLinhas,
+  suggestOrcamentoLinhas,
+} from './orcamento-linhas.js';
 import { getPedidoOrcamentoDetalhe } from './pedido-orcamento.js';
 
 const MESES_PT = [
@@ -66,10 +73,21 @@ export function buildOrcamentoFillData(report, job = null) {
   const clienteAc =
     String(values.responsavel || client?.contact || client?.contacto || '').trim() || 'Exmos. Senhores';
 
+  const orcamentoMeta = getReportOrcamentoMeta(report);
   const orcamentoNumero =
-    resolvedJob?.numeroOrdem != null && Number.isFinite(Number(resolvedJob.numeroOrdem))
-      ? `${resolvedJob.numeroOrdem}.0/${year}`
-      : `…/${year}`;
+    orcamentoMeta?.numeroFormatado ||
+    (orcamentoMeta?.numeroSequencial && orcamentoMeta?.ano
+      ? `${orcamentoMeta.numeroSequencial}.0/${orcamentoMeta.ano}`
+      : resolvedJob?.numeroOrdem != null && Number.isFinite(Number(resolvedJob.numeroOrdem))
+        ? `${resolvedJob.numeroOrdem}.0/${year}`
+        : `…/${year}`);
+
+  const linhas = normalizeOrcamentoLinhas(
+    orcamentoMeta?.linhas?.length ? orcamentoMeta.linhas : suggestOrcamentoLinhas(report),
+  );
+  const taxaSaida = orcamentoMeta?.taxaSaida ?? '';
+  const prazoEntrega = String(orcamentoMeta?.prazoEntrega || '').trim();
+  const totals = computeOrcamentoTotals(linhas, taxaSaida);
 
   const dataExtenso = formatOrcamentoDateLong(
     values.data_de_conclusao || report?.submittedAt || report?.approvedAt,
@@ -97,6 +115,12 @@ export function buildOrcamentoFillData(report, job = null) {
     maquina,
     matricula,
     reparacao_necessaria: reparacao,
+    taxa_saida: taxaSaida === '' ? '—' : formatEuro(taxaSaida),
+    prazo_entrega: prazoEntrega || '—',
+    subtotal: formatEuro(totals.subtotal),
+    iva: formatEuro(totals.iva),
+    total_geral: formatEuro(totals.total),
+    linhas,
   };
 }
 
