@@ -941,6 +941,8 @@ const INSPECAO_DL50_MACHINE_PDF_SPECS = [
     label: 'Nº Série',
     aliases: ['num_serie', 'numero_serie', 'n_serie'],
   },
+  { id: 'n_interno', label: 'Número Interno', aliases: ['num_interno', 'numero_interno'] },
+  { id: 'horas', label: 'Número de Horas', aliases: ['horas_gastas', 'numero_horas'] },
   { id: 'data_fabrico', label: 'Data Fabrico', aliases: ['data_de_fabrico', 'data_fabricacao'] },
 ];
 /** gap ~20px entre colunas da matriz DL50 */
@@ -4025,7 +4027,15 @@ function normalizeReportValues(data) {
     values[id] = typeof v === 'boolean' ? (v ? 'Sim' : 'Não') : v;
   });
 
-  const machineKeys = ['marca', 'modelo', 'numero_de_serie', 'num_serie', 'data_fabrico'];
+  const machineKeys = [
+    'marca',
+    'modelo',
+    'numero_de_serie',
+    'num_serie',
+    'n_interno',
+    'horas',
+    'data_fabrico',
+  ];
   machineKeys.forEach((key) => {
     if (data[key] !== undefined && values[key] === undefined) values[key] = data[key];
   });

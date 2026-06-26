@@ -168,6 +168,8 @@ export const INSPECAO_DL50_MACHINE_FIELD_IDS = new Set([
   'modelo',
   'tipo',
   'numero_de_serie',
+  'n_interno',
+  'horas',
   'data_fabrico',
 ]);
 
@@ -273,7 +275,26 @@ export function resolveInspecaoDl50MachineFields(values = {}, ctx = {}) {
       pickFromPools(nestedPools, 'data_fabrico', ['data_de_fabrico', 'data_fabricacao']),
   );
 
-  return { marca, modelo, tipo, numero_de_serie: numeroSerie, data_fabrico: dataFabrico };
+  const nInterno =
+    pickFromPools(flatPools, 'n_interno', ['num_interno', 'numero_interno']) ||
+    pickFromPools(nestedPools, 'n_interno', ['num_interno', 'numero_interno']) ||
+    '—';
+
+  const horasRaw =
+    pickFromPools(flatPools, 'horas', ['horas_gastas', 'numero_horas']) ||
+    pickFromPools(nestedPools, 'horas', ['horas_gastas', 'numero_horas']);
+  const horas =
+    horasRaw !== '' && horasRaw != null && String(horasRaw).trim() !== '' ? String(horasRaw).trim() : '—';
+
+  return {
+    marca,
+    modelo,
+    tipo,
+    numero_de_serie: numeroSerie,
+    n_interno: nInterno,
+    horas,
+    data_fabrico: dataFabrico,
+  };
 }
 
 /** Corpo da tabela autoTable — 2 colunas */
@@ -281,6 +302,10 @@ export function buildInspecaoDl50MachineTableBody(machine) {
   return [
     [machinePdfCell('Marca', machine.marca), machinePdfCell('Modelo', machine.modelo)],
     [machinePdfCell('Tipo', machine.tipo), machinePdfCell('N.º Série', machine.numero_de_serie)],
+    [
+      machinePdfCell('N.º Interno', machine.n_interno),
+      machinePdfCell('N.º Horas', machine.horas),
+    ],
     [machinePdfCell('Data Fabrico', machine.data_fabrico), ''],
   ];
 }

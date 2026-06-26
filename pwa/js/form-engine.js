@@ -736,7 +736,7 @@ export function renderReportFields(service, values = {}, context = {}, options =
       let fieldsHtml = sectionFields.map((f) => renderField(f, values[f.id], context)).join('');
       if (
         section === EMPILHADORES_MACHINE_SECTION &&
-        service?.id === EMPILHADORES_SERVICE_ID
+        (service?.id === EMPILHADORES_SERVICE_ID || service?.id === 'inspecao_dl50_2005')
       ) {
         fieldsHtml = `<div class="empilhadores-machine-grid">${fieldsHtml}</div>`;
       }
@@ -890,7 +890,8 @@ export function renderReportFields(service, values = {}, context = {}, options =
       }
       return `
         <div class="form-field-section form-section-card${
-          section === EMPILHADORES_MACHINE_SECTION && service?.id === EMPILHADORES_SERVICE_ID
+          section === EMPILHADORES_MACHINE_SECTION &&
+          (service?.id === EMPILHADORES_SERVICE_ID || service?.id === 'inspecao_dl50_2005')
             ? ' form-field-section--empilhadores-machine'
             : ''
         }${section === EMPILHADORES_MATERIAL_SECTION ? ' form-field-section--material form-field-section--empilhadores-material' : ''}${section === 'Pedido de Orçamento' ? ' form-field-section--pedido-orcamento' : ''}${isCarregador ? ' form-field-section--carregador' : ''}${isCorretiva ? ' form-field-section--corretiva' : ''}${isGrandes ? ' form-field-section--grandes' : ''}${isRavBateria ? ' form-field-section--rav-bateria' : ''}${isFolhaAvarias ? ' form-field-section--folha-avarias' : ''}">
