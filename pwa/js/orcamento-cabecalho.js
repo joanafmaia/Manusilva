@@ -57,18 +57,21 @@ export function resolveOrcamentoCabecalho(report) {
   const meta = readOrcamentoMeta(report);
   const defaults = buildDefaultsFromReport(report);
 
+  const pick = (key) => {
+    if (Object.prototype.hasOwnProperty.call(meta, key) && meta[key] != null) {
+      return String(meta[key]).trim();
+    }
+    return String(defaults[key] ?? '').trim();
+  };
+
   return {
-    clienteNome: String(meta.clienteNome ?? defaults.clienteNome).trim(),
-    clienteAc: String(meta.clienteAc ?? defaults.clienteAc).trim() || 'Exmos. Senhores',
-    maquina: String(meta.maquina ?? defaults.maquina).trim(),
-    matricula: String(meta.matricula ?? defaults.matricula).trim(),
-    reparacaoNecessaria: String(meta.reparacaoNecessaria ?? defaults.reparacaoNecessaria).trim(),
-    formaPagamento:
-      String(meta.formaPagamento ?? defaults.formaPagamento).trim() ||
-      ORCAMENTO_FORMA_PAGAMENTO_DEFAULT,
-    validadeOrcamento:
-      String(meta.validadeOrcamento ?? defaults.validadeOrcamento).trim() ||
-      ORCAMENTO_VALIDADE_DEFAULT,
+    clienteNome: pick('clienteNome'),
+    clienteAc: pick('clienteAc') || 'Exmos. Senhores',
+    maquina: pick('maquina'),
+    matricula: pick('matricula'),
+    reparacaoNecessaria: pick('reparacaoNecessaria'),
+    formaPagamento: pick('formaPagamento') || ORCAMENTO_FORMA_PAGAMENTO_DEFAULT,
+    validadeOrcamento: pick('validadeOrcamento') || ORCAMENTO_VALIDADE_DEFAULT,
   };
 }
 

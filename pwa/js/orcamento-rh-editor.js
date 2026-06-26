@@ -17,6 +17,7 @@ import { resolveOrcamentoCabecalho } from './orcamento-cabecalho.js';
 import {
   getReportOrcamentoDocxUrl,
   getReportOrcamentoPdfUrl,
+  openOrcamentoStorageUrl,
 } from './pedido-orcamento.js';
 
 function escapeHtml(value) {
@@ -246,15 +247,20 @@ function bindLinhaEvents(root) {
   });
 }
 
-async function ensureOrcamentoDocs(report) {
+async function openOrcamentoDocument(report, kind, { saveMeta }) {
   const { showToast } = await import('./app.js');
-  let current = report;
-  if (!getReportOrcamentoPdfUrl(current) || !getReportOrcamentoDocxUrl(current)) {
-    showToast('A gerar proposta MS.015…', 'info', 3500);
-    const { attachOrcamentoPdfToReport } = await import('./orcamento-pdf-service.js');
-    current = (await attachOrcamentoPdfToReport(current, { force: true })) || current;
+  showToast('A atualizar proposta MS.015…', 'info', 2500);
+  const saved = await saveMeta();
+  const url =
+    kind === 'docx'
+      ? getReportOrcamentoDocxUrl(saved)
+      : getReportOrcamentoPdfUrl(saved);
+  if (!url) {
+    showToast('Não foi possível gerar o documento.', 'error');
+    return null;
   }
-  return current;
+  openOrcamentoStorageUrl(url);
+  return saved;
 }
 
 /**
@@ -307,23 +313,15 @@ export function bindOrcamentoEditor(container, { report, onUpdated } = {}) {
     const btn = root.querySelector(kind === 'docx' ? '#orcamento-docx' : '#orcamento-pdf');
     if (btn) btn.disabled = true;
     try {
-      const { showToast } = await import('./app.js');
-      const saved = await ensureOrcamentoDocs(currentReport);
-      currentReport = saved;
-      onUpdated?.(saved);
-      const url =
-        kind === 'docx'
-          ? getReportOrcamentoDocxUrl(saved)
-          : getReportOrcamentoPdfUrl(saved);
-      if (!url) {
-        showToast('Não foi possível gerar o documento.', 'error');
-        return;
+      const saved = await openOrcamentoDocument(currentReport, kind, { saveMeta });
+      if (saved) {
+        currentReport = saved;
+        onUpdated?.(saved);
       }
-      window.open(url, '_blank', 'noopener,noreferrer');
     } catch (err) {
       console.error('[Orçamento] Abrir documento:', err);
       const { showToast } = await import('./app.js');
-      showToast('Erro ao abrir o documento.', 'error');
+      showToast(err?.message || 'Erro ao abrir o documento.', 'error');
     } finally {
       if (btn) btn.disabled = false;
     }

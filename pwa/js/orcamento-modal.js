@@ -2,11 +2,7 @@
  * Modal dedicada à proposta MS.015 (separada da revisão do relatório).
  */
 
-import { getClient, getJob, getReport, getTechnician, showToast } from './app.js';
-import {
-  getReportOrcamentoDocxUrl,
-  getReportOrcamentoPdfUrl,
-} from './pedido-orcamento.js';
+import { getClient, getJob, getReport, getTechnician } from './app.js';
 import { renderOrcamentoEditor, bindOrcamentoEditor } from './orcamento-rh-editor.js';
 import { getReportOrcamentoMeta } from './orcamento-linhas.js';
 
@@ -102,9 +98,6 @@ export function openOrcamentoModal(report, { onUpdated } = {}) {
       if (!updated) return;
       currentReport = updated;
       onUpdated?.(updated);
-      const hasDocs =
-        getReportOrcamentoPdfUrl(currentReport) && getReportOrcamentoDocxUrl(currentReport);
-      if (hasDocs) renderBody();
     })
     .catch((err) => console.warn('[Orçamento] Geração inicial:', err));
 }

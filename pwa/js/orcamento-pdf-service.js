@@ -7,6 +7,7 @@ import {
   getReportOrcamentoDocxUrl,
   getReportOrcamentoPdfUrl,
   reportHasPedidoOrcamento,
+  withOrcamentoUrlCacheBust,
 } from './pedido-orcamento.js';
 import { buildOrcamentoDocxFilename, renderOrcamentoDOCX } from './orcamento-docx.js';
 import { buildOrcamentoPdfFilename, renderOrcamentoPDF } from './pdf-orcamento.js';
@@ -25,15 +26,45 @@ function withOrcamentoMeta(report, meta) {
   };
 }
 
+function resolveOrcamentoMetaForRender(report, numero, explicitMeta = null) {
+  if (explicitMeta) {
+    return {
+      ...explicitMeta,
+      numeroSequencial: explicitMeta.numeroSequencial ?? numero.sequencial,
+      ano: explicitMeta.ano ?? numero.ano,
+      numeroFormatado: explicitMeta.numeroFormatado || numero.numeroFormatado,
+    };
+  }
+
+  const saved = report.data?.orcamento;
+  if (saved?.atualizadoEm) {
+    return {
+      ...saved,
+      numeroSequencial: saved.numeroSequencial ?? numero.sequencial,
+      ano: saved.ano ?? numero.ano,
+      numeroFormatado: saved.numeroFormatado || numero.numeroFormatado,
+    };
+  }
+
+  return {
+    ...(saved || {}),
+    ...buildOrcamentoMetaDraft(report, numero),
+    numeroSequencial: numero.sequencial,
+    ano: numero.ano,
+    numeroFormatado: numero.numeroFormatado,
+  };
+}
+
 /**
  * @param {object} report
- * @param {{ force?: boolean }} [options]
+ * @param {{ force?: boolean, orcamentoMeta?: object }} [options]
  * @returns {Promise<object|null>}
  */
 export async function attachOrcamentoPdfToReport(report, options = {}) {
   if (!report?.id || !reportHasPedidoOrcamento(report)) return report;
   if (
     !options.force &&
+    !options.orcamentoMeta &&
     getReportOrcamentoPdfUrl(report) &&
     getReportOrcamentoDocxUrl(report)
   ) {
@@ -41,47 +72,48 @@ export async function attachOrcamentoPdfToReport(report, options = {}) {
   }
 
   const numero = await ensureOrcamentoNumeroForReport(report);
-  const orcamentoMeta = buildOrcamentoMetaDraft(report, numero);
-  let workingReport = withOrcamentoMeta(report, {
-    ...(report.data?.orcamento || {}),
-    ...orcamentoMeta,
-    numeroSequencial: numero.sequencial,
-    ano: numero.ano,
-    numeroFormatado: numero.numeroFormatado,
-  });
-
-  if (!report.data?.orcamento?.numeroSequencial) {
-    const savedMeta = await updateRelatorio(report.id, {
-      data: { orcamento: workingReport.data.orcamento },
-    });
-    if (savedMeta) {
-      mergeReportInCache(savedMeta);
-      workingReport = savedMeta;
-    }
-  }
+  const orcamentoMeta = resolveOrcamentoMetaForRender(
+    report,
+    numero,
+    options.orcamentoMeta || null,
+  );
+  const workingReport = withOrcamentoMeta(report, orcamentoMeta);
 
   const job = workingReport.jobId ? getJob(workingReport.jobId) : null;
+  const version = Date.now();
 
   const doc = await renderOrcamentoPDF(workingReport);
   const pdfBlob = doc.output('blob');
   const pdfFilename = buildOrcamentoPdfFilename(workingReport, job);
   const pdfUploaded = await uploadTrabalhoPdf(pdfBlob, pdfFilename);
+  const pdfUrl = withOrcamentoUrlCacheBust(pdfUploaded.publicUrl, version);
 
   const docxBlob = await renderOrcamentoDOCX(workingReport, job);
   const docxFilename = buildOrcamentoDocxFilename(workingReport, job);
   const docxUploaded = await uploadTrabalhoPdf(docxBlob, docxFilename);
+  const docxUrl = withOrcamentoUrlCacheBust(docxUploaded.publicUrl, version);
 
   const saved = await updateRelatorio(workingReport.id, {
     data: {
-      urlPdfOrcamento: pdfUploaded.publicUrl,
+      orcamento: orcamentoMeta,
+      urlPdfOrcamento: pdfUrl,
       orcamentoPdfFilename: pdfFilename,
-      urlDocxOrcamento: docxUploaded.publicUrl,
+      urlDocxOrcamento: docxUrl,
       orcamentoDocxFilename: docxFilename,
     },
   });
 
   if (saved) mergeReportInCache(saved);
-  return saved || workingReport;
+  return saved || {
+    ...workingReport,
+    data: {
+      ...workingReport.data,
+      urlPdfOrcamento: pdfUrl,
+      orcamentoPdfFilename: pdfFilename,
+      urlDocxOrcamento: docxUrl,
+      orcamentoDocxFilename: docxFilename,
+    },
+  };
 }
 
 /**
@@ -91,11 +123,11 @@ export async function attachOrcamentoPdfToReport(report, options = {}) {
  */
 export async function saveAndRegenerateOrcamento(report, orcamentoMeta) {
   if (!report?.id) return null;
-
-  const savedMeta = await updateRelatorio(report.id, {
-    data: { orcamento: orcamentoMeta },
+  return attachOrcamentoPdfToReport(report, {
+    force: true,
+    orcamentoMeta: {
+      ...orcamentoMeta,
+      atualizadoEm: orcamentoMeta.atualizadoEm || new Date().toISOString(),
+    },
   });
-  const base = savedMeta || withOrcamentoMeta(report, orcamentoMeta);
-  if (savedMeta) mergeReportInCache(savedMeta);
-  return attachOrcamentoPdfToReport(base, { force: true });
 }

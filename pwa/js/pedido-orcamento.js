@@ -37,3 +37,19 @@ export function getReportOrcamentoNumero(report) {
   if (!meta || typeof meta !== 'object') return null;
   return meta.numeroFormatado || null;
 }
+
+/** Abre ficheiro do Storage evitando cache do browser (mesmo nome de ficheiro). */
+export function openOrcamentoStorageUrl(url) {
+  const raw = String(url || '').trim();
+  if (!raw) return false;
+  const base = raw.split('?')[0];
+  const busted = `${base}?v=${Date.now()}`;
+  window.open(busted, '_blank', 'noopener,noreferrer');
+  return true;
+}
+
+export function withOrcamentoUrlCacheBust(url, version = Date.now()) {
+  const base = String(url || '').trim().split('?')[0];
+  if (!base) return '';
+  return `${base}?v=${version}`;
+}
