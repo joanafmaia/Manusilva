@@ -15,7 +15,6 @@ import {
 } from './orcamento-linhas.js';
 import { resolveOrcamentoCabecalho } from './orcamento-cabecalho.js';
 import {
-  getReportOrcamentoDocxUrl,
   getReportOrcamentoPdfUrl,
   openOrcamentoStorageUrl,
 } from './pedido-orcamento.js';
@@ -178,7 +177,6 @@ export function renderOrcamentoEditor(report, { client } = {}) {
 
       <div class="review-orcamento-editor__actions review-orcamento-editor__actions--split">
         <button type="button" class="btn-primary btn-touch" id="review-orc-save">Guardar proposta</button>
-        <button type="button" class="btn-outline btn-touch" id="orcamento-docx">Abrir Word</button>
         <button type="button" class="btn-outline btn-touch" id="orcamento-pdf">Ver PDF</button>
         <button type="button" class="btn-success btn-touch" id="orcamento-send-email">Enviar proposta por e-mail</button>
       </div>
@@ -248,16 +246,13 @@ function bindLinhaEvents(root, report) {
   });
 }
 
-async function openOrcamentoDocument(report, kind, { saveMeta }) {
+async function openOrcamentoPdf(report, { saveMeta }) {
   const { showToast } = await import('./app.js');
   showToast('A atualizar proposta MS.015…', 'info', 2500);
   const saved = await saveMeta();
-  const url =
-    kind === 'docx'
-      ? getReportOrcamentoDocxUrl(saved)
-      : getReportOrcamentoPdfUrl(saved);
+  const url = getReportOrcamentoPdfUrl(saved);
   if (!url) {
-    showToast('Não foi possível gerar o documento.', 'error');
+    showToast('Não foi possível gerar o PDF.', 'error');
     return null;
   }
   openOrcamentoStorageUrl(url);
@@ -310,26 +305,23 @@ export function bindOrcamentoEditor(container, { report, onUpdated } = {}) {
     }
   });
 
-  const openDoc = async (kind) => {
-    const btn = root.querySelector(kind === 'docx' ? '#orcamento-docx' : '#orcamento-pdf');
-    if (btn) btn.disabled = true;
+  root.querySelector('#orcamento-pdf')?.addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    btn.disabled = true;
     try {
-      const saved = await openOrcamentoDocument(currentReport, kind, { saveMeta });
+      const saved = await openOrcamentoPdf(currentReport, { saveMeta });
       if (saved) {
         currentReport = saved;
         onUpdated?.(saved);
       }
     } catch (err) {
-      console.error('[Orçamento] Abrir documento:', err);
+      console.error('[Orçamento] Abrir PDF:', err);
       const { showToast } = await import('./app.js');
-      showToast(err?.message || 'Erro ao abrir o documento.', 'error');
+      showToast(err?.message || 'Erro ao abrir o PDF.', 'error');
     } finally {
-      if (btn) btn.disabled = false;
+      btn.disabled = false;
     }
-  };
-
-  root.querySelector('#orcamento-docx')?.addEventListener('click', () => openDoc('docx'));
-  root.querySelector('#orcamento-pdf')?.addEventListener('click', () => openDoc('pdf'));
+  });
 
   root.querySelector('#orcamento-send-email')?.addEventListener('click', async (e) => {
     const btn = e.currentTarget;

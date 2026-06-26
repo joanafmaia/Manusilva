@@ -6,6 +6,8 @@
 
 import { COMPANY } from './mock_data.js';
 import { getJob } from './app.js';
+import { isLogoConfigured, getPdfLogoFormat } from './brand-ui.js';
+import MANUSILVA_LOGO from './logo_data.js';
 import { buildOrcamentoFillData } from './orcamento-fill-data.js';
 import {
   computeLinhaTotal,
@@ -15,14 +17,26 @@ import {
 } from './orcamento-linhas.js';
 import { ensurePdfFonts, pdfSetFont, pdfSafeText, pdfSplitText } from './pdf-font.js';
 import {
+  PDF_BAR_RADIUS_MM,
+  PDF_COLOR_CORPORATE_BLUE,
+  PDF_COLOR_SLATE_LINE,
   PDF_COLOR_TEXT_DARK,
   PDF_COLOR_TEXT_MUTED,
+  PDF_COLOR_WHITE,
   PDF_CONTENT_W,
+  PDF_DOCUMENT_TITLE_BAR_H_MM,
   PDF_FONT_BODY,
   PDF_FONT_CAPTION,
   PDF_FONT_SECTION,
   PDF_FONT_SUBTITLE,
+  PDF_LOGO_HEIGHT_MM,
+  PDF_LOGO_WIDTH_MM,
   PDF_MARGIN,
+  PDF_PAGE_W,
+  PDF_SECTION_BG,
+  PDF_SECTION_GAP_MM,
+  PDF_TABLE_LINE,
+  PDF_TABLE_LINE_WIDTH,
 } from './pdf-design-system.js';
 import { loadJsPDF } from './pdf-report.js';
 
@@ -54,6 +68,101 @@ async function loadLegalText() {
 function ensureProposalSpace(doc, y, need = 12) {
   if (y + need <= PAGE1_BODY_MAX) return y;
   return y;
+}
+
+function drawLogoPlaceholder(doc, x, y, widthMm, heightMm = widthMm) {
+  doc.setDrawColor(...PDF_COLOR_SLATE_LINE);
+  doc.setLineWidth(0.35);
+  doc.setFillColor(241, 245, 249);
+  doc.roundedRect(x, y, widthMm, heightMm, 2, 2, 'FD');
+  doc.setFillColor(...PDF_COLOR_CORPORATE_BLUE);
+  doc.roundedRect(x + 1.5, y + 1.5, widthMm - 3, heightMm - 3, 1.5, 1.5, 'F');
+  doc.setTextColor(...PDF_COLOR_WHITE);
+  pdfSetFont(doc, 'bold');
+  doc.setFontSize(Math.min(18, 8 + widthMm * 0.22));
+  doc.text(COMPANY.logo || 'MS', x + widthMm / 2, y + heightMm / 2 + 1.5, { align: 'center' });
+}
+
+/** Cabeçalho institucional — logo e dados da empresa (como nos relatórios). */
+function drawOrcamentoHeader(doc, fill) {
+  const topY = MARGIN;
+  const logoW = PDF_LOGO_WIDTH_MM;
+  const logoH = PDF_LOGO_HEIGHT_MM;
+  const rightX = MARGIN + logoW + 6;
+  const rightW = PDF_PAGE_W - MARGIN - rightX;
+
+  if (isLogoConfigured()) {
+    try {
+      doc.addImage(
+        MANUSILVA_LOGO,
+        getPdfLogoFormat(),
+        MARGIN,
+        topY,
+        logoW,
+        logoH,
+        undefined,
+        'FAST',
+      );
+    } catch {
+      drawLogoPlaceholder(doc, MARGIN, topY, logoW, logoH);
+    }
+  } else {
+    drawLogoPlaceholder(doc, MARGIN, topY, logoW, logoH);
+  }
+
+  let infoY = topY + 3.5;
+  pdfSetFont(doc, 'bold');
+  doc.setFontSize(8.5);
+  doc.setTextColor(...PDF_COLOR_TEXT_DARK);
+  pdfSplitText(doc, COMPANY.name, rightW).forEach((line) => {
+    doc.text(line, rightX, infoY);
+    infoY += 3.8;
+  });
+  pdfSetFont(doc, 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(...PDF_COLOR_TEXT_MUTED);
+  if (COMPANY.address) {
+    pdfSplitText(doc, COMPANY.address, rightW).forEach((line) => {
+      doc.text(line, rightX, infoY);
+      infoY += 3.4;
+    });
+  }
+  const contact = [COMPANY.phone, COMPANY.email, COMPANY.website].filter(Boolean).join('  ·  ');
+  if (contact) {
+    pdfSplitText(doc, contact, rightW).forEach((line) => {
+      doc.text(line, rightX, infoY);
+      infoY += 3.4;
+    });
+  }
+
+  let y = Math.max(topY + logoH, infoY) + PDF_SECTION_GAP_MM;
+
+  const barH = PDF_DOCUMENT_TITLE_BAR_H_MM;
+  doc.setFillColor(...PDF_SECTION_BG);
+  doc.setDrawColor(...PDF_TABLE_LINE);
+  doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
+  doc.roundedRect(MARGIN, y, CONTENT_W, barH, PDF_BAR_RADIUS_MM, PDF_BAR_RADIUS_MM, 'FD');
+  pdfSetFont(doc, 'bold');
+  doc.setFontSize(PDF_FONT_SUBTITLE);
+  doc.setTextColor(...PDF_COLOR_CORPORATE_BLUE);
+  doc.text('PROPOSTA COMERCIAL', MARGIN + CONTENT_W / 2, y + barH * 0.62, { align: 'center' });
+  y += barH + 3;
+
+  pdfSetFont(doc, 'bold');
+  doc.setFontSize(PDF_FONT_SECTION);
+  doc.setTextColor(...PDF_COLOR_TEXT_DARK);
+  doc.text(`Orçamento nº ${pdfSafeText(fill.orcamento_numero)}`, MARGIN, y);
+  y += 5;
+  pdfSetFont(doc, 'normal');
+  doc.setFontSize(PDF_FONT_BODY);
+  doc.setTextColor(...PDF_COLOR_TEXT_MUTED);
+  doc.text(pdfSafeText(fill.data_extenso), MARGIN, y);
+  y += 6;
+
+  doc.setDrawColor(...PDF_TABLE_LINE);
+  doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
+  doc.line(MARGIN, y, MARGIN + CONTENT_W, y);
+  return y + PDF_SECTION_GAP_MM + 2;
 }
 
 function drawOrcamentoTable(doc, linhas, startY) {
@@ -222,25 +331,16 @@ export async function renderOrcamentoPDF(report) {
   const fill = buildOrcamentoFillData(report, job);
   const legalText = await loadLegalText();
 
-  let y = MARGIN + 8;
+  let y = drawOrcamentoHeader(doc, fill);
 
   pdfSetFont(doc, 'bold');
-  doc.setFontSize(PDF_FONT_SECTION);
+  doc.setFontSize(PDF_FONT_BODY);
   doc.setTextColor(...PDF_COLOR_TEXT_DARK);
   doc.text('PARA:', MARGIN, y);
   y += 6;
   doc.text(pdfSafeText(fill.cliente_nome), MARGIN + 12, y);
   y += 6;
   doc.text(`A/C. ${pdfSafeText(fill.cliente_ac)}`, MARGIN, y);
-  y += 14;
-
-  pdfSetFont(doc, 'bold');
-  doc.setFontSize(PDF_FONT_SUBTITLE);
-  doc.text(`Orçamento nº ${pdfSafeText(fill.orcamento_numero)}`, MARGIN, y);
-  y += 7;
-  pdfSetFont(doc, 'normal');
-  doc.setFontSize(PDF_FONT_BODY);
-  doc.text(pdfSafeText(fill.data_extenso), MARGIN, y);
   y += 12;
 
   const intro = `Vimos por este meio enviar o orçamento para ${fill.intro_servico}`;

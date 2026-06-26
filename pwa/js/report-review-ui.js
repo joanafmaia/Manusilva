@@ -8,7 +8,6 @@ import { isTestClient, TEST_JOB_ORDEM_LABEL } from './client-test-utils.js';
 import { resolveJobFotos, isValidFotoUrl } from './job-fotos.js';
 import {
   getPedidoOrcamentoDetalhe,
-  getReportOrcamentoDocxUrl,
   getReportOrcamentoPdfUrl,
   reportHasPedidoOrcamento,
 } from './pedido-orcamento.js';
@@ -136,7 +135,7 @@ export function renderReviewOrcamentoBanner(report) {
 
   const meta = getReportOrcamentoMeta(report);
   const numeroLabel = meta?.numeroFormatado;
-  const ready = getReportOrcamentoPdfUrl(report) && getReportOrcamentoDocxUrl(report);
+  const ready = Boolean(getReportOrcamentoPdfUrl(report));
   const enviado = meta?.enviadoEm;
   const detalhe = getPedidoOrcamentoDetalhe(report);
   const preview = detalhe

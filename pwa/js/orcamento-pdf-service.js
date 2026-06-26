@@ -4,12 +4,10 @@
 
 import { getJob } from './app.js';
 import {
-  getReportOrcamentoDocxUrl,
   getReportOrcamentoPdfUrl,
   reportHasPedidoOrcamento,
   withOrcamentoUrlCacheBust,
 } from './pedido-orcamento.js';
-import { buildOrcamentoDocxFilename, renderOrcamentoDOCX } from './orcamento-docx.js';
 import { buildOrcamentoPdfFilename, renderOrcamentoPDF } from './pdf-orcamento.js';
 import { buildOrcamentoMetaDraft } from './orcamento-linhas.js';
 import { ensureOrcamentoNumeroForReport } from './orcamento-numero-db.js';
@@ -65,8 +63,7 @@ export async function attachOrcamentoPdfToReport(report, options = {}) {
   if (
     !options.force &&
     !options.orcamentoMeta &&
-    getReportOrcamentoPdfUrl(report) &&
-    getReportOrcamentoDocxUrl(report)
+    getReportOrcamentoPdfUrl(report)
   ) {
     return report;
   }
@@ -88,18 +85,11 @@ export async function attachOrcamentoPdfToReport(report, options = {}) {
   const pdfUploaded = await uploadTrabalhoPdf(pdfBlob, pdfFilename);
   const pdfUrl = withOrcamentoUrlCacheBust(pdfUploaded.publicUrl, version);
 
-  const docxBlob = await renderOrcamentoDOCX(workingReport, job);
-  const docxFilename = buildOrcamentoDocxFilename(workingReport, job);
-  const docxUploaded = await uploadTrabalhoPdf(docxBlob, docxFilename);
-  const docxUrl = withOrcamentoUrlCacheBust(docxUploaded.publicUrl, version);
-
   const saved = await updateRelatorio(workingReport.id, {
     data: {
       orcamento: orcamentoMeta,
       urlPdfOrcamento: pdfUrl,
       orcamentoPdfFilename: pdfFilename,
-      urlDocxOrcamento: docxUrl,
-      orcamentoDocxFilename: docxFilename,
     },
   });
 
@@ -110,14 +100,12 @@ export async function attachOrcamentoPdfToReport(report, options = {}) {
       ...workingReport.data,
       urlPdfOrcamento: pdfUrl,
       orcamentoPdfFilename: pdfFilename,
-      urlDocxOrcamento: docxUrl,
-      orcamentoDocxFilename: docxFilename,
     },
   };
 }
 
 /**
- * Guarda metadados editados pelo RH e regenera Word + PDF.
+ * Guarda metadados editados pelo RH e regenera o PDF.
  * @param {object} report
  * @param {object} orcamentoMeta
  */
