@@ -100,12 +100,14 @@ export function renderOrcamentoEditor(report, { client } = {}) {
             <input type="text" class="review-orc-input" data-orc-field="clienteAc" value="${escapeHtml(cab.clienteAc)}" placeholder="Destinatário / contacto" />
           </label>
           <label class="review-orc-field">
-            <span>Máquina</span>
-            <input type="text" class="review-orc-input" data-orc-field="maquina" value="${escapeHtml(cab.maquina)}" placeholder="Marca / modelo / tipo" />
+            <span>Máquina / equipamento</span>
+            <input type="text" class="review-orc-input" data-orc-field="maquina" value="${escapeHtml(cab.maquina)}" placeholder="Marca / modelo / tipo / bateria" />
+            <span class="review-orc-field-hint text-muted">Sugerido a partir do relatório técnico — pode editar.</span>
           </label>
           <label class="review-orc-field">
             <span>Matrícula / n.º interno</span>
-            <input type="text" class="review-orc-input" data-orc-field="matricula" value="${escapeHtml(cab.matricula)}" placeholder="N.º série ou interno" />
+            <input type="text" class="review-orc-input" data-orc-field="matricula" value="${escapeHtml(cab.matricula)}" placeholder="N.º série, interno ou matrícula" />
+            <span class="review-orc-field-hint text-muted">Sugerido a partir do relatório técnico — pode editar.</span>
           </label>
         </div>
         <label class="review-orc-field review-orc-field--full">

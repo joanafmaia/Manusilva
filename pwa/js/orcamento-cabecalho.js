@@ -2,7 +2,7 @@
  * Cabeçalho editável da proposta MS.015 (valores por defeito do relatório técnico).
  */
 
-import { getClient } from './app.js';
+import { getClient, getForklift, getJob, getServiceType } from './app.js';
 import { getPedidoOrcamentoDetalhe } from './pedido-orcamento.js';
 
 export const ORCAMENTO_FORMA_PAGAMENTO_DEFAULT = 'Pronto Pagamento';
@@ -13,6 +13,85 @@ function readOrcamentoMeta(report) {
   return meta && typeof meta === 'object' ? meta : {};
 }
 
+function joinParts(parts, separator = ' / ') {
+  return parts
+    .map((value) => String(value ?? '').trim())
+    .filter(Boolean)
+    .join(separator);
+}
+
+function firstGrandesBatteryRow(values) {
+  const rows = values?.identificacao_baterias;
+  if (!Array.isArray(rows) || !rows.length) return null;
+  const withData = rows.find((row) => {
+    if (!row || typeof row !== 'object') return false;
+    return Boolean(joinParts([row.maquina, row.tipo, row.matricula]));
+  });
+  return withData || rows[0] || null;
+}
+
+/** Máquina e matrícula/n.º interno a partir do relatório técnico (por tipo de serviço). */
+export function resolveReportEquipamentoDefaults(report) {
+  const values = report?.data?.values || {};
+  const serviceType = String(report?.serviceType || '');
+  const job = report?.jobId ? getJob(report.jobId) : null;
+  const serial = String(
+    values.numero_de_serie ||
+      values.n_interno ||
+      report?.forkliftSerial ||
+      job?.forkliftSerial ||
+      '',
+  ).trim();
+  const forklift =
+    serial && report?.clientId ? getForklift(report.clientId, serial) : null;
+
+  let maquina = '';
+  let matricula = '';
+
+  if (serviceType === 'manutencao_baterias_grandes') {
+    const row = firstGrandesBatteryRow(values);
+    if (row) {
+      maquina = joinParts([row.maquina, row.tipo]);
+      matricula = String(row.matricula || '').trim();
+    }
+  } else if (serviceType === 'reparacao_carregador') {
+    maquina = String(values.marca_modelo || '').trim();
+    matricula = joinParts([values.numero_de_serie, values.etiqueta], ' · ');
+  } else if (values.marca || values.modelo || values.tipo) {
+    maquina = joinParts([values.marca, values.modelo, values.tipo]);
+    matricula = String(values.n_interno || values.numero_de_serie || '').trim();
+  } else if (values.marca_modelo) {
+    maquina = String(values.marca_modelo).trim();
+    matricula = String(values.numero_de_serie || values.n_interno || '').trim();
+  }
+
+  if (!matricula) {
+    matricula = String(report?.forkliftSerial || job?.forkliftSerial || serial || '').trim();
+  }
+
+  if (!maquina && forklift?.model) {
+    maquina = String(forklift.model).trim();
+  }
+
+  if (!maquina && /bateria/i.test(serviceType)) {
+    maquina = forklift?.model ? joinParts(['Bateria', forklift.model]) : 'Bateria';
+  }
+
+  if (!maquina) {
+    const service = getServiceType(serviceType);
+    const label = String(service?.label || '').trim();
+    if (label) {
+      maquina = label
+        .replace(/^relat[oó]rio\s+(de\s+)?/i, '')
+        .replace(/^folha\s+(de\s+)?/i, '')
+        .replace(/^formul[aá]rio\s+/i, '')
+        .trim();
+    }
+  }
+
+  return { maquina, matricula };
+}
+
 function buildDefaultsFromReport(report) {
   const values = report?.data?.values || {};
   const client = getClient(report?.clientId);
@@ -21,17 +100,10 @@ function buildDefaultsFromReport(report) {
     String(values.responsavel || client?.contact || client?.contacto || '').trim() ||
     'Exmos. Senhores';
 
-  const maquinaParts = [values.marca, values.modelo, values.tipo]
-    .map((v) => String(v || '').trim())
-    .filter(Boolean);
-  const maquina = maquinaParts.join(' / ');
-
-  const matricula = String(
-    values.n_interno || values.numero_de_serie || report?.forkliftSerial || '',
-  ).trim();
+  const { maquina, matricula } = resolveReportEquipamentoDefaults(report);
 
   let reparacaoNecessaria = getPedidoOrcamentoDetalhe(report);
-  const obs = String(values.observacoes || '').trim();
+  const obs = String(values.observacoes || values.observacao || '').trim();
   if (obs) {
     reparacaoNecessaria = reparacaoNecessaria
       ? `${reparacaoNecessaria}\n\nObservações: ${obs}`
@@ -65,7 +137,8 @@ export function resolveOrcamentoCabecalho(report) {
 
   const pick = (key) => {
     if (Object.prototype.hasOwnProperty.call(meta, key) && meta[key] != null) {
-      return String(meta[key]).trim();
+      const saved = String(meta[key]).trim();
+      if (saved) return saved;
     }
     return String(defaults[key] ?? '').trim();
   };
