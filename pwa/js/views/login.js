@@ -1,6 +1,5 @@
 import { AuthService, resolveLoginEmail, userUsesNameOnlyLogin } from '../auth.js';
 import { ROLE_UI_TO_DB } from '../mock_data.js';
-import { toggleTheme, themeToggleIcon } from '../theme.js';
 
 const MAX_FAILED_ATTEMPTS = 5;
 const LOGIN_LOCK_MS = 120_000;
@@ -22,12 +21,6 @@ export const LoginView = {
   render() {
     return `
       <div id="login-container" class="login-shell">
-        <div class="login-shell-top">
-          <button type="button" id="theme-toggle" class="theme-toggle-btn theme-toggle-btn--inline btn-ghost btn-sm" aria-label="Alternar tema" title="Alternar tema">
-            <span id="theme-icon" aria-hidden="true">${themeToggleIcon()}</span>
-          </button>
-        </div>
-
         <div id="login-card" class="login-card">
           <div class="login-brand-block">
             <div class="brand-logo-slot login-brand-logo" data-brand-logo-lg aria-label="ManuSilva">MS</div>
@@ -73,8 +66,6 @@ export const LoginView = {
   init() {
     import('../brand-ui.js').then(({ applyBrandLogo }) => applyBrandLogo());
 
-    const themeToggle = document.getElementById('theme-toggle');
-    const themeIcon = document.getElementById('theme-icon');
     const form = document.getElementById('login-form');
     const errorDiv = document.getElementById('login-error');
     const infoDiv = document.getElementById('login-info');
@@ -148,11 +139,6 @@ export const LoginView = {
         setLoginLocked(false);
       }, LOGIN_LOCK_MS);
     }
-
-    themeToggle?.addEventListener('click', () => {
-      const next = toggleTheme();
-      themeIcon.textContent = themeToggleIcon(next);
-    });
 
     roleButtons.forEach((btn) => {
       btn.addEventListener('click', () => {

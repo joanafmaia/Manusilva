@@ -6,16 +6,15 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-  <meta name="theme-color" content="#0f172a">
+  <meta name="theme-color" content="#f8fafc">
   <title>Manusilva — Administração</title>
   <link rel="manifest" href="manifest.json">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/app.css?v=theme-audit-v2">
+  <link rel="stylesheet" href="css/app.css?v=light-only-v1">
 </head>
 <body class="admin-rh-page">
-  <script src="js/theme-boot.js"></script>
   <div class="bg-mesh"></div>
 
   <div class="admin-app">
@@ -78,9 +77,6 @@
             <p class="admin-header-lead ms-label">Calendário da equipa, revisão de relatórios, orçamentos MS.015, faturação e gestão de clientes.</p>
           </div>
           <div class="admin-header-actions">
-            <button type="button" id="theme-toggle" class="theme-toggle-btn theme-toggle-btn--inline btn-ghost btn-sm" aria-label="Alternar tema" title="Alternar tema">
-              <span id="theme-icon" aria-hidden="true"></span>
-            </button>
             <button type="button" class="btn-outline btn-sm" id="btn-go-pending" hidden>Ir aos pendentes</button>
             <button type="button" class="btn-outline btn-sm" id="btn-approve-valid-email" hidden>Aprovar com e-mail válido</button>
             <button class="btn-primary" id="btn-assign-work" style="width:auto">+ Atribuir Trabalho</button>
@@ -183,16 +179,6 @@
     } else {
       const { initLocalDatabase } = await import(`./js/app.js?v=${v}`);
       const { initAdminDashboard } = await import(`./js/admin-dashboard.js?v=${v}`);
-      const { applyThemeToDocument, themeToggleIcon, toggleTheme } = await import(`./js/theme.js?v=${v}`);
-
-      applyThemeToDocument();
-      const themeBtn = document.getElementById('theme-toggle');
-      const themeIcon = document.getElementById('theme-icon');
-      if (themeIcon) themeIcon.textContent = themeToggleIcon();
-      themeBtn?.addEventListener('click', () => {
-        const next = toggleTheme();
-        if (themeIcon) themeIcon.textContent = themeToggleIcon(next);
-      });
 
       initLocalDatabase();
       await initAdminDashboard();

@@ -71,7 +71,6 @@ import {
   getSession,
   normalizeSession,
 } from './session.js';
-import { applyThemeToDocument } from './theme.js';
 import { LoginView } from './views/login.js';
 import { AuthService } from './auth.js';
 import { normalizeFaturaCondicao,
@@ -2264,19 +2263,13 @@ export {
 export { getJobsSnapshot, ensureJobsLoaded } from './trabalhos-db.js';
 export { getReportsSnapshot, ensureReportsLoaded } from './relatorios-db.js';
 
-/* ─── Tema + arranque da app (index.html) ─── */
-
-/** Aplica `dark-mode` / `light-mode` no body (localStorage `app_theme`) */
-export function initAppTheme() {
-  return applyThemeToDocument();
-}
+/* ─── Arranque da app (index.html) ─── */
 
 /**
  * Router simples: login ou redireciona para o painel conforme a sessão.
  * @param {string} [containerId] id do contentor (`app` ou `app-root`)
  */
 export function bootstrapApp(containerId = 'app') {
-  initAppTheme();
   initLocalDatabase();
 
   const appContainer =
@@ -2298,6 +2291,3 @@ export function bootstrapApp(containerId = 'app') {
   appContainer.innerHTML = LoginView.render();
   LoginView.init();
 }
-
-/** Tema assim que qualquer página importa `app.js` */
-initAppTheme();
