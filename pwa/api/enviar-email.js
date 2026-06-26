@@ -231,6 +231,105 @@ function validatePdfAttachments(payload = {}) {
   };
 }
 
+function normalizePdfUrlEntries(payload = {}) {
+  const list = [];
+  if (Array.isArray(payload.pdfUrls)) {
+    for (const entry of payload.pdfUrls) {
+      if (typeof entry === 'string' && isSafeHttpUrl(entry)) {
+        list.push({ url: entry.trim(), filename: '', label: '' });
+        continue;
+      }
+      const url = String(entry?.url || '').trim();
+      if (!isSafeHttpUrl(url)) continue;
+      list.push({
+        url,
+        filename: String(entry?.filename || '').trim(),
+        label: String(entry?.label || '').trim(),
+      });
+    }
+  }
+  if (!list.length && isSafeHttpUrl(payload.pdfUrl)) {
+    list.push({
+      url: String(payload.pdfUrl).trim(),
+      filename: String(payload.pdfFilename || '').trim(),
+      label: '',
+    });
+  }
+  return list;
+}
+
+function sanitizePdfAttachmentFilename(filename, index) {
+  let safe = String(filename || '')
+    .replace(/[^\w.\-() ]+/g, '_')
+    .slice(0, 180);
+  if (!safe.toLowerCase().endsWith('.pdf')) {
+    safe = `relatorio_${index + 1}.pdf`;
+  }
+  return safe;
+}
+
+async function fetchPdfAttachmentsFromUrls(urlEntries = []) {
+  const attachments = [];
+  let totalBytes = 0;
+
+  for (let index = 0; index < urlEntries.length; index += 1) {
+    const entry = urlEntries[index];
+    const url = String(entry?.url || '').trim();
+    if (!isSafeHttpUrl(url)) continue;
+
+    try {
+      const res = await fetch(url);
+      if (!res.ok) {
+        console.warn('[API /enviar-email] PDF indisponível:', url, res.status);
+        continue;
+      }
+      const content = Buffer.from(await res.arrayBuffer());
+      if (!content.length || content.length > MAX_PDF_BYTES) continue;
+      if (totalBytes + content.length > MAX_TOTAL_PDF_BYTES) break;
+
+      let filename = String(entry.filename || '').trim();
+      if (!filename.toLowerCase().endsWith('.pdf')) {
+        const fromUrl = decodeURIComponent(url.split('/').pop()?.split('?')[0] || '');
+        filename = fromUrl.toLowerCase().endsWith('.pdf') ? fromUrl : '';
+      }
+
+      attachments.push({
+        filename: sanitizePdfAttachmentFilename(filename, index),
+        content,
+        contentType: 'application/pdf',
+      });
+      totalBytes += content.length;
+    } catch (err) {
+      console.warn('[API /enviar-email] fetch PDF:', url, err?.message || err);
+    }
+  }
+
+  return attachments;
+}
+
+async function resolveEmailPdfAttachments(payload = {}) {
+  const urlEntries = normalizePdfUrlEntries(payload);
+
+  if (urlEntries.length > 1) {
+    const fetched = await fetchPdfAttachmentsFromUrls(urlEntries);
+    if (fetched.length) return { ok: true, attachments: fetched };
+    return {
+      ok: false,
+      error: 'Não foi possível obter os PDFs do Storage para anexar ao e-mail.',
+    };
+  }
+
+  const pdfCheck = validatePdfAttachments(payload);
+  if (!pdfCheck.ok) return pdfCheck;
+
+  let attachments = pdfCheck.attachments || [];
+  if (!attachments.length && urlEntries.length === 1) {
+    attachments = await fetchPdfAttachmentsFromUrls(urlEntries);
+  }
+
+  return { ok: true, attachments };
+}
+
 function escapeHtml(value) {
   return String(value ?? '')
     .replace(/&/g, '&amp;')
@@ -531,9 +630,9 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    const pdfCheck = validatePdfAttachments(payload);
-    if (!pdfCheck.ok) {
-      return res.status(400).json({ error: pdfCheck.error });
+    const pdfResolved = await resolveEmailPdfAttachments(payload);
+    if (!pdfResolved.ok) {
+      return res.status(400).json({ error: pdfResolved.error });
     }
 
     const isGmail =
@@ -558,7 +657,7 @@ module.exports = async function handler(req, res) {
           },
         });
 
-    const attachments = pdfCheck.attachments || [];
+    const attachments = pdfResolved.attachments || [];
 
     await transporter.sendMail({
       from: EMAIL_USER,

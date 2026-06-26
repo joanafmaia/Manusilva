@@ -424,21 +424,6 @@ export async function sendOrcamentoProposalEmail(meta = {}) {
  * @param {Array<{ blob?: Blob, filename: string, publicUrl?: string, machineLabel?: string, base64?: string }>} pdfEntries
  */
 function buildReportEmailPdfPayload(pdfEntries = []) {
-  const MAX_BASE64_LEN = 3_000_000;
-  const MAX_TOTAL_BASE64 = 8_000_000;
-  const attachments = [];
-  let totalLen = 0;
-
-  for (const entry of pdfEntries) {
-    const filename = entry?.filename;
-    if (!filename) continue;
-    const base64 = entry.base64 || '';
-    if (!base64 || base64.length > MAX_BASE64_LEN) continue;
-    if (totalLen + base64.length > MAX_TOTAL_BASE64) break;
-    attachments.push({ pdfFilename: filename, pdfBase64: base64 });
-    totalLen += base64.length;
-  }
-
   const pdfUrls = pdfEntries
     .filter((entry) => entry?.publicUrl)
     .map((entry) => ({
@@ -452,11 +437,15 @@ function buildReportEmailPdfPayload(pdfEntries = []) {
     pdfUrls,
   };
 
-  if (attachments.length > 1) {
-    payload.pdfAttachments = attachments;
-  } else if (attachments.length === 1) {
-    payload.pdfFilename = attachments[0].pdfFilename;
-    payload.pdfBase64 = attachments[0].pdfBase64;
+  // Vários PDFs: o servidor obtém os ficheiros pelos URLs (evita limite do body na Vercel).
+  if (pdfEntries.length > 1) return payload;
+
+  const MAX_BASE64_LEN = 3_000_000;
+  const entry = pdfEntries[0];
+  const base64 = entry?.base64 || '';
+  if (base64 && base64.length > 0 && base64.length <= MAX_BASE64_LEN) {
+    payload.pdfFilename = entry.filename;
+    payload.pdfBase64 = base64;
   }
 
   return payload;
@@ -608,30 +597,30 @@ export async function resendApprovedReportEmail(reportId, options = {}) {
         : 'outro';
 
   const MAX_BASE64_LEN = 3_000_000;
-  const emailPdfEntries = [];
-  for (const source of pdfSources) {
-    const entry = { ...source };
-    if (source.blob) {
-      try {
-        entry.base64 = await blobToBase64(source.blob);
-      } catch (err) {
-        console.warn('[Email] Anexo PDF no reenvio (blob):', err);
-      }
-    } else if (source.publicUrl) {
-      try {
+  const emailPdfEntries = pdfSources.map((source) => ({
+    publicUrl: source.publicUrl,
+    filename: source.filename,
+    machineLabel: source.machineLabel,
+  }));
+
+  if (pdfSources.length === 1) {
+    const source = pdfSources[0];
+    try {
+      if (source.blob) {
+        emailPdfEntries[0].base64 = await blobToBase64(source.blob);
+      } else if (source.publicUrl) {
         const res = await fetch(source.publicUrl);
         if (res.ok) {
           const buf = await res.arrayBuffer();
           const b64 = arrayBufferToBase64(buf);
           if (b64.length > 0 && b64.length <= MAX_BASE64_LEN) {
-            entry.base64 = b64;
+            emailPdfEntries[0].base64 = b64;
           }
         }
-      } catch (err) {
-        console.warn('[Email] Anexo PDF no reenvio:', err);
       }
+    } catch (err) {
+      console.warn('[Email] Anexo PDF no reenvio:', err);
     }
-    emailPdfEntries.push(entry);
   }
 
   const emailPdfPayload = buildReportEmailPdfPayload(emailPdfEntries);
@@ -1597,12 +1586,12 @@ export async function approveReport(reportId, options = {}) {
     const urlPdfs = pdfEntries.map((entry) => entry.publicUrl);
     const pdfFilenames = pdfEntries.map((entry) => entry.filename);
 
-    const emailPdfEntries = [];
-    for (const entry of pdfEntries) {
-      const base64 = await blobToBase64(entry.blob);
-      emailPdfEntries.push({ ...entry, base64 });
-    }
-    const emailPdfPayload = buildReportEmailPdfPayload(emailPdfEntries);
+    const emailPdfPayload =
+      pdfEntries.length > 1
+        ? buildReportEmailPdfPayload(pdfEntries)
+        : buildReportEmailPdfPayload([
+            { ...pdfEntries[0], base64: await blobToBase64(pdfEntries[0].blob) },
+          ]);
 
     await updateRelatorio(reportId, {
       status: 'approved',
