@@ -1,5 +1,6 @@
 import { AuthService, resolveLoginEmail, userUsesNameOnlyLogin } from '../auth.js';
 import { ROLE_UI_TO_DB } from '../mock_data.js';
+import { getSavedLoginIdentifier, loadLoginPrefs, saveLoginPrefs } from '../login-prefs.js';
 
 const MAX_FAILED_ATTEMPTS = 5;
 const LOGIN_LOCK_MS = 120_000;
@@ -15,6 +16,14 @@ function setFailedCount(n) {
 
 function resetFailedCount() {
   localStorage.removeItem(FAILED_COUNT_KEY);
+}
+
+function selectLoginRole(roleButtons, role) {
+  roleButtons.forEach((btn) => {
+    const selected = btn.dataset.role === role;
+    btn.classList.toggle('is-selected', selected);
+    btn.setAttribute('aria-pressed', selected ? 'true' : 'false');
+  });
 }
 
 export const LoginView = {
@@ -40,15 +49,30 @@ export const LoginView = {
             </button>
           </div>
 
-          <form id="login-form" class="login-form" autocomplete="on">
+          <form id="login-form" class="login-form" method="post" action="./index.html" autocomplete="on">
             <div class="form-group">
               <label for="identifier" class="form-label">Nome de utilizador ou e-mail</label>
-              <input type="text" id="identifier" class="form-input" required autocomplete="username" placeholder="Ex.: Filipa ou nome@empresa.com">
+              <input
+                type="text"
+                id="identifier"
+                name="username"
+                class="form-input"
+                required
+                autocomplete="username"
+                placeholder="Ex.: Joana ou nome@empresa.com"
+              >
             </div>
 
             <div class="form-group form-group--compact">
               <label for="password" class="form-label">Palavra-passe</label>
-              <input type="password" id="password" class="form-input" required autocomplete="current-password">
+              <input
+                type="password"
+                id="password"
+                name="password"
+                class="form-input"
+                required
+                autocomplete="current-password"
+              >
             </div>
 
             <div id="login-error" class="login-message login-message--error" role="alert"></div>
@@ -76,13 +100,16 @@ export const LoginView = {
     const identifierInput = document.getElementById('identifier');
     const passwordInput = document.getElementById('password');
 
-    let selectedUiRole = 'technician';
+    const savedPrefs = loadLoginPrefs();
+    let selectedUiRole = savedPrefs.role;
     let lockTimer = null;
 
-    const loginDefaults = {
-      technician: { identifier: 'Hugo' },
-      admin: { identifier: 'Filipa' },
-    };
+    function applyIdentifierForRole(role, { onlyIfEmpty = false } = {}) {
+      const saved = getSavedLoginIdentifier(role);
+      if (!saved) return;
+      if (onlyIfEmpty && String(identifierInput.value || '').trim()) return;
+      identifierInput.value = saved;
+    }
 
     function setLoginLocked(locked, message = '') {
       btnSubmit.disabled = locked;
@@ -140,17 +167,14 @@ export const LoginView = {
       }, LOGIN_LOCK_MS);
     }
 
+    selectLoginRole(roleButtons, selectedUiRole);
+    applyIdentifierForRole(selectedUiRole);
+
     roleButtons.forEach((btn) => {
       btn.addEventListener('click', () => {
         selectedUiRole = btn.dataset.role;
-        roleButtons.forEach((b) => {
-          const selected = b === btn;
-          b.classList.toggle('is-selected', selected);
-          b.setAttribute('aria-pressed', selected ? 'true' : 'false');
-        });
-        const defaults = loginDefaults[selectedUiRole] || loginDefaults.technician;
-        identifierInput.value = defaults.identifier;
-        passwordInput.value = '';
+        selectLoginRole(roleButtons, selectedUiRole);
+        applyIdentifierForRole(selectedUiRole);
       });
     });
 
@@ -171,6 +195,7 @@ export const LoginView = {
 
       if (resultado.success) {
         resetFailedCount();
+        saveLoginPrefs({ role: selectedUiRole, identifier });
         window.location.reload();
         return;
       }
