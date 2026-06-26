@@ -8266,10 +8266,18 @@ body.dark-mode .rh-card__btn--pdf {
 }
 
 .cal-visita-folder__body {
-  display: flex;
+  display: none;
   flex-direction: column;
   gap: 0.3rem;
   padding: 0 0.35rem 0.35rem;
+}
+
+.cal-visita-folder--open .cal-visita-folder__body {
+  display: flex;
+}
+
+.cal-visita-folder__body[hidden] {
+  display: none !important;
 }
 
 .cal-visita-folder__body .cal-block {

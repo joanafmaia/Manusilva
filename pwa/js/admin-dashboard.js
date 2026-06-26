@@ -801,7 +801,7 @@ function renderAdminCalendarVisitaFolder(folder, { compact = false, listMode = f
           aria-label="${escapeHtml(`Abrir pasta da visita — ${name}`)}"
         >↗</button>
       </div>
-      <div class="cal-visita-folder__body"${defaultOpen ? '' : ' hidden'}>
+      <div class="cal-visita-folder__body">
         ${jobBlocks}
       </div>
     </div>`;
@@ -1082,12 +1082,10 @@ function bindCalendarJobInteractions() {
       e.preventDefault();
       e.stopPropagation();
       const folder = folderToggle.closest('.cal-visita-folder');
-      const body = folder?.querySelector('.cal-visita-folder__body');
-      if (!body) return;
-      const open = body.hidden;
-      body.hidden = !open;
+      if (!folder) return;
+      const open = !folder.classList.contains('cal-visita-folder--open');
+      folder.classList.toggle('cal-visita-folder--open', open);
       folderToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
-      folder?.classList.toggle('cal-visita-folder--open', open);
       return;
     }
 
