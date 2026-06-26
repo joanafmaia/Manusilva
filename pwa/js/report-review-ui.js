@@ -12,7 +12,6 @@ import {
   reportOrcamentoPorPreparar,
 } from './pedido-orcamento.js';
 import { getReportOrcamentoMeta } from './orcamento-linhas.js';
-import { openOrcamentoModal } from './orcamento-modal.js';
 
 function escapeAttr(str) {
   return String(str ?? '').replace(/"/g, '&quot;');
@@ -129,7 +128,7 @@ export function renderReviewPdfSection(job) {
     </section>`;
 }
 
-/** Aviso compacto — a proposta MS.015 abre em modal à parte. */
+/** Aviso compacto — preparar proposta na aba Orçamentos (barra lateral). */
 export function renderReviewOrcamentoBanner(report) {
   if (!reportHasPedidoOrcamento(report)) return '';
 
@@ -145,8 +144,8 @@ export function renderReviewOrcamentoBanner(report) {
       : detalhe
     : '';
 
-  let statusText = 'Por preparar';
-  let statusClass = '';
+  let statusText = 'Por preparar na aba Orçamentos';
+  let statusClass = 'review-orcamento-status--warning';
   if (enviado) {
     statusText = 'Proposta enviada';
     statusClass = 'review-orcamento-status--ok';
@@ -154,53 +153,44 @@ export function renderReviewOrcamentoBanner(report) {
     statusText = 'Proposta guardada';
     statusClass = 'review-orcamento-status--ok';
   } else if (relatorioAprovado) {
-    statusText = 'Por preparar (relatório aprovado)';
+    statusText = 'Por preparar na aba Orçamentos';
     statusClass = 'review-orcamento-status--warning';
   }
 
-  const leadText =
-    relatorioAprovado && porPreparar
-      ? 'O relatório técnico já foi aprovado. Prepare a proposta na aba Orçamentos (barra lateral) ou aqui — o envio é independente do relatório.'
-      : 'A proposta comercial MS.015 é preparada na aba Orçamentos ou aqui — destinatário e preços independentes do relatório técnico.';
+  const leadText = relatorioAprovado
+    ? 'O relatório técnico já foi aprovado. A proposta MS.015 prepara-se na aba Orçamentos — envio independente do relatório.'
+    : 'Há pedido de orçamento. Após rever o relatório, prepare a proposta na aba Orçamentos (barra lateral).';
 
   return `
-    <section class="review-orcamento-teaser" aria-label="Pedido de orçamento">
+    <section class="review-orcamento-teaser review-orcamento-teaser--hint" aria-label="Pedido de orçamento">
       <div class="review-orcamento-teaser__copy">
         <div class="review-orcamento-teaser__head">
           <span class="review-orcamento-badge">Pedido de orçamento</span>
           ${numeroLabel ? `<span class="review-orcamento-numero">nº ${escapeHtml(numeroLabel)}</span>` : ''}
           <span class="review-orcamento-status ${statusClass}">${escapeHtml(statusText)}</span>
         </div>
-        <p class="review-orcamento-teaser__text text-muted">
-          ${escapeHtml(leadText)}
-        </p>
+        <p class="review-orcamento-teaser__text text-muted">${escapeHtml(leadText)}</p>
         ${preview ? `<p class="review-orcamento-teaser__detalhe text-muted">${escapeHtml(preview)}</p>` : ''}
+        <button type="button" class="btn-outline btn-sm btn-touch review-orcamento-teaser__link" id="btn-go-orcamentos-tab">
+          Ir para aba Orçamentos
+        </button>
       </div>
-      <button type="button" class="btn-primary btn-touch review-orcamento-teaser__btn" id="btn-open-orcamento-modal">
-        Preparar proposta
-      </button>
     </section>`;
 }
 
 /**
  * @param {HTMLElement} overlay
- * @param {{ report: object, onUpdated?: (report: object) => void }} ctx
+ * @param {{ report: object }} ctx
  */
-export function bindReviewOrcamentoButton(overlay, { report, onUpdated } = {}) {
+export function bindReviewOrcamentoButton(overlay, { report } = {}) {
   if (!reportHasPedidoOrcamento(report)) return;
 
-  overlay.querySelector('#btn-open-orcamento-modal')?.addEventListener('click', () => {
-    const fresh = getReport(report.id) || report;
-    openOrcamentoModal(fresh, {
-      onUpdated: (updated) => {
-        onUpdated?.(updated);
-        const teaser = overlay.querySelector('.review-orcamento-teaser');
-        if (!teaser) return;
-        const fresh = renderReviewOrcamentoBanner(updated);
-        if (fresh) teaser.outerHTML = fresh;
-        bindReviewOrcamentoButton(overlay, { report: updated, onUpdated });
-      },
-    });
+  overlay.querySelector('#btn-go-orcamentos-tab')?.addEventListener('click', async () => {
+    const reportId = getReport(report.id)?.id || report.id;
+    const { closeModal } = await import('./app.js');
+    const { navigateToOrcamentoReport } = await import('./admin-dashboard.js');
+    closeModal();
+    await navigateToOrcamentoReport(reportId);
   });
 }
 

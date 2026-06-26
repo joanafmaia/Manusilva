@@ -314,12 +314,7 @@ export async function openRhReviewModal(reportId, callbacks = {}) {
 
   bindReviewFotoClicks(overlay);
   bindReviewPdfButton(overlay, { job, report });
-  bindReviewOrcamentoButton(overlay, {
-    report,
-    onUpdated: (updated) => {
-      report = updated;
-    },
-  });
+  bindReviewOrcamentoButton(overlay, { report });
   bindReviewTabs(overlay);
 
   overlay.querySelector('#modal-close-review')?.addEventListener('click', closeModal);

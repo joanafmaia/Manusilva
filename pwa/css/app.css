@@ -11272,6 +11272,15 @@ details[open] .expand-icon { transform: rotate(90deg); }
   line-height: 1.4;
 }
 
+.review-orcamento-teaser--hint {
+  display: block;
+  padding: 0.65rem 0.85rem;
+}
+
+.review-orcamento-teaser__link {
+  margin-top: 0.55rem;
+}
+
 .review-orcamento-teaser__btn {
   flex: 0 0 auto;
   min-width: 10rem;
