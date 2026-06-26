@@ -381,25 +381,29 @@ export async function sendOrcamentoProposalEmail(meta = {}) {
     meta.dataConclusao ||
     new Date().toLocaleDateString('pt-PT', { year: 'numeric', month: '2-digit', day: '2-digit' });
 
+  const payload = {
+    to: meta.to,
+    reportId: meta.reportId,
+    clienteNome: meta.clienteNome || meta.nome_empresa || 'Cliente não indicado',
+    tecnico: meta.tecnico || 'Técnico não indicado',
+    dataConclusao: dateStamp,
+    tipoRelatorio: 'orcamento',
+    orcamentoNumero: meta.orcamentoNumero || '',
+    numeroOrdem: meta.numeroOrdem ?? null,
+    pdfUrl: meta.pdfUrl,
+  };
+  if (meta.pdfBase64 && meta.pdfFilename) {
+    payload.pdfBase64 = meta.pdfBase64;
+    payload.pdfFilename = meta.pdfFilename;
+  }
+
   const response = await fetch('/api/enviar-email', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({
-      to: meta.to,
-      reportId: meta.reportId,
-      clienteNome: meta.clienteNome || meta.nome_empresa || 'Cliente não indicado',
-      tecnico: meta.tecnico || 'Técnico não indicado',
-      dataConclusao: dateStamp,
-      tipoRelatorio: 'orcamento',
-      orcamentoNumero: meta.orcamentoNumero || '',
-      numeroOrdem: meta.numeroOrdem ?? null,
-      pdfUrl: meta.pdfUrl,
-      pdfFilename: meta.pdfFilename,
-      pdfBase64: meta.pdfBase64,
-    }),
+    body: JSON.stringify(payload),
   });
 
   if (!response.ok) {

@@ -341,7 +341,6 @@ export function bindOrcamentoEditor(container, { report, onUpdated } = {}) {
         orcamentoNumero: saved.data?.orcamento?.numeroFormatado || '',
         numeroOrdem: job?.numeroOrdem ?? null,
         pdfUrl,
-        pdfFilename: saved.data?.orcamentoPdfFilename || undefined,
       });
 
       const { updateRelatorio, mergeReportInCache } = await import('./relatorios-db.js');
