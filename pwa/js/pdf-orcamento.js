@@ -173,7 +173,7 @@ function drawOrcamentoTable(doc, linhas, startY) {
     return y + rowH;
   };
 
-  y = drawRow(['Descrição / Artigo', 'Qtd.', 'Preço Unit.', 'Total'], { bold: true, fill: true });
+  y = drawRow(['Na reparação precisa', 'Qtd.', 'Preço Unit.', 'Total'], { bold: true, fill: true });
   dataRows.forEach((row) => {
     const total =
       row.total ||
@@ -344,30 +344,7 @@ export async function renderOrcamentoPDF(report) {
       y = advanceBodyY(y, 5.5);
     });
 
-    y = advanceBodyY(y, 2);
-    pdfSetFont(doc, 'bold');
-    doc.text('Na reparação precisa:', MARGIN, y);
-    y = advanceBodyY(y, 6);
-    pdfSetFont(doc, 'normal');
-    pdfSplitText(doc, pdfSafeText(fill.reparacao_necessaria), CONTENT_W).forEach((line) => {
-      if (!canDrawBodyLine(y)) return;
-      doc.text(line, MARGIN, y);
-      y = advanceBodyY(y, 4.5);
-    });
     y = advanceBodyY(y, 4);
-
-    if (fill.observacoes_tecnico !== '—') {
-      pdfSetFont(doc, 'bold');
-      doc.text('Observações do técnico:', MARGIN, y);
-      y = advanceBodyY(y, 6);
-      pdfSetFont(doc, 'normal');
-      pdfSplitText(doc, pdfSafeText(fill.observacoes_tecnico), CONTENT_W).forEach((line) => {
-        if (!canDrawBodyLine(y)) return;
-        doc.text(line, MARGIN, y);
-        y = advanceBodyY(y, 4.5);
-      });
-      y = advanceBodyY(y, 4);
-    }
   }
 
   y = drawOrcamentoTable(doc, fill.linhas, y);

@@ -3,6 +3,7 @@
  */
 
 import { normalizeMaterialRows } from './material-table-field.js';
+import { getPedidoOrcamentoDetalhe } from './pedido-orcamento.js';
 import { readOrcamentoCabecalhoFromDom, resolveOrcamentoCabecalho } from './orcamento-cabecalho.js';
 
 const IVA_RATE = 0.23;
@@ -107,11 +108,16 @@ export function suggestOrcamentoLinhas(report) {
   if (existing.some((r) => r.descricao || r.precoUnit)) return existing;
 
   const values = report?.data?.values || {};
+  const fromDetalhe = (() => {
+    const detalhe = String(getPedidoOrcamentoDetalhe(report) || '').trim();
+    if (!detalhe) return [];
+    return [{ ...emptyOrcamentoLinha(), descricao: detalhe }];
+  })();
   const fromMaterial = linhasFromMaterial(values);
 
   const merged = [];
   const seen = new Set();
-  fromMaterial.forEach((row) => {
+  [...fromDetalhe, ...fromMaterial].forEach((row) => {
     const key = `${row.descricao}::${row.qtd}`.toLowerCase();
     if (!row.descricao || seen.has(key)) return;
     seen.add(key);

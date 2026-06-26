@@ -104,8 +104,6 @@ export function buildOrcamentoFillData(report, job = null) {
     tipo: display(cabecalho.tipo),
     numero_serie: display(cabecalho.numeroSerie),
     numero_interno: display(cabecalho.numeroInterno),
-    reparacao_necessaria: display(cabecalho.reparacaoNecessaria),
-    observacoes_tecnico: display(cabecalho.observacoesTecnico),
     taxa_saida: taxaSaida === '' ? '—' : formatEuro(taxaSaida),
     prazo_entrega: prazoEntrega || '—',
     forma_pagamento: display(cabecalho.formaPagamento),

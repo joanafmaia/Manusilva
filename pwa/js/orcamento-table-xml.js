@@ -52,7 +52,7 @@ export function buildOrcamentoWordTableXml(linhas) {
   const dataRows = rows.length ? rows : [{ descricao: '—', qtd: '1', precoUnit: '', total: '' }];
 
   const header = rowXml([
-    cellWithWidth('Descrição / Artigo', COL_WIDTHS[0], { bold: true }),
+    cellWithWidth('Na reparação precisa', COL_WIDTHS[0], { bold: true }),
     cellWithWidth('Qtd.', COL_WIDTHS[1], { bold: true, align: 'center' }),
     cellWithWidth('Preço Unit. (€)', COL_WIDTHS[2], { bold: true, align: 'right' }),
     cellWithWidth('Total (€)', COL_WIDTHS[3], { bold: true, align: 'right' }),

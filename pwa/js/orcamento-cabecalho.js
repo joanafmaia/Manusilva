@@ -3,7 +3,6 @@
  */
 
 import { getClient, getForklift, getJob, getServiceType } from './app.js';
-import { getPedidoOrcamentoDetalhe } from './pedido-orcamento.js';
 
 export const ORCAMENTO_FORMA_PAGAMENTO_DEFAULT = 'Pronto Pagamento';
 export const ORCAMENTO_VALIDADE_DEFAULT = '10 Dias';
@@ -131,7 +130,6 @@ function buildDefaultsFromReport(report) {
     numeroInterno: equipamento.numeroInterno,
     maquina: equipamento.maquina,
     matricula: equipamento.matricula,
-    reparacaoNecessaria: String(getPedidoOrcamentoDetalhe(report) || '').trim(),
     observacoesTecnico: resolveReportObservacoesTecnico(report),
     formaPagamento: ORCAMENTO_FORMA_PAGAMENTO_DEFAULT,
     validadeOrcamento: ORCAMENTO_VALIDADE_DEFAULT,
@@ -147,7 +145,6 @@ const CABECALHO_FIELD_KEYS = [
   'numeroInterno',
   'maquina',
   'matricula',
-  'reparacaoNecessaria',
   'observacoesTecnico',
   'formaPagamento',
   'validadeOrcamento',
@@ -213,7 +210,6 @@ export function readOrcamentoCabecalhoFromDom(root, report) {
     numeroInterno: read('numeroInterno'),
     maquina: read('maquina'),
     matricula: read('matricula'),
-    reparacaoNecessaria: read('reparacaoNecessaria'),
     observacoesTecnico: read('observacoesTecnico'),
     formaPagamento: read('formaPagamento') || ORCAMENTO_FORMA_PAGAMENTO_DEFAULT,
     validadeOrcamento: read('validadeOrcamento') || ORCAMENTO_VALIDADE_DEFAULT,

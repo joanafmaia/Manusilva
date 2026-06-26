@@ -122,14 +122,9 @@ export function renderOrcamentoEditor(report, { client } = {}) {
           </label>
         </div>
         <label class="review-orc-field review-orc-field--full">
-          <span>Na reparação precisa</span>
-          <textarea class="review-orc-input review-orc-textarea" data-orc-field="reparacaoNecessaria" rows="3" placeholder="Detalhe do pedido de orçamento do técnico">${escapeHtml(cab.reparacaoNecessaria)}</textarea>
-          <span class="review-orc-field-hint text-muted">Texto do pedido de orçamento no relatório — pode editar.</span>
-        </label>
-        <label class="review-orc-field review-orc-field--full">
           <span>Observações do técnico</span>
           <textarea class="review-orc-input review-orc-textarea" data-orc-field="observacoesTecnico" rows="3" placeholder="Observações do relatório técnico">${escapeHtml(cab.observacoesTecnico)}</textarea>
-          <span class="review-orc-field-hint text-muted">Apoio à faturação — sugerido do relatório, pode editar.</span>
+          <span class="review-orc-field-hint text-muted">Apoio interno à faturação — não incluído no PDF da proposta.</span>
         </label>
       </section>
 
@@ -152,7 +147,7 @@ export function renderOrcamentoEditor(report, { client } = {}) {
         <table class="review-orc-table">
           <thead>
             <tr>
-              <th>Descrição / Artigo</th>
+              <th>Na reparação precisa</th>
               <th>Qtd.</th>
               <th>Preço unit. (€)</th>
               <th>Total (€)</th>
