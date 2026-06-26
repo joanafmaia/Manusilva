@@ -71,6 +71,7 @@ import {
   getNextPendingReportId,
   buildRhOpsSummaryText,
 } from './rh-panel-utils.js';
+import { groupJobsByVisita } from './visita-cliente.js';
 import { computeDashboardMetrics } from './views/dashboard-metrics.js';
 
 /** Aba ativa do painel admin (controlada pela sidebar) */
@@ -765,6 +766,77 @@ function getCalendarDates() {
   return dates;
 }
 
+function renderAdminCalendarVisitChips(dayJobs, { compact = false } = {}) {
+  const { folders } = groupJobsByVisita(
+    dayJobs,
+    getAllJobs(),
+    getReportsSnapshot(),
+  );
+  if (!folders.length) return '';
+
+  return folders
+    .map((folder) => {
+      const client = getClient(folder.jobs[0]?.clientId);
+      const name = client?.name || 'Cliente';
+      const count = folder.jobCount || folder.jobs.length;
+      const label = compact
+        ? `Visita ${name} — ${count} trabalhos`
+        : `${name} · ${count} trabalho${count === 1 ? '' : 's'}`;
+      return `
+        <button
+          type="button"
+          class="cal-visita-chip${compact ? ' cal-visita-chip--compact' : ''}"
+          data-visita-scroll="${escapeHtml(folder.visitKey)}"
+          title="Abrir pasta da visita no painel de relatórios"
+          aria-label="${escapeHtml(`Abrir pasta da visita — ${label}`)}"
+        >
+          <span class="cal-visita-chip__icon" aria-hidden="true">📁</span>
+          <span class="cal-visita-chip__text">${escapeHtml(compact ? String(count) : label)}</span>
+        </button>`;
+    })
+    .join('');
+}
+
+async function openVisitaInReviewPanel(visitKey) {
+  if (!visitKey) return;
+
+  const needsReset =
+    rhReviewFilter !== 'all' ||
+    rhReviewTechFilter !== 'all' ||
+    String(rhReviewSearch || '').trim();
+
+  if (needsReset) {
+    rhReviewFilter = 'all';
+    rhReviewTechFilter = 'all';
+    rhReviewSearch = '';
+    persistRhReviewFilters();
+    await renderRhReviewStack();
+  } else if (!document.querySelector(`#rh-review-panel .rh-visita-folder[data-visita-key="${CSS.escape(visitKey)}"]`)) {
+    await renderRhReviewStack();
+  }
+
+  if (currentTab !== 'calendario' && currentTab !== 'relatorios') {
+    setAdminTab('calendario');
+  }
+
+  requestAnimationFrame(() => {
+    const folder = document.querySelector(
+      `#rh-review-panel .rh-visita-folder[data-visita-key="${CSS.escape(visitKey)}"]`,
+    );
+    if (!folder) {
+      showToast(
+        'Pasta da visita ainda não está no painel — os relatórios podem não ter sido submetidos.',
+        'info',
+        7000,
+      );
+      return;
+    }
+    folder.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    folder.classList.add('rh-visita-folder--highlight');
+    setTimeout(() => folder.classList.remove('rh-visita-folder--highlight'), 4500);
+  });
+}
+
 function renderCalendar() {
   const grid = document.getElementById('calendar-grid');
   const title = document.getElementById('calendar-title');
@@ -808,6 +880,7 @@ function renderCalendar() {
             <strong>${getDayNumber(date)}</strong>
           </div>
           <div class="cal-col-body">
+            ${renderAdminCalendarVisitChips(dayJobs)}
             ${dayJobs.map((j) => renderCalendarBlock(j)).join('') || '<span class="cal-empty">Sem trabalhos</span>'}
           </div>
         </div>
@@ -826,6 +899,7 @@ function renderCalendar() {
       html += `
         <div class="cal-cell ${isToday(date) ? 'today-cell' : ''}">
           <span class="cal-cell-day">${getDayNumber(date)}</span>
+          ${renderAdminCalendarVisitChips(dayJobs, { compact: true })}
           ${dayJobs.slice(0, 3).map((j) => renderCalendarBlock(j, true)).join('')}
           ${dayJobs.length > 3 ? `<span class="cal-more">+${dayJobs.length - 3}</span>` : ''}
         </div>
@@ -904,6 +978,7 @@ function renderAgendaList(jobs, dates) {
       return `
         <section class="agenda-day-group" aria-label="${escapeHtml(formatDateLong(date))}">
           <h3 class="agenda-day-heading">${escapeHtml(formatDateLong(date))}</h3>
+          ${renderAdminCalendarVisitChips(dayJobs)}
           ${dayJobs.map((j) => renderAgendaListItem(j)).join('')}
         </section>
       `;
@@ -946,6 +1021,14 @@ function bindCalendarJobInteractions() {
   grid.__calendarJobsBound = true;
 
   grid.addEventListener('click', (e) => {
+    const visitBtn = e.target.closest('[data-visita-scroll]');
+    if (visitBtn?.dataset.visitaScroll) {
+      e.preventDefault();
+      e.stopPropagation();
+      void openVisitaInReviewPanel(visitBtn.dataset.visitaScroll);
+      return;
+    }
+
     if (e.target.closest('[data-delete-job]')) return;
     const trigger = e.target.closest('[data-job-id]');
     if (!trigger?.dataset.jobId) return;

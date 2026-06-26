@@ -7422,6 +7422,21 @@ body.dark-mode .rh-filter-chip.is-active {
   opacity: 0.92;
 }
 
+.rh-visita-folder--highlight {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 55%, transparent);
+  animation: rh-visita-folder-pulse 1.2s ease-in-out 2;
+}
+
+@keyframes rh-visita-folder-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 40%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 70%, transparent);
+  }
+}
+
 .rh-list-item {
   background: var(--ms-card-bg);
   border: 1px solid var(--ms-border-md);
@@ -8110,6 +8125,61 @@ body.dark-mode .rh-card__btn--pdf {
 .cal-col-header strong { display: block; font-size: 1.125rem; color: var(--text-primary); }
 
 .cal-col-body { padding: 0.5rem; display: flex; flex-direction: column; gap: 0.35rem; }
+
+.cal-visita-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  width: 100%;
+  margin: 0 0 0.15rem;
+  padding: 0.35rem 0.45rem;
+  border: 1px dashed color-mix(in srgb, var(--primary) 45%, var(--border-subtle));
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--primary) 8%, var(--bg-card));
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 600;
+  line-height: 1.25;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.cal-visita-chip:hover,
+.cal-visita-chip:focus-visible {
+  background: color-mix(in srgb, var(--primary) 14%, var(--bg-card));
+  border-color: color-mix(in srgb, var(--primary) 65%, var(--border-subtle));
+}
+
+.cal-visita-chip__icon {
+  flex-shrink: 0;
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
+.cal-visita-chip__text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cal-visita-chip--compact {
+  width: auto;
+  max-width: 100%;
+  padding: 0.15rem 0.35rem;
+  margin-bottom: 0.2rem;
+  font-size: 0.62rem;
+}
+
+.cal-visita-chip--compact .cal-visita-chip__icon {
+  font-size: 0.72rem;
+}
+
+.agenda-day-group .cal-visita-chip {
+  margin-bottom: 0.45rem;
+}
 
 .cal-block {
   padding: 0.4rem 0.5rem;
