@@ -9,7 +9,7 @@ import {
   withOrcamentoUrlCacheBust,
 } from './pedido-orcamento.js';
 import { buildOrcamentoPdfFilename, renderOrcamentoPDF } from './pdf-orcamento.js';
-import { buildOrcamentoMetaDraft } from './orcamento-linhas.js';
+import { buildOrcamentoMetaDraft, getReportOrcamentoMeta } from './orcamento-linhas.js';
 import { ensureOrcamentoNumeroForReport } from './orcamento-numero-db.js';
 import { uploadTrabalhoPdf } from './pdf-storage.js';
 import { mergeReportInCache, updateRelatorio } from './relatorios-db.js';
@@ -60,13 +60,11 @@ function resolveOrcamentoMetaForRender(report, numero, explicitMeta = null) {
  */
 export async function attachOrcamentoPdfToReport(report, options = {}) {
   if (!report?.id || !reportHasPedidoOrcamento(report)) return report;
-  if (
-    !options.force &&
-    !options.orcamentoMeta &&
-    getReportOrcamentoPdfUrl(report) &&
-    report.data?.orcamento?.atualizadoEm
-  ) {
-    return report;
+
+  const savedMeta = getReportOrcamentoMeta(report);
+  if (!options.force && !options.orcamentoMeta) {
+    if (getReportOrcamentoPdfUrl(report)) return report;
+    if (savedMeta?.numeroSequencial && savedMeta?.ano) return report;
   }
 
   const numero = await ensureOrcamentoNumeroForReport(report);

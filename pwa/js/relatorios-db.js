@@ -24,6 +24,28 @@ export function isUuid(value) {
   return UUID_RE.test(String(value || ''));
 }
 
+/** Evita listar o mesmo trabalho duas vezes no painel RH (submissões duplicadas). */
+export function dedupeReportsByJobPreferNewest(reports = []) {
+  const byJob = new Map();
+  const withoutJob = [];
+
+  for (const report of reports) {
+    if (!report?.jobId) {
+      withoutJob.push(report);
+      continue;
+    }
+    const key = String(report.jobId);
+    const existing = byJob.get(key);
+    const reportTs = String(report.submittedAt || report.approvedAt || '');
+    const existingTs = String(existing?.submittedAt || existing?.approvedAt || '');
+    if (!existing || reportTs.localeCompare(existingTs) > 0) {
+      byJob.set(key, report);
+    }
+  }
+
+  return [...withoutJob, ...byJob.values()];
+}
+
 function parseClientId(clientId) {
   if (clientId == null || clientId === '') return null;
   const n = Number(clientId);

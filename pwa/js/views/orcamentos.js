@@ -22,6 +22,7 @@ import {
   reportOrcamentoPorPreparar,
 } from '../pedido-orcamento.js';
 import { getReportOrcamentoMeta } from '../orcamento-linhas.js';
+import { dedupeReportsByJobPreferNewest } from '../relatorios-db.js';
 
 const PANEL_STATUSES = new Set(['pending_review', 'approved']);
 
@@ -38,13 +39,15 @@ function orcamentoWorkflowStatus(report) {
 }
 
 function listOrcamentoReports() {
-  return getReportsSnapshot()
-    .filter((report) => reportHasPedidoOrcamento(report) && PANEL_STATUSES.has(report.status))
-    .sort((a, b) => {
-      const da = String(a.approvedAt || a.submittedAt || '');
-      const db = String(b.approvedAt || b.submittedAt || '');
-      return db.localeCompare(da);
-    });
+  return dedupeReportsByJobPreferNewest(
+    getReportsSnapshot()
+      .filter((report) => reportHasPedidoOrcamento(report) && PANEL_STATUSES.has(report.status))
+      .sort((a, b) => {
+        const da = String(a.approvedAt || a.submittedAt || '');
+        const db = String(b.approvedAt || b.submittedAt || '');
+        return db.localeCompare(da);
+      }),
+  );
 }
 
 function filterOrcamentoReports(reports) {

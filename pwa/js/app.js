@@ -1661,6 +1661,24 @@ export async function submitReport(report, options = {}) {
       : new Date().toISOString(),
   };
 
+  if (!isCorrection && final.jobId) {
+    await ensureReportsLoaded();
+    const duplicatePending = getReportsSnapshot().find(
+      (r) =>
+        sameEntityId(r.jobId, final.jobId) &&
+        r.status === 'pending_review' &&
+        (!final.id || !sameEntityId(r.id, final.id)),
+    );
+    if (duplicatePending) {
+      showToast(
+        'Este trabalho já tem um relatório à espera de aprovação do RH.',
+        'warning',
+        7000,
+      );
+      return { queued: false };
+    }
+  }
+
   if (isCorrection && !final.id && report.jobId) {
     const existing = getReportForJob(report.jobId);
     if (existing?.id) final.id = existing.id;

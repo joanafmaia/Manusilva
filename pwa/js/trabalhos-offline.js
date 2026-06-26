@@ -194,15 +194,6 @@ async function syncOnePendingItem(item) {
   }
 
   const syncedReport = saved || report;
-  if (syncedReport?.id) {
-    try {
-      const { attachOrcamentoPdfToReport } = await import('./orcamento-pdf-service.js');
-      await attachOrcamentoPdfToReport(syncedReport);
-    } catch (err) {
-      console.warn('[ManuSilva] Folha de orçamento:', err);
-    }
-  }
-
   return saved;
 }
 

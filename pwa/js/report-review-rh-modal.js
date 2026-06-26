@@ -46,6 +46,7 @@ import {
   sortVisitaReportsNewestFirst,
   reportVisitaEmailWasSent,
 } from './visita-cliente.js';
+import { dedupeReportsByJobPreferNewest } from './relatorios-db.js';
 import {
   computeReviewChecks,
   reviewHasBlockingIssues,
@@ -332,7 +333,8 @@ export function buildRhReviewGroupedStack(
   reports,
   { getJobFn = getJob, allReports = reports, allJobs = [] } = {},
 ) {
-  const { folders, singles } = groupReportsByVisita(reports, getJobFn, allJobs, allReports);
+  const uniqueReports = dedupeReportsByJobPreferNewest(reports);
+  const { folders, singles } = groupReportsByVisita(uniqueReports, getJobFn, allJobs, allReports);
   const sortedFolders = sortVisitaFoldersNewestFirst(folders);
 
   const folderHtml = sortedFolders
