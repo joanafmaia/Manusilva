@@ -56,6 +56,7 @@ import {
   EMPILHADORES_MAQUINAS_FIELD_ID,
   collectEmpilhadoresMaquinas,
   flushEmpilhadoresChecklistToStore,
+  getActiveMaquinaIndex,
   initEmpilhadoresMaquinasForm,
   migrateLegacyEmpilhadoresMaquinas,
 } from './views/relatorio-empilhadores-maquinas.js';
@@ -889,9 +890,18 @@ function rerenderEmpilhadoresChecklist(overlay, machineIndex) {
   bindEmpilhadoresMaquinasInteractions(overlay);
 }
 
+function handleEmpilhadoresRowChange(overlay) {
+  formAutosave?.markDirty();
+  const panel = overlay.querySelector('[data-lazy-checklist="true"]');
+  if (panel?.dataset.lazyLoaded !== 'true') return;
+  const maquinas = collectEmpilhadoresMaquinas(overlay);
+  const idx = Math.min(getActiveMaquinaIndex(overlay), Math.max(0, maquinas.length - 1));
+  rerenderEmpilhadoresChecklist(overlay, idx);
+}
+
 function bindEmpilhadoresMaquinasInteractions(overlay) {
   initEmpilhadoresMaquinasForm(overlay, {
-    onRowChange: () => formAutosave?.markDirty(),
+    onRowChange: () => handleEmpilhadoresRowChange(overlay),
     onMaquinaSelect: (index) => rerenderEmpilhadoresChecklist(overlay, index),
   });
 }
@@ -900,22 +910,38 @@ function onReportTabActivated(tabId, overlay) {
   if (tabId === 'checklist' && overlay) {
     const lazyContext = overlay.__lazyFormState;
     const panel = overlay.querySelector('[data-lazy-checklist="true"]');
-    if (panel && lazyContext && !panel.dataset.lazyLoaded) {
-      panel.dataset.lazyLoaded = 'true';
+    if (panel && lazyContext) {
       const values = { ...lazyContext.values };
       if (lazyContext.service?.id === 'manutencao_preventiva_empilhadores') {
+        flushEmpilhadoresChecklistToStore(overlay);
         values[EMPILHADORES_MAQUINAS_FIELD_ID] = collectEmpilhadoresMaquinas(overlay);
         lazyContext.values = values;
-      }
-      panel.innerHTML = renderReportFields(
-        lazyContext.service,
-        values,
-        lazyContext.formContext,
-        { tab: 'checklist' },
-      );
-      void bindFormFieldInteractions(overlay);
-      if (lazyContext.service?.id === 'manutencao_preventiva_empilhadores') {
+        const maquinas = values[EMPILHADORES_MAQUINAS_FIELD_ID] || [];
+        const activeIdx = Math.min(
+          getActiveMaquinaIndex(overlay),
+          Math.max(0, maquinas.length - 1),
+        );
+        lazyContext.formContext = { ...lazyContext.formContext, activeMaquinaIndex: activeIdx };
+        panel.innerHTML = renderReportFields(
+          lazyContext.service,
+          values,
+          lazyContext.formContext,
+          { tab: 'checklist' },
+        );
+        void bindFormFieldInteractions(overlay);
         bindEmpilhadoresMaquinasInteractions(overlay);
+        panel.dataset.lazyLoaded = 'true';
+        return;
+      }
+      if (!panel.dataset.lazyLoaded) {
+        panel.dataset.lazyLoaded = 'true';
+        panel.innerHTML = renderReportFields(
+          lazyContext.service,
+          values,
+          lazyContext.formContext,
+          { tab: 'checklist' },
+        );
+        void bindFormFieldInteractions(overlay);
       }
     }
   }

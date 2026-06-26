@@ -337,7 +337,9 @@ export function flushEmpilhadoresChecklistToStore(overlay) {
 export function collectEmpilhadoresMaquinas(overlay) {
   const store = readStore(overlay);
   const idRows = collectIdRowsFromTable(overlay);
-  const count = Math.max(idRows.length, store.length, 1);
+  const hasIdTable = Boolean(overlay.querySelector('.empilhadores-maquinas-body'));
+  // A tabela em Geral é a fonte de verdade — o hidden store pode ficar desatualizado.
+  const count = hasIdTable ? Math.max(idRows.length, 1) : Math.max(store.length, 1);
   while (store.length < count) store.push(emptyEmpilhadoresMaquinaRow());
   while (store.length > count) store.pop();
 
