@@ -1340,12 +1340,26 @@ export function getAllJobs() {
 }
 
 export function getPendingReports() {
-  return getRhPanelReports().filter(isRhPendingReviewWithoutOrcamento);
+  return dedupeReportsByJobPreferNewest(getPendingReviewReportsSnapshot()).filter(
+    isRhPendingReviewWithoutOrcamento,
+  );
+}
+
+function getRhPanelReportsRaw() {
+  return getReportsSnapshot().filter((r) => RH_PANEL_REPORT_STATUSES.has(r.status));
+}
+
+function getPendingReviewReportsSnapshot() {
+  return getRhPanelReportsRaw().filter((r) => r.status === 'pending_review');
 }
 
 function getRhPanelReports() {
+  return dedupeReportsByJobPreferNewest(getRhPanelReportsRaw());
+}
+
+function getRhOrcamentoQueueReports() {
   return dedupeReportsByJobPreferNewest(
-    getReportsSnapshot().filter((r) => RH_PANEL_REPORT_STATUSES.has(r.status)),
+    getRhPanelReportsRaw().filter(isRhOrcamentoQueueReport),
   );
 }
 
@@ -1366,13 +1380,15 @@ function sortReportsForRhPanel(a, b) {
 
 /** Relatórios visíveis no painel RH (com filtro opcional por estado) */
 export function getAdminReviewReports(filter = 'all') {
-  const list = getRhPanelReports();
   if (filter === 'pending_review') {
-    return list.filter(isRhPendingReviewWithoutOrcamento).sort(sortReportsForRhPanel);
+    return dedupeReportsByJobPreferNewest(getPendingReviewReportsSnapshot())
+      .filter(isRhPendingReviewWithoutOrcamento)
+      .sort(sortReportsForRhPanel);
   }
   if (filter === 'orcamento_pendente') {
-    return list.filter(isRhOrcamentoQueueReport).sort(sortReportsForRhPanel);
+    return getRhOrcamentoQueueReports().sort(sortReportsForRhPanel);
   }
+  const list = getRhPanelReports();
   const filtered = filter === 'all' ? list : list.filter((r) => r.status === filter);
   return filtered.sort(sortReportsForRhPanel);
 }
@@ -1380,10 +1396,11 @@ export function getAdminReviewReports(filter = 'all') {
 /** Contagens por estado para filtros rápidos do painel RH */
 export function getRhPanelReportCounts() {
   const list = getRhPanelReports();
+  const pendingReview = dedupeReportsByJobPreferNewest(getPendingReviewReportsSnapshot());
   return {
     all: list.length,
-    pending_review: list.filter(isRhPendingReviewWithoutOrcamento).length,
-    orcamento_pendente: list.filter(isRhOrcamentoQueueReport).length,
+    pending_review: pendingReview.filter(isRhPendingReviewWithoutOrcamento).length,
+    orcamento_pendente: getRhOrcamentoQueueReports().length,
     draft: list.filter((r) => r.status === 'draft').length,
     approved: list.filter((r) => r.status === 'approved').length,
     rejected: list.filter((r) => r.status === 'rejected').length,

@@ -161,7 +161,8 @@ export function groupReportsByVisita(reports, getJob, allJobs = getJobsSnapshot(
   const foldersList = [...folders.entries()].map(([visitKey, items]) => ({
     visitKey,
     reports: items,
-    jobCount: getVisitaItemCount(visitKey, allJobs, allReports, getJob),
+    // Na lista RH, contar só os relatórios visíveis no filtro (não trabalhos agendados sem relatório).
+    jobCount: items.length,
   }));
 
   return { folders: foldersList, singles };

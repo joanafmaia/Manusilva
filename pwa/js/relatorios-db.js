@@ -24,6 +24,23 @@ export function isUuid(value) {
   return UUID_RE.test(String(value || ''));
 }
 
+/** Prioridade ao escolher um relatório canónico por trabalho (fila RH). */
+const RH_REPORT_STATUS_PRIORITY = {
+  pending_review: 40,
+  draft: 30,
+  approved: 20,
+  rejected: 10,
+};
+
+function compareReportsForJobDedupe(a, b) {
+  const pa = RH_REPORT_STATUS_PRIORITY[a?.status] || 0;
+  const pb = RH_REPORT_STATUS_PRIORITY[b?.status] || 0;
+  if (pa !== pb) return pa - pb;
+  const ta = String(a?.submittedAt || a?.approvedAt || '');
+  const tb = String(b?.submittedAt || b?.approvedAt || '');
+  return ta.localeCompare(tb);
+}
+
 /** Evita listar o mesmo trabalho duas vezes no painel RH (submissões duplicadas). */
 export function dedupeReportsByJobPreferNewest(reports = []) {
   const byJob = new Map();
@@ -36,9 +53,7 @@ export function dedupeReportsByJobPreferNewest(reports = []) {
     }
     const key = String(report.jobId);
     const existing = byJob.get(key);
-    const reportTs = String(report.submittedAt || report.approvedAt || '');
-    const existingTs = String(existing?.submittedAt || existing?.approvedAt || '');
-    if (!existing || reportTs.localeCompare(existingTs) > 0) {
+    if (!existing || compareReportsForJobDedupe(existing, report) < 0) {
       byJob.set(key, report);
     }
   }
