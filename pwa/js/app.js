@@ -318,7 +318,7 @@ export function updateDB(updater) {
 
 /**
  * Dispara envio de e-mail oficial via Serverless Function (`/api/enviar-email`).
- * @param {{ tipoRelatorio?: string, reportId?: string, clienteNome?: string, nome_empresa?: string, tecnico?: string, dataConclusao?: string, to?: string, serieFrota?: string, numeroOrdem?: number | null, pdfUrl?: string, pdfFilename?: string, pdfBase64?: string }} [meta]
+ * @param {{ tipoRelatorio?: string, reportId?: string, clienteNome?: string, nome_empresa?: string, tecnico?: string, dataConclusao?: string, to?: string, serieFrota?: string, numeroOrdem?: number | null, pdfUrl?: string, pdfUrls?: Array<string | { url: string, filename?: string, label?: string }>, pdfFilename?: string, pdfBase64?: string, pdfAttachments?: Array<{ pdfFilename: string, pdfBase64: string }> }} [meta]
  */
 export async function sendOfficialReportEmail(meta = {}) {
   const { getFreshAccessToken } = await import('./supabase-client.js');
@@ -352,8 +352,10 @@ export async function sendOfficialReportEmail(meta = {}) {
       numeroOrdem: meta.numeroOrdem ?? null,
       orcamentoNumero: meta.orcamentoNumero,
       pdfUrl: meta.pdfUrl,
+      pdfUrls: meta.pdfUrls,
       pdfFilename: meta.pdfFilename,
       pdfBase64: meta.pdfBase64,
+      pdfAttachments: meta.pdfAttachments,
     }),
   });
 
@@ -419,6 +421,108 @@ export async function sendOrcamentoProposalEmail(meta = {}) {
 }
 
 /**
+ * @param {Array<{ blob?: Blob, filename: string, publicUrl?: string, machineLabel?: string, base64?: string }>} pdfEntries
+ */
+function buildReportEmailPdfPayload(pdfEntries = []) {
+  const MAX_BASE64_LEN = 3_000_000;
+  const MAX_TOTAL_BASE64 = 8_000_000;
+  const attachments = [];
+  let totalLen = 0;
+
+  for (const entry of pdfEntries) {
+    const filename = entry?.filename;
+    if (!filename) continue;
+    const base64 = entry.base64 || '';
+    if (!base64 || base64.length > MAX_BASE64_LEN) continue;
+    if (totalLen + base64.length > MAX_TOTAL_BASE64) break;
+    attachments.push({ pdfFilename: filename, pdfBase64: base64 });
+    totalLen += base64.length;
+  }
+
+  const pdfUrls = pdfEntries
+    .filter((entry) => entry?.publicUrl)
+    .map((entry) => ({
+      url: entry.publicUrl,
+      filename: entry.filename || '',
+      label: entry.machineLabel || entry.filename || '',
+    }));
+
+  const payload = {
+    pdfUrl: pdfUrls[0]?.url || null,
+    pdfUrls,
+  };
+
+  if (attachments.length > 1) {
+    payload.pdfAttachments = attachments;
+  } else if (attachments.length === 1) {
+    payload.pdfFilename = attachments[0].pdfFilename;
+    payload.pdfBase64 = attachments[0].pdfBase64;
+  }
+
+  return payload;
+}
+
+async function blobToBase64(blob) {
+  const buffer = await blob.arrayBuffer();
+  return arrayBufferToBase64(buffer);
+}
+
+/**
+ * @param {object} report
+ * @param {object} job
+ * @param {{ label?: string }} [service]
+ * @returns {Promise<Array<{ blob: Blob, filename: string, publicUrl: string, machineLabel?: string }>>}
+ */
+async function generateAndUploadApprovedReportPdfs(report, job, service) {
+  const { importPdfReport } = await import('./pdf-loader.js');
+  const pdfReport = await importPdfReport();
+  const EMPILHADORES_SERVICE = 'manutencao_preventiva_empilhadores';
+  const serviceTitle = PDF_DOCUMENT_TITLES[report.serviceType] || service?.label;
+
+  if (report.serviceType === EMPILHADORES_SERVICE) {
+    const pdfs = await pdfReport.generateEmpilhadoresPdfBlobs(report);
+    const uploaded = [];
+    for (const item of pdfs) {
+      const stored = await uploadTrabalhoPdf(item.blob, item.filename);
+      uploaded.push({
+        blob: item.blob,
+        filename: item.filename,
+        publicUrl: stored.publicUrl,
+        machineLabel: item.machineLabel,
+      });
+    }
+    return uploaded;
+  }
+
+  const doc = await pdfReport.renderInterventionPDF(report);
+  const filename = buildReportPdfFilename(job, report, { serviceTitle });
+  const blob = doc.output('blob');
+  const stored = await uploadTrabalhoPdf(blob, filename);
+  return [{ blob, filename, publicUrl: stored.publicUrl }];
+}
+
+function resolveApprovedReportPdfSources(report, job) {
+  const urls = Array.isArray(report?.data?.urlPdfs) ? report.data.urlPdfs.filter(Boolean) : [];
+  const names = Array.isArray(report?.data?.pdfFilenames) ? report.data.pdfFilenames : [];
+  if (urls.length) {
+    return urls.map((url, index) => ({
+      publicUrl: url,
+      filename: names[index] || report.pdfFilename || `relatorio_${index + 1}.pdf`,
+      machineLabel: names[index] || `Relatório ${index + 1}`,
+    }));
+  }
+  if (job?.urlPdf) {
+    return [
+      {
+        publicUrl: job.urlPdf,
+        filename: report.pdfFilename || 'relatorio.pdf',
+      },
+    ];
+  }
+  return [];
+}
+
+/**
  * Reenvia o e-mail oficial de um relatório já aprovado (ex.: falha de sessão na 1.ª aprovação).
  * @param {string} reportId
  * @param {{ clientEmail?: string }} [options]
@@ -459,8 +563,38 @@ export async function resendApprovedReportEmail(reportId, options = {}) {
     return false;
   }
 
-  const publicPdfUrl = job?.urlPdf || null;
-  if (!publicPdfUrl) {
+  const {
+    isEmpilhadoresMultiMaquinaReport,
+    getEmpilhadoresMaquinasFromReport,
+  } = await import('./views/relatorio-empilhadores-maquinas.js');
+
+  let pdfSources = resolveApprovedReportPdfSources(report, job);
+  const expectedPdfCount = isEmpilhadoresMultiMaquinaReport(report)
+    ? getEmpilhadoresMaquinasFromReport(report).length
+    : 1;
+
+  if (pdfSources.length < expectedPdfCount) {
+    try {
+      showToast('A preparar todos os PDFs da ordem de trabalho...', 'info', 4000);
+      const regenerated = await generateAndUploadApprovedReportPdfs(report, job, service);
+      if (regenerated.length) {
+        pdfSources = regenerated;
+        await updateRelatorio(reportId, {
+          data: {
+            urlPdfs: regenerated.map((entry) => entry.publicUrl),
+            pdfFilenames: regenerated.map((entry) => entry.filename),
+          },
+        });
+        if (report.jobId && regenerated[0]?.publicUrl) {
+          await patchTrabalho(report.jobId, { urlPdf: regenerated[0].publicUrl });
+        }
+      }
+    } catch (err) {
+      console.warn('[Email] Regeneração multi-PDF no reenvio:', err);
+    }
+  }
+
+  if (!pdfSources.length) {
     showToast('PDF do relatório não encontrado no Storage. Contacte suporte técnico.', 'error');
     return false;
   }
@@ -472,30 +606,44 @@ export async function resendApprovedReportEmail(reportId, options = {}) {
       : report.serviceType === 'manutencao_baterias_grandes'
         ? 'baterias'
         : 'outro';
-  const filename =
-    report.pdfFilename ||
-    buildReportPdfFilename(job, report, {
-      serviceTitle: PDF_DOCUMENT_TITLES[report.serviceType] || service?.label,
-    });
 
-  let pdfBase64;
-  let pdfFilename;
   const MAX_BASE64_LEN = 3_000_000;
-  try {
-    const res = await fetch(publicPdfUrl);
-    if (res.ok) {
-      const buf = await res.arrayBuffer();
-      const b64 = arrayBufferToBase64(buf);
-      if (b64.length > 0 && b64.length <= MAX_BASE64_LEN) {
-        pdfBase64 = b64;
-        pdfFilename = filename;
+  const emailPdfEntries = [];
+  for (const source of pdfSources) {
+    const entry = { ...source };
+    if (source.blob) {
+      try {
+        entry.base64 = await blobToBase64(source.blob);
+      } catch (err) {
+        console.warn('[Email] Anexo PDF no reenvio (blob):', err);
+      }
+    } else if (source.publicUrl) {
+      try {
+        const res = await fetch(source.publicUrl);
+        if (res.ok) {
+          const buf = await res.arrayBuffer();
+          const b64 = arrayBufferToBase64(buf);
+          if (b64.length > 0 && b64.length <= MAX_BASE64_LEN) {
+            entry.base64 = b64;
+          }
+        }
+      } catch (err) {
+        console.warn('[Email] Anexo PDF no reenvio:', err);
       }
     }
-  } catch (err) {
-    console.warn('[Email] Anexo PDF no reenvio:', err);
+    emailPdfEntries.push(entry);
   }
 
-  showToast(`A reenviar e-mail para ${recipientEmail}...`, 'info', 5000);
+  const emailPdfPayload = buildReportEmailPdfPayload(emailPdfEntries);
+  const pdfCount = pdfSources.length;
+
+  showToast(
+    pdfCount > 1
+      ? `A reenviar e-mail com ${pdfCount} relatórios para ${recipientEmail}...`
+      : `A reenviar e-mail para ${recipientEmail}...`,
+    'info',
+    5000,
+  );
 
   try {
     await sendOfficialReportEmail({
@@ -509,9 +657,7 @@ export async function resendApprovedReportEmail(reportId, options = {}) {
       serieFrota: values.numero_de_serie || report.forkliftSerial || '',
       numeroOrdem: job?.numeroOrdem ?? null,
       to: recipientEmail,
-      pdfUrl: publicPdfUrl,
-      pdfFilename,
-      pdfBase64,
+      ...emailPdfPayload,
     });
     showToast(`E-mail reenviado para ${recipientEmail}.`, 'success', 6000);
     return true;
@@ -1432,35 +1578,41 @@ export async function approveReport(reportId, options = {}) {
     }
 
     showToast('A gerar folha de intervenção em PDF...', 'info', 2500);
-    const { importPdfReport } = await import('./pdf-loader.js');
-    const { renderInterventionPDF } = await importPdfReport();
 
-    const doc = await renderInterventionPDF(reportForPdf);
-    const filename = buildReportPdfFilename(job, reportForPdf, {
-      serviceTitle: PDF_DOCUMENT_TITLES[report.serviceType] || service?.label,
-    });
-
-    const pdfBlob = doc.output('blob');
-    const pdfArrayBuffer = await pdfBlob.arrayBuffer();
-    const pdfBase64 = arrayBufferToBase64(pdfArrayBuffer);
-    const pdfBase64Len = pdfBase64.length;
-
-    let publicPdfUrl = null;
-
+    let pdfEntries;
     try {
-      const uploaded = await uploadTrabalhoPdf(pdfBlob, filename);
-      publicPdfUrl = uploaded.publicUrl;
+      pdfEntries = await generateAndUploadApprovedReportPdfs(reportForPdf, job, service);
     } catch (storageErr) {
       console.error('[ManuSilva] Upload PDF Storage:', storageErr);
       showToast(formatPdfStorageError(storageErr), 'error', 9000);
       return null;
     }
+    if (!pdfEntries.length) {
+      showToast('Não foi possível gerar os PDFs do relatório.', 'error');
+      return null;
+    }
+
+    const publicPdfUrl = pdfEntries[0].publicUrl;
+    const filename = pdfEntries[0].filename;
+    const urlPdfs = pdfEntries.map((entry) => entry.publicUrl);
+    const pdfFilenames = pdfEntries.map((entry) => entry.filename);
+
+    const emailPdfEntries = [];
+    for (const entry of pdfEntries) {
+      const base64 = await blobToBase64(entry.blob);
+      emailPdfEntries.push({ ...entry, base64 });
+    }
+    const emailPdfPayload = buildReportEmailPdfPayload(emailPdfEntries);
 
     await updateRelatorio(reportId, {
       status: 'approved',
       approvedAt: new Date().toISOString(),
       pdfFilename: filename,
       faturacaoStatus: 'pendente',
+      data: {
+        urlPdfs,
+        pdfFilenames,
+      },
     });
 
     if (reportForPdf.jobId) {
@@ -1491,8 +1643,11 @@ export async function approveReport(reportId, options = {}) {
         6000,
       );
     } else if (recipientEmail) {
+      const pdfCount = pdfEntries.length;
       showToast(
-        `Relatório aprovado! PDF guardado no Storage. A enviar e-mail para ${recipientEmail}...`,
+        pdfCount > 1
+          ? `Relatório aprovado! ${pdfCount} PDFs guardados. A enviar e-mail para ${recipientEmail}...`
+          : `Relatório aprovado! PDF guardado no Storage. A enviar e-mail para ${recipientEmail}...`,
         'success',
         7000,
       );
@@ -1509,10 +1664,6 @@ export async function approveReport(reportId, options = {}) {
             ? 'baterias'
             : 'outro';
 
-      // Anexo opcional (só se couber no limite do body serverless); o link do Storage vai sempre no e-mail.
-      const MAX_BASE64_LEN = 3_000_000; // ~2.2MB binário (base64 tem overhead)
-      const attachPdf = pdfBase64Len > 0 && pdfBase64Len <= MAX_BASE64_LEN;
-
       sendOfficialReportEmail({
         tipoRelatorio,
         reportId: report.id,
@@ -1523,9 +1674,7 @@ export async function approveReport(reportId, options = {}) {
         serieFrota: values.numero_de_serie || report.forkliftSerial || '',
         numeroOrdem: job?.numeroOrdem ?? null,
         to: recipientEmail,
-        pdfUrl: publicPdfUrl,
-        pdfFilename: attachPdf ? filename : undefined,
-        pdfBase64: attachPdf ? pdfBase64 : undefined,
+        ...emailPdfPayload,
       }).catch((err) => {
         console.error('[Email] Envio após aprovação falhou:', err);
         showToast(

@@ -159,6 +159,9 @@ function isRecipientAllowed(to, registeredEmail, clientDomains) {
   return clientDomains.has(toDomain);
 }
 
+/** Tamanho máximo combinado de todos os anexos PDF (evita timeouts na Vercel). */
+const MAX_TOTAL_PDF_BYTES = 8 * 1024 * 1024;
+
 function validatePdfAttachment(pdfBase64, pdfFilename) {
   if (!pdfBase64 && !pdfFilename) return { ok: true, content: null, filename: null };
 
@@ -191,6 +194,41 @@ function validatePdfAttachment(pdfBase64, pdfFilename) {
   }
 
   return { ok: true, content, filename };
+}
+
+function validatePdfAttachments(payload = {}) {
+  const rawList = Array.isArray(payload.pdfAttachments) ? payload.pdfAttachments : [];
+  if (rawList.length) {
+    const attachments = [];
+    let totalBytes = 0;
+    for (const item of rawList) {
+      const check = validatePdfAttachment(item?.pdfBase64, item?.pdfFilename);
+      if (!check.ok) return check;
+      if (!check.content) continue;
+      totalBytes += check.content.length;
+      if (totalBytes > MAX_TOTAL_PDF_BYTES) {
+        return {
+          ok: false,
+          error: `PDFs em anexo excedem o tamanho máximo (${MAX_TOTAL_PDF_BYTES / (1024 * 1024)}MB). Use os links no e-mail.`,
+        };
+      }
+      attachments.push({
+        filename: check.filename,
+        content: check.content,
+        contentType: 'application/pdf',
+      });
+    }
+    return { ok: true, attachments };
+  }
+
+  const single = validatePdfAttachment(payload.pdfBase64, payload.pdfFilename);
+  if (!single.ok) return single;
+  return {
+    ok: true,
+    attachments: single.content
+      ? [{ filename: single.filename, content: single.content, contentType: 'application/pdf' }]
+      : [],
+  };
 }
 
 function escapeHtml(value) {
@@ -260,17 +298,58 @@ function buildHtmlBody(payload = {}, options = {}) {
   const op = formatOpEmailLabel(payload.numeroOrdem);
   const opText = op ? `, ordem <strong>${escapeHtml(op)}</strong>` : '';
 
-  const pdfBlock = pdfUrl
-    ? `<p style="margin:18px 0 0 0;">
-        <a href="${escapeHtml(pdfUrl)}" target="_blank" rel="noopener noreferrer" style="display:inline-block;background:#0f172a;color:#ffffff;text-decoration:none;padding:10px 18px;border-radius:8px;font-size:13px;font-weight:600;">
-          ${tipoRelatorio === 'orcamento' ? 'Ver proposta PDF' : 'Ver relatório PDF'}
+  const pdfLinks = (() => {
+    const fromList = Array.isArray(payload.pdfUrls)
+      ? payload.pdfUrls
+          .map((entry) => {
+            if (!entry) return null;
+            if (typeof entry === 'string') {
+              return isSafeHttpUrl(entry) ? { url: entry.trim(), label: '' } : null;
+            }
+            const url = String(entry.url || '').trim();
+            if (!isSafeHttpUrl(url)) return null;
+            return {
+              url,
+              label: String(entry.label || entry.filename || '').trim(),
+            };
+          })
+          .filter(Boolean)
+      : [];
+    if (fromList.length) return fromList;
+    if (pdfUrl) return [{ url: pdfUrl, label: '' }];
+    return [];
+  })();
+
+  const pdfBlock = pdfLinks.length
+    ? `<div style="margin:18px 0 0 0;">
+        ${pdfLinks
+          .map((item, index) => {
+            const label = escapeHtml(
+              item.label ||
+                (pdfLinks.length > 1
+                  ? `${tipoRelatorio === 'orcamento' ? 'Proposta' : 'Relatório'} ${index + 1}`
+                  : tipoRelatorio === 'orcamento'
+                    ? 'Ver proposta PDF'
+                    : 'Ver relatório PDF'),
+            );
+            return `<p style="margin:${index ? '8px' : '0'} 0 0 0;">
+        <a href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer" style="display:inline-block;background:#0f172a;color:#ffffff;text-decoration:none;padding:10px 18px;border-radius:8px;font-size:13px;font-weight:600;">
+          ${label}
         </a>
-      </p>`
+      </p>`;
+          })
+          .join('')}
+      </div>`
     : '';
 
-  const attachmentNote = hasAttachment
+  const attachmentCount = Number(options.attachmentCount) || (hasAttachment ? 1 : 0);
+  const attachmentNote = attachmentCount > 0
     ? `<p style="margin:12px 0 0 0;font-size:13px;line-height:1.5;color:#64748b;">
-        O documento encontra-se também em anexo a este e-mail.
+        ${
+          attachmentCount > 1
+            ? `Os ${attachmentCount} relatórios encontram-se em anexo a este e-mail.`
+            : 'O documento encontra-se também em anexo a este e-mail.'
+        }
       </p>`
     : '';
 
@@ -452,7 +531,7 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    const pdfCheck = validatePdfAttachment(payload.pdfBase64, payload.pdfFilename);
+    const pdfCheck = validatePdfAttachments(payload);
     if (!pdfCheck.ok) {
       return res.status(400).json({ error: pdfCheck.error });
     }
@@ -479,20 +558,16 @@ module.exports = async function handler(req, res) {
           },
         });
 
-    const attachments = [];
-    if (pdfCheck.content) {
-      attachments.push({
-        filename: pdfCheck.filename,
-        content: pdfCheck.content,
-        contentType: 'application/pdf',
-      });
-    }
+    const attachments = pdfCheck.attachments || [];
 
     await transporter.sendMail({
       from: EMAIL_USER,
       to: recipient,
       subject: buildSubject(payload),
-      html: buildHtmlBody(payload, { hasPdfAttachment: attachments.length > 0 }),
+      html: buildHtmlBody(payload, {
+        hasPdfAttachment: attachments.length > 0,
+        attachmentCount: attachments.length,
+      }),
       attachments: attachments.length ? attachments : undefined,
     });
 
