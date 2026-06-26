@@ -91,13 +91,4 @@ export function openOrcamentoModal(report, { onUpdated } = {}) {
   overlay.addEventListener('click', (e) => {
     if (e.target === overlay) onClose();
   });
-
-  void import('./orcamento-pdf-service.js')
-    .then(({ attachOrcamentoPdfToReport }) => attachOrcamentoPdfToReport(currentReport))
-    .then((updated) => {
-      if (!updated) return;
-      currentReport = updated;
-      onUpdated?.(updated);
-    })
-    .catch((err) => console.warn('[Orçamento] Geração inicial:', err));
 }

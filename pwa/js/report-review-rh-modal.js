@@ -38,7 +38,7 @@ import {
   formatReportAge,
   getReportUrgencyLevel,
 } from './rh-panel-utils.js';
-import { reportHasPedidoOrcamento } from './pedido-orcamento.js';
+import { reportHasPedidoOrcamento, reportOrcamentoPorPreparar } from './pedido-orcamento.js';
 import {
   computeReviewChecks,
   reviewHasBlockingIssues,
@@ -85,6 +85,7 @@ export function getReportStatusPanelMeta(status) {
 const RH_FILTER_TABS = [
   { id: 'all', label: 'Todos' },
   { id: 'pending_review', label: 'Pendente RH', icon: '🟡' },
+  { id: 'orcamento_pendente', label: 'Orçamento', icon: '💶' },
   { id: 'draft', label: 'Em aberto', icon: '⚪' },
   { id: 'approved', label: 'Concluído', icon: '🟢' },
   { id: 'rejected', label: 'Rejeitado', icon: '🔴' },
@@ -165,7 +166,9 @@ export function buildRhReviewListItem({ job, report, client, tech }) {
   const serviceLabel = service?.label || report?.serviceType || '—';
   const age = formatReportAge(report?.submittedAt);
   const orcamentoBadge = reportHasPedidoOrcamento(report)
-    ? '<span class="rh-list-item__orcamento-badge" title="Pedido de orçamento">Orçamento</span>'
+    ? reportOrcamentoPorPreparar(report)
+      ? '<span class="rh-list-item__orcamento-badge rh-list-item__orcamento-badge--pending" title="Proposta MS.015 por preparar">Orçamento</span>'
+      : '<span class="rh-list-item__orcamento-badge" title="Pedido de orçamento">Orçamento</span>'
     : '';
   const urgency = getReportUrgencyLevel(report?.submittedAt, report?.status);
   const urgencyClass =

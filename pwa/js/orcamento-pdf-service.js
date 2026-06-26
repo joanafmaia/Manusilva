@@ -63,7 +63,8 @@ export async function attachOrcamentoPdfToReport(report, options = {}) {
   if (
     !options.force &&
     !options.orcamentoMeta &&
-    getReportOrcamentoPdfUrl(report)
+    getReportOrcamentoPdfUrl(report) &&
+    report.data?.orcamento?.atualizadoEm
   ) {
     return report;
   }

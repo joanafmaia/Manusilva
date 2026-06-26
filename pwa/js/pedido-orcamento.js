@@ -7,6 +7,18 @@ export function reportHasPedidoOrcamento(report) {
   return String(values.pedido_orcamento || '').trim().toLowerCase() === 'sim';
 }
 
+/** Proposta MS.015 ainda não guardada/enviada pelo RH (inclui após aprovar o relatório técnico). */
+export function reportOrcamentoPorPreparar(report) {
+  if (!reportHasPedidoOrcamento(report)) return false;
+  const meta = report?.data?.orcamento;
+  if (meta?.enviadoEm) return false;
+  return !meta?.atualizadoEm;
+}
+
+export function reportOrcamentoGuardado(report) {
+  return Boolean(report?.data?.orcamento?.atualizadoEm);
+}
+
 export function getPedidoOrcamentoDetalhe(report) {
   const values = report?.data?.values || {};
   return String(values.detalhe_pedido_orcamento || '').trim();

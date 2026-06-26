@@ -41,6 +41,11 @@
           <span class="nav-item-label">Revisão de Relatórios</span>
           <span class="nav-badge" id="nav-badge-relatorios" hidden>0</span>
         </a>
+        <a href="#orcamentos" class="nav-item" data-admin-tab="orcamentos" title="Orçamentos / Propostas MS.015">
+          <span class="nav-item-icon" aria-hidden="true">📄</span>
+          <span class="nav-item-label">Orçamentos</span>
+          <span class="nav-badge nav-badge--orcamento" id="nav-badge-orcamentos" hidden>0</span>
+        </a>
         <a href="#billing" class="nav-item" data-admin-tab="faturacao" title="Faturação">
           <span class="nav-item-icon" aria-hidden="true">💶</span>
           <span class="nav-item-label">Faturação</span>
@@ -70,7 +75,7 @@
         <header class="admin-header">
           <div class="admin-header-text">
             <h1 class="ms-h1">Painel de Administração</h1>
-            <p class="admin-header-lead ms-label">Calendário da equipa, revisão de relatórios, fichas de clientes e gestão de técnicos.</p>
+            <p class="admin-header-lead ms-label">Calendário da equipa, revisão de relatórios, orçamentos MS.015, faturação e gestão de clientes.</p>
           </div>
           <div class="admin-header-actions">
             <button type="button" id="theme-toggle" class="theme-toggle-btn theme-toggle-btn--inline btn-ghost btn-sm" aria-label="Alternar tema" title="Alternar tema">
@@ -125,6 +130,13 @@
           <div class="admin-tab-subview is-active" data-admin-subtab="calendario">
             <div id="admin-metrics-root" class="admin-metrics-wrap"></div>
           </div>
+        </div>
+
+        <!-- Aba: Orçamentos MS.015 -->
+        <div class="admin-tab-view" data-admin-tab="orcamentos" id="admin-tab-orcamentos">
+          <section class="admin-panel glass-card" id="orcamentos">
+            <div id="orcamentos-panel-root" class="admin-panel-body admin-form-shell"></div>
+          </section>
         </div>
 
         <!-- Aba: Faturação -->

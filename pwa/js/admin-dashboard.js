@@ -13,6 +13,7 @@ import {
   getPendingBillingReports,
   getAdminReviewReports,
   getRhPanelReportCounts,
+  getReportsSnapshot,
   getReport,
   approveReport,
   rejectReport,
@@ -43,6 +44,7 @@ import {
   showToast,
   showNotificationToast,
 } from './app.js';
+import { reportOrcamentoPorPreparar } from './pedido-orcamento.js';
 import {
   getCalendarEventStateClass,
   renderWorkStateBadge,
@@ -56,6 +58,12 @@ import { initMetricsPanel, refreshMetricsPanel } from './views/dashboard.js';
 import { initClientsApp } from './views/clients-app.js';
 import { initEmployeesPanel, refreshTechniciansList } from './views/rh-registry.js';
 import { initFaturacaoPanel, refreshFaturacaoPanel, queueBillingReportFocus } from './views/faturacao.js';
+import {
+  initOrcamentosPanel,
+  refreshOrcamentosPanel,
+  queueOrcamentoReportFocus,
+  countOrcamentosPorPreparar,
+} from './views/orcamentos.js';
 import {
   loadRhReviewFilters,
   saveRhReviewFilters,
@@ -71,6 +79,7 @@ let currentTab = 'calendario';
 const ADMIN_TAB_BY_NAV = {
   '#calendar': 'calendario',
   '#pending': 'relatorios',
+  '#orcamentos': 'orcamentos',
   '#billing': 'faturacao',
   '#clients': 'clientes',
   '#employees': 'funcionarios',
@@ -100,6 +109,7 @@ const RH_EMPTY_MESSAGES = {
   draft: 'Nenhum rascunho em curso.',
   approved: 'Nenhum relatório aprovado.',
   rejected: 'Nenhum relatório recusado.',
+  orcamento_pendente: 'Nenhuma proposta MS.015 por preparar.',
 };
 
 const AGENDA_SWIPE_OPEN_PX = 88;
@@ -109,6 +119,7 @@ let reviewPanelHeightObserver = null;
 /** Secções fora do ecrã — refresh adiado até o utilizador abrir a aba. */
 const adminTabDirty = {
   ops: false,
+  orcamentos: false,
   faturacao: false,
   clientes: false,
   funcionarios: false,
@@ -137,7 +148,12 @@ function persistRhReviewFilters() {
 }
 
 function getRhFilteredReports() {
-  const base = getAdminReviewReports(rhReviewFilter);
+  const base =
+    rhReviewFilter === 'orcamento_pendente'
+      ? getReportsSnapshot()
+          .filter((r) => r.status === 'approved' || r.status === 'pending_review')
+          .filter(reportOrcamentoPorPreparar)
+      : getAdminReviewReports(rhReviewFilter);
   return filterRhReports(base, {
     techId: rhReviewTechFilter,
     search: rhReviewSearch,
@@ -152,6 +168,7 @@ function getMetricActionHandlers() {
       setAdminTab('relatorios');
       renderRhReviewStack().catch(console.error);
     },
+    'go-orcamentos': () => setAdminTab('orcamentos'),
     'go-billing': () => setAdminTab('faturacao'),
     'go-calendar-today': () => {
       currentWeekOffset = 0;
@@ -195,6 +212,11 @@ function flushDirtyAdminTab(tab) {
     refreshFaturacaoPanel().catch(console.error);
     return;
   }
+  if (tab === 'orcamentos' && adminTabDirty.orcamentos) {
+    adminTabDirty.orcamentos = false;
+    refreshOrcamentosPanel().catch(console.error);
+    return;
+  }
   if (tab === 'clientes' && adminTabDirty.clientes) {
     adminTabDirty.clientes = false;
     refreshClientesTab();
@@ -220,6 +242,13 @@ function handleAdminDbUpdated() {
       refreshFaturacaoPanel({ soft: true }).catch(console.error);
     } else {
       adminTabDirty.faturacao = true;
+    }
+
+    if (currentTab === 'orcamentos') {
+      adminTabDirty.orcamentos = false;
+      refreshOrcamentosPanel().catch(console.error);
+    } else {
+      adminTabDirty.orcamentos = true;
     }
 
     if (currentTab === 'clientes') {
@@ -272,6 +301,15 @@ function bindReviewPanelHeightSync() {
   window.addEventListener('resize', syncReviewPanelHeight, { passive: true });
 }
 
+/** Abre Orçamentos e destaca um relatório com proposta por preparar. */
+export async function navigateToOrcamentoReport(reportId) {
+  if (!reportId) return;
+  queueOrcamentoReportFocus(reportId);
+  setAdminTab('orcamentos');
+  adminTabDirty.orcamentos = false;
+  await refreshOrcamentosPanel();
+}
+
 /** Abre Faturação e destaca um relatório aprovado por faturar. */
 export async function navigateToBillingReport(reportId) {
   if (!reportId) return;
@@ -288,6 +326,9 @@ export function setAdminTab(tab) {
   if (tab === 'calendario') opsMobileView = 'calendario';
   updateAdminTabUI();
   flushDirtyAdminTab(tab);
+  if (tab === 'orcamentos') {
+    refreshOrcamentosPanel().catch(console.error);
+  }
   if (tab === 'relatorios' || tab === 'calendario') {
     updateOpsSummary();
   }
@@ -469,6 +510,7 @@ export async function initAdminDashboard() {
 
   const metricsRoot = document.getElementById('admin-metrics-root');
   const faturacaoRoot = document.getElementById('faturacao-panel-root');
+  const orcamentosRoot = document.getElementById('orcamentos-panel-root');
 
   await Promise.all([
     metricsRoot
@@ -480,6 +522,12 @@ export async function initAdminDashboard() {
       console.error('[Admin] Painel de clientes:', err);
       showToast(formatClientsLoadError(err), 'error', 9000);
     }),
+    orcamentosRoot
+      ? initOrcamentosPanel(orcamentosRoot).catch((err) => {
+          console.error('[Admin] Orçamentos:', err);
+          showToast('Erro ao carregar o painel de orçamentos.', 'error');
+        })
+      : Promise.resolve(),
     faturacaoRoot
       ? initFaturacaoPanel(faturacaoRoot).catch((err) => {
           console.error('[Admin] Faturação:', err);
@@ -660,11 +708,18 @@ function updateOpsSummary() {
 function updateSidebarBadges() {
   const pending = getPendingReports().length;
   const billing = getPendingBillingReports().length;
+  const orcamentos = countOrcamentosPorPreparar();
 
   const relBadge = document.getElementById('nav-badge-relatorios');
   if (relBadge) {
     relBadge.textContent = String(pending);
     relBadge.hidden = pending <= 0;
+  }
+
+  const orcBadge = document.getElementById('nav-badge-orcamentos');
+  if (orcBadge) {
+    orcBadge.textContent = String(orcamentos);
+    orcBadge.hidden = orcamentos <= 0;
   }
 
   const fatBadge = document.getElementById('nav-badge-faturacao');

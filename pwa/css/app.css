@@ -11425,6 +11425,11 @@ details[open] .expand-icon { transform: rotate(90deg); }
   flex-shrink: 0;
 }
 
+.rh-list-item__orcamento-badge--pending {
+  background: rgba(234, 88, 12, 0.18);
+  color: #c2410c;
+}
+
 .review-orcamento-status {
   font-size: 0.78rem;
   color: var(--text-muted);
@@ -11432,6 +11437,11 @@ details[open] .expand-icon { transform: rotate(90deg); }
 
 .review-orcamento-status--ok {
   color: var(--success, #059669);
+  font-weight: 600;
+}
+
+.review-orcamento-status--warning {
+  color: #c2410c;
   font-weight: 600;
 }
 
@@ -14188,5 +14198,182 @@ body.dark-mode .form-overlay .form-footer-hint {
   }
   50% {
     background: color-mix(in srgb, var(--ms-accent, #2563eb) 18%, transparent);
+  }
+}
+
+/* ─── Painel Orçamentos MS.015 ─── */
+
+.orcamentos-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 0.25rem 0;
+}
+
+.orcamentos-header {
+  margin-bottom: 0.15rem;
+}
+
+.orcamentos-title {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.orcamentos-lead {
+  margin: 0.35rem 0 0;
+  font-size: 0.9rem;
+  max-width: 52rem;
+}
+
+.orcamentos-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.55rem;
+}
+
+.orcamentos-kpi {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  padding: 0.65rem 0.8rem;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  background: rgba(255, 255, 255, 0.45);
+  cursor: pointer;
+  text-align: left;
+}
+
+.orcamentos-kpi.is-active {
+  border-color: color-mix(in srgb, var(--ms-accent, #2563eb) 55%, transparent);
+  background: color-mix(in srgb, var(--ms-accent, #2563eb) 10%, transparent);
+}
+
+.orcamentos-kpi__value {
+  font-size: 1.35rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.orcamentos-kpi__label {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.orcamentos-toolbar {
+  display: flex;
+  gap: 0.65rem;
+}
+
+.orcamentos-search {
+  max-width: 24rem;
+}
+
+.orcamentos-table-wrap {
+  overflow-x: auto;
+}
+
+.orcamentos-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.orcamentos-table th,
+.orcamentos-table td {
+  padding: 0.55rem 0.65rem;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.22);
+  vertical-align: top;
+  text-align: left;
+}
+
+.orcamentos-table th {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+}
+
+.orcamentos-row--highlight {
+  animation: orcamentos-row-flash 1.2s ease-in-out 2;
+}
+
+.orcamentos-ordem {
+  font-size: 0.82rem;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  background: rgba(148, 163, 184, 0.15);
+  white-space: nowrap;
+}
+
+.orcamentos-row__sub {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.orcamentos-col-muted {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+.orcamentos-col-detalhe {
+  max-width: 14rem;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.orcamentos-col-action {
+  width: 1%;
+  white-space: nowrap;
+  text-align: right;
+}
+
+.orcamentos-col-action .btn-sm + .btn-sm {
+  margin-left: 0.25rem;
+}
+
+.orcamentos-status {
+  display: inline-flex;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.orcamentos-status--pending {
+  color: #c2410c;
+}
+
+.orcamentos-status--saved {
+  color: #1d4ed8;
+}
+
+.orcamentos-status--ok {
+  color: var(--success, #059669);
+}
+
+.orcamentos-numero {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.orcamentos-empty {
+  margin: 0.5rem 0 0;
+}
+
+.nav-badge--orcamento {
+  background: rgba(234, 88, 12, 0.92);
+}
+
+@keyframes orcamentos-row-flash {
+  0%,
+  100% {
+    background: transparent;
+  }
+  50% {
+    background: color-mix(in srgb, #ea580c 16%, transparent);
   }
 }

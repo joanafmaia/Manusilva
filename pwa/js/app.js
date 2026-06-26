@@ -54,6 +54,7 @@ import {
   deleteRelatoriosByTrabalho,
   formatRelatoriosError,
 } from './relatorios-db.js';
+import { reportOrcamentoPorPreparar } from './pedido-orcamento.js';
 import {
   jobMatchesTechnician,
   splitTechnicianStoredValue,
@@ -1036,6 +1037,9 @@ export function getRhPanelReportCounts() {
   return {
     all: list.length,
     pending_review: list.filter((r) => r.status === 'pending_review').length,
+    orcamento_pendente: list
+      .filter((r) => r.status === 'approved' || r.status === 'pending_review')
+      .filter(reportOrcamentoPorPreparar).length,
     draft: list.filter((r) => r.status === 'draft').length,
     approved: list.filter((r) => r.status === 'approved').length,
     rejected: list.filter((r) => r.status === 'rejected').length,
@@ -1530,6 +1534,23 @@ export async function approveReport(reportId, options = {}) {
           8000,
         );
       });
+    }
+
+    const { reportHasPedidoOrcamento, reportOrcamentoPorPreparar } = await import(
+      './pedido-orcamento.js'
+    );
+    const approvedReport = getReport(reportId) || reportForPdf;
+    if (
+      reportHasPedidoOrcamento(approvedReport) &&
+      reportOrcamentoPorPreparar(approvedReport)
+    ) {
+      window.setTimeout(() => {
+        showToast(
+          'Há pedido de orçamento: abra a aba Orçamentos na barra lateral para preparar a proposta MS.015.',
+          'info',
+          9000,
+        );
+      }, 2800);
     }
 
     return filename;

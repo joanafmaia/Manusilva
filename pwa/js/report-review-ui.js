@@ -3,13 +3,13 @@
  */
 
 import { escapeHtml } from './app.js';
-import { getClient } from './app.js';
+import { getClient, getReport } from './app.js';
 import { isTestClient, TEST_JOB_ORDEM_LABEL } from './client-test-utils.js';
 import { resolveJobFotos, isValidFotoUrl } from './job-fotos.js';
 import {
   getPedidoOrcamentoDetalhe,
-  getReportOrcamentoPdfUrl,
   reportHasPedidoOrcamento,
+  reportOrcamentoPorPreparar,
 } from './pedido-orcamento.js';
 import { getReportOrcamentoMeta } from './orcamento-linhas.js';
 import { openOrcamentoModal } from './orcamento-modal.js';
@@ -135,8 +135,9 @@ export function renderReviewOrcamentoBanner(report) {
 
   const meta = getReportOrcamentoMeta(report);
   const numeroLabel = meta?.numeroFormatado;
-  const ready = Boolean(getReportOrcamentoPdfUrl(report));
   const enviado = meta?.enviadoEm;
+  const porPreparar = reportOrcamentoPorPreparar(report);
+  const relatorioAprovado = report?.status === 'approved';
   const detalhe = getPedidoOrcamentoDetalhe(report);
   const preview = detalhe
     ? detalhe.length > 100
@@ -149,10 +150,18 @@ export function renderReviewOrcamentoBanner(report) {
   if (enviado) {
     statusText = 'Proposta enviada';
     statusClass = 'review-orcamento-status--ok';
-  } else if (ready) {
+  } else if (!porPreparar) {
     statusText = 'Proposta guardada';
     statusClass = 'review-orcamento-status--ok';
+  } else if (relatorioAprovado) {
+    statusText = 'Por preparar (relatório aprovado)';
+    statusClass = 'review-orcamento-status--warning';
   }
+
+  const leadText =
+    relatorioAprovado && porPreparar
+      ? 'O relatório técnico já foi aprovado. Prepare a proposta na aba Orçamentos (barra lateral) ou aqui — o envio é independente do relatório.'
+      : 'A proposta comercial MS.015 é preparada na aba Orçamentos ou aqui — destinatário e preços independentes do relatório técnico.';
 
   return `
     <section class="review-orcamento-teaser" aria-label="Pedido de orçamento">
@@ -163,7 +172,7 @@ export function renderReviewOrcamentoBanner(report) {
           <span class="review-orcamento-status ${statusClass}">${escapeHtml(statusText)}</span>
         </div>
         <p class="review-orcamento-teaser__text text-muted">
-          A proposta comercial MS.015 é preparada e enviada à parte — destinatário e preços independentes do relatório técnico.
+          ${escapeHtml(leadText)}
         </p>
         ${preview ? `<p class="review-orcamento-teaser__detalhe text-muted">${escapeHtml(preview)}</p>` : ''}
       </div>
@@ -181,7 +190,8 @@ export function bindReviewOrcamentoButton(overlay, { report, onUpdated } = {}) {
   if (!reportHasPedidoOrcamento(report)) return;
 
   overlay.querySelector('#btn-open-orcamento-modal')?.addEventListener('click', () => {
-    openOrcamentoModal(report, {
+    const fresh = getReport(report.id) || report;
+    openOrcamentoModal(fresh, {
       onUpdated: (updated) => {
         onUpdated?.(updated);
         const teaser = overlay.querySelector('.review-orcamento-teaser');
