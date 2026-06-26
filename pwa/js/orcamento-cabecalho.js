@@ -3,6 +3,7 @@
  */
 
 import { getClient, getForklift, getJob, getServiceType } from './app.js';
+import { migrateLegacyEmpilhadoresMaquinas } from './views/relatorio-empilhadores-maquinas.js';
 
 export const ORCAMENTO_FORMA_PAGAMENTO_DEFAULT = 'Pronto Pagamento';
 export const ORCAMENTO_VALIDADE_DEFAULT = '10 Dias';
@@ -32,6 +33,19 @@ function firstGrandesBatteryRow(values) {
 /** Observações do técnico no relatório (apoio à faturação RH). */
 export function resolveReportObservacoesTecnico(report) {
   const values = report?.data?.values || {};
+  if (String(report?.serviceType || '') === 'manutencao_preventiva_empilhadores') {
+    const maquinas = migrateLegacyEmpilhadoresMaquinas(values);
+    const parts = maquinas
+      .map((row, index) => {
+        const text = String(row.observacoes || '').trim();
+        if (!text) return '';
+        if (maquinas.length <= 1) return text;
+        const label = [row.marca, row.modelo].filter(Boolean).join(' ') || `Máquina ${index + 1}`;
+        return `${label}: ${text}`;
+      })
+      .filter(Boolean);
+    if (parts.length) return parts.join('\n');
+  }
   return String(values.observacoes || values.observacao || '').trim();
 }
 
@@ -59,6 +73,16 @@ export function resolveReportEquipamentoFields(report) {
     marca = String(values.marca_modelo || '').trim();
     numeroSerie = String(values.numero_de_serie || '').trim();
     numeroInterno = String(values.etiqueta || '').trim();
+  } else if (serviceType === 'manutencao_preventiva_empilhadores') {
+    const maquinas = migrateLegacyEmpilhadoresMaquinas(values);
+    const row =
+      maquinas.find((m) => [m.marca, m.modelo, m.numero_de_serie, m.n_interno].some((v) => String(v || '').trim())) ||
+      maquinas[0] ||
+      {};
+    marca = String(row.marca || '').trim();
+    modelo = String(row.modelo || '').trim();
+    numeroSerie = String(row.numero_de_serie || '').trim();
+    numeroInterno = String(row.n_interno || '').trim();
   } else {
     marca = String(values.marca || '').trim();
     modelo = String(values.modelo || '').trim();

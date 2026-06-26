@@ -16,7 +16,7 @@ import {
   normalizeMaterialRows,
   MATERIAL_FIELD_IDS,
 } from './material-table-field.js';
-import { EMPILHADORES_MATERIAL_SECTION } from './mock_data.js';
+import { EMPILHADORES_MATERIAL_SECTION, EMPILHADORES_PER_MACHINE_FIELD_DEFS } from './mock_data.js';
 import {
   renderGrandesBatterySection,
   collect as collectGrandesBatteryRows,
@@ -25,6 +25,16 @@ import {
   getColumnLabels,
   getColumnKeys,
 } from './views/relatorio-grandes.js';
+import {
+  collectEmpilhadoresMaquinas,
+  EMPILHADORES_LEGACY_ROOT_KEYS,
+  EMPILHADORES_MAQUINAS_FIELD_ID,
+  emptyEmpilhadoresMaquinaRow,
+  maquinaRowToFlatValues,
+  migrateLegacyEmpilhadoresMaquinas,
+  renderEmpilhadoresMaquinaSelector,
+  renderEmpilhadoresMaquinasSection,
+} from './views/relatorio-empilhadores-maquinas.js';
 import {
   isDeslocacaoField,
   isDeslocacaoMetaField,
@@ -378,20 +388,10 @@ export function buildFormPrefill(service, job, _forklift, context = {}) {
   }
 
   if (service.id === 'manutencao_preventiva_empilhadores') {
-    const prefill = {
+    return {
       data_de_conclusao: job?.date || '',
-      estado_maquina: 'Operacional',
+      [EMPILHADORES_MAQUINAS_FIELD_ID]: [emptyEmpilhadoresMaquinaRow()],
     };
-    service.fields
-      ?.filter((f) => f.type === 'verification_toggles')
-      .forEach((f) => {
-        const verifications = {};
-        (f.items || []).forEach((item) => {
-          verifications[normalizeVerifyItem(item).id] = 'OK';
-        });
-        prefill[f.id] = verifications;
-      });
-    return prefill;
   }
 
   if (service.id === 'inspecao_dl50_2005') {
@@ -457,6 +457,7 @@ const DL50_FINALIZACAO_FIELD_IDS = new Set([
 
 /** Secção do formulário em abas — Geral | Checklist | Finalização */
 export function getReportFieldTab(field, service = null) {
+  if (field?.type === 'empilhadores_maquinas') return 'geral';
   if (REPORT_TAB_FINAL_TYPES.has(field?.type)) return 'finalizacao';
   if (
     service?.id === 'inspecao_dl50_2005' &&
@@ -477,6 +478,10 @@ export function getReportFieldTab(field, service = null) {
 export function analyzeReportFormTabs(service) {
   const fields = filterReportFields(service?.fields, service);
   const tabs = { geral: true, checklist: false, finalizacao: true };
+  if (service?.id === EMPILHADORES_SERVICE_ID) {
+    tabs.checklist = true;
+    return tabs;
+  }
   fields.forEach((field) => {
     const tab = getReportFieldTab(field, service);
     if (tab === 'checklist') tabs.checklist = true;
@@ -726,12 +731,34 @@ export function renderReportFields(service, values = {}, context = {}, options =
     groups = mergeRavDualMetricGroups(groups);
   }
   if (service?.id === EMPILHADORES_SERVICE_ID && tabFilter === 'checklist') {
+    const maquinas = migrateLegacyEmpilhadoresMaquinas(values);
+    const activeIndex = Number(context.activeMaquinaIndex) || 0;
+    const safeIndex = Math.max(0, Math.min(activeIndex, maquinas.length - 1));
+    const machineValues = maquinaRowToFlatValues(
+      maquinas[safeIndex] || emptyEmpilhadoresMaquinaRow(),
+    );
+    const selectorHtml = renderEmpilhadoresMaquinaSelector(maquinas, safeIndex);
+    let groups = groupFieldsBySection(EMPILHADORES_PER_MACHINE_FIELD_DEFS).filter(
+      ({ fields: sectionFields }) => sectionFields.length,
+    );
     groups = mergeEmpilhadoresChecklistGroups(groups, service);
-    return groups
+    const checklistHtml = groups
       .map(({ section, fields: sectionFields }) =>
-        renderEmpilhadoresChecklistSection(section, sectionFields, values, context),
+        renderEmpilhadoresChecklistSection(section, sectionFields, machineValues, context),
       )
       .join('');
+    const tailFields = EMPILHADORES_PER_MACHINE_FIELD_DEFS.filter(
+      (f) => f.id === 'observacoes' || f.id === 'estado_maquina',
+    );
+    const tailHtml = tailFields
+      .map((f) => renderField(f, machineValues[f.id], context))
+      .join('');
+    return `
+      <div data-empilhadores-checklist="true">
+        ${selectorHtml}
+        ${checklistHtml}
+        <div class="empilhadores-maquina-tail-fields form-field-section form-section-card">${tailHtml}</div>
+      </div>`;
   }
 
   return groups
@@ -1147,6 +1174,9 @@ function renderField(field, value = '', context = {}) {
     case 'grandes_identificacao_baterias':
       html = renderGrandesBatterySection(field, value);
       break;
+    case 'empilhadores_maquinas':
+      html = renderEmpilhadoresMaquinasSection(field, value);
+      break;
     case 'verification_toggles':
       html = renderVerificationTogglesField(field, value, context.service);
       break;
@@ -1239,6 +1269,13 @@ export function collectReportValues(overlay) {
 
   if (overlay.querySelector('[data-grandes-baterias]')) {
     values[GRANDES_BATTERY_FIELD_ID] = collectGrandesBatteryRows(overlay);
+  }
+
+  if (overlay.querySelector('[data-empilhadores-maquinas]')) {
+    values[EMPILHADORES_MAQUINAS_FIELD_ID] = collectEmpilhadoresMaquinas(overlay);
+    EMPILHADORES_LEGACY_ROOT_KEYS.forEach((key) => {
+      delete values[key];
+    });
   }
 
   overlay.querySelectorAll('[data-multi-checkbox]').forEach((group) => {

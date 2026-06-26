@@ -10198,6 +10198,124 @@ body.dark-mode .client-history-status--rejected {
   font-size: 0.8125rem;
 }
 
+/* Preventiva Empilhadores — tabela multi-máquina */
+.empilhadores-maquinas-field {
+  margin: 0;
+}
+
+.empilhadores-maquinas-section-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.45rem 0.65rem;
+  background: #edf2f7;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px 6px 0 0;
+  border-bottom: none;
+}
+
+.empilhadores-maquinas-section-title {
+  font-size: 10pt;
+  font-weight: 700;
+  color: #2b6cb0;
+  text-transform: uppercase;
+}
+
+.empilhadores-maquinas-hint {
+  margin: 0.35rem 0.65rem 0.5rem;
+  font-size: 0.8125rem;
+}
+
+.empilhadores-maquinas-wrap {
+  border: 1px solid #e2e8f0;
+  border-radius: 0 0 6px 6px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.empilhadores-maquinas-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.empilhadores-maquinas-table {
+  min-width: 42rem;
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 8.5pt;
+}
+
+.empilhadores-maquinas-table thead th {
+  background: #edf2f7;
+  color: #2b6cb0;
+  font-weight: 700;
+  padding: 4px 6px;
+  border-bottom: 1px solid #e2e8f0;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.empilhadores-maquinas-table tbody td {
+  padding: 4px 6px;
+  border-bottom: 1px solid #e2e8f0;
+  vertical-align: middle;
+}
+
+.empilhadores-maquinas-idx {
+  width: 2rem;
+  text-align: center;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.empilhadores-maquinas-cell {
+  min-width: 5rem;
+  width: 100%;
+  font-size: 8.5pt;
+}
+
+.empilhadores-maquinas-toolbar {
+  padding: 0.5rem 0.65rem 0.65rem;
+}
+
+.empilhadores-maquina-selector {
+  margin-bottom: 1rem;
+}
+
+.empilhadores-maquina-selector-hint {
+  margin: 0 0 0.5rem;
+  font-size: 0.8125rem;
+}
+
+.empilhadores-maquina-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.empilhadores-maquina-tab {
+  border: 1px solid #cbd5e0;
+  background: #fff;
+  color: #2d3748;
+  border-radius: 999px;
+  padding: 0.4rem 0.85rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.empilhadores-maquina-tab.is-active {
+  background: #2b6cb0;
+  border-color: #2b6cb0;
+  color: #fff;
+}
+
+.empilhadores-maquina-tail-fields {
+  margin-top: 1rem;
+}
+
 .grandes-dashboard-section {
   border: 1px solid #e2e8f0;
   border-radius: 6px;

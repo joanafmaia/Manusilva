@@ -3,10 +3,6 @@
  */
 
 import {
-  COMPANY,
-  PDF_DOCUMENT_TITLES,
-  CLIENTS,
-  DEMO_CLIENT_FORKLIFTS,
   EMPILHADORES_MATERIAL_SECTION,
   mapClientToLegacy,
   TECHNICIANS,
@@ -33,6 +29,10 @@ import {
   pdfStatusGlyph,
 } from './pdf-font.js';
 import { getColumnLabels, getColumnKeys } from './views/relatorio-grandes.js';
+import {
+  buildEmpilhadoresPdfService,
+  flattenEmpilhadoresValues,
+} from './views/relatorio-empilhadores-maquinas.js';
 import { reportIncludesDeslocacao, SERVICES_WITH_SECTION_VISITAS, VISITAS_FIELD_ID, VISIT_DATES_FIELD_ID, DESLOCACAO_BASE_FIELD_ID } from './deslocacao-field.js';
 import {
   buildPdfAutoTableStyles,
@@ -693,10 +693,15 @@ export async function renderInterventionPDF(report) {
   const techName = tech?.name || '—';
 
   const pdfContext = buildPdfRenderContext(report, job, clientMeta, tech);
+  let pdfService = service;
   let values = mapReportValuesForPdf(data, service, pdfContext);
   values = { ...values, ...resolveInspecaoDl50MachineFields(values, pdfContext) };
+  if (isEmpilhadoresPdf) {
+    values = flattenEmpilhadoresValues(values, 0);
+    pdfService = buildEmpilhadoresPdfService(service, 0);
+  }
   pdfContext.values = values;
-  pdfContext.service = service;
+  pdfContext.service = pdfService;
   pdfContext.closingOpts = {
     fotoAntesUrl,
     fotoDepoisUrl,
@@ -824,14 +829,14 @@ export async function renderInterventionPDF(report) {
       technician: techName || values.tecnico || '',
       periodicidade: isDl50Pdf ? values.periodicidade_inspecao || null : null,
     });
-    if (reportHasMachineSection(service)) {
+    if (reportHasMachineSection(pdfService)) {
       y = drawDivider(doc, y);
-      y = await drawStandardMachineBlock(doc, y, values, pdfContext, service);
+      y = await drawStandardMachineBlock(doc, y, values, pdfContext, pdfService);
     }
     if (!isEmpilhadoresPdf) {
       y = drawDivider(doc, y);
     }
-    y = await drawReportFieldsSection(doc, y, service, values, pdfContext);
+    y = await drawReportFieldsSection(doc, y, pdfService, values, pdfContext);
     y = await drawReportClosingSection(doc, y, closingOpts);
   }
   if ((data.photos || []).length && !isFolhaIntervencaoAvariasPdf) {

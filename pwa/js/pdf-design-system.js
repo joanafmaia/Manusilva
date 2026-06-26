@@ -369,6 +369,7 @@ export const PDF_LAYOUT_SKIP_FIELD_IDS = new Set([
   'deslocacao_base_km',
   'datas_visitas',
   'data_de_conclusao',
+  'maquinas',
   'data_1',
   'data_2',
   'data_3',

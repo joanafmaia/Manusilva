@@ -3,6 +3,11 @@
  */
 
 import { GRANDES_BATTERY_FIELD_ID } from './views/relatorio-grandes.js';
+import {
+  EMPILHADORES_MAQUINAS_FIELD_ID,
+  migrateLegacyEmpilhadoresMaquinas,
+  normalizeEmpilhadoresMaquinaRow,
+} from './views/relatorio-empilhadores-maquinas.js';
 
 const MACHINE_VALUE_KEYS = [
   'marca',
@@ -126,7 +131,12 @@ export function extractEquipamentosFromReport(report) {
   };
 
   if (SERVICES_WITH_MACHINE_BLOCK.has(serviceType)) {
-    pushRow(mapMachineRow(categoria, values));
+    if (serviceType === 'manutencao_preventiva_empilhadores') {
+      const machines = migrateLegacyEmpilhadoresMaquinas(values);
+      machines.forEach((row) => pushRow(mapMachineRow(categoria, row)));
+    } else {
+      pushRow(mapMachineRow(categoria, values));
+    }
   }
 
   if (serviceType === 'manutencao_baterias_grandes') {
@@ -195,9 +205,24 @@ export function buildEquipmentFormPrefill(service, job, equipamentos = [], saved
 
   if (SERVICES_WITH_MACHINE_BLOCK.has(serviceType)) {
     const fields = equipamentoToFormFields(match);
-    Object.entries(fields).forEach(([key, val]) => {
-      if (isEmptyValue(savedValues[key])) prefill[key] = val;
-    });
+    if (serviceType === 'manutencao_preventiva_empilhadores') {
+      const machines = migrateLegacyEmpilhadoresMaquinas(savedValues);
+      const merged = machines.map((row) => normalizeEmpilhadoresMaquinaRow(row));
+      if (merged.length) {
+        const first = { ...merged[0] };
+        Object.entries(fields).forEach(([key, val]) => {
+          if (isEmptyValue(first[key])) first[key] = val;
+        });
+        merged[0] = first;
+      } else {
+        merged.push(normalizeEmpilhadoresMaquinaRow(fields));
+      }
+      prefill[EMPILHADORES_MAQUINAS_FIELD_ID] = merged;
+    } else {
+      Object.entries(fields).forEach(([key, val]) => {
+        if (isEmptyValue(savedValues[key])) prefill[key] = val;
+      });
+    }
   }
 
   if (serviceType === 'manutencao_baterias_grandes') {
@@ -313,6 +338,22 @@ export function bindEquipamentoPicker(overlay, equipamentos = [], service = null
       if (firstRow) {
         Object.entries(row).forEach(([key, value]) => {
           const cell = firstRow.querySelector(`[data-col="${key}"]`);
+          if (cell && isEmptyValue(cell.value)) {
+            cell.value = value;
+            cell.dispatchEvent(new Event('input', { bubbles: true }));
+            cell.dispatchEvent(new Event('change', { bubbles: true }));
+          }
+        });
+      }
+    }
+
+    if (service?.id === 'manutencao_preventiva_empilhadores') {
+      const table = overlay.querySelector('.empilhadores-maquinas-table');
+      const firstRow = table?.querySelector('tbody tr');
+      if (firstRow) {
+        Object.entries(fields).forEach(([key, value]) => {
+          const colKey = key === 'num_serie' ? 'numero_de_serie' : key;
+          const cell = firstRow.querySelector(`[data-col="${colKey}"]`);
           if (cell && isEmptyValue(cell.value)) {
             cell.value = value;
             cell.dispatchEvent(new Event('input', { bubbles: true }));

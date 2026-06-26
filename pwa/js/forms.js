@@ -53,6 +53,12 @@ import {
   init as initGrandesBatteryTable,
 } from './views/relatorio-grandes.js';
 import {
+  EMPILHADORES_MAQUINAS_FIELD_ID,
+  flushEmpilhadoresChecklistToStore,
+  initEmpilhadoresMaquinasForm,
+  migrateLegacyEmpilhadoresMaquinas,
+} from './views/relatorio-empilhadores-maquinas.js';
+import {
   createSignatureBlock,
   initSignaturePads,
   refreshSignaturePads,
@@ -396,6 +402,9 @@ function buildFormHTML(job, client, tech, service, existingReport, options = {})
   if (service?.id === 'manutencao_baterias_grandes') {
     values[GRANDES_BATTERY_FIELD_ID] = migrateLegacyBatteryRows(values);
   }
+  if (service?.id === 'manutencao_preventiva_empilhadores') {
+    values[EMPILHADORES_MAQUINAS_FIELD_ID] = migrateLegacyEmpilhadoresMaquinas(values);
+  }
   const equipamentos = options.equipamentos || [];
   const equipmentPrefill = buildEquipmentFormPrefill(service, job, equipamentos, values);
   values = mergeFormValues(values, equipmentPrefill, service);
@@ -493,6 +502,7 @@ function buildFormHTML(job, client, tech, service, existingReport, options = {})
   const isGrandesForm = service?.id === 'manutencao_baterias_grandes';
   const isRavBateriaForm = service?.id === 'reparacao_avarias_bateria';
   const isFolhaAvariasForm = service?.id === 'folha_intervencao_avarias';
+  const isEmpilhadoresForm = service?.id === 'manutencao_preventiva_empilhadores';
   const interventionFotosPreviewHtml = isFolhaAvariasForm
     ? renderInterventionFotografiasPreviewHtml(fotoAntesState, fotoDepoisState)
     : '';
@@ -517,7 +527,7 @@ function buildFormHTML(job, client, tech, service, existingReport, options = {})
               : '';
 
   return `
-    <div class="form-workspace form-workspace--report${isCarregadorForm ? ' form-workspace--carregador' : ''}${isCorretivaForm ? ' form-workspace--corretiva' : ''}${isGrandesForm ? ' form-workspace--grandes' : ''}${isRavBateriaForm ? ' form-workspace--rav-bateria' : ''}${isFolhaAvariasForm ? ' form-workspace--folha-avarias' : ''}">
+    <div class="form-workspace form-workspace--report${isCarregadorForm ? ' form-workspace--carregador' : ''}${isCorretivaForm ? ' form-workspace--corretiva' : ''}${isGrandesForm ? ' form-workspace--grandes' : ''}${isRavBateriaForm ? ' form-workspace--rav-bateria' : ''}${isFolhaAvariasForm ? ' form-workspace--folha-avarias' : ''}${isEmpilhadoresForm ? ' form-workspace--empilhadores' : ''}">
       <div class="form-panel form-panel--premium glass-card">
         <div class="form-panel-header form-panel-header--minimal">
           <button type="button" class="btn-ghost" id="close-form">&larr; Voltar</button>
@@ -854,19 +864,58 @@ function ensureSignaturePadsInitialized() {
   restoreSignaturesFromReport(existingReportRef);
 }
 
+function rerenderEmpilhadoresChecklist(overlay, machineIndex) {
+  const lazyContext = overlay.__lazyFormState;
+  const panel = overlay.querySelector('[data-lazy-checklist="true"]');
+  if (!panel || !lazyContext?.service) return;
+
+  flushEmpilhadoresChecklistToStore(overlay);
+  const values = {
+    ...lazyContext.values,
+    ...collectReportValues(overlay),
+  };
+  values[EMPILHADORES_MAQUINAS_FIELD_ID] = migrateLegacyEmpilhadoresMaquinas(values);
+  lazyContext.values = values;
+  lazyContext.formContext = { ...lazyContext.formContext, activeMaquinaIndex: machineIndex };
+
+  panel.innerHTML = renderReportFields(
+    lazyContext.service,
+    values,
+    lazyContext.formContext,
+    { tab: 'checklist' },
+  );
+  void bindFormFieldInteractions(overlay);
+  bindEmpilhadoresMaquinasInteractions(overlay);
+}
+
+function bindEmpilhadoresMaquinasInteractions(overlay) {
+  initEmpilhadoresMaquinasForm(overlay, {
+    onRowChange: () => formAutosave?.markDirty(),
+    onMaquinaSelect: (index) => rerenderEmpilhadoresChecklist(overlay, index),
+  });
+}
+
 function onReportTabActivated(tabId, overlay) {
   if (tabId === 'checklist' && overlay) {
     const lazyContext = overlay.__lazyFormState;
     const panel = overlay.querySelector('[data-lazy-checklist="true"]');
     if (panel && lazyContext && !panel.dataset.lazyLoaded) {
       panel.dataset.lazyLoaded = 'true';
+      const values = { ...lazyContext.values };
+      if (lazyContext.service?.id === 'manutencao_preventiva_empilhadores') {
+        values[EMPILHADORES_MAQUINAS_FIELD_ID] = migrateLegacyEmpilhadoresMaquinas(values);
+        lazyContext.values = values;
+      }
       panel.innerHTML = renderReportFields(
         lazyContext.service,
-        lazyContext.values,
+        values,
         lazyContext.formContext,
         { tab: 'checklist' },
       );
       void bindFormFieldInteractions(overlay);
+      if (lazyContext.service?.id === 'manutencao_preventiva_empilhadores') {
+        bindEmpilhadoresMaquinasInteractions(overlay);
+      }
     }
   }
   if (tabId === 'finalizacao') ensureSignaturePadsInitialized();
@@ -923,6 +972,11 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport, opt
     values: mergeFormValues(savedValues, buildFormPrefill(service, job, null, formContext), service),
     formContext,
   };
+  if (service?.id === 'manutencao_preventiva_empilhadores') {
+    overlay.__lazyFormState.values[EMPILHADORES_MAQUINAS_FIELD_ID] = migrateLegacyEmpilhadoresMaquinas(
+      overlay.__lazyFormState.values,
+    );
+  }
 
   bindReportFormTabs(overlay, {
     onTabActivate: (tabId) => {
@@ -953,6 +1007,10 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport, opt
     initGrandesBatteryTable(overlay, {
       onRowChange: () => formAutosave?.markDirty(),
     });
+  }
+
+  if (!viewOnly && service?.id === 'manutencao_preventiva_empilhadores') {
+    bindEmpilhadoresMaquinasInteractions(overlay);
   }
 
   if (!viewOnly) overlay.querySelector('#btn-save-draft')?.addEventListener('click', async () => {
