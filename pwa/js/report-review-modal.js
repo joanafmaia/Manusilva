@@ -23,6 +23,10 @@ import {
   bindReviewFotoClicks,
   bindReviewPdfButton,
 } from './report-review-ui.js';
+import {
+  getEmpilhadoresMaquinasFromReport,
+  isEmpilhadoresMultiMaquinaReport,
+} from './views/relatorio-empilhadores-maquinas.js';
 import { ensureJobsLoaded } from './trabalhos-db.js';
 
 /**
@@ -167,11 +171,31 @@ export async function downloadReportPDF(reportId) {
   const service = getServiceType(report.serviceType);
   const { PDF_DOCUMENT_TITLES } = await import('./mock_data.js');
   const { buildReportPdfFilename } = await import('./pdf-storage.js');
-  const { downloadPdfBlob } = await import('./pdf-preview.js');
+  const { downloadPdfBlob, downloadEmpilhadoresPdfs } = await import('./pdf-preview.js');
 
   const filename = buildReportPdfFilename(job, report, {
     serviceTitle: PDF_DOCUMENT_TITLES[report.serviceType] || service?.label,
   });
+
+  if (isEmpilhadoresMultiMaquinaReport(report)) {
+    const { showPdfPreviewLoading } = await import('./pdf-preview.js');
+    const count = getEmpilhadoresMaquinasFromReport(report).length;
+    showPdfPreviewLoading(true, `A gerar ${count} PDFs…`);
+    try {
+      await downloadEmpilhadoresPdfs({
+        ...report,
+        submittedAt: report.submittedAt || new Date().toISOString(),
+      });
+      showToast('PDFs descarregados (ZIP).', 'success');
+    } catch (err) {
+      console.error('[PDF]', err);
+      showToast(err?.message || 'Não foi possível gerar os PDFs.', 'error');
+    } finally {
+      const { showPdfPreviewLoading: hide } = await import('./pdf-preview.js');
+      hide(false);
+    }
+    return;
+  }
 
   if (job?.urlPdf) {
     const { showPdfPreviewLoading } = await import('./pdf-preview.js');

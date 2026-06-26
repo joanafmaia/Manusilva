@@ -2526,6 +2526,44 @@ body.dark-mode .btn-preview:hover:not(:disabled) {
   flex: 0 1 auto;
 }
 
+.pdf-preview-modal--multi {
+  max-width: min(960px, 96vw);
+}
+
+.pdf-preview-machine-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.pdf-preview-machine-tab {
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-elevated, #fff);
+  color: var(--text-primary);
+  border-radius: 999px;
+  padding: 0.35rem 0.8rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.pdf-preview-machine-tab.is-active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
+.pdf-preview-footer--multi {
+  justify-content: flex-end;
+}
+
+.pdf-preview-footer--multi .btn-outline {
+  width: auto;
+  min-width: 8rem;
+}
+
 .pdf-preview-loading {
   position: fixed;
   inset: 0;

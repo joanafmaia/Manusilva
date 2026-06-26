@@ -12,6 +12,7 @@ import {
   reportOrcamentoPorPreparar,
 } from './pedido-orcamento.js';
 import { getReportOrcamentoMeta } from './orcamento-linhas.js';
+import { isEmpilhadoresMultiMaquinaReport } from './views/relatorio-empilhadores-maquinas.js';
 
 function escapeAttr(str) {
   return String(str ?? '').replace(/"/g, '&quot;');
@@ -224,7 +225,7 @@ export function bindReviewPdfButton(overlay, { job, report }) {
   const onClick = async () => {
     const urlPdf = job?.urlPdf && isValidFotoUrl(job.urlPdf) ? job.urlPdf : null;
 
-    if (urlPdf) {
+    if (urlPdf && !isEmpilhadoresMultiMaquinaReport(report)) {
       window.open(urlPdf, '_blank', 'noopener,noreferrer');
       return;
     }

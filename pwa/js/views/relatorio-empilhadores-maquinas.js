@@ -8,8 +8,10 @@ import {
   VERIFICACOES_INTERNAS_ITEMS,
 } from '../preventiva-empilhadores-items.js';
 import { EMPILHADORES_PER_MACHINE_FIELD_DEFS } from '../mock_data.js';
+import { sanitizePdfFilenameSegment } from '../pdf-storage.js';
 
 export const EMPILHADORES_MAQUINAS_FIELD_ID = 'maquinas';
+export const EMPILHADORES_SERVICE_TYPE = 'manutencao_preventiva_empilhadores';
 
 export const EMPILHADORES_ID_COLUMNS = [
   { key: 'marca', label: 'Marca', input: 'text' },
@@ -160,6 +162,33 @@ export function flattenEmpilhadoresValues(values = {}, machineIndex = 0) {
   const maquinas = migrateLegacyEmpilhadoresMaquinas(values);
   const idx = Math.max(0, Math.min(machineIndex, maquinas.length - 1));
   return { ...values, ...maquinaRowToFlatValues(maquinas[idx] || emptyEmpilhadoresMaquinaRow()) };
+}
+
+/** @param {object} report */
+export function getEmpilhadoresMaquinasFromReport(report) {
+  return migrateLegacyEmpilhadoresMaquinas(report?.data?.values || {});
+}
+
+/** @param {object} report */
+export function isEmpilhadoresMultiMaquinaReport(report) {
+  if (String(report?.serviceType || '') !== EMPILHADORES_SERVICE_TYPE) return false;
+  return getEmpilhadoresMaquinasFromReport(report).length > 1;
+}
+
+/** Segmento do nome do ficheiro PDF, ex.: M1-Linde-E20 */
+export function buildEmpilhadoresMachineFilenameTag(row = {}, index = 0) {
+  const parts = [`M${index + 1}`];
+  const marca = sanitizePdfFilenameSegment(row.marca);
+  const modelo = sanitizePdfFilenameSegment(row.modelo);
+  if (marca) parts.push(marca);
+  if (modelo) parts.push(modelo);
+  if (parts.length === 1) {
+    const interno = sanitizePdfFilenameSegment(row.n_interno);
+    const serie = sanitizePdfFilenameSegment(row.numero_de_serie);
+    if (interno) parts.push(interno);
+    else if (serie) parts.push(serie);
+  }
+  return parts.join('-');
 }
 
 export function maquinaRowLabel(row = {}, index = 0) {

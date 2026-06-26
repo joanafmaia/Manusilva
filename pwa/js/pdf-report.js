@@ -30,8 +30,12 @@ import {
 } from './pdf-font.js';
 import { getColumnLabels, getColumnKeys } from './views/relatorio-grandes.js';
 import {
+  buildEmpilhadoresMachineFilenameTag,
   buildEmpilhadoresPdfService,
   flattenEmpilhadoresValues,
+  getEmpilhadoresMaquinasFromReport,
+  isEmpilhadoresMultiMaquinaReport,
+  maquinaRowLabel,
 } from './views/relatorio-empilhadores-maquinas.js';
 import { reportIncludesDeslocacao, SERVICES_WITH_SECTION_VISITAS, VISITAS_FIELD_ID, VISIT_DATES_FIELD_ID, DESLOCACAO_BASE_FIELD_ID } from './deslocacao-field.js';
 import {
@@ -649,7 +653,24 @@ function getReportFilename(report) {
   const service = getServiceType(report?.serviceType);
   const serviceTitle =
     PDF_DOCUMENT_TITLES[report?.serviceType] || service?.label || report?.serviceType;
-  return buildReportPdfFilename(job, report, { serviceTitle });
+  const machineTag = report?.pdfMachineTag ? String(report.pdfMachineTag) : null;
+  return buildReportPdfFilename(job, report, { serviceTitle, machineTag });
+}
+
+function resolveEmpilhadoresPdfMachineIndex(report) {
+  const idx = Number(report?.pdfMachineIndex);
+  return Number.isFinite(idx) && idx >= 0 ? idx : 0;
+}
+
+function withEmpilhadoresPdfMeta(report, machineIndex) {
+  const maquinas = getEmpilhadoresMaquinasFromReport(report);
+  const idx = Math.max(0, Math.min(machineIndex, maquinas.length - 1));
+  const row = maquinas[idx] || {};
+  return {
+    ...report,
+    pdfMachineIndex: idx,
+    pdfMachineTag: buildEmpilhadoresMachineFilenameTag(row, idx),
+  };
 }
 
 function yieldToMain() {
@@ -697,8 +718,9 @@ export async function renderInterventionPDF(report) {
   let values = mapReportValuesForPdf(data, service, pdfContext);
   values = { ...values, ...resolveInspecaoDl50MachineFields(values, pdfContext) };
   if (isEmpilhadoresPdf) {
-    values = flattenEmpilhadoresValues(values, 0);
-    pdfService = buildEmpilhadoresPdfService(service, 0);
+    const machineIndex = resolveEmpilhadoresPdfMachineIndex(report);
+    values = flattenEmpilhadoresValues(values, machineIndex);
+    pdfService = buildEmpilhadoresPdfService(service, machineIndex);
   }
   pdfContext.values = values;
   pdfContext.service = pdfService;
@@ -855,14 +877,56 @@ export async function renderInterventionPDF(report) {
 }
 
 /**
+ * Gera um PDF por máquina (preventiva empilhadores).
+ * @returns {Promise<Array<{ blob: Blob, filename: string, machineIndex: number, machineLabel: string, pageCount: number }>>}
+ */
+export async function generateEmpilhadoresPdfBlobs(report) {
+  const maquinas = getEmpilhadoresMaquinasFromReport(report);
+  const count = Math.max(maquinas.length, 1);
+  const results = [];
+
+  for (let i = 0; i < count; i += 1) {
+    const reportSlice = withEmpilhadoresPdfMeta(report, i);
+    await yieldToMain();
+    const doc = await renderInterventionPDF(reportSlice);
+    await yieldToMain();
+    results.push({
+      blob: doc.output('blob'),
+      filename: getReportFilename(reportSlice),
+      machineIndex: i,
+      machineLabel: maquinaRowLabel(maquinas[i] || {}, i),
+      pageCount: doc.getNumberOfPages(),
+    });
+  }
+
+  return results;
+}
+
+/**
  * Gera PDF como Blob para pré-visualização no browser.
- * @returns {Promise<{ blobUrl: string, blob: Blob, filename: string, pageCount: number }>}
+ * @returns {Promise<{ blobUrl: string, blob: Blob, filename: string, pageCount: number, isMulti?: boolean, pdfs?: object[] }>}
  */
 export async function generateInterventionPDFBlob(report) {
+  if (isEmpilhadoresMultiMaquinaReport(report)) {
+    const pdfs = await generateEmpilhadoresPdfBlobs(report);
+    return {
+      isMulti: true,
+      pdfs: pdfs.map((entry) => ({
+        ...entry,
+        blobUrl: URL.createObjectURL(entry.blob),
+      })),
+    };
+  }
+
+  let reportForPdf = report;
+  if (report?.serviceType === EMPILHADORES_SERVICE_ID) {
+    reportForPdf = withEmpilhadoresPdfMeta(report, 0);
+  }
+
   await yieldToMain();
-  const doc = await renderInterventionPDF(report);
+  const doc = await renderInterventionPDF(reportForPdf);
   await yieldToMain();
-  const filename = getReportFilename(report);
+  const filename = getReportFilename(reportForPdf);
   const blob = doc.output('blob');
   const blobUrl = URL.createObjectURL(blob);
   return {
@@ -921,6 +985,12 @@ export async function generateReportPdfByServiceType(report) {
 
   if (report.serviceType === 'inspecao_dl50_2005') {
     return generateInspecaoDl50PDF(report);
+  }
+
+  if (isEmpilhadoresMultiMaquinaReport(report)) {
+    const { downloadEmpilhadoresPdfs } = await import('./pdf-preview.js');
+    await downloadEmpilhadoresPdfs(report);
+    return null;
   }
 
   return generateInterventionPDF(report);

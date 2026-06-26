@@ -35,13 +35,17 @@ export function buildReportPdfFilename(job, report, options = {}) {
     options.serviceTitle || options.tipoTrabalhoLabel || report?.serviceType || 'relatorio',
   );
   const op = formatOpPdfFilenameSuffix(job?.numeroOrdem);
+  const machineTag = options.machineTag
+    ? sanitizePdfFilenameSegment(options.machineTag)
+    : '';
   if (op) {
-    return `${tipo}_${op}.pdf`;
+    return machineTag ? `${tipo}_${op}_${machineTag}.pdf` : `${tipo}_${op}.pdf`;
   }
   const stamp = String(job?.id || report?.jobId || report?.id || Date.now())
     .replace(/-/g, '')
     .slice(0, 12);
-  return `Teste_${tipo}_${stamp}.pdf`;
+  const base = `Teste_${tipo}_${stamp}`;
+  return machineTag ? `${base}_${machineTag}.pdf` : `${base}.pdf`;
 }
 
 /**
