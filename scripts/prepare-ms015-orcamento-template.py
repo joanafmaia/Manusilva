@@ -125,6 +125,56 @@ def patch_taxa_prazo_totais(xml: str) -> str:
     return xml[:p_start] + totais_para + xml[p_start:]
 
 
+PAGE_BREAK_XML = (
+    '<w:p w14:paraId="MS015PB1" w14:textId="MS015PB1" w:rsidR="00MS0150" w:rsidRDefault="00MS0150">'
+    '<w:r><w:br w:type="page"/></w:r></w:p>'
+)
+
+CAIXA_APROVACAO_MARKER = (
+    '<w:p w14:paraId="MS015AP1" w14:textId="MS015AP1" w:rsidR="00MS0150" w:rsidRDefault="00MS0150">'
+    '<w:pPr><w:spacing w:before="160" w:after="0"/></w:pPr>'
+    "<w:r><w:t>[[CAIXA_APROVACAO]]</w:t></w:r></w:p>"
+)
+
+
+def remove_paragraphs_between(xml: str, start_needle: str, end_needle: str) -> str:
+    start_pos = None
+    end_pos = None
+    for match in re.finditer(r"<w:p\b[^>]*>.*?</w:p>", xml, re.DOTALL):
+        block = match.group(0)
+        if start_pos is None and start_needle in block:
+            start_pos = match.start()
+        if start_pos is not None and end_needle in block:
+            end_pos = match.start()
+            break
+    if start_pos is None or end_pos is None or end_pos <= start_pos:
+        return xml
+    return xml[:start_pos] + xml[end_pos:]
+
+
+def insert_after_paragraph_needle(xml: str, needle: str, insertion: str) -> str:
+    for match in re.finditer(r"<w:p\b[^>]*>.*?</w:p>", xml, re.DOTALL):
+        if needle in match.group(0):
+            pos = match.end()
+            return xml[:pos] + insertion + xml[pos:]
+    raise SystemExit(f"Parágrafo com {needle!r} não encontrado.")
+
+
+def insert_page_break_before_needle(xml: str, needle: str) -> str:
+    for match in re.finditer(r"<w:p\b[^>]*>.*?</w:p>", xml, re.DOTALL):
+        if needle in match.group(0):
+            return xml[: match.start()] + PAGE_BREAK_XML + match.group(0) + xml[match.end() :]
+    raise SystemExit(f"Parágrafo com {needle!r} não encontrado para quebra de página.")
+
+
+def patch_approval_and_legal_pages(xml: str) -> str:
+    """Folha 1: encerramento + caixa de aprovação. Folha 2: texto legal fixo."""
+    xml = remove_paragraphs_between(xml, "Aprova", "De V. Exas")
+    xml = insert_after_paragraph_needle(xml, "MANUSILVA,LDA", CAIXA_APROVACAO_MARKER)
+    xml = insert_page_break_before_needle(xml, "Garantia de Repara")
+    return xml
+
+
 def rebuild_orcamento_header(xml: str) -> str:
     """Substitui número/data de exemplo por placeholders num único bloco."""
     start = xml.find("<w:t>Or")
@@ -189,6 +239,7 @@ def main() -> None:
         xml = remove_second_machine_block(xml)
         xml = insert_orcamento_table_marker(xml)
         xml = patch_taxa_prazo_totais(xml)
+        xml = patch_approval_and_legal_pages(xml)
 
         out_buf = xml.encode("utf-8")
         entries = {name: zin.read(name) for name in zin.namelist()}

@@ -3,6 +3,7 @@
  */
 
 import { buildOrcamentoFillData, escapeXmlText } from './orcamento-fill-data.js';
+import { buildOrcamentoApprovalBoxXml } from './orcamento-approval-xml.js';
 import { buildOrcamentoWordTableXml } from './orcamento-table-xml.js';
 import { getReportOrcamentoMeta } from './orcamento-linhas.js';
 import { getJob } from './app.js';
@@ -65,6 +66,13 @@ export async function renderOrcamentoDOCX(report, job = null) {
     xml = xml.replace(
       /<w:p\b[^>]*>[\s\S]*?\[\[TABELA_ORCAMENTO\]\][\s\S]*?<\/w:p>/,
       tableXml,
+    );
+  }
+
+  if (xml.includes('[[CAIXA_APROVACAO]]')) {
+    xml = xml.replace(
+      /<w:p\b[^>]*>[\s\S]*?\[\[CAIXA_APROVACAO\]\][\s\S]*?<\/w:p>/,
+      buildOrcamentoApprovalBoxXml(),
     );
   }
 

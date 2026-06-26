@@ -1,5 +1,7 @@
 /**
- * PDF — Proposta Comercial MS.015 (espelho do modelo Word para pré-visualização RH).
+ * PDF — Proposta Comercial MS.015
+ * Folha 1: proposta + encerramento Manusilva + caixa de aprovação do cliente
+ * Folha 2: Garantia de Reparação, Prazo de reparação e Condições Gerais (fixo)
  */
 
 import { COMPANY } from './mock_data.js';
@@ -13,7 +15,6 @@ import {
 } from './orcamento-linhas.js';
 import { ensurePdfFonts, pdfSetFont, pdfSafeText, pdfSplitText } from './pdf-font.js';
 import {
-  PDF_COLOR_CORPORATE_BLUE,
   PDF_COLOR_TEXT_DARK,
   PDF_COLOR_TEXT_MUTED,
   PDF_CONTENT_W,
@@ -22,14 +23,15 @@ import {
   PDF_FONT_SECTION,
   PDF_FONT_SUBTITLE,
   PDF_MARGIN,
-  PDF_PAGE_W,
-  PDF_SECTION_GAP_MM,
 } from './pdf-design-system.js';
 import { loadJsPDF } from './pdf-report.js';
 
 const MARGIN = PDF_MARGIN;
 const CONTENT_W = PDF_CONTENT_W;
 const PAGE_BOTTOM = 287;
+/** Espaço reservado no fundo da folha 1 para a caixa de aprovação do cliente. */
+const APPROVAL_BOX_H = 50;
+const PAGE1_BODY_MAX = PAGE_BOTTOM - APPROVAL_BOX_H - 10;
 
 let legalTextCache = null;
 
@@ -48,17 +50,10 @@ async function loadLegalText() {
   return legalTextCache;
 }
 
-function ensurePage(doc, y, need = 12) {
-  if (y + need <= PAGE_BOTTOM) return y;
-  doc.addPage();
-  return MARGIN;
-}
-
-function drawLine(doc, y, bold = false) {
-  pdfSetFont(doc, bold ? 'bold' : 'normal');
-  doc.setFontSize(PDF_FONT_BODY);
-  doc.setTextColor(...PDF_COLOR_TEXT_DARK);
-  return y + 5;
+/** Mantém o corpo da proposta na folha 1 (sem páginas intermédias antes das condições gerais). */
+function ensureProposalSpace(doc, y, need = 12) {
+  if (y + need <= PAGE1_BODY_MAX) return y;
+  return y;
 }
 
 function drawOrcamentoTable(doc, linhas, startY) {
@@ -72,7 +67,7 @@ function drawOrcamentoTable(doc, linhas, startY) {
   let y = startY;
 
   const drawRow = (cells, { bold = false, fill = false } = {}) => {
-    y = ensurePage(doc, y, rowH + 2);
+    y = ensureProposalSpace(doc, y, rowH + 2);
     if (fill) {
       doc.setFillColor(241, 245, 249);
       doc.rect(MARGIN, y - 4.2, CONTENT_W, rowH, 'F');
@@ -102,6 +97,115 @@ function drawOrcamentoTable(doc, linhas, startY) {
     ]);
   });
   return y + 4;
+}
+
+function drawCompanyClosing(doc, y) {
+  const maxY = PAGE1_BODY_MAX - 22;
+  if (y > maxY) y = maxY;
+
+  pdfSetFont(doc, 'normal');
+  doc.setFontSize(PDF_FONT_BODY);
+  doc.setTextColor(...PDF_COLOR_TEXT_DARK);
+  doc.text('De V. Exas.', MARGIN, y);
+  y += 5.5;
+  doc.text('Atentamente', MARGIN, y);
+  y += 5.5;
+  pdfSetFont(doc, 'bold');
+  doc.text('MANUSILVA,LDA', MARGIN, y);
+  return y + 8;
+}
+
+/** Caixa no fundo da folha 1 para impressão, assinatura e carimbo do cliente. */
+function drawClientApprovalBox(doc) {
+  const boxY = PAGE_BOTTOM - APPROVAL_BOX_H - 6;
+  const boxX = MARGIN;
+  const boxW = CONTENT_W;
+  const pad = 4;
+
+  doc.setDrawColor(30, 41, 59);
+  doc.setLineWidth(0.45);
+  doc.setFillColor(255, 255, 255);
+  doc.rect(boxX, boxY, boxW, APPROVAL_BOX_H, 'FD');
+
+  let ty = boxY + 7;
+  pdfSetFont(doc, 'bold');
+  doc.setFontSize(10);
+  doc.setTextColor(...PDF_COLOR_TEXT_DARK);
+  doc.text('Aprovação', boxX + pad, ty);
+
+  ty += 8;
+  pdfSetFont(doc, 'normal');
+  doc.setFontSize(9);
+  pdfSplitText(
+    doc,
+    'Declaro que aceito o presente orçamento e valores apresentados',
+    boxW - pad * 2,
+  ).forEach((line) => {
+    doc.text(line, boxX + pad, ty);
+    ty += 4.5;
+  });
+
+  ty = boxY + APPROVAL_BOX_H - 8;
+  doc.setFontSize(8);
+  doc.setTextColor(...PDF_COLOR_TEXT_MUTED);
+  doc.text('Assinatura e carimbo do cliente', boxX + pad, ty);
+  doc.setTextColor(...PDF_COLOR_TEXT_DARK);
+
+  return boxY + APPROVAL_BOX_H;
+}
+
+function drawLegalPage(doc, legalText) {
+  doc.addPage();
+  let y = MARGIN + 6;
+
+  pdfSetFont(doc, 'bold');
+  doc.setFontSize(PDF_FONT_SECTION);
+  doc.setTextColor(...PDF_COLOR_TEXT_DARK);
+  doc.text('Garantia de Reparação — Condições Gerais', MARGIN, y);
+  y += 8;
+
+  pdfSetFont(doc, 'normal');
+  doc.setFontSize(PDF_FONT_CAPTION);
+  doc.setTextColor(...PDF_COLOR_TEXT_DARK);
+
+  legalText.split(/\n+/).forEach((para) => {
+    const text = para.trim();
+    if (!text) {
+      y += 2;
+      return;
+    }
+    const isSectionTitle =
+      /^CONDIÇÕES GERAIS/i.test(text) ||
+      /^Garantia de Reparação/i.test(text) ||
+      /^Prazo de reparação/i.test(text) ||
+      /^[IVX]+ –/.test(text);
+
+    if (isSectionTitle) {
+      y += 3;
+      pdfSetFont(doc, 'bold');
+      doc.setFontSize(PDF_FONT_CAPTION + 0.5);
+    }
+
+    pdfSplitText(doc, text, CONTENT_W).forEach((line) => {
+      if (y > PAGE_BOTTOM - 8) {
+        doc.addPage();
+        y = MARGIN;
+      }
+      doc.text(line, MARGIN, y);
+      y += 3.8;
+    });
+
+    if (isSectionTitle) {
+      pdfSetFont(doc, 'normal');
+      doc.setFontSize(PDF_FONT_CAPTION);
+    }
+    y += 1.5;
+  });
+
+  pdfSetFont(doc, 'normal');
+  doc.setFontSize(7);
+  doc.setTextColor(...PDF_COLOR_TEXT_MUTED);
+  doc.text(COMPANY.address || '', MARGIN, PAGE_BOTTOM);
 }
 
 /**
@@ -141,13 +245,13 @@ export async function renderOrcamentoPDF(report) {
 
   const intro = `Vimos por este meio enviar o orçamento para ${fill.intro_servico}`;
   pdfSplitText(doc, intro, CONTENT_W).forEach((line) => {
-    y = ensurePage(doc, y);
+    y = ensureProposalSpace(doc, y);
     doc.text(line, MARGIN, y);
     y += 5;
   });
   y += 4;
 
-  y = ensurePage(doc, y, 28);
+  y = ensureProposalSpace(doc, y, 28);
   pdfSetFont(doc, 'bold');
   doc.text(`Máquina – ${pdfSafeText(fill.maquina)}`, MARGIN, y);
   y += 6;
@@ -159,7 +263,7 @@ export async function renderOrcamentoPDF(report) {
   y += 6;
   pdfSetFont(doc, 'normal');
   pdfSplitText(doc, pdfSafeText(fill.reparacao_necessaria), CONTENT_W).forEach((line) => {
-    y = ensurePage(doc, y);
+    y = ensureProposalSpace(doc, y);
     doc.text(line, MARGIN, y);
     y += 4.8;
   });
@@ -178,53 +282,19 @@ export async function renderOrcamentoPDF(report) {
     'A estes valores acresce o valor do Iva.',
   ];
   terms.forEach((line) => {
-    y = ensurePage(doc, y);
+    y = ensureProposalSpace(doc, y);
     doc.text(line, MARGIN, y);
     y += 5.5;
   });
-  y += 6;
+  y += 4;
 
-  y = ensurePage(doc, y, 40);
-  pdfSetFont(doc, 'bold');
-  doc.text('Aprovação', MARGIN, y);
-  y += 6;
-  pdfSetFont(doc, 'normal');
-  doc.text('Declaro que aceito o presente orçamento e valores apresentados', MARGIN, y);
-  y += 16;
-  doc.text('(Assinatura e Carimbo)', MARGIN, y);
-  y += 16;
-  doc.text('De V. Exas.', MARGIN, y);
-  y += 6;
-  doc.text('Atentamente', MARGIN, y);
-  y += 6;
-  pdfSetFont(doc, 'bold');
-  doc.text('MANUSILVA,LDA', MARGIN, y);
-  y += 14;
+  doc.setPage(1);
+  y = drawCompanyClosing(doc, y);
+  drawClientApprovalBox(doc);
 
   if (legalText) {
-    y = ensurePage(doc, y, 20);
-    pdfSetFont(doc, 'normal');
-    doc.setFontSize(PDF_FONT_CAPTION);
-    doc.setTextColor(...PDF_COLOR_TEXT_DARK);
-    legalText.split(/\n+/).forEach((para) => {
-      const text = para.trim();
-      if (!text) {
-        y += 2;
-        return;
-      }
-      pdfSplitText(doc, text, CONTENT_W).forEach((line) => {
-        y = ensurePage(doc, y);
-        doc.text(line, MARGIN, y);
-        y += 3.8;
-      });
-      y += 1.5;
-    });
+    drawLegalPage(doc, legalText);
   }
-
-  pdfSetFont(doc, 'normal');
-  doc.setFontSize(7);
-  doc.setTextColor(...PDF_COLOR_TEXT_MUTED);
-  doc.text(COMPANY.address || '', MARGIN, 287);
 
   return doc;
 }
