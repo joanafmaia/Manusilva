@@ -17,6 +17,7 @@ import { formatOrdemLabel } from '../report-review-ui.js';
 import {
   getPedidoOrcamentoDetalhe,
   getReportOrcamentoPdfUrl,
+  isRhOrcamentoQueueReport,
   openOrcamentoStorageUrl,
   reportHasPedidoOrcamento,
   reportOrcamentoPorPreparar,
@@ -41,7 +42,7 @@ function orcamentoWorkflowStatus(report) {
 function listOrcamentoReports() {
   return dedupeReportsByJobPreferNewest(
     getReportsSnapshot()
-      .filter((report) => reportHasPedidoOrcamento(report) && PANEL_STATUSES.has(report.status))
+      .filter((report) => isRhOrcamentoQueueReport(report))
       .sort((a, b) => {
         const da = String(a.approvedAt || a.submittedAt || '');
         const db = String(b.approvedAt || b.submittedAt || '');
@@ -308,5 +309,5 @@ export function initOrcamentosPanel(root) {
 }
 
 export function countOrcamentosPorPreparar() {
-  return listOrcamentoReports().filter(reportOrcamentoPorPreparar).length;
+  return listOrcamentoReports().length;
 }

@@ -53,8 +53,13 @@ import {
   updateRelatorio,
   deleteRelatoriosByTrabalho,
   formatRelatoriosError,
+  dedupeReportsByJobPreferNewest,
 } from './relatorios-db.js';
-import { reportOrcamentoPorPreparar } from './pedido-orcamento.js';
+import {
+  isRhOrcamentoQueueReport,
+  isRhPendingReviewWithoutOrcamento,
+  reportOrcamentoPorPreparar,
+} from './pedido-orcamento.js';
 import {
   jobMatchesTechnician,
   splitTechnicianStoredValue,
@@ -1335,7 +1340,13 @@ export function getAllJobs() {
 }
 
 export function getPendingReports() {
-  return getReportsSnapshot().filter((r) => r.status === 'pending_review');
+  return getRhPanelReports().filter(isRhPendingReviewWithoutOrcamento);
+}
+
+function getRhPanelReports() {
+  return dedupeReportsByJobPreferNewest(
+    getReportsSnapshot().filter((r) => RH_PANEL_REPORT_STATUSES.has(r.status)),
+  );
 }
 
 /** Estados de relatório exibidos no painel RH (histórico completo) */
@@ -1355,20 +1366,24 @@ function sortReportsForRhPanel(a, b) {
 
 /** Relatórios visíveis no painel RH (com filtro opcional por estado) */
 export function getAdminReviewReports(filter = 'all') {
-  const list = getReportsSnapshot().filter((r) => RH_PANEL_REPORT_STATUSES.has(r.status));
+  const list = getRhPanelReports();
+  if (filter === 'pending_review') {
+    return list.filter(isRhPendingReviewWithoutOrcamento).sort(sortReportsForRhPanel);
+  }
+  if (filter === 'orcamento_pendente') {
+    return list.filter(isRhOrcamentoQueueReport).sort(sortReportsForRhPanel);
+  }
   const filtered = filter === 'all' ? list : list.filter((r) => r.status === filter);
   return filtered.sort(sortReportsForRhPanel);
 }
 
 /** Contagens por estado para filtros rápidos do painel RH */
 export function getRhPanelReportCounts() {
-  const list = getReportsSnapshot().filter((r) => RH_PANEL_REPORT_STATUSES.has(r.status));
+  const list = getRhPanelReports();
   return {
     all: list.length,
-    pending_review: list.filter((r) => r.status === 'pending_review').length,
-    orcamento_pendente: list
-      .filter((r) => r.status === 'approved' || r.status === 'pending_review')
-      .filter(reportOrcamentoPorPreparar).length,
+    pending_review: list.filter(isRhPendingReviewWithoutOrcamento).length,
+    orcamento_pendente: list.filter(isRhOrcamentoQueueReport).length,
     draft: list.filter((r) => r.status === 'draft').length,
     approved: list.filter((r) => r.status === 'approved').length,
     rejected: list.filter((r) => r.status === 'rejected').length,

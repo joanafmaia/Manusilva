@@ -149,12 +149,7 @@ function persistRhReviewFilters() {
 }
 
 function getRhFilteredReports() {
-  const base =
-    rhReviewFilter === 'orcamento_pendente'
-      ? getReportsSnapshot()
-          .filter((r) => r.status === 'approved' || r.status === 'pending_review')
-          .filter(reportOrcamentoPorPreparar)
-      : getAdminReviewReports(rhReviewFilter);
+  const base = getAdminReviewReports(rhReviewFilter);
   return filterRhReports(base, {
     techId: rhReviewTechFilter,
     search: rhReviewSearch,
