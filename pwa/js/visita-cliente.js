@@ -50,9 +50,36 @@ export function countTrabalhosNaVisita(visitKey, jobs = getJobsSnapshot()) {
   return jobs.filter((job) => getJobVisitaKey(job) === visitKey).length;
 }
 
+/**
+ * Tamanho da visita = máximo entre trabalhos agendados e relatórios submetidos.
+ * @param {string} visitKey
+ * @param {object[]} jobs
+ * @param {object[]} reports
+ * @param {(id: string) => object | null} getJob
+ */
+export function getVisitaItemCount(visitKey, jobs = [], reports = [], getJob = () => null) {
+  if (!visitKey) return 0;
+  const jobCount = jobs.filter((job) => getJobVisitaKey(job) === visitKey).length;
+  const reportCount = reports.filter((report) => {
+    const job = report?.jobId ? getJob(report.jobId) : null;
+    return getReportVisitaKey(report, job) === visitKey;
+  }).length;
+  return Math.max(jobCount, reportCount);
+}
+
 /** @param {object[]} [jobs] */
 export function isMultiTrabalhoVisita(visitKey, jobs = getJobsSnapshot()) {
   return countTrabalhosNaVisita(visitKey, jobs) >= 2;
+}
+
+/** Visita com 2+ trabalhos ou 2+ relatórios (mesmo cliente/dia/técnico). */
+export function isReportInMultiVisita(
+  report,
+  job = null,
+  { jobs = getJobsSnapshot(), reports = [], getJob = () => null } = {},
+) {
+  const key = getReportVisitaKey(report, job);
+  return getVisitaItemCount(key, jobs, reports, getJob) >= 2;
 }
 
 /** @param {object} report */
@@ -81,13 +108,8 @@ export function getVisitaApprovedReportsPendingEmail(visitKey, reports, getJob) 
  * @param {object[]} jobs
  * @param {object[]} [allJobs]
  */
-export function groupJobsByVisita(jobs, allJobs = getJobsSnapshot()) {
-  const visitCounts = new Map();
-  allJobs.forEach((job) => {
-    const key = getJobVisitaKey(job);
-    if (!key) return;
-    visitCounts.set(key, (visitCounts.get(key) || 0) + 1);
-  });
+export function groupJobsByVisita(jobs, allJobs = getJobsSnapshot(), allReports = []) {
+  const isFolder = (key) => getVisitaItemCount(key, allJobs, allReports) >= 2;
 
   /** @type {Map<string, object[]>} */
   const folders = new Map();
@@ -95,7 +117,7 @@ export function groupJobsByVisita(jobs, allJobs = getJobsSnapshot()) {
 
   jobs.forEach((job) => {
     const key = getJobVisitaKey(job);
-    if (key && (visitCounts.get(key) || 0) >= 2) {
+    if (key && isFolder(key)) {
       if (!folders.has(key)) folders.set(key, []);
       folders.get(key).push(job);
       return;
@@ -106,7 +128,7 @@ export function groupJobsByVisita(jobs, allJobs = getJobsSnapshot()) {
   const folderList = [...folders.entries()].map(([visitKey, items]) => ({
     visitKey,
     jobs: items,
-    jobCount: visitCounts.get(visitKey) || items.length,
+    jobCount: getVisitaItemCount(visitKey, allJobs, allReports),
   }));
 
   return { folders: folderList, singles };
@@ -118,13 +140,8 @@ export function groupJobsByVisita(jobs, allJobs = getJobsSnapshot()) {
  * @param {(id: string) => object | null} getJob
  * @param {object[]} [allJobs]
  */
-export function groupReportsByVisita(reports, getJob, allJobs = getJobsSnapshot()) {
-  const visitCounts = new Map();
-  allJobs.forEach((job) => {
-    const key = getJobVisitaKey(job);
-    if (!key) return;
-    visitCounts.set(key, (visitCounts.get(key) || 0) + 1);
-  });
+export function groupReportsByVisita(reports, getJob, allJobs = getJobsSnapshot(), allReports = reports) {
+  const isFolder = (key) => getVisitaItemCount(key, allJobs, allReports, getJob) >= 2;
 
   /** @type {Map<string, object[]>} */
   const folders = new Map();
@@ -133,7 +150,7 @@ export function groupReportsByVisita(reports, getJob, allJobs = getJobsSnapshot(
   reports.forEach((report) => {
     const job = report.jobId ? getJob(report.jobId) : null;
     const key = getReportVisitaKey(report, job);
-    if (key && (visitCounts.get(key) || 0) >= 2) {
+    if (key && isFolder(key)) {
       if (!folders.has(key)) folders.set(key, []);
       folders.get(key).push(report);
       return;
@@ -144,7 +161,7 @@ export function groupReportsByVisita(reports, getJob, allJobs = getJobsSnapshot(
   const foldersList = [...folders.entries()].map(([visitKey, items]) => ({
     visitKey,
     reports: items,
-    jobCount: visitCounts.get(visitKey) || items.length,
+    jobCount: getVisitaItemCount(visitKey, allJobs, allReports, getJob),
   }));
 
   return { folders: foldersList, singles };

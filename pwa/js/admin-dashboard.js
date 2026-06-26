@@ -1019,6 +1019,7 @@ async function renderRhReviewStack() {
     const cards = buildRhReviewGroupedStack(reports, {
       getJobFn: getJob,
       allReports,
+      allJobs: getAllJobs(),
     });
 
     stackHtml = `<div class="rh-review-stack" role="list">${cards}</div>`;
@@ -1032,6 +1033,7 @@ async function renderRhReviewStack() {
 
   requestAnimationFrame(() => syncReviewPanelHeight());
   updateRhBatchToolbar(panel);
+  bindRhVisitaFolderControls(panel);
 }
 
 function rhReviewModalCallbacks() {
@@ -1065,6 +1067,33 @@ function rhReviewModalCallbacks() {
 
 let rhReviewPanelBound = false;
 
+function updateRhVisitaEmailToolbar(folderEl) {
+  if (!folderEl) return;
+  const checked = folderEl.querySelectorAll('.rh-visita-email-checkbox:checked');
+  const btn = folderEl.querySelector('[data-visita-email-selected]');
+  if (!btn) return;
+  const count = checked.length;
+  btn.disabled = count === 0;
+  btn.textContent = `Enviar e-mail selecionados (${count})`;
+}
+
+function syncRhVisitaSelectAll(folderEl) {
+  if (!folderEl) return;
+  const boxes = [...folderEl.querySelectorAll('.rh-visita-email-checkbox')];
+  const selectAll = folderEl.querySelector('.rh-visita-select-approved');
+  if (!selectAll || !boxes.length) return;
+  const checkedCount = boxes.filter((cb) => cb.checked).length;
+  selectAll.indeterminate = checkedCount > 0 && checkedCount < boxes.length;
+  selectAll.checked = checkedCount === boxes.length;
+}
+
+function bindRhVisitaFolderControls(panel) {
+  panel.querySelectorAll('.rh-visita-folder').forEach((folder) => {
+    updateRhVisitaEmailToolbar(folder);
+    syncRhVisitaSelectAll(folder);
+  });
+}
+
 function updateRhBatchToolbar(panel) {
   const checkboxes = [...panel.querySelectorAll('.rh-batch-checkbox:checked')];
   const btn = panel.querySelector('#rh-batch-approve');
@@ -1087,12 +1116,14 @@ async function approveSelectedRhReports(panel) {
   if (!ids.length) return;
 
   const confirmed = window.confirm(
-    `Aprovar ${ids.length} relatório(s) selecionado(s)?\n\nSerá usado o e-mail do cliente registado na ficha.`,
+    `Aprovar ${ids.length} relatório(s) selecionado(s)?\n\nEm visitas com vários trabalhos, o e-mail ao cliente envia-se depois na pasta (seleção manual).`,
   );
   if (!confirmed) return;
 
   const btn = panel.querySelector('#rh-batch-approve');
   if (btn) btn.disabled = true;
+
+  const { isReportInMultiVisita } = await import('./visita-cliente.js');
 
   let approved = 0;
   const total = ids.length;
@@ -1104,7 +1135,13 @@ async function approveSelectedRhReports(panel) {
     if (!report || report.status !== 'pending_review') continue;
     const client = getClient(report.clientId);
     const clientEmail = String(client?.email || client?.['E-mail'] || '').trim();
-    const ok = await approveReport(reportId, { clientEmail });
+    const job = report.jobId ? getJob(report.jobId) : null;
+    const multiVisita = isReportInMultiVisita(report, job, {
+      jobs: getAllJobs(),
+      reports: getReportsSnapshot(),
+      getJob,
+    });
+    const ok = await approveReport(reportId, { clientEmail, skipClientEmail: multiVisita });
     if (ok) approved += 1;
   }
 
@@ -1167,6 +1204,24 @@ function bindRhReviewPanel() {
 
     if (target.classList.contains('rh-batch-checkbox')) {
       updateRhBatchToolbar(panel);
+      return;
+    }
+
+    if (target.classList.contains('rh-visita-email-checkbox')) {
+      const folder = target.closest('.rh-visita-folder');
+      updateRhVisitaEmailToolbar(folder);
+      syncRhVisitaSelectAll(folder);
+      return;
+    }
+
+    if (target.classList.contains('rh-visita-select-approved')) {
+      const folder = target.closest('.rh-visita-folder');
+      if (!folder) return;
+      folder.querySelectorAll('.rh-visita-email-checkbox').forEach((cb) => {
+        cb.checked = target.checked;
+      });
+      updateRhVisitaEmailToolbar(folder);
+      return;
     }
   });
 
@@ -1201,17 +1256,24 @@ function bindRhReviewPanel() {
       return;
     }
 
-    const visitEmailBtn = e.target.closest('[data-visita-email]');
-    if (visitEmailBtn?.dataset.visitaEmail) {
-      const visitKey = visitEmailBtn.dataset.visitaEmail;
-      const { summarizeVisitaEmailStatus } = await import('./visita-cliente.js');
-      const { sendVisitaClienteEmail } = await import('./app.js');
-      const status = summarizeVisitaEmailStatus(visitKey, getReportsSnapshot(), getJob);
+    const visitEmailBtn = e.target.closest('[data-visita-email-selected]');
+    if (visitEmailBtn?.dataset.visitaEmailSelected) {
+      const folder = visitEmailBtn.closest('.rh-visita-folder');
+      const reportIds = folder
+        ? [...folder.querySelectorAll('.rh-visita-email-checkbox:checked')].map(
+            (cb) => cb.dataset.visitaReportId,
+          )
+        : [];
+      if (!reportIds.length) {
+        showToast('Selecione pelo menos um relatório aprovado.', 'warning');
+        return;
+      }
+      const visitKey = visitEmailBtn.dataset.visitaEmailSelected;
       const clientId = visitKey.split('|')[0];
       const client = getClient(clientId);
       const clientEmail = String(client?.email || client?.['E-mail'] || '').trim();
-      const force = status.pendingEmailCount === 0 && status.approvedCount > 0;
-      const ok = await sendVisitaClienteEmail(visitKey, { clientEmail, force });
+      const { sendSelectedReportsEmail } = await import('./app.js');
+      const ok = await sendSelectedReportsEmail(reportIds, { clientEmail });
       if (ok) await renderRhReviewStack();
       return;
     }
@@ -1237,17 +1299,21 @@ async function quickApproveRhReport(reportId) {
 
   const job = report.jobId ? getJob(report.jobId) : null;
   const ordem = formatOrdemLabel(job, client);
-  const { getReportVisitaKey, isMultiTrabalhoVisita } = await import('./visita-cliente.js');
-  const multiVisita = isMultiTrabalhoVisita(getReportVisitaKey(report, job), getAllJobs());
+  const { getReportVisitaKey, isReportInMultiVisita } = await import('./visita-cliente.js');
+  const multiVisita = isReportInMultiVisita(report, job, {
+    jobs: getAllJobs(),
+    reports: getReportsSnapshot(),
+    getJob,
+  });
   const confirmMsg = isTestClient(client)
     ? `Aprovar relatório de teste (${ordem})? Não será enviado e-mail ao cliente.`
     : multiVisita
-      ? `Aprovar ${ordem}? O e-mail ao cliente será enviado manualmente na pasta da visita.`
+      ? `Aprovar ${ordem}? Depois selecione os relatórios na pasta e envie um único e-mail.`
       : `Aprovar ${ordem} e enviar para o cliente?`;
   const confirmed = window.confirm(confirmMsg);
   if (!confirmed) return;
 
-  const ok = await approveReport(reportId, { clientEmail });
+  const ok = await approveReport(reportId, { clientEmail, skipClientEmail: multiVisita });
   if (ok) {
     showToast('Relatório aprovado.', 'success');
     await rhReviewModalCallbacks().onApproved?.();

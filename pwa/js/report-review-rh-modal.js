@@ -44,7 +44,7 @@ import {
   groupReportsByVisita,
   sortVisitaFoldersNewestFirst,
   sortVisitaReportsNewestFirst,
-  summarizeVisitaEmailStatus,
+  reportVisitaEmailWasSent,
 } from './visita-cliente.js';
 import {
   computeReviewChecks,
@@ -254,34 +254,44 @@ export function buildRhVisitaFolder({
   const techName = tech?.name || '—';
   const dateLabel = parsed?.date ? formatDateLong(parsed.date) : '—';
   const sortedReports = sortVisitaReportsNewestFirst(reports);
-  const emailStatus = summarizeVisitaEmailStatus(visitKey, allReports, getJobFn);
+  const approvedReports = sortedReports.filter((report) => report?.status === 'approved');
 
   const itemsHtml = sortedReports
     .map((report) => {
       const job = report.jobId ? getJobFn(report.jobId) : null;
-      return buildRhReviewListItem({
+      const item = buildRhReviewListItem({
         job,
         report,
         client: client || getClient(report.clientId),
         tech: tech || getTechnician(report.technicianId),
       });
+      const isApproved = report?.status === 'approved';
+      const emailCheck = isApproved
+        ? `<label class="rh-visita-email-check" title="Incluir no e-mail ao cliente">
+            <input type="checkbox" class="rh-visita-email-checkbox"
+              data-visita-report-id="${escapeHtml(report.id)}"
+              data-visita-key="${escapeHtml(visitKey)}"
+              ${reportVisitaEmailWasSent(report) ? '' : 'checked'}
+              aria-label="Incluir no e-mail">
+          </label>`
+        : `<span class="rh-visita-email-check rh-visita-email-check--disabled" title="Aprove o relatório para poder enviar por e-mail">—</span>`;
+      return `
+        <div class="rh-visita-folder__report-row${isApproved ? '' : ' rh-visita-folder__report-row--pending'}">
+          ${emailCheck}
+          <div class="rh-visita-folder__report-item">${item}</div>
+        </div>`;
     })
     .join('');
 
-  let emailBtn = '';
-  if (emailStatus.approvedCount > 0) {
-    if (emailStatus.pendingEmailCount > 0) {
-      emailBtn = `<button type="button" class="btn-primary btn-sm rh-visita-folder__email-btn" data-visita-email="${escapeHtml(visitKey)}" title="Enviar todos os relatórios aprovados ainda não enviados">
-          Enviar e-mail da visita (${emailStatus.pendingEmailCount})
-        </button>`;
-    } else {
-      emailBtn = `<button type="button" class="btn-outline btn-sm rh-visita-folder__email-btn" data-visita-email="${escapeHtml(visitKey)}" title="Reenviar todos os relatórios aprovados da visita">
-          Reenviar e-mail da visita
-        </button>`;
-    }
-  } else {
-    emailBtn = `<span class="rh-visita-folder__email-hint text-muted">Aprove relatórios para enviar ao cliente</span>`;
-  }
+  const defaultChecked = approvedReports.filter((report) => !reportVisitaEmailWasSent(report)).length;
+  const emailBtn =
+    approvedReports.length > 0
+      ? `<button type="button" class="btn-primary btn-sm rh-visita-folder__email-btn"
+            data-visita-email-selected="${escapeHtml(visitKey)}"
+            ${defaultChecked ? '' : 'disabled'}>
+          Enviar e-mail selecionados (${defaultChecked || 0})
+        </button>`
+      : `<span class="rh-visita-folder__email-hint text-muted">Aprove relatórios para enviar ao cliente</span>`;
 
   return `
     <section class="rh-visita-folder" data-visita-key="${escapeHtml(visitKey)}" role="listitem">
@@ -296,9 +306,18 @@ export function buildRhVisitaFolder({
           </div>
         </div>
         <div class="rh-visita-folder__actions">
+          ${
+            approvedReports.length > 1
+              ? `<label class="rh-visita-folder__select-approved">
+                  <input type="checkbox" class="rh-visita-select-approved" data-visita-key="${escapeHtml(visitKey)}">
+                  <span>Todos aprovados</span>
+                </label>`
+              : ''
+          }
           ${emailBtn}
         </div>
       </header>
+      <p class="rh-visita-folder__hint text-muted">Marque os relatórios aprovados a incluir num único e-mail (serviços diferentes permitidos).</p>
       <div class="rh-visita-folder__reports" role="list">
         ${itemsHtml}
       </div>
@@ -309,8 +328,11 @@ export function buildRhVisitaFolder({
 /**
  * Lista RH com pastas de visita quando aplicável.
  */
-export function buildRhReviewGroupedStack(reports, { getJobFn = getJob, allReports = reports } = {}) {
-  const { folders, singles } = groupReportsByVisita(reports, getJobFn);
+export function buildRhReviewGroupedStack(
+  reports,
+  { getJobFn = getJob, allReports = reports, allJobs = [] } = {},
+) {
+  const { folders, singles } = groupReportsByVisita(reports, getJobFn, allJobs, allReports);
   const sortedFolders = sortVisitaFoldersNewestFirst(folders);
 
   const folderHtml = sortedFolders

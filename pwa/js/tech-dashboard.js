@@ -8,6 +8,7 @@ import {
   getJobsForTechnician,
   getJobsSnapshot,
   getReportsSnapshot,
+  getReportsSnapshot,
   getReportForJob,
   getJob,
   getClient,
@@ -385,7 +386,11 @@ function getRestOfWeekScheduledJobs(techId) {
 
 /** Linha da aba Agendados: rejeitados reabrem para correção (borda vermelha). */
 function renderTechJobsListHtml(jobs, rowRenderer) {
-  const { folders, singles } = groupJobsByVisita(jobs);
+  const { folders, singles } = groupJobsByVisita(
+    jobs,
+    getJobsSnapshot(),
+    getReportsSnapshot(),
+  );
   const folderHtml = folders
     .map((folder) => {
       const client = getClient(folder.jobs[0]?.clientId);

@@ -7372,6 +7372,56 @@ body.dark-mode .rh-filter-chip.is-active {
   border-radius: 8px;
 }
 
+.rh-visita-folder__hint {
+  margin: 0;
+  padding: 0 14px 10px;
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.rh-visita-folder__select-approved {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: var(--ms-text-muted);
+  margin-right: 8px;
+  white-space: nowrap;
+}
+
+.rh-visita-folder__report-row {
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr);
+  gap: 8px;
+  align-items: stretch;
+}
+
+.rh-visita-folder__report-item {
+  min-width: 0;
+}
+
+.rh-visita-email-check {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-top: 12px;
+}
+
+.rh-visita-email-check input {
+  width: 1rem;
+  height: 1rem;
+  cursor: pointer;
+}
+
+.rh-visita-email-check--disabled {
+  color: var(--ms-text-muted);
+  font-size: 0.85rem;
+}
+
+.rh-visita-folder__report-row--pending .rh-visita-folder__report-item {
+  opacity: 0.92;
+}
+
 .rh-list-item {
   background: var(--ms-card-bg);
   border: 1px solid var(--ms-border-md);

@@ -658,11 +658,159 @@ export async function resendApprovedReportEmail(reportId, options = {}) {
 }
 
 /**
- * Envia 1 e-mail ao cliente com todos os PDFs aprovados da visita ainda não enviados.
- * @param {string} visitKey — cliente|data|tecnico
- * @param {{ clientEmail?: string, force?: boolean }} [options]
+ * Envia 1 e-mail com os PDFs dos relatórios aprovados selecionados (podem ser serviços diferentes).
+ * @param {string[]} reportIds
+ * @param {{ clientEmail?: string }} [options]
+ */
+export async function sendSelectedReportsEmail(reportIds, options = {}) {
+  const uniqueIds = [...new Set((reportIds || []).map((id) => String(id)).filter(Boolean))];
+  if (!uniqueIds.length) {
+    showToast('Selecione pelo menos um relatório aprovado.', 'warning');
+    return false;
+  }
+
+  await ensureJobsLoaded(true);
+
+  const reports = uniqueIds
+    .map((id) => getReport(id))
+    .filter((report) => report?.status === 'approved');
+
+  if (!reports.length) {
+    showToast('Só pode enviar relatórios já aprovados. Aprove primeiro na pasta.', 'warning', 7000);
+    return false;
+  }
+
+  if (reports.length < uniqueIds.length) {
+    showToast('Relatórios não aprovados foram ignorados.', 'info', 5000);
+  }
+
+  const clientId = reports[0]?.clientId;
+  const sameClient = reports.every((report) => String(report.clientId) === String(clientId));
+  if (!sameClient) {
+    showToast('Selecione relatórios do mesmo cliente.', 'error');
+    return false;
+  }
+
+  const client = getClient(clientId);
+  const clientEmailInput = String(options.clientEmail ?? '').trim();
+  if (clientEmailInput) {
+    const { isValidEmail } = await import('./validators.js');
+    if (!isValidEmail(clientEmailInput)) {
+      showToast('Introduza um e-mail de cliente válido.', 'error');
+      return false;
+    }
+    if (clientId) {
+      await syncClientEmailIfChanged(clientId, clientEmailInput);
+    }
+  }
+
+  const recipientEmail =
+    clientEmailInput || client?.email || client?.['E-mail'] || '';
+  if (!recipientEmail) {
+    showToast('O cliente não tem e-mail registado.', 'warning');
+    return false;
+  }
+
+  const pdfEntries = [];
+  for (const report of reports) {
+    const job = report.jobId ? getJob(report.jobId) : null;
+    const service = getServiceType(report.serviceType);
+    let sources = resolveApprovedReportPdfSources(report, job);
+
+    if (!sources.length) {
+      try {
+        const regenerated = await generateAndUploadApprovedReportPdfs(report, job, service);
+        sources = regenerated;
+        await updateRelatorio(report.id, {
+          data: {
+            urlPdfs: regenerated.map((entry) => entry.publicUrl),
+            pdfFilenames: regenerated.map((entry) => entry.filename),
+          },
+        });
+        if (report.jobId && regenerated[0]?.publicUrl) {
+          await patchTrabalho(report.jobId, { urlPdf: regenerated[0].publicUrl });
+        }
+      } catch (err) {
+        console.warn('[Email] Regeneração PDF seleção:', err);
+      }
+    }
+
+    const serviceLabel = service?.label || report.serviceType || 'Relatório';
+    sources.forEach((source, index) => {
+      pdfEntries.push({
+        ...source,
+        machineLabel:
+          sources.length > 1
+            ? `${serviceLabel} — ${source.machineLabel || source.filename || `PDF ${index + 1}`}`
+            : serviceLabel,
+      });
+    });
+  }
+
+  if (!pdfEntries.length) {
+    showToast('Não foi possível obter os PDFs dos relatórios selecionados.', 'error');
+    return false;
+  }
+
+  const emailPdfPayload = buildReportEmailPdfPayload(pdfEntries);
+  const values = reports[0]?.data?.values || {};
+  const tech = getTechnician(reports[0]?.technicianId);
+
+  showToast(
+    `A enviar ${reports.length} relatório${reports.length === 1 ? '' : 's'} (${pdfEntries.length} PDF${pdfEntries.length === 1 ? '' : 's'}) para ${recipientEmail}...`,
+    'info',
+    6000,
+  );
+
+  try {
+    await sendOfficialReportEmail({
+      tipoRelatorio: reports.length > 1 || pdfEntries.length > 1 ? 'visita' : (
+        reports[0].serviceType === 'inspecao_dl50_2005'
+          ? 'dl50-2005'
+          : reports[0].serviceType === 'manutencao_baterias_grandes'
+            ? 'baterias'
+            : 'outro'
+      ),
+      reportId: reports[0].id,
+      clienteNome: values.nome_empresa || values.cliente || client?.name || client?.Nome || '',
+      nome_empresa: values.nome_empresa || '',
+      tecnico: values.tecnico || tech?.name || '',
+      dataConclusao:
+        values.data_de_conclusao ||
+        String(reports[0].approvedAt || reports[0].submittedAt || '').split('T')[0] ||
+        '',
+      numeroOrdem: null,
+      to: recipientEmail,
+      ...emailPdfPayload,
+    });
+
+    const sentAt = new Date().toISOString();
+    for (const report of reports) {
+      await updateRelatorio(report.id, {
+        data: { visitClienteEmailSentAt: sentAt },
+      });
+    }
+
+    showToast(`E-mail enviado para ${recipientEmail} com ${pdfEntries.length} anexo(s).`, 'success', 7000);
+    window.dispatchEvent(new CustomEvent('db-updated'));
+    return true;
+  } catch (err) {
+    console.error('[Email] Envio selecionados falhou:', err);
+    showToast(`Falha ao enviar e-mail. ${err?.message || ''}`.trim(), 'error', 8000);
+    return false;
+  }
+}
+
+/**
+ * Envia e-mail da visita (todos os aprovados pendentes ou lista explícita).
+ * @param {string} visitKey
+ * @param {{ clientEmail?: string, force?: boolean, reportIds?: string[] }} [options]
  */
 export async function sendVisitaClienteEmail(visitKey, options = {}) {
+  if (Array.isArray(options.reportIds) && options.reportIds.length) {
+    return sendSelectedReportsEmail(options.reportIds, options);
+  }
+
   const {
     parseVisitaKey,
     getReportVisitaKey,
@@ -693,109 +841,14 @@ export async function sendVisitaClienteEmail(visitKey, options = {}) {
       showToast('Não há relatórios aprovados nesta visita para enviar.', 'warning');
       return false;
     }
-    showToast('Todos os relatórios aprovados desta visita já foram enviados por e-mail.', 'info');
+    showToast('Todos os relatórios aprovados desta visita já foram enviados. Selecione-os na pasta para reenviar.', 'info', 8000);
     return false;
   }
 
-  const client = getClient(parsed.clientId);
-  const clientEmailInput = String(options.clientEmail ?? '').trim();
-  if (clientEmailInput) {
-    const { isValidEmail } = await import('./validators.js');
-    if (!isValidEmail(clientEmailInput)) {
-      showToast('Introduza um e-mail de cliente válido.', 'error');
-      return false;
-    }
-    if (parsed.clientId) {
-      await syncClientEmailIfChanged(parsed.clientId, clientEmailInput);
-    }
-  }
-
-  const recipientEmail =
-    clientEmailInput || client?.email || client?.['E-mail'] || '';
-  if (!recipientEmail) {
-    showToast('O cliente não tem e-mail registado.', 'warning');
-    return false;
-  }
-
-  const pdfEntries = [];
-  for (const report of pending) {
-    const job = report.jobId ? getJob(report.jobId) : null;
-    const service = getServiceType(report.serviceType);
-    let sources = resolveApprovedReportPdfSources(report, job);
-
-    if (!sources.length) {
-      try {
-        const regenerated = await generateAndUploadApprovedReportPdfs(report, job, service);
-        sources = regenerated;
-        await updateRelatorio(report.id, {
-          data: {
-            urlPdfs: regenerated.map((entry) => entry.publicUrl),
-            pdfFilenames: regenerated.map((entry) => entry.filename),
-          },
-        });
-        if (report.jobId && regenerated[0]?.publicUrl) {
-          await patchTrabalho(report.jobId, { urlPdf: regenerated[0].publicUrl });
-        }
-      } catch (err) {
-        console.warn('[Email] Regeneração PDF visita:', err);
-      }
-    }
-
-    const serviceLabel = service?.label || report.serviceType || 'Relatório';
-    sources.forEach((source, index) => {
-      pdfEntries.push({
-        ...source,
-        machineLabel:
-          sources.length > 1
-            ? `${serviceLabel} — ${source.machineLabel || source.filename || `PDF ${index + 1}`}`
-            : serviceLabel,
-      });
-    });
-  }
-
-  if (!pdfEntries.length) {
-    showToast('Não foi possível obter os PDFs dos relatórios aprovados.', 'error');
-    return false;
-  }
-
-  const emailPdfPayload = buildReportEmailPdfPayload(pdfEntries);
-  const values = pending[0]?.data?.values || {};
-  const tech = getTechnician(parsed.technicianId);
-
-  showToast(
-    `A enviar e-mail da visita (${pdfEntries.length} PDF${pdfEntries.length === 1 ? '' : 's'}) para ${recipientEmail}...`,
-    'info',
-    6000,
+  return sendSelectedReportsEmail(
+    pending.map((report) => report.id),
+    options,
   );
-
-  try {
-    await sendOfficialReportEmail({
-      tipoRelatorio: 'visita',
-      reportId: pending[0].id,
-      clienteNome: values.nome_empresa || values.cliente || client?.name || client?.Nome || '',
-      nome_empresa: values.nome_empresa || '',
-      tecnico: values.tecnico || tech?.name || '',
-      dataConclusao: parsed.date || values.data_de_conclusao || '',
-      numeroOrdem: null,
-      to: recipientEmail,
-      ...emailPdfPayload,
-    });
-
-    const sentAt = new Date().toISOString();
-    for (const report of pending) {
-      await updateRelatorio(report.id, {
-        data: { visitClienteEmailSentAt: sentAt },
-      });
-    }
-
-    showToast(`E-mail da visita enviado para ${recipientEmail}.`, 'success', 7000);
-    window.dispatchEvent(new CustomEvent('db-updated'));
-    return true;
-  } catch (err) {
-    console.error('[Email] Envio visita falhou:', err);
-    showToast(`Falha ao enviar e-mail da visita. ${err?.message || ''}`.trim(), 'error', 8000);
-    return false;
-  }
 }
 
 export function requireAuth(role) {
@@ -1664,7 +1717,7 @@ export { sincronizarTrabalhosOffline, initTrabalhosOfflineSync } from './trabalh
 
 /**
  * @param {string} reportId
- * @param {{ clientEmail?: string }} [options] — e-mail editável na revisão RH
+ * @param {{ clientEmail?: string, skipClientEmail?: boolean }} [options]
  */
 export async function approveReport(reportId, options = {}) {
   const report = getReport(reportId);
@@ -1758,9 +1811,15 @@ export async function approveReport(reportId, options = {}) {
     const { upsertClienteEquipamentosFromReport } = await import('./cliente-equipamentos-db.js');
     void upsertClienteEquipamentosFromReport(reportForPdf);
 
-    const { getReportVisitaKey, isMultiTrabalhoVisita } = await import('./visita-cliente.js');
+    const { getReportVisitaKey, isReportInMultiVisita } = await import('./visita-cliente.js');
     const visitKey = getReportVisitaKey(reportForPdf, job);
-    const multiVisita = isMultiTrabalhoVisita(visitKey, getJobsSnapshot());
+    const multiVisita =
+      options.skipClientEmail === true ||
+      isReportInMultiVisita(reportForPdf, job, {
+        jobs: getJobsSnapshot(),
+        reports: getReportsSnapshot(),
+        getJob,
+      });
 
     let emailSynced = false;
     if (clientEmailInput && report.clientId) {
@@ -1778,7 +1837,7 @@ export async function approveReport(reportId, options = {}) {
       );
     } else if (recipientEmail && multiVisita) {
       showToast(
-        'Relatório aprovado! Use «Enviar e-mail da visita» na pasta do cliente para enviar ao cliente.',
+        'Relatório aprovado! Selecione os relatórios na pasta e use «Enviar e-mail selecionados».',
         'success',
         8000,
       );
