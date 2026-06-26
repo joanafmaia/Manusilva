@@ -448,7 +448,13 @@ function resolvePdfVisitDatesLine(values, report, job, visitCount) {
   return dates.slice(0, n).join(', ');
 }
 
-function isPdfLayoutReservedField(fieldId) {
+function isPdfLayoutReservedField(fieldId, service = null) {
+  if (
+    service?.id === INSPECAO_DL50_SERVICE_ID &&
+    (fieldId === 'pedido_orcamento' || fieldId === 'detalhe_pedido_orcamento')
+  ) {
+    return false;
+  }
   return PDF_LAYOUT_SKIP_FIELD_IDS.has(fieldId);
 }
 
@@ -3671,7 +3677,7 @@ function collectPdfScalarFields(service, values, pdfContext, filters = {}) {
     if (field.section && isMachineInfoSection(field.section)) return false;
     if (field.id === 'declaracao_seguranca') return false;
     if (isDl50 && INSPECAO_DL50_PDF_SKIP_FIELD_IDS.has(field.id)) return false;
-    if (isPdfLayoutReservedField(field.id)) return false;
+    if (isPdfLayoutReservedField(field.id, service)) return false;
     if (section !== null && field.section !== section) return false;
     if (field.dependency && !isPdfDependencyMet(field, values)) return false;
     if (!isPdfScalarField(field)) return false;
@@ -4246,9 +4252,15 @@ async function drawReportFieldsSection(doc, y, service, values, pdfContext = nul
     if (machineBlockRendered && INSPECAO_DL50_MACHINE_FIELD_IDS.has(field.id)) continue;
     if (pairedObservationsRendered.has(field.id)) continue;
     if (field.id === 'declaracao_seguranca') continue;
+    if (isDl50 && field.id === 'pedido_orcamento') {
+      y = await drawFolhaIntervencaoOrcamentoBlock(doc, y, values);
+      scalarRenderedIds.add('pedido_orcamento');
+      scalarRenderedIds.add('detalhe_pedido_orcamento');
+      continue;
+    }
     if (field.dependency && !isPdfDependencyMet(field, values)) continue;
 
-    if (isPdfLayoutReservedField(field.id)) {
+    if (isPdfLayoutReservedField(field.id, service)) {
       scalarRenderedIds.add(field.id);
       continue;
     }

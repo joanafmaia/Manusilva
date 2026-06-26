@@ -398,6 +398,7 @@ export function buildFormPrefill(service, job, _forklift, context = {}) {
     return {
       data_de_conclusao: job?.date || '',
       periodicidade_inspecao: 'Anual',
+      pedido_orcamento: 'Não',
     };
   }
 
@@ -448,10 +449,21 @@ export function mergeFormValues(existing = {}, prefill = {}, service = null) {
 
 const REPORT_TAB_CHECKLIST_TYPES = new Set(['verification_toggles', 'matrix_4options']);
 const REPORT_TAB_FINAL_TYPES = new Set(['legal_verdict']);
+const DL50_FINALIZACAO_FIELD_IDS = new Set([
+  'observacoes',
+  'pedido_orcamento',
+  'detalhe_pedido_orcamento',
+]);
 
 /** Secção do formulário em abas — Geral | Checklist | Finalização */
 export function getReportFieldTab(field, service = null) {
   if (REPORT_TAB_FINAL_TYPES.has(field?.type)) return 'finalizacao';
+  if (
+    service?.id === 'inspecao_dl50_2005' &&
+    (DL50_FINALIZACAO_FIELD_IDS.has(field?.id) || field?.section === 'Pedido de Orçamento')
+  ) {
+    return 'finalizacao';
+  }
   if (REPORT_TAB_CHECKLIST_TYPES.has(field?.type)) return 'checklist';
   if (
     service?.id === 'manutencao_preventiva_empilhadores' &&
@@ -861,6 +873,7 @@ export function renderReportFields(service, values = {}, context = {}, options =
         sectionTitle = '';
       }
       const isFolhaAvarias = service?.id === 'folha_intervencao_avarias';
+      const isDl50 = service?.id === 'inspecao_dl50_2005';
       if (isFolhaAvarias && section === 'Informações da Máquina') {
         fieldsHtml = `<div class="folha-dashboard-section">${sectionTitle}${fieldsHtml}</div>`;
         sectionTitle = '';
@@ -869,7 +882,7 @@ export function renderReportFields(service, values = {}, context = {}, options =
         fieldsHtml = `<div class="folha-dashboard-section folha-dashboard-section--datas">${sectionTitle}${fieldsHtml}</div>`;
         sectionTitle = '';
       }
-      if (isFolhaAvarias && section === 'Pedido de Orçamento') {
+      if ((isFolhaAvarias || isDl50) && section === 'Pedido de Orçamento') {
         fieldsHtml = `<div class="folha-dashboard-section folha-dashboard-section--orcamento">${sectionTitle}${fieldsHtml}</div>`;
         sectionTitle = '';
       }
@@ -888,13 +901,21 @@ export function renderReportFields(service, values = {}, context = {}, options =
         fieldsHtml = `<div class="folha-estado-final-shell">${sectionTitle}${fieldsHtml}</div>`;
         sectionTitle = '';
       }
+      if (isDl50 && !section && sectionFields.some((f) => f.id === 'observacoes')) {
+        fieldsHtml = `<div class="dl50-closing-block">${sectionTitle}${fieldsHtml}</div>`;
+        sectionTitle = '';
+      }
+      if (isDl50 && sectionFields.some((f) => f.type === 'legal_verdict')) {
+        fieldsHtml = `<div class="dl50-closing-block">${sectionTitle}${fieldsHtml}</div>`;
+        sectionTitle = '';
+      }
       return `
         <div class="form-field-section form-section-card${
           section === EMPILHADORES_MACHINE_SECTION &&
           (service?.id === EMPILHADORES_SERVICE_ID || service?.id === 'inspecao_dl50_2005')
             ? ' form-field-section--empilhadores-machine'
             : ''
-        }${section === EMPILHADORES_MATERIAL_SECTION ? ' form-field-section--material form-field-section--empilhadores-material' : ''}${section === 'Pedido de Orçamento' ? ' form-field-section--pedido-orcamento' : ''}${isCarregador ? ' form-field-section--carregador' : ''}${isCorretiva ? ' form-field-section--corretiva' : ''}${isGrandes ? ' form-field-section--grandes' : ''}${isRavBateria ? ' form-field-section--rav-bateria' : ''}${isFolhaAvarias ? ' form-field-section--folha-avarias' : ''}">
+        }${section === EMPILHADORES_MATERIAL_SECTION ? ' form-field-section--material form-field-section--empilhadores-material' : ''}${section === 'Pedido de Orçamento' ? ' form-field-section--pedido-orcamento' : ''}${isCarregador ? ' form-field-section--carregador' : ''}${isCorretiva ? ' form-field-section--corretiva' : ''}${isGrandes ? ' form-field-section--grandes' : ''}${isRavBateria ? ' form-field-section--rav-bateria' : ''}${isFolhaAvarias || isDl50 ? ' form-field-section--folha-avarias' : ''}">
           ${sectionTitle}
           ${fieldsHtml}
         </div>
