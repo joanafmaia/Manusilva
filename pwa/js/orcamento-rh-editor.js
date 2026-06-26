@@ -191,7 +191,7 @@ export function renderReviewOrcamentoEditor(report) {
   return renderOrcamentoEditor(report);
 }
 
-function refreshLineTotals(root) {
+function refreshLineTotals(root, report = null) {
   root.querySelectorAll('[data-orcamento-linha]').forEach((row) => {
     const qtd = row.querySelector('[data-orc-field="qtd"]')?.value || '1';
     const preco = row.querySelector('[data-orc-field="precoUnit"]')?.value || '';
@@ -200,7 +200,7 @@ function refreshLineTotals(root) {
     if (cell) cell.textContent = total > 0 ? formatEuro(total) : '';
   });
 
-  const meta = readOrcamentoFormFromDom(root);
+  const meta = readOrcamentoFormFromDom(root, report);
   const totals = computeOrcamentoTotals(meta.linhas, meta.taxaSaida);
   root.querySelector('[data-orc-subtotal]')?.replaceChildren(
     document.createTextNode(`${formatEuro(totals.subtotal)} €`),
@@ -213,12 +213,12 @@ function refreshLineTotals(root) {
   );
 }
 
-function bindLinhaEvents(root) {
+function bindLinhaEvents(root, report) {
   const tbody = root.querySelector('#review-orc-linhas-body');
   if (!tbody) return;
 
   tbody.addEventListener('input', (e) => {
-    if (e.target.matches('[data-orc-field]')) refreshLineTotals(root);
+    if (e.target.matches('[data-orc-field]')) refreshLineTotals(root, report);
   });
 
   tbody.addEventListener('click', (e) => {
@@ -234,17 +234,17 @@ function bindLinhaEvents(root) {
     } else {
       row.remove();
     }
-    refreshLineTotals(root);
+    refreshLineTotals(root, report);
   });
 
   root.querySelector('#review-orc-add-linha')?.addEventListener('click', () => {
     const index = tbody.querySelectorAll('[data-orcamento-linha]').length;
     tbody.insertAdjacentHTML('beforeend', renderLinhaRow(emptyOrcamentoLinha(), index));
-    refreshLineTotals(root);
+    refreshLineTotals(root, report);
   });
 
   root.querySelector('[data-orc-field="taxaSaida"]')?.addEventListener('input', () => {
-    refreshLineTotals(root);
+    refreshLineTotals(root, report);
   });
 }
 
@@ -274,8 +274,8 @@ export function bindOrcamentoEditor(container, { report, onUpdated } = {}) {
 
   let currentReport = report;
 
-  bindLinhaEvents(root);
-  refreshLineTotals(root);
+  bindLinhaEvents(root, currentReport);
+  refreshLineTotals(root, currentReport);
 
   const saveMeta = async () => {
     const meta = readOrcamentoFormFromDom(root, currentReport);
