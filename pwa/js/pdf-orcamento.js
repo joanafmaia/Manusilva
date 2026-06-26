@@ -17,24 +17,19 @@ import {
 } from './orcamento-linhas.js';
 import { ensurePdfFonts, pdfSetFont, pdfSafeText, pdfSplitText } from './pdf-font.js';
 import {
-  PDF_BAR_RADIUS_MM,
   PDF_COLOR_CORPORATE_BLUE,
   PDF_COLOR_SLATE_LINE,
   PDF_COLOR_TEXT_DARK,
   PDF_COLOR_TEXT_MUTED,
   PDF_COLOR_WHITE,
   PDF_CONTENT_W,
-  PDF_DOCUMENT_TITLE_BAR_H_MM,
   PDF_FONT_BODY,
   PDF_FONT_CAPTION,
   PDF_FONT_SECTION,
-  PDF_FONT_SUBTITLE,
   PDF_LOGO_HEIGHT_MM,
   PDF_LOGO_WIDTH_MM,
   PDF_MARGIN,
   PDF_PAGE_W,
-  PDF_SECTION_BG,
-  PDF_SECTION_GAP_MM,
   PDF_TABLE_LINE,
   PDF_TABLE_LINE_WIDTH,
 } from './pdf-design-system.js';
@@ -88,13 +83,14 @@ function drawLogoPlaceholder(doc, x, y, widthMm, heightMm = widthMm) {
   doc.text(COMPANY.logo || 'MS', x + widthMm / 2, y + heightMm / 2 + 1.5, { align: 'center' });
 }
 
-/** Cabeçalho institucional — logo e dados da empresa (como nos relatórios). */
-function drawOrcamentoHeader(doc, fill) {
+/** Cabeçalho estilo carta MS.015 — logo à esquerda, título e destinatário à direita. */
+function drawOrcamentoLetterhead(doc, fill) {
   const topY = MARGIN;
-  const logoW = PDF_LOGO_WIDTH_MM;
-  const logoH = PDF_LOGO_HEIGHT_MM;
-  const rightX = MARGIN + logoW + 6;
-  const rightW = PDF_PAGE_W - MARGIN - rightX;
+  const logoW = PDF_LOGO_WIDTH_MM + 6;
+  const logoH = PDF_LOGO_HEIGHT_MM + 4;
+  const rightColX = MARGIN + CONTENT_W * 0.38;
+  const rightColW = PAGE_W - MARGIN - rightColX;
+  const rightCenterX = rightColX + rightColW / 2;
 
   if (isLogoConfigured()) {
     try {
@@ -115,42 +111,28 @@ function drawOrcamentoHeader(doc, fill) {
     drawLogoPlaceholder(doc, MARGIN, topY, logoW, logoH);
   }
 
-  let infoY = topY + 3.5;
+  let ty = topY + 8;
   pdfSetFont(doc, 'bold');
-  doc.setFontSize(8.5);
+  doc.setFontSize(11);
   doc.setTextColor(...PDF_COLOR_TEXT_DARK);
-  pdfSplitText(doc, COMPANY.name, rightW).forEach((line) => {
-    doc.text(line, rightX, infoY);
-    infoY += 3.8;
-  });
-  pdfSetFont(doc, 'normal');
-  doc.setFontSize(7.5);
-  doc.setTextColor(...PDF_COLOR_TEXT_MUTED);
-  if (COMPANY.address) {
-    pdfSplitText(doc, COMPANY.address, rightW).forEach((line) => {
-      doc.text(line, rightX, infoY);
-      infoY += 3.4;
-    });
-  }
-  const contactLines = [COMPANY.phone, COMPANY.email, COMPANY.website].filter(Boolean);
-  contactLines.forEach((line) => {
-    doc.text(line, rightX, infoY);
-    infoY += 3.4;
-  });
+  doc.text('PROPOSTA COMERCIAL', rightCenterX, ty, { align: 'center' });
+  ty += 6;
+  doc.text('ORÇAMENTOS', rightCenterX, ty, { align: 'center' });
+  ty += 11;
 
-  let y = Math.max(topY + logoH, infoY) + PDF_SECTION_GAP_MM;
+  const clienteLabel = pdfSafeText(fill.cliente_nome).toUpperCase();
+  const acLabel = pdfSafeText(fill.cliente_ac).toUpperCase();
+  doc.setFontSize(10);
+  doc.text(`PARA: ${clienteLabel}`, rightColX, ty);
+  ty += 5.5;
+  doc.text(`A/C. ${acLabel}`, rightColX, ty);
 
-  const barH = PDF_DOCUMENT_TITLE_BAR_H_MM;
-  doc.setFillColor(...PDF_SECTION_BG);
+  const headerBottom = Math.max(topY + logoH, ty + 2) + 6;
   doc.setDrawColor(...PDF_TABLE_LINE);
   doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
-  doc.roundedRect(MARGIN, y, CONTENT_W, barH, PDF_BAR_RADIUS_MM, PDF_BAR_RADIUS_MM, 'FD');
-  pdfSetFont(doc, 'bold');
-  doc.setFontSize(PDF_FONT_SUBTITLE);
-  doc.setTextColor(...PDF_COLOR_CORPORATE_BLUE);
-  doc.text('PROPOSTA COMERCIAL', MARGIN + CONTENT_W / 2, y + barH * 0.62, { align: 'center' });
-  y += barH + 3;
+  doc.line(MARGIN, headerBottom, MARGIN + CONTENT_W, headerBottom);
 
+  let y = headerBottom + 9;
   pdfSetFont(doc, 'bold');
   doc.setFontSize(PDF_FONT_SECTION);
   doc.setTextColor(...PDF_COLOR_TEXT_DARK);
@@ -159,12 +141,8 @@ function drawOrcamentoHeader(doc, fill) {
   doc.setFontSize(PDF_FONT_BODY);
   doc.setTextColor(...PDF_COLOR_TEXT_MUTED);
   doc.text(pdfSafeText(fill.data_extenso), MARGIN + CONTENT_W, y, { align: 'right' });
-  y += 6;
-
-  doc.setDrawColor(...PDF_TABLE_LINE);
-  doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
-  doc.line(MARGIN, y, MARGIN + CONTENT_W, y);
-  return y + PDF_SECTION_GAP_MM + 2;
+  doc.setTextColor(...PDF_COLOR_TEXT_DARK);
+  return y + 9;
 }
 
 function drawOrcamentoTable(doc, linhas, startY) {
@@ -333,18 +311,10 @@ export async function renderOrcamentoPDF(report) {
   const fill = buildOrcamentoFillData(report, job);
   const legalText = await loadLegalText();
 
-  let y = drawOrcamentoHeader(doc, fill);
+  let y = drawOrcamentoLetterhead(doc, fill);
 
-  pdfSetFont(doc, 'bold');
+  pdfSetFont(doc, 'normal');
   doc.setFontSize(PDF_FONT_BODY);
-  doc.setTextColor(...PDF_COLOR_TEXT_DARK);
-  doc.text('PARA:', MARGIN, y);
-  y += 6;
-  doc.text(pdfSafeText(fill.cliente_nome), MARGIN + 12, y);
-  y += 6;
-  doc.text(`A/C. ${pdfSafeText(fill.cliente_ac)}`, MARGIN, y);
-  y += 12;
-
   const intro = `Vimos por este meio enviar o orçamento para ${fill.intro_servico}`;
   pdfSplitText(doc, intro, CONTENT_W).forEach((line) => {
     if (!canDrawBodyLine(y)) return;
