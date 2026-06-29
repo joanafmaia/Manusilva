@@ -3,7 +3,7 @@
  */
 
 import { getSession } from './session.js';
-import { isRhOrAdminSession } from './auth-roles.js';
+import { isRhOrAdminSession } from './auth-roles-core.js';
 
 function requireRhSession() {
   const session = getSession();

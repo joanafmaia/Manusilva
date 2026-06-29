@@ -5,7 +5,7 @@ import {
   isRhOrAdminEmail,
   isRhOrAdminAuthUser,
   isRhOrAdminSession,
-} from '../js/auth-roles.js';
+} from '../js/auth-roles-core.js';
 
 describe('auth-roles', () => {
   it('aceita variantes de role RH/Admin', () => {

@@ -5,6 +5,7 @@
 import { APP_BUILD_ID } from './build-version.js';
 
 const STORAGE_KEY = 'manusilva_app_build_id';
+const RECOVERY_KEY = 'manusilva_module_recovery';
 
 async function purgeBrowserCaches() {
   try {
@@ -38,4 +39,26 @@ export async function ensureFreshAppBuild() {
     /* ignore */
   }
   return false;
+}
+
+/** Uma tentativa de recuperação após SyntaxError / módulo em cache antigo */
+export async function recoverFromModuleLoadFailure() {
+  try {
+    if (sessionStorage.getItem(RECOVERY_KEY)) return false;
+    sessionStorage.setItem(RECOVERY_KEY, '1');
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    /* ignore */
+  }
+  await purgeBrowserCaches();
+  location.reload();
+  return true;
+}
+
+export function clearModuleRecoveryFlag() {
+  try {
+    sessionStorage.removeItem(RECOVERY_KEY);
+  } catch {
+    /* ignore */
+  }
 }

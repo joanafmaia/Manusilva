@@ -8,7 +8,7 @@ import { clearSession, getRawSession, normalizeSession, setRawSession } from './
 /** Página de login da PWA (não existe login.html separado). */
 export const LOGIN_URL = 'index.html';
 import { UTILIZADORES } from './mock_data.js';
-import { isRhOrAdminRole, normalizeDbRole } from './auth-roles.js';
+import { isRhOrAdminRole, normalizeDbRole } from './auth-roles-core.js';
 
 export const AUTH_BUILD = '2026-06-11-login-filipa-fix';
 

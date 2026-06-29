@@ -5,7 +5,7 @@
 import { updateClient, updateDB } from './app.js';
 import { normalizeClientRecord, registerClientInCatalog } from './clients-catalog.js';
 import { getSession } from './session.js';
-import { isRhOrAdminSession } from './auth-roles.js';
+import { isRhOrAdminSession } from './auth-roles-core.js';
 import { ensureSupabaseAuthSession } from './supabase-client.js';
 
 function requireRhSession() {

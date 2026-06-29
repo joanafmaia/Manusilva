@@ -129,35 +129,43 @@
   <script src="js/vendor/jszip.min.js" data-jszip defer></script>
   <script src="js/vendor/jspdf.plugin.autotable.min.js" data-jspdf-autotable defer></script>
   <script type="module">
-    const { APP_BUILD_ID } = await import('./js/build-version.js');
-    const v = APP_BUILD_ID;
-    const { ensureFreshAppBuild } = await import(`./js/app-version.js?v=${v}`);
-    if (await ensureFreshAppBuild()) {
-      /* recarrega com build novo */
-    } else {
-      const { initLocalDatabase, warmClientsCatalog, warmOperacoes, handleFatalDashboardError } =
-        await import(`./js/app.js?v=${v}`);
-      const { initTechDashboard } = await import(`./js/tech-dashboard.js?v=${v}`);
-      const { initLogoutButton } = await import(`./js/auth.js?v=${v}`);
+    try {
+      const { APP_BUILD_ID } = await import('./js/build-version.js');
+      const v = APP_BUILD_ID;
+      const { ensureFreshAppBuild, recoverFromModuleLoadFailure, clearModuleRecoveryFlag } =
+        await import(`./js/app-version.js?v=${v}`);
+      if (await ensureFreshAppBuild()) {
+        /* recarrega com build novo */
+      } else {
+        const { initLocalDatabase, warmClientsCatalog, warmOperacoes, handleFatalDashboardError } =
+          await import(`./js/app.js?v=${v}`);
+        const { initTechDashboard } = await import(`./js/tech-dashboard.js?v=${v}`);
+        const { initLogoutButton } = await import(`./js/auth.js?v=${v}`);
 
-      initLogoutButton();
-      initLocalDatabase();
+        initLogoutButton();
+        initLocalDatabase();
 
-      let fatalSessionError = false;
-      try {
-        await warmClientsCatalog();
-        await warmOperacoes();
-      } catch (error) {
-        fatalSessionError = await handleFatalDashboardError(error);
+        let fatalSessionError = false;
+        try {
+          await warmClientsCatalog();
+          await warmOperacoes();
+        } catch (error) {
+          fatalSessionError = await handleFatalDashboardError(error);
+        }
+
+        if (!fatalSessionError) {
+          initTechDashboard();
+        }
+
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.register(`./sw.js?v=${v}`).catch(() => {});
+        }
+        clearModuleRecoveryFlag();
       }
-
-      if (!fatalSessionError) {
-        initTechDashboard();
-      }
-
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register(`./sw.js?v=${v}`).catch(() => {});
-      }
+    } catch (err) {
+      console.error('[Manusilva] Falha ao carregar:', err);
+      const { recoverFromModuleLoadFailure } = await import('./js/app-version.js');
+      await recoverFromModuleLoadFailure();
     }
   </script>
 </body>

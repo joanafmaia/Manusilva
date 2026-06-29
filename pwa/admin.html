@@ -171,17 +171,25 @@
   <script src="js/vendor/jszip.min.js" data-jszip defer></script>
   <script src="js/vendor/jspdf.plugin.autotable.min.js" data-jspdf-autotable defer></script>
   <script type="module">
-    const { APP_BUILD_ID } = await import('./js/build-version.js');
-    const v = APP_BUILD_ID;
-    const { ensureFreshAppBuild } = await import(`./js/app-version.js?v=${v}`);
-    if (await ensureFreshAppBuild()) {
-      /* recarrega com build novo */
-    } else {
-      const { initLocalDatabase } = await import(`./js/app.js?v=${v}`);
-      const { initAdminDashboard } = await import(`./js/admin-dashboard.js?v=${v}`);
+    try {
+      const { APP_BUILD_ID } = await import('./js/build-version.js');
+      const v = APP_BUILD_ID;
+      const { ensureFreshAppBuild, recoverFromModuleLoadFailure, clearModuleRecoveryFlag } =
+        await import(`./js/app-version.js?v=${v}`);
+      if (await ensureFreshAppBuild()) {
+        /* recarrega com build novo */
+      } else {
+        const { initLocalDatabase } = await import(`./js/app.js?v=${v}`);
+        const { initAdminDashboard } = await import(`./js/admin-dashboard.js?v=${v}`);
 
-      initLocalDatabase();
-      await initAdminDashboard();
+        initLocalDatabase();
+        await initAdminDashboard();
+        clearModuleRecoveryFlag();
+      }
+    } catch (err) {
+      console.error('[Manusilva] Falha ao carregar:', err);
+      const { recoverFromModuleLoadFailure } = await import('./js/app-version.js');
+      await recoverFromModuleLoadFailure();
     }
   </script>
 </body>

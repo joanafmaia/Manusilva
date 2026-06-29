@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { FILIPA_LEGACY_AUTH_EMAIL, UTILIZADORES } from '../js/mock_data.js';
-import { getRhAdminConfigSnapshot } from '../js/auth-roles.js';
+import { getRhAdminConfigSnapshot } from '../js/auth-roles-core.js';
 import rhConfig from '../shared/rh-admin-config.json' with { type: 'json' };
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -31,7 +31,7 @@ function buildExpectedConfig() {
 }
 
 describe('rh-admin-config', () => {
-  it('JSON da API e auth-roles.js estão alinhados com UTILIZADORES', () => {
+  it('JSON da API e auth-roles-core.js estão alinhados com UTILIZADORES', () => {
     assert.ok(fs.existsSync(configPath), 'Correr npm run sync:rh-config');
     const expected = buildExpectedConfig();
     const browser = getRhAdminConfigSnapshot();
