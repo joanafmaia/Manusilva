@@ -133,6 +133,71 @@ function isDamagedComponentValue(val) {
   return /danificad/i.test(String(val || ''));
 }
 
+/** Campos de rastreamento de máquina — suspensos no fluxo de relatórios */
+export const MACHINE_TRACKING_FIELD_IDS = new Set([
+  'marca',
+  'modelo',
+  'numero_de_serie',
+  'marca_modelo',
+]);
+
+export function isMachineTrackingField(field) {
+  return Boolean(field?.id && MACHINE_TRACKING_FIELD_IDS.has(field.id));
+}
+
+const SERVICES_WITH_MACHINE_FIELDS = new Set([
+  SERVICE_IDS.INSPECAO_DL50_2005,
+  SERVICE_IDS.FOLHA_INTERVENCAO_AVARIAS,
+  SERVICE_IDS.MANUTENCAO_PREVENTIVA_EMPILHADORES,
+  SERVICE_IDS.MANUTENCAO_CORRETIVA_MAQUINAS,
+  SERVICE_IDS.MANUTENCAO_PREVENTIVA_BATERIA,
+  SERVICE_IDS.REPARACAO_AVARIAS_BATERIA,
+  SERVICE_IDS.REPARACAO_CARREGADOR,
+]);
+
+const SERVICE_MACHINE_FIELD_SECTIONS = {
+  [SERVICE_IDS.REPARACAO_CARREGADOR]: 'Identificação Do Carregador',
+  [SERVICE_IDS.REPARACAO_AVARIAS_BATERIA]: REPORT_SECTIONS.BATTERY,
+  [SERVICE_IDS.MANUTENCAO_PREVENTIVA_BATERIA]: REPORT_SECTIONS.BATTERY,
+};
+
+const EMPILHADORES_MACHINE_SECTION = REPORT_SECTIONS.MACHINE;
+
+function filterReportFields(fields, service) {
+  return (fields || []).filter((f) => {
+    if (isDeslocacaoField(f) || isDeslocacaoMetaField(f)) return false;
+    if (isVisitasField(f) && !SERVICES_WITH_SECTION_VISITAS.has(service?.id)) return false;
+    const machineSection = SERVICE_MACHINE_FIELD_SECTIONS[service?.id];
+    if (
+      SERVICES_WITH_MACHINE_FIELDS.has(service?.id) &&
+      (f.section === 'Informações da Máquina' ||
+        (machineSection && f.section === machineSection))
+    ) {
+      return true;
+    }
+    return !isMachineTrackingField(f);
+  });
+}
+
+/** Visitas no bloco intro — Informações Gerais / Dados da Intervenção */
+export function renderDeslocacaoIntroBlock(values = {}, context = {}) {
+  const service = context?.service;
+  const visitas = values[VISITAS_FIELD_ID] ?? values.visitas ?? 1;
+  const showVisitasInIntro = !SERVICES_WITH_SECTION_VISITAS.has(service?.id);
+  if (!showVisitasInIntro) return '';
+
+  return `
+    <div class="form-intro-deslocacao-grid">
+      <div class="form-intro-visitas">${renderField(STANDARD_VISITAS_FIELD, visitas, context)}</div>
+    </div>
+  `;
+}
+
+/** @deprecated — usar renderDeslocacaoIntroBlock */
+export function renderDeslocacaoIntroField(values = {}, context = {}) {
+  return renderDeslocacaoIntroBlock(values, context);
+}
+
 const REPORT_TAB_CHECKLIST_TYPES = new Set(['verification_toggles', 'matrix_4options']);
 const REPORT_TAB_FINAL_TYPES = new Set(['legal_verdict']);
 const DL50_FINALIZACAO_FIELD_IDS = new Set([
