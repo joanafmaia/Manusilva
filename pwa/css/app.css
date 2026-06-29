@@ -11078,11 +11078,7 @@ body .admin-rh-page .btn-primary, body .admin-rh-page .btn-secondary, body .admi
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
 }
 .faturacao-receivables-section {
-  padding: 1.25rem 1.5rem;
-}
-.faturacao-col-valor {
-  font-weight: 600;
-  white-space: nowrap;
+  padding: 1rem 1.15rem;
 }
 .faturacao-table--receivables .btn-success {
   font-weight: 600;
@@ -11096,7 +11092,8 @@ body .admin-rh-page .btn-primary, body .admin-rh-page .btn-secondary, body .admi
   padding: 1.25rem 1.5rem;
 }
 .faturacao-section-title {
-  margin: 0 0 1rem;
+  margin: 0 0 0.65rem;
+  font-size: 1rem;
 }
 .faturacao-chart-wrap {
   position: relative;
@@ -11104,28 +11101,82 @@ body .admin-rh-page .btn-primary, body .admin-rh-page .btn-secondary, body .admi
   width: 100%;
 }
 .faturacao-table-section {
-  padding: 1.25rem 1.5rem;
+  padding: 1rem 1.15rem;
 }
 .faturacao-empty {
   margin: 0;
 }
+.faturacao-panel .faturacao-table--compact th {
+  padding: 0.38rem 0.5rem;
+  font-size: 0.67rem;
+}
+.faturacao-panel .faturacao-table--compact td {
+  padding: 0.4rem 0.5rem;
+  font-size: 0.8rem;
+  line-height: 1.25;
+  vertical-align: middle;
+}
+.faturacao-cell-client {
+  max-width: 10.5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.faturacao-cell-client--wrap {
+  max-width: 11rem;
+  white-space: normal;
+  line-height: 1.2;
+}
+.faturacao-cell-client-name {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.faturacao-cell-nif,
+.faturacao-cell-date,
+.faturacao-cell-ordem {
+  white-space: nowrap;
+  font-size: 0.78rem;
+}
+.faturacao-cell-nif {
+  font-variant-numeric: tabular-nums;
+}
+.faturacao-cell-muted {
+  font-size: 0.78rem;
+  color: var(--ms-text-muted, #64748b);
+  white-space: nowrap;
+}
 .faturacao-col-action {
   width: 1%;
-  white-space: normal;
+  white-space: nowrap;
   text-align: right;
-  min-width: 12rem;
+  min-width: 0;
 }
 .faturacao-billing-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.3rem;
+  display: inline-flex;
+  flex-wrap: nowrap;
+  gap: 0.2rem;
   justify-content: flex-end;
 }
+.faturacao-panel .faturacao-btn-compact {
+  padding: 0.18rem 0.42rem;
+  font-size: 0.7rem;
+  line-height: 1.15;
+  border-radius: 0.35rem;
+}
+.faturacao-col-valor {
+  font-weight: 600;
+  white-space: nowrap;
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+}
 .faturacao-ordem {
-  font-size: 0.82rem;
-  padding: 0.15rem 0.4rem;
+  font-size: 0.72rem;
+  padding: 0.1rem 0.32rem;
   border-radius: 4px;
   background: rgba(148, 163, 184, 0.15);
+  white-space: nowrap;
 }
 .faturacao-row--urgent td:first-child {
   border-left: 3px solid #f59e0b;

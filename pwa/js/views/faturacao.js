@@ -311,7 +311,7 @@ function buildBillingRows(reports) {
       report,
       ...meta,
       ordem: formatOrdemLabel(job),
-      approvedLabel: formatDateSafe(report.approvedAt),
+      approvedLabel: formatHistoryDate(String(report.approvedAt || '').split('T')[0]),
       urgent: isBillingUrgent(report, meta.client),
       estimate: estimateReportValue(report),
       pdfEntries,
@@ -332,10 +332,10 @@ function buildReceivableRows(reports) {
       numeroFatura: report.numeroFatura || '—',
       valor,
       valorLabel: formatCurrencyEur(valor),
-      emissaoLabel: formatDateSafe(report.dataFatura),
+      emissaoLabel: formatHistoryDate(String(report.dataFatura || '').split('T')[0]),
       condicaoLabel: labelFaturaCondicao(report.faturaCondicaoPagamento),
       statusLabel: labelStatusRecebimento(report.statusRecebimento),
-      vencimentoLabel: formatDateSafe(vencimento),
+      vencimentoLabel: formatHistoryDate(String(vencimento || '').split('T')[0]),
       vencimentoClass: vencimentoCellClass(vencimentoUrg),
       vencimentoUrg,
     };
@@ -524,14 +524,14 @@ function renderBillingTable(rows) {
     <section class="faturacao-table-section faturacao-table-section--billing rh-section glass-card">
       <h3 class="ms-h2 faturacao-section-title">Relatórios por faturar <span class="badge-count">${rows.length}</span></h3>
       <div class="rh-table-scroll">
-        <table class="rh-data-table faturacao-table faturacao-billing-table">
+        <table class="rh-data-table faturacao-table faturacao-table--compact faturacao-billing-table">
           <thead>
             <tr>
               <th scope="col">Cliente</th>
               <th scope="col">NIF</th>
-              <th scope="col">Nº Relatório</th>
-              <th scope="col">Data de Aprovação</th>
-              <th scope="col">Condição Cadastro</th>
+              <th scope="col">Relatório</th>
+              <th scope="col">Aprovação</th>
+              <th scope="col">Condição</th>
               <th scope="col" class="faturacao-col-action">Ação</th>
             </tr>
           </thead>
@@ -540,22 +540,16 @@ function renderBillingTable(rows) {
               .map(
                 (row) => `
               <tr class="rh-data-table-row${row.urgent ? ' faturacao-row--urgent' : ''}" data-report-id="${escapeHtml(row.report.id)}">
-                <td>${escapeHtml(row.nome)}${row.urgent ? ' <span class="faturacao-urgent-badge" title="Fora do prazo">Urgente</span>' : ''}</td>
-                <td>${escapeHtml(row.nif)}</td>
-                <td><code class="faturacao-ordem">${escapeHtml(row.ordem)}</code></td>
-                <td>${escapeHtml(row.approvedLabel)}</td>
-                <td>${escapeHtml(row.condicao)}</td>
+                <td class="faturacao-cell-client" title="${escapeHtml(row.nome)}">${escapeHtml(row.nome)}${row.urgent ? ' <span class="faturacao-urgent-badge">Urgente</span>' : ''}</td>
+                <td class="faturacao-cell-nif">${escapeHtml(row.nif)}</td>
+                <td class="faturacao-cell-ordem"><code class="faturacao-ordem">${escapeHtml(row.ordem)}</code></td>
+                <td class="faturacao-cell-date">${escapeHtml(row.approvedLabel)}</td>
+                <td class="faturacao-cell-muted">${escapeHtml(row.condicao)}</td>
                 <td class="faturacao-col-action">
                   <div class="faturacao-billing-actions">
-                    <button type="button" class="btn-outline btn-sm" data-billing-pdf="${escapeHtml(row.report.id)}" title="Abrir PDF do relatório técnico">
-                      Ver PDF
-                    </button>
-                    <button type="button" class="btn-primary btn-sm" data-register-invoice="${escapeHtml(row.report.id)}">
-                      Marcar como Faturado
-                    </button>
-                    <button type="button" class="btn-danger btn-sm" data-billing-dismiss="${escapeHtml(row.report.id)}" title="Retirar da lista por faturar">
-                      Eliminar
-                    </button>
+                    <button type="button" class="btn-outline btn-sm faturacao-btn-compact" data-billing-pdf="${escapeHtml(row.report.id)}" title="Abrir PDF do relatório técnico">PDF</button>
+                    <button type="button" class="btn-primary btn-sm faturacao-btn-compact" data-register-invoice="${escapeHtml(row.report.id)}" title="Marcar como faturado">Faturar</button>
+                    <button type="button" class="btn-danger btn-sm faturacao-btn-compact" data-billing-dismiss="${escapeHtml(row.report.id)}" title="Retirar da lista por faturar">Eliminar</button>
                   </div>
                 </td>
               </tr>
@@ -583,16 +577,16 @@ function renderReceivablesTable(rows) {
     <section class="faturacao-receivables-section rh-section glass-card">
       <h3 class="ms-h2 faturacao-section-title">Faturas Pendentes de Pagamento <span class="badge-count">${rows.length}</span></h3>
       <div class="rh-table-scroll">
-        <table class="rh-data-table faturacao-table faturacao-table--receivables">
+        <table class="rh-data-table faturacao-table faturacao-table--compact faturacao-table--receivables">
           <thead>
             <tr>
               <th scope="col">Cliente</th>
               <th scope="col">NIF</th>
-              <th scope="col">Nº Fatura</th>
+              <th scope="col">Fatura</th>
               <th scope="col">Valor</th>
-              <th scope="col">Data de Emissão</th>
-              <th scope="col">Condição de Pagamento</th>
-              <th scope="col">Data de Vencimento</th>
+              <th scope="col">Emissão</th>
+              <th scope="col">Condição</th>
+              <th scope="col">Vencimento</th>
               <th scope="col" class="faturacao-col-action">Ação</th>
             </tr>
           </thead>
@@ -601,16 +595,19 @@ function renderReceivablesTable(rows) {
               .map(
                 (row) => `
               <tr class="rh-data-table-row${row.vencimentoUrg === 'overdue' ? ' faturacao-row--urgent' : ''}" data-invoice-id="${escapeHtml(row.report.id)}">
-                <td>${escapeHtml(row.nome)}${row.vencimentoUrg === 'overdue' ? ' <span class="faturacao-urgent-badge">Vencida</span>' : ''}${row.vencimentoUrg === 'soon' ? ' <span class="faturacao-urgent-badge faturacao-urgent-badge--soon">A vencer</span>' : ''}</td>
-                <td>${escapeHtml(row.nif)}</td>
-                <td><code class="faturacao-ordem">${escapeHtml(row.numeroFatura)}</code></td>
+                <td class="faturacao-cell-client faturacao-cell-client--wrap">
+                  <span class="faturacao-cell-client-name">${escapeHtml(row.nome)}</span>
+                  ${row.vencimentoUrg === 'overdue' ? ' <span class="faturacao-urgent-badge">Vencida</span>' : ''}${row.vencimentoUrg === 'soon' ? ' <span class="faturacao-urgent-badge faturacao-urgent-badge--soon">A vencer</span>' : ''}
+                </td>
+                <td class="faturacao-cell-nif">${escapeHtml(row.nif)}</td>
+                <td class="faturacao-cell-ordem"><code class="faturacao-ordem">${escapeHtml(row.numeroFatura)}</code></td>
                 <td class="faturacao-col-valor">${escapeHtml(row.valorLabel)}</td>
-                <td>${escapeHtml(row.emissaoLabel)}</td>
-                <td>${escapeHtml(row.condicaoLabel)}</td>
-                <td class="${escapeHtml(row.vencimentoClass)}">${escapeHtml(row.vencimentoLabel)}</td>
+                <td class="faturacao-cell-date">${escapeHtml(row.emissaoLabel)}</td>
+                <td class="faturacao-cell-muted">${escapeHtml(row.condicaoLabel)}</td>
+                <td class="faturacao-cell-date ${escapeHtml(row.vencimentoClass)}">${escapeHtml(row.vencimentoLabel)}</td>
                 <td class="faturacao-col-action">
-                  <button type="button" class="btn-success btn-sm" data-confirm-payment="${escapeHtml(row.report.id)}">
-                    Confirmar Recebimento
+                  <button type="button" class="btn-success btn-sm faturacao-btn-compact" data-confirm-payment="${escapeHtml(row.report.id)}" title="Confirmar recebimento">
+                    Recebido
                   </button>
                 </td>
               </tr>
