@@ -4,18 +4,17 @@ const {
   formatInterventionDatePt,
   resolveReportInterventionDatePt,
 } = require('./lib/report-intervention-date');
+const {
+  SUPABASE_URL,
+  SUPABASE_ANON_KEY,
+  getBearerToken,
+  getAuthenticatedUser,
+} = require('./lib/supabase-auth');
 
 const SMTP_HOST = process.env.SMTP_HOST;
 const SMTP_PORT = Number(process.env.SMTP_PORT || 465);
 const EMAIL_USER = process.env.EMAIL_USER;
 const EMAIL_PASS = process.env.EMAIL_PASS;
-
-const SUPABASE_URL =
-  process.env.SUPABASE_URL || 'https://zhfbezrevosmbmcbyskw.supabase.co';
-const SUPABASE_KEY =
-  process.env.SUPABASE_ANON_KEY ||
-  process.env.SUPABASE_KEY ||
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpoZmJlenJldm9zbWJtY2J5c2t3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzOTQxMTMsImV4cCI6MjA5NTk3MDExM30.eUXiUiBVxoULll4LICBLLmEtBWZ0zqBHuW_W7-nB4Wc';
 
 /** Tamanho máximo do PDF decodificado (evita timeouts na Vercel). */
 const MAX_PDF_BYTES = 3 * 1024 * 1024;
@@ -49,28 +48,10 @@ const CONTACT_EMAIL =
 const CONTACT_PHONE = process.env.COMPANY_PHONE || '+351 229 811 990';
 const CONTACT_WEBSITE = process.env.COMPANY_WEBSITE || 'www.manusilva.pt';
 
-function getBearerToken(req) {
-  const auth = String(req.headers.authorization || '');
-  const match = /^Bearer\s+(.+)$/i.exec(auth);
-  return match ? match[1].trim() : '';
-}
-
-async function getAuthenticatedUser(token) {
-  if (!token) return null;
-  const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-    headers: {
-      apikey: SUPABASE_KEY,
-      Authorization: `Bearer ${token}`,
-    },
-  });
-  if (!res.ok) return null;
-  return res.json();
-}
-
 async function supabaseGet(path, token) {
   const res = await fetch(`${SUPABASE_URL}${path}`, {
     headers: {
-      apikey: SUPABASE_KEY,
+      apikey: SUPABASE_ANON_KEY,
       Authorization: `Bearer ${token}`,
     },
   });
