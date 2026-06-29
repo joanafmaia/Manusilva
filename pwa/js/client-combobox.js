@@ -11,6 +11,8 @@ import {
   MAX_DROPDOWN_RESULTS,
 } from './clients-catalog.js';
 import { escapeHtml } from './html-utils.js';
+
+const AUTOFILL_BINDINGS = {
   cliente: 'Nome',
   nif: 'NIF',
   email: 'E-mail',

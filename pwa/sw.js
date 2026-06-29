@@ -4,7 +4,7 @@
  * JS/HTML: sempre rede (evita Ctrl+F5 sem atualizar módulos ES).
  * Mapas: passthrough direto à rede.
  */
-const CACHE_VERSION = '6925b21';
+const CACHE_VERSION = '205785f';
 
 self.addEventListener('install', (event) => {
   event.waitUntil(self.skipWaiting());
