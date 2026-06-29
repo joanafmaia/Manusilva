@@ -101,6 +101,7 @@ export function mapRowToReport(row) {
       null,
     statusRecebimento: row.status_recebimento || row.pagamento_status || null,
     dataVencimento: row.data_vencimento || null,
+    dataRecebimento: row.data_recebimento || null,
     data: {
       values: dados.values || {},
       signatures: dados.signatures || {},
@@ -142,6 +143,7 @@ export function mapReportToRow(report) {
     condicao_pagamento: report.faturaCondicaoPagamento || null,
     status_recebimento: report.statusRecebimento || null,
     data_vencimento: report.dataVencimento || null,
+    data_recebimento: report.dataRecebimento || null,
     dados: {
       values: data.values || {},
       signatures: data.signatures || {},

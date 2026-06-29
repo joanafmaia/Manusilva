@@ -50,6 +50,7 @@ CREATE TABLE IF NOT EXISTS public.relatorios (
   condicao_pagamento text,
   status_recebimento text,
   data_vencimento date,
+  data_recebimento date,
   dados jsonb NOT NULL DEFAULT '{}'::jsonb,
   criado_em timestamptz NOT NULL DEFAULT now(),
   atualizado_em timestamptz NOT NULL DEFAULT now()

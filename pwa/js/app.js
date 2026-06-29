@@ -1492,7 +1492,7 @@ export async function dismissPendingBillingReport(reportId) {
 }
 
 /** Confirma recebimento de uma fatura pendente */
-export async function confirmInvoicePayment(reportId) {
+export async function confirmInvoicePayment(reportId, { dataRecebimento } = {}) {
   const report = getReport(reportId);
   if (!report) throw new Error('Fatura não encontrada.');
   if (report.faturacaoStatus !== 'faturado') {
@@ -1502,8 +1502,14 @@ export async function confirmInvoicePayment(reportId) {
     throw new Error('Este recebimento já foi confirmado.');
   }
 
+  const data = String(dataRecebimento ?? new Date().toISOString()).trim().split('T')[0];
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) {
+    throw new Error('Indique uma data de recebimento válida.');
+  }
+
   await updateRelatorio(reportId, {
     statusRecebimento: 'pago',
+    dataRecebimento: data,
   });
   window.dispatchEvent(new CustomEvent('db-updated'));
   return true;

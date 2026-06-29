@@ -11121,97 +11121,6 @@ body .admin-rh-page .btn-primary, body .admin-rh-page .btn-secondary, body .admi
   gap: 0.3rem;
   justify-content: flex-end;
 }
-.faturacao-billing-split {
-  display: grid;
-  grid-template-columns: minmax(0, 38%) minmax(320px, 1fr);
-  gap: 1rem;
-  align-items: stretch;
-}
-.faturacao-billing-list {
-  min-width: 0;
-}
-.faturacao-billing-row {
-  cursor: pointer;
-}
-.faturacao-billing-row.faturacao-row--selected td {
-  background: color-mix(in srgb, var(--ms-accent, #2563eb) 8%, transparent);
-}
-.faturacao-billing-preview {
-  display: flex;
-  flex-direction: column;
-  min-height: 420px;
-  border: 1px solid rgba(148, 163, 184, 0.28);
-  border-radius: 12px;
-  background: rgba(248, 250, 252, 0.65);
-  overflow: hidden;
-}
-.faturacao-billing-preview__head {
-  padding: 0.75rem 0.9rem;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
-}
-.faturacao-billing-preview__title {
-  margin: 0;
-  font-size: 0.92rem;
-  font-weight: 700;
-}
-.faturacao-billing-preview__meta {
-  margin: 0.2rem 0 0;
-  font-size: 0.78rem;
-}
-.faturacao-billing-preview__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  margin-top: 0.65rem;
-}
-.faturacao-billing-preview__tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-  padding: 0.55rem 0.75rem 0;
-}
-.faturacao-billing-preview__tab {
-  border: 1px solid rgba(148, 163, 184, 0.35);
-  background: #fff;
-  border-radius: 999px;
-  padding: 0.2rem 0.65rem;
-  font-size: 0.72rem;
-  cursor: pointer;
-}
-.faturacao-billing-preview__tab.is-active {
-  border-color: color-mix(in srgb, var(--ms-accent, #2563eb) 55%, transparent);
-  background: color-mix(in srgb, var(--ms-accent, #2563eb) 10%, transparent);
-  font-weight: 700;
-}
-.faturacao-billing-preview__body {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  padding: 0.65rem 0.75rem 0.75rem;
-  min-height: 0;
-}
-.faturacao-billing-preview__frame {
-  flex: 1;
-  width: 100%;
-  min-height: 340px;
-  border: 1px solid rgba(148, 163, 184, 0.25);
-  border-radius: 8px;
-  background: #fff;
-}
-.faturacao-billing-preview__open {
-  align-self: flex-start;
-}
-.faturacao-billing-preview__empty {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.65rem;
-  padding: 1.25rem;
-  text-align: center;
-}
 .faturacao-ordem {
   font-size: 0.82rem;
   padding: 0.15rem 0.4rem;
@@ -11283,6 +11192,44 @@ body .admin-rh-page .btn-primary, body .admin-rh-page .btn-secondary, body .admi
 .faturacao-history-row {
   cursor: default;
 }
+.faturacao-history-client-btn {
+  flex: 1;
+  min-width: 0;
+  max-width: none;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  color: var(--ms-accent, #2563eb);
+  text-align: left;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.faturacao-history-client-btn:hover {
+  color: color-mix(in srgb, var(--ms-accent, #2563eb) 75%, #000);
+}
+.faturacao-detail-grid {
+  display: grid;
+  gap: 0.65rem 1rem;
+  margin: 0;
+}
+.faturacao-detail-grid > div {
+  display: grid;
+  grid-template-columns: minmax(8rem, 38%) 1fr;
+  gap: 0.5rem;
+  align-items: baseline;
+}
+.faturacao-detail-grid dt {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--ms-text-muted, #64748b);
+}
+.faturacao-detail-grid dd {
+  margin: 0;
+  font-size: 0.92rem;
+}
 .faturacao-history-row .tech-job-row-date {
   min-width: 4.6rem;
 }
@@ -11330,18 +11277,6 @@ body .admin-rh-page .btn-primary, body .admin-rh-page .btn-secondary, body .admi
 @media (max-width: 768px) {
   .faturacao-chart-wrap {
     height: 240px;
-  }
-
-  .faturacao-billing-split {
-    grid-template-columns: 1fr;
-  }
-
-  .faturacao-billing-preview {
-    min-height: 320px;
-  }
-
-  .faturacao-billing-preview__frame {
-    min-height: 280px;
   }
 
   .faturacao-col-action {
