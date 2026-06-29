@@ -3,7 +3,7 @@
  */
 
 import { getAuthenticatedSupabaseClient } from './supabase-client.js';
-import { extractEquipamentosFromReport } from './cliente-equipamentos.js';
+import { extractEquipamentosFromReport, reconcileEquipamentoChaves } from './cliente-equipamentos.js';
 
 const cache = new Map();
 const CACHE_MS = 60_000;
@@ -92,8 +92,10 @@ export async function upsertClienteEquipamentosFromReport(report) {
   try {
     const supabase = await getAuthenticatedSupabaseClient();
     const now = new Date().toISOString();
+    const existing = await fetchClienteEquipamentos(report.clientId);
+    const rows = reconcileEquipamentoChaves(extracted, existing);
 
-    const payload = extracted.map((row) => ({
+    const payload = rows.map((row) => ({
       cliente_id: clientId,
       categoria: row.categoria,
       chave: row.chave,

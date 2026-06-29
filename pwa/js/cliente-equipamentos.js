@@ -50,33 +50,85 @@ function isEmptyValue(value) {
   return norm(value) === '';
 }
 
-/** @param {Record<string, unknown>} data */
+function normKey(value) {
+  return norm(value).toLowerCase();
+}
+
+function resolveNumeroSerie(data = {}) {
+  return norm(data.numero_serie || data.numero_de_serie || data.num_serie);
+}
+
 export function buildEquipamentoChave(categoria, data = {}) {
-  const serie = norm(data.numero_serie || data.num_serie);
-  if (serie) return `serie:${serie.toLowerCase()}`;
+  const tipo = normKey(data.tipo);
+  const marca = normKey(data.marca);
+  const modelo = normKey(data.modelo);
+  const serie = normKey(resolveNumeroSerie(data));
+  const nInterno = normKey(data.n_interno);
 
-  const matricula = norm(data.matricula);
-  if (matricula) return `mat:${matricula.toLowerCase()}`;
-
-  const maquina = norm(data.maquina);
-  if (maquina) return `maq:${maquina.toLowerCase()}`;
-
-  if (categoria === 'carregador') {
-    const etiqueta = norm(data.etiqueta);
-    if (etiqueta) return `etq:${etiqueta.toLowerCase()}`;
+  if (tipo || marca || modelo || serie || nInterno) {
+    return `eq:${tipo}|${marca}|${modelo}|${serie}|${nInterno}`;
   }
 
-  const marcaModelo = `${norm(data.marca).toLowerCase()}|${norm(data.modelo).toLowerCase()}`;
-  if (marcaModelo !== '|') return `mm:${marcaModelo}`;
+  const matricula = normKey(data.matricula);
+  if (matricula) return `mat:${matricula}`;
+
+  const maquina = normKey(data.maquina);
+  if (maquina) return `maq:${maquina}`;
+
+  if (categoria === 'carregador') {
+    const etiqueta = normKey(data.etiqueta);
+    if (etiqueta) return `etq:${etiqueta}`;
+  }
 
   return null;
 }
 
-function mapMachineRow(categoria, values = {}) {
-  const chave = buildEquipamentoChave(categoria, values);
-  if (!chave) return null;
+/**
+ * Evita duplicar equipamentos quando a chave muda mas o nº de série é o mesmo.
+ * @param {object[]} extracted
+ * @param {object[]} existing
+ */
+export function reconcileEquipamentoChaves(extracted = [], existing = []) {
+  if (!existing.length) return extracted;
+  return extracted.map((row) => {
+    const serie = normKey(resolveNumeroSerie(row));
+    if (!serie) return row;
+    const match = existing.find(
+      (e) =>
+        e.categoria === row.categoria &&
+        normKey(resolveNumeroSerie(e)) === serie &&
+        e.chave !== row.chave,
+    );
+    return match ? { ...row, chave: match.chave } : row;
+  });
+}
 
-  const numeroSerie = norm(values.numero_de_serie || values.num_serie) || null;
+export function formatEquipamentoLabel(equipamento = {}) {
+  const parts = [
+    norm(equipamento.tipo) ? `Tipo: ${norm(equipamento.tipo)}` : '',
+    norm(equipamento.marca) ? `Marca: ${norm(equipamento.marca)}` : '',
+    norm(equipamento.modelo) ? `Modelo: ${norm(equipamento.modelo)}` : '',
+    norm(equipamento.numero_serie) ? `Série: ${norm(equipamento.numero_serie)}` : '',
+    norm(equipamento.n_interno) ? `Nº Int.: ${norm(equipamento.n_interno)}` : '',
+  ].filter(Boolean);
+
+  if (parts.length) return parts.join(' · ');
+
+  return [
+    norm(equipamento.maquina),
+    norm(equipamento.matricula) ? `Mat. ${norm(equipamento.matricula)}` : '',
+  ]
+    .filter(Boolean)
+    .join(' · ');
+}
+
+function mapMachineRow(categoria, values = {}) {
+  const numeroSerie = resolveNumeroSerie(values) || null;
+  const chave = buildEquipamentoChave(categoria, {
+    ...values,
+    numero_serie: numeroSerie,
+  });
+  if (!chave) return null;
 
   return {
     categoria,
@@ -96,18 +148,22 @@ function mapMachineRow(categoria, values = {}) {
 }
 
 function mapBatteryRow(row = {}) {
-  const chave = buildEquipamentoChave('bateria', row);
+  const numeroSerie = resolveNumeroSerie(row) || null;
+  const chave = buildEquipamentoChave('bateria', {
+    ...row,
+    numero_serie: numeroSerie,
+  });
   if (!chave) return null;
   return {
     categoria: 'bateria',
     chave,
-    marca: null,
-    modelo: null,
-    numero_serie: null,
+    marca: norm(row.marca) || null,
+    modelo: norm(row.modelo) || null,
+    numero_serie: numeroSerie,
     matricula: norm(row.matricula) || null,
     maquina: norm(row.maquina) || null,
     tipo: norm(row.tipo) || null,
-    n_interno: null,
+    n_interno: norm(row.n_interno) || null,
     data_fabrico: null,
     tensao_v: norm(row.tensao_v) || null,
     densidade: row.densidade != null && row.densidade !== '' ? String(row.densidade) : null,
@@ -178,8 +234,31 @@ function batteryRowFromEquipamento(equipamento = {}) {
   };
 }
 
+function findBestEquipamentoMatch(pool, hints = {}) {
+  if (!pool.length) return null;
+
+  const serie = normKey(resolveNumeroSerie(hints));
+  if (serie) {
+    const bySerie = pool.find((e) => normKey(e.numero_serie) === serie);
+    if (bySerie) return bySerie;
+  }
+
+  const nInterno = normKey(hints.n_interno);
+  if (nInterno) {
+    const byInterno = pool.find((e) => normKey(e.n_interno) === nInterno);
+    if (byInterno) return byInterno;
+  }
+
+  const targetChave = buildEquipamentoChave(hints.categoria || pool[0].categoria, hints);
+  if (targetChave) {
+    const byChave = pool.find((e) => e.chave === targetChave);
+    if (byChave) return byChave;
+  }
+
+  return pool[0];
+}
+
 /**
- * Pré-preenche campos vazios com equipamentos já registados do cliente.
  * @param {object} service
  * @param {object} job
  * @param {object[]} equipamentos
@@ -197,10 +276,15 @@ export function buildEquipmentFormPrefill(service, job, equipamentos = [], saved
   );
 
   const pool = equipamentos.filter((e) => e.categoria === categoria);
-  let match =
-    (serialHint &&
-      pool.find((e) => norm(e.numero_serie).toLowerCase() === serialHint.toLowerCase())) ||
-    pool[0];
+  const match = findBestEquipamentoMatch(pool, {
+    categoria,
+    numero_de_serie: serialHint,
+    numero_serie: serialHint,
+    n_interno: savedValues.n_interno,
+    marca: savedValues.marca,
+    modelo: savedValues.modelo,
+    tipo: savedValues.tipo,
+  });
 
   if (!match) return prefill;
 
@@ -276,14 +360,7 @@ export function renderEquipamentoPicker(equipamentos = [], service = null) {
 
   const options = pool
     .map((e, index) => {
-      const label = [
-        e.numero_serie ? `Série ${e.numero_serie}` : '',
-        e.maquina ? e.maquina : '',
-        e.matricula ? `Mat. ${e.matricula}` : '',
-        [e.marca, e.modelo].filter(Boolean).join(' '),
-      ]
-        .filter(Boolean)
-        .join(' · ');
+      const label = formatEquipamentoLabel(e);
       return `<option value="${index}">${escapeHtml(label || `Equipamento ${index + 1}`)}</option>`;
     })
     .join('');
@@ -291,7 +368,7 @@ export function renderEquipamentoPicker(equipamentos = [], service = null) {
   return `
     <div class="equipamento-picker form-section-card">
       <label class="form-label" for="equipamento-picker-select">Equipamento registado</label>
-      <p class="field-hint equipamento-picker-hint">Selecione um equipamento deste cliente para preencher os campos automaticamente.</p>
+      <p class="field-hint equipamento-picker-hint">Selecione um equipamento para preencher automaticamente (tipo, marca, modelo, nº de série, nº interno).</p>
       <select id="equipamento-picker-select" class="form-select equipamento-picker-select" data-equipamento-picker>
         <option value="">— Escolher equipamento —</option>
         ${options}
@@ -378,6 +455,7 @@ export function attachEquipamentoDatalists(overlay, equipamentos = []) {
     matricula: new Set(),
     maquina: new Set(),
     tipo: new Set(),
+    n_interno: new Set(),
   };
 
   equipamentos.forEach((e) => {
@@ -390,6 +468,7 @@ export function attachEquipamentoDatalists(overlay, equipamentos = []) {
     if (norm(e.matricula)) suggestions.matricula.add(e.matricula);
     if (norm(e.maquina)) suggestions.maquina.add(e.maquina);
     if (norm(e.tipo)) suggestions.tipo.add(e.tipo);
+    if (norm(e.n_interno)) suggestions.n_interno.add(e.n_interno);
   });
 
   Object.entries(suggestions).forEach(([fieldId, values]) => {
