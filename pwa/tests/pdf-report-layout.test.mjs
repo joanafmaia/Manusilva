@@ -105,3 +105,17 @@ describe('pdf-folha-avarias', () => {
     }
   });
 });
+
+describe('pdf-reparacao-carregador', () => {
+  it('expõe layout da reparação de carregador', async () => {
+    const mod = await import('../js/pdf-reparacao-carregador.js');
+    for (const name of [
+      'drawCarregadorTitleBar',
+      'drawReparacaoCarregadorTopSection',
+      'drawReparacaoCarregadorBody',
+      'drawReparacaoCarregadorClosingSection',
+    ]) {
+      assert.equal(typeof mod[name], 'function', `export em falta: ${name}`);
+    }
+  });
+});
