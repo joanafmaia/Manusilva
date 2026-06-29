@@ -2,13 +2,9 @@
  * Modal de pré-visualização PDF em tempo real
  */
 
-let activePreview = null;
+import { escapeHtml } from './html-utils.js';
 
-function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str ?? '';
-  return div.innerHTML;
-}
+let activePreview = null;
 
 function revokeActivePreview() {
   if (activePreview?.blobUrls?.length) {

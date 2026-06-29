@@ -85,6 +85,7 @@ import {
   resolveReportOpenConflict,
 } from './tech-data-conflict.js';
 import { triggerTechDataSync } from './tech-sync.js';
+import { isBatteryService } from './service-constants.js';
 
 let signaturePads = {};
 let signaturePadsReady = false;
@@ -502,7 +503,7 @@ function buildFormHTML(job, client, tech, service, existingReport, options = {})
   const isCarregadorForm = service?.id === 'reparacao_carregador';
   const isCorretivaForm = service?.id === 'manutencao_corretiva_maquinas';
   const isGrandesForm = service?.id === 'manutencao_baterias_grandes';
-  const isRavBateriaForm = service?.id === 'reparacao_avarias_bateria';
+  const isRavBateriaForm = isBatteryService(service);
   const isFolhaAvariasForm = service?.id === 'folha_intervencao_avarias';
   const isEmpilhadoresForm = service?.id === 'manutencao_preventiva_empilhadores';
   const interventionFotosPreviewHtml = isFolhaAvariasForm
@@ -1024,10 +1025,10 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport, opt
     applyFormReadOnly(overlay);
   } else {
     formAutosave = initReportFormAutosave({
-    overlay,
-    job,
-    existingReport,
-    buildReport: () => buildReportFromForm(overlay, job, existingReport, signaturePads, draftReportId),
+      overlay,
+      job,
+      existingReport,
+      buildReport: () => buildReportFromForm(overlay, job, existingReport, signaturePads, draftReportId),
     });
   }
 

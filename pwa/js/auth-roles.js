@@ -1,41 +1,21 @@
 /**
  * Funções e constantes partilhadas — perfis RH / Admin (Joana, Filipa, etc.)
+ * E-mails/nomes sincronizados com a API via pwa/shared/rh-admin-config.json.
  */
 
-import { UTILIZADORES, FILIPA_LEGACY_AUTH_EMAIL } from './mock_data.js';
+import rhConfig from '../shared/rh-admin-config.json' with { type: 'json' };
 
 /** Valores aceites em user_metadata.role ou sessão local */
-export const RH_ADMIN_ROLE_VALUES = new Set([
-  'RH',
-  'rh',
-  'admin',
-  'Admin',
-  'ADMIN',
-  'administracao',
-  'Administracao',
-]);
+export const RH_ADMIN_ROLE_VALUES = new Set(rhConfig.roleValues);
 
-/**
- * E-mails com acesso total de RH/Admin (fallback se metadata.role estiver em falta).
- * Exclui e-mails que também existem como Técnico no catálogo local.
- */
+export const RH_ADMIN_EMAILS = rhConfig.emails.map((email) => email.toLowerCase());
+
+const RH_ADMIN_NAMES = new Set(rhConfig.names.map((name) => name.toLowerCase()));
+
+/** @deprecated usar RH_ADMIN_EMAILS (lista sincronizada com a API) */
 export function getRhAdminEmails() {
-  const tecnicoEmails = new Set(
-    UTILIZADORES.filter((u) => u.role === 'Tecnico').map((u) => u.email.toLowerCase()),
-  );
-  return [
-    ...new Set(
-      [
-        ...UTILIZADORES.filter((u) => u.role === 'RH')
-          .map((u) => u.email.toLowerCase())
-          .filter((email) => email && !tecnicoEmails.has(email)),
-        FILIPA_LEGACY_AUTH_EMAIL.toLowerCase(),
-      ].filter(Boolean),
-    ),
-  ];
+  return [...RH_ADMIN_EMAILS];
 }
-
-export const RH_ADMIN_EMAILS = getRhAdminEmails();
 
 export function normalizeDbRole(role) {
   const raw = String(role ?? '').trim();
@@ -55,10 +35,6 @@ export function isRhOrAdminEmail(email) {
   const normalized = String(email ?? '').trim().toLowerCase();
   return normalized ? RH_ADMIN_EMAILS.includes(normalized) : false;
 }
-
-const RH_ADMIN_NAMES = new Set(
-  UTILIZADORES.filter((u) => u.role === 'RH').map((u) => u.nome.toLowerCase()),
-);
 
 export function isRhOrAdminName(name) {
   const normalized = String(name ?? '').trim().toLowerCase();

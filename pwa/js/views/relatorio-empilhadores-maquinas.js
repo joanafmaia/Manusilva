@@ -9,6 +9,7 @@ import {
 } from '../preventiva-empilhadores-items.js';
 import { EMPILHADORES_PER_MACHINE_FIELD_DEFS } from '../mock_data.js';
 import { sanitizePdfFilenameSegment } from '../pdf-storage.js';
+import { escapeHtml } from '../html-utils.js';
 
 export const EMPILHADORES_MAQUINAS_FIELD_ID = 'maquinas';
 export const EMPILHADORES_SERVICE_TYPE = 'manutencao_preventiva_empilhadores';
@@ -44,12 +45,6 @@ const LEGACY_SCALAR_KEYS = [
 const LEGACY_OBJECT_KEYS = ['componentes_externos', 'componentes_internos'];
 
 export const EMPILHADORES_LEGACY_ROOT_KEYS = [...LEGACY_SCALAR_KEYS, ...LEGACY_OBJECT_KEYS];
-
-function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str ?? '';
-  return div.innerHTML;
-}
 
 function columnKey(label) {
   return String(label || '')

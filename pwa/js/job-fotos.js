@@ -2,12 +2,7 @@
  * Fotos Antes/Depois — leitura a partir de trabalhos + fallback no relatório
  */
 
-function escapeHtml(text) {
-  return String(text ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/"/g, '&quot;');
-}
+import { escapeHtml } from './html-utils.js';
 
 export function isValidFotoUrl(url) {
   if (url == null) return false;

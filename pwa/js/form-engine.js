@@ -44,6 +44,13 @@ import {
   VISITAS_FIELD_ID,
 } from './deslocacao-field.js';
 import { splitDl50MatrixCategories } from './inspecao-dl50-categories.js';
+import { escapeHtml } from './html-utils.js';
+import {
+  EMPILHADORES_SERVICE_ID,
+  isBatteryService,
+  REPORT_SECTIONS,
+  SERVICE_IDS,
+} from './service-constants.js';
 
 export { renderClientCombobox, renderHeaderClientCombobox, bindClientComboboxes, collectClientComboboxValues };
 
@@ -90,13 +97,6 @@ function isDamagedComponentValue(val) {
   return /danificad/i.test(String(val || ''));
 }
 
-function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str ?? '';
-  return div.innerHTML;
-}
-
-const DATE_FIELD_ID_RE =
   /^(data_|data_de_|data_fabrico|data_fabricacao|data_rececao|concluido_testado_em|data_1|data_2)/i;
 const TIME_FIELD_ID_RE = /^(hora_|hora_inicio|hora_fim|hora_de_)/i;
 const DATETIME_FIELD_ID_RE = /^(data_hora|datetime)/i;
@@ -198,21 +198,22 @@ export function isMachineTrackingField(field) {
 
 /** Serviços onde o técnico identifica a máquina no ecrã (Marca/Modelo/Nº Série). */
 const SERVICES_WITH_MACHINE_FIELDS = new Set([
-  'inspecao_dl50_2005',
-  'folha_intervencao_avarias',
-  'manutencao_preventiva_empilhadores',
-  'manutencao_corretiva_maquinas',
-  'reparacao_avarias_bateria',
-  'reparacao_carregador',
+  SERVICE_IDS.INSPECAO_DL50_2005,
+  SERVICE_IDS.FOLHA_INTERVENCAO_AVARIAS,
+  SERVICE_IDS.MANUTENCAO_PREVENTIVA_EMPILHADORES,
+  SERVICE_IDS.MANUTENCAO_CORRETIVA_MAQUINAS,
+  SERVICE_IDS.MANUTENCAO_PREVENTIVA_BATERIA,
+  SERVICE_IDS.REPARACAO_AVARIAS_BATERIA,
+  SERVICE_IDS.REPARACAO_CARREGADOR,
 ]);
 
 const SERVICE_MACHINE_FIELD_SECTIONS = {
-  reparacao_carregador: 'Identificação Do Carregador',
-  reparacao_avarias_bateria: 'Informações da Bateria',
+  [SERVICE_IDS.REPARACAO_CARREGADOR]: 'Identificação Do Carregador',
+  [SERVICE_IDS.REPARACAO_AVARIAS_BATERIA]: REPORT_SECTIONS.BATTERY,
+  [SERVICE_IDS.MANUTENCAO_PREVENTIVA_BATERIA]: REPORT_SECTIONS.BATTERY,
 };
 
-const EMPILHADORES_SERVICE_ID = 'manutencao_preventiva_empilhadores';
-const EMPILHADORES_MACHINE_SECTION = 'Informações da Máquina';
+const EMPILHADORES_MACHINE_SECTION = REPORT_SECTIONS.MACHINE;
 
 /** Relatórios com Nr de Visitas na secção dedicada do formulário (não no intro) */
 
@@ -383,6 +384,7 @@ export function buildFormPrefill(service, job, _forklift, context = {}) {
       });
     return {
       data_de_conclusao: job?.date || '',
+      numero_de_serie: job?.forkliftSerial || '',
       consumiveis: [emptyMaterialRow()],
       visitas_realizadas: 1,
       estado_final: 'Operacional',
@@ -762,7 +764,7 @@ export function renderReportFields(service, values = {}, context = {}, options =
   if (service?.id === 'manutencao_baterias_grandes') {
     groups = mergeGrandesDualFooterGroups(groups);
   }
-  if (service?.id === 'reparacao_avarias_bateria') {
+  if (isBatteryService(service)) {
     groups = mergeRavDualMetricGroups(groups);
   }
 
@@ -873,7 +875,7 @@ export function renderReportFields(service, values = {}, context = {}, options =
         fieldsHtml = `<div class="grandes-observations-box">${sectionTitle}${fieldsHtml}</div>`;
         sectionTitle = '';
       }
-      const isRavBateria = service?.id === 'reparacao_avarias_bateria';
+      const isRavBateria = isBatteryService(service);
       if (isRavBateria && _ravDualMetrics) {
         const materialHtml = sectionFields
           .filter((f) => isMaterialTableField(f))
@@ -903,7 +905,7 @@ export function renderReportFields(service, values = {}, context = {}, options =
       } else if (isRavBateria && section === 'Número de Visitas e Tempo') {
         fieldsHtml = `<div class="rav-dashboard-section rav-dashboard-section--visitas">${sectionTitle}${fieldsHtml}</div>`;
         sectionTitle = '';
-      } else if (isRavBateria && section === 'Estado final') {
+      } else if (isRavBateria && section && /^estado final$/i.test(section)) {
         fieldsHtml = `<div class="rav-estado-final-shell">${sectionTitle}${fieldsHtml}</div>`;
         sectionTitle = '';
       }

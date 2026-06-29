@@ -12,7 +12,19 @@ import { createMaterialTableField } from './material-table-field.js';
 /** Secção de óleos/filtros — após verificações no relatório Empilhadores */
 export const EMPILHADORES_MATERIAL_SECTION = 'Substituição de Material na Manutenção';
 
-export const SCHEMA_VERSION = 23;
+/** Identificação bateria — nº série + modelo/tipo (sem marca, modelo ou nº interno separados) */
+export const BATERIA_IDENTITY_FIELD_DEFS = [
+  { type: 'text', id: 'numero_de_serie', label: 'Número de Série', section: 'Informações da Bateria' },
+  {
+    type: 'text',
+    id: 'tipo',
+    label: 'Modelo / Tipo',
+    section: 'Informações da Bateria',
+    placeholder: 'ex: Hawker 4 PzS 500',
+  },
+];
+
+export const SCHEMA_VERSION = 24;
 
 export const COMPANY = {
   name: 'ManuSilva Manutenção Industrial, Unipessoal, Lda',
@@ -182,6 +194,7 @@ export const MANUTENCAO_PREVENTIVA_BATERIA = {
   companyAddress: 'Rua São Mamede, Lote Nº1 - Fração D, 4760-725 Ribeirão VNF',
   fields: [
     { type: 'date', id: 'data_de_conclusao', label: 'Data de Conclusão' },
+    ...BATERIA_IDENTITY_FIELD_DEFS,
     {
       type: 'status_pills',
       id: 'densidade',
@@ -573,19 +586,7 @@ export const REPARACAO_AVARIAS_BATERIA = {
   companyAddress: 'Rua São Mamede, Lote Nº1 - Fração D, 4760-725 Ribeirão VNF',
   fields: [
     { type: 'date', id: 'data_de_conclusao', label: 'Data de Conclusão' },
-    {
-      type: 'text',
-      id: 'numero_de_serie',
-      label: 'Número de Série',
-      section: 'Informações da Bateria',
-    },
-    {
-      type: 'text',
-      id: 'tipo',
-      label: 'Modelo / Tipo',
-      section: 'Informações da Bateria',
-      placeholder: 'ex: Hawker 4 PzS 500',
-    },
+    ...BATERIA_IDENTITY_FIELD_DEFS,
     createMaterialTableField({ id: 'consumiveis' }),
     {
       type: 'number',

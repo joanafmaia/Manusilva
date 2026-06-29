@@ -8,6 +8,7 @@ import {
   migrateLegacyEmpilhadoresMaquinas,
   normalizeEmpilhadoresMaquinaRow,
 } from './views/relatorio-empilhadores-maquinas.js';
+import { escapeHtml } from './html-utils.js';
 
 const MACHINE_VALUE_KEYS = [
   'marca',
@@ -56,6 +57,55 @@ function normKey(value) {
 
 function resolveNumeroSerie(data = {}) {
   return norm(data.numero_serie || data.numero_de_serie || data.num_serie);
+}
+
+function splitMarcaModelo(combined) {
+  const s = norm(combined);
+  if (!s) return { marca: '', modelo: '' };
+  const slashParts = s.split(/\s*\/\s*/);
+  if (slashParts.length >= 2) {
+    return { marca: slashParts[0], modelo: slashParts.slice(1).join(' / ') };
+  }
+  const spaceIdx = s.indexOf(' ');
+  if (spaceIdx > 0) {
+    return { marca: s.slice(0, spaceIdx), modelo: s.slice(spaceIdx + 1).trim() };
+  }
+  return { marca: s, modelo: '' };
+}
+
+/**
+ * Normaliza os 5 campos canónicos da BD a partir de qualquer relatório.
+ * @returns {{ marca: string|null, modelo: string|null, tipo: string|null, numero_serie: string|null, n_interno: string|null }}
+ */
+export function normalizeEquipamentoIdentity(serviceType, values = {}) {
+  const st = String(serviceType || '');
+  let marca = norm(values.marca);
+  let modelo = norm(values.modelo);
+  let tipo = norm(values.tipo);
+  let numeroSerie = resolveNumeroSerie(values);
+  let nInterno = norm(values.n_interno);
+
+  if (st === 'reparacao_carregador') {
+    const combined = norm(values.marca_modelo);
+    if (combined) {
+      const split = splitMarcaModelo(combined);
+      if (!marca) marca = split.marca;
+      if (!modelo) modelo = split.modelo;
+    }
+    if (!nInterno) nInterno = norm(values.etiqueta);
+    if (!tipo) tipo = 'Carregador';
+  } else if (st === 'manutencao_baterias_grandes') {
+    if (!marca) marca = norm(values.maquina);
+    if (!nInterno) nInterno = norm(values.matricula);
+  }
+
+  return {
+    marca: marca || null,
+    modelo: modelo || null,
+    tipo: tipo || null,
+    numero_serie: numeroSerie || null,
+    n_interno: nInterno || null,
+  };
 }
 
 export function buildEquipamentoChave(categoria, data = {}) {
@@ -122,24 +172,21 @@ export function formatEquipamentoLabel(equipamento = {}) {
     .join(' · ');
 }
 
-function mapMachineRow(categoria, values = {}) {
-  const numeroSerie = resolveNumeroSerie(values) || null;
-  const chave = buildEquipamentoChave(categoria, {
-    ...values,
-    numero_serie: numeroSerie,
-  });
+function mapMachineRow(categoria, values = {}, serviceType = '') {
+  const identity = normalizeEquipamentoIdentity(serviceType, values);
+  const chave = buildEquipamentoChave(categoria, identity);
   if (!chave) return null;
 
   return {
     categoria,
     chave,
-    marca: norm(values.marca) || null,
-    modelo: norm(values.modelo) || null,
-    numero_serie: numeroSerie,
+    marca: identity.marca,
+    modelo: identity.modelo,
+    numero_serie: identity.numero_serie,
     matricula: norm(values.matricula) || null,
     maquina: norm(values.maquina) || null,
-    tipo: norm(values.tipo) || null,
-    n_interno: norm(values.n_interno) || null,
+    tipo: identity.tipo,
+    n_interno: identity.n_interno,
     data_fabrico: norm(values.data_fabrico) || null,
     tensao_v: norm(values.tensao_v) || null,
     densidade: norm(values.densidade) || null,
@@ -147,23 +194,20 @@ function mapMachineRow(categoria, values = {}) {
   };
 }
 
-function mapBatteryRow(row = {}) {
-  const numeroSerie = resolveNumeroSerie(row) || null;
-  const chave = buildEquipamentoChave('bateria', {
-    ...row,
-    numero_serie: numeroSerie,
-  });
+function mapBatteryRow(row = {}, serviceType = 'manutencao_baterias_grandes') {
+  const identity = normalizeEquipamentoIdentity(serviceType, row);
+  const chave = buildEquipamentoChave('bateria', identity);
   if (!chave) return null;
   return {
     categoria: 'bateria',
     chave,
-    marca: norm(row.marca) || null,
-    modelo: norm(row.modelo) || null,
-    numero_serie: numeroSerie,
+    marca: identity.marca,
+    modelo: identity.modelo,
+    numero_serie: identity.numero_serie,
     matricula: norm(row.matricula) || null,
     maquina: norm(row.maquina) || null,
-    tipo: norm(row.tipo) || null,
-    n_interno: norm(row.n_interno) || null,
+    tipo: identity.tipo,
+    n_interno: identity.n_interno,
     data_fabrico: null,
     tensao_v: norm(row.tensao_v) || null,
     densidade: row.densidade != null && row.densidade !== '' ? String(row.densidade) : null,
@@ -190,16 +234,16 @@ export function extractEquipamentosFromReport(report) {
   if (SERVICES_WITH_MACHINE_BLOCK.has(serviceType)) {
     if (serviceType === 'manutencao_preventiva_empilhadores') {
       const machines = migrateLegacyEmpilhadoresMaquinas(values);
-      machines.forEach((row) => pushRow(mapMachineRow(categoria, row)));
+      machines.forEach((row) => pushRow(mapMachineRow(categoria, row, serviceType)));
     } else {
-      pushRow(mapMachineRow(categoria, values));
+      pushRow(mapMachineRow(categoria, values, serviceType));
     }
   }
 
   if (serviceType === 'manutencao_baterias_grandes') {
     const batteries = values[GRANDES_BATTERY_FIELD_ID];
     if (Array.isArray(batteries)) {
-      batteries.forEach((row) => pushRow(mapBatteryRow(row)));
+      batteries.forEach((row) => pushRow(mapBatteryRow(row, serviceType)));
     }
   }
 
@@ -374,14 +418,6 @@ export function renderEquipamentoPicker(equipamentos = [], service = null) {
         ${options}
       </select>
     </div>`;
-}
-
-function escapeHtml(str) {
-  return String(str ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
 }
 
 /** Liga o seletor de equipamentos ao formulário aberto. */

@@ -10,8 +10,7 @@ import {
   normalizeClientRecord,
   MAX_DROPDOWN_RESULTS,
 } from './clients-catalog.js';
-
-const AUTOFILL_BINDINGS = {
+import { escapeHtml } from './html-utils.js';
   cliente: 'Nome',
   nif: 'NIF',
   email: 'E-mail',
@@ -24,12 +23,6 @@ const AUTOFILL_BINDINGS = {
 };
 
 const INPUT_DEBOUNCE_MS = 120;
-
-function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str ?? '';
-  return div.innerHTML;
-}
 
 /** @deprecated Usar getProductionClientsCatalog — mantido para compatibilidade */
 export function getClientsCatalog() {

@@ -711,6 +711,7 @@ export async function renderInterventionPDF(report) {
   if (isPreventivaBateriaPdf) {
     y = drawPreventivaBateriaMirrorHeader(doc, clientMeta, techName, report, job, values, job?.numeroOrdem ?? null);
     y = drawFolhaTitleBar(doc, y, title);
+    y = await drawGenericMachineInfoBlock(doc, y, service, values, pdfContext);
     y = await drawPreventivaBateriaBody(doc, y, values, service);
     y = await drawPreventivaBateriaClosingSection(doc, y, {
       signatures: data.signatures || {},

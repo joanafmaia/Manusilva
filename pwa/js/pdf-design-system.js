@@ -153,7 +153,12 @@ export function isMachineInfoSection(section) {
 }
 
 export function getMachineSectionTitle(service) {
-  if (service?.id === 'reparacao_avarias_bateria') return PDF_BATTERY_SECTION;
+  if (
+    service?.id === 'reparacao_avarias_bateria' ||
+    service?.id === 'manutencao_preventiva_bateria'
+  ) {
+    return PDF_BATTERY_SECTION;
+  }
   return PDF_MACHINE_SECTION;
 }
 

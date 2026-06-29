@@ -5,14 +5,7 @@
 import { getClient, getJob, getReport, getTechnician } from './app.js';
 import { renderOrcamentoEditor, bindOrcamentoEditor } from './orcamento-rh-editor.js';
 import { getReportOrcamentoMeta } from './orcamento-linhas.js';
-
-function escapeHtml(value) {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
+import { escapeHtml } from './html-utils.js';
 
 function closeOrcamentoModal(overlay) {
   if (!overlay) return;

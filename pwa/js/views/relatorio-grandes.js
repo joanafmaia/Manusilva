@@ -2,6 +2,8 @@
  * Formulário Clientes Grandes — tabela dinâmica «Identificação Bateria»
  */
 
+import { escapeHtml } from '../html-utils.js';
+
 export const GRANDES_BATTERY_FIELD_ID = 'identificacao_baterias';
 
 /** Colunas da tabela (chave → rótulo) */
@@ -28,12 +30,6 @@ export const GRANDES_BATTERY_COLUMNS = [
 
 const NIVEL_OPTIONS = GRANDES_BATTERY_COLUMNS.find((c) => c.key === 'nivel_eletrolito').options;
 const CURTO_OPTIONS = GRANDES_BATTERY_COLUMNS.find((c) => c.key === 'curto_circuito').options;
-
-function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str ?? '';
-  return div.innerHTML;
-}
 
 function emptyRow() {
   return {

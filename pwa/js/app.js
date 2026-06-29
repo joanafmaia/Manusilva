@@ -8,8 +8,11 @@ import {
   formatInterventionDatePt,
   resolveReportInterventionDatePt,
 } from './report-intervention-date.js';
+import { escapeHtml } from './html-utils.js';
+import { buildReportEmailMeta } from './report-email-meta.js';
 
 export { getSupabaseClient };
+export { escapeHtml };
 
 import {
   COMPANY,
@@ -593,12 +596,6 @@ export async function resendApprovedReportEmail(reportId, options = {}) {
   }
 
   const values = report?.data?.values || {};
-  const tipoRelatorio =
-    report.serviceType === 'inspecao_dl50_2005'
-      ? 'dl50-2005'
-      : report.serviceType === 'manutencao_baterias_grandes'
-        ? 'baterias'
-        : 'outro';
 
   const MAX_BASE64_LEN = 3_000_000;
   const emailPdfEntries = pdfSources.map((source) => ({
@@ -640,14 +637,11 @@ export async function resendApprovedReportEmail(reportId, options = {}) {
 
   try {
     await sendOfficialReportEmail({
-      tipoRelatorio,
-      reportId: report.id,
-      clienteNome: values.nome_empresa || values.cliente || client?.name || client?.Nome || '',
-      nome_empresa: values.nome_empresa || '',
-      tecnico: values.tecnico || getTechnician(report.technicianId)?.name || '',
-      dataConclusao: resolveReportInterventionDatePt(report, job),
-      serieFrota: values.numero_de_serie || report.forkliftSerial || '',
-      numeroOrdem: job?.numeroOrdem ?? null,
+      ...buildReportEmailMeta(report, {
+        client,
+        job,
+        technicianName: getTechnician(report.technicianId)?.name || '',
+      }),
       to: recipientEmail,
       ...emailPdfPayload,
     });
@@ -756,7 +750,6 @@ export async function sendSelectedReportsEmail(reportIds, options = {}) {
   }
 
   const emailPdfPayload = buildReportEmailPdfPayload(pdfEntries);
-  const values = reports[0]?.data?.values || {};
   const tech = getTechnician(reports[0]?.technicianId);
 
   showToast(
@@ -767,18 +760,14 @@ export async function sendSelectedReportsEmail(reportIds, options = {}) {
 
   try {
     await sendOfficialReportEmail({
-      tipoRelatorio: reports.length > 1 || pdfEntries.length > 1 ? 'visita' : (
-        reports[0].serviceType === 'inspecao_dl50_2005'
-          ? 'dl50-2005'
-          : reports[0].serviceType === 'manutencao_baterias_grandes'
-            ? 'baterias'
-            : 'outro'
-      ),
+      ...buildReportEmailMeta(reports[0], {
+        client,
+        job: reports[0].jobId ? getJob(reports[0].jobId) : null,
+        technicianName: tech?.name || '',
+        multiReport: reports.length > 1,
+        multiPdf: pdfEntries.length > 1,
+      }),
       reportId: reports[0].id,
-      clienteNome: values.nome_empresa || values.cliente || client?.name || client?.Nome || '',
-      nome_empresa: values.nome_empresa || '',
-      tecnico: values.tecnico || tech?.name || '',
-      dataConclusao: resolveReportInterventionDatePt(reports[0], reports[0].jobId ? getJob(reports[0].jobId) : null),
       numeroOrdem: null,
       to: recipientEmail,
       ...emailPdfPayload,
@@ -1869,23 +1858,12 @@ export async function approveReport(reportId, options = {}) {
     }
 
     if (recipientEmail && !skipClientEmail) {
-      const values = report?.data?.values || {};
-      const tipoRelatorio =
-        report.serviceType === 'inspecao_dl50_2005'
-          ? 'dl50-2005'
-          : report.serviceType === 'manutencao_baterias_grandes'
-            ? 'baterias'
-            : 'outro';
-
       sendOfficialReportEmail({
-        tipoRelatorio,
-        reportId: report.id,
-        clienteNome: values.nome_empresa || values.cliente || client?.name || client?.Nome || '',
-        nome_empresa: values.nome_empresa || '',
-        tecnico: values.tecnico || getTechnician(report.technicianId)?.name || '',
-        dataConclusao: resolveReportInterventionDatePt(report, job),
-        serieFrota: values.numero_de_serie || report.forkliftSerial || '',
-        numeroOrdem: job?.numeroOrdem ?? null,
+        ...buildReportEmailMeta(report, {
+          client,
+          job,
+          technicianName: getTechnician(report.technicianId)?.name || '',
+        }),
         to: recipientEmail,
         ...emailPdfPayload,
       }).catch((err) => {
@@ -2129,12 +2107,6 @@ export function statusBadge(status) {
   return `<span class="status-badge status-badge--${variant}">${s.label}</span>`;
 }
 
-export function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
-}
-
 /* ─── Toast Notifications ─── */
 
 let toastContainer = null;
@@ -2231,7 +2203,7 @@ export function openModal(title, content, actions = '', options = {}) {
   overlay.innerHTML = `
     <div class="modal glass-card">
       <div class="modal-header">
-        <h3>${title}</h3>
+        <h3>${escapeHtml(title)}</h3>
         <button class="modal-close" aria-label="Fechar">&times;</button>
       </div>
       <div class="modal-body">${content}</div>
