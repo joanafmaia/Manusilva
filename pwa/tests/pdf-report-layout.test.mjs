@@ -31,6 +31,44 @@ describe('pdf-report exports', () => {
   });
 });
 
+describe('pdf-preventiva-bateria', () => {
+  it('expõe layout da preventiva bateria', async () => {
+    const mod = await import('../js/pdf-preventiva-bateria.js');
+    for (const name of [
+      'drawPreventivaBateriaMirrorHeader',
+      'drawPreventivaBateriaBody',
+      'drawPreventivaBateriaClosingSection',
+      'drawPreventivaBateriaIntervencaoTable',
+      'drawEstadoFinalClosedBlock',
+    ]) {
+      assert.equal(typeof mod[name], 'function', `export em falta: ${name}`);
+    }
+  });
+});
+
+describe('pdf-intervention-fotos', () => {
+  it('expõe secção de fotografias', async () => {
+    const { drawInterventionFotografiasSection } = await import('../js/pdf-intervention-fotos.js');
+    assert.equal(typeof drawInterventionFotografiasSection, 'function');
+  });
+});
+
+describe('pdf-image-loader', () => {
+  it('expõe loadImageForPdf', async () => {
+    const { loadImageForPdf } = await import('../js/pdf-image-loader.js');
+    assert.equal(typeof loadImageForPdf, 'function');
+  });
+});
+
+describe('pdf-header-blocks', () => {
+  it('expõe caixa cliente e logo', async () => {
+    const mod = await import('../js/pdf-header-blocks.js');
+    assert.equal(typeof mod.drawCompactClientBox, 'function');
+    assert.equal(typeof mod.drawLogoPlaceholder, 'function');
+    assert.equal(typeof mod.formatOrdemDisplay, 'function');
+  });
+});
+
 describe('pdf-page-layout', () => {
   it('calcula zona segura inferior A4', async () => {
     const { pdfContentBottomY, pdfMaxContentHeight } = await import('../js/pdf-page-layout.js');

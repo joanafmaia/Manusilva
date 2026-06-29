@@ -20,6 +20,9 @@ const PDF_FOOTER_FONT_SIZE = PDF_FONT_CAPTION;
 const FOLHA_INSTITUTIONAL_FOOTER_RGB = PDF_FOOTER_TEXT_RGB;
 const FOLHA_INSTITUTIONAL_FOOTER_FONT = PDF_FONT_CAPTION;
 
+/** Altura reservada no fecho da folha preventiva (rodapé institucional). */
+export const FOLHA_INSTITUTIONAL_FOOTER_H_MM = 20;
+
 export function buildInstitutionalFooterLines() {
   const contact = [COMPANY.phone, COMPANY.email, COMPANY.website].filter(Boolean).join(' · ');
   return [
