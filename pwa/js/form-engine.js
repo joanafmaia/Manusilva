@@ -202,6 +202,7 @@ const SERVICES_WITH_MACHINE_FIELDS = new Set([
   'folha_intervencao_avarias',
   'manutencao_preventiva_empilhadores',
   'manutencao_corretiva_maquinas',
+  'reparacao_avarias_bateria',
   'reparacao_carregador',
 ]);
 
