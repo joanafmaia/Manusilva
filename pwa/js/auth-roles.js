@@ -3,7 +3,7 @@
  * E-mails/nomes sincronizados com a API via pwa/shared/rh-admin-config.json.
  */
 
-import rhConfig from '../shared/rh-admin-config.json' with { type: 'json' };
+import rhConfig from './rh-admin-config.js';
 
 /** Valores aceites em user_metadata.role ou sessão local */
 export const RH_ADMIN_ROLE_VALUES = new Set(rhConfig.roleValues);

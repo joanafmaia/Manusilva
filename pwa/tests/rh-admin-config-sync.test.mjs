@@ -5,9 +5,11 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { FILIPA_LEGACY_AUTH_EMAIL, UTILIZADORES } from '../js/mock_data.js';
 import rhConfig from '../shared/rh-admin-config.json' with { type: 'json' };
+import jsConfig from '../js/rh-admin-config.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const configPath = path.join(__dirname, '../shared/rh-admin-config.json');
+const jsConfigPath = path.join(__dirname, '../js/rh-admin-config.js');
 
 function buildExpectedConfig() {
   const tecnicoEmails = new Set(
@@ -32,8 +34,11 @@ function buildExpectedConfig() {
 describe('rh-admin-config', () => {
   it('ficheiro JSON existe e está alinhado com UTILIZADORES', () => {
     assert.ok(fs.existsSync(configPath), 'Correr npm run sync:rh-config');
+    assert.ok(fs.existsSync(jsConfigPath), 'Correr npm run sync:rh-config');
     const expected = buildExpectedConfig();
     assert.deepEqual([...rhConfig.emails].sort(), expected.emails);
     assert.deepEqual([...rhConfig.names].sort(), expected.names);
+    assert.deepEqual([...jsConfig.emails].sort(), expected.emails);
+    assert.deepEqual([...jsConfig.names].sort(), expected.names);
   });
 });
