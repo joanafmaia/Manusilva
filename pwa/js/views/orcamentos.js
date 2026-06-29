@@ -11,15 +11,18 @@ import {
   getTechnician,
   escapeHtml,
   showToast,
+  cancelPedidoOrcamentoReport,
 } from '../app.js';
 import { openOrcamentoModal } from '../orcamento-modal.js';
 import { formatOrdemLabel } from '../report-review-ui.js';
 import {
   getPedidoOrcamentoDetalhe,
   getReportOrcamentoPdfUrl,
+  getReportTechnicalPdfUrl,
   isRhOrcamentoQueueReport,
   openOrcamentoStorageUrl,
   reportHasPedidoOrcamento,
+  reportOrcamentoGuardado,
   reportOrcamentoPorPreparar,
 } from '../pedido-orcamento.js';
 import { getReportOrcamentoMeta } from '../orcamento-linhas.js';
@@ -35,7 +38,7 @@ let highlightReportId = null;
 function orcamentoWorkflowStatus(report) {
   const meta = getReportOrcamentoMeta(report);
   if (meta?.enviadoEm) return 'enviada';
-  if (meta?.atualizadoEm) return 'guardada';
+  if (reportOrcamentoGuardado(report)) return 'guardada';
   return 'por_preparar';
 }
 
@@ -141,6 +144,9 @@ function renderTableRow(report) {
       : detalhe
     : '—';
   const pdfUrl = getReportOrcamentoPdfUrl(report);
+  const techPdfUrl = getReportTechnicalPdfUrl(report) || (job?.urlPdf ? String(job.urlPdf).trim() : '');
+  const canApproveReport = report.status === 'pending_review';
+  const canCancelPedido = !meta?.enviadoEm;
   const highlighted = highlightReportId && report.id === highlightReportId;
 
   return `
@@ -158,15 +164,32 @@ function renderTableRow(report) {
       <td class="orcamentos-col-detalhe" title="${escapeHtml(detalhe)}">${escapeHtml(detalheShort)}</td>
       <td class="orcamentos-col-muted">${escapeHtml(tech?.name || '—')}</td>
       <td class="orcamentos-col-action">
-        <button type="button" class="btn-primary btn-sm btn-touch" data-orc-open="${escapeHtml(report.id)}">
-          ${workflow === 'por_preparar' ? 'Preparar' : 'Editar'}
-        </button>
-        <button type="button" class="btn-outline btn-sm btn-touch" data-orc-review="${escapeHtml(report.id)}">Rever</button>
-        ${
-          pdfUrl
-            ? `<button type="button" class="btn-ghost btn-sm btn-touch" data-orc-pdf="${escapeHtml(report.id)}">PDF</button>`
-            : ''
-        }
+        <div class="orcamentos-actions">
+          ${
+            canApproveReport
+              ? `<button type="button" class="btn-success btn-sm btn-touch" data-orc-approve-report="${escapeHtml(report.id)}" title="Aprovar e enviar o relatório técnico ao cliente">Aprovar relatório</button>`
+              : ''
+          }
+          <button type="button" class="btn-primary btn-sm btn-touch" data-orc-open="${escapeHtml(report.id)}">
+            ${workflow === 'por_preparar' ? 'Preparar' : 'Editar'}
+          </button>
+          ${
+            techPdfUrl && report.status === 'approved'
+              ? `<button type="button" class="btn-outline btn-sm btn-touch" data-orc-tech-pdf="${escapeHtml(techPdfUrl)}" title="Abrir PDF do relatório técnico">PDF relatório</button>`
+              : ''
+          }
+          <button type="button" class="btn-outline btn-sm btn-touch" data-orc-review="${escapeHtml(report.id)}">Rever</button>
+          ${
+            pdfUrl
+              ? `<button type="button" class="btn-ghost btn-sm btn-touch" data-orc-pdf="${escapeHtml(report.id)}">PDF proposta</button>`
+              : ''
+          }
+          ${
+            canCancelPedido
+              ? `<button type="button" class="btn-danger btn-sm btn-touch" data-orc-cancel="${escapeHtml(report.id)}" title="Eliminar pedido de orçamento">Eliminar</button>`
+              : ''
+          }
+        </div>
       </td>
     </tr>`;
 }
@@ -260,6 +283,45 @@ function bindPanelEvents() {
           onRejected: () => refreshOrcamentosPanel().catch(console.error),
         }),
       );
+      return;
+    }
+
+    const approveReportBtn = e.target.closest('[data-orc-approve-report]');
+    if (approveReportBtn) {
+      const reportId = approveReportBtn.dataset.orcApproveReport;
+      if (!reportId) return;
+      void import('../report-review-rh-modal.js').then(({ openRhReviewModal }) =>
+        openRhReviewModal(reportId, {
+          onApproved: () => refreshOrcamentosPanel().catch(console.error),
+          onRejected: () => refreshOrcamentosPanel().catch(console.error),
+        }),
+      );
+      return;
+    }
+
+    const techPdfBtn = e.target.closest('[data-orc-tech-pdf]');
+    if (techPdfBtn) {
+      const url = techPdfBtn.dataset.orcTechPdf;
+      if (url) window.open(url, '_blank', 'noopener,noreferrer');
+      else showToast('PDF do relatório técnico não disponível.', 'warning');
+      return;
+    }
+
+    const cancelBtn = e.target.closest('[data-orc-cancel]');
+    if (cancelBtn) {
+      const reportId = cancelBtn.dataset.orcCancel;
+      if (!reportId) return;
+      const report = getReport(reportId);
+      const client = report ? getClient(report.clientId) : null;
+      const job = report?.jobId ? getJob(report.jobId) : null;
+      const label = client?.name || client?.Nome || formatOrdemLabel(job) || 'este pedido';
+      const ok = window.confirm(
+        `Eliminar o pedido de orçamento de ${label}?\n\nO relatório técnico mantém-se. A proposta MS.015 por preparar será removida.`,
+      );
+      if (!ok) return;
+      void cancelPedidoOrcamentoReport(reportId).then((done) => {
+        if (done) refreshOrcamentosPanel().catch(console.error);
+      });
       return;
     }
 

@@ -153,7 +153,6 @@ export function buildOrcamentoMetaDraft(report, numeroReservado = null) {
     subtotal: formatEuro(totals.subtotal),
     iva: formatEuro(totals.iva),
     total: formatEuro(totals.total),
-    atualizadoEm: new Date().toISOString(),
   };
 }
 

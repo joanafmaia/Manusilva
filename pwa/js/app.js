@@ -57,6 +57,7 @@ import {
 } from './relatorios-db.js';
 import {
   isRhOrcamentoQueueReport,
+  reportHasPedidoOrcamento,
   reportOrcamentoPorPreparar,
 } from './pedido-orcamento.js';
 import {
@@ -1365,11 +1366,9 @@ export function isPendingBilling(report) {
 }
 
 export function getPendingBillingReports() {
-  return getReportsSnapshot()
-    .filter(isPendingBilling)
-    .sort((a, b) =>
-      String(a.approvedAt || '').localeCompare(String(b.approvedAt || '')),
-    );
+  return dedupeReportsByJobPreferNewest(getReportsSnapshot().filter(isPendingBilling)).sort(
+    (a, b) => String(a.approvedAt || '').localeCompare(String(b.approvedAt || '')),
+  );
 }
 
 function addDaysToIsoDate(isoDate, days) {
@@ -1402,20 +1401,22 @@ export function resolveInvoiceBillingFields(condicaoPagamento, statusRecebimento
 
 /** Relatórios já faturados com cobrança em aberto */
 export function getPendingPaymentInvoices() {
-  return getReportsSnapshot()
-    .filter(
+  return dedupeReportsByJobPreferNewest(
+    getReportsSnapshot().filter(
       (r) => r.faturacaoStatus === 'faturado' && r.statusRecebimento === 'pendente',
-    )
-    .sort((a, b) =>
-      String(a.dataVencimento || a.dataFatura || '').localeCompare(
-        String(b.dataVencimento || b.dataFatura || ''),
-      ),
-    );
+    ),
+  ).sort((a, b) =>
+    String(a.dataVencimento || a.dataFatura || '').localeCompare(
+      String(b.dataVencimento || b.dataFatura || ''),
+    ),
+  );
 }
 
 /** Métricas de fluxo de caixa (faturas emitidas na app) */
 export function getBillingFinancialMetrics() {
-  const invoiced = getReportsSnapshot().filter((r) => r.faturacaoStatus === 'faturado');
+  const invoiced = dedupeReportsByJobPreferNewest(
+    getReportsSnapshot().filter((r) => r.faturacaoStatus === 'faturado'),
+  );
   let totalFaturado = 0;
   let totalRecebido = 0;
   let totalDivida = 0;
@@ -1464,6 +1465,30 @@ export async function registerReportInvoice(
   });
   window.dispatchEvent(new CustomEvent('db-updated'));
   return true;
+}
+
+/** Retira relatório aprovado da fila «por faturar» (mantém o relatório técnico). */
+export async function dismissPendingBillingReport(reportId) {
+  const report = getReport(reportId);
+  if (!report) {
+    showToast('Relatório não encontrado.', 'error');
+    return false;
+  }
+  if (!isPendingBilling(report)) {
+    showToast('Este relatório já não está pendente de faturação.', 'info');
+    return false;
+  }
+
+  try {
+    await updateRelatorio(reportId, { faturacaoStatus: 'dispensado' });
+    window.dispatchEvent(new CustomEvent('db-updated'));
+    showToast('Relatório retirado da lista por faturar.', 'success');
+    return true;
+  } catch (err) {
+    console.error('[ManuSilva] dismissPendingBillingReport:', err);
+    showToast(formatRelatoriosError(err), 'error', 9000);
+    return false;
+  }
 }
 
 /** Confirma recebimento de uma fatura pendente */
@@ -1793,6 +1818,7 @@ export async function approveReport(reportId, options = {}) {
       pdfFilename: filename,
       faturacaoStatus: 'pendente',
       data: {
+        ...(report.data || {}),
         urlPdfs,
         pdfFilenames,
       },
@@ -1983,6 +2009,53 @@ export async function rescheduleJob(jobId, newDate) {
   } catch (err) {
     console.error('[ManuSilva] rescheduleJob:', err);
     showToast(formatTrabalhosError(err), 'error', 9000);
+    return false;
+  }
+}
+
+/** Remove pedido de orçamento do relatório (mantém o relatório técnico). */
+export async function cancelPedidoOrcamentoReport(reportId) {
+  const report = getReport(reportId);
+  if (!report) {
+    showToast('Relatório não encontrado.', 'error');
+    return false;
+  }
+  if (!reportHasPedidoOrcamento(report)) {
+    showToast('Este relatório já não tem pedido de orçamento.', 'info');
+    return false;
+  }
+
+  const meta = report?.data?.orcamento;
+  if (meta?.enviadoEm) {
+    showToast('A proposta MS.015 já foi enviada ao cliente. Não é possível eliminar o pedido.', 'warning', 8000);
+    return false;
+  }
+
+  try {
+    const values = {
+      ...(report.data?.values || {}),
+      pedido_orcamento: 'Não',
+      detalhe_pedido_orcamento: '',
+    };
+
+    await updateRelatorio(reportId, {
+      data: {
+        ...(report.data || {}),
+        values,
+        orcamento: null,
+        urlPdfOrcamento: null,
+        orcamentoPdfFilename: null,
+        urlDocxOrcamento: null,
+        orcamentoDocxFilename: null,
+      },
+    });
+
+    window.dispatchEvent(new CustomEvent('db-updated'));
+    showToast('Pedido de orçamento eliminado.', 'success');
+    return true;
+  } catch (err) {
+    console.error('[ManuSilva] cancelPedidoOrcamentoReport:', err);
+    showToast(formatRelatoriosError(err), 'error', 9000);
     return false;
   }
 }

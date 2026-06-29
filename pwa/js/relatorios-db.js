@@ -38,7 +38,11 @@ function compareReportsForJobDedupe(a, b) {
   if (pa !== pb) return pa - pb;
   const ta = String(a?.submittedAt || a?.approvedAt || '');
   const tb = String(b?.submittedAt || b?.approvedAt || '');
-  return ta.localeCompare(tb);
+  if (ta !== tb) return ta.localeCompare(tb);
+  // Mesmo estado e data: preferir relatório com pedido de orçamento (evita perder MS.015 após aprovar).
+  const oa = String(a?.data?.values?.pedido_orcamento || '').toLowerCase() === 'sim' ? 1 : 0;
+  const ob = String(b?.data?.values?.pedido_orcamento || '').toLowerCase() === 'sim' ? 1 : 0;
+  return oa - ob;
 }
 
 /** Evita listar o mesmo trabalho duas vezes no painel RH (submissões duplicadas). */
@@ -215,11 +219,13 @@ export function invalidateReportsCache() {
 function upsertCacheEntry(report) {
   if (!report) return;
   if (!reportsCache) reportsCache = [];
-  const idx = reportsCache.findIndex(
-    (r) => sameEntityId(r.id, report.id) || (report.jobId && sameEntityId(r.jobId, report.jobId)),
-  );
-  if (idx >= 0) reportsCache[idx] = report;
-  else reportsCache.unshift(report);
+  // Um trabalho só pode ter um relatório canónico em cache — evita duplicados após aprovar.
+  reportsCache = reportsCache.filter((r) => {
+    if (sameEntityId(r.id, report.id)) return false;
+    if (report.jobId && r.jobId && sameEntityId(r.jobId, report.jobId)) return false;
+    return true;
+  });
+  reportsCache.unshift(report);
 }
 
 /** Atualiza cache em memória (ex.: rascunho local antes de sincronizar com Supabase). */

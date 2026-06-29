@@ -9,14 +9,17 @@ import {
   getReport,
   getClient,
   getJob,
+  getServiceType,
   registerReportInvoice,
   confirmInvoicePayment,
+  dismissPendingBillingReport,
   openModal,
   closeModal,
   escapeHtml,
   formatDate,
   showToast,
 } from '../app.js';
+import { dedupeReportsByJobPreferNewest } from '../relatorios-db.js';
 import { renderClientCombobox, bindClientComboboxes } from '../client-combobox.js';
 import { formatOrdemLabel } from '../report-review-ui.js';
 import { PAYMENT_CONDITION_OPTIONS } from './client-profile-drawer.js';
@@ -60,6 +63,8 @@ const billingFilters = {
 };
 
 let highlightReportId = null;
+let billingPreviewReportId = null;
+let billingPreviewPdfIndex = 0;
 
 function loadChartJs() {
   if (window.Chart) return Promise.resolve(window.Chart);
@@ -193,7 +198,9 @@ function invoiceDateOf(report) {
 
 /** Todas as faturas registadas — o histórico nunca é apagado do Supabase. */
 function getInvoicedReports() {
-  return getReportsSnapshot().filter((r) => r.faturacaoStatus === 'faturado');
+  return dedupeReportsByJobPreferNewest(
+    getReportsSnapshot().filter((r) => r.faturacaoStatus === 'faturado'),
+  );
 }
 
 function invoiceMatchesFilters(report) {
@@ -250,10 +257,28 @@ function resolveClientMeta(clientId) {
   return { client, nome, nif, condicao };
 }
 
+function resolveBillingReportPdfEntries(report) {
+  if (!report) return [];
+  const job = report.jobId ? getJob(report.jobId) : null;
+  const urls = Array.isArray(report?.data?.urlPdfs) ? report.data.urlPdfs.filter(Boolean) : [];
+  const names = Array.isArray(report?.data?.pdfFilenames) ? report.data.pdfFilenames : [];
+  if (urls.length) {
+    return urls.map((url, index) => ({
+      url: String(url).trim(),
+      label: names[index] || `Relatório ${index + 1}`,
+    }));
+  }
+  if (job?.urlPdf && String(job.urlPdf).trim()) {
+    return [{ url: String(job.urlPdf).trim(), label: 'Relatório técnico' }];
+  }
+  return [];
+}
+
 function buildBillingRows(reports) {
   return reports.map((report) => {
     const meta = resolveClientMeta(report.clientId);
     const job = report.jobId ? getJob(report.jobId) : null;
+    const pdfEntries = resolveBillingReportPdfEntries(report);
     return {
       report,
       ...meta,
@@ -261,6 +286,8 @@ function buildBillingRows(reports) {
       approvedLabel: formatDateSafe(report.approvedAt),
       urgent: isBillingUrgent(report, meta.client),
       estimate: estimateReportValue(report),
+      pdfEntries,
+      hasPdf: pdfEntries.length > 0,
     };
   });
 }
@@ -453,8 +480,74 @@ function renderChartSection() {
   `;
 }
 
+function renderBillingPreviewPane(report, pdfIndex = 0) {
+  if (!report) {
+    return `
+      <aside class="faturacao-billing-preview" id="faturacao-billing-preview" aria-label="Pré-visualização do relatório">
+        <div class="faturacao-billing-preview__empty">
+          <p class="text-muted">Selecione um relatório na lista para ver o PDF do trabalho realizado.</p>
+        </div>
+      </aside>`;
+  }
+
+  const client = getClient(report.clientId);
+  const job = report.jobId ? getJob(report.jobId) : null;
+  const service = getServiceType(report.serviceType);
+  const pdfEntries = resolveBillingReportPdfEntries(report);
+  const safeIndex = Math.min(Math.max(0, pdfIndex), Math.max(0, pdfEntries.length - 1));
+  const activePdf = pdfEntries[safeIndex] || null;
+
+  const tabs =
+    pdfEntries.length > 1
+      ? `<div class="faturacao-billing-preview__tabs" role="tablist">
+          ${pdfEntries
+            .map(
+              (entry, index) => `
+            <button
+              type="button"
+              class="faturacao-billing-preview__tab${index === safeIndex ? ' is-active' : ''}"
+              data-billing-pdf-tab="${index}"
+              role="tab"
+              aria-selected="${index === safeIndex ? 'true' : 'false'}"
+            >${escapeHtml(entry.label)}</button>`,
+            )
+            .join('')}
+        </div>`
+      : '';
+
+  const body = activePdf
+    ? `<iframe
+        class="faturacao-billing-preview__frame"
+        src="${escapeHtml(activePdf.url)}#toolbar=1"
+        title="PDF do relatório técnico"
+        loading="lazy"
+      ></iframe>
+      <a class="btn-outline btn-sm faturacao-billing-preview__open" href="${escapeHtml(activePdf.url)}" target="_blank" rel="noopener noreferrer">Abrir PDF em novo separador</a>`
+    : `<div class="faturacao-billing-preview__empty">
+        <p class="text-muted">PDF do relatório ainda não disponível.</p>
+        <button type="button" class="btn-outline btn-sm" data-billing-generate-pdf="${escapeHtml(report.id)}">
+          Gerar pré-visualização
+        </button>
+      </div>`;
+
+  return `
+    <aside class="faturacao-billing-preview" id="faturacao-billing-preview" aria-label="Pré-visualização do relatório">
+      <header class="faturacao-billing-preview__head">
+        <p class="faturacao-billing-preview__title">${escapeHtml(client?.name || client?.Nome || '—')}</p>
+        <p class="faturacao-billing-preview__meta text-muted">
+          ${escapeHtml(formatOrdemLabel(job))} · ${escapeHtml(service?.label || report.serviceType || '—')}
+        </p>
+      </header>
+      ${tabs}
+      <div class="faturacao-billing-preview__body">
+        ${body}
+      </div>
+    </aside>`;
+}
+
 function renderBillingTable(rows) {
   if (!rows.length) {
+    billingPreviewReportId = null;
     return `
       <section class="faturacao-table-section faturacao-table-section--billing rh-section glass-card">
         <h3 class="ms-h2 faturacao-section-title">Relatórios por faturar</h3>
@@ -463,42 +556,68 @@ function renderBillingTable(rows) {
     `;
   }
 
+  if (!billingPreviewReportId || !rows.some((row) => row.report.id === billingPreviewReportId)) {
+    billingPreviewReportId = rows[0].report.id;
+    billingPreviewPdfIndex = 0;
+  }
+
+  const previewReport = getReport(billingPreviewReportId) || rows[0].report;
+
   return `
     <section class="faturacao-table-section faturacao-table-section--billing rh-section glass-card">
       <h3 class="ms-h2 faturacao-section-title">Relatórios por faturar <span class="badge-count">${rows.length}</span></h3>
-      <div class="rh-table-scroll">
-        <table class="rh-data-table faturacao-table">
-          <thead>
-            <tr>
-              <th scope="col">Cliente</th>
-              <th scope="col">NIF</th>
-              <th scope="col">Nº Relatório</th>
-              <th scope="col">Data de Aprovação</th>
-              <th scope="col">Condição Cadastro</th>
-              <th scope="col" class="faturacao-col-action">Ação</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${rows
-              .map(
-                (row) => `
-              <tr class="rh-data-table-row${row.urgent ? ' faturacao-row--urgent' : ''}" data-report-id="${escapeHtml(row.report.id)}">
-                <td>${escapeHtml(row.nome)}${row.urgent ? ' <span class="faturacao-urgent-badge" title="Fora do prazo">Urgente</span>' : ''}</td>
-                <td>${escapeHtml(row.nif)}</td>
-                <td><code class="faturacao-ordem">${escapeHtml(row.ordem)}</code></td>
-                <td>${escapeHtml(row.approvedLabel)}</td>
-                <td>${escapeHtml(row.condicao)}</td>
-                <td class="faturacao-col-action">
-                  <button type="button" class="btn-primary btn-sm" data-register-invoice="${escapeHtml(row.report.id)}">
-                    Marcar como Faturado
-                  </button>
-                </td>
-              </tr>
-            `,
-              )
-              .join('')}
-          </tbody>
-        </table>
+      <div class="faturacao-billing-split">
+        <div class="faturacao-billing-list">
+          <div class="rh-table-scroll">
+            <table class="rh-data-table faturacao-table faturacao-billing-table">
+              <thead>
+                <tr>
+                  <th scope="col">Cliente</th>
+                  <th scope="col">NIF</th>
+                  <th scope="col">Nº Relatório</th>
+                  <th scope="col">Data de Aprovação</th>
+                  <th scope="col">Condição Cadastro</th>
+                  <th scope="col" class="faturacao-col-action">Ação</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rows
+                  .map(
+                    (row) => `
+                <tr
+                  class="rh-data-table-row faturacao-billing-row${row.urgent ? ' faturacao-row--urgent' : ''}${row.report.id === billingPreviewReportId ? ' faturacao-row--selected' : ''}"
+                  data-report-id="${escapeHtml(row.report.id)}"
+                  tabindex="0"
+                  role="button"
+                  aria-label="Ver relatório ${escapeHtml(row.ordem)}"
+                >
+                  <td>${escapeHtml(row.nome)}${row.urgent ? ' <span class="faturacao-urgent-badge" title="Fora do prazo">Urgente</span>' : ''}</td>
+                  <td>${escapeHtml(row.nif)}</td>
+                  <td><code class="faturacao-ordem">${escapeHtml(row.ordem)}</code></td>
+                  <td>${escapeHtml(row.approvedLabel)}</td>
+                  <td>${escapeHtml(row.condicao)}</td>
+                  <td class="faturacao-col-action">
+                    <div class="faturacao-billing-actions">
+                      <button type="button" class="btn-outline btn-sm" data-billing-preview="${escapeHtml(row.report.id)}" title="Ver PDF do relatório">
+                        Ver PDF
+                      </button>
+                      <button type="button" class="btn-primary btn-sm" data-register-invoice="${escapeHtml(row.report.id)}">
+                        Marcar como Faturado
+                      </button>
+                      <button type="button" class="btn-danger btn-sm" data-billing-dismiss="${escapeHtml(row.report.id)}" title="Retirar da lista por faturar">
+                        Eliminar
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              `,
+                  )
+                  .join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        ${renderBillingPreviewPane(previewReport, billingPreviewPdfIndex)}
       </div>
     </section>
   `;
@@ -852,13 +971,112 @@ function openRegisterInvoiceModal(reportId) {
   });
 }
 
+function selectBillingPreview(reportId, pdfIndex = 0) {
+  if (!reportId || !mountRoot) return;
+  billingPreviewReportId = reportId;
+  billingPreviewPdfIndex = pdfIndex;
+
+  mountRoot.querySelectorAll('.faturacao-billing-row').forEach((row) => {
+    row.classList.toggle('faturacao-row--selected', row.dataset.reportId === reportId);
+  });
+
+  const preview = mountRoot.querySelector('#faturacao-billing-preview');
+  if (!preview) return;
+  const report = getReport(reportId);
+  const wrap = document.createElement('div');
+  wrap.innerHTML = renderBillingPreviewPane(report, pdfIndex).trim();
+  const next = wrap.firstElementChild;
+  if (next) preview.replaceWith(next);
+  bindBillingPreviewActions();
+}
+
+function bindBillingPreviewActions() {
+  mountRoot?.querySelectorAll('[data-billing-pdf-tab]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const index = Number(btn.dataset.billingPdfTab);
+      if (!billingPreviewReportId || !Number.isFinite(index)) return;
+      selectBillingPreview(billingPreviewReportId, index);
+    });
+  });
+
+  mountRoot?.querySelectorAll('[data-billing-generate-pdf]').forEach((btn) => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const reportId = btn.dataset.billingGeneratePdf;
+      const report = reportId ? getReport(reportId) : null;
+      if (!report) return;
+      btn.disabled = true;
+      try {
+        const { previewReportPDF } = await import('../pdf-preview.js');
+        showToast('A gerar pré-visualização do relatório…', 'info', 2500);
+        await previewReportPDF(report);
+      } catch (err) {
+        console.error('[Faturação] PDF:', err);
+        showToast('Não foi possível gerar a pré-visualização do PDF.', 'error');
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  });
+}
+
 function bindTableActions() {
   mountRoot?.querySelectorAll('[data-register-invoice]').forEach((btn) => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
       const reportId = btn.getAttribute('data-register-invoice');
       if (reportId) openRegisterInvoiceModal(reportId);
     });
   });
+
+  mountRoot?.querySelectorAll('[data-billing-preview]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const reportId = btn.getAttribute('data-billing-preview');
+      if (reportId) selectBillingPreview(reportId, 0);
+    });
+  });
+
+  mountRoot?.querySelectorAll('[data-billing-dismiss]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const reportId = btn.getAttribute('data-billing-dismiss');
+      if (!reportId) return;
+      const report = getReport(reportId);
+      const client = report ? getClient(report.clientId) : null;
+      const job = report?.jobId ? getJob(report.jobId) : null;
+      const label = client?.name || client?.Nome || formatOrdemLabel(job) || 'este relatório';
+      const ok = window.confirm(
+        `Retirar ${label} da lista por faturar?\n\nO relatório técnico aprovado mantém-se — apenas deixa de aparecer nesta fila.`,
+      );
+      if (!ok) return;
+      void dismissPendingBillingReport(reportId).then((done) => {
+        if (!done) return;
+        if (billingPreviewReportId === reportId) {
+          billingPreviewReportId = null;
+          billingPreviewPdfIndex = 0;
+        }
+        refreshFaturacaoPanel({ soft: true }).catch(console.error);
+      });
+    });
+  });
+
+  mountRoot?.querySelectorAll('.faturacao-billing-row').forEach((row) => {
+    row.addEventListener('click', (e) => {
+      if (e.target.closest('button')) return;
+      const reportId = row.dataset.reportId;
+      if (reportId) selectBillingPreview(reportId, 0);
+    });
+    row.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      e.preventDefault();
+      const reportId = row.dataset.reportId;
+      if (reportId) selectBillingPreview(reportId, 0);
+    });
+  });
+
+  bindBillingPreviewActions();
 
   mountRoot?.querySelectorAll('[data-confirm-payment]').forEach((btn) => {
     btn.addEventListener('click', async () => {
@@ -928,6 +1146,7 @@ export function queueBillingReportFocus(reportId) {
 export function focusBillingReport(reportId) {
   if (!reportId || !mountRoot) return;
   highlightReportId = String(reportId);
+  selectBillingPreview(highlightReportId, 0);
   const row = mountRoot.querySelector(`[data-report-id="${CSS.escape(highlightReportId)}"]`);
   if (!row) return;
   row.scrollIntoView({ behavior: 'smooth', block: 'center' });

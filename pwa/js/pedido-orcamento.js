@@ -12,7 +12,7 @@ export function reportOrcamentoPorPreparar(report) {
   if (!reportHasPedidoOrcamento(report)) return false;
   const meta = report?.data?.orcamento;
   if (meta?.enviadoEm) return false;
-  return !meta?.atualizadoEm;
+  return !reportOrcamentoGuardado(report);
 }
 
 /** Fila RH «Orçamento» — pedido de orçamento (pode coincidir com Pendente RH até o relatório ser aprovado). */
@@ -28,8 +28,10 @@ export function isRhPendingReviewReport(report) {
   return report?.status === 'pending_review';
 }
 
+/** RH guardou a proposta (PDF MS.015 gerado), não apenas rascunho automático. */
 export function reportOrcamentoGuardado(report) {
-  return Boolean(report?.data?.orcamento?.atualizadoEm);
+  const meta = report?.data?.orcamento;
+  return Boolean(meta?.atualizadoEm && getReportOrcamentoPdfUrl(report));
 }
 
 export function getPedidoOrcamentoDetalhe(report) {
@@ -55,6 +57,16 @@ export function getReportOrcamentoPdfFilename(report) {
 export function getReportOrcamentoDocxFilename(report) {
   const name = report?.data?.orcamentoDocxFilename;
   return name && String(name).trim() ? String(name).trim() : null;
+}
+
+/** PDF do relatório técnico (após aprovação RH). */
+export function getReportTechnicalPdfUrl(report) {
+  const urls = report?.data?.urlPdfs;
+  if (Array.isArray(urls)) {
+    const first = urls.find((u) => u && String(u).trim());
+    if (first) return String(first).trim();
+  }
+  return null;
 }
 
 export function getReportOrcamentoNumero(report) {
