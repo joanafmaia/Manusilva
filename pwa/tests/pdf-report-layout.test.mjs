@@ -84,3 +84,24 @@ describe('pdf-closing-estimates', () => {
     assert.ok(h > 20);
   });
 });
+
+describe('pdf-grid-table', () => {
+  it('expõe drawPdfGridTable', async () => {
+    const { drawPdfGridTable } = await import('../js/pdf-grid-table.js');
+    assert.equal(typeof drawPdfGridTable, 'function');
+  });
+});
+
+describe('pdf-folha-avarias', () => {
+  it('expõe layout da folha de intervenção de avarias', async () => {
+    const mod = await import('../js/pdf-folha-avarias.js');
+    for (const name of [
+      'drawFolhaAvariasTitleBar',
+      'drawFolhaIntervencaoAvariasBody',
+      'drawFolhaIntervencaoAvariasClosingSection',
+      'drawFolhaIntervencaoOrcamentoBlock',
+    ]) {
+      assert.equal(typeof mod[name], 'function', `export em falta: ${name}`);
+    }
+  });
+});
