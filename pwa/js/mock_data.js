@@ -579,6 +579,13 @@ export const REPARACAO_AVARIAS_BATERIA = {
       label: 'Número de Série',
       section: 'Informações da Máquina',
     },
+    {
+      type: 'text',
+      id: 'tipo',
+      label: 'Modelo / Tipo',
+      section: 'Informações da Máquina',
+      placeholder: 'ex: 4 PzS 500',
+    },
     createMaterialTableField({ id: 'consumiveis' }),
     {
       type: 'number',
