@@ -36,6 +36,7 @@ const SERVICES_WITH_MACHINE_BLOCK = new Set([
   'manutencao_preventiva_empilhadores',
   'manutencao_corretiva_maquinas',
   'manutencao_preventiva_bateria',
+  'reparacao_avarias_bateria',
   'reparacao_carregador',
 ]);
 

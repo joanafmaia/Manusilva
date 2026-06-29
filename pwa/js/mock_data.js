@@ -573,6 +573,12 @@ export const REPARACAO_AVARIAS_BATERIA = {
   companyAddress: 'Rua São Mamede, Lote Nº1 - Fração D, 4760-725 Ribeirão VNF',
   fields: [
     { type: 'date', id: 'data_de_conclusao', label: 'Data de Conclusão' },
+    {
+      type: 'text',
+      id: 'numero_de_serie',
+      label: 'Número de Série',
+      section: 'Informações da Máquina',
+    },
     createMaterialTableField({ id: 'consumiveis' }),
     {
       type: 'number',

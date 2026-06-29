@@ -327,6 +327,7 @@ export function buildFormPrefill(service, job, _forklift, context = {}) {
   if (service.id === 'reparacao_avarias_bateria') {
     return {
       data_de_conclusao: job?.date || '',
+      numero_de_serie: job?.forkliftSerial || '',
       visitas_realizadas: 1,
       estado_final: 'Reparação Concluída',
       consumiveis: [emptyMaterialRow()],
@@ -892,6 +893,9 @@ export function renderReportFields(service, values = {}, context = {}, options =
         isRavBateria &&
         sectionFields.some((f) => isMaterialTableField(f))
       ) {
+        fieldsHtml = `<div class="rav-dashboard-section">${sectionTitle}${fieldsHtml}</div>`;
+        sectionTitle = '';
+      } else if (isRavBateria && section === 'Informações da Máquina') {
         fieldsHtml = `<div class="rav-dashboard-section">${sectionTitle}${fieldsHtml}</div>`;
         sectionTitle = '';
       } else if (isRavBateria && section === 'Número de Visitas e Tempo') {

@@ -739,6 +739,7 @@ export async function renderInterventionPDF(report) {
       ...buildRavServiceInfoMeta(report, job, values),
       technician: techName || values.tecnico || '',
     });
+    y = await drawGenericMachineInfoBlock(doc, y, service, values, pdfContext);
     y = await drawRavBateriaBody(doc, y, service, values);
     y = await drawRavBateriaClosingSection(doc, y, {
       signatures: data.signatures || {},
