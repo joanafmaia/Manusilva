@@ -38,8 +38,8 @@ import {
 } from './calendar-event-state.js';
 import { initLogoutButton } from './auth.js';
 import { getLastClientIntervention } from './views/historico-cliente.js';
-import { ensureTrabalhosSemana, isJobsCacheLoaded } from './trabalhos-db.js';
-import { dedupeReportsByJobPreferNewest, isUuid } from './relatorios-db.js';
+import { ensureTrabalhosSemana } from './trabalhos-db.js';
+import { dedupeReportsByJobPreferNewest } from './relatorios-db.js';
 import { triggerTechDataSync } from './tech-sync.js';
 import {
   filterJobsBySearch,
@@ -63,7 +63,6 @@ const TECH_MONTH_WEEKDAYS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
 const TECH_MONTH_JOBS_VISIBLE = 4;
 
 const TECH_JOBS_TABS = {
-  em_curso: { id: 'em_curso', label: 'Em Curso', subtitle: 'Relatórios em aberto' },
   agendados: { id: 'agendados', label: 'Agendados', subtitle: 'Dia selecionado' },
   realizados: { id: 'realizados', label: 'Realizados', subtitle: 'Concluídos' },
   clientes: { id: 'clientes', label: 'Clientes', subtitle: 'Histórico por empresa' },
@@ -339,12 +338,14 @@ async function loadTechTabData() {
 
   await loadPeriodJobsFromSupabase();
 
-  if (techJobsTab === 'em_curso' || techJobsTab === 'realizados') {
+  if (techJobsTab === 'realizados') {
     const { ensureReportsLoaded } = await import('./relatorios-db.js');
     const { ensureJobsLoaded } = await import('./trabalhos-db.js');
     await ensureReportsLoaded();
     await ensureJobsLoaded();
   } else if (techJobsTab === 'agendados') {
+    const { ensureReportsLoaded } = await import('./relatorios-db.js');
+    await ensureReportsLoaded();
     // Garante a semana do dia selecionado (para a lista «resto da semana»)
     const weekOfSelected = getWeekDates(new Date(`${selectedDate}T12:00:00`));
     await ensureTrabalhosSemana(
@@ -357,72 +358,42 @@ async function loadTechTabData() {
   techTabDataCacheKey = cacheKey;
 }
 
-function jobFromDraftReport(report) {
-  return report?.jobId ? resolveJobForForm(report.jobId) : null;
-}
-
-/** Estados de trabalho que excluem o relatório da aba Em Curso. */
-const EM_CURSO_EXCLUDED_JOB_STATUSES = new Set([
-  'completed',
-  'concluido',
-  'concluído',
-  'approved',
-  'pending_review',
-  'pendente',
-]);
-
-/**
- * Apenas relatórios EXCLUSIVAMENTE «Em aberto» (rascunho), incluindo dias anteriores.
- * Concluídos, Pendente RH e Rejeitados nunca entram aqui.
- */
-function getEmCursoJobs(techId) {
-  const byId = new Map();
-  const jobsLoaded = isJobsCacheLoaded();
-
-  getReportsSnapshot().forEach((report) => {
-    // Regra estrita: só estado 'draft' (Em aberto)
-    if (report.status !== 'draft') return;
-    if (!reportAssignedToTechnician(report, techId)) return;
-
-    // Trabalho eliminado pelo RH: id do servidor (uuid) que já não existe
-    // na tabela trabalhos — o rascunho não pode continuar a aparecer.
-    if (jobsLoaded && isUuid(report.jobId) && !getJob(report.jobId)) {
-      return;
-    }
-
-    const job = jobFromDraftReport(report);
-    if (!job) return;
-    if (job.technicianId && !jobAssignedToTechnician(job, techId)) return;
-
-    // Defesa extra: se o trabalho no servidor já está submetido/concluído,
-    // o rascunho local é obsoleto e não pode aparecer como Em aberto.
-    if (EM_CURSO_EXCLUDED_JOB_STATUSES.has(String(job.status || '').toLowerCase())) return;
-
-    byId.set(job.id, job);
-  });
-
-  return [...byId.values()].sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
-}
-
-/** Estados visíveis na aba Agendados: por fazer (Agendado) ou a corrigir (Rejeitado). */
-const AGENDADOS_VISIBLE_STATES = new Set(['scheduled', 'rejected']);
-
 /** Data pura YYYY-MM-DD — elimina hora/fuso antes de comparar. */
 function toPureDate(value) {
   return String(value || '').split('T')[0];
 }
 
-/** Trabalhos da aba «Agendados» do dia selecionado (agendados + rejeitados a corrigir). */
+/** Ordem na lista do dia: rejeitados → em curso → agendados → pendentes → realizados. */
+const AGENDADOS_STATE_ORDER = {
+  rejected: 0,
+  draft: 1,
+  scheduled: 2,
+  pending: 3,
+  approved: 4,
+};
+
+function sortAgendadosJobs(a, b) {
+  const reportA = getReportForJob(a.id);
+  const reportB = getReportForJob(b.id);
+  const stateA = resolveCalendarEventState(a, reportA);
+  const stateB = resolveCalendarEventState(b, reportB);
+  const orderA = AGENDADOS_STATE_ORDER[stateA] ?? 9;
+  const orderB = AGENDADOS_STATE_ORDER[stateB] ?? 9;
+  if (orderA !== orderB) return orderA - orderB;
+  return sortJobsByDateTime(a, b);
+}
+
+function jobMatchesTechOnDate(job, techId, isoDate) {
+  if (!jobAssignedToTechnician(job, techId)) return false;
+  return toPureDate(job.date) === isoDate;
+}
+
+/** Trabalhos do dia selecionado — todos os estados (agendado, em curso, pendente, realizado, rejeitado). */
 function getAgendadosJobs(techId) {
   const selected = toPureDate(selectedDate);
   return getJobsSnapshot()
-    .filter((job) => {
-      if (!jobAssignedToTechnician(job, techId)) return false;
-      if (toPureDate(job.date) !== selected) return false;
-      const report = getReportForJob(job.id);
-      return AGENDADOS_VISIBLE_STATES.has(resolveCalendarEventState(job, report));
-    })
-    .sort(sortJobsByDateTime);
+    .filter((job) => jobMatchesTechOnDate(job, techId, selected))
+    .sort(sortAgendadosJobs);
 }
 
 /** Trabalhos no resto da semana do dia selecionado (exclui o próprio dia). */
@@ -436,10 +407,32 @@ function getRestOfWeekScheduledJobs(techId) {
       const jobDate = toPureDate(job.date);
       if (!jobAssignedToTechnician(job, techId)) return false;
       if (!dateSet.has(jobDate) || jobDate === selected) return false;
-      const report = getReportForJob(job.id);
-      return AGENDADOS_VISIBLE_STATES.has(resolveCalendarEventState(job, report));
+      return true;
     })
-    .sort(sortJobsByDateTime);
+    .sort(sortAgendadosJobs);
+}
+
+function resolveAgendadosRowAction(state) {
+  if (state === 'rejected' || state === 'draft') return 'continue';
+  if (state === 'scheduled') return 'start';
+  return 'view';
+}
+
+function renderAgendadosStateLegend() {
+  const items = [
+    { state: 'scheduled', label: 'Agendado' },
+    { state: 'draft', label: 'Em curso' },
+    { state: 'pending', label: 'À espera de aprovação' },
+    { state: 'approved', label: 'Realizado' },
+    { state: 'rejected', label: 'Rejeitado' },
+  ];
+  const chips = items
+    .map(
+      ({ state, label }) =>
+        `<span class="tech-jobs-legend__chip tech-jobs-legend__chip--${state}">${escapeHtml(label)}</span>`,
+    )
+    .join('');
+  return `<div class="tech-jobs-legend" aria-label="Legenda de estados">${chips}</div>`;
 }
 
 /** Lista plana de trabalhos (sem pastas de visita). */
@@ -451,7 +444,7 @@ function renderTechJobsListHtml(jobs, rowRenderer) {
 function renderAgendadosRow(job, options = {}) {
   const report = getReportForJob(job.id);
   const state = resolveCalendarEventState(job, report);
-  const action = state === 'rejected' ? 'continue' : 'start';
+  const action = resolveAgendadosRowAction(state);
   return renderTechJobRow(job, report, action, options);
 }
 
@@ -754,12 +747,18 @@ function getRejectedJobsForTech(techId) {
 
 function getTodayAgendadosCount(techId) {
   const today = getTodayIso();
-  return getJobsSnapshot().filter((job) => {
-    if (!jobAssignedToTechnician(job, techId)) return false;
-    if (toPureDate(job.date) !== today) return false;
-    const report = getReportForJob(job.id);
-    return AGENDADOS_VISIBLE_STATES.has(resolveCalendarEventState(job, report));
-  }).length;
+  return getJobsSnapshot().filter((job) => jobMatchesTechOnDate(job, techId, today)).length;
+}
+
+function countJobsByStateForDate(techId, isoDate) {
+  const counts = { draft: 0, pending: 0, approved: 0, scheduled: 0, rejected: 0 };
+  getJobsSnapshot()
+    .filter((job) => jobMatchesTechOnDate(job, techId, isoDate))
+    .forEach((job) => {
+      const state = resolveCalendarEventState(job, getReportForJob(job.id));
+      if (counts[state] !== undefined) counts[state] += 1;
+    });
+  return counts;
 }
 
 function updateTechTabBadges() {
@@ -768,7 +767,6 @@ function updateTechTabBadges() {
   const techId = session.technicianId;
 
   const counts = {
-    em_curso: getEmCursoJobs(techId).length,
     agendados: getTodayAgendadosCount(techId),
     realizados: getRealizadosItems(techId).length,
   };
@@ -801,13 +799,24 @@ async function renderTechDaySummary() {
 
   const today = getTodayIso();
   const todayJobs = getTodayAgendadosCount(techId);
-  const emCurso = getEmCursoJobs(techId).length;
+  const todayStates = countJobsByStateForDate(techId, today);
   const rejected = getRejectedJobsForTech(techId).length;
   const todayLabel = formatDateLong(today);
 
+  const stateParts = [];
+  if (todayStates.draft) {
+    stateParts.push(`<strong>${todayStates.draft}</strong> em curso`);
+  }
+  if (todayStates.pending) {
+    stateParts.push(`<strong>${todayStates.pending}</strong> à espera de aprovação`);
+  }
+  if (todayStates.approved) {
+    stateParts.push(`<strong>${todayStates.approved}</strong> realizado${todayStates.approved === 1 ? '' : 's'}`);
+  }
+
   const parts = [
-    `<strong>${todayJobs}</strong> agendado${todayJobs === 1 ? '' : 's'} hoje`,
-    `<strong>${emCurso}</strong> em curso`,
+    `<strong>${todayJobs}</strong> trabalho${todayJobs === 1 ? '' : 's'} hoje`,
+    ...(stateParts.length ? [stateParts.join(' · ')] : []),
     pendingSync
       ? `<strong>${pendingSync}</strong> por sincronizar`
       : '<span class="tech-day-summary__ok">sincronizado</span>',
@@ -1596,8 +1605,7 @@ async function openContinueJob(jobId) {
 }
 
 const TECH_TAB_EMPTY_MESSAGES = {
-  em_curso: 'Não tem relatórios em aberto. Os rascunhos guardados aparecem aqui.',
-  agendados: 'Sem trabalhos agendados neste dia.',
+  agendados: 'Sem trabalhos neste dia.',
   realizados: 'Ainda não tem relatórios concluídos.',
 };
 
@@ -1609,13 +1617,7 @@ function updateJobsSectionHeader() {
 
   if (!dateLabel) return;
 
-  if (techJobsTab === 'em_curso') {
-    const techSession = requireAuth('technician');
-    const count = techSession ? getEmCursoJobs(techSession.technicianId).length : 0;
-    dateLabel.textContent = count
-      ? `${count} relatório${count === 1 ? '' : 's'} em aberto`
-      : tabMeta.subtitle;
-  } else if (techJobsTab === 'agendados') {
+  if (techJobsTab === 'agendados') {
     dateLabel.textContent = formatDate(selectedDate);
   } else {
     const session = requireAuth('technician');
@@ -1660,6 +1662,7 @@ function renderJobs() {
         ? 'Nenhum resultado para esta pesquisa.'
         : TECH_TAB_EMPTY_MESSAGES.agendados;
       container.innerHTML = `
+        ${renderAgendadosStateLegend()}
         <div class="agendados-empty-note" role="status">
           <span aria-hidden="true">📅</span>
           <p>${emptyMsg}</p>
@@ -1668,6 +1671,7 @@ function renderJobs() {
       `;
     } else {
       container.innerHTML = `
+        ${renderAgendadosStateLegend()}
         ${renderTechJobsListHtml(jobs, (job) => renderAgendadosRow(job, { showDate: false }))}
         ${techJobsSearchQuery.trim() ? '' : renderAgendadosWeekPreview(techId)}
       `;
@@ -1675,22 +1679,4 @@ function renderJobs() {
     bindTechJobRowsEvents(container);
     return;
   }
-
-  let jobs = getEmCursoJobs(techId);
-  jobs = filterJobsBySearch(jobs, techJobsSearchQuery, jobFilterOpts);
-
-  if (!jobs.length) {
-    container.innerHTML = `
-      <div class="empty-state glass-card">
-        <div class="empty-icon">📋</div>
-        <p>${techJobsSearchQuery.trim() ? 'Nenhum resultado para esta pesquisa.' : TECH_TAB_EMPTY_MESSAGES.em_curso}</p>
-      </div>
-    `;
-    return;
-  }
-
-  container.innerHTML = renderTechJobsListHtml(jobs, (job) =>
-    renderTechJobRow(job, getReportForJob(job.id), 'continue'),
-  );
-  bindTechJobRowsEvents(container);
 }
