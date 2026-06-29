@@ -41,7 +41,7 @@ import {
   isEmpilhadoresMultiMaquinaReport,
   maquinaRowLabel,
 } from './views/relatorio-empilhadores-maquinas.js';
-import { reportIncludesDeslocacao, SERVICES_WITH_SECTION_VISITAS, VISITAS_FIELD_ID, VISIT_DATES_FIELD_ID, DESLOCACAO_BASE_FIELD_ID, normalizeVisitasForService } from './deslocacao-field.js';
+import { reportIncludesDeslocacao, SERVICES_WITH_SECTION_VISITAS, VISITAS_FIELD_ID, DESLOCACAO_BASE_FIELD_ID, normalizeVisitasForService } from './deslocacao-field.js';
 import {
   buildPdfAutoTableStyles,
   getBlockPdfTitle,
@@ -292,22 +292,6 @@ function formatPdfNumeroVisitas(values) {
   return '1';
 }
 
-function parsePdfVisitDatesRaw(raw) {
-  if (Array.isArray(raw)) return raw.map(String).filter(Boolean);
-  if (typeof raw === 'string' && raw.trim()) {
-    return raw.split(/[,;|]/).map((s) => s.trim()).filter(Boolean);
-  }
-  return [];
-}
-
-/** DD/MM — para linha condicional de múltiplas visitas */
-function formatPdfShortVisitDate(raw) {
-  const pure = String(raw || '').split('T')[0];
-  const [y, m, d] = pure.split('-');
-  if (y && m && d) return `${d}/${m}`;
-  return '';
-}
-
 /** Data de conclusão preenchida no formulário (DD/MM/AAAA) */
 function formatPdfConclusionDate(values = {}) {
   const formatted = formatFolhaInterventionDate(values.data_de_conclusao);
@@ -326,7 +310,6 @@ function buildConclusionAwareServiceInfoMeta(report, job, values, metaBottomGapM
   const conclusionDate = formatPdfConclusionDate(values);
   const jobDate = formatPdfJobDateOnly(job, report);
   const meta = {
-    visitDatesLine: null,
     numeroVisitas: null,
     deslocacao: null,
     technician: null,
@@ -354,7 +337,6 @@ function buildCorretivaServiceInfoMeta(report, job, values, visitCount) {
     values,
     CORRETIVA_SECTION_GAP_MM,
   );
-  meta.visitDatesLine = resolvePdfVisitDatesLine(values, report, job, visitCount);
   meta.numeroVisitas = visitCount;
   return meta;
 }
@@ -370,14 +352,12 @@ function buildGrandesServiceInfoMeta(report, job, values, visitCount) {
     values,
     GRANDES_SECTION_GAP_MM,
   );
-  meta.visitDatesLine = resolvePdfVisitDatesLine(values, report, job, visitCount);
   meta.numeroVisitas = visitCount;
   return meta;
 }
 
 function buildEmpilhadoresServiceInfoMeta(report, job, values, visitCount) {
   const meta = buildConclusionAwareServiceInfoMeta(report, job, values, PDF_SECTION_GAP_MM);
-  meta.visitDatesLine = resolvePdfVisitDatesLine(values, report, job, visitCount);
   meta.numeroVisitas = visitCount;
   return meta;
 }
@@ -390,7 +370,6 @@ function buildFolhaAvariasServiceInfoMeta(report, job, values) {
     { ...values, data_de_conclusao: values.data_de_conclusao || values.data_1 || '' },
     FOLHA_AVARIAS_SECTION_GAP_MM,
   );
-  meta.visitDatesLine = resolvePdfVisitDatesLine(values, report, job, visitCount);
   meta.numeroVisitas = visitCount;
   return meta;
 }
@@ -424,42 +403,6 @@ function formatPdfServiceDateOnly(report, job, values = {}) {
   if (!raw) return '—';
   const [y, m, d] = String(raw).split('T')[0].split('-');
   return y && m && d ? `${d}/${m}/${y}` : '—';
-}
-
-/** Datas de visitas ao terreno — só relevante quando visitas > 1 */
-function resolvePdfVisitDatesLine(values, report, job, visitCount) {
-  const n = Number(visitCount) || 1;
-  if (n <= 1) return '';
-
-  let dates = parsePdfVisitDatesRaw(
-    values?.[VISIT_DATES_FIELD_ID] ??
-      values?.visitas_datas ??
-      report?.data?.[VISIT_DATES_FIELD_ID] ??
-      report?.data?.values?.[VISIT_DATES_FIELD_ID],
-  );
-
-  for (let i = 1; i <= 8; i += 1) {
-    const key = `data_${i}`;
-    if (values?.[key]) dates.push(values[key]);
-  }
-
-  const uniqueDates = [];
-  const seen = new Set();
-  dates.forEach((raw) => {
-    const short = formatPdfShortVisitDate(raw);
-    if (short && !seen.has(short)) {
-      seen.add(short);
-      uniqueDates.push(short);
-    }
-  });
-
-  const serviceShort = formatPdfShortVisitDate(
-    job?.date || values?.data_de_conclusao || values?.data_1,
-  );
-  if (serviceShort && !seen.has(serviceShort)) uniqueDates.unshift(serviceShort);
-
-  if (!uniqueDates.length && serviceShort) return serviceShort;
-  return uniqueDates.join(', ');
 }
 
 function isPdfLayoutReservedField(fieldId, service = null) {
@@ -855,7 +798,6 @@ export async function renderInterventionPDF(report) {
         ? buildEmpilhadoresServiceInfoMeta(report, job, values, visitCount)
         : {
             serviceDate: formatPdfServiceDateOnly(report, job, values),
-            visitDatesLine: resolvePdfVisitDatesLine(values, report, job, visitCount),
             numeroVisitas: SERVICES_WITH_SECTION_VISITAS.has(service.id) ? null : visitCount,
             metaBottomGapMm: isDl50Pdf ? DL50_SERVICE_META_BOTTOM_MM : null,
           }),
@@ -4028,9 +3970,8 @@ function drawServiceInfoBlock(doc, y, meta) {
   const boxPad = 2.5;
   const boxInnerH = PDF_SERVICE_INFO_ROW_H_MM;
   const boxH = boxInnerH + boxPad * 2;
-  const extraRowH = meta.visitDatesLine ? PDF_SERVICE_INFO_ROW_H_MM + PDF_SERVICE_INFO_COL_GAP_MM : 0;
   const blockH =
-    PDF_SERVICE_INFO_MARGIN_TOP_MM + boxH + extraRowH + (meta.metaBottomGapMm ?? PDF_SERVICE_INFO_MARGIN_BOTTOM_MM);
+    PDF_SERVICE_INFO_MARGIN_TOP_MM + boxH + (meta.metaBottomGapMm ?? PDF_SERVICE_INFO_MARGIN_BOTTOM_MM);
   y = ensureSpace(doc, y, blockH);
 
   y += PDF_SERVICE_INFO_MARGIN_TOP_MM;
@@ -4055,15 +3996,6 @@ function drawServiceInfoBlock(doc, y, meta) {
   });
 
   y = boxY + boxH;
-
-  if (meta.visitDatesLine) {
-    y += PDF_SERVICE_INFO_COL_GAP_MM;
-    drawServiceInfoField(doc, MARGIN, y, 'Datas das Visitas', meta.visitDatesLine, {
-      align: 'left',
-      maxWidth: CONTENT_W,
-    });
-    y += PDF_SERVICE_INFO_ROW_H_MM;
-  }
 
   y += meta.metaBottomGapMm ?? PDF_SERVICE_INFO_MARGIN_BOTTOM_MM;
   touchPdfContentPage(doc);
