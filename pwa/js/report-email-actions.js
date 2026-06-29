@@ -15,6 +15,7 @@ import {
   getServiceType,
   getTechnician,
 } from './entity-lookups.js';
+import { syncClientEmailIfChanged } from './clients-admin.js';
 import { sendOfficialReportEmail } from './report-email-api.js';
 import {
   buildReportEmailPdfPayload,
@@ -52,7 +53,6 @@ export async function resendApprovedReportEmail(reportId, options = {}) {
       return false;
     }
     if (report.clientId) {
-      const { syncClientEmailIfChanged } = await import('./app.js');
       await syncClientEmailIfChanged(report.clientId, clientEmailInput);
     }
   }
@@ -199,7 +199,6 @@ export async function sendSelectedReportsEmail(reportIds, options = {}) {
       return false;
     }
     if (clientId) {
-      const { syncClientEmailIfChanged } = await import('./app.js');
       await syncClientEmailIfChanged(clientId, clientEmailInput);
     }
   }
