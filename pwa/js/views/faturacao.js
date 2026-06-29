@@ -537,6 +537,14 @@ function renderBillingPreviewPane(report, pdfIndex = 0) {
         <p class="faturacao-billing-preview__meta text-muted">
           ${escapeHtml(formatOrdemLabel(job))} · ${escapeHtml(service?.label || report.serviceType || '—')}
         </p>
+        <div class="faturacao-billing-preview__actions">
+          <button type="button" class="btn-primary btn-sm btn-touch" data-register-invoice="${escapeHtml(report.id)}">
+            Marcar como Faturado
+          </button>
+          <button type="button" class="btn-danger btn-sm btn-touch" data-billing-dismiss="${escapeHtml(report.id)}" title="Retirar da lista por faturar">
+            Eliminar
+          </button>
+        </div>
       </header>
       ${tabs}
       <div class="faturacao-billing-preview__body">
@@ -577,7 +585,6 @@ function renderBillingTable(rows) {
                   <th scope="col">Nº Relatório</th>
                   <th scope="col">Data de Aprovação</th>
                   <th scope="col">Condição Cadastro</th>
-                  <th scope="col" class="faturacao-col-action">Ação</th>
                 </tr>
               </thead>
               <tbody>
@@ -596,19 +603,6 @@ function renderBillingTable(rows) {
                   <td><code class="faturacao-ordem">${escapeHtml(row.ordem)}</code></td>
                   <td>${escapeHtml(row.approvedLabel)}</td>
                   <td>${escapeHtml(row.condicao)}</td>
-                  <td class="faturacao-col-action">
-                    <div class="faturacao-billing-actions">
-                      <button type="button" class="btn-outline btn-sm" data-billing-preview="${escapeHtml(row.report.id)}" title="Ver PDF do relatório">
-                        Ver PDF
-                      </button>
-                      <button type="button" class="btn-primary btn-sm" data-register-invoice="${escapeHtml(row.report.id)}">
-                        Marcar como Faturado
-                      </button>
-                      <button type="button" class="btn-danger btn-sm" data-billing-dismiss="${escapeHtml(row.report.id)}" title="Retirar da lista por faturar">
-                        Eliminar
-                      </button>
-                    </div>
-                  </td>
                 </tr>
               `,
                   )
@@ -988,6 +982,45 @@ function selectBillingPreview(reportId, pdfIndex = 0) {
   const next = wrap.firstElementChild;
   if (next) preview.replaceWith(next);
   bindBillingPreviewActions();
+  bindBillingRowActionButtons();
+}
+
+function bindBillingRowActionButtons() {
+  mountRoot?.querySelectorAll('[data-register-invoice]').forEach((btn) => {
+    if (btn.dataset.boundBilling === '1') return;
+    btn.dataset.boundBilling = '1';
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const reportId = btn.getAttribute('data-register-invoice');
+      if (reportId) openRegisterInvoiceModal(reportId);
+    });
+  });
+
+  mountRoot?.querySelectorAll('[data-billing-dismiss]').forEach((btn) => {
+    if (btn.dataset.boundBilling === '1') return;
+    btn.dataset.boundBilling = '1';
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const reportId = btn.getAttribute('data-billing-dismiss');
+      if (!reportId) return;
+      const report = getReport(reportId);
+      const client = report ? getClient(report.clientId) : null;
+      const job = report?.jobId ? getJob(report.jobId) : null;
+      const label = client?.name || client?.Nome || formatOrdemLabel(job) || 'este relatório';
+      const ok = window.confirm(
+        `Retirar ${label} da lista por faturar?\n\nO relatório técnico aprovado mantém-se — apenas deixa de aparecer nesta fila.`,
+      );
+      if (!ok) return;
+      void dismissPendingBillingReport(reportId).then((done) => {
+        if (!done) return;
+        if (billingPreviewReportId === reportId) {
+          billingPreviewReportId = null;
+          billingPreviewPdfIndex = 0;
+        }
+        refreshFaturacaoPanel({ soft: true }).catch(console.error);
+      });
+    });
+  });
 }
 
 function bindBillingPreviewActions() {
@@ -1022,45 +1055,7 @@ function bindBillingPreviewActions() {
 }
 
 function bindTableActions() {
-  mountRoot?.querySelectorAll('[data-register-invoice]').forEach((btn) => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const reportId = btn.getAttribute('data-register-invoice');
-      if (reportId) openRegisterInvoiceModal(reportId);
-    });
-  });
-
-  mountRoot?.querySelectorAll('[data-billing-preview]').forEach((btn) => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const reportId = btn.getAttribute('data-billing-preview');
-      if (reportId) selectBillingPreview(reportId, 0);
-    });
-  });
-
-  mountRoot?.querySelectorAll('[data-billing-dismiss]').forEach((btn) => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const reportId = btn.getAttribute('data-billing-dismiss');
-      if (!reportId) return;
-      const report = getReport(reportId);
-      const client = report ? getClient(report.clientId) : null;
-      const job = report?.jobId ? getJob(report.jobId) : null;
-      const label = client?.name || client?.Nome || formatOrdemLabel(job) || 'este relatório';
-      const ok = window.confirm(
-        `Retirar ${label} da lista por faturar?\n\nO relatório técnico aprovado mantém-se — apenas deixa de aparecer nesta fila.`,
-      );
-      if (!ok) return;
-      void dismissPendingBillingReport(reportId).then((done) => {
-        if (!done) return;
-        if (billingPreviewReportId === reportId) {
-          billingPreviewReportId = null;
-          billingPreviewPdfIndex = 0;
-        }
-        refreshFaturacaoPanel({ soft: true }).catch(console.error);
-      });
-    });
-  });
+  bindBillingRowActionButtons();
 
   mountRoot?.querySelectorAll('.faturacao-billing-row').forEach((row) => {
     row.addEventListener('click', (e) => {

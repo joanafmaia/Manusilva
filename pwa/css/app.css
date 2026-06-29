@@ -11123,7 +11123,7 @@ body .admin-rh-page .btn-primary, body .admin-rh-page .btn-secondary, body .admi
 }
 .faturacao-billing-split {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(280px, 42%);
+  grid-template-columns: minmax(0, 38%) minmax(320px, 1fr);
   gap: 1rem;
   align-items: stretch;
 }
@@ -11157,6 +11157,12 @@ body .admin-rh-page .btn-primary, body .admin-rh-page .btn-secondary, body .admi
 .faturacao-billing-preview__meta {
   margin: 0.2rem 0 0;
   font-size: 0.78rem;
+}
+.faturacao-billing-preview__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.65rem;
 }
 .faturacao-billing-preview__tabs {
   display: flex;
