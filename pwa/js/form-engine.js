@@ -2379,6 +2379,8 @@ export async function bindFormFieldInteractions(overlay) {
       if (!input) return;
       const syncChecked = () => item.classList.toggle('is-checked', input.checked);
       syncChecked();
+      // Evita scroll para o fim do formulário ao focar checkbox escondido (tablet)
+      input.addEventListener('mousedown', (e) => e.preventDefault());
       input.addEventListener('change', syncChecked);
     });
   });
