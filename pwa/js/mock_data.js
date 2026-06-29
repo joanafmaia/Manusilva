@@ -570,7 +570,15 @@ export const REPARACAO_CARREGADOR = {
         equipamento: '',
       },
     },
-    createMaterialTableField({ id: 'consumiveis_material' }),
+    createMaterialTableField({
+      id: 'consumiveis_material',
+      section: 'Consumíveis',
+      label: 'Consumíveis',
+      columns: [
+        { id: 'artigo', label: 'Material Colocado' },
+        { id: 'qtd', label: 'Quantidade' },
+      ],
+    }),
     { type: 'date', id: 'concluido_testado_em', label: 'Concluído e Testado Em', section: 'Fecho' },
     { type: 'text', id: 'responsavel', label: 'Responsável', section: 'Fecho' },
   ],

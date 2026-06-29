@@ -336,34 +336,39 @@ async function drawReparacaoCarregadorResultadoTesteBlock(doc, y, values) {
   );
 }
 
-function mapCarregadorConsumivelRow(row) {
-  const artigo = String(row?.artigo || '').trim();
-  const equipamento = String(row?.equipamento || row?.equip || '').trim();
-  if (equipamento) {
-    return [pdfDisplayValue(artigo), pdfDisplayValue(equipamento), pdfDisplayValue(row?.qtd)];
-  }
-  const split = artigo.match(/^(.+?)\s*\(([^)]+)\)\s*$/);
-  if (split) {
-    return [pdfDisplayValue(split[1].trim()), pdfDisplayValue(split[2].trim()), pdfDisplayValue(row?.qtd)];
-  }
-  return [pdfDisplayValue(artigo), '—', pdfDisplayValue(row?.qtd)];
-}
-
 async function drawReparacaoCarregadorConsumiveisTable(doc, y, rows) {
-  const body = rows.length > 0 ? rows.map((row) => mapCarregadorConsumivelRow(row)) : [['—', '—', '—']];
-  const colW = CONTENT_W / 3;
+  const body =
+    rows.length > 0
+      ? rows.map((row) => [pdfDisplayValue(row.artigo), pdfDisplayValue(row.qtd)])
+      : [['—', '—']];
+  const colW = CONTENT_W / 2;
   return drawCarregadorDashboardTable(
     doc,
     y,
-    'CONSUMIVEIS',
-    ['Material Colocado', 'Equipamento', 'Quantidade'],
+    'CONSUMÍVEIS',
+    ['Material Colocado', 'Quantidade'],
     body,
     {
       0: { cellWidth: colW, halign: 'left' },
       1: { cellWidth: colW, halign: 'left' },
-      2: { cellWidth: colW, halign: 'left' },
     },
   );
+}
+
+export async function drawReparacaoCarregadorBody(doc, y, values, service, pdfContext = null) {
+  y = await drawReparacaoCarregadorIdentificacaoTable(doc, y, values, pdfContext);
+  y = await drawReparacaoCarregadorRegistoTable(doc, y, values, pdfContext);
+  y = await drawReparacaoCarregadorResultadoTesteBlock(doc, y, values);
+
+  const materialField =
+    (service?.fields || []).find((f) => f.id === 'consumiveis_material') ||
+    (service?.fields || []).find((f) => isMaterialTableField(f));
+  const rows = materialField
+    ? normalizeMaterialRows(values[materialField.id]).filter(
+        (row) => String(row.artigo || '').trim() || row.qtd,
+      )
+    : [];
+  return drawReparacaoCarregadorConsumiveisTable(doc, y, rows);
 }
 
 async function drawReparacaoCarregadorFechoBlock(doc, y, values) {
@@ -382,20 +387,6 @@ async function drawReparacaoCarregadorFechoBlock(doc, y, values) {
     gapAfter: CARREGADOR_SECTION_GAP_MM,
     ...pack,
   });
-}
-
-export async function drawReparacaoCarregadorBody(doc, y, values, service, pdfContext = null) {
-  y = await drawReparacaoCarregadorIdentificacaoTable(doc, y, values, pdfContext);
-  y = await drawReparacaoCarregadorRegistoTable(doc, y, values, pdfContext);
-  y = await drawReparacaoCarregadorResultadoTesteBlock(doc, y, values);
-
-  const materialField = (service?.fields || []).find((f) => isMaterialTableField(f));
-  const rows = materialField
-    ? normalizeMaterialRows(values[materialField.id]).filter(
-        (row) => String(row.artigo || '').trim() || row.qtd,
-      )
-    : [];
-  return drawReparacaoCarregadorConsumiveisTable(doc, y, rows);
 }
 
 export async function drawReparacaoCarregadorClosingSection(doc, y, opts) {
