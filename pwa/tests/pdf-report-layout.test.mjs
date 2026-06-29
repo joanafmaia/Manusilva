@@ -1,5 +1,11 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const pdfReportSrc = fs.readFileSync(path.join(__dirname, '../js/pdf-report.js'), 'utf8');
 
 const PDF_REPORT_EXPORTS = [
   'renderInterventionPDF',
@@ -13,6 +19,10 @@ const PDF_REPORT_EXPORTS = [
 ];
 
 describe('pdf-report exports', () => {
+  it('importa columnKey de material-table-field (regressão Fase 3e)', () => {
+    assert.match(pdfReportSrc, /import\s*\{[^}]*\bcolumnKey\b[^}]*\}\s*from\s*'\.\/material-table-field\.js'/s);
+  });
+
   it('expõe API pública de geração de PDF', async () => {
     const mod = await import('../js/pdf-report.js');
     for (const name of PDF_REPORT_EXPORTS) {

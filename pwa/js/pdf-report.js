@@ -131,7 +131,7 @@ import {
   shouldSkipPdfSectionHeader,
 } from './pdf-design-system.js';
 import {
-  columnKey as materialColumnKey,
+  columnKey,
   columnLabel as materialColumnLabel,
   fieldAnchorsReportClosing,
   findPairedObservationsField,
@@ -141,6 +141,7 @@ import {
   MATERIAL_UTILIZADO_COLUMNS,
   normalizeMaterialRows,
 } from './material-table-field.js';
+
 import {
   drawInspecaoDl50HeaderBlock,
   INSPECAO_DL50_MACHINE_FIELD_IDS,
