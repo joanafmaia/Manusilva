@@ -12,6 +12,11 @@ import { escapeHtml } from './html-utils.js';
 import { buildReportEmailMeta } from './report-email-meta.js';
 import { sanitizeUtilizadores, stripPasswordsFromDb } from './local-db-sanitize.js';
 import { isRhOrAdminSession } from './auth-roles-core.js';
+import {
+  formatDate,
+  formatDateLong,
+} from './date-utils.js';
+import { showToast } from './toast-modal.js';
 
 export { getSupabaseClient };
 export { escapeHtml };
@@ -65,7 +70,6 @@ import {
   dedupeReportsByJobPreferNewest,
 } from './relatorios-db.js';
 import {
-  isRhOrcamentoQueueReport,
   reportHasPedidoOrcamento,
   reportOrcamentoPorPreparar,
 } from './pedido-orcamento.js';
@@ -83,9 +87,6 @@ import {
 } from './session.js';
 import { LoginView } from './views/login.js';
 import { AuthService } from './auth.js';
-import { normalizeFaturaCondicao,
-  normalizeStatusRecebimento,
-} from './billing-constants.js';
 import { sameEntityId, normalizeEntityId } from './entity-id.js';
 import { isDevMockEnabled } from './env.js';
 import { initErrorMonitoring, captureError } from './error-monitor.js';
@@ -1280,229 +1281,6 @@ export function getAllJobs() {
   return getJobsSnapshot();
 }
 
-export function getPendingReports() {
-  return dedupeReportsByJobPreferNewest(getPendingReviewReportsSnapshot());
-}
-
-function getRhPanelReportsRaw() {
-  return getReportsSnapshot().filter((r) => RH_PANEL_REPORT_STATUSES.has(r.status));
-}
-
-function getPendingReviewReportsSnapshot() {
-  return getRhPanelReportsRaw().filter((r) => r.status === 'pending_review');
-}
-
-function getRhPanelReports() {
-  return dedupeReportsByJobPreferNewest(getRhPanelReportsRaw());
-}
-
-function getRhOrcamentoQueueReports() {
-  return dedupeReportsByJobPreferNewest(
-    getRhPanelReportsRaw().filter(isRhOrcamentoQueueReport),
-  );
-}
-
-/** Estados de relatório exibidos no painel RH (histórico completo) */
-export const RH_PANEL_REPORT_STATUSES = new Set([
-  'pending_review',
-  'draft',
-  'approved',
-  'rejected',
-]);
-
-/** Mais antigo primeiro — prioridade FIFO na fila RH */
-function sortReportsForRhPanel(a, b) {
-  return String(a.submittedAt || a.approvedAt || '').localeCompare(
-    String(b.submittedAt || b.approvedAt || ''),
-  );
-}
-
-/** Relatórios visíveis no painel RH (com filtro opcional por estado) */
-export function getAdminReviewReports(filter = 'all') {
-  if (filter === 'pending_review') {
-    return dedupeReportsByJobPreferNewest(getPendingReviewReportsSnapshot()).sort(
-      sortReportsForRhPanel,
-    );
-  }
-  if (filter === 'orcamento_pendente') {
-    return getRhOrcamentoQueueReports().sort(sortReportsForRhPanel);
-  }
-  const list = getRhPanelReports();
-  const filtered = filter === 'all' ? list : list.filter((r) => r.status === filter);
-  return filtered.sort(sortReportsForRhPanel);
-}
-
-/** Contagens por estado para filtros rápidos do painel RH */
-export function getRhPanelReportCounts() {
-  const list = getRhPanelReports();
-  const pendingReview = dedupeReportsByJobPreferNewest(getPendingReviewReportsSnapshot());
-  return {
-    all: list.length,
-    pending_review: pendingReview.length,
-    orcamento_pendente: getRhOrcamentoQueueReports().length,
-    draft: list.filter((r) => r.status === 'draft').length,
-    approved: list.filter((r) => r.status === 'approved').length,
-    rejected: list.filter((r) => r.status === 'rejected').length,
-  };
-}
-
-/** Relatório aprovado ainda por faturar (controlo interno) */
-export function isPendingBilling(report) {
-  if (!report || report.status !== 'approved') return false;
-  const fs = report.faturacaoStatus;
-  return fs === 'pendente' || !fs;
-}
-
-export function getPendingBillingReports() {
-  return dedupeReportsByJobPreferNewest(getReportsSnapshot().filter(isPendingBilling)).sort(
-    (a, b) => String(a.approvedAt || '').localeCompare(String(b.approvedAt || '')),
-  );
-}
-
-function addDaysToIsoDate(isoDate, days) {
-  const base = new Date(`${isoDate}T12:00:00`);
-  if (Number.isNaN(base.getTime())) return null;
-  base.setDate(base.getDate() + days);
-  return base.toISOString().split('T')[0];
-}
-
-/**
- * Calcula data_vencimento a partir da condição de pagamento e data de emissão.
- */
-export function resolveInvoiceDueDate(condicaoPagamento, dataEmissao) {
-  const condicao = normalizeFaturaCondicao(condicaoPagamento);
-  if (condicao === '30_dias') return addDaysToIsoDate(dataEmissao, 30);
-  if (condicao === '60_dias') return addDaysToIsoDate(dataEmissao, 60);
-  return dataEmissao;
-}
-
-/** Campos financeiros da fatura (condição + recebimento independentes). */
-export function resolveInvoiceBillingFields(condicaoPagamento, statusRecebimento, dataEmissao) {
-  const faturaCondicaoPagamento = normalizeFaturaCondicao(condicaoPagamento);
-  const status = normalizeStatusRecebimento(statusRecebimento);
-  return {
-    faturaCondicaoPagamento,
-    statusRecebimento: status,
-    dataVencimento: resolveInvoiceDueDate(faturaCondicaoPagamento, dataEmissao),
-  };
-}
-
-/** Relatórios já faturados com cobrança em aberto */
-export function getPendingPaymentInvoices() {
-  return dedupeReportsByJobPreferNewest(
-    getReportsSnapshot().filter(
-      (r) => r.faturacaoStatus === 'faturado' && r.statusRecebimento === 'pendente',
-    ),
-  ).sort((a, b) =>
-    String(a.dataVencimento || a.dataFatura || '').localeCompare(
-      String(b.dataVencimento || b.dataFatura || ''),
-    ),
-  );
-}
-
-/** Métricas de fluxo de caixa (faturas emitidas na app) */
-export function getBillingFinancialMetrics() {
-  const invoiced = dedupeReportsByJobPreferNewest(
-    getReportsSnapshot().filter((r) => r.faturacaoStatus === 'faturado'),
-  );
-  let totalFaturado = 0;
-  let totalRecebido = 0;
-  let totalDivida = 0;
-
-  invoiced.forEach((r) => {
-    const valor = Number(r.valorFaturado);
-    if (!Number.isFinite(valor) || valor <= 0) return;
-    totalFaturado += valor;
-    if (r.statusRecebimento === 'pago') totalRecebido += valor;
-    else if (r.statusRecebimento === 'pendente') totalDivida += valor;
-  });
-
-  return { totalFaturado, totalRecebido, totalDivida };
-}
-
-/** Regista fatura emitida externamente — contas a receber */
-export async function registerReportInvoice(
-  reportId,
-  { numeroFatura, dataFatura, valorFaturado, condicaoPagamento, statusRecebimento },
-) {
-  const report = getReport(reportId);
-  if (!report) throw new Error('Relatório não encontrado.');
-  if (!isPendingBilling(report)) {
-    throw new Error('Este relatório já não está pendente de faturação.');
-  }
-
-  const numero = String(numeroFatura ?? '').trim();
-  const data = String(dataFatura ?? '').trim();
-  const valor = Number(valorFaturado);
-  if (!numero) throw new Error('Indique o número da fatura.');
-  if (!data) throw new Error('Indique a data de emissão da fatura.');
-  if (!Number.isFinite(valor) || valor <= 0) {
-    throw new Error('Indique um valor total faturado válido.');
-  }
-
-  const billing = resolveInvoiceBillingFields(condicaoPagamento, statusRecebimento, data);
-
-  await updateRelatorio(reportId, {
-    faturacaoStatus: 'faturado',
-    numeroFatura: numero,
-    dataFatura: data,
-    valorFaturado: Math.round(valor * 100) / 100,
-    faturaCondicaoPagamento: billing.faturaCondicaoPagamento,
-    statusRecebimento: billing.statusRecebimento,
-    dataVencimento: billing.dataVencimento,
-  });
-  window.dispatchEvent(new CustomEvent('db-updated'));
-  return true;
-}
-
-/** Retira relatório aprovado da fila «por faturar» (mantém o relatório técnico). */
-export async function dismissPendingBillingReport(reportId) {
-  const report = getReport(reportId);
-  if (!report) {
-    showToast('Relatório não encontrado.', 'error');
-    return false;
-  }
-  if (!isPendingBilling(report)) {
-    showToast('Este relatório já não está pendente de faturação.', 'info');
-    return false;
-  }
-
-  try {
-    await updateRelatorio(reportId, { faturacaoStatus: 'dispensado' });
-    window.dispatchEvent(new CustomEvent('db-updated'));
-    showToast('Relatório retirado da lista por faturar.', 'success');
-    return true;
-  } catch (err) {
-    console.error('[ManuSilva] dismissPendingBillingReport:', err);
-    showToast(formatRelatoriosError(err), 'error', 9000);
-    return false;
-  }
-}
-
-/** Confirma recebimento de uma fatura pendente */
-export async function confirmInvoicePayment(reportId, { dataRecebimento } = {}) {
-  const report = getReport(reportId);
-  if (!report) throw new Error('Fatura não encontrada.');
-  if (report.faturacaoStatus !== 'faturado') {
-    throw new Error('Este relatório ainda não foi faturado.');
-  }
-  if (report.statusRecebimento === 'pago') {
-    throw new Error('Este recebimento já foi confirmado.');
-  }
-
-  const data = String(dataRecebimento ?? new Date().toISOString()).trim().split('T')[0];
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) {
-    throw new Error('Indique uma data de recebimento válida.');
-  }
-
-  await updateRelatorio(reportId, {
-    statusRecebimento: 'pago',
-    dataRecebimento: data,
-  });
-  window.dispatchEvent(new CustomEvent('db-updated'));
-  return true;
-}
-
 /* ─── Offline Mode ─── */
 
 export function isOffline() {
@@ -2058,50 +1836,6 @@ export async function deleteJob(jobId) {
   }
 }
 
-/* ─── Date Utilities ─── */
-
-export function getWeekDates(baseDate = new Date()) {
-  const d = new Date(baseDate);
-  const day = d.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  const monday = new Date(d);
-  monday.setDate(d.getDate() + diff);
-  monday.setHours(0, 0, 0, 0);
-  const dates = [];
-  for (let i = 0; i < 7; i++) {
-    const dt = new Date(monday);
-    dt.setDate(monday.getDate() + i);
-    dates.push(dt.toISOString().split('T')[0]);
-  }
-  return dates;
-}
-
-export function formatDate(iso) {
-  const d = new Date(iso + 'T00:00:00');
-  return d.toLocaleDateString('pt-PT', { weekday: 'short', day: 'numeric', month: 'short' });
-}
-
-export function formatDateLong(iso) {
-  const d = new Date(iso + 'T00:00:00');
-  return d.toLocaleDateString('pt-PT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-}
-
-export function isToday(iso) {
-  return iso === new Date().toISOString().split('T')[0];
-}
-
-const DAY_LABELS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
-
-export function getDayLabel(iso) {
-  const d = new Date(iso + 'T00:00:00');
-  const idx = d.getDay() === 0 ? 6 : d.getDay() - 1;
-  return DAY_LABELS[idx];
-}
-
-export function getDayNumber(iso) {
-  return new Date(iso + 'T00:00:00').getDate();
-}
-
 /* ─── UI Utilities ─── */
 
 export function statusBadge(status) {
@@ -2110,129 +1844,37 @@ export function statusBadge(status) {
   return `<span class="status-badge status-badge--${variant}">${s.label}</span>`;
 }
 
-/* ─── Toast Notifications ─── */
-
-let toastContainer = null;
-let adminToastContainer = null;
-
-/**
- * Toast estilo notificação (canto inferior direito) — painel RH.
- * @param {string} title
- * @param {string} body
- * @param {{ icon?: string, duration?: number, onClick?: () => void, dedupeKey?: string }} [options]
- */
-export function showNotificationToast(title, body, options = {}) {
-  const {
-    icon = '🔔',
-    duration = 8000,
-    onClick,
-    dedupeKey,
-  } = options;
-
-  if (dedupeKey) {
-    if (!showNotificationToast._recent) showNotificationToast._recent = new Set();
-    if (showNotificationToast._recent.has(dedupeKey)) return;
-    showNotificationToast._recent.add(dedupeKey);
-    setTimeout(() => showNotificationToast._recent.delete(dedupeKey), 4500);
-  }
-
-  if (!adminToastContainer) {
-    adminToastContainer = document.createElement('div');
-    adminToastContainer.id = 'admin-toast-container';
-    adminToastContainer.className = 'toast-container toast-container--bottom-end';
-    adminToastContainer.setAttribute('aria-live', 'polite');
-    document.body.appendChild(adminToastContainer);
-  }
-
-  const toast = document.createElement(onClick ? 'button' : 'div');
-  toast.type = onClick ? 'button' : undefined;
-  toast.className = 'toast toast-notification toast-info';
-  toast.innerHTML = `
-    <span class="toast-notification-icon" aria-hidden="true">${icon}</span>
-    <span class="toast-notification-content">
-      <strong class="toast-notification-title">${escapeHtml(title)}</strong>
-      <span class="toast-notification-body">${escapeHtml(body)}</span>
-    </span>
-  `;
-
-  if (onClick) {
-    toast.addEventListener('click', () => {
-      onClick();
-      toast.classList.remove('show');
-      setTimeout(() => toast.remove(), 320);
-    });
-  }
-
-  adminToastContainer.appendChild(toast);
-  requestAnimationFrame(() => toast.classList.add('show'));
-
-  setTimeout(() => {
-    toast.classList.remove('show');
-    setTimeout(() => toast.remove(), 320);
-  }, duration);
-}
-
-export function showToast(message, type = 'info', duration = 4000) {
-  if (!toastContainer) {
-    toastContainer = document.createElement('div');
-    toastContainer.id = 'toast-container';
-    toastContainer.className = 'toast-container';
-    document.body.appendChild(toastContainer);
-  }
-
-  const icons = { success: '✓', error: '✕', warning: '⚠', info: 'ℹ' };
-  const toast = document.createElement('div');
-  toast.className = `toast toast-${type}`;
-  toast.innerHTML = `
-    <span class="toast-icon">${icons[type] || icons.info}</span>
-    <span class="toast-msg">${escapeHtml(message)}</span>
-  `;
-  toastContainer.appendChild(toast);
-  requestAnimationFrame(() => toast.classList.add('show'));
-
-  setTimeout(() => {
-    toast.classList.remove('show');
-    setTimeout(() => toast.remove(), 300);
-  }, duration);
-}
-
-/* ─── Modal ─── */
-
-/**
- * Abre modal. `title` é escapado; `content` e `actions` são HTML — o caller deve
- * usar escapeHtml em dados de utilizador/BD.
- */
-export function openModal(title, content, actions = '', options = {}) {
-  closeModal();
-  const overlay = document.createElement('div');
-  overlay.id = 'modal-overlay';
-  overlay.className = `modal-overlay${options.review ? ' modal-overlay--review' : ''}${options.reviewWide ? ' modal-overlay--review-wide' : ''}`;
-  overlay.innerHTML = `
-    <div class="modal glass-card">
-      <div class="modal-header">
-        <h3>${escapeHtml(title)}</h3>
-        <button class="modal-close" aria-label="Fechar">&times;</button>
-      </div>
-      <div class="modal-body">${content}</div>
-      ${actions ? `<div class="modal-actions">${actions}</div>` : ''}
-    </div>
-  `;
-  document.body.appendChild(overlay);
-  overlay.querySelector('.modal-close').addEventListener('click', closeModal);
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
-  requestAnimationFrame(() => overlay.classList.add('show'));
-  return overlay;
-}
-
-export function closeModal() {
-  const overlay = document.getElementById('modal-overlay');
-  if (overlay) {
-    overlay.classList.remove('show');
-    setTimeout(() => overlay.remove(), 200);
-  }
-}
-
 /* ─── Re-exports para dashboards (sem carregar PDF/form-engine no admin) ─── */
+
+export {
+  getWeekDates,
+  formatDate,
+  formatDateLong,
+  isToday,
+  getDayLabel,
+  getDayNumber,
+} from './date-utils.js';
+
+export { showToast, showNotificationToast, openModal, closeModal } from './toast-modal.js';
+
+export {
+  RH_PANEL_REPORT_STATUSES,
+  getPendingReports,
+  getAdminReviewReports,
+  getRhPanelReportCounts,
+} from './rh-panel-reports.js';
+
+export {
+  isPendingBilling,
+  getPendingBillingReports,
+  resolveInvoiceDueDate,
+  resolveInvoiceBillingFields,
+  getPendingPaymentInvoices,
+  getBillingFinancialMetrics,
+  registerReportInvoice,
+  dismissPendingBillingReport,
+  confirmInvoicePayment,
+} from './billing-workflow.js';
 
 export {
   COMPANY,
