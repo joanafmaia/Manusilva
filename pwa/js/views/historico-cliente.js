@@ -304,7 +304,7 @@ function renderListSection(rows, { batteryOnly }) {
       </div>
       <div class="client-history-table-wrap">
         <div class="client-history-table-scroll">
-          <table class="client-history-table rh-data-table">
+          <table class="client-history-table rh-data-table rh-data-table--compact">
             <thead>
               <tr>
                 <th scope="col">Ordem</th>
@@ -473,6 +473,31 @@ export const HistoricoClienteView = {
     bindActions();
   },
 };
+
+/**
+ * Monta o histórico partilhado (RH + técnico) num contentor.
+ * @param {string} clientId
+ * @param {HTMLElement} mountEl
+ * @param {{ batteryOnly?: boolean, showWorkflowActions?: boolean, onBack?: () => void, onDownloadPDF?: (reportId: string) => void }} [options]
+ */
+export async function mountClientHistoryView(clientId, mountEl, options = {}) {
+  if (!mountEl || !clientId) return;
+
+  const batteryOnly = options.batteryOnly === true;
+  const showWorkflowActions = options.showWorkflowActions === true;
+
+  mountEl.innerHTML = HistoricoClienteView.render(clientId, {
+    batteryOnly,
+    showWorkflowActions,
+  });
+
+  await HistoricoClienteView.init(clientId, {
+    batteryOnly,
+    showWorkflowActions,
+    onBack: options.onBack,
+    onDownloadPDF: options.onDownloadPDF,
+  });
+}
 
 function bindListInteractions(root, { showWorkflow, onDownloadPDF, onLoadMore }) {
   root.querySelector('[data-history-load-more]')?.addEventListener('click', () => {

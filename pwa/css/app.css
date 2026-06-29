@@ -8141,6 +8141,9 @@ body.client-ficha-open {
 .tech-main .client-history-page {
   padding: 0;
 }
+.tech-clients-section .clients-list-section {
+  margin-top: 0;
+}
 /* Tablet/desktop — dashboard técnico (max-w-4xl centrado, fundo slate-50) */ @media (min-width: 768px) {
   body.tech-dashboard-page {
     background-color: #f8fafc;
