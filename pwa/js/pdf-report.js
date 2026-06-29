@@ -5,11 +5,7 @@
 import {
   COMPANY,
   PDF_DOCUMENT_TITLES,
-  CLIENTS,
-  DEMO_CLIENT_FORKLIFTS,
   EMPILHADORES_MATERIAL_SECTION,
-  mapClientToLegacy,
-  TECHNICIANS,
   SERVICE_TYPES,
   reportTemplates,
 } from './mock_data.js';
@@ -153,159 +149,25 @@ import {
   splitDl50MatrixCategories,
 } from './inspecao-dl50-categories.js';
 import { resolvePdfFotoSources } from './job-fotos.js';
+import { getClient, getTechnician, getServiceType, getJob } from './entity-lookups.js';
+import { loadJsPDF, loadJsPdfAutoTable } from './pdf-jspdf-loader.js';
+export { loadJsPDF } from './pdf-jspdf-loader.js';
+import {
+  cleanPdfText,
+  pdfDisplayValue,
+  formatFolhaInterventionDate,
+  resolvePdfCellToken,
+  formatPdfDeslocacao,
+  formatPdfNumeroVisitas,
+  formatPdfConclusionDate,
+  formatPdfJobDateOnly,
+  formatPdfServiceDateOnly,
+  isPdfLayoutReservedField,
+} from './pdf-format-utils.js';
+import { resolvePdfClientMeta, buildPdfRenderContext } from './pdf-client-meta.js';
 
-const DB_KEY = 'manusilva_db';
 const PDF_FOOTER_FONT_SIZE = PDF_FONT_CAPTION;
-
-function getDB() {
-  const raw = localStorage.getItem(DB_KEY);
-  return raw ? JSON.parse(raw) : { clients: CLIENTS, technicians: TECHNICIANS };
-}
-
-function getClient(id) {
-  const raw = getDB().clients?.find((c) => c.id === id);
-  if (raw) {
-    const legacy = raw.name ? raw : mapClientToLegacy(raw);
-    const demo = DEMO_CLIENT_FORKLIFTS[id];
-    if (demo?.forklifts?.length && !legacy.forklifts?.length) {
-      legacy.forklifts = demo.forklifts;
-    }
-    return legacy;
-  }
-  const demo = DEMO_CLIENT_FORKLIFTS[id];
-  if (demo) {
-    return mapClientToLegacy({ id, Nome: demo.Nome, NIF: demo.NIF, forklifts: demo.forklifts });
-  }
-  return CLIENTS.find((c) => c.id === id) || null;
-}
-
-async function resolvePdfClientMeta(report, values = {}) {
-  let catalog = [];
-  try {
-    await ensureProductionCatalog();
-    catalog = getProductionClientsCatalog();
-  } catch (err) {
-    console.warn('[PDF] Catálogo de clientes indisponível; a usar dados locais.', err);
-  }
-  const dbClient = getClient(report.clientId);
-
-  let prod =
-    (values.cliente_id && getClientFromCatalog(values.cliente_id, catalog)) || null;
-  if (!prod && values.cliente) {
-    const q = String(values.cliente).trim().toLowerCase();
-    prod = catalog.find((c) => c.Nome.toLowerCase() === q) || null;
-  }
-
-  const nome = values.cliente || prod?.Nome || dbClient?.name || dbClient?.Nome || '—';
-  const morada = values.morada || prod?.Morada || dbClient?.morada || dbClient?.Morada || '';
-  const localidade = values.localidade || prod?.Localidade || dbClient?.localidade || dbClient?.Localidade || '';
-  const nif = values.nif || prod?.NIF || dbClient?.NIF || dbClient?.nif || '';
-  const cp = values.codigo_postal || prod?.['Código postal'] || dbClient?.['Código postal'] || '';
-
-  const street = cleanPdfText(morada);
-  const cpLoc = [cp, localidade].filter(Boolean).map((p) => cleanPdfText(p)).join(' ').trim();
-  let addressLine = street;
-  let addressSubline = cpLoc;
-
-  if (!street && !cpLoc) {
-    const fallback = cleanPdfText(dbClient?.address || '');
-    if (fallback) {
-      addressLine = fallback;
-      addressSubline = '';
-    }
-  }
-
-  return { nome, addressLine: addressLine || '—', addressSubline, localidade, nif };
-}
-
-function buildPdfRenderContext(report, job, clientMeta, tech) {
-  return {
-    techName: tech?.name || '',
-    jobDate: job?.date || '',
-    localidade: clientMeta?.localidade || '',
-    forkliftSerial: report?.forkliftSerial || job?.forkliftSerial || '',
-    report,
-    data: report?.data || {},
-    clientMeta,
-    values: null,
-  };
-}
-
-function resolvePdfCellToken(val, ctx = {}) {
-  if (val === '$technician') return ctx.techName || '';
-  if (val === '$jobDate') return ctx.jobDate || '';
-  if (val === '$localidade') return ctx.localidade || '';
-  return val;
-}
-
-/** Célula/campo vazio → traço tipográfico */
-function pdfDisplayValue(val) {
-  if (val === undefined || val === null) return '—';
-  const t = cleanPdfText(val);
-  if (!t || t === 'null' || t === 'undefined') return '—';
-  return t;
-}
-
-/** Deslocação legível — localidade do cliente em vez de siglas/tokens internos */
-function formatPdfDeslocacao(raw, ctx = {}) {
-  const localidade =
-    cleanPdfText(ctx.values?.localidade) ||
-    cleanPdfText(ctx.clientMeta?.localidade) ||
-    cleanPdfText(ctx.localidade) ||
-    '';
-
-  let text = cleanPdfText(
-    resolvePdfCellToken(raw, {
-      techName: ctx.techName,
-      jobDate: ctx.jobDate,
-      localidade,
-    }),
-  );
-
-  if (!text || /^\$[a-z_]+$/i.test(text)) {
-    return localidade || '—';
-  }
-
-  if (/^[a-z][a-z0-9]*(_[a-z0-9]+)+$/.test(text) && !text.includes(' ')) {
-    return localidade || '—';
-  }
-
-  if (
-    localidade &&
-    /^[A-ZÁÉÍÓÚÃÕÂÊÔÀÇ]{2,10}$/.test(text) &&
-    text !== localidade.toUpperCase()
-  ) {
-    return localidade;
-  }
-
-  if (/^\d+([.,]\d+)?$/.test(text)) {
-    return `${text.replace(',', '.')} Km`;
-  }
-
-  return text;
-}
-
-/** Número de visitas ao terreno — padrão 1 quando omitido. */
-function formatPdfNumeroVisitas(values) {
-  const raw = values?.[VISITAS_FIELD_ID] ?? values?.visitas ?? values?.numero_visitas;
-  const n = Number(String(raw ?? '').replace(',', '.').trim());
-  if (Number.isFinite(n) && n >= 1) return String(Math.round(n));
-  return '1';
-}
-
-/** Data de conclusão preenchida no formulário (DD/MM/AAAA) */
-function formatPdfConclusionDate(values = {}) {
-  const formatted = formatFolhaInterventionDate(values.data_de_conclusao);
-  return formatted === '—' ? '' : formatted;
-}
-
-/** Data do trabalho agendado (job), sem fallback para conclusão */
-function formatPdfJobDateOnly(job, report) {
-  const raw = job?.date || report?.submittedAt?.split('T')[0];
-  if (!raw) return '';
-  const [y, m, d] = String(raw).split('T')[0].split('-');
-  return y && m && d ? `${d}/${m}/${y}` : '';
-}
+const columnKey = materialColumnKey;
 
 function buildConclusionAwareServiceInfoMeta(report, job, values, metaBottomGapMm) {
   const conclusionDate = formatPdfConclusionDate(values);
@@ -393,45 +255,6 @@ function resolveAdaptiveClosingPhotoHeight(availableMm, profile, bottomGap = 2) 
   return preferred;
 }
 
-/** Data principal do serviço — apenas dia (DD/MM/AAAA), sem hora */
-function formatPdfServiceDateOnly(report, job, values = {}) {
-  const raw =
-    job?.date ||
-    values.data_de_conclusao ||
-    values.data_1 ||
-    values.concluido_testado_em ||
-    report?.submittedAt?.split('T')[0];
-  if (!raw) return '—';
-  const [y, m, d] = String(raw).split('T')[0].split('-');
-  return y && m && d ? `${d}/${m}/${y}` : '—';
-}
-
-function isPdfLayoutReservedField(fieldId, service = null) {
-  if (
-    service?.id === INSPECAO_DL50_SERVICE_ID &&
-    (fieldId === 'pedido_orcamento' || fieldId === 'detalhe_pedido_orcamento')
-  ) {
-    return false;
-  }
-  return PDF_LAYOUT_SKIP_FIELD_IDS.has(fieldId);
-}
-
-function getTechnician(id) {
-  return getDB().technicians?.find((t) => t.id === id) || TECHNICIANS.find((t) => t.id === id);
-}
-
-function getServiceType(id) {
-  return reportTemplates.find((s) => s.id === id) || SERVICE_TYPES.find((s) => s.id === id);
-}
-
-function columnKey(col) {
-  return materialColumnKey(col);
-}
-
-function getJob(id) {
-  return getJobsSnapshot().find((j) => j.id === id) || null;
-}
-
 const TABLE_HEADER_SHORT = {
   artigo: 'Artigo / Desc.',
   quantidade: 'Qtd.',
@@ -444,161 +267,6 @@ const TABLE_HEADER_SHORT = {
   tipo: 'Tipo',
   horas: 'Horas',
 };
-
-let jsPDFCtor = null;
-let jsPDFLoadPromise = null;
-let autoTableLoadPromise = null;
-
-/** URL absoluta do bundle UMD (sem dependências npm) */
-function getJsPdfScriptUrl() {
-  const pagePath = window.location.pathname.replace(/\\/g, '/');
-  const slash = pagePath.lastIndexOf('/');
-  const base = slash >= 0 ? pagePath.slice(0, slash + 1) : '/';
-  return `${window.location.origin}${base}js/vendor/jspdf.umd.min.js`;
-}
-
-function getAutoTableScriptUrl() {
-  const pagePath = window.location.pathname.replace(/\\/g, '/');
-  const slash = pagePath.lastIndexOf('/');
-  const base = slash >= 0 ? pagePath.slice(0, slash + 1) : '/';
-  return `${window.location.origin}${base}js/vendor/jspdf.plugin.autotable.min.js`;
-}
-
-function isAutoTableReady() {
-  try {
-    const probe = new window.jspdf.jsPDF();
-    return typeof probe.autoTable === 'function';
-  } catch {
-    return false;
-  }
-}
-
-function loadJsPdfAutoTable() {
-  if (isAutoTableReady()) return Promise.resolve();
-
-  if (!autoTableLoadPromise) {
-    autoTableLoadPromise = new Promise((resolve, reject) => {
-      const finish = () => {
-        if (isAutoTableReady()) resolve();
-        else reject(new Error('jspdf-autotable carregou mas autoTable não ficou disponível.'));
-      };
-
-      const script =
-        document.querySelector('script[data-jspdf-autotable]') ||
-        Array.from(document.scripts).find((s) => s.src && s.src.includes('jspdf.plugin.autotable'));
-
-      if (script) {
-        if (script.getAttribute('data-jspdf-autotable-ready') === 'true' || isAutoTableReady()) {
-          finish();
-          return;
-        }
-        script.addEventListener(
-          'load',
-          () => {
-            script.setAttribute('data-jspdf-autotable-ready', 'true');
-            finish();
-          },
-          { once: true },
-        );
-        script.addEventListener(
-          'error',
-          () => reject(new Error(`Falha ao carregar jspdf-autotable (${getAutoTableScriptUrl()})`)),
-          { once: true },
-        );
-        return;
-      }
-
-      const el = document.createElement('script');
-      el.src = getAutoTableScriptUrl();
-      el.async = true;
-      el.setAttribute('data-jspdf-autotable', 'true');
-      el.onload = () => {
-        el.setAttribute('data-jspdf-autotable-ready', 'true');
-        finish();
-      };
-      el.onerror = () => reject(new Error(`Falha ao carregar jspdf-autotable (${getAutoTableScriptUrl()})`));
-      document.head.appendChild(el);
-    }).catch((err) => {
-      autoTableLoadPromise = null;
-      throw err;
-    });
-  }
-
-  return autoTableLoadPromise;
-}
-
-function resolveJsPDFFromWindow() {
-  const ctor = window.jspdf?.jsPDF;
-  if (!ctor) return null;
-  jsPDFCtor = ctor;
-  return jsPDFCtor;
-}
-
-function loadJsPdfScript() {
-  const existing = resolveJsPDFFromWindow();
-  if (existing) return Promise.resolve(existing);
-
-  const src = getJsPdfScriptUrl();
-
-  return new Promise((resolve, reject) => {
-    const finish = () => {
-      const ctor = resolveJsPDFFromWindow();
-      if (ctor) resolve(ctor);
-      else reject(new Error('jsPDF carregou mas não ficou disponível em window.jspdf.'));
-    };
-
-    const script =
-      document.querySelector('script[data-jspdf]') ||
-      Array.from(document.scripts).find((s) => s.src && s.src.includes('jspdf.umd'));
-
-    if (script) {
-      if (script.getAttribute('data-jspdf-ready') === 'true' || window.jspdf?.jsPDF) {
-        finish();
-        return;
-      }
-      script.addEventListener('load', () => {
-        script.setAttribute('data-jspdf-ready', 'true');
-        finish();
-      }, { once: true });
-      script.addEventListener(
-        'error',
-        () => reject(new Error(`Falha ao carregar jsPDF (${src})`)),
-        { once: true },
-      );
-      return;
-    }
-
-    const el = document.createElement('script');
-    el.src = src;
-    el.async = true;
-    el.setAttribute('data-jspdf', 'true');
-    el.onload = () => {
-      el.setAttribute('data-jspdf-ready', 'true');
-      finish();
-    };
-    el.onerror = () => reject(new Error(`Falha ao carregar jsPDF (${src})`));
-    document.head.appendChild(el);
-  });
-}
-
-/** Carrega jsPDF (UMD local em `js/vendor/jspdf.umd.min.js`) */
-export async function loadJsPDF() {
-  if (jsPDFCtor) return jsPDFCtor;
-
-  if (!jsPDFLoadPromise) {
-    jsPDFLoadPromise = loadJsPdfScript().catch((err) => {
-      jsPDFLoadPromise = null;
-      console.error('[PDF] loadJsPDF:', err);
-      throw new Error(
-        err?.message?.includes('jsPDF')
-          ? err.message
-          : 'Não foi possível carregar a biblioteca PDF. Recarregue a página (Ctrl+F5).',
-      );
-    });
-  }
-
-  return jsPDFLoadPromise;
-}
 
 function getReportFilename(report) {
   const job = report?.jobId
@@ -1184,30 +852,6 @@ function drawPdfContentBox(doc, x, y, width, height, fill = PDF_TABLE_BODY_FILL)
   doc.setDrawColor(...PDF_TABLE_LINE);
   doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
   doc.roundedRect(x, y, width, height, PDF_CONTENT_BOX_RADIUS_MM, PDF_CONTENT_BOX_RADIUS_MM, 'FD');
-}
-
-function formatFolhaInterventionDate(raw) {
-  const pure = String(raw ?? '').trim();
-  if (!pure) return '—';
-  const iso = pure.includes('T') ? pure.split('T')[0] : pure;
-  if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
-    const [y, m, d] = iso.split('-');
-    return `${d}/${m}/${y}`;
-  }
-  const parts = iso.split(/[/-]/);
-  if (parts.length === 3) {
-    if (parts[0].length === 4) {
-      const y = parts[0];
-      const m = parts[1].padStart(2, '0');
-      const d = parts[2].padStart(2, '0');
-      return `${d}/${m}/${y}`;
-    }
-    const d = parts[0].padStart(2, '0');
-    const m = parts[1].padStart(2, '0');
-    const y = parts[2];
-    return `${d}/${m}/${y}`;
-  }
-  return pdfDisplayValue(raw) || '—';
 }
 
 function buildFolhaInstitutionalFooterLines() {
@@ -4092,47 +3736,6 @@ function parseJsonIfString(val) {
   } catch {
     return val;
   }
-}
-
-/** Texto legível no PDF — sem aspas JSON, \\n literais nem lixo de serialização */
-function cleanPdfText(val) {
-  if (val === null || val === undefined) return '';
-  if (typeof val === 'boolean') return val ? 'Sim' : 'Não';
-  if (typeof val === 'number' && Number.isFinite(val)) return String(val);
-
-  let s = val;
-  if (typeof s === 'object') {
-    if (Array.isArray(s)) return s.map((x) => cleanPdfText(x)).filter(Boolean).join(', ');
-    s = s.label ?? s.value ?? s.Nome ?? s.name ?? '';
-  }
-
-  if (typeof s !== 'string') s = String(s);
-
-  const t = s.trim();
-  if (
-    (t.startsWith('"') && t.endsWith('"')) ||
-    (t.startsWith("'") && t.endsWith("'"))
-  ) {
-    try {
-      s = JSON.parse(t.startsWith('"') ? t : `"${t.slice(1, -1).replace(/"/g, '\\"')}"`);
-    } catch {
-      s = t.slice(1, -1);
-    }
-  }
-
-  if (typeof s !== 'string') return cleanPdfText(s);
-
-  return pdfSafeText(
-    s
-      .replace(/\\n/g, '\n')
-      .replace(/\\r/g, '')
-      .replace(/\\t/g, ' ')
-      .replace(/\r\n/g, '\n')
-      .replace(/\s*\|\s*/g, ' ')
-      .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '')
-      .replace(/\n{3,}/g, '\n\n')
-      .trim(),
-  );
 }
 
 /** Normaliza um valor de campo conforme o tipo (evita arrays/strings JSON no PDF) */

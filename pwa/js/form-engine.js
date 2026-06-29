@@ -51,6 +51,42 @@ import {
   REPORT_SECTIONS,
   SERVICE_IDS,
 } from './service-constants.js';
+import {
+  toHtmlDateValue,
+  normalizeDateForStorage,
+  toHtmlTimeValue,
+  normalizeTimeForStorage,
+  toHtmlDatetimeLocalValue,
+  normalizeDatetimeForStorage,
+  resolveFieldInputType,
+  normalizeDynamicCellValue,
+} from './form-date-utils.js';
+import {
+  isOfficialTemplate,
+  getServiceFormTitle,
+  resolveClientDisplayMeta,
+  renderJobClientHeader,
+  buildFormPrefill,
+  mergeFormValues,
+} from './form-prefill.js';
+
+export {
+  toHtmlDateValue,
+  normalizeDateForStorage,
+  toHtmlTimeValue,
+  normalizeTimeForStorage,
+  toHtmlDatetimeLocalValue,
+  normalizeDatetimeForStorage,
+} from './form-date-utils.js';
+export {
+  isOfficialTemplate,
+  getServiceFormTitle,
+  resolveClientDisplayMeta,
+  renderJobClientHeader,
+  buildFormPrefill,
+  mergeFormValues,
+} from './form-prefill.js';
+
 
 export { renderClientCombobox, renderHeaderClientCombobox, bindClientComboboxes, collectClientComboboxValues };
 
@@ -95,362 +131,6 @@ function getStatusPillClass(opt) {
 
 function isDamagedComponentValue(val) {
   return /danificad/i.test(String(val || ''));
-}
-
-const DATE_FIELD_ID_RE =
-  /^(data_|data_de_|data_fabrico|data_fabricacao|data_rececao|concluido_testado_em|data_1|data_2)/i;
-const TIME_FIELD_ID_RE = /^(hora_|hora_inicio|hora_fim|hora_de_)/i;
-const DATETIME_FIELD_ID_RE = /^(data_hora|datetime)/i;
-
-/** Valor para input type="date" (YYYY-MM-DD) */
-export function toHtmlDateValue(val) {
-  const text = String(val ?? '').trim();
-  if (!text) return '';
-  if (/^\d{4}-\d{2}-\d{2}/.test(text)) return text.slice(0, 10);
-  const dmy = text.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})/);
-  if (dmy) {
-    const [, d, m, y] = dmy;
-    return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-  }
-  const parsed = new Date(text.includes('T') ? text : `${text}T12:00:00`);
-  if (!Number.isNaN(parsed.getTime())) {
-    const y = parsed.getFullYear();
-    const m = String(parsed.getMonth() + 1).padStart(2, '0');
-    const d = String(parsed.getDate()).padStart(2, '0');
-    return `${y}-${m}-${d}`;
-  }
-  return '';
-}
-
-/** Valor guardado — data ISO (YYYY-MM-DD) */
-export function normalizeDateForStorage(val) {
-  return toHtmlDateValue(val) || String(val ?? '').trim();
-}
-
-/** Valor para input type="time" (HH:mm) */
-export function toHtmlTimeValue(val) {
-  const text = String(val ?? '').trim();
-  if (!text) return '';
-  const hm = text.match(/(\d{1,2}):(\d{2})/);
-  if (hm) return `${String(hm[1]).padStart(2, '0')}:${hm[2]}`;
-  return '';
-}
-
-export function normalizeTimeForStorage(val) {
-  return toHtmlTimeValue(val) || String(val ?? '').trim();
-}
-
-/** Valor para input type="datetime-local" (YYYY-MM-DDTHH:mm) */
-export function toHtmlDatetimeLocalValue(val) {
-  const text = String(val ?? '').trim();
-  if (!text) return '';
-  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(text)) return text.slice(0, 16);
-  const iso = text.match(/^(\d{4}-\d{2}-\d{2})[T ](\d{1,2}:\d{2})/);
-  if (iso) {
-    const hm = iso[2].match(/(\d{1,2}):(\d{2})/);
-    const time = hm ? `${String(hm[1]).padStart(2, '0')}:${hm[2]}` : '00:00';
-    return `${iso[1]}T${time}`;
-  }
-  const datePart = toHtmlDateValue(text);
-  const timePart = toHtmlTimeValue(text);
-  if (datePart && timePart) return `${datePart}T${timePart}`;
-  if (datePart) return `${datePart}T00:00`;
-  return '';
-}
-
-export function normalizeDatetimeForStorage(val) {
-  return toHtmlDatetimeLocalValue(val) || String(val ?? '').trim();
-}
-
-function resolveFieldInputType(field) {
-  const type = field?.type;
-  if (type === 'date' || type === 'time' || type === 'datetime' || type === 'datetime-local') {
-    return type === 'datetime' ? 'datetime-local' : type;
-  }
-  const id = field?.id || '';
-  if (DATETIME_FIELD_ID_RE.test(id)) return 'datetime-local';
-  if (TIME_FIELD_ID_RE.test(id)) return 'time';
-  if (DATE_FIELD_ID_RE.test(id) || /fabrico|rececao|conclusao/i.test(id)) return 'date';
-  return type;
-}
-
-function normalizeDynamicCellValue(inputType, val) {
-  if (inputType === 'date') return normalizeDateForStorage(val);
-  if (inputType === 'time') return normalizeTimeForStorage(val);
-  if (inputType === 'datetime-local' || inputType === 'datetime') return normalizeDatetimeForStorage(val);
-  return String(val ?? '').trim();
-}
-
-export function isOfficialTemplate(service) {
-  return Boolean(service?.companyName && (service?.title || service?.label));
-}
-
-/** Campos de rastreamento de máquina — suspensos no fluxo de relatórios */
-export const MACHINE_TRACKING_FIELD_IDS = new Set([
-  'marca',
-  'modelo',
-  'numero_de_serie',
-  'marca_modelo',
-]);
-
-export function isMachineTrackingField(field) {
-  return Boolean(field?.id && MACHINE_TRACKING_FIELD_IDS.has(field.id));
-}
-
-/** Serviços onde o técnico identifica a máquina no ecrã (Marca/Modelo/Nº Série). */
-const SERVICES_WITH_MACHINE_FIELDS = new Set([
-  SERVICE_IDS.INSPECAO_DL50_2005,
-  SERVICE_IDS.FOLHA_INTERVENCAO_AVARIAS,
-  SERVICE_IDS.MANUTENCAO_PREVENTIVA_EMPILHADORES,
-  SERVICE_IDS.MANUTENCAO_CORRETIVA_MAQUINAS,
-  SERVICE_IDS.MANUTENCAO_PREVENTIVA_BATERIA,
-  SERVICE_IDS.REPARACAO_AVARIAS_BATERIA,
-  SERVICE_IDS.REPARACAO_CARREGADOR,
-]);
-
-const SERVICE_MACHINE_FIELD_SECTIONS = {
-  [SERVICE_IDS.REPARACAO_CARREGADOR]: 'Identificação Do Carregador',
-  [SERVICE_IDS.REPARACAO_AVARIAS_BATERIA]: REPORT_SECTIONS.BATTERY,
-  [SERVICE_IDS.MANUTENCAO_PREVENTIVA_BATERIA]: REPORT_SECTIONS.BATTERY,
-};
-
-const EMPILHADORES_MACHINE_SECTION = REPORT_SECTIONS.MACHINE;
-
-/** Relatórios com Nr de Visitas na secção dedicada do formulário (não no intro) */
-
-function filterReportFields(fields, service) {
-  return (fields || []).filter((f) => {
-    if (isDeslocacaoField(f) || isDeslocacaoMetaField(f)) return false;
-    if (isVisitasField(f) && !SERVICES_WITH_SECTION_VISITAS.has(service?.id)) return false;
-    const machineSection = SERVICE_MACHINE_FIELD_SECTIONS[service?.id];
-    if (
-      SERVICES_WITH_MACHINE_FIELDS.has(service?.id) &&
-      (f.section === 'Informações da Máquina' ||
-        (machineSection && f.section === machineSection))
-    ) {
-      return true;
-    }
-    return !isMachineTrackingField(f);
-  });
-}
-
-/** Visitas no bloco intro — Informações Gerais / Dados da Intervenção */
-export function renderDeslocacaoIntroBlock(values = {}, context = {}) {
-  const service = context?.service;
-  const visitas = values[VISITAS_FIELD_ID] ?? values.visitas ?? 1;
-  const showVisitasInIntro = !SERVICES_WITH_SECTION_VISITAS.has(service?.id);
-  if (!showVisitasInIntro) return '';
-
-  return `
-    <div class="form-intro-deslocacao-grid">
-      <div class="form-intro-visitas">${renderField(STANDARD_VISITAS_FIELD, visitas, context)}</div>
-    </div>
-  `;
-}
-
-/** @deprecated — usar renderDeslocacaoIntroBlock */
-export function renderDeslocacaoIntroField(values = {}, context = {}) {
-  return renderDeslocacaoIntroBlock(values, context);
-}
-
-const SERVICE_FORM_TITLES = {
-  manutencao_baterias_grandes: 'Relatório de Manutenção de Baterias',
-  manutencao_preventiva_bateria: 'Relatório de Manutenção Preventiva de Bateria',
-  manutencao_preventiva_empilhadores: 'Relatório de Manutenção Preventiva de Empilhadores',
-  manutencao_corretiva_maquinas: 'Relatório de Manutenção Corretiva',
-  folha_intervencao_avarias: 'Folha de Intervenção de Avarias',
-  reparacao_avarias_bateria: 'Relatório de Reparação de Baterias',
-  reparacao_carregador: 'Relatório de Reparação de Carregador',
-  inspecao_dl50_2005: 'Inspeção da Máquina Decreto-Lei 50/2005',
-};
-
-/** Título curto do formulário (ecrã técnico) — alinhado com `title` dos templates oficiais */
-export function getServiceFormTitle(service) {
-  if (!service) return 'Relatório';
-  if (isOfficialTemplate(service) && service.title) return service.title;
-  return SERVICE_FORM_TITLES[service.id] || service.label || service.title || 'Relatório';
-}
-
-export function resolveClientDisplayMeta(client) {
-  const nome = client?.name || client?.Nome || 'Cliente não indicado';
-  const morada = client?.Morada || client?.morada || '';
-  const cp = client?.['Código postal'] || client?.codigoPostal || '';
-  const loc = client?.Localidade || client?.localidade || '';
-  const addressParts = [morada, [cp, loc].filter(Boolean).join(' ')].filter(Boolean);
-  const address = client?.address || addressParts.join(', ') || '';
-  const phone =
-    client?.phone ||
-    client?.telemovel ||
-    client?.Telemovel ||
-    client?.telefone ||
-    client?.Telefone ||
-    '';
-  const email = client?.email || client?.['E-mail'] || '';
-  return { nome, address, phone, email };
-}
-
-/** Cabeçalho com dados do cliente (destino da intervenção) */
-export function renderJobClientHeader(client) {
-  const { nome, address, phone, email } = resolveClientDisplayMeta(client);
-
-  const addressHtml = address
-    ? `<p class="job-client-header-address">${escapeHtml(address)}</p>`
-    : `<p class="job-client-header-address job-client-header-address--muted">Morada não registada</p>`;
-
-  let contactHtml = '';
-  if (phone) {
-    const telHref = phone.replace(/[^\d+]/g, '');
-    contactHtml = `
-      <p class="job-client-header-contact">
-        <span class="job-client-header-label">Contacto</span>
-        <a href="tel:${escapeHtml(telHref)}" class="job-client-header-link">${escapeHtml(phone)}</a>
-      </p>`;
-  } else if (email) {
-    contactHtml = `
-      <p class="job-client-header-contact">
-        <span class="job-client-header-label">E-mail</span>
-        <a href="mailto:${escapeHtml(email)}" class="job-client-header-link">${escapeHtml(email)}</a>
-      </p>`;
-  }
-
-  return `
-    <div class="job-client-header glass-card-inner">
-      <p class="job-client-header-name">${escapeHtml(nome)}</p>
-      ${addressHtml}
-      ${contactHtml}
-    </div>
-  `;
-}
-
-/** Pré-preenchimento automático a partir do trabalho / técnico / cliente */
-export function buildFormPrefill(service, job, _forklift, context = {}) {
-  if (!service) return {};
-
-  const { tech, client } = context;
-
-  if (service.id === 'reparacao_avarias_bateria') {
-    return {
-      data_de_conclusao: job?.date || '',
-      numero_de_serie: job?.forkliftSerial || '',
-      visitas_realizadas: 1,
-      estado_final: 'Reparação Concluída',
-      consumiveis: [emptyMaterialRow()],
-    };
-  }
-
-  if (service.id === 'reparacao_carregador') {
-    const interventionRow = resolveDynamicRowDefaults(
-      service.fields?.find((f) => f.id === 'registo_intervencao'),
-      { job, tech, client }
-    );
-    const nome = client?.Nome ?? client?.name ?? '';
-    return {
-      data_rececao: job?.date || '',
-      concluido_testado_em: '',
-      cliente: nome,
-      cliente_id: client?.NIF || client?.id || '',
-      etiqueta: '',
-      responsavel: '',
-      registo_intervencao: [interventionRow],
-      resultado_teste: [{ valor_da_amperagem_debitado: '', equipamento: '' }],
-      consumiveis_material: [emptyMaterialRow()],
-    };
-  }
-
-  if (service.id === 'folha_intervencao_avarias') {
-    return {
-      data_1: job?.date || '',
-      visitas_realizadas: 1,
-      pedido_orcamento: 'Não',
-      material_utilizado: [emptyMaterialRow()],
-    };
-  }
-
-  if (service.id === 'manutencao_baterias_grandes') {
-    return {
-      data_de_conclusao: job?.date || '',
-      [GRANDES_BATTERY_FIELD_ID]: [{}],
-      consumiveis_utilizados: [emptyMaterialRow()],
-      visitas_realizadas: 1,
-      estado_maquina: 'Operacional',
-    };
-  }
-
-  if (service.id === 'manutencao_preventiva_bateria') {
-    const toggles = {};
-    service.fields
-      ?.filter((f) => f.type === 'toggle_component')
-      .forEach((f) => {
-        toggles[f.id] = f.options?.[0] || 'Operacional';
-      });
-    return {
-      data_de_conclusao: job?.date || '',
-      numero_de_serie: job?.forkliftSerial || '',
-      consumiveis: [emptyMaterialRow()],
-      visitas_realizadas: 1,
-      estado_final: 'Operacional',
-      ...toggles,
-    };
-  }
-
-  if (service.id === 'manutencao_preventiva_empilhadores') {
-    return {
-      data_de_conclusao: job?.date || '',
-      [EMPILHADORES_MAQUINAS_FIELD_ID]: [emptyEmpilhadoresMaquinaRow()],
-    };
-  }
-
-  if (service.id === 'inspecao_dl50_2005') {
-    return {
-      data_de_conclusao: job?.date || '',
-      periodicidade_inspecao: 'Anual',
-      pedido_orcamento: 'Não',
-    };
-  }
-
-  if (service.id === 'manutencao_corretiva_maquinas') {
-    const verField = service.fields?.find((f) => f.type === 'verification_toggles');
-    const verifications = {};
-    (verField?.items || []).forEach((item) => {
-      const spec = normalizeVerifyItem(item);
-      verifications[spec.id] = 'OK';
-    });
-    return {
-      data_de_conclusao: job?.date || '',
-      horas: '',
-      estado_maquina: 'Operacional',
-      [verField?.id || 'lista_de_verificacoes']: verifications,
-    };
-  }
-
-  return {};
-}
-
-function normalizeVerifyItem(item) {
-  if (typeof item === 'string') return { id: columnKey(item), label: item };
-  return { id: item.id || columnKey(item.label), label: item.label };
-}
-
-export function mergeFormValues(existing = {}, prefill = {}, service = null) {
-  const merged = { ...prefill };
-  Object.entries(existing).forEach(([key, val]) => {
-    if (val === undefined || val === null) return;
-    if (typeof val === 'object' && !Array.isArray(val) && merged[key] && typeof merged[key] === 'object') {
-      merged[key] = { ...merged[key], ...val };
-      return;
-    }
-    if (Array.isArray(val) ? val.length > 0 : String(val).trim() !== '') {
-      merged[key] = val;
-    }
-  });
-
-  (service?.fields || []).forEach((field) => {
-    if (!isMaterialTableField(field)) return;
-    if (merged[field.id] !== undefined) {
-      merged[field.id] = normalizeMaterialRows(merged[field.id]);
-    }
-  });
-  return merged;
 }
 
 const REPORT_TAB_CHECKLIST_TYPES = new Set(['verification_toggles', 'matrix_4options']);
