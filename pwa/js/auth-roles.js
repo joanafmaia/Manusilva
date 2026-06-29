@@ -3,14 +3,28 @@
  * E-mails/nomes sincronizados com a API via pwa/shared/rh-admin-config.json.
  */
 
-import rhConfig from './rh-admin-config.js';
+// >>> RH_CONFIG_START (npm run sync:rh-config)
+const RH_CONFIG = {
+  roleValues: [
+    'RH',
+    'rh',
+    'admin',
+    'Admin',
+    'ADMIN',
+    'administracao',
+    'Administracao',
+  ],
+  emails: ['joanamaia97@gmail.com', 'filipa@sistema.com', 'filipa@rh.manusilva.internal'],
+  names: ['joana', 'filipa'],
+};
+// <<< RH_CONFIG_END
 
 /** Valores aceites em user_metadata.role ou sessão local */
-export const RH_ADMIN_ROLE_VALUES = new Set(rhConfig.roleValues);
+export const RH_ADMIN_ROLE_VALUES = new Set(RH_CONFIG.roleValues);
 
-export const RH_ADMIN_EMAILS = rhConfig.emails.map((email) => email.toLowerCase());
+export const RH_ADMIN_EMAILS = RH_CONFIG.emails.map((email) => email.toLowerCase());
 
-const RH_ADMIN_NAMES = new Set(rhConfig.names.map((name) => name.toLowerCase()));
+const RH_ADMIN_NAMES = new Set(RH_CONFIG.names.map((name) => name.toLowerCase()));
 
 /** @deprecated usar RH_ADMIN_EMAILS (lista sincronizada com a API) */
 export function getRhAdminEmails() {
@@ -57,4 +71,13 @@ export function isRhOrAdminSession(session) {
   if (isRhOrAdminRole(session.role)) return true;
   if (isRhOrAdminName(session.name)) return true;
   return isRhOrAdminEmail(session.username || session.email);
+}
+
+/** Exposto para testes de sincronização com a API */
+export function getRhAdminConfigSnapshot() {
+  return {
+    roleValues: [...RH_CONFIG.roleValues],
+    emails: [...RH_CONFIG.emails],
+    names: [...RH_CONFIG.names],
+  };
 }
