@@ -38,6 +38,16 @@ describe('form-engine exports', () => {
       assert.equal(typeof mod[name], 'function', `export em falta: ${name}`);
     }
   });
+
+  it('renderiza checklist da manutenção corretiva', async () => {
+    const { renderReportFields, analyzeReportFormTabs } = await import('../js/form-engine.js');
+    const { MANUTENCAO_CORRETIVA_MAQUINAS } = await import('../js/mock_data.js');
+    assert.equal(analyzeReportFormTabs(MANUTENCAO_CORRETIVA_MAQUINAS).checklist, true);
+    const html = renderReportFields(MANUTENCAO_CORRETIVA_MAQUINAS, {}, {}, { tab: 'checklist' });
+    assert.match(html, /data-verification-field="lista_de_verificacoes"/);
+    assert.match(html, /Chassis/);
+    assert.match(html, /corretiva-verifications-shell/);
+  });
 });
 
 describe('Fase 2 — supabase sem fallback hardcoded', () => {

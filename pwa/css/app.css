@@ -4760,6 +4760,8 @@ body .glass-card-inner {
   body.tech-dashboard-page .form-overlay :is(#report-panel-geral, #report-panel-checklist, #report-panel-finalizacao) .form-section-subtitle,
   body.tech-dashboard-page .form-overlay :is(#report-panel-geral, #report-panel-checklist, #report-panel-finalizacao) .empilhadores-machine-grid,
   body.tech-dashboard-page .form-overlay :is(#report-panel-geral, #report-panel-checklist, #report-panel-finalizacao) .corretiva-machine-grid,
+  body.tech-dashboard-page .form-overlay :is(#report-panel-geral, #report-panel-checklist, #report-panel-finalizacao) .corretiva-verifications-shell,
+  body.tech-dashboard-page .form-overlay :is(#report-panel-geral, #report-panel-checklist, #report-panel-finalizacao) .corretiva-observations-box,
   body.tech-dashboard-page .form-overlay :is(#report-panel-geral, #report-panel-checklist, #report-panel-finalizacao) .material-substitution-grid,
   body.tech-dashboard-page .form-overlay :is(#report-panel-geral, #report-panel-checklist, #report-panel-finalizacao) .diagnostic-section-highlight,
   body.tech-dashboard-page .form-overlay :is(#report-panel-geral, #report-panel-checklist, #report-panel-finalizacao) .field-block:not(.field-block--grid-eligible),

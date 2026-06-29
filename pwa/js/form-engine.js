@@ -1607,6 +1607,11 @@ function renderToggleField(field, value = '') {
   `;
 }
 
+function normalizeVerifyItem(item) {
+  if (typeof item === 'string') return { id: columnKey(item), label: item };
+  return { id: item.id || columnKey(item.label), label: item.label };
+}
+
 function countVerificationProgress(items, states) {
   let ok = 0;
   let fail = 0;
