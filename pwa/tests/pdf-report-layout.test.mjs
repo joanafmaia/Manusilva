@@ -119,3 +119,16 @@ describe('pdf-reparacao-carregador', () => {
     }
   });
 });
+
+describe('pdf-corretiva-maquinas', () => {
+  it('expõe layout da manutenção corretiva máquinas', async () => {
+    const mod = await import('../js/pdf-corretiva-maquinas.js');
+    for (const name of [
+      'drawCorretivaTitleBar',
+      'drawCorretivaMaquinasBody',
+      'drawCorretivaMaquinasClosingSection',
+    ]) {
+      assert.equal(typeof mod[name], 'function', `export em falta: ${name}`);
+    }
+  });
+});
