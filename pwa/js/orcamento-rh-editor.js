@@ -343,6 +343,7 @@ export function bindOrcamentoEditor(container, { report, onUpdated } = {}) {
     try {
       const { showToast, getClient, getJob, getTechnician, sendOrcamentoProposalEmail } =
         await import('./app.js');
+      const { resolveReportInterventionDatePt } = await import('./report-intervention-date.js');
       const { isValidEmail } = await import('./validators.js');
 
       const meta = readOrcamentoFormFromDom(root, currentReport);
@@ -377,8 +378,7 @@ export function bindOrcamentoEditor(container, { report, onUpdated } = {}) {
         reportId: saved.id,
         clienteNome: values.nome_empresa || values.cliente || client?.name || client?.Nome || '',
         tecnico: values.tecnico || tech?.name || '',
-        dataConclusao:
-          values.data_de_conclusao || String(saved.submittedAt || '').split('T')[0] || '',
+        dataConclusao: resolveReportInterventionDatePt(saved, job),
         orcamentoNumero: saved.data?.orcamento?.numeroFormatado || '',
         numeroOrdem: job?.numeroOrdem ?? null,
         pdfUrl,

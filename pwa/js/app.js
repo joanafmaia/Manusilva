@@ -4,6 +4,10 @@
  */
 
 import { getSupabaseClient } from './supabase-client.js';
+import {
+  formatInterventionDatePt,
+  resolveReportInterventionDatePt,
+} from './report-intervention-date.js';
 
 export { getSupabaseClient };
 
@@ -331,9 +335,7 @@ export async function sendOfficialReportEmail(meta = {}) {
     throw new Error('Sessão expirada. Inicie sessão novamente para enviar o e-mail.');
   }
 
-  const dateStamp =
-    meta.dataConclusao ||
-    new Date().toLocaleDateString('pt-PT', { year: 'numeric', month: '2-digit', day: '2-digit' });
+  const dateStamp = formatInterventionDatePt(meta.dataConclusao) || '';
   const clienteNome = meta.clienteNome || meta.nome_empresa || 'Cliente não indicado';
   const tecnico = meta.tecnico || 'Técnico não indicado';
   const tipoRelatorio = meta.tipoRelatorio || 'outro';
@@ -384,9 +386,7 @@ export async function sendOrcamentoProposalEmail(meta = {}) {
     throw new Error('Sessão expirada. Inicie sessão novamente para enviar a proposta.');
   }
 
-  const dateStamp =
-    meta.dataConclusao ||
-    new Date().toLocaleDateString('pt-PT', { year: 'numeric', month: '2-digit', day: '2-digit' });
+  const dateStamp = formatInterventionDatePt(meta.dataConclusao) || '';
 
   const payload = {
     to: meta.to,
@@ -645,8 +645,7 @@ export async function resendApprovedReportEmail(reportId, options = {}) {
       clienteNome: values.nome_empresa || values.cliente || client?.name || client?.Nome || '',
       nome_empresa: values.nome_empresa || '',
       tecnico: values.tecnico || getTechnician(report.technicianId)?.name || '',
-      dataConclusao:
-        values.data_de_conclusao || String(report.approvedAt || report.submittedAt || '').split('T')[0] || '',
+      dataConclusao: resolveReportInterventionDatePt(report, job),
       serieFrota: values.numero_de_serie || report.forkliftSerial || '',
       numeroOrdem: job?.numeroOrdem ?? null,
       to: recipientEmail,
@@ -779,10 +778,7 @@ export async function sendSelectedReportsEmail(reportIds, options = {}) {
       clienteNome: values.nome_empresa || values.cliente || client?.name || client?.Nome || '',
       nome_empresa: values.nome_empresa || '',
       tecnico: values.tecnico || tech?.name || '',
-      dataConclusao:
-        values.data_de_conclusao ||
-        String(reports[0].approvedAt || reports[0].submittedAt || '').split('T')[0] ||
-        '',
+      dataConclusao: resolveReportInterventionDatePt(reports[0], reports[0].jobId ? getJob(reports[0].jobId) : null),
       numeroOrdem: null,
       to: recipientEmail,
       ...emailPdfPayload,
@@ -1887,7 +1883,7 @@ export async function approveReport(reportId, options = {}) {
         clienteNome: values.nome_empresa || values.cliente || client?.name || client?.Nome || '',
         nome_empresa: values.nome_empresa || '',
         tecnico: values.tecnico || getTechnician(report.technicianId)?.name || '',
-        dataConclusao: values.data_de_conclusao || String(report.submittedAt || '').split('T')[0] || '',
+        dataConclusao: resolveReportInterventionDatePt(report, job),
         serieFrota: values.numero_de_serie || report.forkliftSerial || '',
         numeroOrdem: job?.numeroOrdem ?? null,
         to: recipientEmail,

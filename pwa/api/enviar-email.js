@@ -1,5 +1,9 @@
 const nodemailer = require('nodemailer');
 const { isRhOrAdminAuthUser } = require('./lib/auth-roles');
+const {
+  formatInterventionDatePt,
+  resolveReportInterventionDatePt,
+} = require('./lib/report-intervention-date');
 
 const SMTP_HOST = process.env.SMTP_HOST;
 const SMTP_PORT = Number(process.env.SMTP_PORT || 465);
@@ -104,10 +108,17 @@ async function fetchReportForEmail(reportId, token, tipoRelatorio) {
   const isOrcamento = String(tipoRelatorio || '').toLowerCase() === 'orcamento';
   const estadoFilter = isOrcamento ? '' : '&estado=eq.approved';
   const rows = await supabaseGet(
-    `/rest/v1/relatorios?id=eq.${id}${estadoFilter}&select=id,cliente_id,estado,aprovado_em`,
+    `/rest/v1/relatorios?id=eq.${id}${estadoFilter}&select=id,cliente_id,estado,aprovado_em,submetido_em,dados,trabalho_id`,
     token,
   );
   return Array.isArray(rows) ? rows[0] || null : null;
+}
+
+async function fetchTrabalhoDate(trabalhoId, token) {
+  if (trabalhoId == null || trabalhoId === '') return null;
+  const id = encodeURIComponent(String(trabalhoId));
+  const rows = await supabaseGet(`/rest/v1/trabalhos?id=eq.${id}&select=data`, token);
+  return Array.isArray(rows) ? rows[0]?.data || null : null;
 }
 
 async function fetchApprovedReport(reportId, token) {
@@ -388,14 +399,10 @@ function buildHtmlBody(payload = {}, options = {}) {
   const pdfUrl = isSafeHttpUrl(payload.pdfUrl) ? String(payload.pdfUrl).trim() : '';
   const hasAttachment = Boolean(options.hasPdfAttachment);
   const data = escapeHtml(
-    payload.dataConclusao ||
-      payload.data ||
-      payload.date ||
-      new Date().toLocaleDateString('pt-PT', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-      }),
+    formatInterventionDatePt(payload.dataConclusao) ||
+      formatInterventionDatePt(payload.data) ||
+      formatInterventionDatePt(payload.date) ||
+      '—',
   );
   const tipoRelatorio = String(payload.tipoRelatorio || '').toLowerCase();
   const op = formatOpEmailLabel(payload.numeroOrdem);
@@ -663,13 +670,24 @@ module.exports = async function handler(req, res) {
           },
         });
 
+    const jobDate = report.trabalho_id ? await fetchTrabalhoDate(report.trabalho_id, token) : null;
+    const interventionDate = resolveReportInterventionDatePt(report, jobDate);
+    const emailPayload = {
+      ...payload,
+      dataConclusao:
+        interventionDate ||
+        formatInterventionDatePt(payload.dataConclusao) ||
+        formatInterventionDatePt(payload.data) ||
+        '',
+    };
+
     const attachments = pdfResolved.attachments || [];
 
     await transporter.sendMail({
       from: EMAIL_USER,
       to: recipient,
-      subject: buildSubject(payload),
-      html: buildHtmlBody(payload, {
+      subject: buildSubject(emailPayload),
+      html: buildHtmlBody(emailPayload, {
         hasPdfAttachment: attachments.length > 0,
         attachmentCount: attachments.length,
       }),
