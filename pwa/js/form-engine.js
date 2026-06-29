@@ -97,6 +97,7 @@ function isDamagedComponentValue(val) {
   return /danificad/i.test(String(val || ''));
 }
 
+const DATE_FIELD_ID_RE =
   /^(data_|data_de_|data_fabrico|data_fabricacao|data_rececao|concluido_testado_em|data_1|data_2)/i;
 const TIME_FIELD_ID_RE = /^(hora_|hora_inicio|hora_fim|hora_de_)/i;
 const DATETIME_FIELD_ID_RE = /^(data_hora|datetime)/i;
