@@ -7508,9 +7508,6 @@ body .admin-panel .rh-section, body .rh-section {
   text-decoration: underline;
 }
 .clients-list-table-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
   white-space: nowrap;
 }
 .clients-list-table-scroll {
@@ -11106,77 +11103,167 @@ body .admin-rh-page .btn-primary, body .admin-rh-page .btn-secondary, body .admi
 .faturacao-empty {
   margin: 0;
 }
-.faturacao-panel .faturacao-table--compact th {
+.faturacao-table-wrap {
+  overflow-x: auto;
+}
+/* ─── RH Admin — tabelas compactas uniformes (faturação, orçamentos, clientes, …) ─── */
+.admin-rh-page .rh-admin-panel,
+.orcamentos-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+.admin-rh-page .rh-admin-section,
+.admin-rh-page .faturacao-table-section,
+.admin-rh-page .faturacao-receivables-section,
+.admin-rh-page .faturacao-history-section {
+  padding: 1rem 1.15rem;
+}
+.admin-rh-page .rh-data-table--compact th,
+.admin-rh-page .faturacao-table--compact th {
   padding: 0.38rem 0.5rem;
   font-size: 0.67rem;
 }
-.faturacao-panel .faturacao-table--compact td {
+.admin-rh-page .rh-data-table--compact td,
+.admin-rh-page .faturacao-table--compact td {
   padding: 0.4rem 0.5rem;
   font-size: 0.8rem;
   line-height: 1.25;
   vertical-align: middle;
 }
-.faturacao-cell-client {
-  max-width: 10.5rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.faturacao-cell-client--wrap {
-  max-width: 11rem;
-  white-space: normal;
-  line-height: 1.2;
-}
-.faturacao-cell-client-name {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.faturacao-cell-nif,
-.faturacao-cell-date,
-.faturacao-cell-ordem {
-  white-space: nowrap;
-  font-size: 0.78rem;
-}
-.faturacao-cell-nif {
-  font-variant-numeric: tabular-nums;
-}
-.faturacao-cell-muted {
-  font-size: 0.78rem;
-  color: var(--ms-text-muted, #64748b);
-  white-space: nowrap;
-}
-.faturacao-col-action {
-  width: 1%;
-  white-space: nowrap;
-  text-align: right;
-  min-width: 0;
-}
-.faturacao-billing-actions {
-  display: inline-flex;
-  flex-wrap: nowrap;
-  gap: 0.2rem;
-  justify-content: flex-end;
-}
-.faturacao-panel .faturacao-btn-compact {
+.admin-rh-page .rh-btn-compact,
+.admin-rh-page .faturacao-btn-compact {
   padding: 0.18rem 0.42rem;
   font-size: 0.7rem;
   line-height: 1.15;
   border-radius: 0.35rem;
 }
-.faturacao-col-valor {
+.admin-rh-page .rh-table-actions,
+.admin-rh-page .faturacao-billing-actions {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  gap: 0.2rem;
+  justify-content: flex-end;
+}
+.admin-rh-page .rh-col-action,
+.admin-rh-page .faturacao-col-action {
+  width: 1%;
+  white-space: nowrap;
+  text-align: right;
+  min-width: 0;
+}
+.admin-rh-page .rh-cell-client,
+.admin-rh-page .faturacao-cell-client {
+  max-width: 10.5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.admin-rh-page .rh-cell-client--wrap,
+.admin-rh-page .faturacao-cell-client--wrap {
+  max-width: 11rem;
+  white-space: normal;
+  line-height: 1.2;
+}
+.admin-rh-page .rh-cell-client-name,
+.admin-rh-page .faturacao-cell-client-name {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.admin-rh-page .rh-cell-nif,
+.admin-rh-page .rh-cell-date,
+.admin-rh-page .rh-cell-ordem,
+.admin-rh-page .faturacao-cell-nif,
+.admin-rh-page .faturacao-cell-date,
+.admin-rh-page .faturacao-cell-ordem {
+  white-space: nowrap;
+  font-size: 0.78rem;
+}
+.admin-rh-page .rh-cell-nif,
+.admin-rh-page .faturacao-cell-nif {
+  font-variant-numeric: tabular-nums;
+}
+.admin-rh-page .rh-cell-muted,
+.admin-rh-page .faturacao-cell-muted {
+  font-size: 0.78rem;
+  color: var(--ms-text-muted, #64748b);
+  white-space: nowrap;
+}
+.admin-rh-page .rh-cell-valor,
+.admin-rh-page .faturacao-col-valor {
   font-weight: 600;
   white-space: nowrap;
   font-size: 0.78rem;
   font-variant-numeric: tabular-nums;
 }
-.faturacao-ordem {
+.admin-rh-page .rh-ordem-badge,
+.admin-rh-page .faturacao-ordem,
+.admin-rh-page .orcamentos-ordem {
   font-size: 0.72rem;
   padding: 0.1rem 0.32rem;
   border-radius: 4px;
   background: rgba(148, 163, 184, 0.15);
   white-space: nowrap;
+}
+.admin-rh-page .rh-data-table--compact .employee-avatar {
+  width: 1.5rem;
+  height: 1.5rem;
+  font-size: 0.65rem;
+}
+.admin-rh-page .rh-data-table--compact .rh-table-tech-cell {
+  gap: 0.35rem;
+}
+.admin-rh-page .rh-data-table--compact .rh-table-tech-name {
+  font-size: 0.8rem;
+}
+.admin-rh-page .rh-cell-link-btn {
+  display: inline;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-weight: 600;
+  color: var(--ms-primary, #2563eb);
+  cursor: pointer;
+  text-align: left;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.admin-rh-page .rh-cell-link-btn:hover {
+  text-decoration: underline;
+}
+/* Lista de revisão RH — cartões compactos alinhados com tabelas */
+.admin-rh-page .rh-review-stack {
+  gap: 6px;
+}
+.admin-rh-page .rh-list-item__summary {
+  padding: 0.42rem 0.55rem;
+  gap: 4px;
+}
+.admin-rh-page .rh-list-item__client {
+  font-size: 0.8rem;
+}
+.admin-rh-page .rh-list-item__tech {
+  font-size: 0.72rem;
+}
+.admin-rh-page .rh-list-item__ordem {
+  font-size: 0.62rem;
+  padding: 0.15rem 0.35rem;
+}
+.admin-rh-page .rh-list-item__open-btn {
+  padding: 0.18rem 0.42rem;
+  font-size: 0.7rem;
+  border-radius: 0.35rem;
+}
+.admin-rh-page .rh-quick-btn {
+  width: 1.35rem;
+  height: 1.35rem;
+  font-size: 0.7rem;
 }
 .faturacao-row--urgent td:first-child {
   border-left: 3px solid #f59e0b;
@@ -11972,61 +12059,38 @@ body.tech-dashboard-page .tech-navbar__offline, body.tech-dashboard-page #tech-s
 }
 .orcamentos-table {
   width: 100%;
-  border-collapse: collapse;
-  font-size: 0.88rem;
-}
-.orcamentos-table th, .orcamentos-table td {
-  padding: 0.55rem 0.65rem;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.22);
-  vertical-align: top;
-  text-align: left;
-}
-.orcamentos-table th {
-  font-size: 0.72rem;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  color: var(--text-muted);
 }
 .orcamentos-row--highlight {
   animation: orcamentos-row-flash 1.2s ease-in-out 2;
 }
 .orcamentos-ordem {
-  font-size: 0.82rem;
-  padding: 0.15rem 0.4rem;
-  border-radius: 4px;
-  background: rgba(148, 163, 184, 0.15);
   white-space: nowrap;
 }
 .orcamentos-row__sub {
   display: block;
-  margin-top: 0.15rem;
-  font-size: 0.78rem;
+  margin-top: 0.1rem;
+  font-size: 0.72rem;
   color: var(--text-muted);
-}
-.orcamentos-col-muted {
-  color: var(--text-muted);
-  font-size: 0.82rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 .orcamentos-col-detalhe {
-  max-width: 14rem;
-  font-size: 0.82rem;
-  color: var(--text-muted);
+  max-width: 9rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .orcamentos-col-action {
   width: 1%;
-  min-width: 12rem;
-  white-space: normal;
+  min-width: 0;
+  white-space: nowrap;
   text-align: right;
 }
 .orcamentos-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.3rem;
+  display: inline-flex;
+  flex-wrap: nowrap;
+  gap: 0.2rem;
   justify-content: flex-end;
-}
-.orcamentos-col-action .btn-sm + .btn-sm {
-  margin-left: 0;
 }
 .orcamentos-status {
   display: inline-flex;

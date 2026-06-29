@@ -18,7 +18,7 @@ function escapeAttr(str) {
 
 export function renderClientsListSection() {
   return `
-    <section class="clients-list-section rh-section" data-clients-list-section aria-labelledby="clients-list-title">
+    <section class="clients-list-section rh-section rh-admin-section" data-clients-list-section aria-labelledby="clients-list-title">
       <h3 id="clients-list-title" class="dashboard-section-title">Lista de clientes</h3>
       <p class="clients-list-hint ms-label">
         Use «Editar Ficha» para os dados cadastrais (NIF, morada, e-mail e condição de pagamento) e «Ver Histórico» para os relatórios do cliente.
@@ -37,7 +37,7 @@ export function renderClientsListSection() {
 
       <div class="clients-list-table-wrap">
         <div class="clients-list-table-scroll">
-          <table class="clients-list-table rh-data-table">
+          <table class="clients-list-table rh-data-table rh-data-table--compact">
             <thead>
               <tr>
                 <th scope="col">Cliente</th>
@@ -77,18 +77,20 @@ function renderClientCard(c) {
 
 function renderClientTableRow(c) {
   return `
-    <tr class="clients-list-table-row">
-      <td>
-        <button type="button" class="clients-list-name-btn" data-client-profile="${escapeAttr(c.id)}">
+    <tr class="rh-data-table-row clients-list-table-row">
+      <td class="rh-cell-client">
+        <button type="button" class="rh-cell-link-btn clients-list-name-btn" data-client-profile="${escapeAttr(c.id)}">
           ${escapeHtml(c.Nome)}
         </button>
       </td>
-      <td>${escapeHtml(c.NIF || '—')}</td>
-      <td>${escapeHtml(c['E-mail'] || '—')}</td>
-      <td>${escapeHtml(c.Localidade || '—')}</td>
-      <td class="clients-list-table-actions">
-        <button type="button" class="btn-ghost btn-sm" data-client-profile="${escapeAttr(c.id)}">✏️ Editar Ficha</button>
-        <button type="button" class="btn-primary btn-sm" data-client-history="${escapeAttr(c.id)}">🗂 Ver Histórico</button>
+      <td class="rh-cell-nif">${escapeHtml(c.NIF || '—')}</td>
+      <td class="rh-cell-muted">${escapeHtml(c['E-mail'] || '—')}</td>
+      <td class="rh-cell-muted">${escapeHtml(c.Localidade || '—')}</td>
+      <td class="rh-col-action clients-list-table-actions">
+        <div class="rh-table-actions">
+          <button type="button" class="btn-ghost btn-sm rh-btn-compact" data-client-profile="${escapeAttr(c.id)}" title="Editar ficha cadastral">Ficha</button>
+          <button type="button" class="btn-primary btn-sm rh-btn-compact" data-client-history="${escapeAttr(c.id)}" title="Ver histórico de relatórios">Histórico</button>
+        </div>
       </td>
     </tr>
   `;

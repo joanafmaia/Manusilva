@@ -85,7 +85,7 @@ function renderTechnicianCards(technicians, counts) {
 function renderTechniciansTable(technicians, counts) {
   return `
     <div class="rh-table-scroll">
-      <table class="rh-data-table rh-employees-table">
+      <table class="rh-data-table rh-data-table--compact rh-employees-table">
         <thead>
           <tr>
             <th scope="col">Técnico</th>

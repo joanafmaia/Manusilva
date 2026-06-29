@@ -433,26 +433,29 @@ function formatHistoryDate(isoDate) {
   return `${d}/${m}/${y}`;
 }
 
-function renderInvoiceHistoryRow(report, acumulado) {
+function renderInvoiceHistoryRow(report, acumulado, showAcum) {
   const meta = resolveClientMeta(report.clientId);
   const pago = report.statusRecebimento === 'pago';
-  const stateClass = pago ? 'tech-job-row--approved' : 'tech-job-row--pending';
 
   return `
-    <div class="tech-job-row ${stateClass} faturacao-history-row">
-      <span class="tech-job-row-date">${escapeHtml(formatHistoryDate(invoiceDateOf(report)))}</span>
-      <button type="button" class="faturacao-history-client-btn tech-job-row-client" data-history-detail="${escapeHtml(report.id)}" title="Ver datas do relatório, faturação e recebimento">
-        ${escapeHtml(meta.nome)}
-      </button>
-      <span class="faturacao-history-num"><code class="faturacao-ordem">${escapeHtml(report.numeroFatura || '—')}</code></span>
-      <span class="faturacao-history-valor">${escapeHtml(formatCurrencyEur(report.valorFaturado))}</span>
+    <tr class="rh-data-table-row faturacao-history-row" data-history-id="${escapeHtml(report.id)}">
+      <td class="rh-cell-date">${escapeHtml(formatHistoryDate(invoiceDateOf(report)))}</td>
+      <td class="rh-cell-client">
+        <button type="button" class="rh-cell-link-btn faturacao-history-client-btn" data-history-detail="${escapeHtml(report.id)}" title="Ver datas do relatório, faturação e recebimento">
+          ${escapeHtml(meta.nome)}
+        </button>
+      </td>
+      <td class="rh-cell-ordem"><code class="rh-ordem-badge faturacao-ordem">${escapeHtml(report.numeroFatura || '—')}</code></td>
+      <td class="rh-cell-valor">${escapeHtml(formatCurrencyEur(report.valorFaturado))}</td>
       ${
-        acumulado != null
-          ? `<span class="faturacao-history-acum" title="Acumulado do cliente até esta fatura">Σ ${escapeHtml(formatCurrencyEur(acumulado))}</span>`
+        showAcum
+          ? `<td class="rh-cell-muted faturacao-history-acum" title="Acumulado do cliente até esta fatura">${acumulado != null ? `Σ ${escapeHtml(formatCurrencyEur(acumulado))}` : '—'}</td>`
           : ''
       }
-      <span class="faturacao-history-estado ${pago ? 'is-pago' : 'is-pendente'}">${pago ? 'Pago' : 'Pendente'}</span>
-    </div>
+      <td>
+        <span class="faturacao-history-estado ${pago ? 'is-pago' : 'is-pendente'}">${pago ? 'Pago' : 'Pendente'}</span>
+      </td>
+    </tr>
   `;
 }
 
@@ -464,7 +467,6 @@ function renderHistorySection(invoices = getFilteredInvoices()) {
 
   if (invoices.length) {
     if (clientActive) {
-      // Acumulado (Renda Total) do mais antigo para o mais recente
       cumulativeByReport = new Map();
       let running = 0;
       [...invoices]
@@ -476,10 +478,30 @@ function renderHistorySection(invoices = getFilteredInvoices()) {
     }
 
     rowsHtml = `
-      <div class="tech-job-rows faturacao-history-rows">
-        ${invoices
-          .map((r) => renderInvoiceHistoryRow(r, cumulativeByReport ? cumulativeByReport.get(r.id) : null))
-          .join('')}
+      <div class="faturacao-table-wrap">
+        <table class="rh-data-table rh-data-table--compact faturacao-history-table">
+          <thead>
+            <tr>
+              <th>Data</th>
+              <th>Cliente</th>
+              <th>Fatura</th>
+              <th>Valor</th>
+              ${clientActive ? '<th>Acumulado</th>' : ''}
+              <th>Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${invoices
+              .map((r) =>
+                renderInvoiceHistoryRow(
+                  r,
+                  cumulativeByReport ? cumulativeByReport.get(r.id) : null,
+                  clientActive,
+                ),
+              )
+              .join('')}
+          </tbody>
+        </table>
       </div>
     `;
   }
@@ -524,7 +546,7 @@ function renderBillingTable(rows) {
     <section class="faturacao-table-section faturacao-table-section--billing rh-section glass-card">
       <h3 class="ms-h2 faturacao-section-title">Relatórios por faturar <span class="badge-count">${rows.length}</span></h3>
       <div class="rh-table-scroll">
-        <table class="rh-data-table faturacao-table faturacao-table--compact faturacao-billing-table">
+        <table class="rh-data-table rh-data-table--compact faturacao-table faturacao-table--compact faturacao-billing-table">
           <thead>
             <tr>
               <th scope="col">Cliente</th>
@@ -577,7 +599,7 @@ function renderReceivablesTable(rows) {
     <section class="faturacao-receivables-section rh-section glass-card">
       <h3 class="ms-h2 faturacao-section-title">Faturas Pendentes de Pagamento <span class="badge-count">${rows.length}</span></h3>
       <div class="rh-table-scroll">
-        <table class="rh-data-table faturacao-table faturacao-table--compact faturacao-table--receivables">
+        <table class="rh-data-table rh-data-table--compact faturacao-table faturacao-table--compact faturacao-table--receivables">
           <thead>
             <tr>
               <th scope="col">Cliente</th>
@@ -1169,7 +1191,7 @@ function renderPanel() {
   const receivableRows = buildReceivableRows(getPendingPaymentInvoices());
 
   return `
-    <div class="faturacao-panel dashboard-panel-inner">
+    <div class="faturacao-panel rh-admin-panel dashboard-panel-inner">
       <header class="faturacao-header rh-section">
         <h2 class="ms-h2">Controlo de Faturação</h2>
         <p class="text-muted faturacao-lead">

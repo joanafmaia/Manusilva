@@ -139,8 +139,8 @@ function renderTableRow(report) {
   const meta = getReportOrcamentoMeta(report);
   const detalhe = getPedidoOrcamentoDetalhe(report);
   const detalheShort = detalhe
-    ? detalhe.length > 72
-      ? `${detalhe.slice(0, 69)}…`
+    ? detalhe.length > 48
+      ? `${detalhe.slice(0, 45)}…`
       : detalhe
     : '—';
   const pdfUrl = getReportOrcamentoPdfUrl(report);
@@ -148,45 +148,46 @@ function renderTableRow(report) {
   const canApproveReport = report.status === 'pending_review';
   const canCancelPedido = !meta?.enviadoEm;
   const highlighted = highlightReportId && report.id === highlightReportId;
+  const clientName = client?.name || client?.Nome || '—';
 
   return `
-    <tr class="orcamentos-row${highlighted ? ' orcamentos-row--highlight' : ''}" data-report-id="${escapeHtml(report.id)}">
-      <td><span class="orcamentos-ordem">${escapeHtml(formatOrdemLabel(job))}</span></td>
-      <td>
-        <strong>${escapeHtml(client?.name || client?.Nome || '—')}</strong>
+    <tr class="rh-data-table-row orcamentos-row${highlighted ? ' orcamentos-row--highlight' : ''}" data-report-id="${escapeHtml(report.id)}">
+      <td class="rh-cell-ordem"><code class="orcamentos-ordem rh-ordem-badge">${escapeHtml(formatOrdemLabel(job))}</code></td>
+      <td class="rh-cell-client" title="${escapeHtml(clientName)}">
+        <span class="rh-cell-client-name">${escapeHtml(clientName)}</span>
         <span class="orcamentos-row__sub">${escapeHtml(service?.label || report.serviceType || '—')}</span>
       </td>
-      <td class="orcamentos-col-muted">${escapeHtml(reportStatusLabel(report))}</td>
-      <td>
+      <td class="rh-cell-muted">${escapeHtml(reportStatusLabel(report))}</td>
+      <td class="rh-cell-muted">
         <span class="orcamentos-status ${statusClass(workflow)}">${escapeHtml(statusLabel(workflow))}</span>
         ${meta?.numeroFormatado ? `<span class="orcamentos-numero">nº ${escapeHtml(meta.numeroFormatado)}</span>` : ''}
       </td>
-      <td class="orcamentos-col-detalhe" title="${escapeHtml(detalhe)}">${escapeHtml(detalheShort)}</td>
-      <td class="orcamentos-col-muted">${escapeHtml(tech?.name || '—')}</td>
-      <td class="orcamentos-col-action">
-        <div class="orcamentos-actions">
+      <td class="rh-cell-muted orcamentos-col-detalhe" title="${escapeHtml(detalhe)}">${escapeHtml(detalheShort)}</td>
+      <td class="rh-cell-muted">${escapeHtml(tech?.name || '—')}</td>
+      <td class="rh-col-action">
+        <div class="rh-table-actions">
           ${
             canApproveReport
-              ? `<button type="button" class="btn-success btn-sm btn-touch" data-orc-approve-report="${escapeHtml(report.id)}" title="Aprovar e enviar o relatório técnico ao cliente">Aprovar relatório</button>`
+              ? `<button type="button" class="btn-success btn-sm rh-btn-compact" data-orc-approve-report="${escapeHtml(report.id)}" title="Aprovar e enviar o relatório técnico ao cliente">Aprovar</button>`
               : ''
           }
-          <button type="button" class="btn-primary btn-sm btn-touch" data-orc-open="${escapeHtml(report.id)}">
+          <button type="button" class="btn-primary btn-sm rh-btn-compact" data-orc-open="${escapeHtml(report.id)}" title="${workflow === 'por_preparar' ? 'Preparar proposta MS.015' : 'Editar proposta'}">
             ${workflow === 'por_preparar' ? 'Preparar' : 'Editar'}
           </button>
           ${
             techPdfUrl && report.status === 'approved'
-              ? `<button type="button" class="btn-outline btn-sm btn-touch" data-orc-tech-pdf="${escapeHtml(techPdfUrl)}" title="Abrir PDF do relatório técnico">PDF relatório</button>`
+              ? `<button type="button" class="btn-outline btn-sm rh-btn-compact" data-orc-tech-pdf="${escapeHtml(techPdfUrl)}" title="Abrir PDF do relatório técnico">PDF</button>`
               : ''
           }
-          <button type="button" class="btn-outline btn-sm btn-touch" data-orc-review="${escapeHtml(report.id)}">Rever</button>
+          <button type="button" class="btn-outline btn-sm rh-btn-compact" data-orc-review="${escapeHtml(report.id)}" title="Rever relatório">Rever</button>
           ${
             pdfUrl
-              ? `<button type="button" class="btn-ghost btn-sm btn-touch" data-orc-pdf="${escapeHtml(report.id)}">PDF proposta</button>`
+              ? `<button type="button" class="btn-ghost btn-sm rh-btn-compact" data-orc-pdf="${escapeHtml(report.id)}" title="Abrir PDF da proposta">Prop.</button>`
               : ''
           }
           ${
             canCancelPedido
-              ? `<button type="button" class="btn-danger btn-sm btn-touch" data-orc-cancel="${escapeHtml(report.id)}" title="Eliminar pedido de orçamento">Eliminar</button>`
+              ? `<button type="button" class="btn-danger btn-sm rh-btn-compact" data-orc-cancel="${escapeHtml(report.id)}" title="Eliminar pedido de orçamento">Eliminar</button>`
               : ''
           }
         </div>
@@ -200,7 +201,7 @@ function renderPanel() {
   const rows = filterOrcamentoReports(all);
 
   return `
-    <div class="orcamentos-panel">
+    <div class="orcamentos-panel rh-admin-panel">
       <header class="orcamentos-header">
         <h2 class="orcamentos-title">Orçamentos / Propostas MS.015</h2>
         <p class="orcamentos-lead text-muted">
@@ -225,15 +226,16 @@ function renderPanel() {
       ${
         rows.length
           ? `
+        <section class="orcamentos-table-section rh-admin-section">
         <div class="orcamentos-table-wrap">
-          <table class="orcamentos-table">
+          <table class="rh-data-table rh-data-table--compact orcamentos-table">
             <thead>
               <tr>
                 <th>OP</th>
-                <th>Cliente / Serviço</th>
+                <th>Cliente</th>
                 <th>Relatório</th>
                 <th>Proposta</th>
-                <th>Pedido do técnico</th>
+                <th>Pedido</th>
                 <th>Técnico</th>
                 <th></th>
               </tr>
@@ -242,7 +244,8 @@ function renderPanel() {
               ${rows.map((report) => renderTableRow(report)).join('')}
             </tbody>
           </table>
-        </div>`
+        </div>
+        </section>`
           : `<p class="orcamentos-empty text-muted">Nenhuma proposta neste filtro.</p>`
       }
     </div>`;
