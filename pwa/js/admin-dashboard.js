@@ -71,7 +71,6 @@ import {
   getNextPendingReportId,
   buildRhOpsSummaryText,
 } from './rh-panel-utils.js';
-import { groupJobsByVisita } from './visita-cliente.js';
 import { computeDashboardMetrics } from './views/dashboard-metrics.js';
 
 /** Aba ativa do painel admin (controlada pela sidebar) */
@@ -761,127 +760,24 @@ function getCalendarDates() {
   return dates;
 }
 
-function renderAdminCalendarVisitaFolder(folder, { compact = false, listMode = false, defaultOpen = !compact } = {}) {
-  const client = getClient(folder.jobs[0]?.clientId);
-  const name = client?.name || 'Cliente';
-  const count = folder.jobCount || folder.jobs.length;
-  const label = compact
-    ? String(count)
-    : `${name} · ${count} trabalho${count === 1 ? '' : 's'}`;
-  const renderJob = listMode
-    ? (j) => renderAgendaListItem(j)
-    : (j) => renderCalendarBlock(j, compact);
-  const jobBlocks = folder.jobs.map(renderJob).join('');
-  const openClass = defaultOpen ? ' cal-visita-folder--open' : '';
-
-  return `
-    <div class="cal-visita-folder${compact ? ' cal-visita-folder--compact' : ''}${openClass}" data-visita-key="${escapeHtml(folder.visitKey)}">
-      <div class="cal-visita-folder__head">
-        <button
-          type="button"
-          class="cal-visita-folder__toggle"
-          data-cal-visita-toggle="${escapeHtml(folder.visitKey)}"
-          aria-expanded="${defaultOpen ? 'true' : 'false'}"
-          title="${escapeHtml(compact ? `Visita — ${name} — ${count} trabalhos` : 'Expandir ou recolher pasta')}"
-        >
-          <span class="cal-visita-folder__icon" aria-hidden="true">📁</span>
-          <span class="cal-visita-folder__label">${escapeHtml(label)}</span>
-          <span class="cal-visita-folder__chevron" aria-hidden="true">›</span>
-        </button>
-        <button
-          type="button"
-          class="cal-visita-folder__panel"
-          data-visita-scroll="${escapeHtml(folder.visitKey)}"
-          title="Abrir pasta da visita no painel de relatórios"
-          aria-label="${escapeHtml(`Abrir pasta da visita — ${name}`)}"
-        >↗</button>
-      </div>
-      <div class="cal-visita-folder__body">
-        ${jobBlocks}
-      </div>
-    </div>`;
-}
-
-/** Pastas com trabalhos dentro + trabalhos avulsos (sem duplicar na lista). */
+/** Trabalhos do dia no calendário RH — lista plana (sem pastas). */
 function renderAdminCalendarDayContent(dayJobs, options = {}) {
-  const { compact = false, listMode = false, defaultOpen = !compact, maxSlots = null } = options;
+  const { compact = false, listMode = false, maxSlots = null } = options;
 
   if (!dayJobs.length) {
     return '<span class="cal-empty">Sem trabalhos</span>';
   }
 
-  const { folders, singles } = groupJobsByVisita(
-    dayJobs,
-    getAllJobs(),
-    getReportsSnapshot(),
-  );
-
-  const slots = [
-    ...folders.map((folder) => ({ type: 'folder', folder, jobCount: folder.jobs.length })),
-    ...singles.map((job) => ({ type: 'single', job, jobCount: 1 })),
-  ];
-  const visibleSlots = maxSlots != null ? slots.slice(0, maxSlots) : slots;
-  const hiddenJobCount =
-    maxSlots != null
-      ? dayJobs.length
-        - visibleSlots.reduce((n, slot) => n + slot.jobCount, 0)
-      : 0;
+  const visibleJobs = maxSlots != null ? dayJobs.slice(0, maxSlots) : dayJobs;
+  const hiddenJobCount = maxSlots != null ? Math.max(0, dayJobs.length - visibleJobs.length) : 0;
 
   const renderJob = listMode
     ? (j) => renderAgendaListItem(j)
     : (j) => renderCalendarBlock(j, compact);
 
-  const contentHtml = visibleSlots
-    .map((slot) => {
-      if (slot.type === 'folder') {
-        return renderAdminCalendarVisitaFolder(slot.folder, { compact, listMode, defaultOpen });
-      }
-      return renderJob(slot.job);
-    })
-    .join('');
-
+  const contentHtml = visibleJobs.map(renderJob).join('');
   const moreHtml = hiddenJobCount > 0 ? `<span class="cal-more">+${hiddenJobCount}</span>` : '';
   return contentHtml + moreHtml;
-}
-
-async function openVisitaInReviewPanel(visitKey) {
-  if (!visitKey) return;
-
-  const needsReset =
-    rhReviewFilter !== 'all' ||
-    rhReviewTechFilter !== 'all' ||
-    String(rhReviewSearch || '').trim();
-
-  if (needsReset) {
-    rhReviewFilter = 'all';
-    rhReviewTechFilter = 'all';
-    rhReviewSearch = '';
-    persistRhReviewFilters();
-    await renderRhReviewStack();
-  } else if (!document.querySelector(`#rh-review-panel .rh-visita-folder[data-visita-key="${CSS.escape(visitKey)}"]`)) {
-    await renderRhReviewStack();
-  }
-
-  if (currentTab !== 'calendario' && currentTab !== 'relatorios') {
-    setAdminTab('calendario');
-  }
-
-  requestAnimationFrame(() => {
-    const folder = document.querySelector(
-      `#rh-review-panel .rh-visita-folder[data-visita-key="${CSS.escape(visitKey)}"]`,
-    );
-    if (!folder) {
-      showToast(
-        'Pasta da visita ainda não está no painel — os relatórios podem não ter sido submetidos.',
-        'info',
-        7000,
-      );
-      return;
-    }
-    folder.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    folder.classList.add('rh-visita-folder--highlight');
-    setTimeout(() => folder.classList.remove('rh-visita-folder--highlight'), 4500);
-  });
 }
 
 function renderCalendar() {
@@ -1064,26 +960,6 @@ function bindCalendarJobInteractions() {
   grid.__calendarJobsBound = true;
 
   grid.addEventListener('click', (e) => {
-    const visitBtn = e.target.closest('[data-visita-scroll]');
-    if (visitBtn?.dataset.visitaScroll) {
-      e.preventDefault();
-      e.stopPropagation();
-      void openVisitaInReviewPanel(visitBtn.dataset.visitaScroll);
-      return;
-    }
-
-    const folderToggle = e.target.closest('[data-cal-visita-toggle]');
-    if (folderToggle) {
-      e.preventDefault();
-      e.stopPropagation();
-      const folder = folderToggle.closest('.cal-visita-folder');
-      if (!folder) return;
-      const open = !folder.classList.contains('cal-visita-folder--open');
-      folder.classList.toggle('cal-visita-folder--open', open);
-      folderToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
-      return;
-    }
-
     if (e.target.closest('[data-delete-job]')) return;
     const trigger = e.target.closest('[data-job-id]');
     if (!trigger?.dataset.jobId) return;
@@ -1138,8 +1014,6 @@ async function renderRhReviewStack() {
     './report-review-rh-modal.js'
   );
 
-  const allReports = getReportsSnapshot();
-
   const filterBar = buildRhReviewFilterBar(counts, rhReviewFilter, {
     techId: rhReviewTechFilter,
     search: rhReviewSearch,
@@ -1154,11 +1028,7 @@ async function renderRhReviewStack() {
       : RH_EMPTY_MESSAGES[rhReviewFilter] || RH_EMPTY_MESSAGES.all;
     stackHtml = `<p class="rh-review-panel-empty">${escapeHtml(emptyMsg)}</p>`;
   } else {
-    const cards = buildRhReviewGroupedStack(reports, {
-      getJobFn: getJob,
-      allReports,
-      allJobs: getAllJobs(),
-    });
+    const cards = buildRhReviewGroupedStack(reports, { getJobFn: getJob });
 
     stackHtml = `<div class="rh-review-stack" role="list">${cards}</div>`;
   }
@@ -1171,7 +1041,6 @@ async function renderRhReviewStack() {
 
   requestAnimationFrame(() => syncReviewPanelHeight());
   updateRhBatchToolbar(panel);
-  bindRhVisitaFolderControls(panel);
 }
 
 function rhReviewModalCallbacks() {
@@ -1205,33 +1074,6 @@ function rhReviewModalCallbacks() {
 
 let rhReviewPanelBound = false;
 
-function updateRhVisitaEmailToolbar(folderEl) {
-  if (!folderEl) return;
-  const checked = folderEl.querySelectorAll('.rh-visita-email-checkbox:checked');
-  const btn = folderEl.querySelector('[data-visita-email-selected]');
-  if (!btn) return;
-  const count = checked.length;
-  btn.disabled = count === 0;
-  btn.textContent = `Enviar e-mail selecionados (${count})`;
-}
-
-function syncRhVisitaSelectAll(folderEl) {
-  if (!folderEl) return;
-  const boxes = [...folderEl.querySelectorAll('.rh-visita-email-checkbox')];
-  const selectAll = folderEl.querySelector('.rh-visita-select-approved');
-  if (!selectAll || !boxes.length) return;
-  const checkedCount = boxes.filter((cb) => cb.checked).length;
-  selectAll.indeterminate = checkedCount > 0 && checkedCount < boxes.length;
-  selectAll.checked = checkedCount === boxes.length;
-}
-
-function bindRhVisitaFolderControls(panel) {
-  panel.querySelectorAll('.rh-visita-folder').forEach((folder) => {
-    updateRhVisitaEmailToolbar(folder);
-    syncRhVisitaSelectAll(folder);
-  });
-}
-
 function updateRhBatchToolbar(panel) {
   const checkboxes = [...panel.querySelectorAll('.rh-batch-checkbox:checked')];
   const btn = panel.querySelector('#rh-batch-approve');
@@ -1254,14 +1096,12 @@ async function approveSelectedRhReports(panel) {
   if (!ids.length) return;
 
   const confirmed = window.confirm(
-    `Aprovar ${ids.length} relatório(s) selecionado(s)?\n\nEm visitas com vários trabalhos, o e-mail ao cliente envia-se depois na pasta (seleção manual).`,
+    `Aprovar ${ids.length} relatório(s) selecionado(s)?\n\nCada relatório aprovado envia o respetivo e-mail ao cliente (quando aplicável).`,
   );
   if (!confirmed) return;
 
   const btn = panel.querySelector('#rh-batch-approve');
   if (btn) btn.disabled = true;
-
-  const { isReportInMultiVisita } = await import('./visita-cliente.js');
 
   let approved = 0;
   const total = ids.length;
@@ -1273,13 +1113,7 @@ async function approveSelectedRhReports(panel) {
     if (!report || report.status !== 'pending_review') continue;
     const client = getClient(report.clientId);
     const clientEmail = String(client?.email || client?.['E-mail'] || '').trim();
-    const job = report.jobId ? getJob(report.jobId) : null;
-    const multiVisita = isReportInMultiVisita(report, job, {
-      jobs: getAllJobs(),
-      reports: getReportsSnapshot(),
-      getJob,
-    });
-    const ok = await approveReport(reportId, { clientEmail, skipClientEmail: multiVisita });
+    const ok = await approveReport(reportId, { clientEmail });
     if (ok) approved += 1;
   }
 
@@ -1344,23 +1178,6 @@ function bindRhReviewPanel() {
       updateRhBatchToolbar(panel);
       return;
     }
-
-    if (target.classList.contains('rh-visita-email-checkbox')) {
-      const folder = target.closest('.rh-visita-folder');
-      updateRhVisitaEmailToolbar(folder);
-      syncRhVisitaSelectAll(folder);
-      return;
-    }
-
-    if (target.classList.contains('rh-visita-select-approved')) {
-      const folder = target.closest('.rh-visita-folder');
-      if (!folder) return;
-      folder.querySelectorAll('.rh-visita-email-checkbox').forEach((cb) => {
-        cb.checked = target.checked;
-      });
-      updateRhVisitaEmailToolbar(folder);
-      return;
-    }
   });
 
   panel.addEventListener('click', async (e) => {
@@ -1394,28 +1211,6 @@ function bindRhReviewPanel() {
       return;
     }
 
-    const visitEmailBtn = e.target.closest('[data-visita-email-selected]');
-    if (visitEmailBtn?.dataset.visitaEmailSelected) {
-      const folder = visitEmailBtn.closest('.rh-visita-folder');
-      const reportIds = folder
-        ? [...folder.querySelectorAll('.rh-visita-email-checkbox:checked')].map(
-            (cb) => cb.dataset.visitaReportId,
-          )
-        : [];
-      if (!reportIds.length) {
-        showToast('Selecione pelo menos um relatório aprovado.', 'warning');
-        return;
-      }
-      const visitKey = visitEmailBtn.dataset.visitaEmailSelected;
-      const clientId = visitKey.split('|')[0];
-      const client = getClient(clientId);
-      const clientEmail = String(client?.email || client?.['E-mail'] || '').trim();
-      const { sendSelectedReportsEmail } = await import('./app.js');
-      const ok = await sendSelectedReportsEmail(reportIds, { clientEmail });
-      if (ok) await renderRhReviewStack();
-      return;
-    }
-
     const openBtn = e.target.closest('[data-panel-open]');
     if (openBtn?.dataset.panelOpen) {
       const { openRhReviewModal } = await import('./report-review-rh-modal.js');
@@ -1437,21 +1232,13 @@ async function quickApproveRhReport(reportId) {
 
   const job = report.jobId ? getJob(report.jobId) : null;
   const ordem = formatOrdemLabel(job, client);
-  const { getReportVisitaKey, isReportInMultiVisita } = await import('./visita-cliente.js');
-  const multiVisita = isReportInMultiVisita(report, job, {
-    jobs: getAllJobs(),
-    reports: getReportsSnapshot(),
-    getJob,
-  });
   const confirmMsg = isTestClient(client)
     ? `Aprovar relatório de teste (${ordem})? Não será enviado e-mail ao cliente.`
-    : multiVisita
-      ? `Aprovar ${ordem}? Depois selecione os relatórios na pasta e envie um único e-mail.`
-      : `Aprovar ${ordem} e enviar para o cliente?`;
+    : `Aprovar ${ordem} e enviar para o cliente?`;
   const confirmed = window.confirm(confirmMsg);
   if (!confirmed) return;
 
-  const ok = await approveReport(reportId, { clientEmail, skipClientEmail: multiVisita });
+  const ok = await approveReport(reportId, { clientEmail });
   if (ok) {
     showToast('Relatório aprovado.', 'success');
     await rhReviewModalCallbacks().onApproved?.();

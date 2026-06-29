@@ -679,7 +679,7 @@ export async function sendSelectedReportsEmail(reportIds, options = {}) {
     .filter((report) => report?.status === 'approved');
 
   if (!reports.length) {
-    showToast('Só pode enviar relatórios já aprovados. Aprove primeiro na pasta.', 'warning', 7000);
+    showToast('Só pode enviar relatórios já aprovados.', 'warning', 7000);
     return false;
   }
 
@@ -802,56 +802,6 @@ export async function sendSelectedReportsEmail(reportIds, options = {}) {
     showToast(`Falha ao enviar e-mail. ${err?.message || ''}`.trim(), 'error', 8000);
     return false;
   }
-}
-
-/**
- * Envia e-mail da visita (todos os aprovados pendentes ou lista explícita).
- * @param {string} visitKey
- * @param {{ clientEmail?: string, force?: boolean, reportIds?: string[] }} [options]
- */
-export async function sendVisitaClienteEmail(visitKey, options = {}) {
-  if (Array.isArray(options.reportIds) && options.reportIds.length) {
-    return sendSelectedReportsEmail(options.reportIds, options);
-  }
-
-  const {
-    parseVisitaKey,
-    getReportVisitaKey,
-    getVisitaApprovedReportsPendingEmail,
-  } = await import('./visita-cliente.js');
-
-  const parsed = parseVisitaKey(visitKey);
-  if (!parsed) {
-    showToast('Visita inválida.', 'error');
-    return false;
-  }
-
-  await ensureJobsLoaded(true);
-
-  const allReports = getReportsSnapshot();
-  const approvedInVisit = allReports.filter((report) => {
-    if (report?.status !== 'approved') return false;
-    const job = report.jobId ? getJob(report.jobId) : null;
-    return getReportVisitaKey(report, job) === visitKey;
-  });
-
-  const pending = options.force
-    ? approvedInVisit
-    : getVisitaApprovedReportsPendingEmail(visitKey, allReports, getJob);
-
-  if (!pending.length) {
-    if (!approvedInVisit.length) {
-      showToast('Não há relatórios aprovados nesta visita para enviar.', 'warning');
-      return false;
-    }
-    showToast('Todos os relatórios aprovados desta visita já foram enviados. Selecione-os na pasta para reenviar.', 'info', 8000);
-    return false;
-  }
-
-  return sendSelectedReportsEmail(
-    pending.map((report) => report.id),
-    options,
-  );
 }
 
 export function requireAuth(role) {
@@ -1861,15 +1811,7 @@ export async function approveReport(reportId, options = {}) {
     const { upsertClienteEquipamentosFromReport } = await import('./cliente-equipamentos-db.js');
     void upsertClienteEquipamentosFromReport(reportForPdf);
 
-    const { getReportVisitaKey, isReportInMultiVisita } = await import('./visita-cliente.js');
-    const visitKey = getReportVisitaKey(reportForPdf, job);
-    const multiVisita =
-      options.skipClientEmail === true ||
-      isReportInMultiVisita(reportForPdf, job, {
-        jobs: getJobsSnapshot(),
-        reports: getReportsSnapshot(),
-        getJob,
-      });
+    const skipClientEmail = options.skipClientEmail === true;
 
     let emailSynced = false;
     if (clientEmailInput && report.clientId) {
@@ -1885,13 +1827,7 @@ export async function approveReport(reportId, options = {}) {
         'success',
         6000,
       );
-    } else if (recipientEmail && multiVisita) {
-      showToast(
-        'Relatório aprovado! Selecione os relatórios na pasta e use «Enviar e-mail selecionados».',
-        'success',
-        8000,
-      );
-    } else if (recipientEmail) {
+    } else if (recipientEmail && !skipClientEmail) {
       const pdfCount = pdfEntries.length;
       showToast(
         pdfCount > 1
@@ -1904,7 +1840,7 @@ export async function approveReport(reportId, options = {}) {
       showToast('Relatório aprovado, mas o cliente não tem e-mail registado.', 'warning');
     }
 
-    if (recipientEmail && !multiVisita) {
+    if (recipientEmail && !skipClientEmail) {
       const values = report?.data?.values || {};
       const tipoRelatorio =
         report.serviceType === 'inspecao_dl50_2005'

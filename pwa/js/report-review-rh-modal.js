@@ -39,13 +39,6 @@ import {
   getReportUrgencyLevel,
 } from './rh-panel-utils.js';
 import { reportHasPedidoOrcamento, reportOrcamentoPorPreparar } from './pedido-orcamento.js';
-import {
-  parseVisitaKey,
-  groupReportsByVisita,
-  sortVisitaFoldersNewestFirst,
-  sortVisitaReportsNewestFirst,
-  reportVisitaEmailWasSent,
-} from './visita-cliente.js';
 import { dedupeReportsByJobPreferNewest } from './relatorios-db.js';
 import {
   computeReviewChecks,
@@ -239,123 +232,10 @@ export function buildRhReviewListItem({ job, report, client, tech }) {
 }
 
 /**
- * Pasta RH — vários relatórios do mesmo cliente/dia/técnico.
+ * Lista RH — um cartão por relatório (sem pastas de visita).
  */
-export function buildRhVisitaFolder({
-  visitKey,
-  reports = [],
-  jobCount = 0,
-  client,
-  tech,
-  allReports = [],
-  getJobFn = getJob,
-}) {
-  const parsed = parseVisitaKey(visitKey);
-  const clientName = client?.name || client?.Nome || '—';
-  const techName = tech?.name || '—';
-  const dateLabel = parsed?.date ? formatDateLong(parsed.date) : '—';
-  const sortedReports = sortVisitaReportsNewestFirst(reports);
-  const approvedReports = sortedReports.filter((report) => report?.status === 'approved');
-
-  const itemsHtml = sortedReports
-    .map((report) => {
-      const job = report.jobId ? getJobFn(report.jobId) : null;
-      const item = buildRhReviewListItem({
-        job,
-        report,
-        client: client || getClient(report.clientId),
-        tech: tech || getTechnician(report.technicianId),
-      });
-      const isApproved = report?.status === 'approved';
-      const emailCheck = isApproved
-        ? `<label class="rh-visita-email-check" title="Incluir no e-mail ao cliente">
-            <input type="checkbox" class="rh-visita-email-checkbox"
-              data-visita-report-id="${escapeHtml(report.id)}"
-              data-visita-key="${escapeHtml(visitKey)}"
-              ${reportVisitaEmailWasSent(report) ? '' : 'checked'}
-              aria-label="Incluir no e-mail">
-          </label>`
-        : `<span class="rh-visita-email-check rh-visita-email-check--disabled" title="Aprove o relatório para poder enviar por e-mail">—</span>`;
-      return `
-        <div class="rh-visita-folder__report-row${isApproved ? '' : ' rh-visita-folder__report-row--pending'}">
-          ${emailCheck}
-          <div class="rh-visita-folder__report-item">${item}</div>
-        </div>`;
-    })
-    .join('');
-
-  const defaultChecked = approvedReports.filter((report) => !reportVisitaEmailWasSent(report)).length;
-  const emailBtn =
-    approvedReports.length > 0
-      ? `<button type="button" class="btn-primary btn-sm rh-visita-folder__email-btn"
-            data-visita-email-selected="${escapeHtml(visitKey)}"
-            ${defaultChecked ? '' : 'disabled'}>
-          Enviar e-mail selecionados (${defaultChecked || 0})
-        </button>`
-      : `<span class="rh-visita-folder__email-hint text-muted">Aprove relatórios para enviar ao cliente</span>`;
-
-  return `
-    <section class="rh-visita-folder" data-visita-key="${escapeHtml(visitKey)}" role="listitem">
-      <header class="rh-visita-folder__header">
-        <div class="rh-visita-folder__heading">
-          <span class="rh-visita-folder__icon" aria-hidden="true">📁</span>
-          <div>
-            <h4 class="rh-visita-folder__title">${escapeHtml(clientName)}</h4>
-            <p class="rh-visita-folder__meta">
-              ${escapeHtml(dateLabel)} · ${escapeHtml(techName)} · ${jobCount} trabalho${jobCount === 1 ? '' : 's'}
-            </p>
-          </div>
-        </div>
-        <div class="rh-visita-folder__actions">
-          ${
-            approvedReports.length > 1
-              ? `<label class="rh-visita-folder__select-approved">
-                  <input type="checkbox" class="rh-visita-select-approved" data-visita-key="${escapeHtml(visitKey)}">
-                  <span>Todos aprovados</span>
-                </label>`
-              : ''
-          }
-          ${emailBtn}
-        </div>
-      </header>
-      <p class="rh-visita-folder__hint text-muted">Marque os relatórios aprovados a incluir num único e-mail (serviços diferentes permitidos).</p>
-      <div class="rh-visita-folder__reports" role="list">
-        ${itemsHtml}
-      </div>
-    </section>
-  `;
-}
-
-/**
- * Lista RH com pastas de visita quando aplicável.
- */
-export function buildRhReviewGroupedStack(
-  reports,
-  { getJobFn = getJob, allReports = reports, allJobs = [] } = {},
-) {
-  const uniqueReports = dedupeReportsByJobPreferNewest(reports);
-  const { folders, singles } = groupReportsByVisita(uniqueReports, getJobFn, allJobs, allReports);
-  const sortedFolders = sortVisitaFoldersNewestFirst(folders);
-
-  const folderHtml = sortedFolders
-    .map((folder) => {
-      const first = folder.reports[0];
-      const job = first?.jobId ? getJobFn(first.jobId) : null;
-      const client = getClient(first?.clientId || job?.clientId);
-      const tech = getTechnician(first?.technicianId || job?.technicianId);
-      return buildRhVisitaFolder({
-        visitKey: folder.visitKey,
-        reports: folder.reports,
-        jobCount: folder.jobCount,
-        client,
-        tech,
-        allReports,
-        getJobFn,
-      });
-    })
-    .join('');
-
-  const singleHtml = singles
+export function buildRhReviewGroupedStack(reports, { getJobFn = getJob } = {}) {
+  return dedupeReportsByJobPreferNewest(reports)
     .map((report) => {
       const job = report.jobId ? getJobFn(report.jobId) : null;
       return buildRhReviewListItem({
@@ -366,8 +246,6 @@ export function buildRhReviewGroupedStack(
       });
     })
     .join('');
-
-  return `${folderHtml}${singleHtml}`;
 }
 
 export function openRhRejectDialog(reportId, onRejected) {
