@@ -165,141 +165,57 @@ import {
   isPdfLayoutReservedField,
 } from './pdf-format-utils.js';
 import { resolvePdfClientMeta, buildPdfRenderContext } from './pdf-client-meta.js';
+import {
+  pdfContentBottomY,
+  getPdfAutoTableMargin,
+  normalizeYAfterAutoTable,
+  clampYToSafeZone,
+  ensureBlockFitsSafeZone,
+  pdfMaxContentHeight,
+  ensureKeepTogetherBlock,
+  ensureBlockFitsPage,
+  ensureSpace,
+  touchPdfContentPage,
+  trimTrailingBlankPages,
+  buildPdfAutoTableDidDrawPage,
+} from './pdf-page-layout.js';
+import {
+  drawPdfDocumentTitleBar,
+  drawPdfSectionTitleBar,
+  drawPdfContentBox,
+  drawColumnSectionTitle,
+} from './pdf-layout-bars.js';
+import {
+  buildCorretivaServiceInfoMeta,
+  buildRavServiceInfoMeta,
+  buildGrandesServiceInfoMeta,
+  buildEmpilhadoresServiceInfoMeta,
+  buildFolhaAvariasServiceInfoMeta,
+} from './pdf-service-info-meta.js';
+import {
+  getReportFilename,
+  resolveEmpilhadoresPdfMachineIndex,
+  withEmpilhadoresPdfMeta,
+  yieldToMain,
+} from './pdf-report-filename.js';
+import {
+  buildInstitutionalFooterLines,
+  buildFolhaInstitutionalFooterLines,
+  drawInstitutionalPageFooter,
+  drawFolhaInstitutionalPageFooter,
+  drawFolhaDocumentFooters,
+  drawPageFooter,
+} from './pdf-institutional-footer.js';
+import {
+  estimatePdfInterventionFotosOverhead,
+  estimateInterventionFotografiasHeight,
+  estimatePolaroidSectionHeight,
+  estimateSignaturesHeight,
+  resolveAdaptiveClosingPhotoHeight,
+} from './pdf-closing-estimates.js';
+import { formatTableHeaderLabel, buildSmartColumnStyles } from './pdf-table-column-utils.js';
+import { drawSignaturesFooter } from './pdf-signatures-footer.js';
 
-const PDF_FOOTER_FONT_SIZE = PDF_FONT_CAPTION;
-const columnKey = materialColumnKey;
-
-function buildConclusionAwareServiceInfoMeta(report, job, values, metaBottomGapMm) {
-  const conclusionDate = formatPdfConclusionDate(values);
-  const jobDate = formatPdfJobDateOnly(job, report);
-  const meta = {
-    numeroVisitas: null,
-    deslocacao: null,
-    technician: null,
-    metaBottomGapMm,
-  };
-
-  if (conclusionDate) {
-    meta.serviceDateLabel = 'Data de Conclusão';
-    meta.serviceDate = conclusionDate;
-    if (jobDate && jobDate !== conclusionDate) {
-      meta.scheduledDateLabel = 'Data do Serviço';
-      meta.scheduledDate = jobDate;
-    }
-  } else {
-    meta.serviceDate = formatPdfServiceDateOnly(report, job, values);
-  }
-
-  return meta;
-}
-
-function buildCorretivaServiceInfoMeta(report, job, values, visitCount) {
-  const meta = buildConclusionAwareServiceInfoMeta(
-    report,
-    job,
-    values,
-    CORRETIVA_SECTION_GAP_MM,
-  );
-  meta.numeroVisitas = visitCount;
-  return meta;
-}
-
-function buildRavServiceInfoMeta(report, job, values) {
-  return buildConclusionAwareServiceInfoMeta(report, job, values, RAV_SECTION_GAP_MM);
-}
-
-function buildGrandesServiceInfoMeta(report, job, values, visitCount) {
-  const meta = buildConclusionAwareServiceInfoMeta(
-    report,
-    job,
-    values,
-    GRANDES_SECTION_GAP_MM,
-  );
-  meta.numeroVisitas = visitCount;
-  return meta;
-}
-
-function buildEmpilhadoresServiceInfoMeta(report, job, values, visitCount) {
-  const meta = buildConclusionAwareServiceInfoMeta(report, job, values, PDF_SECTION_GAP_MM);
-  meta.numeroVisitas = visitCount;
-  return meta;
-}
-
-function buildFolhaAvariasServiceInfoMeta(report, job, values) {
-  const visitCount = formatPdfNumeroVisitas(values);
-  const meta = buildConclusionAwareServiceInfoMeta(
-    report,
-    job,
-    { ...values, data_de_conclusao: values.data_de_conclusao || values.data_1 || '' },
-    FOLHA_AVARIAS_SECTION_GAP_MM,
-  );
-  meta.numeroVisitas = visitCount;
-  return meta;
-}
-
-function estimatePdfInterventionFotosOverhead(bottomGapMm = 4) {
-  return (
-    PDF_INTERVENTION_FOTO_BAR_H_MM +
-    PDF_INTERVENTION_FOTO_GRID_MARGIN_TOP_MM +
-    PDF_INTERVENTION_FOTO_CAPTION_H_MM +
-    bottomGapMm
-  );
-}
-
-function resolveAdaptiveClosingPhotoHeight(availableMm, profile, bottomGap = 2) {
-  const preferred = profile.polaroidMm ?? PDF_INTERVENTION_FOTO_MAX_H_MM;
-  if (availableMm <= 0) return preferred;
-  const maxImg = availableMm - estimatePdfInterventionFotosOverhead(bottomGap) - estimateSignaturesHeight(profile);
-  if (maxImg >= preferred) return preferred;
-  if (maxImg >= 24) return maxImg;
-  return preferred;
-}
-
-const TABLE_HEADER_SHORT = {
-  artigo: 'Artigo / Desc.',
-  quantidade: 'Qtd.',
-  qtd: 'Qtd.',
-  data_intervencao: 'Data',
-  servico_efectuado_equipamento: 'Serviço / Equip.',
-  tecnico: 'Técnico',
-  equipamento: 'Equipamento',
-  material: 'Material',
-  tipo: 'Tipo',
-  horas: 'Horas',
-};
-
-function getReportFilename(report) {
-  const job = report?.jobId
-    ? getJobsSnapshot().find((j) => String(j.id) === String(report.jobId))
-    : null;
-  const service = getServiceType(report?.serviceType);
-  const serviceTitle =
-    PDF_DOCUMENT_TITLES[report?.serviceType] || service?.label || report?.serviceType;
-  const machineTag = report?.pdfMachineTag ? String(report.pdfMachineTag) : null;
-  return buildReportPdfFilename(job, report, { serviceTitle, machineTag });
-}
-
-function resolveEmpilhadoresPdfMachineIndex(report) {
-  const idx = Number(report?.pdfMachineIndex);
-  return Number.isFinite(idx) && idx >= 0 ? idx : 0;
-}
-
-function withEmpilhadoresPdfMeta(report, machineIndex) {
-  const maquinas = getEmpilhadoresMaquinasFromReport(report);
-  const idx = Math.max(0, Math.min(machineIndex, maquinas.length - 1));
-  const row = maquinas[idx] || {};
-  return {
-    ...report,
-    pdfMachineIndex: idx,
-    pdfMachineTag: buildEmpilhadoresMachineFilenameTag(row, idx),
-  };
-}
-
-function yieldToMain() {
-  return new Promise((resolve) => {
-    setTimeout(resolve, 0);
-  });
-}
 
 /**
  * Constrói o documento PDF completo (sem descarregar).
@@ -688,8 +604,6 @@ const EMPILHADORES_MATERIAL_SECTION_TOP_GAP_MM = 4;
 const PREVENTIVA_TITLE_BAR_BG = PDF_SECTION_BG;
 const FOLHA_TITLE_BAR_BG = PREVENTIVA_TITLE_BAR_BG;
 const FOLHA_TABLE_HEAD_FILL = PDF_SECTION_BG;
-const FOLHA_INSTITUTIONAL_FOOTER_RGB = PDF_FOOTER_INSTITUTIONAL_RGB;
-const FOLHA_INSTITUTIONAL_FOOTER_FONT = PDF_FONT_CAPTION;
 const FOLHA_INSTITUTIONAL_FOOTER_H_MM = 20;
 const FOLHA_CLOSING_PROFILE = {
   sigTop: 8,
@@ -786,113 +700,6 @@ const FOLHA_AVARIAS_CLOSING_PROFILE = {
   polaroidMm: 46,
   polaroidBottom: 4,
 };
-
-/** Barra de título do documento — centrada, cantos arredondados (padrão corretiva) */
-function drawPdfDocumentTitleBar(doc, y, title, gapAfter = PDF_SECTION_GAP_MM) {
-  const barH = PDF_DOCUMENT_TITLE_BAR_H_MM;
-  y = ensureSpace(doc, y, barH + gapAfter);
-  doc.setFillColor(...PDF_SECTION_BG);
-  doc.setDrawColor(...PDF_TABLE_LINE);
-  doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
-  doc.roundedRect(MARGIN, y, CONTENT_W, barH, PDF_BAR_RADIUS_MM, PDF_BAR_RADIUS_MM, 'FD');
-  pdfSetFont(doc, 'bold');
-  doc.setFontSize(PDF_FONT_SUBTITLE);
-  doc.setTextColor(...CORPORATE_BLUE);
-  doc.text(title, MARGIN + CONTENT_W / 2, y + barH * 0.62, { align: 'center' });
-  touchPdfContentPage(doc);
-  return y + barH + gapAfter;
-}
-
-/** Barra de título de secção — cantos arredondados */
-function drawPdfSectionTitleBar(doc, y, title, options = {}) {
-  const x = options.x ?? MARGIN;
-  const width = options.width ?? CONTENT_W;
-  const bandH = options.bandH ?? PDF_SECTION_TITLE_BAR_H_MM;
-  const gapAfter = options.gapAfter ?? PDF_SECTION_GAP_MM;
-  const fontSize = options.fontSize ?? PDF_FONT_SECTION;
-  const align = options.align ?? 'left';
-
-  if (!options.skipEnsure) {
-    y = ensureSpace(doc, y, bandH + gapAfter);
-  }
-
-  doc.setFillColor(...PDF_SECTION_BG);
-  doc.setDrawColor(...PDF_TABLE_LINE);
-  doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
-  doc.roundedRect(x, y, width, bandH, PDF_BAR_RADIUS_MM, PDF_BAR_RADIUS_MM, 'FD');
-
-  pdfSetFont(doc, 'bold');
-  doc.setTextColor(...CORPORATE_BLUE);
-  const text = String(title).toUpperCase();
-  const maxW = width - 4;
-  let fs = fontSize;
-  doc.setFontSize(fs);
-
-  if (options.multiline) {
-    doc.text(pdfSplitText(doc, text, maxW), x + 2, y + bandH * 0.55);
-  } else {
-    while (fs > 6 && doc.getTextWidth(text) > maxW) {
-      fs -= 0.4;
-      doc.setFontSize(fs);
-    }
-    if (align === 'center') {
-      doc.text(text, x + width / 2, y + bandH * 0.62, { align: 'center' });
-    } else {
-      doc.text(text, x + 2, y + bandH * 0.62);
-    }
-  }
-
-  touchPdfContentPage(doc);
-  return y + bandH + gapAfter;
-}
-
-/** Caixa de conteúdo textual — bordas arredondadas uniformes */
-function drawPdfContentBox(doc, x, y, width, height, fill = PDF_TABLE_BODY_FILL) {
-  doc.setFillColor(...fill);
-  doc.setDrawColor(...PDF_TABLE_LINE);
-  doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
-  doc.roundedRect(x, y, width, height, PDF_CONTENT_BOX_RADIUS_MM, PDF_CONTENT_BOX_RADIUS_MM, 'FD');
-}
-
-function buildFolhaInstitutionalFooterLines() {
-  const contact = [COMPANY.phone, COMPANY.email, COMPANY.website].filter(Boolean).join(' | ');
-  return [COMPANY.name, COMPANY.address, contact].filter(Boolean);
-}
-
-function drawFolhaInstitutionalPageFooter(doc, pageNumber, totalPages) {
-  doc.setPage(pageNumber);
-
-  const footerTop = PDF_FOOTER_BLOCK_TOP;
-  const footerLines = buildFolhaInstitutionalFooterLines();
-
-  pdfSetFont(doc, 'normal');
-  doc.setFontSize(PDF_FONT_CAPTION);
-  doc.setTextColor(...TEXT_MUTED);
-  doc.text(`${pageNumber} / ${totalPages}`, PAGE_W / 2, PDF_PAGE_NUMBER_Y, { align: 'center' });
-
-  doc.setDrawColor(...PDF_TABLE_LINE);
-  doc.setLineWidth(0.2);
-  doc.line(MARGIN, footerTop, PAGE_W - MARGIN, footerTop);
-
-  pdfSetFont(doc, 'normal');
-  doc.setFontSize(FOLHA_INSTITUTIONAL_FOOTER_FONT);
-  doc.setTextColor(...FOLHA_INSTITUTIONAL_FOOTER_RGB);
-
-  let textY = footerTop + 4;
-  footerLines.forEach((line) => {
-    pdfSplitText(doc, line, CONTENT_W).forEach((part) => {
-      doc.text(part, PAGE_W / 2, textY, { align: 'center' });
-      textY += 3.5;
-    });
-  });
-}
-
-function drawFolhaDocumentFooters(doc) {
-  const total = doc.getNumberOfPages();
-  for (let i = 1; i <= total; i++) {
-    drawFolhaInstitutionalPageFooter(doc, i, total);
-  }
-}
 
 function buildFolhaAutoTableConfig(doc, y, overrides = {}) {
   const { didParseCell: userParse, ...rest } = overrides;
@@ -1286,10 +1093,6 @@ async function drawFolhaAvariasDashboardTable(doc, y, sectionTitle, options = {}
     didParseCell: mergePdfTableDidParseCell(didParseCell),
     autoTableExtra: { rowPageBreak: 'avoid' },
   });
-}
-
-function estimateInterventionFotografiasHeight(bottomGap = 4) {
-  return estimatePdfInterventionFotosHeight(bottomGap);
 }
 
 /**
@@ -2856,41 +2659,6 @@ async function drawPreventivaBateriaClosingSection(doc, y, opts) {
   });
 }
 
-function formatTableHeaderLabel(col) {
-  const key = columnKey(col);
-  if (TABLE_HEADER_SHORT[key]) return TABLE_HEADER_SHORT[key];
-  const label = materialColumnLabel(col);
-  return label
-    .replace(/Descrição/gi, 'Desc.')
-    .replace(/Quantidade/gi, 'Qtd.')
-    .replace(/Intervenção/gi, 'Interv.')
-    .replace(/Verificação/gi, 'Verif.')
-    .replace(/Efectuado/gi, 'Efect.')
-    .replace(/Identificação/gi, 'Ident.');
-}
-
-function columnPdfWeight(col) {
-  const label = materialColumnLabel(col);
-  const key = columnKey(col);
-  const compactDataKeys = new Set(['qtd', 'quantidade', 'horas', 'qty', 'tipo', 'tensao_v']);
-  const len = Math.max(String(label).length, 4);
-  return compactDataKeys.has(key) ? len * 0.75 : len;
-}
-
-function buildSmartColumnStyles(columns, tableWidth = CONTENT_W) {
-  const weights = columns.map((c) => columnPdfWeight(c));
-  const total = weights.reduce((a, b) => a + b, 0) || 1;
-  const styles = {};
-  columns.forEach((_, i) => {
-    styles[i] = {
-      cellWidth: (weights[i] / total) * tableWidth,
-      overflow: 'linebreak',
-      fontSize: PDF_FONT_TABLE,
-    };
-  });
-  return styles;
-}
-
 /** Caixa compacta CLIENTE (+ Ordem) — fundo #F8FAFC, bordas arredondadas finas */
 function drawCompactClientBox(doc, topY, clientMeta, numeroOrdem = null) {
   const blockW = PDF_HEADER_CLIENT_W;
@@ -2975,16 +2743,6 @@ function formatOrdemDisplay(numeroOrdem) {
   return `Ordem No: OP-2026-${padded}`;
 }
 
-function buildInstitutionalFooterLines() {
-  const contact = [COMPANY.phone, COMPANY.email, COMPANY.website].filter(Boolean).join(' · ');
-  return [
-    COMPANY.name,
-    COMPANY.nif ? `NIF ${COMPANY.nif}` : null,
-    COMPANY.address,
-    contact,
-  ].filter(Boolean);
-}
-
 function pdfGridCell(label, value) {
   return `${label}: ${pdfDisplayValue(value)}`;
 }
@@ -3052,19 +2810,6 @@ function isEmpilhadoresMaterialField(service, field) {
     Boolean(field) &&
     isEmpilhadoresMaterialSection(field.section)
   );
-}
-
-/** Título de secção numa coluna estreita (verificações lado a lado) */
-function drawColumnSectionTitle(doc, x, y, width, title, options = {}) {
-  return drawPdfSectionTitleBar(doc, y, title, {
-    x,
-    width,
-    bandH: options.bandH ?? PDF_SECTION_BAND_HEIGHT_MM,
-    gapAfter: options.gapAfter ?? 1.5,
-    fontSize: options.fontSize ?? PDF_FONT_SECTION,
-    align: 'left',
-    multiline: !options.singleLine,
-  });
 }
 
 function buildVerificationTableBody(items, states) {
@@ -4172,67 +3917,11 @@ const MATRIX_CAT_TITLE_H = 6;
 const MATRIX_CAT_GAP = PDF_SECTION_GAP_MM;
 const MATRIX_MIN_KEEP_ROWS = 3;
 
-function pdfContentBottomY() {
-  return PAGE_H - PDF_CONTENT_SAFE_BOTTOM_MM;
-}
-
-function getPdfAutoTableMargin(marginLeft = MARGIN, marginRight = MARGIN) {
-  return {
-    left: marginLeft,
-    right: marginRight,
-    bottom: PDF_AUTOTABLE_MARGIN_BOTTOM_MM,
-  };
-}
-
 /** Após autoTable — força nova página se finalY invadir a zona de segurança */
-function normalizeYAfterAutoTable(doc, y, gapAfter = 0) {
-  const nextY = (doc.lastAutoTable?.finalY ?? y) + gapAfter;
-  return clampYToSafeZone(doc, nextY);
-}
-
-function clampYToSafeZone(doc, y) {
-  if (y <= pdfContentBottomY()) return y;
-  doc.addPage();
-  touchPdfContentPage(doc);
-  return PDF_PAGE_CONTENT_START_Y;
-}
-
-function ensureBlockFitsSafeZone(doc, y, blockHeight) {
-  if (y + blockHeight <= pdfContentBottomY()) return y;
-  doc.addPage();
-  touchPdfContentPage(doc);
-  return PDF_PAGE_CONTENT_START_Y;
-}
-
-function pdfMaxContentHeight() {
-  return pdfContentBottomY() - PDF_PAGE_CONTENT_START_Y;
-}
-
 /**
  * Mantém o bloco inteiro na mesma página quando couber numa página.
  * Blocos maiores que uma página podem partir no espaço restante.
  */
-function ensureKeepTogetherBlock(doc, y, blockHeight) {
-  const pageBottom = pdfContentBottomY();
-  if (blockHeight <= 0) return y;
-  if (y + blockHeight <= pageBottom) return y;
-
-  const maxOnPage = pdfMaxContentHeight();
-  if (blockHeight <= maxOnPage) {
-    doc.addPage();
-    touchPdfContentPage(doc);
-    return PDF_PAGE_CONTENT_START_Y;
-  }
-
-  const remaining = pageBottom - y;
-  if (remaining < maxOnPage * 0.12) {
-    doc.addPage();
-    touchPdfContentPage(doc);
-    return PDF_PAGE_CONTENT_START_Y;
-  }
-  return y;
-}
-
 function estimatePdfClosingTailHeight(hasFotos, profile, opts = {}) {
   const bottomGap = opts.bottomGap ?? profile?.polaroidBottom ?? 4;
   const institutionalFooterMm = opts.institutionalFooterMm ?? 0;
@@ -4247,10 +3936,6 @@ function ensurePdfClosingTailFits(doc, y, hasFotos, profile, opts = {}) {
   const tailH = estimatePdfClosingTailHeight(hasFotos, profile, opts);
   if (tailH <= 0) return y;
   return ensureKeepTogetherBlock(doc, y, Math.min(tailH, pdfMaxContentHeight()));
-}
-
-function ensureBlockFitsPage(doc, y, blockHeight) {
-  return ensureKeepTogetherBlock(doc, y, blockHeight);
 }
 
 function matrixDisplayState(opt) {
@@ -4673,23 +4358,6 @@ function estimateLegalVerdictHeight(doc, value, profile) {
   const lines = pdfSplitText(doc, pdfSafeText(value), CONTENT_W - 10);
   const boxH = Math.max(12, lines.length * (profile.legalGap <= 5 ? 4 : 4.5) + 5);
   return (profile.legalGap <= 5 ? 5 : 6) + boxH + profile.legalGap;
-}
-
-function estimatePolaroidSectionHeight(hasFotos, profile, opts = {}) {
-  if (!hasFotos) return 0;
-  const imgH = profile?.polaroidMm ?? PDF_INTERVENTION_FOTO_MAX_H_MM;
-  const bottomGap = opts.bottomGap ?? profile?.polaroidBottom ?? 4;
-  return (
-    PDF_INTERVENTION_FOTO_BAR_H_MM +
-    PDF_INTERVENTION_FOTO_GRID_MARGIN_TOP_MM +
-    imgH +
-    PDF_INTERVENTION_FOTO_CAPTION_H_MM +
-    bottomGap
-  );
-}
-
-function estimateSignaturesHeight(profile) {
-  return profile.sigTop + profile.sigImg + SIGNATURE_LABEL_GAP_MM + 10;
 }
 
 function estimateReportClosingHeight(doc, y, opts = {}) {
@@ -5387,134 +5055,6 @@ async function drawPhotosAppendix(doc, y, photos) {
   }
 
   return col > 0 ? rowY + thumbH + 10 : rowY + 6;
-}
-
-/** Espaço generoso após fotos Polaroid + bloco de assinaturas */
-const SIGNATURES_TOP_MARGIN_MM = 14;
-const SIGNATURE_LINE_GAP_MM = 14;
-const SIGNATURE_IMG_H_MM = 22;
-const SIGNATURE_LABEL_GAP_MM = 6;
-const SIGNATURES_BLOCK_HEIGHT_MM =
-  SIGNATURES_TOP_MARGIN_MM + SIGNATURE_IMG_H_MM + SIGNATURE_LABEL_GAP_MM + 10;
-
-async function drawSignaturesFooter(doc, y, signatures, opts = {}) {
-  const topMargin = opts.topMargin ?? SIGNATURES_TOP_MARGIN_MM;
-  const imgHeight = opts.imgHeight ?? SIGNATURE_IMG_H_MM;
-  const blockHeight = topMargin + imgHeight + SIGNATURE_LABEL_GAP_MM + 10;
-  const footerLimit = opts.reserveInstitutionalFooter
-    ? PDF_FOOTER_BLOCK_TOP - 2
-    : pdfContentBottomY();
-
-  if (!opts.skipEnsure) {
-    y = ensureBlockFitsSafeZone(doc, y, blockHeight);
-  }
-  if (y + blockHeight > footerLimit) {
-    doc.addPage();
-    touchPdfContentPage(doc);
-    y = PDF_PAGE_CONTENT_START_Y;
-  }
-  y += topMargin;
-
-  const lineW = (CONTENT_W - SIGNATURE_LINE_GAP_MM) / 2;
-  const boxes = [
-    { label: 'Assinatura do Técnico', data: signatures.technicianData },
-    { label: 'Assinatura do Cliente', data: signatures.clientData },
-  ];
-
-  for (let i = 0; i < boxes.length; i += 1) {
-    const box = boxes[i];
-    const x = MARGIN + i * (lineW + SIGNATURE_LINE_GAP_MM);
-    const lineY = y + imgHeight + 2;
-    const sigPad = 2;
-
-    if (box.data) {
-      try {
-        await pdfAddImageContained(doc, box.data, x, y, lineW, imgHeight, { padding: sigPad });
-      } catch {
-        /* área reservada sem imagem */
-      }
-    }
-
-    doc.setDrawColor(148, 163, 184);
-    doc.setLineWidth(0.3);
-    doc.line(x, lineY, x + lineW, lineY);
-
-    pdfSetFont(doc, 'normal');
-    doc.setFontSize(PDF_FONT_CAPTION);
-    doc.setTextColor(...TEXT_MUTED);
-    doc.text(box.label, x + lineW / 2, lineY + SIGNATURE_LABEL_GAP_MM, { align: 'center' });
-  }
-
-  touchPdfContentPage(doc);
-  return y + blockHeight;
-}
-
-/**
- * Rodapé institucional — única função autorizada a desenhar o bloco comercial no fundo da página.
- * @param {import('jspdf').jsPDF} doc
- * @param {number} pageNumber
- * @param {number} totalPages
- */
-function drawInstitutionalPageFooter(doc, pageNumber, totalPages) {
-  doc.setPage(pageNumber);
-
-  const footerTop = PDF_FOOTER_BLOCK_TOP;
-  const footerLines = buildInstitutionalFooterLines();
-  const pageNumY = PDF_PAGE_NUMBER_Y;
-
-  pdfSetFont(doc, 'normal');
-  doc.setFontSize(PDF_FONT_CAPTION);
-  doc.setTextColor(...TEXT_MUTED);
-  doc.text(`${pageNumber} / ${totalPages}`, PAGE_W / 2, pageNumY, { align: 'center' });
-
-  doc.setDrawColor(...PDF_TABLE_LINE);
-  doc.setLineWidth(0.25);
-  doc.line(MARGIN, footerTop, PAGE_W - MARGIN, footerTop);
-
-  pdfSetFont(doc, 'normal');
-  doc.setFontSize(PDF_FOOTER_FONT_SIZE);
-  doc.setTextColor(...PDF_FOOTER_TEXT_RGB);
-
-  let textY = footerTop + 4;
-  footerLines.forEach((line) => {
-    const wrapped = pdfSplitText(doc, line, CONTENT_W);
-    wrapped.forEach((part) => {
-      doc.text(part, PAGE_W / 2, textY, { align: 'center' });
-      textY += 3.4;
-    });
-  });
-}
-
-/** Hook autoTable — reserva páginas; rodapé desenhado no fecho do documento */
-function buildPdfAutoTableDidDrawPage(doc) {
-  return () => {
-    touchPdfContentPage(doc);
-  };
-}
-
-function drawPageFooter(doc, _reportId) {
-  const total = doc.getNumberOfPages();
-  for (let i = 1; i <= total; i++) {
-    drawInstitutionalPageFooter(doc, i, total);
-  }
-}
-
-function touchPdfContentPage(doc) {
-  const page = doc.internal.getCurrentPageInfo().pageNumber;
-  doc.__manusilvaLastContentPage = Math.max(doc.__manusilvaLastContentPage || 1, page);
-}
-
-function trimTrailingBlankPages(doc) {
-  const last = doc.__manusilvaLastContentPage || 1;
-  let total = doc.getNumberOfPages();
-  while (total > last) {
-    doc.deletePage(total);
-    total -= 1;
-  }
-}
-
-function ensureSpace(doc, y, needed) {
-  return ensureBlockFitsSafeZone(doc, y, needed);
 }
 
 function formatPdfCompactDateTime(dateInput) {
