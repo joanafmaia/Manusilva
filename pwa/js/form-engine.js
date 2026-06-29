@@ -1037,8 +1037,9 @@ export function collectReportValues(overlay) {
   overlay.querySelectorAll('[data-multi-checkbox]').forEach((group) => {
     const fieldId = group.dataset.multiCheckbox;
     const selected = [];
-    group.querySelectorAll('.multi-check-input:checked').forEach((input) => {
-      selected.push(input.value);
+    group.querySelectorAll('.multi-check-item.is-checked').forEach((item) => {
+      const val = item.dataset.multiCheckValue;
+      if (val != null) selected.push(val);
     });
     values[fieldId] = selected;
   });
@@ -1515,22 +1516,24 @@ function renderChoiceField(field, value = '') {
 function renderMultiCheckboxField(field, value) {
   const selected = Array.isArray(value) ? value : [];
   const items = (field.options || [])
-    .map(
-      (opt) => `
-      <label class="multi-check-item">
-        <input type="checkbox" class="multi-check-input" value="${escapeHtml(opt)}"
-          ${selected.includes(opt) ? 'checked' : ''}>
+    .map((opt) => {
+      const isChecked = selected.includes(opt);
+      return `
+      <button type="button"
+        class="multi-check-item${isChecked ? ' is-checked' : ''}"
+        data-multi-check-value="${escapeHtml(opt)}"
+        aria-pressed="${isChecked ? 'true' : 'false'}">
         <span class="multi-check-box" aria-hidden="true"></span>
         <span class="multi-check-label">${escapeHtml(opt)}</span>
-      </label>
-    `
-    )
+      </button>
+    `;
+    })
     .join('');
 
   return `
     <div class="form-group field-block multi-checkbox-field" data-multi-checkbox="${field.id}">
       <label class="form-label">${escapeHtml(field.label)}</label>
-      <div class="multi-check-grid">${items}</div>
+      <div class="multi-check-grid" role="group" aria-label="${escapeHtml(field.label)}">${items}</div>
     </div>
   `;
 }
@@ -2374,14 +2377,17 @@ export async function bindFormFieldInteractions(overlay) {
   });
 
   overlay.querySelectorAll('[data-multi-checkbox]').forEach((group) => {
-    group.querySelectorAll('.multi-check-item').forEach((item) => {
-      const input = item.querySelector('.multi-check-input');
-      if (!input) return;
-      const syncChecked = () => item.classList.toggle('is-checked', input.checked);
-      syncChecked();
-      // Evita scroll para o fim do formulário ao focar checkbox escondido (tablet)
-      input.addEventListener('mousedown', (e) => e.preventDefault());
-      input.addEventListener('change', syncChecked);
+    group.querySelectorAll('.multi-check-item').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const scrollTop = overlay.scrollTop;
+        btn.classList.toggle('is-checked');
+        const checked = btn.classList.contains('is-checked');
+        btn.setAttribute('aria-pressed', checked ? 'true' : 'false');
+        btn.blur();
+        evaluateFieldDependencies(overlay);
+        overlay.scrollTop = scrollTop;
+      });
     });
   });
 
