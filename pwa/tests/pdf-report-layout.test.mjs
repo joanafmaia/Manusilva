@@ -132,3 +132,29 @@ describe('pdf-corretiva-maquinas', () => {
     }
   });
 });
+
+describe('pdf-grandes-baterias', () => {
+  it('expõe layout da manutenção baterias grandes', async () => {
+    const mod = await import('../js/pdf-grandes-baterias.js');
+    for (const name of [
+      'drawGrandesTitleBar',
+      'drawGrandesBateriasBody',
+      'drawGrandesBateriasClosingSection',
+    ]) {
+      assert.equal(typeof mod[name], 'function', `export em falta: ${name}`);
+    }
+  });
+});
+
+describe('pdf-rav-bateria', () => {
+  it('expõe layout da reparação avarias bateria', async () => {
+    const mod = await import('../js/pdf-rav-bateria.js');
+    for (const name of [
+      'drawRavBateriaTitleBar',
+      'drawRavBateriaBody',
+      'drawRavBateriaClosingSection',
+    ]) {
+      assert.equal(typeof mod[name], 'function', `export em falta: ${name}`);
+    }
+  });
+});
