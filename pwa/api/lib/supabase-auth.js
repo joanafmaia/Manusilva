@@ -3,13 +3,10 @@
  */
 
 const { isRhOrAdminAuthUser } = require('./auth-roles');
+const { getSupabaseUrl, getSupabaseAnonKey } = require('./supabase-env');
 
-const SUPABASE_URL =
-  process.env.SUPABASE_URL || 'https://zhfbezrevosmbmcbyskw.supabase.co';
-const SUPABASE_ANON_KEY =
-  process.env.SUPABASE_ANON_KEY ||
-  process.env.SUPABASE_KEY ||
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpoZmJlenJldm9zbWJtY2J5c2t3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzOTQxMTMsImV4cCI6MjA5NTk3MDExM30.eUXiUiBVxoULll4LICBLLmEtBWZ0zqBHuW_W7-nB4Wc';
+const SUPABASE_URL = getSupabaseUrl();
+const SUPABASE_ANON_KEY = getSupabaseAnonKey();
 
 function getBearerToken(req) {
   const auth = String(req.headers?.authorization || '');

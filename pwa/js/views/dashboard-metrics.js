@@ -2,6 +2,7 @@
  * Métricas rápidas do painel RH — KPIs acionáveis + resumo de equipa.
  */
 
+import { escapeHtml } from '../html-utils.js';
 import {
   getDB,
   getPendingReports,
@@ -49,10 +50,12 @@ export function computeDashboardMetrics(db = getDB()) {
 function renderMetricCard(card) {
   const actionAttr = card.action ? ` data-metric-action="${card.action}"` : '';
   const btnRole = card.action ? ' role="button" tabindex="0"' : '';
+  const label = escapeHtml(card.label);
+  const value = escapeHtml(String(card.value ?? ''));
   return `
-    <article class="dashboard-metric-card dashboard-metric-card--${card.accent} dashboard-metric-card--${card.size || 'primary'}${card.action ? ' dashboard-metric-card--clickable' : ''}"${actionAttr}${btnRole} aria-label="${card.label}">
-      <p class="dashboard-metric-value">${card.value}</p>
-      <p class="dashboard-metric-label">${card.label}</p>
+    <article class="dashboard-metric-card dashboard-metric-card--${card.accent} dashboard-metric-card--${card.size || 'primary'}${card.action ? ' dashboard-metric-card--clickable' : ''}"${actionAttr}${btnRole} aria-label="${label}">
+      <p class="dashboard-metric-value">${value}</p>
+      <p class="dashboard-metric-label">${label}</p>
     </article>
   `;
 }
@@ -135,7 +138,7 @@ export function renderMetricsSection(metrics) {
     .sort((a, b) => b[1] - a[1])
     .map(
       ([name, count]) =>
-        `<li><span>${name}</span><strong>${count}</strong></li>`,
+        `<li><span>${escapeHtml(name)}</span><strong>${escapeHtml(String(count))}</strong></li>`,
     )
     .join('');
 

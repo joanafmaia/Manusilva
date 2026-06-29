@@ -10,6 +10,8 @@ import {
 } from './report-intervention-date.js';
 import { escapeHtml } from './html-utils.js';
 import { buildReportEmailMeta } from './report-email-meta.js';
+import { sanitizeUtilizadores, stripPasswordsFromDb } from './local-db-sanitize.js';
+import { isRhOrAdminSession } from './auth-roles-core.js';
 
 export { getSupabaseClient };
 export { escapeHtml };
@@ -287,23 +289,6 @@ export async function getAllClientsList() {
   return [...list].sort((a, b) =>
     String(a.name || a.Nome).localeCompare(String(b.name || b.Nome), 'pt'),
   );
-}
-
-function sanitizeUtilizadores(list) {
-  if (!Array.isArray(list)) return list;
-  return list.map((u) => {
-    if (!u || typeof u !== 'object') return u;
-    const { password: _pwd, ...rest } = u;
-    return rest;
-  });
-}
-
-function stripPasswordsFromDb(db) {
-  if (!db?.utilizadores?.length) return false;
-  const hadPasswords = db.utilizadores.some((u) => u && Object.prototype.hasOwnProperty.call(u, 'password'));
-  if (!hadPasswords) return false;
-  db.utilizadores = sanitizeUtilizadores(db.utilizadores);
-  return true;
 }
 
 export function saveDB(db) {
@@ -796,6 +781,14 @@ export function requireAuth(role) {
     window.location.href = 'index.html';
     return null;
   }
+  if (role === 'admin' && !isRhOrAdminSession(session)) {
+    window.location.href = 'dashboard.html';
+    return null;
+  }
+  if (role === 'technician' && session.role !== 'technician') {
+    window.location.href = session.role === 'admin' ? 'admin.html' : 'index.html';
+    return null;
+  }
   if (role && session.role !== role) {
     window.location.href = session.role === 'admin' ? 'admin.html' : 'dashboard.html';
     return null;
@@ -981,6 +974,11 @@ export async function addTechnician({ nome, email, telemovel, nif }) {
  * @returns {object|null} registo normalizado
  */
 export async function addClient(payload) {
+  if (!isRhOrAdminSession(getSession())) {
+    showToast('Apenas RH pode criar clientes.', 'error');
+    return null;
+  }
+
   const nome = String(
     payload?.nome_empresa ?? payload?.Nome ?? payload?.nome ?? '',
   )
@@ -1083,6 +1081,11 @@ export async function addClient(payload) {
  * @param {{ origem?: string, silent?: boolean }} [options]
  */
 export async function updateClient(clientId, patch = {}, options = {}) {
+  if (!isRhOrAdminSession(getSession())) {
+    showToast('Apenas RH pode alterar clientes.', 'error');
+    return null;
+  }
+
   const id = String(clientId ?? '').trim();
   if (!id) {
     showToast('Cliente inválido.', 'error');
@@ -2195,6 +2198,10 @@ export function showToast(message, type = 'info', duration = 4000) {
 
 /* ─── Modal ─── */
 
+/**
+ * Abre modal. `title` é escapado; `content` e `actions` são HTML — o caller deve
+ * usar escapeHtml em dados de utilizador/BD.
+ */
 export function openModal(title, content, actions = '', options = {}) {
   closeModal();
   const overlay = document.createElement('div');
