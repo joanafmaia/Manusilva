@@ -24,6 +24,7 @@ CREATE POLICY "authenticated_read_pdfs_trabalhos"
 
 -- ─── Auditoria de clientes: inserção só RH ───
 DROP POLICY IF EXISTS "authenticated_insert_cliente_alteracoes" ON public.cliente_alteracoes;
+DROP POLICY IF EXISTS "rh_insert_cliente_alteracoes" ON public.cliente_alteracoes;
 CREATE POLICY "rh_insert_cliente_alteracoes"
   ON public.cliente_alteracoes FOR INSERT TO authenticated
   WITH CHECK (public.is_rh_admin());

@@ -4,34 +4,66 @@
  */
 
 import { getSupabaseClient } from './supabase-client.js';
-import {
-  formatInterventionDatePt,
-  resolveReportInterventionDatePt,
-} from './report-intervention-date.js';
 import { escapeHtml } from './html-utils.js';
 import { buildReportEmailMeta } from './report-email-meta.js';
-import { sanitizeUtilizadores, stripPasswordsFromDb } from './local-db-sanitize.js';
+import { resolveReportInterventionDatePt } from './report-intervention-date.js';
 import { isRhOrAdminSession } from './auth-roles-core.js';
 import {
   formatDate,
   formatDateLong,
 } from './date-utils.js';
 import { showToast } from './toast-modal.js';
+import {
+  invalidateDbMemoryCache,
+  initLocalDatabase,
+  getDB,
+  warmClientsCatalog,
+  prepareClientsCatalog,
+  warmJobs,
+  warmReports,
+  warmOperacoes,
+  handleFatalDashboardError,
+  saveDB,
+  updateDB,
+} from './local-db.js';
+import {
+  getClient,
+  getAllTechnicians,
+  getTechnician,
+  parseTechnicianNamesFromJob,
+  getJobTechnicianLabel,
+  getPrimaryTechnicianForJob,
+  jobAssignedToTechnician,
+  getServiceType,
+  getForklift,
+  getJob,
+  getReport,
+  getReportForJob,
+  resolveJobForForm,
+  getJobsForTechnician,
+  getAllJobs,
+} from './entity-lookups.js';
+import {
+  sendOfficialReportEmail,
+  sendOrcamentoProposalEmail,
+} from './report-email-api.js';
+import {
+  buildReportEmailPdfPayload,
+  blobToBase64,
+  generateAndUploadApprovedReportPdfs,
+} from './report-email-pdf.js';
+import {
+  resendApprovedReportEmail,
+  sendSelectedReportsEmail,
+} from './report-email-actions.js';
 
 export { getSupabaseClient };
 export { escapeHtml };
 
 import {
   COMPANY,
-  CLIENTS,
-  DEMO_CLIENT_FORKLIFTS,
   mapClientToLegacy,
-  TECHNICIANS,
-  SERVICE_TYPES,
-  reportTemplates,
   JOB_STATUSES,
-  PDF_DOCUMENT_TITLES,
-  seedDatabase,
 } from './mock_data.js';
 import {
   ensureProductionCatalog,
@@ -47,7 +79,6 @@ import {
 import { isTestClient } from './client-test-utils.js';
 import {
   ensureJobsLoaded,
-  getJobsSnapshot,
   insertTrabalho,
   insertTrabalhoFromReport,
   deleteTrabalho,
@@ -56,27 +87,19 @@ import {
   formatTrabalhosError,
 } from './trabalhos-db.js';
 import {
-  uploadTrabalhoPdf,
   formatPdfStorageError,
-  buildReportPdfFilename,
 } from './pdf-storage.js';
 import {
   ensureReportsLoaded,
-  getReportsSnapshot,
   upsertRelatorio,
   updateRelatorio,
   deleteRelatoriosByTrabalho,
   formatRelatoriosError,
-  dedupeReportsByJobPreferNewest,
 } from './relatorios-db.js';
 import {
   reportHasPedidoOrcamento,
   reportOrcamentoPorPreparar,
 } from './pedido-orcamento.js';
-import {
-  jobMatchesTechnician,
-  splitTechnicianStoredValue,
-} from './job-technician-utils.js';
 export { MANUSILVA_LOGO, applyBrandLogo, isLogoConfigured, getPdfLogoFormat } from './brand-ui.js';
 
 import {
@@ -88,159 +111,12 @@ import {
 import { LoginView } from './views/login.js';
 import { AuthService } from './auth.js';
 import { sameEntityId, normalizeEntityId } from './entity-id.js';
-import { isDevMockEnabled } from './env.js';
-import { initErrorMonitoring, captureError } from './error-monitor.js';
+import { captureError } from './error-monitor.js';
 
 export { sameEntityId, normalizeEntityId } from './entity-id.js';
 export { captureError } from './error-monitor.js';
 
 export { APP_SESSION_KEY, clearSession, getSession, normalizeSession };
-
-const DB_KEY = 'manusilva_db';
-const REPORT_EMAIL_SUBJECT_PREFIX = '[ManuSilva] Relatório de Intervenção';
-
-/* ─── Storage Layer (cache em memória — evita parse repetido do localStorage) ─── */
-
-/** Cache do objeto persistido (sem jobs/reports vindos do Supabase). */
-let dbMemoryCache = null;
-let dbSeedChecked = false;
-
-function ensureSeededOnce() {
-  if (dbSeedChecked) return;
-  seedDatabase();
-  dbSeedChecked = true;
-}
-
-function recoverCorruptedDbStorage(reason) {
-  console.warn('[ManuSilva] localStorage manusilva_db inválido; a repor base de dados.', reason);
-  invalidateDbMemoryCache();
-  try {
-    localStorage.removeItem(DB_KEY);
-  } catch {
-    /* ignore */
-  }
-  seedDatabase();
-  dbSeedChecked = true;
-  try {
-    return JSON.parse(localStorage.getItem(DB_KEY) || '{}');
-  } catch {
-    return {
-      clients: [],
-      technicians: [],
-      utilizadores: [],
-      offlineQueue: [],
-      settings: { offline: false },
-    };
-  }
-}
-
-function readPersistedDbFromStorage() {
-  ensureSeededOnce();
-  const raw = localStorage.getItem(DB_KEY);
-  if (!raw) {
-    seedDatabase();
-    dbSeedChecked = true;
-    try {
-      return JSON.parse(localStorage.getItem(DB_KEY));
-    } catch (err) {
-      return recoverCorruptedDbStorage(err);
-    }
-  }
-  try {
-    return JSON.parse(raw);
-  } catch (err) {
-    return recoverCorruptedDbStorage(err);
-  }
-}
-
-function ensureMemoryCache() {
-  if (!dbMemoryCache) {
-    dbMemoryCache = readPersistedDbFromStorage();
-    if (stripPasswordsFromDb(dbMemoryCache)) {
-      const payload = { ...dbMemoryCache, jobs: [], reports: [] };
-      localStorage.setItem(DB_KEY, JSON.stringify(payload));
-    }
-  }
-  return dbMemoryCache;
-}
-
-/** Limpa a cache — usar após reset externo do localStorage (`resetDatabase`). */
-export function invalidateDbMemoryCache() {
-  dbMemoryCache = null;
-  dbSeedChecked = false;
-}
-
-if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
-  window.addEventListener('manusilva-db-reset', invalidateDbMemoryCache);
-}
-
-/** Garante schema seed + cache quente (arranque da app). */
-export function initLocalDatabase() {
-  initErrorMonitoring();
-  ensureSeededOnce();
-  ensureMemoryCache();
-}
-
-export function getDB() {
-  const db = ensureMemoryCache();
-  db.jobs = getJobsSnapshot();
-  db.reports = getReportsSnapshot();
-  return db;
-}
-
-/** Pré-carrega o catálogo de clientes do Supabase (uma vez por sessão) */
-export function warmClientsCatalog() {
-  return ensureProductionCatalog();
-}
-
-/** Garante catálogo carregado antes de pintar painéis (admin / técnico) */
-export async function prepareClientsCatalog() {
-  return ensureProductionCatalog();
-}
-
-/** Carrega trabalhos do Supabase (substitui lista local em localStorage) */
-export function warmJobs() {
-  return ensureJobsLoaded();
-}
-
-/** Carrega relatórios do Supabase (substitui lista local em localStorage) */
-export function warmReports() {
-  return ensureReportsLoaded();
-}
-
-export async function warmOperacoes() {
-  const { ensureSupabaseAuthSession } = await import('./supabase-client.js');
-  await ensureSupabaseAuthSession();
-  await ensureJobsLoaded();
-  await ensureReportsLoaded();
-  await ensureProductionCatalog();
-}
-
-/**
- * Trata erros fatais de arranque da dashboard (sessão/token inválido).
- * Se o erro for de sessão, limpa storage e redireciona para o login.
- * @param {unknown} error
- * @returns {Promise<boolean>} true se o redirect foi iniciado
- */
-export async function handleFatalDashboardError(error) {
-  console.error('Erro fatal ao iniciar dashboard:', error);
-
-  const msg = String(error?.message || '').toLowerCase();
-  const isSessionError =
-    error?.code === 'AUTH_SESSION_MISSING' ||
-    msg.includes('sessão') ||
-    msg.includes('sessao') ||
-    msg.includes('session') ||
-    msg.includes('token') ||
-    msg.includes('jwt');
-
-  if (!isSessionError) return false;
-
-  console.warn('Sessão expirada totalmente. A redirecionar para o login...');
-  const { handleFatalAuthSessionError } = await import('./supabase-client.js');
-  handleFatalAuthSessionError(error?.message || 'Sessão em falta no arranque da dashboard.');
-  return true;
-}
 
 function normalizeStoredClient(record) {
   if (!record) return null;
@@ -292,489 +168,6 @@ export async function getAllClientsList() {
   );
 }
 
-export function saveDB(db) {
-  const payload = { ...db, jobs: [], reports: [] };
-  if (Array.isArray(payload.utilizadores)) {
-    payload.utilizadores = sanitizeUtilizadores(payload.utilizadores);
-  }
-  localStorage.setItem(DB_KEY, JSON.stringify(payload));
-  dbMemoryCache = { ...payload };
-  window.dispatchEvent(new CustomEvent('db-updated'));
-}
-
-export function updateDB(updater) {
-  const db = getDB();
-  updater(db);
-  db.jobs = [];
-  db.reports = [];
-  saveDB(db);
-  dbMemoryCache.jobs = getJobsSnapshot();
-  dbMemoryCache.reports = getReportsSnapshot();
-  return dbMemoryCache;
-}
-
-/**
- * Dispara envio de e-mail oficial via Serverless Function (`/api/enviar-email`).
- * @param {{ tipoRelatorio?: string, reportId?: string, clienteNome?: string, nome_empresa?: string, tecnico?: string, dataConclusao?: string, to?: string, serieFrota?: string, numeroOrdem?: number | null, pdfUrl?: string, pdfUrls?: Array<string | { url: string, filename?: string, label?: string }>, pdfFilename?: string, pdfBase64?: string, pdfAttachments?: Array<{ pdfFilename: string, pdfBase64: string }> }} [meta]
- */
-export async function sendOfficialReportEmail(meta = {}) {
-  const { getFreshAccessToken } = await import('./supabase-client.js');
-  const token = await getFreshAccessToken();
-  if (!token) {
-    throw new Error('Sessão expirada. Inicie sessão novamente para enviar o e-mail.');
-  }
-
-  const dateStamp = formatInterventionDatePt(meta.dataConclusao) || '';
-  const clienteNome = meta.clienteNome || meta.nome_empresa || 'Cliente não indicado';
-  const tecnico = meta.tecnico || 'Técnico não indicado';
-  const tipoRelatorio = meta.tipoRelatorio || 'outro';
-  const serieFrota = meta.serieFrota || '';
-
-  const response = await fetch('/api/enviar-email', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify({
-      to: meta.to,
-      reportId: meta.reportId,
-      clienteNome,
-      tecnico,
-      dataConclusao: dateStamp,
-      tipoRelatorio,
-      serieFrota,
-      numeroOrdem: meta.numeroOrdem ?? null,
-      orcamentoNumero: meta.orcamentoNumero,
-      pdfUrl: meta.pdfUrl,
-      pdfUrls: meta.pdfUrls,
-      pdfFilename: meta.pdfFilename,
-      pdfBase64: meta.pdfBase64,
-      pdfAttachments: meta.pdfAttachments,
-    }),
-  });
-
-  if (!response.ok) {
-    const err = await response.json().catch(() => ({}));
-    const details = [err.error, err.hint, err.code, err.responseCode]
-      .filter(Boolean)
-      .join(' | ');
-    throw new Error(details || 'Falha ao enviar e-mail pela API.');
-  }
-
-  return true;
-}
-
-/**
- * Envia proposta comercial MS.015 por e-mail (destinatário independente do relatório).
- */
-export async function sendOrcamentoProposalEmail(meta = {}) {
-  const { getFreshAccessToken } = await import('./supabase-client.js');
-  const token = await getFreshAccessToken();
-  if (!token) {
-    throw new Error('Sessão expirada. Inicie sessão novamente para enviar a proposta.');
-  }
-
-  const dateStamp = formatInterventionDatePt(meta.dataConclusao) || '';
-
-  const payload = {
-    to: meta.to,
-    reportId: meta.reportId,
-    clienteNome: meta.clienteNome || meta.nome_empresa || 'Cliente não indicado',
-    tecnico: meta.tecnico || 'Técnico não indicado',
-    dataConclusao: dateStamp,
-    tipoRelatorio: 'orcamento',
-    orcamentoNumero: meta.orcamentoNumero || '',
-    numeroOrdem: meta.numeroOrdem ?? null,
-    pdfUrl: meta.pdfUrl,
-  };
-  if (meta.pdfBase64 && meta.pdfFilename) {
-    payload.pdfBase64 = meta.pdfBase64;
-    payload.pdfFilename = meta.pdfFilename;
-  }
-
-  const response = await fetch('/api/enviar-email', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify(payload),
-  });
-
-  if (!response.ok) {
-    const err = await response.json().catch(() => ({}));
-    const details = [err.error, err.hint, err.code, err.responseCode]
-      .filter(Boolean)
-      .join(' | ');
-    throw new Error(details || 'Falha ao enviar e-mail da proposta.');
-  }
-
-  return true;
-}
-
-/**
- * @param {Array<{ blob?: Blob, filename: string, publicUrl?: string, machineLabel?: string, base64?: string }>} pdfEntries
- */
-function buildReportEmailPdfPayload(pdfEntries = []) {
-  const pdfUrls = pdfEntries
-    .filter((entry) => entry?.publicUrl)
-    .map((entry) => ({
-      url: entry.publicUrl,
-      filename: entry.filename || '',
-      label: entry.machineLabel || entry.filename || '',
-    }));
-
-  const payload = {
-    pdfUrl: pdfUrls[0]?.url || null,
-    pdfUrls,
-  };
-
-  // Vários PDFs: o servidor obtém os ficheiros pelos URLs (evita limite do body na Vercel).
-  if (pdfEntries.length > 1) return payload;
-
-  const MAX_BASE64_LEN = 3_000_000;
-  const entry = pdfEntries[0];
-  const base64 = entry?.base64 || '';
-  if (base64 && base64.length > 0 && base64.length <= MAX_BASE64_LEN) {
-    payload.pdfFilename = entry.filename;
-    payload.pdfBase64 = base64;
-  }
-
-  return payload;
-}
-
-async function blobToBase64(blob) {
-  const buffer = await blob.arrayBuffer();
-  return arrayBufferToBase64(buffer);
-}
-
-/**
- * @param {object} report
- * @param {object} job
- * @param {{ label?: string }} [service]
- * @returns {Promise<Array<{ blob: Blob, filename: string, publicUrl: string, machineLabel?: string }>>}
- */
-async function generateAndUploadApprovedReportPdfs(report, job, service) {
-  const { importPdfReport } = await import('./pdf-loader.js');
-  const pdfReport = await importPdfReport();
-  const EMPILHADORES_SERVICE = 'manutencao_preventiva_empilhadores';
-  const serviceTitle = PDF_DOCUMENT_TITLES[report.serviceType] || service?.label;
-
-  if (report.serviceType === EMPILHADORES_SERVICE) {
-    const pdfs = await pdfReport.generateEmpilhadoresPdfBlobs(report);
-    const uploaded = [];
-    for (const item of pdfs) {
-      const stored = await uploadTrabalhoPdf(item.blob, item.filename);
-      uploaded.push({
-        blob: item.blob,
-        filename: item.filename,
-        publicUrl: stored.publicUrl,
-        machineLabel: item.machineLabel,
-      });
-    }
-    return uploaded;
-  }
-
-  const doc = await pdfReport.renderInterventionPDF(report);
-  const filename = buildReportPdfFilename(job, report, { serviceTitle });
-  const blob = doc.output('blob');
-  const stored = await uploadTrabalhoPdf(blob, filename);
-  return [{ blob, filename, publicUrl: stored.publicUrl }];
-}
-
-function resolveApprovedReportPdfSources(report, job) {
-  const urls = Array.isArray(report?.data?.urlPdfs) ? report.data.urlPdfs.filter(Boolean) : [];
-  const names = Array.isArray(report?.data?.pdfFilenames) ? report.data.pdfFilenames : [];
-  if (urls.length) {
-    return urls.map((url, index) => ({
-      publicUrl: url,
-      filename: names[index] || report.pdfFilename || `relatorio_${index + 1}.pdf`,
-      machineLabel: names[index] || `Relatório ${index + 1}`,
-    }));
-  }
-  if (job?.urlPdf) {
-    return [
-      {
-        publicUrl: job.urlPdf,
-        filename: report.pdfFilename || 'relatorio.pdf',
-      },
-    ];
-  }
-  return [];
-}
-
-/**
- * Reenvia o e-mail oficial de um relatório já aprovado (ex.: falha de sessão na 1.ª aprovação).
- * @param {string} reportId
- * @param {{ clientEmail?: string }} [options]
- */
-export async function resendApprovedReportEmail(reportId, options = {}) {
-  await ensureJobsLoaded(true);
-
-  const report = getReport(reportId);
-  if (!report) {
-    showToast('Relatório não encontrado.', 'error');
-    return false;
-  }
-  if (report.status !== 'approved') {
-    showToast('Só é possível reenviar e-mail de relatórios já aprovados.', 'warning');
-    return false;
-  }
-
-  const client = getClient(report.clientId);
-  const job = report.jobId ? getJob(report.jobId) : null;
-  const service = getServiceType(report.serviceType);
-  const clientEmailInput = String(options.clientEmail ?? '').trim();
-
-  if (clientEmailInput) {
-    const { isValidEmail } = await import('./validators.js');
-    if (!isValidEmail(clientEmailInput)) {
-      showToast('Introduza um e-mail de cliente válido.', 'error');
-      return false;
-    }
-    if (report.clientId) {
-      await syncClientEmailIfChanged(report.clientId, clientEmailInput);
-    }
-  }
-
-  const recipientEmail =
-    clientEmailInput || client?.email || client?.['E-mail'] || '';
-  if (!recipientEmail) {
-    showToast('O cliente não tem e-mail registado. Indique um e-mail antes de reenviar.', 'warning');
-    return false;
-  }
-
-  const {
-    isEmpilhadoresMultiMaquinaReport,
-    getEmpilhadoresMaquinasFromReport,
-  } = await import('./views/relatorio-empilhadores-maquinas.js');
-
-  let pdfSources = resolveApprovedReportPdfSources(report, job);
-  const expectedPdfCount = isEmpilhadoresMultiMaquinaReport(report)
-    ? getEmpilhadoresMaquinasFromReport(report).length
-    : 1;
-
-  if (pdfSources.length < expectedPdfCount) {
-    try {
-      showToast('A preparar todos os PDFs da ordem de trabalho...', 'info', 4000);
-      const regenerated = await generateAndUploadApprovedReportPdfs(report, job, service);
-      if (regenerated.length) {
-        pdfSources = regenerated;
-        await updateRelatorio(reportId, {
-          data: {
-            urlPdfs: regenerated.map((entry) => entry.publicUrl),
-            pdfFilenames: regenerated.map((entry) => entry.filename),
-          },
-        });
-        if (report.jobId && regenerated[0]?.publicUrl) {
-          await patchTrabalho(report.jobId, { urlPdf: regenerated[0].publicUrl });
-        }
-      }
-    } catch (err) {
-      console.warn('[Email] Regeneração multi-PDF no reenvio:', err);
-    }
-  }
-
-  if (!pdfSources.length) {
-    showToast('PDF do relatório não encontrado no Storage. Contacte suporte técnico.', 'error');
-    return false;
-  }
-
-  const values = report?.data?.values || {};
-
-  const MAX_BASE64_LEN = 3_000_000;
-  const emailPdfEntries = pdfSources.map((source) => ({
-    publicUrl: source.publicUrl,
-    filename: source.filename,
-    machineLabel: source.machineLabel,
-  }));
-
-  if (pdfSources.length === 1) {
-    const source = pdfSources[0];
-    try {
-      if (source.blob) {
-        emailPdfEntries[0].base64 = await blobToBase64(source.blob);
-      } else if (source.publicUrl) {
-        const res = await fetch(source.publicUrl);
-        if (res.ok) {
-          const buf = await res.arrayBuffer();
-          const b64 = arrayBufferToBase64(buf);
-          if (b64.length > 0 && b64.length <= MAX_BASE64_LEN) {
-            emailPdfEntries[0].base64 = b64;
-          }
-        }
-      }
-    } catch (err) {
-      console.warn('[Email] Anexo PDF no reenvio:', err);
-    }
-  }
-
-  const emailPdfPayload = buildReportEmailPdfPayload(emailPdfEntries);
-  const pdfCount = pdfSources.length;
-
-  showToast(
-    pdfCount > 1
-      ? `A reenviar e-mail com ${pdfCount} relatórios para ${recipientEmail}...`
-      : `A reenviar e-mail para ${recipientEmail}...`,
-    'info',
-    5000,
-  );
-
-  try {
-    await sendOfficialReportEmail({
-      ...buildReportEmailMeta(report, {
-        client,
-        job,
-        technicianName: getTechnician(report.technicianId)?.name || '',
-      }),
-      to: recipientEmail,
-      ...emailPdfPayload,
-    });
-    showToast(`E-mail reenviado para ${recipientEmail}.`, 'success', 6000);
-    return true;
-  } catch (err) {
-    console.error('[Email] Reenvio falhou:', err);
-    showToast(`Falha ao reenviar e-mail. ${err?.message || ''}`.trim(), 'error', 8000);
-    return false;
-  }
-}
-
-/**
- * Envia 1 e-mail com os PDFs dos relatórios aprovados selecionados (podem ser serviços diferentes).
- * @param {string[]} reportIds
- * @param {{ clientEmail?: string }} [options]
- */
-export async function sendSelectedReportsEmail(reportIds, options = {}) {
-  const uniqueIds = [...new Set((reportIds || []).map((id) => String(id)).filter(Boolean))];
-  if (!uniqueIds.length) {
-    showToast('Selecione pelo menos um relatório aprovado.', 'warning');
-    return false;
-  }
-
-  await ensureJobsLoaded(true);
-
-  const reports = uniqueIds
-    .map((id) => getReport(id))
-    .filter((report) => report?.status === 'approved');
-
-  if (!reports.length) {
-    showToast('Só pode enviar relatórios já aprovados.', 'warning', 7000);
-    return false;
-  }
-
-  if (reports.length < uniqueIds.length) {
-    showToast('Relatórios não aprovados foram ignorados.', 'info', 5000);
-  }
-
-  const clientId = reports[0]?.clientId;
-  const sameClient = reports.every((report) => String(report.clientId) === String(clientId));
-  if (!sameClient) {
-    showToast('Selecione relatórios do mesmo cliente.', 'error');
-    return false;
-  }
-
-  const client = getClient(clientId);
-  const clientEmailInput = String(options.clientEmail ?? '').trim();
-  if (clientEmailInput) {
-    const { isValidEmail } = await import('./validators.js');
-    if (!isValidEmail(clientEmailInput)) {
-      showToast('Introduza um e-mail de cliente válido.', 'error');
-      return false;
-    }
-    if (clientId) {
-      await syncClientEmailIfChanged(clientId, clientEmailInput);
-    }
-  }
-
-  const recipientEmail =
-    clientEmailInput || client?.email || client?.['E-mail'] || '';
-  if (!recipientEmail) {
-    showToast('O cliente não tem e-mail registado.', 'warning');
-    return false;
-  }
-
-  const pdfEntries = [];
-  for (const report of reports) {
-    const job = report.jobId ? getJob(report.jobId) : null;
-    const service = getServiceType(report.serviceType);
-    let sources = resolveApprovedReportPdfSources(report, job);
-
-    if (!sources.length) {
-      try {
-        const regenerated = await generateAndUploadApprovedReportPdfs(report, job, service);
-        sources = regenerated;
-        await updateRelatorio(report.id, {
-          data: {
-            urlPdfs: regenerated.map((entry) => entry.publicUrl),
-            pdfFilenames: regenerated.map((entry) => entry.filename),
-          },
-        });
-        if (report.jobId && regenerated[0]?.publicUrl) {
-          await patchTrabalho(report.jobId, { urlPdf: regenerated[0].publicUrl });
-        }
-      } catch (err) {
-        console.warn('[Email] Regeneração PDF seleção:', err);
-      }
-    }
-
-    const serviceLabel = service?.label || report.serviceType || 'Relatório';
-    sources.forEach((source, index) => {
-      pdfEntries.push({
-        ...source,
-        machineLabel:
-          sources.length > 1
-            ? `${serviceLabel} — ${source.machineLabel || source.filename || `PDF ${index + 1}`}`
-            : serviceLabel,
-      });
-    });
-  }
-
-  if (!pdfEntries.length) {
-    showToast('Não foi possível obter os PDFs dos relatórios selecionados.', 'error');
-    return false;
-  }
-
-  const emailPdfPayload = buildReportEmailPdfPayload(pdfEntries);
-  const tech = getTechnician(reports[0]?.technicianId);
-
-  showToast(
-    `A enviar ${reports.length} relatório${reports.length === 1 ? '' : 's'} (${pdfEntries.length} PDF${pdfEntries.length === 1 ? '' : 's'}) para ${recipientEmail}...`,
-    'info',
-    6000,
-  );
-
-  try {
-    await sendOfficialReportEmail({
-      ...buildReportEmailMeta(reports[0], {
-        client,
-        job: reports[0].jobId ? getJob(reports[0].jobId) : null,
-        technicianName: tech?.name || '',
-        multiReport: reports.length > 1,
-        multiPdf: pdfEntries.length > 1,
-      }),
-      reportId: reports[0].id,
-      numeroOrdem: null,
-      to: recipientEmail,
-      ...emailPdfPayload,
-    });
-
-    const sentAt = new Date().toISOString();
-    for (const report of reports) {
-      await updateRelatorio(report.id, {
-        data: { visitClienteEmailSentAt: sentAt },
-      });
-    }
-
-    showToast(`E-mail enviado para ${recipientEmail} com ${pdfEntries.length} anexo(s).`, 'success', 7000);
-    window.dispatchEvent(new CustomEvent('db-updated'));
-    return true;
-  } catch (err) {
-    console.error('[Email] Envio selecionados falhou:', err);
-    showToast(`Falha ao enviar e-mail. ${err?.message || ''}`.trim(), 'error', 8000);
-    return false;
-  }
-}
 
 export function requireAuth(role) {
   const session = getSession();
@@ -797,98 +190,7 @@ export function requireAuth(role) {
   return session;
 }
 
-/* ─── Lookups ─── */
-
-export function getClient(id) {
-  const raw = (getDB().clients || []).find((c) => sameEntityId(c.id, id));
-  if (raw) {
-    const legacy = raw.name ? raw : mapClientToLegacy(raw);
-    if (isDevMockEnabled()) {
-      const demo = DEMO_CLIENT_FORKLIFTS[id];
-      if (demo?.forklifts?.length && !legacy.forklifts?.length) {
-        legacy.forklifts = demo.forklifts;
-      }
-    }
-    return legacy;
-  }
-
-  const fromCatalog = getClientFromCatalog(id);
-  if (fromCatalog) {
-    const legacy = mapClientToLegacy(fromCatalog);
-    if (isDevMockEnabled()) {
-      const demo = DEMO_CLIENT_FORKLIFTS[id];
-      if (demo?.forklifts?.length) legacy.forklifts = demo.forklifts;
-    }
-    return legacy;
-  }
-
-  if (isDevMockEnabled()) {
-    const demoOnly = DEMO_CLIENT_FORKLIFTS[id];
-    if (demoOnly) {
-      return mapClientToLegacy({
-        id,
-        Nome: demoOnly.Nome || 'Cliente demo',
-        NIF: demoOnly.NIF || '',
-        forklifts: demoOnly.forklifts || [],
-      });
-    }
-    return CLIENTS.find((c) => sameEntityId(c.id, id)) || null;
-  }
-
-  return null;
-}
-
 const TECHNICIAN_COLORS = ['#3b82f6', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#ec4899'];
-
-/** Técnicos persistidos + demonstração (sem duplicar id) */
-export function getAllTechnicians() {
-  const db = getDB();
-  const stored = Array.isArray(db.technicians) ? db.technicians : [];
-  const seen = new Set(stored.map((t) => t.id));
-  const merged = [...stored];
-  TECHNICIANS.forEach((t) => {
-    if (!seen.has(t.id)) merged.push(t);
-  });
-  return merged;
-}
-
-export function getTechnician(id) {
-  return getAllTechnicians().find((t) => t.id === id) || null;
-}
-
-/** Nomes de técnicos guardados no trabalho (id único legado ou «Hugo, Filipe»). */
-export function parseTechnicianNamesFromJob(technicianId) {
-  if (!technicianId) return [];
-  const stored = String(technicianId);
-  const byId = getTechnician(stored);
-  if (byId?.name) return [byId.name];
-  return splitTechnicianStoredValue(stored);
-}
-
-export function getJobTechnicianLabel(technicianId) {
-  const names = parseTechnicianNamesFromJob(technicianId);
-  return names.length ? names.join(', ') : '—';
-}
-
-/** Primeiro técnico do trabalho (cor no calendário, etc.). */
-export function getPrimaryTechnicianForJob(job) {
-  if (!job?.technicianId) return null;
-  const byId = getTechnician(job.technicianId);
-  if (byId) return byId;
-  const names = parseTechnicianNamesFromJob(job.technicianId);
-  if (!names.length) return null;
-  return getAllTechnicians().find((t) => t.name === names[0]) || null;
-}
-
-/** Trabalho atribuído ao técnico (id de sessão ou nome na string CSV). */
-export function jobAssignedToTechnician(job, techId) {
-  if (!job || !techId) return false;
-  const tech = getTechnician(techId);
-  return jobMatchesTechnician(job.technicianId, {
-    techId,
-    techName: tech?.name,
-  });
-}
 
 function nextTechnicianId() {
   const ids = getAllTechnicians().map((t) => {
@@ -1224,62 +526,6 @@ export async function syncClientEmailIfChanged(clientId, newEmail) {
   return !!updated;
 }
 
-export function getServiceType(id) {
-  return reportTemplates.find((s) => s.id === id) || SERVICE_TYPES.find((s) => s.id === id);
-}
-
-export function getForklift(clientId, serial) {
-  const client = getClient(clientId);
-  return client?.forklifts.find((f) => f.serial === serial);
-}
-
-export function getJob(id) {
-  return getJobsSnapshot().find((j) => sameEntityId(j.id, id)) || null;
-}
-
-export function getReport(id) {
-  return getReportsSnapshot().find((r) => sameEntityId(r.id, id)) || null;
-}
-
-export function getReportForJob(jobId) {
-  if (jobId == null || jobId === '') return null;
-  const matches = getReportsSnapshot().filter((r) => sameEntityId(r.jobId, jobId));
-  if (!matches.length) return null;
-  if (matches.length === 1) return matches[0];
-  return dedupeReportsByJobPreferNewest(matches)[0] || matches[0];
-}
-
-/**
- * Resolve trabalho para abrir o formulário — cache Supabase ou fallback a partir do relatório/rascunho.
- */
-export function resolveJobForForm(jobId) {
-  if (!jobId) return null;
-  const cached = getJob(jobId);
-  if (cached) return cached;
-
-  const report = getReportForJob(jobId);
-  if (!report) return null;
-
-  return {
-    id: String(report.jobId || jobId),
-    clientId: report.clientId != null ? String(report.clientId) : '',
-    serviceType: report.serviceType,
-    forkliftSerial: report.forkliftSerial || '',
-    date: report.submittedAt?.split('T')[0] || '',
-    time: '',
-    technicianId: report.technicianId,
-    status: report.status === 'rejected' ? 'rejected' : 'scheduled',
-    rejectionNote: report.rejectionNote ?? null,
-  };
-}
-
-export function getJobsForTechnician(techId, date) {
-  return getJobsSnapshot().filter((j) => j.date === date && jobAssignedToTechnician(j, techId));
-}
-
-export function getAllJobs() {
-  return getJobsSnapshot();
-}
 
 /* ─── Offline Mode ─── */
 
@@ -1682,15 +928,6 @@ export async function approveReport(reportId, options = {}) {
   }
 }
 
-function arrayBufferToBase64(buffer) {
-  const bytes = new Uint8Array(buffer);
-  let binary = '';
-  const chunkSize = 0x8000;
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
-  }
-  return btoa(binary);
-}
 
 export async function rejectReport(reportId, note) {
   const report = getReport(reportId);
@@ -1845,6 +1082,48 @@ export function statusBadge(status) {
 }
 
 /* ─── Re-exports para dashboards (sem carregar PDF/form-engine no admin) ─── */
+
+export {
+  invalidateDbMemoryCache,
+  initLocalDatabase,
+  getDB,
+  saveDB,
+  updateDB,
+  warmClientsCatalog,
+  prepareClientsCatalog,
+  warmJobs,
+  warmReports,
+  warmOperacoes,
+  handleFatalDashboardError,
+} from './local-db.js';
+
+export {
+  getClient,
+  getAllTechnicians,
+  getTechnician,
+  parseTechnicianNamesFromJob,
+  getJobTechnicianLabel,
+  getPrimaryTechnicianForJob,
+  jobAssignedToTechnician,
+  getServiceType,
+  getForklift,
+  getJob,
+  getReport,
+  getReportForJob,
+  resolveJobForForm,
+  getJobsForTechnician,
+  getAllJobs,
+} from './entity-lookups.js';
+
+export {
+  sendOfficialReportEmail,
+  sendOrcamentoProposalEmail,
+} from './report-email-api.js';
+
+export {
+  resendApprovedReportEmail,
+  sendSelectedReportsEmail,
+} from './report-email-actions.js';
 
 export {
   getWeekDates,
