@@ -46,6 +46,7 @@ import {
   buildPdfAutoTableStyles,
   getBlockPdfTitle,
   getMachineSectionScalarFields,
+  getMachineSectionTitle,
   mergePdfTableDidParseCell,
   PDF_AUTOTABLE_MARGIN_BOTTOM_MM,
   PDF_COLOR_CORPORATE_BLUE as CORPORATE_BLUE,
@@ -3693,7 +3694,7 @@ async function drawGenericMachineInfoBlock(doc, y, service, values, pdfContext) 
   const fields = getMachineSectionScalarFields(service);
   if (!fields.length) return y;
   y = ensureSpace(doc, y, 28);
-  y = drawSectionTitle(doc, y, PDF_MACHINE_SECTION, { skipEnsure: true });
+  y = drawSectionTitle(doc, y, getMachineSectionTitle(service), { skipEnsure: true });
   y = drawDivider(doc, y - 4);
   return drawSectionScalarGrid(doc, y, fields, values, pdfContext);
 }
@@ -4227,7 +4228,7 @@ async function drawReportFieldsSection(doc, y, service, values, pdfContext = nul
   if (service.id === 'reparacao_avarias_bateria') {
     REPARACAO_AVARIAS_ESTADO_FINAL_FIELD_IDS.forEach((id) => scalarRenderedIds.add(id));
   }
-  gridRenderedSections.add(PDF_MACHINE_SECTION);
+  gridRenderedSections.add(getMachineSectionTitle(service));
 
   if (isDl50) {
     y = await drawInspecaoDl50HeaderBlock(doc, y, values, {

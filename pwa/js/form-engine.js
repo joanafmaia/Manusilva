@@ -208,6 +208,7 @@ const SERVICES_WITH_MACHINE_FIELDS = new Set([
 
 const SERVICE_MACHINE_FIELD_SECTIONS = {
   reparacao_carregador: 'Identificação Do Carregador',
+  reparacao_avarias_bateria: 'Informações da Bateria',
 };
 
 const EMPILHADORES_SERVICE_ID = 'manutencao_preventiva_empilhadores';
@@ -896,7 +897,7 @@ export function renderReportFields(service, values = {}, context = {}, options =
       ) {
         fieldsHtml = `<div class="rav-dashboard-section">${sectionTitle}${fieldsHtml}</div>`;
         sectionTitle = '';
-      } else if (isRavBateria && section === 'Informações da Máquina') {
+      } else if (isRavBateria && section === 'Informações da Bateria') {
         fieldsHtml = `<div class="rav-dashboard-section">${sectionTitle}${fieldsHtml}</div>`;
         sectionTitle = '';
       } else if (isRavBateria && section === 'Número de Visitas e Tempo') {

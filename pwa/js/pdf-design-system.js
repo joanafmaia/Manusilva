@@ -79,6 +79,7 @@ export const PDF_TABLE_ALT_ROW_FILL = [248, 250, 252];
 export const PDF_CLIENT_BOX_FILL = [248, 250, 252];
 
 export const PDF_MACHINE_SECTION = 'Informações da Máquina';
+export const PDF_BATTERY_SECTION = 'Informações da Bateria';
 export const PDF_VERIFICATION_SECTION_TITLE = 'Verificações Efetuadas';
 export const PDF_FOTO_SECTION_TITLE = 'Registo Fotográfico';
 export const PDF_FOTO_LABEL_ANTES = 'Antes';
@@ -144,7 +145,16 @@ export function pdfNormalizeHeading(text) {
 }
 
 export function isMachineInfoSection(section) {
-  return pdfNormalizeHeading(section) === pdfNormalizeHeading(PDF_MACHINE_SECTION);
+  const n = pdfNormalizeHeading(section);
+  return (
+    n === pdfNormalizeHeading(PDF_MACHINE_SECTION) ||
+    n === pdfNormalizeHeading(PDF_BATTERY_SECTION)
+  );
+}
+
+export function getMachineSectionTitle(service) {
+  if (service?.id === 'reparacao_avarias_bateria') return PDF_BATTERY_SECTION;
+  return PDF_MACHINE_SECTION;
 }
 
 export function sectionFields(service, section) {
