@@ -35,7 +35,7 @@ import { dedupeReportsByJobPreferNewest } from '../relatorios-db.js';
 const PANEL_STATUSES = new Set(['pending_review', 'approved']);
 
 let mountRoot = null;
-let activeFilter = 'por_preparar';
+let activeFilter = 'todas';
 let searchQuery = '';
 let highlightReportId = null;
 
@@ -102,6 +102,42 @@ function statusClass(status) {
 
 function reportStatusLabel(report) {
   return reportOrcamentoQueueLabel(report);
+}
+
+function renderFilterHint(counts, total) {
+  if (total <= 0) return '';
+
+  const hints = [
+    { id: 'por_preparar', label: 'por preparar', count: counts.por_preparar },
+    { id: 'guardada', label: 'guardadas', count: counts.guardada },
+    { id: 'enviada', label: 'enviadas', count: counts.enviada },
+  ].filter(({ id, count }) => id !== activeFilter && count > 0);
+
+  if (!hints.length) return '';
+
+  const chips = hints
+    .map(
+      ({ id, count, label }) =>
+        `<button type="button" class="orcamentos-filter-hint__link" data-orc-filter="${escapeHtml(id)}">${count} ${escapeHtml(label)} — ver</button>`,
+    )
+    .join('<span class="orcamentos-filter-hint__sep" aria-hidden="true">·</span>');
+
+  return `
+    <p class="orcamentos-filter-hint text-muted">
+      <span class="orcamentos-filter-hint__label">Neste filtro não há resultados.</span>
+      ${chips}
+    </p>`;
+}
+
+function renderEmptyState(counts, total) {
+  if (total <= 0) {
+    return `<p class="orcamentos-empty text-muted">Ainda não há propostas. Use <strong>Nova proposta</strong> para começar.</p>`;
+  }
+  return `
+    <div class="orcamentos-empty-wrap">
+      <p class="orcamentos-empty text-muted">Nenhuma proposta neste filtro.</p>
+      ${renderFilterHint(counts, total)}
+    </div>`;
 }
 
 function renderKpis(counts) {
@@ -258,7 +294,7 @@ function renderPanel() {
           </table>
         </div>
         </section>`
-          : `<p class="orcamentos-empty text-muted">Nenhuma proposta neste filtro.</p>`
+          : renderEmptyState(counts, all.length)
       }
     </div>`;
 }
@@ -270,7 +306,7 @@ function bindPanelEvents() {
   mountRoot.addEventListener('click', (e) => {
     const filterBtn = e.target.closest('[data-orc-filter]');
     if (filterBtn) {
-      activeFilter = filterBtn.dataset.orcFilter || 'por_preparar';
+      activeFilter = filterBtn.dataset.orcFilter || 'todas';
       refreshOrcamentosPanel().catch(console.error);
       return;
     }
@@ -403,5 +439,5 @@ export function initOrcamentosPanel(root) {
 }
 
 export function countOrcamentosPorPreparar() {
-  return listOrcamentoReports().length;
+  return listOrcamentoReports().filter(reportOrcamentoPorPreparar).length;
 }
