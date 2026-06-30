@@ -21,7 +21,7 @@ const MACHINE_VALUE_KEYS = [
   'data_fabrico',
 ];
 
-const SERVICE_CATEGORIA = {
+export const SERVICE_CATEGORIA = {
   manutencao_preventiva_empilhadores: 'empilhador',
   inspecao_dl50_2005: 'empilhador',
   folha_intervencao_avarias: 'empilhador',
@@ -393,143 +393,57 @@ export function equipamentosToForklifts(equipamentos = []) {
     }));
 }
 
-export function renderEquipamentoPicker(equipamentos = [], service = null) {
-  if (!equipamentos.length || !service) return '';
+export function applyEquipamentoToForm(overlay, equipamento, service = null) {
+  const fields = equipamentoToFormFields(equipamento);
 
-  const categoria = SERVICE_CATEGORIA[service.id];
-  const pool = categoria
-    ? equipamentos.filter((e) => e.categoria === categoria)
-    : equipamentos;
-  if (!pool.length) return '';
-
-  const options = pool
-    .map((e, index) => {
-      const label = formatEquipamentoLabel(e);
-      return `<option value="${index}">${escapeHtml(label || `Equipamento ${index + 1}`)}</option>`;
-    })
-    .join('');
-
-  return `
-    <div class="equipamento-picker form-section-card">
-      <label class="form-label" for="equipamento-picker-select">Equipamento registado</label>
-      <p class="field-hint equipamento-picker-hint">Selecione um equipamento para preencher automaticamente (tipo, marca, modelo, nº de série, nº interno).</p>
-      <select id="equipamento-picker-select" class="form-select equipamento-picker-select" data-equipamento-picker>
-        <option value="">— Escolher equipamento —</option>
-        ${options}
-      </select>
-    </div>`;
-}
-
-/** Liga o seletor de equipamentos ao formulário aberto. */
-export function bindEquipamentoPicker(overlay, equipamentos = [], service = null) {
-  const select = overlay.querySelector('[data-equipamento-picker]');
-  if (!select || select.dataset.bound === '1') return;
-  select.dataset.bound = '1';
-
-  const categoria = SERVICE_CATEGORIA[service?.id];
-  const pool = categoria
-    ? equipamentos.filter((e) => e.categoria === categoria)
-    : equipamentos;
-
-  select.addEventListener('change', () => {
-    const index = Number(select.value);
-    if (!Number.isFinite(index) || index < 0 || index >= pool.length) return;
-    const equipamento = pool[index];
-    const fields = equipamentoToFormFields(equipamento);
-
-    Object.entries(fields).forEach(([fieldId, value]) => {
-      const input = overlay.querySelector(`[data-field-id="${fieldId}"]`);
-      if (!input) return;
-      input.value = value;
-      input.dispatchEvent(new Event('input', { bubbles: true }));
-      input.dispatchEvent(new Event('change', { bubbles: true }));
-    });
-
-    if (service?.id === 'manutencao_baterias_grandes') {
-      const row = batteryRowFromEquipamento(equipamento);
-      const table = overlay.querySelector('.grandes-battery-table');
-      const firstRow = table?.querySelector('tbody tr');
-      if (firstRow) {
-        Object.entries(row).forEach(([key, value]) => {
-          const cell = firstRow.querySelector(`[data-col="${key}"]`);
-          if (cell && isEmptyValue(cell.value)) {
-            cell.value = value;
-            cell.dispatchEvent(new Event('input', { bubbles: true }));
-            cell.dispatchEvent(new Event('change', { bubbles: true }));
-          }
-        });
-      }
-    }
-
-    if (service?.id === 'manutencao_preventiva_empilhadores') {
-      const table = overlay.querySelector('.empilhadores-maquinas-table');
-      const firstRow = table?.querySelector('tbody tr');
-      if (firstRow) {
-        Object.entries(fields).forEach(([key, value]) => {
-          const colKey = key === 'num_serie' ? 'numero_de_serie' : key;
-          const cell = firstRow.querySelector(`[data-col="${colKey}"]`);
-          if (cell && isEmptyValue(cell.value)) {
-            cell.value = value;
-            cell.dispatchEvent(new Event('input', { bubbles: true }));
-            cell.dispatchEvent(new Event('change', { bubbles: true }));
-          }
-        });
-      }
-    }
-  });
-}
-
-/** datalist com sugestões por campo de máquina. */
-export function attachEquipamentoDatalists(overlay, equipamentos = []) {
-  if (!equipamentos.length) return;
-
-  const suggestions = {
-    marca: new Set(),
-    modelo: new Set(),
-    numero_de_serie: new Set(),
-    num_serie: new Set(),
-    matricula: new Set(),
-    maquina: new Set(),
-    tipo: new Set(),
-    n_interno: new Set(),
-  };
-
-  equipamentos.forEach((e) => {
-    if (norm(e.marca)) suggestions.marca.add(e.marca);
-    if (norm(e.modelo)) suggestions.modelo.add(e.modelo);
-    if (norm(e.numero_serie)) {
-      suggestions.numero_de_serie.add(e.numero_serie);
-      suggestions.num_serie.add(e.numero_serie);
-    }
-    if (norm(e.matricula)) suggestions.matricula.add(e.matricula);
-    if (norm(e.maquina)) suggestions.maquina.add(e.maquina);
-    if (norm(e.tipo)) suggestions.tipo.add(e.tipo);
-    if (norm(e.n_interno)) suggestions.n_interno.add(e.n_interno);
+  Object.entries(fields).forEach(([fieldId, value]) => {
+    const input = overlay.querySelector(`[data-field-id="${fieldId}"]`);
+    if (!input) return;
+    input.value = value;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
   });
 
-  Object.entries(suggestions).forEach(([fieldId, values]) => {
-    if (!values.size) return;
-    const listId = `equip-datalist-${fieldId}`;
-    let datalist = overlay.querySelector(`#${listId}`);
-    if (!datalist) {
-      datalist = document.createElement('datalist');
-      datalist.id = listId;
-      overlay.appendChild(datalist);
+  if (service?.id === 'manutencao_baterias_grandes') {
+    const row = batteryRowFromEquipamento(equipamento);
+    const table = overlay.querySelector('.grandes-battery-table');
+    const firstRow = table?.querySelector('tbody tr');
+    if (firstRow) {
+      Object.entries(row).forEach(([key, value]) => {
+        const cell = firstRow.querySelector(`[data-col="${key}"]`);
+        if (cell && isEmptyValue(cell.value)) {
+          cell.value = value;
+          cell.dispatchEvent(new Event('input', { bubbles: true }));
+          cell.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      });
     }
-    datalist.innerHTML = [...values]
-      .map((v) => `<option value="${escapeHtml(v)}"></option>`)
-      .join('');
+  }
 
-    overlay.querySelectorAll(`[data-field-id="${fieldId}"]`).forEach((input) => {
-      if (input instanceof HTMLInputElement) {
-        input.setAttribute('list', listId);
-      }
-    });
-
-    overlay.querySelectorAll(`[data-col="${fieldId}"]`).forEach((input) => {
-      if (input instanceof HTMLInputElement) {
-        input.setAttribute('list', listId);
-      }
-    });
-  });
+  if (service?.id === 'manutencao_preventiva_empilhadores') {
+    const table = overlay.querySelector('.empilhadores-maquinas-table');
+    const firstRow = table?.querySelector('tbody tr');
+    if (firstRow) {
+      Object.entries(fields).forEach(([key, value]) => {
+        const colKey = key === 'num_serie' ? 'numero_de_serie' : key;
+        const cell = firstRow.querySelector(`[data-col="${colKey}"]`);
+        if (cell && isEmptyValue(cell.value)) {
+          cell.value = value;
+          cell.dispatchEvent(new Event('input', { bubbles: true }));
+          cell.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      });
+    }
+  }
 }
+
+/** @deprecated Dropdown substituído por autocomplete nos campos de máquina */
+export function renderEquipamentoPicker() {
+  return '';
+}
+
+/** @deprecated Usar bindEquipamentoFieldComboboxes */
+export function bindEquipamentoPicker() {}
+
+/** @deprecated Usar bindEquipamentoFieldComboboxes */
+export function attachEquipamentoDatalists() {}

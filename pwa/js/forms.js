@@ -28,10 +28,8 @@ import {
 } from './job-open-diagnostic.js';
 import {
   buildEquipmentFormPrefill,
-  renderEquipamentoPicker,
-  bindEquipamentoPicker,
-  attachEquipamentoDatalists,
 } from './cliente-equipamentos.js';
+import { bindEquipamentoFieldComboboxes } from './equipamento-field-combobox.js';
 import { collectSubmitWarnings, confirmSubmitWarnings } from './form-submit-checks.js';
 import {
   renderReportFields,
@@ -301,8 +299,7 @@ export async function openJobForm(jobId, options = {}) {
     await bindFormFieldInteractions(overlay);
 
     if (!viewOnly && equipamentos.length) {
-      bindEquipamentoPicker(overlay, equipamentos, service);
-      attachEquipamentoDatalists(overlay, equipamentos);
+      bindEquipamentoFieldComboboxes(overlay, equipamentos, service);
     }
 
     if (trabalhoIdEmEdicao) {
@@ -411,8 +408,6 @@ function buildFormHTML(job, client, tech, service, existingReport, options = {})
   const equipamentos = options.equipamentos || [];
   const equipmentPrefill = buildEquipmentFormPrefill(service, job, equipamentos, values);
   values = mergeFormValues(values, equipmentPrefill, service);
-  const equipamentoPickerHtml =
-    options.viewOnly === true ? '' : renderEquipamentoPicker(equipamentos, service);
   const official = isOfficialTemplate(service);
   const clientHeader = renderJobClientHeader(client);
   const lockedClientFields = renderLockedClientHiddenFields(client, values);
@@ -568,7 +563,6 @@ function buildFormHTML(job, client, tech, service, existingReport, options = {})
               </div>
               <section class="form-section report-fields-section">
                 ${official ? '' : '<h3 class="section-title">Dados do Relatório</h3>'}
-                ${equipamentoPickerHtml}
                 <div class="report-fields">${fieldsGeral}</div>
               </section>
             </div>

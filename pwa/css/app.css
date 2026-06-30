@@ -4828,6 +4828,14 @@ body .glass-card-inner {
     margin: 0;
   }
 }
+.equipamento-combobox {
+  position: relative;
+  width: 100%;
+}
+.equipamento-combobox.is-open .equipamento-combobox-input {
+  border-color: rgba(59, 130, 246, 0.6);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
 .equipamento-picker {
   margin-bottom: 1.25rem;
   padding: 1rem 1.15rem;
