@@ -469,8 +469,7 @@ function buildHtmlBody(payload = {}, options = {}) {
                 </p>
                 ${numeroLine}
                 <p style="margin:0;font-size:14px;line-height:1.65;color:#334155;">
-                  Vimos por este meio enviar a nossa proposta comercial referente à intervenção de <strong>${data}</strong>
-                  (técnico: ${tecnico}).
+                  Vimos por este meio enviar a nossa proposta comercial.
                 </p>
                 ${pdfBlock}
                 ${attachmentNote}
