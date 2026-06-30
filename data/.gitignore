@@ -1,0 +1,4 @@
+# Excel local — não versionar; usar scripts/import-listagem-produtos.py
+*.xlsx
+*.xls
+~$*

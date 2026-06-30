@@ -18,7 +18,6 @@ import {
   getReportOrcamentoPdfUrl,
   openOrcamentoStorageUrl,
 } from './pedido-orcamento.js';
-import { escapeHtml } from './html-utils.js';
 import {
   LABEL_MARCA,
   LABEL_MODELO,
@@ -27,6 +26,8 @@ import {
   LABEL_N_INTERNO,
   LABEL_MATRICULA,
 } from './field-labels.js';
+import { bindOrcamentoCatalogoComboboxes } from './orcamento-catalogo-combobox.js';
+import { escapeHtml } from './html-utils.js';
 
 function defaultOrcamentoEmail(report, client) {
   const meta = getReportOrcamentoMeta(report);
@@ -145,6 +146,7 @@ export function renderOrcamentoEditor(report, { client } = {}) {
       </label>
 
       <div class="review-orc-table-wrap">
+        <p class="review-orc-catalog-hint text-muted">Na coluna «Na reparação precisa», escreva para pesquisar no catálogo de produtos e serviços (preço preenche automaticamente).</p>
         <table class="review-orc-table">
           <thead>
             <tr>
@@ -230,6 +232,14 @@ function bindLinhaEvents(root, report) {
   const tbody = root.querySelector('#review-orc-linhas-body');
   if (!tbody) return;
 
+  const onCatalogChange = () => refreshLineTotals(root, report);
+
+  const bindCatalog = () => {
+    bindOrcamentoCatalogoComboboxes(root, { onChange: onCatalogChange });
+  };
+
+  bindCatalog();
+
   tbody.addEventListener('input', (e) => {
     if (e.target.matches('[data-orc-field]')) refreshLineTotals(root, report);
   });
@@ -253,6 +263,7 @@ function bindLinhaEvents(root, report) {
   root.querySelector('#review-orc-add-linha')?.addEventListener('click', () => {
     const index = tbody.querySelectorAll('[data-orcamento-linha]').length;
     tbody.insertAdjacentHTML('beforeend', renderLinhaRow(emptyOrcamentoLinha(), index));
+    bindCatalog();
     refreshLineTotals(root, report);
   });
 

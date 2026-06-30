@@ -1,0 +1,5419 @@
+{
+  "version": 1,
+  "updatedAt": "2026-06-30T12:15:37.064104+00:00",
+  "source": "Listagem Produtos.xlsx",
+  "itemCount": 773,
+  "items": [
+    {
+      "tipo": "Produto",
+      "codigo": "ABR",
+      "descricao": "Abraçadeiras",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "ACM",
+      "descricao": "Acelerador Manual",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "AB",
+      "descricao": "Acento de Banco",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "ACES",
+      "descricao": "Acessórios empilhadores",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "AH",
+      "descricao": "Acoplamento Hidráulico",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "ALV",
+      "descricao": "Alavanca de Comandos",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "ALMO",
+      "descricao": "Almofada do Assento",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "ALT",
+      "descricao": "Alternador",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Serviço",
+      "codigo": "acrg",
+      "descricao": "Aluguer de Carregador",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "AEM",
+      "descricao": "Aluguer de Empilhador",
+      "unidade": "UN",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Serviço",
+      "codigo": "aem",
+      "descricao": "Aluguer Empilhador",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Serviço",
+      "codigo": "AE",
+      "descricao": "Aluguer Empilhador Still RX 20-15",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "AMT",
+      "descricao": "Amortecedor",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "AN",
+      "descricao": "Anilha",
+      "unidade": "UN",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "ANC",
+      "descricao": "Anilha de Cobre",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "AP",
+      "descricao": "Anilha de Protecção",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "AV",
+      "descricao": "Anilha de Vedação",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "ANT",
+      "descricao": "Anticongelante",
+      "unidade": "Lt",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "ANTIC",
+      "descricao": "Anticongelante",
+      "unidade": "Lt",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "ATC",
+      "descricao": "Anticongelante",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "APOI",
+      "descricao": "Apoios",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "AR",
+      "descricao": "Arandela",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "ARR",
+      "descricao": "Arrancador",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "AUT",
+      "descricao": "Autocolante",
+      "unidade": "UN",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Serviço",
+      "codigo": "MNT",
+      "descricao": "Avença Mensal Contrato",
+      "unidade": "un",
+      "precoVenda": 17835.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BNC",
+      "descricao": "BANCO DE EMPILHADOR",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BAND",
+      "descricao": "BANDAGEM",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BAST",
+      "descricao": "Bastidor",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "B",
+      "descricao": "Bateria",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT 12MFP",
+      "descricao": "Bateria 12MFP105",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "YUASA",
+      "descricao": "Bateria 12V 280W",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "B24V3PZS375",
+      "descricao": "Bateria 24V 3 PZS 375",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT24V4PZB300",
+      "descricao": "Bateria 24V 4 PZB 300",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "B24V4PZS620",
+      "descricao": "Bateria 24V 4PZS 620",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT48V7PZB700",
+      "descricao": "Bateria 48V 7 PZB 700",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT7PZS630",
+      "descricao": "Bateria 7 PZS 630",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT 70AH",
+      "descricao": "Bateria 70AH",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT12V145A",
+      "descricao": "Bateria Arranque 12V 145Ah",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BTEVX12200",
+      "descricao": "Bateria CSB EVX 12200 (12V20Ah)",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BAT.DC55-12",
+      "descricao": "Bateria DC55-12",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT12V180AH",
+      "descricao": "Bateria Eurocell PB180E de 12V180Ah",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BTEVX",
+      "descricao": "BATERIA EVX 12120 (12V/12AH)",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT85Ah",
+      "descricao": "Bateria Fiamm 85Ah 760EN",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT137MAC",
+      "descricao": "Bateria NBA 137MAC B Gel (T150G)",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT12V50AH",
+      "descricao": "BATERIA PC1230DT 12V 50AH",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT12FPT105",
+      "descricao": "BATERIA TIPO 12 FPT 105",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT12V105AH",
+      "descricao": "Bateria tipo 12 MFP 105",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT12MFP50",
+      "descricao": "Bateria tipo 12 MFP 50",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT12MFP77",
+      "descricao": "Bateria tipo 12 MFP 77",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT12MFP80",
+      "descricao": "Bateria tipo 12 MFP 80",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT12V",
+      "descricao": "Bateria tipo 12 TP 110",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT12V125",
+      "descricao": "Bateria tipo 12 TP 125",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT12TP70",
+      "descricao": "Bateria tipo 12 TP 70",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "10",
+      "descricao": "Bateria Tipo 12 TP 90",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT12TP90",
+      "descricao": "Bateria tipo 12 TP 90",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT12TTB90",
+      "descricao": "Bateria tipo 12TTB-90",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT12V100Ah",
+      "descricao": "Bateria tipo 12V 100Ah",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT12V120Ah",
+      "descricao": "Bateria tipo 12V 120Ah",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT12V128AH",
+      "descricao": "Bateria tipo 12V 130 Ah",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT12V210AH",
+      "descricao": "Bateria tipo 12V 210Ah",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT12V3PZS180",
+      "descricao": "Bateria tipo 12V 3 PZS 180",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT 12V 3PZS",
+      "descricao": "Bateria tipo 12V 3PZS 180",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT12V4PZS320",
+      "descricao": "Bateria tipo 12V 4 PZS 320",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT12V77A",
+      "descricao": "Bateria tipo 12V 77Ah",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT12V80",
+      "descricao": "Bateria tipo 12V 80Ah",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT24V2PZB150",
+      "descricao": "Bateria tipo 24V 2 PZB 150",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT24V2PZB200",
+      "descricao": "Bateria tipo 24V 2 PZB 200",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT24V2PZS180",
+      "descricao": "Bateria tipo 24V 2 PZS 180",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT24V2PZS210",
+      "descricao": "Bateria tipo 24V 2 PZS 210",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT24V2PZS230",
+      "descricao": "Bateria tipo 24V 2 PZS 230",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT24V2PZS250",
+      "descricao": "Bateria tipo 24V 2 PZS 250",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT24V3NXS330",
+      "descricao": "Bateria tipo 24V 3 NXS 330",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT24V3PZB126",
+      "descricao": "Bateria tipo 24V 3 PZB 126",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT24V3PZB225",
+      "descricao": "Bateria tipo 24V 3 PZB 225",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT24V3PZB300",
+      "descricao": "Bateria tipo 24V 3 PZB 300",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT24V3PZS240",
+      "descricao": "Bateria tipo 24V 3 PZS 240",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT24V3PZS270",
+      "descricao": "Bateria tipo 24V 3 PZS 270",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "bt24v3pzs345",
+      "descricao": "Bateria tipo 24V 3 PZS 345",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT24V3PZS375",
+      "descricao": "Bateria tipo 24V 3 PZS 375",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT24V3PZS465",
+      "descricao": "Bateria tipo 24V 3 PZS 465",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT24V4PZB220",
+      "descricao": "Bateria tipo 24V 4 PZB 220",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT24V4PZS500",
+      "descricao": "Bateria tipo 24V 4 PZS 500",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT24V4PZS620",
+      "descricao": "Bateria tipo 24V 4 PZS 620",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT24V5PZS625",
+      "descricao": "Bateria tipo 24V 5 PZS 625",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT24V7PZS875",
+      "descricao": "Bateria tipo 24V 7 PZS 875",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT24V8PZS1000",
+      "descricao": "Bateria tipo 24V 8 PZS 1000",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT48V3PZS315",
+      "descricao": "Bateria tipo 48V 3 PZS 315",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT48V3PZS375",
+      "descricao": "Bateria tipo 48V 3 PZS 375",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT48V3PZS465",
+      "descricao": "Bateria Tipo 48V 3 PZS 465",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT48V4PZM560",
+      "descricao": "Bateria tipo 48V 4 PZM 560",
+      "unidade": "UN",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT48V4PZQ552",
+      "descricao": "Bateria tipo 48V 4 PZQ 552",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT48V4PZS360",
+      "descricao": "Bateria tipo 48V 4 PZS 360",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT48V4PZS500",
+      "descricao": "Bateria tipo 48V 4 PZS 500",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT48V4PZS560",
+      "descricao": "Bateria tipo 48V 4 PZS 560",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT48V4PZS620",
+      "descricao": "Bateria tipo 48V 4 PZS 620",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT48V5PZB425",
+      "descricao": "Bateria tipo 48V 5 PZB 425",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT48V5PZQ690",
+      "descricao": "Bateria tipo 48V 5 PZQ 690",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT48V5PZS400",
+      "descricao": "Bateria tipo 48V 5 PZS 400",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT48V5PZS525",
+      "descricao": "Bateria tipo 48V 5 PZS 525",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT48V5PZS575",
+      "descricao": "Bateria tipo 48V 5 PZS 575",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT48V5PZS625",
+      "descricao": "Bateria tipo 48V 5 PZS 625",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT48V5PZS775",
+      "descricao": "Bateria tipo 48V 5 PZS 775",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT48V6PZB600",
+      "descricao": "Bateria tipo 48V 6 PZB 600",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT48V6PZS480",
+      "descricao": "Bateria tipo 48V 6 PZS 480",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT",
+      "descricao": "Bateria tipo 48V 6 PZS 750",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT48V6PZS750",
+      "descricao": "Bateria tipo 48V 6 PZS 750",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT48V7PZB595",
+      "descricao": "Bateria tipo 48V 7 PZB 595",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT48V8PZS640",
+      "descricao": "Bateria tipo 48V 8 PZS 640",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT48V8PZS720",
+      "descricao": "Bateria tipo 48V 8 PZS 720",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT48V9PZS810",
+      "descricao": "Bateria tipo 48V 9 PZS 810",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT6V",
+      "descricao": "Bateria tipo 6 FPT 185",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "B6MFP180",
+      "descricao": "Bateria tipo 6 MFP 180",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT6MFP",
+      "descricao": "Bateria tipo 6 MFP 180",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT6TP210",
+      "descricao": "Bateria tipo 6 TP 210",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT72V6PZS540",
+      "descricao": "Bateria tipo 72V 6 PZS 540",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT80V4PZS500",
+      "descricao": "Bateria tipo 80V 4 PZS 500",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT80V4PZS620",
+      "descricao": "Bateria tipo 80V 4 PZS 620",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT80V5PZS625",
+      "descricao": "Bateria tipo 80V 5 PZS 625",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT80V5PZS700",
+      "descricao": "Bateria tipo 80V 5 PZS 700",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT80V5PZS775",
+      "descricao": "Bateria tipo 80V 5 PZS 775",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT80V6PZS840",
+      "descricao": "Bateria tipo 80V 6 PZS 840",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT80V6PZS930",
+      "descricao": "Bateria tipo 80V 6 PZS 930",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT80V7PZQ1204",
+      "descricao": "Bateria tipo 80V 7 PZQ 1204",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT80V7PZS1085",
+      "descricao": "Bateria tipo 80V 7 PZS 1085",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT96V10PZQ1720",
+      "descricao": "Bateria tipo 96V 10 PZQ 1720",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT6V225",
+      "descricao": "Bateria tipo Liven LT 106 (6V 225Ah)",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BLT106",
+      "descricao": "Bateria tipo Liven LT106 (6V 225Ah)",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BTGF",
+      "descricao": "Bateria Tração GF 12 63 Y 12V 70Ah",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BTJ305G",
+      "descricao": "Bateria Trojan J305G",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BL16G",
+      "descricao": "BATERIA TROJAN L16G-AC",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BTT-105",
+      "descricao": "Bateria Trojan tipo T-105",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT12V115Ah",
+      "descricao": "Bateria Trojan; Tipo: 27TMH 12V 115Ah",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BT12V95AH",
+      "descricao": "Bateria Tudor 12V 95Ah",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "bu",
+      "descricao": "Bateria Usada",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BATRETOMA",
+      "descricao": "Bateria usada (Retoma)",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BTV",
+      "descricao": "Bateria Varta",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BZ",
+      "descricao": "Bezouro",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BO",
+      "descricao": "Bidão de Óleo",
+      "unidade": "UN",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BP",
+      "descricao": "Blindagem de Protecção",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BLS",
+      "descricao": "Bluespot",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BCL",
+      "descricao": "Bobina Contactor Linha",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BI",
+      "descricao": "Bobine de Ignição",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "B29",
+      "descricao": "Boias 29",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "B34",
+      "descricao": "Boias 34",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "B39",
+      "descricao": "Boias 39",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "B20",
+      "descricao": "Boias de 20",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BA",
+      "descricao": "Bomba de Água",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BH",
+      "descricao": "Bomba Hidráulica",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BMB",
+      "descricao": "Bombito",
+      "unidade": "UN",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BTB",
+      "descricao": "Botão de Buzina",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BC",
+      "descricao": "Botão de Carregador",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BTC",
+      "descricao": "Botão de Carregador",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BE",
+      "descricao": "Botão de Emergência",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "BUZ",
+      "descricao": "Buzina",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "CABEL",
+      "descricao": "Cabelagem",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "CB50",
+      "descricao": "Cabo",
+      "unidade": "MT",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "CB70",
+      "descricao": "Cabo",
+      "unidade": "MT",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "CB16",
+      "descricao": "Cabo de Bateria 16mm",
+      "unidade": "MT",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "CB25",
+      "descricao": "Cabo de Bateria 25mm",
+      "unidade": "MT",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "CB35",
+      "descricao": "Cabo de Bateria 35mm",
+      "unidade": "MT",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "CB95",
+      "descricao": "Cabo de Bateria 95mm",
+      "unidade": "MT",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "CBT",
+      "descricao": "Cabo de Travão",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "cb",
+      "descricao": "Caixa de Bateria",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "CTRV",
+      "descricao": "Calço de Travão",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "CI",
+      "descricao": "Canhão de Ignição",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "CAP",
+      "descricao": "Captor",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "CAR80V21KW",
+      "descricao": "Carreagador Tipo TC3 IQM6 80V 21Kw",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "CARREGAD",
+      "descricao": "Carregador",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "CARREGAD24V 120HA",
+      "descricao": "Carregador 24V 120HA",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "CR 48/120",
+      "descricao": "Carregador 48/120",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "CRG12V1KW",
+      "descricao": "Carregador de Bateria 12V 1Kw",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "CRG24/36/48V3.5KW",
+      "descricao": "Carregador de Bateria 24/36/48V 3.5Kw",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "CRG24V20",
+      "descricao": "Carregador de Bateria 24V 20Ah",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "CRG24V3KW",
+      "descricao": "Carregador de Bateria TC1 LTM 24V 3Kw",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "CRG48V2K",
+      "descricao": "Carregador de Bateria TC1 LTM 36/48V 2Kw",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "CRG72/80V",
+      "descricao": "Carregador de Bateria TC3 72/80V 7Kw",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "CRG72-80V",
+      "descricao": "Carregador de Bateria TC3 LTM 72/80V 10.5Kw",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "CRGLTMOD",
+      "descricao": "Carregador Life Tech 72/80V 10,5Kw",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "C48V100A",
+      "descricao": "Carregador Life Tech TC3 LT 48V 100AH",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "C48V75A",
+      "descricao": "Carregador Life Tech TC3 LT 48V 75AH",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "CAR96V 17,5K",
+      "descricao": "Carregador Liq Mod. 96V 17,5 Kw",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "CRGTC1",
+      "descricao": "Carregador TC1 LT MODULAR 24V 1Kw",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "TC3IQM6",
+      "descricao": "Carregador TC3 IQM6 72/80V 17,5Kw",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "CRGTC396V",
+      "descricao": "Carregador TC3 LS6 96V 35KW",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "CRG",
+      "descricao": "Carregador TC3 LT48/100",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "128PM2TLT2B48",
+      "descricao": "Carregador TC3 LTM2 24/36/48V 7kw",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "CRGTC3",
+      "descricao": "CARREGADOR TC3 LTM2 24/36/48V 7KW",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "CTC310,5KW",
+      "descricao": "Carregador TC3 LTM4 24/36/48V 10,5KW",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "CRGTC3LTM",
+      "descricao": "CARREGADOR TC3 LTM4 72/80V 10.5KW",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "CTC380V",
+      "descricao": "Carregador TC3 LTM4 72/80V 14Kw",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "C8TSE48/120",
+      "descricao": "Carregador tipo 8 TSE 48/120",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "C8TSE48/140",
+      "descricao": "Carregador tipo 8 TSE 48/140",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "CRG8TSE80",
+      "descricao": "Carregador tipo 8 TSE 80V 80Ah",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "CRG8TSE",
+      "descricao": "Carregador tipo 8TSE 120V 240AH",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "CRGTC12K",
+      "descricao": "Carregador tipo TC1 LTM 24V 2KW",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "C80V14KW",
+      "descricao": "Carregador tipo TC3 LTM4 72/80V 14KW",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "CRGTE48",
+      "descricao": "Carregador tipo TE 48V 120Ah",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "C350",
+      "descricao": "Cartucho de Resina",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "CQ",
+      "descricao": "Casquilhos",
+      "unidade": "UN",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "CVE",
+      "descricao": "Cavilha Elástica",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "CST",
+      "descricao": "Cestos de Trabalho",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "CHC",
+      "descricao": "Chapa de Características",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "CV",
+      "descricao": "Chave",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "CH",
+      "descricao": "Chumaceira Guia",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "CG",
+      "descricao": "Chumacheira Guia",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "CTE",
+      "descricao": "Cilindro Travão Embreagem",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "CS",
+      "descricao": "Cinto de Segurança",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "CMP",
+      "descricao": "Compressor",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "DIV03841",
+      "descricao": "Compressor Gasolina Agri 65 11 + 11 Lts",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "CDNS",
+      "descricao": "Condensadores",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "cc160",
+      "descricao": "Conjunto de Cabo 160Ah",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "cc80",
+      "descricao": "Conjunto de Cabo 80Ah",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "CCJ320",
+      "descricao": "Conjunto de Cabo Completo Jungheinrich",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "CCJ80",
+      "descricao": "Conjunto de Cabo Completo Jungheinrich",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "CCL160",
+      "descricao": "Conjunto de Cabo Completo Linde",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "CCL80",
+      "descricao": "Conjunto de Cabo Completo Linde",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "CCJP80",
+      "descricao": "Conjunto de Cabos",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "CCLP160",
+      "descricao": "Conjunto de Cabos completo Linde",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "CLE",
+      "descricao": "Conjunto de Laterais para Empilhador",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "CT",
+      "descricao": "Contacto",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "CC",
+      "descricao": "Contactor Completo",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "CTC",
+      "descricao": "Contactor Completo",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "CVS",
+      "descricao": "Conversor",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "CA",
+      "descricao": "Correia do Alternador",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "DAD",
+      "descricao": "Depósito Completo para Água Destilada",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "DAD20",
+      "descricao": "Depósito Água Destilada 20 Litros",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "DAD28",
+      "descricao": "Depósito Água Destilada 28 Litros",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "DESLOC",
+      "descricao": "Deslocamento Lateral",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Serviço",
+      "codigo": "DL",
+      "descricao": "Deslocamento Lateral",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Serviço",
+      "codigo": "DLC",
+      "descricao": "Deslocação",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "C3500",
+      "descricao": "Desmerlizador",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "CXCONDUT",
+      "descricao": "DESMIN.TORE CX C/CONDUTTIMETRO",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "CAM",
+      "descricao": "Desplazador Lateral",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "REPAREMPI",
+      "descricao": "Devolução de Empilhador Reparado",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "DIOD",
+      "descricao": "Diodo",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "DF",
+      "descricao": "Disco de Freio",
+      "unidade": "UN",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "DH",
+      "descricao": "Distribuidor Hidráulico",
+      "unidade": "UN",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EIX",
+      "descricao": "Eixos",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "ELM3NXS330",
+      "descricao": "Elemento de bateria tipo 3 NXS 330",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EL3PZB315",
+      "descricao": "Elemento de bateria tipo 3 PZB 315",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EL4PZB400",
+      "descricao": "Elemento de bateria tipo 4 PZB 400",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EL7PZB525",
+      "descricao": "Elemento de bateria tipo 7 PZB 525",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "El8PZS920",
+      "descricao": "Elemento de bateria tipo 8 PZS 920",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EL10PZB550",
+      "descricao": "Elemento tipo 10 PZB 550",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "E10PZQ1720",
+      "descricao": "Elemento tipo 10 PZQ 1720",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EL10PZQ1720",
+      "descricao": "Elemento tipo 10 PZQ 1720",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EL10PZS900",
+      "descricao": "Elemento tipo 10 PZS 900",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EL2PZB110",
+      "descricao": "Elemento tipo 2 PZB 110",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EL2PZB150",
+      "descricao": "Elemento tipo 2 PZB 150",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EL2PZB170",
+      "descricao": "Elemento tipo 2 PZB 170",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "el2pzb200",
+      "descricao": "Elemento tipo 2 PZB 200",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EL2PZS160",
+      "descricao": "Elemento tipo 2 PZS 160",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EL2PZS180",
+      "descricao": "Elemento tipo 2 PZS 180",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EL2PZS210",
+      "descricao": "Elemento tipo 2 PZS 210",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EL2PZS230",
+      "descricao": "Elemento tipo 2 PZS 230",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EL2PZS250",
+      "descricao": "Elemento tipo 2 PZS 250",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EL3PZB126",
+      "descricao": "Elemento tipo 3 PZB 126",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "el3pzb225",
+      "descricao": "Elemento tipo 3 PZB 225",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EL3PZB300",
+      "descricao": "Elemento tipo 3 PZB 300",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EL3PZS180",
+      "descricao": "Elemento tipo 3 PZS 180",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "el3pzs240",
+      "descricao": "Elemento tipo 3 PZS 240",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EL3PZS270",
+      "descricao": "Elemento tipo 3 PZS 270",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EL3PZS315",
+      "descricao": "Elemento tipo 3 PZS 315",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EL3PZS345",
+      "descricao": "Elemento tipo 3 PZS 345",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EL3PZS360",
+      "descricao": "Elemento tipo 3 PZS 360",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EL3PZS375",
+      "descricao": "Elemento tipo 3 PZS 375",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "ELM3PZS375",
+      "descricao": "Elemento tipo 3 PZS 375",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EL3PZS420",
+      "descricao": "Elemento tipo 3 PZS 420",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EL3PZS465",
+      "descricao": "Elemento tipo 3 PZS 465",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "ET3PZV300",
+      "descricao": "Elemento tipo 3 PZV 300",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EL4PZB220",
+      "descricao": "Elemento tipo 4 PZB 220",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EL4PZB300",
+      "descricao": "Elemento tipo 4 PZB 300",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EL4PZQ688",
+      "descricao": "Elemento tipo 4 PZQ 688",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EL4PZS240",
+      "descricao": "Elemento tipo 4 PZS 240",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EL4PZS320",
+      "descricao": "Elemento tipo 4 PZS 320",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EL4PZS420",
+      "descricao": "Elemento tipo 4 PZS 420",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EL4PZS460",
+      "descricao": "Elemento tipo 4 PZS 460",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EL4PZS500",
+      "descricao": "Elemento tipo 4 PZS 500",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EL4PZS560",
+      "descricao": "Elemento tipo 4 PZS 560",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EL4PZS620",
+      "descricao": "Elemento tipo 4 PZS 620",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EL4PZS360",
+      "descricao": "Elemento tipo 4PZS 360",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EL5PZB425",
+      "descricao": "Elemento tipo 5 PZB 425",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EL5PZS300",
+      "descricao": "Elemento tipo 5 PZS 300",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EL5PZS400",
+      "descricao": "Elemento tipo 5 PZS 400",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EL5PZS525",
+      "descricao": "Elemento tipo 5 PZS 525",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EL5PZS575",
+      "descricao": "Elemento tipo 5 PZS 575",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EL5PZS625",
+      "descricao": "Elemento tipo 5 PZS 625",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EL5PZS700",
+      "descricao": "Elemento tipo 5 PZS 700",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EL5PZS775",
+      "descricao": "Elemento tipo 5 PZS 775",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EL6PZB192",
+      "descricao": "Elemento tipo 6 PZB 192",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "el9pzb192",
+      "descricao": "Elemento tipo 6 PZB 192",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "el6pzb390",
+      "descricao": "Elemento tipo 6 PZB 390",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EL6PZB600",
+      "descricao": "Elemento tipo 6 PZB 600",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EL6PZB630",
+      "descricao": "Elemento tipo 6 PZB 630",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "el9pzb675",
+      "descricao": "Elemento tipo 6 PZB 675",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EL6PZS360",
+      "descricao": "Elemento tipo 6 PZS 360",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EL6PZS480",
+      "descricao": "Elemento tipo 6 PZS 480",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EL6PZS540",
+      "descricao": "Elemento tipo 6 PZS 540",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EL6PZS630",
+      "descricao": "Elemento tipo 6 PZS 630",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EL7PZS630",
+      "descricao": "Elemento tipo 6 PZS 630",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EL6PZS690",
+      "descricao": "Elemento tipo 6 PZS 690",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EL6PZS750",
+      "descricao": "Elemento tipo 6 PZS 750",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EL6PZS840",
+      "descricao": "Elemento tipo 6 PZS 840",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EL5PZS930",
+      "descricao": "Elemento tipo 6 PZS 930",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EL6PZS930",
+      "descricao": "Elemento tipo 6 PZS 930",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "el7pzb385",
+      "descricao": "Elemento tipo 7 PZB 385",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EL7PZS560",
+      "descricao": "Elemento tipo 7 PZS 560",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "E7PZS630",
+      "descricao": "Elemento tipo 7 PZS 630",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EL7PZS735",
+      "descricao": "Elemento tipo 7 PZS 735",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EL7PZS805",
+      "descricao": "Elemento tipo 7 PZS 805",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EL8PZB440",
+      "descricao": "Elemento tipo 8 PZB 440",
+      "unidade": "UN",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EL8PZS1000",
+      "descricao": "Elemento tipo 8 PZS 1000",
+      "unidade": "UN",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EL8PZS640",
+      "descricao": "Elemento tipo 8 PZS 640",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EL8PZS720",
+      "descricao": "Elemento tipo 8 PZS 720",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EL9PZB675",
+      "descricao": "Elemento tipo 9 PZB 675",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EL9PZS810",
+      "descricao": "Elemento tipo 9 PZS 810",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "ELT",
+      "descricao": "Eletrólito",
+      "unidade": "Lt",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "STILL3153776",
+      "descricao": "Empilhador  Eléctrico Still RX20-15; Série nº3153776",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EDSTILLRCD35",
+      "descricao": "Empilhador a Diesel Still RCD 35",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EBOSS",
+      "descricao": "Empilhador Boss LE20; Série Nº 272466",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EMPLBT",
+      "descricao": "EMPILHADOR BT C3E160 - ANO 2011",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EMPBT",
+      "descricao": "EMPILHADOR BT C3E160_x000D_\nEMPILHADOR BT C3E160 - ANO 2008",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EMPC",
+      "descricao": "Empilhador CESAB",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "ECESAB",
+      "descricao": "Empilhador Cesab Blitz 320; Série Nº CE232509",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EMPMANITOU",
+      "descricao": "Empilhador Diesel Manitou",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EMP001",
+      "descricao": "Empilhador Elec. TX-16 Nissan - nº724116",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "STILL516213010082",
+      "descricao": "EMPILHADOR ELECT. STILL RX20-18 Nº516213010082",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "STILLRX20-16",
+      "descricao": "Empilhador Electico Still RX20-16; Série nº 516211009855",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "STILLRX20",
+      "descricao": "Empilhador Electico Still RX20-20; Série nº516215Z26206",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EMPKOM",
+      "descricao": "Empilhador Eléctrico Komatsu FB15EX-7; Série Nº 61108",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "LINDEE16C",
+      "descricao": "Empilhador Eléctrico Linde E16C; Série nº C11275V00435E",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EMPSTILLR60-25",
+      "descricao": "Empilhador Eléctrico Still R60-25",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "ESTILLRC",
+      "descricao": "Empilhador Eléctrico Still RC42-20; Série nº B16009X00032",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EMPSTILLRX20-14",
+      "descricao": "Empilhador Eléctrico Still RX20-14; Série nº 516209F00241",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EMPSTILL516210B00214",
+      "descricao": "Empilhador Eléctrico Still RX20-15; Série Nº 516210B00214_x000D_\nSérie Nº516210B00214",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EMPSTILL516210A00055",
+      "descricao": "Empilhador Eléctrico Still RX20-15_x000D_\nSérie Nº 516210A00055",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EMPSTILL516210A00849",
+      "descricao": "Empilhador Eléctrico Still RX20-15_x000D_\nSérie Nº 516210A00849",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EMPSTILL516210Z26108",
+      "descricao": "Empilhador Eléctrico Still RX20-15_x000D_\nSérie Nº 516210Z26108",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EMPRX20-16",
+      "descricao": "Empilhador Eléctrico Still RX20-16; Série nº 516211006820",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EMPSTILLRX20-16",
+      "descricao": "Empilhador Eléctrico Still RX20-16; Série nº 516211020580",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "STILLRX20-16;516211Y01938",
+      "descricao": "Empilhador Eléctrico Still RX20-16; Série Nº 516221Y01938",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "STILL3149594",
+      "descricao": "Empilhador Eléctrico STILL RX20-16; Série nº3149594",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "STILL3153769",
+      "descricao": "Empilhador Eléctrico Still RX20-16; Série nº3153769",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "Emp.StillRX20-16",
+      "descricao": "Empilhador Eléctrico Still RX20-16; Série número: 516211E01414",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "STILLRX20-16C",
+      "descricao": "Empilhador eléctrico Still RX20-16C, série nº 516220V00598",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "STILLRX20-18",
+      "descricao": "Empilhador Eléctrico Still RX20-18, Série nº 516213002106",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "STILLRX20-18:516213B00223",
+      "descricao": "Empilhador Eléctrico Still RX20-18; Série nº 516213B00223",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EMPSTILLRX2020",
+      "descricao": "Empilhador Eléctrico Still RX20-20; Série nº 516215B01149",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "STILL2020",
+      "descricao": "Empilhador Eléctrico Still RX20-20; Série nº 516215D00782",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EMSTILLRX20-20",
+      "descricao": "Empilhador Eléctrico Still RX20-20; Série nº 516215E00195",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EMPRX20-20",
+      "descricao": "Empilhador Eléctrico Still RX20-20; Série Nº 516215E00646",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "STILL3153358",
+      "descricao": "Empilhador Eléctrico Still RX20-20; Série nº516215A00619",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EMPRX50-13",
+      "descricao": "Empilhador Eléctrico Still RX50-13; Série nº 515063C00072",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "STILLRX50-13",
+      "descricao": "Empilhador eléctrico Still RX50-13; Série Nº 515063C00072",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "STILLRX50",
+      "descricao": "Empilhador Eléctrico Still RX50-15; Série nº 5054003191",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EMPSTILLRX60-30",
+      "descricao": "Empilhador Eléctrico Still RX60-30; Série nº 516323D00660",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "STILLRX60-35",
+      "descricao": "Empilhador Eléctrico Still RX60-35; Série nº 516356F00201",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EMPSTILLRX60-40",
+      "descricao": "Empilhador Eléctrico Still RX60-40; Série nº 516327000362",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "STILLF00233",
+      "descricao": "Empilhador Eléctrico Still RX60-40; Série nº516327F00233",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EMP.STILL",
+      "descricao": "EMPILHADOR ELÉTRICO 3 RODAS - STILL RX20-15_x000D_\nNº DE SÉRIE: 516210E00211_x000D_\nANO - 2014",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EMPCAT",
+      "descricao": "Empilhador Elétrico Caterpillar EP16KT",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EMPCesab",
+      "descricao": "Empilhador Elétrico Cesab Drago150",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EN16Q",
+      "descricao": "Empilhador elétrico Nissan AG1N1L16Q com o número de série - 720216",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EMPSTRX20-16",
+      "descricao": "Empilhador Elétrico Still RX20-16 N.S. N0006206",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EMPSTILL18",
+      "descricao": "Empilhador Elétrico Still RX20-18",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EMPSTILLRX20-20",
+      "descricao": "Empilhador Elétrico Still RX20-20, Série Nº 516215A00384",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EMPSTILLRX20-20L",
+      "descricao": "Empilhador Elétrico Still RX20-20L; Série Nº 516225J00347",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EMPSTILL",
+      "descricao": "EMPILHADOR ELÉTRICO STILL RX60-20_x000D_\nEMPILHADOR ELÉTRICO STILL RX60-20 Nº SÉRIE - N0011891",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EMPSRX60-25",
+      "descricao": "Empilhador elétrico Still RX60-25 com o Nº Série: 516321B00626",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EMPHANGCHA",
+      "descricao": "Empilhador Hangcha",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EMPI",
+      "descricao": "Empilhador ICEM",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "JAC35",
+      "descricao": "Empilhador JAC CPCD35; Série Nº 00000000240384050",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EMPJ16",
+      "descricao": "Empilhador Jungheinrich; Série número: EFGDF-16",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EMPK",
+      "descricao": "Empilhador Komatsu",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EKOMATSU",
+      "descricao": "Empilhador Komatsu FB20-2R; Série Nº F14032A01059",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EMPL",
+      "descricao": "Empilhador Linde E16-02; Série Nº H2X386J03275",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EMPLINDEG1X336K01638",
+      "descricao": "Empilhador Linde E30 Série Nº G1X336K01638",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "LINDEE30351",
+      "descricao": "Empilhador Linde E30 Série Nº G1X336W01351",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EMPM",
+      "descricao": "Empilhador Mitsubischi",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EMPNISSAN",
+      "descricao": "Empilhador Nissan",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "MQN NISSAN",
+      "descricao": "Empilhador Nissan",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EMPN",
+      "descricao": "Empilhador NISSAN 18",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EMPN40",
+      "descricao": "Empilhador NISSAN 40",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EMPN16",
+      "descricao": "Empilhador Nissan AG1N1L16Q",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FM14I",
+      "descricao": "Empilhador Retractil Wagner FM-14I",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EMPS",
+      "descricao": "Empilhador STILL",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "STILL",
+      "descricao": "Empilhador Still",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EMPSTILLR60-35",
+      "descricao": "Empilhador Still R60-35 Série Nº 516026005135",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "STILL011531",
+      "descricao": "Empilhador STILL RX-20-15; Série nº516213011531",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EMPSTILLRX20-15",
+      "descricao": "Empilhador Still RX20-15 Série Nº 516210B00206",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EMPStill",
+      "descricao": "Empilhador Still RX20-16; 516211H01714",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EMSTILLRX20-16",
+      "descricao": "Empilhador Still RX20-16; Série Nº 516221L00247",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "STILLRX20-16:516221Y01955",
+      "descricao": "Empilhador Still RX20-16; Série Nº 516221Y01955",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "STILLRX20-16;516221Y01960",
+      "descricao": "Empilhador Still RX20-16; Série Nº 516221Y01960",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EMPSRX",
+      "descricao": "Empilhador STILL RX20/15",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "STILLRX50-15",
+      "descricao": "Empilhador Still RX50-15",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "STRX60-25",
+      "descricao": "Empilhador Still RX60-25 Série Nº 516321001174",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "STILLRX60-25",
+      "descricao": "Empilhador STILL RX60-25 Série Nº N0003373",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EMPTOYOTA",
+      "descricao": "Empilhador Toyota 5FG25",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "TOYOTA30",
+      "descricao": "Empilhador Toyota 7FBMF30",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EMPTOYOTA18",
+      "descricao": "Empilhador Toyota E18",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "YALE",
+      "descricao": "Empilhador Yale ERP16A, Série Nº D807A05264B",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EYALE",
+      "descricao": "Empilhador Yale ERP16ATF; Série Nº F807A06251F",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "EMPUNIC",
+      "descricao": "Empilhadores Unicarriers",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "ENR",
+      "descricao": "Enrolador",
+      "unidade": "UN",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "ESP",
+      "descricao": "Espelho",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FT",
+      "descricao": "Farulim Traseiro",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FRS",
+      "descricao": "Faróis",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FRSL",
+      "descricao": "Faróis LED",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "F160A",
+      "descricao": "Ficha 160 Azul",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "F160C",
+      "descricao": "Ficha 160 Cinzenta",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "F160FP",
+      "descricao": "Ficha 160 Fêmea Preta",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "F160FR",
+      "descricao": "Ficha 160 Fêmea Rema",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "F160MP",
+      "descricao": "Ficha 160 Macho Preta",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "F160MR",
+      "descricao": "Ficha 160 Macho Rema",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "F160V",
+      "descricao": "Ficha 160 Vermelha",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "F175A",
+      "descricao": "Ficha 175 Azul",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "F175C",
+      "descricao": "Ficha 175 Cinzenta",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "F320A",
+      "descricao": "Ficha 320 Azul",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "F320C",
+      "descricao": "Ficha 320 Cinzenta",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "F320F",
+      "descricao": "Ficha 320 Fêmea Preta",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "F320FR",
+      "descricao": "Ficha 320 Fêmea Rema",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "F320M",
+      "descricao": "Ficha 320 Macho Preta",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "F320MR",
+      "descricao": "Ficha 320 Macho Rema",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "F350A",
+      "descricao": "Ficha 350 Azul",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "F350C",
+      "descricao": "Ficha 350 Cinzenta",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "F80FP",
+      "descricao": "Ficha 80 Fêmea Preta",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "F80FV",
+      "descricao": "Ficha 80 Fêmea Vermelha",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "F80MP",
+      "descricao": "Ficha 80 Macho Preta",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "F80MV",
+      "descricao": "Ficha 80 Macho Vermelha",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FA160",
+      "descricao": "Ficha Azul 160Ah",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FA175",
+      "descricao": "Ficha Azul 175Ah",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FA320",
+      "descricao": "Ficha Azul 320Ah",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FA350",
+      "descricao": "Ficha Azul 350Ah",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FA50",
+      "descricao": "Ficha Azul 50Ah",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FC160",
+      "descricao": "Ficha Cinzenta 160Ah",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FC175",
+      "descricao": "Ficha Cinzenta 175Ah",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FC320",
+      "descricao": "Ficha Cinzenta 320Ah",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FC350",
+      "descricao": "Ficha Cinzenta 350Ah",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FC50",
+      "descricao": "Ficha Cinzenta 50Ah",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FP160",
+      "descricao": "Ficha Preta 160Ah",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FP320",
+      "descricao": "Ficha Preta 320Ah",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FP350",
+      "descricao": "Ficha Preta 350Ah",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FPF160P",
+      "descricao": "Ficha Preta Fêmea 160Ah com pega",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FPF320",
+      "descricao": "Ficha Preta Fêmea 320Ah",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FPF320P",
+      "descricao": "Ficha Preta Fêmea 320Ah com Pega",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FPF80",
+      "descricao": "Ficha Preta Fêmea 80Ah",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FPF80P",
+      "descricao": "Ficha Preta Fêmea 80Ah com Pega",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FPFE80",
+      "descricao": "Ficha Preta Fêmea Especial 80Ah",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FPM160",
+      "descricao": "Ficha Preta Macho 160Ah",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FPM160P",
+      "descricao": "Ficha Preta Macho 160Ah com Pega",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FPM320",
+      "descricao": "Ficha Preta Macho 320Ah",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FPM320P",
+      "descricao": "Ficha Preta Macho 320Ah com Pega",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FPM80",
+      "descricao": "Ficha Preta Macho 80Ah",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FPME80",
+      "descricao": "Ficha Preta Macho Especial 80Ah",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FT16AH",
+      "descricao": "Ficha Trifásica 16Ah",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FU",
+      "descricao": "Ficha Universal",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FV160",
+      "descricao": "Ficha Vermelha 160Ah",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FV175",
+      "descricao": "Ficha Vermelha 175Ah",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FV320",
+      "descricao": "Ficha Vermelha 320Ah",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FV350",
+      "descricao": "Ficha Vermelha 350Ah",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FV50",
+      "descricao": "Ficha Vermelha 50Ah",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FVF80P",
+      "descricao": "Ficha Vermelha Fêmea 80Ah com Pega",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FA",
+      "descricao": "Filtro de Ar",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FCLR",
+      "descricao": "Filtro de Cloro Completo",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FC",
+      "descricao": "Filtro de Combustível",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FFLX",
+      "descricao": "Filtro de Fluxómetro",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FG",
+      "descricao": "Filtro de Gasóleo",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FO",
+      "descricao": "Filtro de Óleo",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FH",
+      "descricao": "Filtro do Hidráulico",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FM",
+      "descricao": "Fita Magnética",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FLT14",
+      "descricao": "Flotoador 14",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FLT20",
+      "descricao": "Flotoador 20",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FLT29",
+      "descricao": "Flotoador 29",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FLT34",
+      "descricao": "Flotoador 34",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FLT39",
+      "descricao": "Flotoador 39",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FLT44",
+      "descricao": "Flotoador 44",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FLT49",
+      "descricao": "Flotoador 49",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FLT58",
+      "descricao": "Flotuador 58 mm",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FLT61",
+      "descricao": "Flotuador 61 mm",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FLX",
+      "descricao": "Fluxómetro",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FLXF",
+      "descricao": "Fluxómetro com Filtro",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FLXC",
+      "descricao": "Fluxómetro Comprido",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FLXR",
+      "descricao": "Fluxómetro Redondo",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "fs",
+      "descricao": "Fusiveis",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FS10",
+      "descricao": "Fusivel 10A",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FS15",
+      "descricao": "Fusivel 15 A",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FS5",
+      "descricao": "Fusivel 5A",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FS8",
+      "descricao": "Fusivel 8A",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FM100",
+      "descricao": "Fusivel Mega 100A",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FM125",
+      "descricao": "Fusivel Mega 125A",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FM150",
+      "descricao": "Fusivel Mega 150A",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FM175",
+      "descricao": "Fusivel Mega 175A",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FM200",
+      "descricao": "Fusivel Mega 200A",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FM225",
+      "descricao": "Fusivel Mega 225A",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FM250",
+      "descricao": "Fusivel Mega 250A",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FM300",
+      "descricao": "Fusivel Mega 300A",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FM500",
+      "descricao": "Fusivel Mega 500A",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "F125",
+      "descricao": "Fusível 125",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "F15/80",
+      "descricao": "Fusível 15/80",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FS160",
+      "descricao": "Fusível 160A/80V",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FS30/32",
+      "descricao": "Fusível 30/32",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FS100",
+      "descricao": "Fusível de 100Ah",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "FSC",
+      "descricao": "Fusível de Carregador",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "GO",
+      "descricao": "Gancho Olhal",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "GFS",
+      "descricao": "Garfos para Empilhador",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "GRF",
+      "descricao": "Garfos para os nossos empilhadores",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "GDP",
+      "descricao": "Grade de Protecção",
+      "unidade": "UN",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "GP",
+      "descricao": "Gulpilhas",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "GULP",
+      "descricao": "Gulpilhas",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "id",
+      "descricao": "Incodar de Direção",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "IB",
+      "descricao": "Indicador de Bateria",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "INS",
+      "descricao": "Inspeção de Máquina",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "JT",
+      "descricao": "Jante",
+      "unidade": "UN",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "JOE",
+      "descricao": "Joelho",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "JJC",
+      "descricao": "Jogo de Juntas de Cilindro",
+      "unidade": "UN",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "JYS",
+      "descricao": "Joystick Eléctrico",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "JF10",
+      "descricao": "Junção Fêmea 10mm",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "JF6",
+      "descricao": "Junção Fêmea 6mm",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "JM10",
+      "descricao": "Junção Macho 10mm",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "JM6",
+      "descricao": "Junção Macho 6mm",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "KCT",
+      "descricao": "Kit Calços de Travão",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "KCTV",
+      "descricao": "Kit de Calços de Travão",
+      "unidade": "UN",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "KC",
+      "descricao": "Kit de Contactos",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "KEA24V",
+      "descricao": "Kit de Enchimento Automático 24V",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "KE",
+      "descricao": "Kit de Escovas",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "KV",
+      "descricao": "Kit de Vedantes",
+      "unidade": "UN",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "KITIGBT150A",
+      "descricao": "Kit IGBT LT 150A",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "KRM",
+      "descricao": "Kit Reparação de Macaco",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "krm",
+      "descricao": "Kit Reparação do Macaco",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Serviço",
+      "codigo": "LD",
+      "descricao": "Lavagem e drenagem de bateria",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "LINDEL12644",
+      "descricao": "Linde L12 Série Nº W4X379S01644",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "LINDEL12",
+      "descricao": "Linde L12; Série nº W4X379501644",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "LBR",
+      "descricao": "Lubrificante",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "L12V10W",
+      "descricao": "Lâmpada 12V 10W",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "L12V21A",
+      "descricao": "Lâmpada 12V 21Ah",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "L12V55A",
+      "descricao": "Lâmpada 12V 55Ah",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "L12/21/5",
+      "descricao": "Lâmpada 12V/21/5W",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "L12/21",
+      "descricao": "Lâmpada 12V/21W",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "LH3 24",
+      "descricao": "Lâmpada 24/70W",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "L24/10",
+      "descricao": "Lâmpada 24V/10W",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "L24/21",
+      "descricao": "Lâmpada 24V/21W",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "LPVW",
+      "descricao": "Lâmpada 24V/70W",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "L24/21/5",
+      "descricao": "Lâmpada 24V21/5W",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "L24/40/30",
+      "descricao": "Lâmpada 24V40/30W",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "L48/10",
+      "descricao": "Lâmpada 48V/10W",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "L48/25",
+      "descricao": "Lâmpada 48V/25W",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "L48/25/10",
+      "descricao": "Lâmpada 48V25/10W",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "LH3 12",
+      "descricao": "Lâmpada H3 12/55W",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "LH3",
+      "descricao": "Lâmpada H3 24V/70W",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "LH3 48",
+      "descricao": "Lâmpada H3 48/60W",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "LL",
+      "descricao": "Líquido de Limpeza",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "MG",
+      "descricao": "Mangueira",
+      "unidade": "MT",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "MG10",
+      "descricao": "Mangueira de Cristal 10mm",
+      "unidade": "MT",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "MG6",
+      "descricao": "Mangueira de Cristal 6mm",
+      "unidade": "MT",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "MGB",
+      "descricao": "Mangueira em Borracha",
+      "unidade": "UN",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "MGH",
+      "descricao": "Mangueira Hidráulica",
+      "unidade": "UN",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "MGT",
+      "descricao": "Manguitos",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Serviço",
+      "codigo": "MTMS",
+      "descricao": "Manutenção da máquina",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "MAN",
+      "descricao": "Manutenção de Baterias, no mês",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Serviço",
+      "codigo": "MA001",
+      "descricao": "Material assistência",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "MATASS",
+      "descricao": "Material assitência/manutenção",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "MATPIN",
+      "descricao": "Material Pintura",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Serviço",
+      "codigo": "MR001",
+      "descricao": "Material reparação empilhadores",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "MC",
+      "descricao": "Micro",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "mt",
+      "descricao": "Micro",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "MICINTER",
+      "descricao": "Microinterruptor",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "md",
+      "descricao": "Modulo",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "ML",
+      "descricao": "Mola de Torção",
+      "unidade": "UN",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "MTA",
+      "descricao": "Motor de Arranque",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "MQN BT",
+      "descricao": "Máquina BT",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Serviço",
+      "codigo": "MO",
+      "descricao": "Mão de Obra (hora)",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "MDO",
+      "descricao": "Mão-de-Obra",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "MD3.5KW",
+      "descricao": "Módulo de Carregador 24/36/48V 3.5Kw",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "MOD24V1KW",
+      "descricao": "Módulo de Carregador 24V 1 Kw",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "MD3.5KW80",
+      "descricao": "Módulo de Carregador 72/80V 3.5Kw",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "MD7KW",
+      "descricao": "Módulo de Carregador 96V 7Kw",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "ME",
+      "descricao": "Módulo de Elevação",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "M7KW96V",
+      "descricao": "Módulos 7KW 96V",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "OH",
+      "descricao": "Oleo Hidraulico",
+      "unidade": "Lt",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "PI",
+      "descricao": "Painel de Instrumentos",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "PRM3",
+      "descricao": "Parafuso M3x16",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "PRM4",
+      "descricao": "Parafuso M4x25",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "PRM5",
+      "descricao": "Parafuso M5x25",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "PRM6",
+      "descricao": "Parafuso M6x25",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "PRF",
+      "descricao": "Parafusos",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "PST",
+      "descricao": "Pastilha de Travão",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "PFV",
+      "descricao": "Pega de Fichas Vermelhas",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "PP",
+      "descricao": "Pegas",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "PR",
+      "descricao": "Pegas",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "PFC",
+      "descricao": "Pegas de Ficha Cinzentas",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "PFP",
+      "descricao": "Pegas de Ficha Preta",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "PVR",
+      "descricao": "Pegas Vermelhas",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "PF",
+      "descricao": "Perno de Ficha",
+      "unidade": "UN",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "PA",
+      "descricao": "Peça de Acelerador",
+      "unidade": "UN",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "PTM",
+      "descricao": "Peça do Timão",
+      "unidade": "UN",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Serviço",
+      "codigo": "ptm",
+      "descricao": "Pintura da Máquina",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Serviço",
+      "codigo": "pe",
+      "descricao": "Pintura de Empilhador",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "PRL",
+      "descricao": "Pirilampo",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "PRLED",
+      "descricao": "Pirilampo de Led 12V",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "PAD",
+      "descricao": "Pistola Agua destilada",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "padt",
+      "descricao": "Pistola para agua destilada",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "Pl",
+      "descricao": "Placa",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "PAP",
+      "descricao": "Placa Carregador",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "PS",
+      "descricao": "Placa de Substituição",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "PLCLOG",
+      "descricao": "Placa Lógica",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "PLPBM752",
+      "descricao": "Placa PBM 752W",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "PLPBM752W",
+      "descricao": "Placa PBM 752WW",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "P48/100",
+      "descricao": "Placas",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "JLG",
+      "descricao": "Plataforma Articulada JLG 450AJ",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "AIRO",
+      "descricao": "Plataforma Elevatória Vertical; Marca - AIRO; Modelo: V10-E",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "P140/55/9",
+      "descricao": "Pneu 140x55-9",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "P18/7/8",
+      "descricao": "Pneu 18x7-8",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "PB140/55",
+      "descricao": "Pneu Branco 140x55-9",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "PB15/8",
+      "descricao": "Pneu Branco 15x4/1-8",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "PB16-6-8",
+      "descricao": "Pneu Branco 16x6-8",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "PB18/7/8",
+      "descricao": "Pneu Branco 18x7-8",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "PB200/50",
+      "descricao": "Pneu Branco 200x50-10",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "PB23x10x12",
+      "descricao": "Pneu Branco 23x10-12",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "PB23/10",
+      "descricao": "Pneu Branco 23x9-10",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "PC70012",
+      "descricao": "Pneu Cinzento 700x12",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "PP140/55",
+      "descricao": "Pneu Preto 140x55-9",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "PP15x4,5-8",
+      "descricao": "Pneu Preto 15x4,5-8",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "PP16-6-8",
+      "descricao": "Pneu Preto 16x6-8",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "PP18/7/8",
+      "descricao": "Pneu Preto 18x7-8",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "PP21/9",
+      "descricao": "Pneu Preto 21x8-9",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "PP23/9/10",
+      "descricao": "Pneu Preto 23x9-10",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "PP250x15",
+      "descricao": "Pneu Preto 250x15",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "PP400",
+      "descricao": "Pneu Preto 4.00-8",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "PP500-8",
+      "descricao": "Pneu Preto 5.00-8",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "PP600/9",
+      "descricao": "Pneu Preto 6.00-9",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "PP650X10",
+      "descricao": "Pneu preto 650/650x10",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "PP65010",
+      "descricao": "Pneu Preto 650x10",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "PP700/12",
+      "descricao": "Pneu Preto 700-12",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "PRC",
+      "descricao": "Ponte Retificadora",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "PPB",
+      "descricao": "Porta Paletes com Balança",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "P.PALETES20",
+      "descricao": "Porta Paletes Eletrico STILL EXU-20",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "PPE",
+      "descricao": "Porta Paletes Eléctrico",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "PPENOBLE",
+      "descricao": "Porta Paletes Eléctrico Noblelift",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "STILL3150369",
+      "descricao": "Porta Paletes Eléctrico STILL EXU-16; Série nº 3150369",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "PPESTILLW40153D01786",
+      "descricao": "Porta Paletes Eléctrico Still EXU-16_x000D_\nSérie Nº W40153D01786",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "PPESTILLW40153D01789",
+      "descricao": "Porta Paletes Eléctrico Still EXU-16_x000D_\nSérie Nº W40153D01789",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "PPESTILLW40153D01790",
+      "descricao": "Porta Paletes Eléctrico Still EXU-16_x000D_\nSérie Nº W40153D01790",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "PPEEXU",
+      "descricao": "Porta Paletes Eléctrico Still EXU-20S série nº W40155105476",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "PPESTILLW40155105475",
+      "descricao": "Porta Paletes Eléctrico Still EXU-20S_x000D_\nSérie Nº W40155105475",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "STILL3151340",
+      "descricao": "Porta Paletes Eléctrico STILL EXU-S22; Série nº3151340",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "PPG",
+      "descricao": "Porta Paletes Galvanizado",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "PPL",
+      "descricao": "Porta Paletes Linde",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "PPM",
+      "descricao": "Porta Paletes Manual",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "PPMBT",
+      "descricao": "Porta Paletes Manual BT",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "PPMG",
+      "descricao": "Porta Paletes Manual Galvanizado",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "P.PALETES",
+      "descricao": "Porta Paletes STILL EXU-S22",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "STILL001723",
+      "descricao": "Porta paletes STILL EXU-S22; Série nº710148001723",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "STILL204410",
+      "descricao": "Porta paletes STILL EXU-S22; Série nº710148204410",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "STILLC06492",
+      "descricao": "Porta paletes Still EXU-S22; Série nº710148C06492",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "STILLE00149",
+      "descricao": "Porta paletes Still EXU-S22; Série nºF20177E00149",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "PTC",
+      "descricao": "Potenciómetro",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "PT",
+      "descricao": "Proteção Terminal",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "PFAD",
+      "descricao": "Pré-Filtro Para Água Destilada",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "PV",
+      "descricao": "Punho do Volante",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "RSTILL",
+      "descricao": "Rebocador Still R06-06, Série nº W4X126A00758",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "RESIN",
+      "descricao": "Regeneração de Resina",
+      "unidade": "Lt",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "RELÉ",
+      "descricao": "Relés",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Serviço",
+      "codigo": "RPB",
+      "descricao": "Reparação bloco das alavancas",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Serviço",
+      "codigo": "RC",
+      "descricao": "Reparação de Cabelagem",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Serviço",
+      "codigo": "rpc",
+      "descricao": "Reparação de Carregador",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Serviço",
+      "codigo": "rm",
+      "descricao": "Reparação de Macaco",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Serviço",
+      "codigo": "rpp",
+      "descricao": "Reparação de Porta-Paletes",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Serviço",
+      "codigo": "RDMD",
+      "descricao": "Reparação dos macacos deslocamento",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "RES",
+      "descricao": "Resina",
+      "unidade": "Kg",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Serviço",
+      "codigo": "RVM",
+      "descricao": "Retificação do veio do macaco",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Serviço",
+      "codigo": "ret",
+      "descricao": "Retificação Eixo Torneiro",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "ra",
+      "descricao": "Roda de Apoio",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "rg",
+      "descricao": "Roda de Garfos",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "R84x95",
+      "descricao": "Roda de Garfos 84x95",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "rdt",
+      "descricao": "Roda de Tração",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "RT",
+      "descricao": "RODA DE TRAÇÃO",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "rlm",
+      "descricao": "Rolamento",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "RLM6204",
+      "descricao": "Rolamentos 6204",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "rt",
+      "descricao": "Rotulas de Eixo",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "SCD",
+      "descricao": "SECADOR",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "sn",
+      "descricao": "Sensor",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "sd",
+      "descricao": "Sensor Direção",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Serviço",
+      "codigo": "SERVGERAL",
+      "descricao": "Serviço",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "STK ATL",
+      "descricao": "STACKER ATLET PSP 125",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "STKATL",
+      "descricao": "Stacker Atlet PSP 125",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "STACKEREGV-16TR",
+      "descricao": "Stacker Eléctrico EGV-16TR; Série nº F20277E00631",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "SEN",
+      "descricao": "Stacker Eléctrico Noblelift",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "STFAHEL",
+      "descricao": "Stacker Fahel STC12P",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "STLINDEL12",
+      "descricao": "Stacker Linde L12",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "SEGV14",
+      "descricao": "Stacker Still EGV14TR; Série Nº 710248205116",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "STILLEXD-SF20",
+      "descricao": "Stacker Still EXD-SF20; Série nº F20284G00008",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "STILLEXU-S22",
+      "descricao": "Stacker Still EXU-S22",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "STACKER3157277",
+      "descricao": "STACKER STILL EXV-12 Nº3157277",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "STS12",
+      "descricao": "STACKER STILL EXV12",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "STB",
+      "descricao": "Staker BT SWE160D",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "STL",
+      "descricao": "Staker LINDE",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "STR",
+      "descricao": "Staker ROCLA",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "STS16",
+      "descricao": "Staker STILL Egu16",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "STILLG1X126M",
+      "descricao": "STILL NºSerie G1X126M00293",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Serviço",
+      "codigo": "SRD",
+      "descricao": "Substituição de resina no aparelho de água destilada",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "SP",
+      "descricao": "Suporte",
+      "unidade": "UN",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "TU",
+      "descricao": "Tampas de União",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "TFC",
+      "descricao": "Tampas Fim de Curso",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "TEAR",
+      "descricao": "Tampão de Enchiemnto Automático Roscado",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "TEA",
+      "descricao": "Tampão Enchimento Automático",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "TP",
+      "descricao": "Tapete",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "TS",
+      "descricao": "Taxa de Saída",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Serviço",
+      "codigo": "TSD",
+      "descricao": "Taxa de Saída",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "TX",
+      "descricao": "Taxa PFU",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Serviço",
+      "codigo": "TXPFU",
+      "descricao": "TAXA PFU",
+      "unidade": "un",
+      "precoVenda": 13.53
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "TRM",
+      "descricao": "Terminal",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "TRM25",
+      "descricao": "Terminal 25-10",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "TRM35",
+      "descricao": "Terminal 35-10",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "TRM35-8",
+      "descricao": "Terminal 35-8",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "TRM50",
+      "descricao": "Terminal 50-10",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "TRM70",
+      "descricao": "Terminal 70-10",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "TRMB",
+      "descricao": "Terminal Board",
+      "unidade": "UN",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "TBN",
+      "descricao": "Terminal de Bateria Negativo",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "TBP",
+      "descricao": "Terminal de Bateria Positivo",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "TRMF",
+      "descricao": "Terminal de Ficha",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "TRMN",
+      "descricao": "Terminal negativo",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "TO",
+      "descricao": "Terminal Olhal",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "TRM95",
+      "descricao": "Terminal Olhal 95-10",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "TRMP",
+      "descricao": "Terminal Positivo",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "TMSTAT",
+      "descricao": "Termostato",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "1",
+      "descricao": "Teste",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "TESTILL280126100228",
+      "descricao": "Tractor Eléctrico Still R06-06_x000D_\nSérie Nº 280126100228",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "STILLG1X126Z",
+      "descricao": "Tractor Eléctrico Still; Série nº G1X126Z00292",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Serviço",
+      "codigo": "TB",
+      "descricao": "Tratamento de Bateria",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Serviço",
+      "codigo": "tbt",
+      "descricao": "Tratamento de Bateria",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "TRB",
+      "descricao": "Tratamento de Bateria",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "T10.6",
+      "descricao": "TS 10x10x6",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "TS10",
+      "descricao": "TS 6.6.10",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "TS6",
+      "descricao": "TS 6.6.6",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "T6.10",
+      "descricao": "TS 6x6x10",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "T6.6",
+      "descricao": "TS 6x6x6",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "TSF",
+      "descricao": "TS Forquilha",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "TH",
+      "descricao": "Tubo Hidráulico",
+      "unidade": "UN",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "U110",
+      "descricao": "União 110",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "UN110",
+      "descricao": "União 110",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "UN130",
+      "descricao": "União 130",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "UN150",
+      "descricao": "União 150",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "UN170",
+      "descricao": "União 170",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "UN190",
+      "descricao": "União 190",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "UN300",
+      "descricao": "União 300",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "UN85",
+      "descricao": "União 85",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "UN95",
+      "descricao": "União 95",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "UC25",
+      "descricao": "União de Cabo 25",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "UC35",
+      "descricao": "União de Cabo 35",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "UC50",
+      "descricao": "União de Cabo 50",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "UC70",
+      "descricao": "União de Cabo 70",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "UC95",
+      "descricao": "União de Cabo 95",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "UCH25",
+      "descricao": "União de Cabo Hawker 25",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "UCH35",
+      "descricao": "União de Cabo Hawker 35",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "UCH50",
+      "descricao": "União de Cabo Hawker 50",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "UCH70",
+      "descricao": "União de Cabo Hawker 70",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "UCH95",
+      "descricao": "União de Cabo Hawker 95",
+      "unidade": "UN",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "UC",
+      "descricao": "União de Chumbo",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "U75",
+      "descricao": "Uniões 75mm",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "U95",
+      "descricao": "Uniões 95",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "vdn",
+      "descricao": "Vedantes",
+      "unidade": "UN",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "V",
+      "descricao": "Veio",
+      "unidade": "UN",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "VENT",
+      "descricao": "Ventoinha",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "XXXXX",
+      "descricao": "VV",
+      "unidade": "un",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "VALV",
+      "descricao": "Válvula",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "AD",
+      "descricao": "Água Destilada",
+      "unidade": "un",
+      "precoVenda": 0.1845
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "oh",
+      "descricao": "Óleo de Hidáulico",
+      "unidade": "un",
+      "precoVenda": 0.0
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "OM",
+      "descricao": "Óleo de Motor",
+      "unidade": "LT",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "OT",
+      "descricao": "Óleo de Torque",
+      "unidade": "LT",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "OTV",
+      "descricao": "Óleo de Travões",
+      "unidade": "LT",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "OD",
+      "descricao": "Óleo Diferencial",
+      "unidade": "Lt",
+      "precoVenda": 1.23
+    },
+    {
+      "tipo": "Produto",
+      "codigo": "OL5W30",
+      "descricao": "Óleo Titan 1Pro C-3(SAE5W30)",
+      "unidade": "un",
+      "precoVenda": 1.23
+    }
+  ]
+}

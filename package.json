@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "test": "node --test pwa/tests/*.test.mjs",
+    "import:catalogo": "python scripts/import-listagem-produtos.py",
     "sync:rh-config": "node pwa/scripts/sync-rh-admin-config.mjs",
     "lint": "eslint pwa/js pwa/api",
     "format": "prettier --write \"pwa/js/**/*.js\" \"pwa/api/**/*.js\"",

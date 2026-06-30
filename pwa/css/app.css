@@ -9761,6 +9761,19 @@ details[open] .expand-icon { transform: rotate(90deg); }
   overflow-x: auto;
   margin-bottom: 0.5rem;
 }
+.review-orc-catalog-hint {
+  margin: 0 0 0.45rem;
+  font-size: 0.72rem;
+  line-height: 1.4;
+}
+.review-orc-catalog-combobox {
+  position: relative;
+  width: 100%;
+}
+.review-orc-catalog-combobox .client-combobox-list {
+  z-index: 40;
+  max-height: 220px;
+}
 .review-orc-table {
   width: 100%;
   border-collapse: collapse;
