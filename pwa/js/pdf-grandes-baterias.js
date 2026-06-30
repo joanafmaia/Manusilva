@@ -68,9 +68,9 @@ const GRANDES_BATTERY_PDF_HEADERS = [
   'Cofre',
   'C.C.?',
 ];
-/** Índices de colunas curtas — sem quebra de palavra no PDF */
-const GRANDES_BATTERY_NOWRAP_COLS = new Set([2, 3, 4, 7]);
-const GRANDES_BATTERY_COL_WIDTHS = [30, 24, 16, 14, 14, 46, 20, 16];
+/** Índices de colunas curtas — sem quebra de palavra no PDF (Tensão, Dens., C.C.?) */
+const GRANDES_BATTERY_NOWRAP_COLS = new Set([3, 4, 7]);
+const GRANDES_BATTERY_COL_WIDTHS = [28, 22, 22, 14, 14, 46, 18, 16];
 
 export function drawGrandesTitleBar(doc, y, title) {
   return drawPdfDocumentTitleBar(doc, y, title, GRANDES_SECTION_GAP_MM);
