@@ -1,47 +1,43 @@
 /**
- * Variáveis Supabase nas rotas API — env do deploy ou runtime-public.json (build).
+ * Variáveis Supabase nas rotas API — env do deploy ou supabase-public-config.js (build).
  */
 
-const fs = require('fs');
-const path = require('path');
+let publicConfig = null;
+let publicConfigLoaded = false;
 
-let runtimePublic = null;
-let runtimePublicLoaded = false;
-
-function loadRuntimePublic() {
-  if (runtimePublicLoaded) return runtimePublic;
-  runtimePublicLoaded = true;
+function loadPublicConfig() {
+  if (publicConfigLoaded) return publicConfig;
+  publicConfigLoaded = true;
   try {
-    const raw = fs.readFileSync(path.join(__dirname, 'runtime-public.json'), 'utf8');
-    runtimePublic = JSON.parse(raw);
+    publicConfig = require('./supabase-public-config');
   } catch {
-    runtimePublic = null;
+    publicConfig = null;
   }
-  return runtimePublic;
+  return publicConfig;
 }
 
 function getSupabaseUrl() {
-  const runtime = loadRuntimePublic();
-  const url = String(process.env.SUPABASE_URL || runtime?.supabaseUrl || '').trim();
+  const fallback = loadPublicConfig();
+  const url = String(process.env.SUPABASE_URL || fallback?.supabaseUrl || '').trim();
   if (!url) {
     throw new Error(
-      'SUPABASE_URL em falta. Configure na Vercel ou execute o build (write-api-runtime-config).',
+      'SUPABASE_URL em falta. Configure na Vercel ou execute npm run sync:api-config.',
     );
   }
   return url;
 }
 
 function getSupabaseAnonKey() {
-  const runtime = loadRuntimePublic();
+  const fallback = loadPublicConfig();
   const key = String(
     process.env.SUPABASE_ANON_KEY ||
       process.env.SUPABASE_KEY ||
-      runtime?.supabaseAnonKey ||
+      fallback?.supabaseAnonKey ||
       '',
   ).trim();
   if (!key) {
     throw new Error(
-      'SUPABASE_ANON_KEY em falta. Configure na Vercel ou execute o build (write-api-runtime-config).',
+      'SUPABASE_ANON_KEY em falta. Configure na Vercel ou execute npm run sync:api-config.',
     );
   }
   return key;

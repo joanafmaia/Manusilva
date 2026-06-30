@@ -1,6 +1,6 @@
 /**
  * Gera config pública para rotas API (Supabase URL + anon key).
- * Usa variáveis de ambiente no deploy; em local, lê de supabase-client.js.
+ * Ficheiro versionado em api/lib — a Vercel não inclui ficheiros do .gitignore no deploy.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const clientPath = path.join(__dirname, '../js/supabase-client.js');
-const outPath = path.join(__dirname, '../api/lib/runtime-public.json');
+const outPath = path.join(__dirname, '../api/lib/supabase-public-config.js');
 
 function readFromClientSource() {
   const src = fs.readFileSync(clientPath, 'utf8');
@@ -27,7 +27,8 @@ const fromEnv = {
   ).trim(),
 };
 
-const fromClient = !fromEnv.supabaseUrl || !fromEnv.supabaseAnonKey ? readFromClientSource() : {};
+const fromClient =
+  !fromEnv.supabaseUrl || !fromEnv.supabaseAnonKey ? readFromClientSource() : {};
 
 const config = {
   supabaseUrl: fromEnv.supabaseUrl || fromClient.supabaseUrl,
@@ -37,8 +38,12 @@ const config = {
 if (!config.supabaseUrl || !config.supabaseAnonKey) {
   console.warn('[API runtime] Supabase URL/key em falta — /api/enviar-email pode falhar.');
 } else {
-  console.log('[API runtime] runtime-public.json gerado.');
+  console.log('[API runtime] supabase-public-config.js gerado.');
 }
 
+const content = `/** Gerado automaticamente — não editar manualmente (npm run sync:api-config) */
+module.exports = ${JSON.stringify(config, null, 2)};
+`;
+
 fs.mkdirSync(path.dirname(outPath), { recursive: true });
-fs.writeFileSync(outPath, `${JSON.stringify(config, null, 2)}\n`, 'utf8');
+fs.writeFileSync(outPath, content, 'utf8');
