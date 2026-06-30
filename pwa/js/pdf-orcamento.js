@@ -15,6 +15,15 @@ import {
   getReportOrcamentoMeta,
   normalizeOrcamentoLinhas,
 } from './orcamento-linhas.js';
+import {
+  LABEL_MARCA,
+  LABEL_MODELO,
+  LABEL_TIPO,
+  LABEL_NUMERO_SERIE,
+  LABEL_N_INTERNO,
+  LABEL_MAQUINA,
+  LABEL_MATRICULA,
+} from './field-labels.js';
 import { ensurePdfFonts, pdfSetFont, pdfSafeText, pdfSplitText } from './pdf-font.js';
 import {
   PDF_COLOR_CORPORATE_BLUE,
@@ -334,15 +343,15 @@ export async function renderOrcamentoPDF(report) {
 
   if (canDrawBodyLine(y, 28)) {
     const equipRows = [
-      ['Marca', fill.marca],
-      ['Modelo', fill.modelo],
-      ['Tipo', fill.tipo],
-      ['N.º Série', fill.numero_serie],
-      ['Número Interno', fill.numero_interno],
+      [LABEL_MARCA, fill.marca],
+      [LABEL_MODELO, fill.modelo],
+      [LABEL_TIPO, fill.tipo],
+      [LABEL_NUMERO_SERIE, fill.numero_serie],
+      [LABEL_N_INTERNO, fill.numero_interno],
     ].filter(([, value]) => value !== '—');
 
     if (!equipRows.length) {
-      equipRows.push(['Máquina', fill.maquina], ['Matrícula', fill.matricula]);
+      equipRows.push([LABEL_MAQUINA, fill.maquina], [LABEL_MATRICULA, fill.matricula]);
     }
 
     equipRows.forEach(([label, value]) => {

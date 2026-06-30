@@ -33,6 +33,7 @@ import {
   PREVENTIVA_BATERIA_ANALYSIS_SPECS,
   resolvePdfStandardFieldValue,
 } from './pdf-design-system.js';
+import { LABEL_HORAS } from './field-labels.js';
 import {
   columnKey,
   isMaterialTableField,
@@ -311,7 +312,7 @@ export async function drawPreventivaBateriaIntervencaoTable(doc, y, values) {
   const colW = CONTENT_W / 2;
   return drawPreventivaBateriaClosedSectionTable(doc, y, {
     sectionTitle: 'NÚMERO DE VISITAS E TEMPO',
-    columnHead: ['N.º de visitas', 'Horas'],
+    columnHead: ['N.º de visitas', LABEL_HORAS],
     body: [[visitas, horas]],
     bodyStyles: { halign: 'center' },
     columnStyles: {

@@ -19,6 +19,14 @@ import {
   openOrcamentoStorageUrl,
 } from './pedido-orcamento.js';
 import { escapeHtml } from './html-utils.js';
+import {
+  LABEL_MARCA,
+  LABEL_MODELO,
+  LABEL_TIPO,
+  LABEL_NUMERO_SERIE,
+  LABEL_N_INTERNO,
+  LABEL_MATRICULA,
+} from './field-labels.js';
 
 function defaultOrcamentoEmail(report, client) {
   const meta = getReportOrcamentoMeta(report);
@@ -93,24 +101,24 @@ export function renderOrcamentoEditor(report, { client } = {}) {
             <input type="text" class="review-orc-input" data-orc-field="clienteAc" value="${escapeHtml(cab.clienteAc)}" placeholder="Destinatário / contacto" />
           </label>
           <label class="review-orc-field">
-            <span>Marca</span>
-            <input type="text" class="review-orc-input" data-orc-field="marca" value="${escapeHtml(cab.marca)}" placeholder="Marca" />
+            <span>${LABEL_MARCA}</span>
+            <input type="text" class="review-orc-input" data-orc-field="marca" value="${escapeHtml(cab.marca)}" placeholder="${LABEL_MARCA}" />
           </label>
           <label class="review-orc-field">
-            <span>Modelo</span>
-            <input type="text" class="review-orc-input" data-orc-field="modelo" value="${escapeHtml(cab.modelo)}" placeholder="Modelo" />
+            <span>${LABEL_MODELO}</span>
+            <input type="text" class="review-orc-input" data-orc-field="modelo" value="${escapeHtml(cab.modelo)}" placeholder="${LABEL_MODELO}" />
           </label>
           <label class="review-orc-field">
-            <span>Tipo</span>
-            <input type="text" class="review-orc-input" data-orc-field="tipo" value="${escapeHtml(cab.tipo)}" placeholder="Tipo de equipamento" />
+            <span>${LABEL_TIPO}</span>
+            <input type="text" class="review-orc-input" data-orc-field="tipo" value="${escapeHtml(cab.tipo)}" placeholder="${LABEL_TIPO}" />
           </label>
           <label class="review-orc-field">
-            <span>N.º Série</span>
-            <input type="text" class="review-orc-input" data-orc-field="numeroSerie" value="${escapeHtml(cab.numeroSerie)}" placeholder="Número de série" />
+            <span>${LABEL_NUMERO_SERIE}</span>
+            <input type="text" class="review-orc-input" data-orc-field="numeroSerie" value="${escapeHtml(cab.numeroSerie)}" placeholder="${LABEL_NUMERO_SERIE}" />
           </label>
           <label class="review-orc-field">
-            <span>Número Interno</span>
-            <input type="text" class="review-orc-input" data-orc-field="numeroInterno" value="${escapeHtml(cab.numeroInterno)}" placeholder="N.º interno / matrícula" />
+            <span>${LABEL_N_INTERNO}</span>
+            <input type="text" class="review-orc-input" data-orc-field="numeroInterno" value="${escapeHtml(cab.numeroInterno)}" placeholder="${LABEL_N_INTERNO} / ${LABEL_MATRICULA}" />
             <span class="review-orc-field-hint text-muted">Sugerido a partir do relatório técnico — pode editar.</span>
           </label>
         </div>

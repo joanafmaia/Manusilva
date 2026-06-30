@@ -19,6 +19,15 @@ import {
   resolvePdfStandardFieldValue,
 } from './pdf-design-system.js';
 import {
+  LABEL_MARCA,
+  LABEL_MODELO,
+  LABEL_NUMERO_SERIE,
+  LABEL_N_INTERNO,
+  LABEL_HORAS,
+  LABEL_HORAS_GASTAS,
+  labelWithValue,
+} from './field-labels.js';
+import {
   columnKey,
   isMaterialTableField,
   MATERIAL_UTILIZADO_COLUMNS,
@@ -157,9 +166,9 @@ async function drawFolhaIntervencaoMaquinaTable(doc, y, values, pdfContext = nul
 
   return drawFolhaAvariasDashboardTable(doc, y, 'Informações da Máquina', {
     body: [
-      [`Marca: ${marca}`, `Modelo: ${modelo}`],
-      [`Número de Série: ${serie}`, `Nº Interno: ${nInterno}`],
-      [`Horas: ${horas}`, ''],
+      [labelWithValue(LABEL_MARCA, marca), labelWithValue(LABEL_MODELO, modelo)],
+      [labelWithValue(LABEL_NUMERO_SERIE, serie), labelWithValue(LABEL_N_INTERNO, nInterno)],
+      [labelWithValue(LABEL_HORAS, horas), ''],
     ],
     columnStyles: {
       0: { cellWidth: colW, halign: 'left' },
@@ -215,7 +224,7 @@ async function drawFolhaIntervencaoDatasTable(doc, y, values) {
   const colW = CONTENT_W / 4;
 
   return drawFolhaAvariasDashboardTable(doc, y, 'Datas de Intervenção', {
-    head: ['N.º de visitas', 'Data 1', 'Data 2', 'Horas Gastas'],
+    head: ['N.º de visitas', 'Data 1', 'Data 2', LABEL_HORAS_GASTAS],
     body: [[visitas, data1, data2, horasGastas]],
     bodyStyles: { halign: 'center' },
     columnStyles: {

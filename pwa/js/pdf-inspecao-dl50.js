@@ -26,6 +26,15 @@ import {
   PDF_TABLE_MIN_CELL_HEIGHT_COMPACT,
   resolvePdfStandardFieldValue,
 } from './pdf-design-system.js';
+import {
+  LABEL_MARCA,
+  LABEL_MODELO,
+  LABEL_TIPO,
+  LABEL_NUMERO_SERIE,
+  LABEL_N_INTERNO,
+  LABEL_HORAS,
+  LABEL_DATA_FABRICO,
+} from './field-labels.js';
 import { pdfDisplayValue } from './pdf-format-utils.js';
 import {
   ensureSpace,
@@ -41,17 +50,17 @@ export const DL50_SERVICE_META_BOTTOM_MM = 4;
 
 /** Informações da Máquina — PDF DL50 */
 export const INSPECAO_DL50_MACHINE_PDF_SPECS = [
-  { id: 'marca', label: 'Marca' },
-  { id: 'modelo', label: 'Modelo' },
-  { id: 'tipo', label: 'Tipo' },
+  { id: 'marca', label: LABEL_MARCA },
+  { id: 'modelo', label: LABEL_MODELO },
+  { id: 'tipo', label: LABEL_TIPO },
   {
     id: 'numero_de_serie',
-    label: 'Nº Série',
+    label: LABEL_NUMERO_SERIE,
     aliases: ['num_serie', 'numero_serie', 'n_serie'],
   },
-  { id: 'n_interno', label: 'Número Interno', aliases: ['num_interno', 'numero_interno'] },
-  { id: 'horas', label: 'Número de Horas', aliases: ['horas_gastas', 'numero_horas'] },
-  { id: 'data_fabrico', label: 'Data Fabrico', aliases: ['data_de_fabrico', 'data_fabricacao'] },
+  { id: 'n_interno', label: LABEL_N_INTERNO, aliases: ['num_interno', 'numero_interno'] },
+  { id: 'horas', label: LABEL_HORAS, aliases: ['horas_gastas', 'numero_horas'] },
+  { id: 'data_fabrico', label: LABEL_DATA_FABRICO, aliases: ['data_de_fabrico', 'data_fabricacao'] },
 ];
 
 /** gap ~20px entre colunas da matriz DL50 */

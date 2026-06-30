@@ -6,6 +6,14 @@ import {
   isMaterialTableField,
   MATERIAL_TABLE_PDF_LABEL,
 } from './material-table-field.js';
+import {
+  LABEL_MARCA,
+  LABEL_MODELO,
+  LABEL_NUMERO_SERIE,
+  LABEL_N_INTERNO,
+  LABEL_HORAS,
+  LABEL_ESTADO_MAQUINA,
+} from './field-labels.js';
 
 /** Tipografia premium (pt) — título 13–14, secções 10.5, tabelas 8.5, corpo 9 */
 export const PDF_FONT_TITLE = 13;
@@ -282,20 +290,20 @@ export function getVerificationPdfTitle(field) {
 
 /** Bloco de equipamento padronizado em todos os PDFs */
 export const PDF_STANDARD_MACHINE_SPECS = [
-  { id: 'marca', label: 'Marca' },
-  { id: 'modelo', label: 'Modelo' },
+  { id: 'marca', label: LABEL_MARCA },
+  { id: 'modelo', label: LABEL_MODELO },
   {
     id: 'numero_de_serie',
-    label: 'Número de Série',
+    label: LABEL_NUMERO_SERIE,
     aliases: ['num_serie', 'numero_serie', 'n_serie'],
   },
-  { id: 'n_interno', label: 'Nº Interno', aliases: ['num_interno'] },
+  { id: 'n_interno', label: LABEL_N_INTERNO, aliases: ['num_interno'] },
 ];
 
 /** Campos de diagnóstico antes das assinaturas */
 export const PDF_CLOSING_DIAGNOSTIC_SPECS = [
-  { id: 'horas', label: 'Horas', aliases: ['horas_gastas'] },
-  { id: 'estado_maquina', label: 'Estado da Máquina' },
+  { id: 'horas', label: LABEL_HORAS, aliases: ['horas_gastas'] },
+  { id: 'estado_maquina', label: LABEL_ESTADO_MAQUINA },
 ];
 
 /** Ordem e rótulos originais — Análise da Bateria (PDF Manutenção Preventiva) */

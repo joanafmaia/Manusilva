@@ -27,6 +27,14 @@ import {
   PDF_CLIENT_BOX_FILL,
   resolvePdfStandardFieldValue,
 } from './pdf-design-system.js';
+import {
+  LABEL_MARCA_MODELO,
+  LABEL_NUMERO_SERIE,
+  LABEL_ETIQUETA,
+  LABEL_DATA_RECECAO,
+  LABEL_HORAS,
+  labelWithValue,
+} from './field-labels.js';
 import { isMaterialTableField, normalizeMaterialRows } from './material-table-field.js';
 import {
   pdfDisplayValue,
@@ -121,8 +129,8 @@ function drawCarregadorIdentificacaoClienteBox(doc, topY, values, techName) {
   doc.text('IDENTIFICAÇÃO CLIENTE', blockX + blockPad, lineY);
   lineY += 4.2;
 
-  drawCarregadorMetaCell(doc, blockX + blockPad, lineY, 'Data Receção', dataRececao, colW);
-  drawCarregadorMetaCell(doc, blockX + blockPad + colW + 2, lineY, 'Etiqueta', etiqueta, colW);
+  drawCarregadorMetaCell(doc, blockX + blockPad, lineY, LABEL_DATA_RECECAO, dataRececao, colW);
+  drawCarregadorMetaCell(doc, blockX + blockPad + colW + 2, lineY, LABEL_ETIQUETA, etiqueta, colW);
   lineY += rowH;
   drawCarregadorMetaCell(
     doc,
@@ -253,7 +261,7 @@ async function drawReparacaoCarregadorIdentificacaoTable(doc, y, values, pdfCont
   y = await drawCarregadorSectionBar(doc, y, 'IDENTIFICAÇÃO DO CARREGADOR');
   const pack = carregadorTableStylePack(doc);
   return drawPdfGridTable(doc, y, {
-    body: [[`Marca/Modelo: ${marcaModelo}`, `N.º Série: ${serie}`]],
+    body: [[labelWithValue(LABEL_MARCA_MODELO, marcaModelo), labelWithValue(LABEL_NUMERO_SERIE, serie)]],
     columnStyles: {
       0: { cellWidth: colW, halign: 'left', fontSize: CARREGADOR_FONT_PT },
       1: { cellWidth: colW, halign: 'left', fontSize: CARREGADOR_FONT_PT },
@@ -290,7 +298,7 @@ async function drawReparacaoCarregadorRegistoTable(doc, y, values, pdfContext = 
     doc,
     y,
     'REGISTO DE INTERVENÇÃO',
-    ['Data Intervenção', 'Serviço Efectuado/ Equipamento', 'Horas', 'Técnico'],
+    ['Data Intervenção', 'Serviço Efectuado/ Equipamento', LABEL_HORAS, 'Técnico'],
     body,
     {
       0: { cellWidth: colW * 0.85, halign: 'center' },

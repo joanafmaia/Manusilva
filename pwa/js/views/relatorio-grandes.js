@@ -3,14 +3,15 @@
  */
 
 import { escapeHtml } from '../html-utils.js';
+import { LABEL_MAQUINA, LABEL_MATRICULA, LABEL_TIPO } from '../field-labels.js';
 
 export const GRANDES_BATTERY_FIELD_ID = 'identificacao_baterias';
 
 /** Colunas da tabela (chave → rótulo) */
 export const GRANDES_BATTERY_COLUMNS = [
-  { key: 'maquina', label: 'Máquina', input: 'text' },
-  { key: 'matricula', label: 'Matrícula', input: 'text' },
-  { key: 'tipo', label: 'Tipo', input: 'text' },
+  { key: 'maquina', label: LABEL_MAQUINA, input: 'text' },
+  { key: 'matricula', label: LABEL_MATRICULA, input: 'text' },
+  { key: 'tipo', label: LABEL_TIPO, input: 'text' },
   { key: 'tensao_v', label: 'Tensão (V)', input: 'number' },
   { key: 'densidade', label: 'Densidade', input: 'number' },
   {

@@ -40,6 +40,7 @@ import { drawSignaturesFooter } from './pdf-signatures-footer.js';
 import { drawPdfGridTable } from './pdf-grid-table.js';
 import { isMaterialTableField, normalizeMaterialRows } from './material-table-field.js';
 import { getColumnKeys } from './views/relatorio-grandes.js';
+import { LABEL_HORAS, labelWithValue } from './field-labels.js';
 
 const GRANDES_SECTION_GAP_MM = 2.1;
 const GRANDES_SECTION_BAR_H_MM = 5;
@@ -327,7 +328,7 @@ async function drawGrandesResumoRow(doc, y, values) {
   y = await drawGrandesSectionBar(doc, y, 'Resumo da Intervenção');
   const pack = grandesTableStylePack(doc);
   return drawPdfGridTable(doc, y, {
-    body: [[`Horas: ${horas}`, `Estado Geral: ${estado}`]],
+    body: [[labelWithValue(LABEL_HORAS, horas), `Estado Geral: ${estado}`]],
     columnStyles: {
       0: { cellWidth: colW, halign: 'left', fontSize: GRANDES_TABLE_FONT_PT },
       1: { cellWidth: colW, halign: 'left', fontSize: GRANDES_TABLE_FONT_PT },

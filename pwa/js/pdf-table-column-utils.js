@@ -10,6 +10,7 @@ import {
   columnKey as materialColumnKey,
   columnLabel as materialColumnLabel,
 } from './material-table-field.js';
+import { LABEL_TIPO, LABEL_HORAS } from './field-labels.js';
 
 const TABLE_HEADER_SHORT = {
   artigo: 'Artigo / Desc.',
@@ -20,8 +21,8 @@ const TABLE_HEADER_SHORT = {
   tecnico: 'Técnico',
   equipamento: 'Equipamento',
   material: 'Material',
-  tipo: 'Tipo',
-  horas: 'Horas',
+  tipo: LABEL_TIPO,
+  horas: LABEL_HORAS,
 };
 
 const columnKey = materialColumnKey;

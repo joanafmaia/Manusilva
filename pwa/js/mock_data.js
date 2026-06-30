@@ -8,17 +8,31 @@ import {
   VERIFICACOES_INTERNAS_ITEMS,
 } from './preventiva-empilhadores-items.js';
 import { createMaterialTableField } from './material-table-field.js';
+import {
+  LABEL_MARCA,
+  LABEL_MODELO,
+  LABEL_TIPO,
+  LABEL_NUMERO_SERIE,
+  LABEL_N_INTERNO,
+  LABEL_HORAS,
+  LABEL_HORAS_GASTAS,
+  LABEL_DATA_FABRICO,
+  LABEL_MARCA_MODELO,
+  LABEL_MODELO_TIPO,
+  LABEL_ETIQUETA,
+  LABEL_ESTADO_MAQUINA,
+} from './field-labels.js';
 
 /** Secção de óleos/filtros — após verificações no relatório Empilhadores */
 export const EMPILHADORES_MATERIAL_SECTION = 'Substituição de Material na Manutenção';
 
 /** Identificação bateria — nº série + modelo/tipo (sem marca, modelo ou nº interno separados) */
 export const BATERIA_IDENTITY_FIELD_DEFS = [
-  { type: 'text', id: 'numero_de_serie', label: 'Número de Série', section: 'Informações da Bateria' },
+  { type: 'text', id: 'numero_de_serie', label: LABEL_NUMERO_SERIE, section: 'Informações da Bateria' },
   {
     type: 'text',
     id: 'tipo',
-    label: 'Modelo / Tipo',
+    label: LABEL_MODELO_TIPO,
     section: 'Informações da Bateria',
     placeholder: 'ex: Hawker 4 PzS 500',
   },
@@ -47,11 +61,11 @@ export const FOLHA_INTERVENCAO_AVARIAS = {
   companyName: 'ManuSilva Manutenção Industrial, Unipessoal, Lda',
   companyAddress: 'Rua São Mamede, Lote Nº1 - Fração D, 4760-725 Ribeirão VNF',
   fields: [
-    { type: 'text', id: 'marca', label: 'Marca', section: 'Informações da Máquina' },
-    { type: 'text', id: 'modelo', label: 'Modelo', section: 'Informações da Máquina' },
-    { type: 'text', id: 'numero_de_serie', label: 'Número de Série', section: 'Informações da Máquina' },
-    { type: 'text', id: 'n_interno', label: 'Nº Interno', section: 'Informações da Máquina' },
-    { type: 'number', id: 'horas', label: 'Horas', section: 'Informações da Máquina', min: 0, step: 1 },
+    { type: 'text', id: 'marca', label: LABEL_MARCA, section: 'Informações da Máquina' },
+    { type: 'text', id: 'modelo', label: LABEL_MODELO, section: 'Informações da Máquina' },
+    { type: 'text', id: 'numero_de_serie', label: LABEL_NUMERO_SERIE, section: 'Informações da Máquina' },
+    { type: 'text', id: 'n_interno', label: LABEL_N_INTERNO, section: 'Informações da Máquina' },
+    { type: 'number', id: 'horas', label: LABEL_HORAS, section: 'Informações da Máquina', min: 0, step: 1 },
     { type: 'textarea', id: 'detecao_de_avaria', label: 'Deteção de Avaria' },
     { type: 'textarea', id: 'resolucao_da_avaria', label: 'Resolução da Avaria' },
     createMaterialTableField({ id: 'material_utilizado' }),
@@ -67,7 +81,7 @@ export const FOLHA_INTERVENCAO_AVARIAS = {
     },
     { type: 'date', id: 'data_1', label: 'Data 1', section: 'Datas de Intervenção' },
     { type: 'date', id: 'data_2', label: 'Data 2', section: 'Datas de Intervenção' },
-    { type: 'number', id: 'horas_gastas', label: 'Horas Gastas', section: 'Datas de Intervenção', min: 0, step: 0.5 },
+    { type: 'number', id: 'horas_gastas', label: LABEL_HORAS_GASTAS, section: 'Datas de Intervenção', min: 0, step: 0.5 },
     {
       type: 'choice',
       id: 'pedido_orcamento',
@@ -115,7 +129,7 @@ export const MANUTENCAO_BATERIAS_GRANDES = {
     {
       type: 'number',
       id: 'horas',
-      label: 'Horas',
+      label: LABEL_HORAS,
       section: 'Resumo da Intervenção',
       min: 0,
       step: 0.5,
@@ -141,10 +155,10 @@ export const MANUTENCAO_CORRETIVA_MAQUINAS = {
   companyAddress: 'Rua São Mamede, Lote Nº1 - Fração D, 4760-725 Ribeirão VNF',
   fields: [
     { type: 'date', id: 'data_de_conclusao', label: 'Data de Conclusão' },
-    { type: 'text', id: 'marca', label: 'Marca', section: 'Informações da Máquina' },
-    { type: 'text', id: 'modelo', label: 'Modelo', section: 'Informações da Máquina' },
-    { type: 'text', id: 'numero_de_serie', label: 'Numero de Série', section: 'Informações da Máquina' },
-    { type: 'text', id: 'n_interno', label: 'Nº Interno', section: 'Informações da Máquina' },
+    { type: 'text', id: 'marca', label: LABEL_MARCA, section: 'Informações da Máquina' },
+    { type: 'text', id: 'modelo', label: LABEL_MODELO, section: 'Informações da Máquina' },
+    { type: 'text', id: 'numero_de_serie', label: LABEL_NUMERO_SERIE, section: 'Informações da Máquina' },
+    { type: 'text', id: 'n_interno', label: LABEL_N_INTERNO, section: 'Informações da Máquina' },
     {
       type: 'verification_toggles',
       id: 'lista_de_verificacoes',
@@ -168,7 +182,7 @@ export const MANUTENCAO_CORRETIVA_MAQUINAS = {
     {
       type: 'number',
       id: 'horas',
-      label: 'Horas',
+      label: LABEL_HORAS,
       section: 'Resumo da Intervenção',
       min: 0,
       step: 0.5,
@@ -177,7 +191,7 @@ export const MANUTENCAO_CORRETIVA_MAQUINAS = {
     {
       type: 'status_pills',
       id: 'estado_maquina',
-      label: 'Estado da Máquina',
+      label: LABEL_ESTADO_MAQUINA,
       section: 'Resumo da Intervenção',
       options: ['Operacional', 'Inoperacional por Segurança', 'Aguardar Peças'],
     },
@@ -288,7 +302,7 @@ export const MANUTENCAO_PREVENTIVA_BATERIA = {
       step: 1,
       placeholder: '1',
     },
-    { type: 'number', id: 'horas', label: 'Horas', section: 'Número de Visitas e Tempo', min: 0, step: 0.5 },
+    { type: 'number', id: 'horas', label: LABEL_HORAS, section: 'Número de Visitas e Tempo', min: 0, step: 0.5 },
     { type: 'textarea', id: 'observacao', label: 'Observações', section: 'Estado Final' },
     {
       type: 'status_pills',
@@ -319,27 +333,27 @@ export const INSPECAO_DL50_2005 = {
   companyAddress: 'Rua São Mamede, Lote Nº1 - Fração D, 4760-725 Ribeirão VNF',
   fields: [
     { type: 'date', id: 'data_de_conclusao', label: 'Data de Conclusão' },
-    { type: 'text', id: 'marca', label: 'Marca', section: 'Informações da Máquina' },
-    { type: 'text', id: 'modelo', label: 'Modelo', section: 'Informações da Máquina' },
+    { type: 'text', id: 'marca', label: LABEL_MARCA, section: 'Informações da Máquina' },
+    { type: 'text', id: 'modelo', label: LABEL_MODELO, section: 'Informações da Máquina' },
     {
       type: 'dropdown',
       id: 'tipo',
-      label: 'Tipo',
+      label: LABEL_TIPO,
       section: 'Informações da Máquina',
       options: INSPECAO_DL50_TIPO_OPTIONS,
     },
-    { type: 'text', id: 'numero_de_serie', label: 'Nº Série', section: 'Informações da Máquina' },
-    { type: 'text', id: 'n_interno', label: 'Número Interno', section: 'Informações da Máquina' },
+    { type: 'text', id: 'numero_de_serie', label: LABEL_NUMERO_SERIE, section: 'Informações da Máquina' },
+    { type: 'text', id: 'n_interno', label: LABEL_N_INTERNO, section: 'Informações da Máquina' },
     {
       type: 'number',
       id: 'horas',
-      label: 'Número de Horas',
+      label: LABEL_HORAS,
       section: 'Informações da Máquina',
       min: 0,
       step: 1,
       placeholder: '0',
     },
-    { type: 'date', id: 'data_fabrico', label: 'Data Fabrico', section: 'Informações da Máquina' },
+    { type: 'date', id: 'data_fabrico', label: LABEL_DATA_FABRICO, section: 'Informações da Máquina' },
     {
       type: 'status_pills',
       id: 'periodicidade_inspecao',
@@ -538,15 +552,15 @@ export const REPARACAO_CARREGADOR = {
   companyAddress: 'Rua São Mamede, Lote Nº1 - Fração D, 4760-725 Ribeirão VNF',
   fields: [
     { type: 'date', id: 'data_rececao', label: 'Data de Receção', section: 'Identificação Cliente' },
-    { type: 'text', id: 'etiqueta', label: 'Etiqueta', section: 'Identificação Cliente' },
-    { type: 'text', id: 'marca_modelo', label: 'Marca/Modelo', section: 'Identificação Do Carregador' },
-    { type: 'text', id: 'numero_de_serie', label: 'Número de Série', section: 'Identificação Do Carregador' },
+    { type: 'text', id: 'etiqueta', label: LABEL_ETIQUETA, section: 'Identificação Cliente' },
+    { type: 'text', id: 'marca_modelo', label: LABEL_MARCA_MODELO, section: 'Identificação Do Carregador' },
+    { type: 'text', id: 'numero_de_serie', label: LABEL_NUMERO_SERIE, section: 'Identificação Do Carregador' },
     {
       type: 'dynamic_table',
       id: 'registo_intervencao',
       label: 'Registo de Intervenção',
       section: 'Registo de Intervenção',
-      columns: ['Data Intervenção', 'Serviço Efectuado/ Equipamento', 'Horas', 'Técnico'],
+      columns: ['Data Intervenção', 'Serviço Efectuado/ Equipamento', LABEL_HORAS, 'Técnico'],
       columnTypes: { data_intervencao: 'date', horas: 'number' },
       newRowDefaults: {
         data_intervencao: '$jobDate',
@@ -605,7 +619,7 @@ export const REPARACAO_AVARIAS_BATERIA = {
       step: 1,
       placeholder: '1',
     },
-    { type: 'number', id: 'horas', label: 'Horas', section: 'Número de Visitas e Tempo', min: 0, step: 0.5 },
+    { type: 'number', id: 'horas', label: LABEL_HORAS, section: 'Número de Visitas e Tempo', min: 0, step: 0.5 },
     { type: 'textarea', id: 'observacao', label: 'Observação', section: 'Estado final', rows: 4 },
     {
       type: 'status_pills',

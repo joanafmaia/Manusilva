@@ -72,6 +72,7 @@ import {
   buildRhOpsSummaryText,
 } from './rh-panel-utils.js';
 import { computeDashboardMetrics } from './views/dashboard-metrics.js';
+import { LABEL_NUMERO_SERIE } from './field-labels.js';
 
 /** Aba ativa do painel admin (controlada pela sidebar) */
 let currentTab = 'calendario';
@@ -1351,7 +1352,7 @@ function buildJobDetailContent(job) {
       <div><dt>Técnico</dt><dd>${escapeHtml(techLabel)}</dd></div>
       <div><dt>Serviço</dt><dd>${service?.icon || ''} ${escapeHtml(service?.label || job.serviceType)}</dd></div>
       <div><dt>Data</dt><dd>${escapeHtml(formatDateLong(job.date))}</dd></div>
-      <div><dt>N.º série</dt><dd>${escapeHtml(job.forkliftSerial || '—')}</dd></div>
+      <div><dt>${LABEL_NUMERO_SERIE}</dt><dd>${escapeHtml(job.forkliftSerial || '—')}</dd></div>
       <div><dt>Estado</dt><dd>${statusBadge(job.status)}</dd></div>
       <div><dt>Relatório</dt><dd>${escapeHtml(reportLine)}</dd></div>
     </dl>

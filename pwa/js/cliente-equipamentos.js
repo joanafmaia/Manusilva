@@ -9,6 +9,13 @@ import {
   normalizeEmpilhadoresMaquinaRow,
 } from './views/relatorio-empilhadores-maquinas.js';
 import { escapeHtml } from './html-utils.js';
+import {
+  LABEL_MARCA,
+  LABEL_MODELO,
+  LABEL_TIPO,
+  LABEL_NUMERO_SERIE,
+  LABEL_N_INTERNO,
+} from './field-labels.js';
 
 const MACHINE_VALUE_KEYS = [
   'marca',
@@ -155,11 +162,11 @@ export function reconcileEquipamentoChaves(extracted = [], existing = []) {
 
 export function formatEquipamentoLabel(equipamento = {}) {
   const parts = [
-    norm(equipamento.tipo) ? `Tipo: ${norm(equipamento.tipo)}` : '',
-    norm(equipamento.marca) ? `Marca: ${norm(equipamento.marca)}` : '',
-    norm(equipamento.modelo) ? `Modelo: ${norm(equipamento.modelo)}` : '',
-    norm(equipamento.numero_serie) ? `Série: ${norm(equipamento.numero_serie)}` : '',
-    norm(equipamento.n_interno) ? `Nº Int.: ${norm(equipamento.n_interno)}` : '',
+    norm(equipamento.tipo) ? `${LABEL_TIPO}: ${norm(equipamento.tipo)}` : '',
+    norm(equipamento.marca) ? `${LABEL_MARCA}: ${norm(equipamento.marca)}` : '',
+    norm(equipamento.modelo) ? `${LABEL_MODELO}: ${norm(equipamento.modelo)}` : '',
+    norm(equipamento.numero_serie) ? `${LABEL_NUMERO_SERIE}: ${norm(equipamento.numero_serie)}` : '',
+    norm(equipamento.n_interno) ? `${LABEL_N_INTERNO}: ${norm(equipamento.n_interno)}` : '',
   ].filter(Boolean);
 
   if (parts.length) return parts.join(' · ');

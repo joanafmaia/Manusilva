@@ -24,6 +24,7 @@ import {
   PDF_TABLE_MIN_CELL_HEIGHT_COMPACT,
   resolvePdfStandardFieldValue,
 } from './pdf-design-system.js';
+import { LABEL_HORAS } from './field-labels.js';
 import { pdfDisplayValue, formatPdfNumeroVisitas } from './pdf-format-utils.js';
 import { VISITAS_FIELD_ID } from './deslocacao-field.js';
 import {
@@ -177,7 +178,7 @@ async function drawRavVisitasTempoTableAt(doc, startY, values, x, width) {
   let y = await drawRavSectionBar(doc, startY, 'Número de Visitas e Tempo', { x, width });
   const pack = ravTableStylePack(doc);
   return drawPdfGridTable(doc, y, {
-    head: [['N.º de visitas', 'Horas']],
+    head: [['N.º de visitas', LABEL_HORAS]],
     body: [[visitas, horas]],
     marginLeft: x,
     marginRight: PAGE_W - x - width,

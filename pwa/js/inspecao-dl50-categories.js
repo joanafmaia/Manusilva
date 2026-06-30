@@ -3,6 +3,15 @@ import {
   mergePdfTableDidParseCell,
   PDF_MACHINE_SECTION,
 } from './pdf-design-system.js';
+import {
+  LABEL_MARCA,
+  LABEL_MODELO,
+  LABEL_TIPO,
+  LABEL_NUMERO_SERIE,
+  LABEL_N_INTERNO,
+  LABEL_HORAS,
+  LABEL_DATA_FABRICO,
+} from './field-labels.js';
 import { pdfAutoTableFont, pdfSetFont, pdfSafeText, pdfSplitText } from './pdf-font.js';
 
 /** Pontos de inspeção DL 50/2005 — MS. 061 */
@@ -300,13 +309,13 @@ export function resolveInspecaoDl50MachineFields(values = {}, ctx = {}) {
 /** Corpo da tabela autoTable — 2 colunas */
 export function buildInspecaoDl50MachineTableBody(machine) {
   return [
-    [machinePdfCell('Marca', machine.marca), machinePdfCell('Modelo', machine.modelo)],
-    [machinePdfCell('Tipo', machine.tipo), machinePdfCell('N.º Série', machine.numero_de_serie)],
+    [machinePdfCell(LABEL_MARCA, machine.marca), machinePdfCell(LABEL_MODELO, machine.modelo)],
+    [machinePdfCell(LABEL_TIPO, machine.tipo), machinePdfCell(LABEL_NUMERO_SERIE, machine.numero_de_serie)],
     [
-      machinePdfCell('N.º Interno', machine.n_interno),
-      machinePdfCell('N.º Horas', machine.horas),
+      machinePdfCell(LABEL_N_INTERNO, machine.n_interno),
+      machinePdfCell(LABEL_HORAS, machine.horas),
     ],
-    [machinePdfCell('Data Fabrico', machine.data_fabrico), ''],
+    [machinePdfCell(LABEL_DATA_FABRICO, machine.data_fabrico), ''],
   ];
 }
 

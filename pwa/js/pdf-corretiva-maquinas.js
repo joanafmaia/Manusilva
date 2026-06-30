@@ -22,6 +22,14 @@ import {
   PDF_TABLE_MIN_CELL_HEIGHT_COMPACT,
   resolvePdfStandardFieldValue,
 } from './pdf-design-system.js';
+import {
+  LABEL_MARCA,
+  LABEL_MODELO,
+  LABEL_NUMERO_SERIE,
+  LABEL_HORAS,
+  LABEL_ESTADO_MAQUINA,
+  labelWithValue,
+} from './field-labels.js';
 import { pdfDisplayValue } from './pdf-format-utils.js';
 import {
   ensureBlockFitsSafeZone,
@@ -144,7 +152,7 @@ async function drawCorretivaMachineBlock(doc, y, values, pdfContext = null) {
   y = await drawCorretivaSectionBar(doc, y, PDF_MACHINE_SECTION);
   const pack = corretivaTableStylePack(doc);
   return drawPdfGridTable(doc, y, {
-    body: [[`Marca: ${marca}`, `Modelo: ${modelo}`, `N.º Série: ${serie}`]],
+    body: [[labelWithValue(LABEL_MARCA, marca), labelWithValue(LABEL_MODELO, modelo), labelWithValue(LABEL_NUMERO_SERIE, serie)]],
     columnStyles: {
       0: { cellWidth: colW, halign: 'left', fontSize: CORRETIVA_FONT_PT },
       1: { cellWidth: colW, halign: 'left', fontSize: CORRETIVA_FONT_PT },
@@ -237,7 +245,7 @@ async function drawCorretivaResumoRow(doc, y, values) {
   y = await drawCorretivaSectionBar(doc, y, 'Resumo da Intervenção');
   const pack = corretivaTableStylePack(doc);
   return drawPdfGridTable(doc, y, {
-    body: [[`Horas: ${horas}`, `Estado da Máquina: ${estado}`]],
+    body: [[labelWithValue(LABEL_HORAS, horas), labelWithValue(LABEL_ESTADO_MAQUINA, estado)]],
     columnStyles: {
       0: { cellWidth: colW, halign: 'left', fontSize: CORRETIVA_FONT_PT },
       1: { cellWidth: colW, halign: 'left', fontSize: CORRETIVA_FONT_PT },

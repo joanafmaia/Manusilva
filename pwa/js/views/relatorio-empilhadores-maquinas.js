@@ -10,16 +10,23 @@ import {
 import { EMPILHADORES_PER_MACHINE_FIELD_DEFS } from '../mock_data.js';
 import { sanitizePdfFilenameSegment } from '../pdf-storage.js';
 import { escapeHtml } from '../html-utils.js';
+import {
+  LABEL_MARCA,
+  LABEL_MODELO,
+  LABEL_NUMERO_SERIE,
+  LABEL_N_INTERNO,
+  LABEL_HORAS,
+} from '../field-labels.js';
 
 export const EMPILHADORES_MAQUINAS_FIELD_ID = 'maquinas';
 export const EMPILHADORES_SERVICE_TYPE = 'manutencao_preventiva_empilhadores';
 
 export const EMPILHADORES_ID_COLUMNS = [
-  { key: 'marca', label: 'Marca', input: 'text' },
-  { key: 'modelo', label: 'Modelo', input: 'text' },
-  { key: 'numero_de_serie', label: 'Nº Série', input: 'text' },
-  { key: 'n_interno', label: 'Nº Interno', input: 'text' },
-  { key: 'horas', label: 'Horas', input: 'number' },
+  { key: 'marca', label: LABEL_MARCA, input: 'text' },
+  { key: 'modelo', label: LABEL_MODELO, input: 'text' },
+  { key: 'numero_de_serie', label: LABEL_NUMERO_SERIE, input: 'text' },
+  { key: 'n_interno', label: LABEL_N_INTERNO, input: 'text' },
+  { key: 'horas', label: LABEL_HORAS, input: 'number' },
 ];
 
 const LEGACY_SCALAR_KEYS = [
@@ -204,8 +211,8 @@ export function maquinaRowLabel(row = {}, index = 0) {
     const suffix = interno ? ` (${interno})` : serie ? ` (${serie})` : '';
     return `Máquina ${index + 1} — ${parts.join(' ')}${suffix}`;
   }
-  if (interno) return `Máquina ${index + 1} — N.º interno ${interno}`;
-  if (serie) return `Máquina ${index + 1} — Série ${serie}`;
+  if (interno) return `Máquina ${index + 1} — ${LABEL_N_INTERNO} ${interno}`;
+  if (serie) return `Máquina ${index + 1} — ${LABEL_NUMERO_SERIE} ${serie}`;
   return `Máquina ${index + 1}`;
 }
 
@@ -214,11 +221,11 @@ export function getEmpilhadoresPerMachineFieldDefs() {
 }
 
 export const EMPILHADORES_MACHINE_ID_FIELD_DEFS = [
-  { type: 'text', id: 'marca', label: 'Marca', section: 'Informações da Máquina' },
-  { type: 'text', id: 'modelo', label: 'Modelo', section: 'Informações da Máquina' },
-  { type: 'text', id: 'numero_de_serie', label: 'Nº Série', section: 'Informações da Máquina' },
-  { type: 'number', id: 'horas', label: 'Horas', section: 'Informações da Máquina', min: 0, step: 1, placeholder: '0' },
-  { type: 'text', id: 'n_interno', label: 'Nº Interno', section: 'Informações da Máquina' },
+  { type: 'text', id: 'marca', label: LABEL_MARCA, section: 'Informações da Máquina' },
+  { type: 'text', id: 'modelo', label: LABEL_MODELO, section: 'Informações da Máquina' },
+  { type: 'text', id: 'numero_de_serie', label: LABEL_NUMERO_SERIE, section: 'Informações da Máquina' },
+  { type: 'number', id: 'horas', label: LABEL_HORAS, section: 'Informações da Máquina', min: 0, step: 1, placeholder: '0' },
+  { type: 'text', id: 'n_interno', label: LABEL_N_INTERNO, section: 'Informações da Máquina' },
 ];
 
 /** Serviço virtual com campos escalares para PDF (1 máquina por documento). */
