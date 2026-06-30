@@ -7,6 +7,10 @@ import { formatInterventionDatePt } from './report-intervention-date.js';
 /**
  * @param {{ tipoRelatorio?: string, reportId?: string, clienteNome?: string, nome_empresa?: string, tecnico?: string, dataConclusao?: string, to?: string, serieFrota?: string, numeroOrdem?: number | null, pdfUrl?: string, pdfUrls?: Array<string | { url: string, filename?: string, label?: string }>, pdfFilename?: string, pdfBase64?: string, pdfAttachments?: Array<{ pdfFilename: string, pdfBase64: string }>, orcamentoNumero?: string }} [meta]
  */
+function formatEmailApiError(err = {}) {
+  return [err.error, err.hint, err.detail, err.code, err.responseCode].filter(Boolean).join(' | ');
+}
+
 export async function sendOfficialReportEmail(meta = {}) {
   const { getFreshAccessToken } = await import('./supabase-client.js');
   const token = await getFreshAccessToken();
@@ -46,9 +50,7 @@ export async function sendOfficialReportEmail(meta = {}) {
 
   if (!response.ok) {
     const err = await response.json().catch(() => ({}));
-    const details = [err.error, err.hint, err.code, err.responseCode]
-      .filter(Boolean)
-      .join(' | ');
+    const details = formatEmailApiError(err);
     throw new Error(details || 'Falha ao enviar e-mail pela API.');
   }
 
@@ -92,9 +94,7 @@ export async function sendOrcamentoProposalEmail(meta = {}) {
 
   if (!response.ok) {
     const err = await response.json().catch(() => ({}));
-    const details = [err.error, err.hint, err.code, err.responseCode]
-      .filter(Boolean)
-      .join(' | ');
+    const details = formatEmailApiError(err);
     throw new Error(details || 'Falha ao enviar e-mail da proposta.');
   }
 

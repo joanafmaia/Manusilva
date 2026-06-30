@@ -5,9 +5,6 @@
 const { isRhOrAdminAuthUser } = require('./auth-roles');
 const { getSupabaseUrl, getSupabaseAnonKey } = require('./supabase-env');
 
-const SUPABASE_URL = getSupabaseUrl();
-const SUPABASE_ANON_KEY = getSupabaseAnonKey();
-
 function getBearerToken(req) {
   const auth = String(req.headers?.authorization || '');
   const match = /^Bearer\s+(.+)$/i.exec(auth);
@@ -16,9 +13,9 @@ function getBearerToken(req) {
 
 async function getAuthenticatedUser(token) {
   if (!token) return null;
-  const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+  const res = await fetch(`${getSupabaseUrl()}/auth/v1/user`, {
     headers: {
-      apikey: SUPABASE_ANON_KEY,
+      apikey: getSupabaseAnonKey(),
       Authorization: `Bearer ${token}`,
     },
   });
@@ -46,8 +43,6 @@ async function requireRhUser(req) {
 }
 
 module.exports = {
-  SUPABASE_URL,
-  SUPABASE_ANON_KEY,
   getBearerToken,
   getAuthenticatedUser,
   requireRhUser,

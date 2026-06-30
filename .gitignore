@@ -4,5 +4,6 @@
 .dev_stderr.log
 .env
 pwa/js/mapbox-config.js
+pwa/api/lib/runtime-public.json
 node_modules/
 .tmp-bcrypt/

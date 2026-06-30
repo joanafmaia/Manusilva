@@ -9,6 +9,7 @@ import rhConfig from '../shared/rh-admin-config.json' with { type: 'json' };
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const configPath = path.join(__dirname, '../shared/rh-admin-config.json');
+const apiAuthRolesPath = path.join(__dirname, '../api/lib/auth-roles.js');
 
 function buildExpectedConfig() {
   const tecnicoEmails = new Set(
@@ -33,9 +34,12 @@ function buildExpectedConfig() {
 describe('rh-admin-config', () => {
   it('JSON da API e auth-roles-core.js estão alinhados com UTILIZADORES', () => {
     assert.ok(fs.existsSync(configPath), 'Correr npm run sync:rh-config');
+    assert.ok(fs.existsSync(apiAuthRolesPath), 'Correr npm run sync:rh-config (api/lib/auth-roles.js)');
     const expected = buildExpectedConfig();
     const browser = getRhAdminConfigSnapshot();
+    const apiSrc = fs.readFileSync(apiAuthRolesPath, 'utf8');
     assert.deepEqual([...rhConfig.emails].sort(), expected.emails);
+    assert.ok(expected.emails.every((email) => apiSrc.includes(email)), 'api/lib/auth-roles.js desatualizado');
     assert.deepEqual([...rhConfig.names].sort(), expected.names);
     assert.deepEqual([...browser.emails].sort(), expected.emails);
     assert.deepEqual([...browser.names].sort(), expected.names);

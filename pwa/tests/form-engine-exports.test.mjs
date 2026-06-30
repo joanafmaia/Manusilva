@@ -59,8 +59,8 @@ describe('Fase 2 — supabase sem fallback hardcoded', () => {
   });
 
   it('supabase-env exige variáveis de ambiente', () => {
-    assert.match(supabaseEnvSrc, /throw new Error\('SUPABASE_URL/);
-    assert.match(supabaseEnvSrc, /throw new Error\('SUPABASE_ANON_KEY/);
+    assert.match(supabaseEnvSrc, /throw new Error\([\s\S]*SUPABASE_URL/);
+    assert.match(supabaseEnvSrc, /throw new Error\([\s\S]*SUPABASE_ANON_KEY/);
     assert.doesNotMatch(supabaseEnvSrc, /zhfbezrevosmbmcbyskw/);
     assert.doesNotMatch(supabaseEnvSrc, /eyJhbGci/);
   });

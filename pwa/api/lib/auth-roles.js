@@ -1,13 +1,34 @@
 /**
  * Perfis RH / Admin — rotas serverless (CommonJS).
- * E-mails/nomes: pwa/shared/rh-admin-config.json (gerar com npm run sync:rh-config).
+ * Config sincronizada com npm run sync:rh-config.
  */
 
-const rhConfig = require('../../shared/rh-admin-config.json');
+// >>> RH_CONFIG_START (npm run sync:rh-config)
+const RH_CONFIG = {
+  "roleValues": [
+    "RH",
+    "rh",
+    "admin",
+    "Admin",
+    "ADMIN",
+    "administracao",
+    "Administracao"
+  ],
+  "emails": [
+    "joanamaia97@gmail.com",
+    "filipa@sistema.com",
+    "filipa@rh.manusilva.internal"
+  ],
+  "names": [
+    "joana",
+    "filipa"
+  ]
+};
+// <<< RH_CONFIG_END
 
-const RH_ADMIN_ROLE_VALUES = new Set(rhConfig.roleValues);
-const RH_ADMIN_EMAILS = rhConfig.emails.map((email) => email.toLowerCase());
-const RH_ADMIN_NAMES = new Set(rhConfig.names.map((name) => name.toLowerCase()));
+const RH_ADMIN_ROLE_VALUES = new Set(RH_CONFIG.roleValues);
+const RH_ADMIN_EMAILS = RH_CONFIG.emails.map((email) => email.toLowerCase());
+const RH_ADMIN_NAMES = new Set(RH_CONFIG.names.map((name) => name.toLowerCase()));
 
 function normalizeDbRole(role) {
   const raw = String(role ?? '').trim();

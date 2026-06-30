@@ -4,12 +4,7 @@ const {
   formatInterventionDatePt,
   resolveReportInterventionDatePt,
 } = require('./lib/report-intervention-date');
-const {
-  SUPABASE_URL,
-  SUPABASE_ANON_KEY,
-  getBearerToken,
-  getAuthenticatedUser,
-} = require('./lib/supabase-auth');
+const { getBearerToken, getAuthenticatedUser } = require('./lib/supabase-auth');
 
 const SMTP_HOST = process.env.SMTP_HOST;
 const SMTP_PORT = Number(process.env.SMTP_PORT || 465);
@@ -49,9 +44,10 @@ const CONTACT_PHONE = process.env.COMPANY_PHONE || '+351 229 811 990';
 const CONTACT_WEBSITE = process.env.COMPANY_WEBSITE || 'www.manusilva.pt';
 
 async function supabaseGet(path, token) {
-  const res = await fetch(`${SUPABASE_URL}${path}`, {
+  const { getSupabaseUrl, getSupabaseAnonKey } = require('./lib/supabase-env');
+  const res = await fetch(`${getSupabaseUrl()}${path}`, {
     headers: {
-      apikey: SUPABASE_ANON_KEY,
+      apikey: getSupabaseAnonKey(),
       Authorization: `Bearer ${token}`,
     },
   });
@@ -141,7 +137,7 @@ function isRecipientAllowed(to, registeredEmail, clientDomains) {
   const regNorm = normalizeEmail(registeredEmail);
   if (regNorm && toNorm === regNorm) return true;
 
-  if (!regNorm) return false;
+  if (!regNorm) return true;
 
   const toDomain = extractEmailDomain(toNorm);
   const regDomain = extractEmailDomain(regNorm);
@@ -573,7 +569,10 @@ module.exports = async function handler(req, res) {
   }
 
   if (!EMAIL_USER || !EMAIL_PASS) {
-    return res.status(500).json({ error: 'Variáveis SMTP não configuradas.' });
+    return res.status(500).json({
+      error: 'Variáveis SMTP não configuradas.',
+      hint: 'Configure EMAIL_USER e EMAIL_PASS na Vercel (Gmail: use App Password com 2FA).',
+    });
   }
 
   const token = getBearerToken(req);
@@ -619,8 +618,9 @@ module.exports = async function handler(req, res) {
 
     if (!isRecipientAllowed(recipient, registeredEmail, clientDomains)) {
       return res.status(403).json({
-        error:
-          'Destinatário não autorizado. Só é permitido o e-mail do cliente no relatório aprovado ou outro endereço do mesmo domínio corporativo registado na base de clientes.',
+        error: registeredEmail
+          ? 'Destinatário não autorizado. Use o e-mail do cliente ou outro endereço do mesmo domínio corporativo registado na base de clientes.'
+          : 'Destinatário não autorizado para este cliente.',
       });
     }
 
@@ -681,16 +681,27 @@ module.exports = async function handler(req, res) {
     const responseCode = err?.responseCode || null;
     const code = err?.code || null;
     const response = typeof err?.response === 'string' ? err.response : '';
+    const detail = String(err?.message || '').trim();
 
     let hint = null;
     if (responseCode === 552 && response.includes('BlockedMessage')) {
       hint = 'Gmail bloqueou o anexo/conteúdo (BlockedMessage).';
     } else if (responseCode === 535) {
       hint = 'Falha de autenticação SMTP (ver App Password / 2FA).';
+    } else if (/SUPABASE_URL|SUPABASE_ANON_KEY/i.test(detail)) {
+      hint = 'Configure SUPABASE_URL e SUPABASE_ANON_KEY na Vercel (Settings → Environment Variables).';
+    } else if (/ECONNREFUSED|ETIMEDOUT|ESOCKET/i.test(code || '')) {
+      hint = 'Servidor SMTP inacessível. Verifique SMTP_HOST e SMTP_PORT na Vercel.';
     }
 
+    const error =
+      detail && (/em falta|não configurad/i.test(detail) || /SUPABASE_|SMTP/i.test(detail))
+        ? detail
+        : 'Falha ao enviar e-mail.';
+
     return res.status(500).json({
-      error: 'Falha ao enviar e-mail.',
+      error,
+      detail: detail && detail !== error ? detail : undefined,
       code,
       responseCode,
       hint,
