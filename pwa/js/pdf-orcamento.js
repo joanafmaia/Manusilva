@@ -10,6 +10,8 @@ import { isLogoConfigured, getPdfLogoFormat } from './brand-ui.js';
 import MANUSILVA_LOGO from './logo_data.js';
 import { buildOrcamentoFillData } from './orcamento-fill-data.js';
 import {
+  formatOrcamentoMaquinaPdfTableLabel,
+  formatOrcamentoMaquinaCompactLine,
   formatOrcamentoMaquinaLabel,
   formatOrcamentoMaquinaMatricula,
   hasOrcamentoMaquinaData,
@@ -19,8 +21,8 @@ import {
   computeLinhaTotal,
   formatEuro,
   getReportOrcamentoMeta,
+  normalizeEquipamentoIndex,
   normalizeOrcamentoLinhas,
-  resolveLinhaEquipamentoLabel,
 } from './orcamento-linhas.js';
 import {
   LABEL_MARCA,
@@ -58,9 +60,29 @@ const PAGE_BOTTOM = 287;
 /** Espaço reservado no fundo da folha 1 para a caixa de aprovação do cliente. */
 const APPROVAL_BOX_H = 52;
 const APPROVAL_TOP = PAGE_BOTTOM - APPROVAL_BOX_H - 6;
-const BODY_MAX_Y = APPROVAL_TOP - 8;
+/** Zona fixa para taxa, prazo e totais — o total nunca fica cortado. */
+const FOOTER_BLOCK_H = 40;
+const FOOTER_TOP = APPROVAL_TOP - FOOTER_BLOCK_H;
+const CONTENT_MAX_Y = FOOTER_TOP - 6;
 
 let legalTextCache = null;
+
+function canDrawContentLine(y, step = 5) {
+  return y + step <= CONTENT_MAX_Y;
+}
+
+function advanceContentY(y, step = 5) {
+  return canDrawContentLine(y, step) ? y + step : y;
+}
+
+/** @deprecated usar canDrawContentLine para o corpo da folha 1 */
+function canDrawBodyLine(y, step = 5) {
+  return canDrawContentLine(y, step);
+}
+
+function advanceBodyY(y, step = 5) {
+  return advanceContentY(y, step);
+}
 
 async function loadLegalText() {
   if (legalTextCache) return legalTextCache;
@@ -75,15 +97,6 @@ async function loadLegalText() {
   }
   legalTextCache = '';
   return legalTextCache;
-}
-
-/** Impede sobreposição do corpo com encerramento e caixa de aprovação. */
-function canDrawBodyLine(y, step = 5) {
-  return y + step <= BODY_MAX_Y;
-}
-
-function advanceBodyY(y, step = 5) {
-  return canDrawBodyLine(y, step) ? y + step : y;
 }
 
 function drawLogoPlaceholder(doc, x, y, widthMm, heightMm = widthMm) {
@@ -215,9 +228,10 @@ function drawOrcamentoTable(doc, linhas, startY, { maquinas = [] } = {}) {
       row.total ||
       (computeLinhaTotal(row) > 0 ? formatEuro(computeLinhaTotal(row)) : '');
     if (multi) {
+      const idx = normalizeEquipamentoIndex(row.equipamentoIndex, maquinas.length);
       y = drawRow(
         [
-          resolveLinhaEquipamentoLabel(row, maquinas) || '—',
+          formatOrcamentoMaquinaPdfTableLabel(idx),
           row.descricao || '—',
           row.qtd || '1',
           row.precoUnit ? formatEuro(row.precoUnit) : '',
@@ -375,12 +389,28 @@ function drawOrcamentoEquipamentoBlocks(doc, fill, startY) {
     const machine = normalizeOrcamentoMaquina(row);
     if (!hasOrcamentoMaquinaData(machine) && fill.maquina === '—') return;
 
-    if (blocks.length > 1 && canDrawBodyLine(y, 8)) {
+    if (blocks.length > 1) {
+      if (!canDrawContentLine(y, 8)) return;
       pdfSetFont(doc, 'bold');
       doc.setFontSize(PDF_FONT_BODY);
       doc.setTextColor(...PDF_COLOR_TEXT_DARK);
-      doc.text(`Equipamento ${index + 1}`, MARGIN, y);
-      y = advanceBodyY(y, 6);
+      const prefix = `Equipamento ${index + 1}: `;
+      doc.text(prefix, MARGIN, y);
+      const prefixW = doc.getTextWidth(prefix);
+      pdfSetFont(doc, 'normal');
+      pdfSplitText(doc, formatOrcamentoMaquinaCompactLine(machine, index), CONTENT_W - prefixW).forEach(
+        (line, lineIndex) => {
+          if (lineIndex === 0) {
+            doc.text(pdfSafeText(line), MARGIN + prefixW, y);
+          } else {
+            y = advanceContentY(y, 5);
+            if (!canDrawContentLine(y)) return;
+            doc.text(pdfSafeText(line), MARGIN, y);
+          }
+        },
+      );
+      y = advanceContentY(y, 6);
+      return;
     }
 
     const equipRows = [
@@ -435,6 +465,39 @@ function drawOrcamentoObservacoesCliente(doc, fill, startY) {
   return advanceBodyY(y, 3);
 }
 
+function drawOrcamentoFooter(doc, fill) {
+  let y = FOOTER_TOP + 4;
+  pdfSetFont(doc, 'normal');
+  doc.setFontSize(PDF_FONT_BODY);
+  doc.setTextColor(...PDF_COLOR_TEXT_DARK);
+
+  const drawLabelValue = (label, value) => {
+    pdfSetFont(doc, 'bold');
+    const prefix = label;
+    doc.text(prefix, MARGIN, y);
+    const prefixW = doc.getTextWidth(prefix);
+    pdfSetFont(doc, 'normal');
+    doc.text(pdfSafeText(value), MARGIN + prefixW, y);
+    y += 5;
+  };
+
+  drawLabelValue('Taxa de Saída – ', `${fill.taxa_saida === '—' ? '_______' : fill.taxa_saida} €`);
+  drawLabelValue(
+    'Prazo de Entrega: ',
+    fill.prazo_entrega === '—' ? '_______________' : fill.prazo_entrega,
+  );
+  drawLabelValue('Forma de Pagamento: ', fill.forma_pagamento);
+  drawLabelValue('Validade do orçamento – ', fill.validade_orcamento);
+
+  doc.text(`Subtotal (s/ IVA): ${fill.subtotal} €`, MARGIN, y);
+  y += 5;
+  doc.text(`IVA (23%): ${fill.iva} €`, MARGIN, y);
+  y += 5;
+  pdfSetFont(doc, 'bold');
+  doc.text(`Total: ${fill.total_geral} €`, MARGIN, y);
+  pdfSetFont(doc, 'normal');
+}
+
 /**
  * @param {object} report
  * @returns {Promise<import('jspdf').jsPDF>}
@@ -469,34 +532,7 @@ export async function renderOrcamentoPDF(report) {
 
   y = drawOrcamentoTable(doc, fill.linhas, y, { maquinas: fill.maquinas });
 
-  y = drawLabelValueLine(
-    doc,
-    y,
-    'Taxa de Saída – ',
-    `${fill.taxa_saida === '—' ? '_______' : fill.taxa_saida} €`,
-  );
-  y = drawLabelValueLine(
-    doc,
-    y,
-    'Prazo de Entrega: ',
-    fill.prazo_entrega === '—' ? '_______________' : fill.prazo_entrega,
-  );
-  y = drawLabelValueLine(doc, y, 'Forma de Pagamento: ', fill.forma_pagamento);
-  y = drawLabelValueLine(doc, y, 'Validade do orçamento – ', fill.validade_orcamento);
-
-  const totals = [
-    `Subtotal (s/ IVA): ${fill.subtotal} €`,
-    `IVA (23%): ${fill.iva} €`,
-    `Total: ${fill.total_geral} €`,
-  ];
-  totals.forEach((line) => {
-    if (!canDrawBodyLine(y)) return;
-    pdfSetFont(doc, 'normal');
-    doc.setFontSize(PDF_FONT_BODY);
-    doc.setTextColor(...PDF_COLOR_TEXT_DARK);
-    doc.text(line, MARGIN, y);
-    y = advanceBodyY(y, 5);
-  });
+  drawOrcamentoFooter(doc, fill);
 
   doc.setPage(1);
   drawClientApprovalBox(doc);

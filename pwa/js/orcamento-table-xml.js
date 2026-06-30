@@ -5,9 +5,10 @@
 import { escapeXmlText } from './orcamento-fill-data.js';
 import {
   formatEuro,
+  normalizeEquipamentoIndex,
   normalizeOrcamentoLinhas,
-  resolveLinhaEquipamentoLabel,
 } from './orcamento-linhas.js';
+import { formatOrcamentoMaquinaPdfTableLabel } from './orcamento-maquinas.js';
 
 const COL_WIDTHS_SINGLE = [5200, 900, 1700, 1700];
 const COL_WIDTHS_MULTI = [1400, 3800, 900, 1700, 1700];
@@ -62,7 +63,12 @@ export function buildOrcamentoWordTableXml(linhas, { maquinas = [] } = {}) {
     .map((row) => {
       const cells = multi
         ? [
-            cellWithWidth(resolveLinhaEquipamentoLabel(row, maquinas) || '—', COL_WIDTHS[0]),
+            cellWithWidth(
+              formatOrcamentoMaquinaPdfTableLabel(
+                normalizeEquipamentoIndex(row.equipamentoIndex, maquinas.length),
+              ),
+              COL_WIDTHS[0],
+            ),
             cellWithWidth(row.descricao || '—', COL_WIDTHS[1]),
             cellWithWidth(row.qtd || '1', COL_WIDTHS[2], { align: 'center' }),
             cellWithWidth(

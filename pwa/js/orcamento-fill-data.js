@@ -8,6 +8,7 @@ import {
   formatEuro,
   getReportOrcamentoMeta,
   normalizeOrcamentoLinhas,
+  resolveOrcamentoNumeroFormatado,
   suggestOrcamentoLinhas,
 } from './orcamento-linhas.js';
 import { resolveOrcamentoCabecalho, suggestOrcamentoMaquinas } from './orcamento-cabecalho.js';
@@ -90,13 +91,10 @@ export function buildOrcamentoFillData(report, job = null) {
   const observacoesCliente = String(cabecalho.observacoesCliente || '').trim();
 
   const orcamentoMeta = getReportOrcamentoMeta(report);
-  const orcamentoNumero =
-    orcamentoMeta?.numeroFormatado ||
-    (orcamentoMeta?.numeroSequencial && orcamentoMeta?.ano
-      ? `${orcamentoMeta.numeroSequencial}.0/${orcamentoMeta.ano}`
-      : resolvedJob?.numeroOrdem != null && Number.isFinite(Number(resolvedJob.numeroOrdem))
-        ? `${resolvedJob.numeroOrdem}.0/${year}`
-        : `…/${year}`);
+  const orcamentoNumero = resolveOrcamentoNumeroFormatado(orcamentoMeta, {
+    year,
+    numeroOrdem: resolvedJob?.numeroOrdem ?? null,
+  });
 
   const linhas = normalizeOrcamentoLinhas(
     orcamentoMeta?.linhas?.length ? orcamentoMeta.linhas : suggestOrcamentoLinhas(report),

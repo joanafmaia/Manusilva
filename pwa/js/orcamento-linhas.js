@@ -60,6 +60,26 @@ export function formatOrcamentoNumeroLabel(sequencial, ano) {
   return `${n}.0/${y}`;
 }
 
+export const ORCAMENTO_NUMERO_PLACEHOLDER = 'Atribuído ao guardar';
+
+export function isPlaceholderOrcamentoNumero(value) {
+  const text = String(value ?? '').trim();
+  return !text || text === ORCAMENTO_NUMERO_PLACEHOLDER || text.startsWith('…');
+}
+
+export function resolveOrcamentoNumeroFormatado(meta, { year, numeroOrdem } = {}) {
+  const fmt = String(meta?.numeroFormatado ?? '').trim();
+  if (!isPlaceholderOrcamentoNumero(fmt)) return fmt;
+  if (meta?.numeroSequencial && meta?.ano) {
+    return formatOrcamentoNumeroLabel(meta.numeroSequencial, meta.ano);
+  }
+  const y = year || meta?.ano || new Date().getFullYear();
+  if (numeroOrdem != null && Number.isFinite(Number(numeroOrdem))) {
+    return `${numeroOrdem}.0/${y}`;
+  }
+  return `…/${y}`;
+}
+
 export function getReportOrcamentoMeta(report) {
   const meta = report?.data?.orcamento;
   return meta && typeof meta === 'object' ? meta : null;
@@ -243,12 +263,19 @@ export function readOrcamentoFormFromDom(root, report) {
 function getReportOrcamentoMetaFromDom(root) {
   const sequencialRaw = root?.querySelector('[data-orc-numero-sequencial]')?.textContent?.trim();
   const anoRaw = root?.querySelector('[data-orc-numero-ano]')?.textContent?.trim();
-  const formatado = root?.querySelector('[data-orc-numero-formatado]')?.textContent?.trim();
+  const formatadoRaw = root?.querySelector('[data-orc-numero-formatado]')?.textContent?.trim();
   const sequencial = parseOrcamentoNumber(sequencialRaw);
   const ano = parseOrcamentoNumber(anoRaw) || new Date().getFullYear();
+  const formatado = isPlaceholderOrcamentoNumero(formatadoRaw)
+    ? sequencial > 0
+      ? formatOrcamentoNumeroLabel(sequencial, ano)
+      : null
+    : formatadoRaw;
   return {
     numeroSequencial: sequencial > 0 ? sequencial : null,
     ano,
-    numeroFormatado: formatado || (sequencial > 0 ? formatOrcamentoNumeroLabel(sequencial, ano) : null),
+    numeroFormatado:
+      formatado ||
+      resolveOrcamentoNumeroFormatado({ numeroSequencial: sequencial, ano }, { year: ano }),
   };
 }

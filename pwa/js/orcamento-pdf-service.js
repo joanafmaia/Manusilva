@@ -9,7 +9,7 @@ import {
   withOrcamentoUrlCacheBust,
 } from './pedido-orcamento.js';
 import { buildOrcamentoPdfFilename, renderOrcamentoPDF } from './pdf-orcamento.js';
-import { buildOrcamentoMetaDraft, getReportOrcamentoMeta } from './orcamento-linhas.js';
+import { buildOrcamentoMetaDraft, getReportOrcamentoMeta, resolveOrcamentoNumeroFormatado } from './orcamento-linhas.js';
 import { ensureOrcamentoNumeroForReport } from './orcamento-numero-db.js';
 import { uploadTrabalhoPdf } from './pdf-storage.js';
 import { mergeReportInCache, updateRelatorio } from './relatorios-db.js';
@@ -25,32 +25,35 @@ function withOrcamentoMeta(report, meta) {
 }
 
 function resolveOrcamentoMetaForRender(report, numero, explicitMeta = null) {
+  const applyNumero = (meta) => ({
+    ...meta,
+    numeroSequencial: meta.numeroSequencial ?? numero.sequencial,
+    ano: meta.ano ?? numero.ano,
+    numeroFormatado: resolveOrcamentoNumeroFormatado(
+      {
+        ...meta,
+        numeroSequencial: meta.numeroSequencial ?? numero.sequencial,
+        ano: meta.ano ?? numero.ano,
+      },
+      { year: meta.ano ?? numero.ano },
+    ),
+  });
+
   if (explicitMeta) {
-    return {
-      ...explicitMeta,
-      numeroSequencial: explicitMeta.numeroSequencial ?? numero.sequencial,
-      ano: explicitMeta.ano ?? numero.ano,
-      numeroFormatado: explicitMeta.numeroFormatado || numero.numeroFormatado,
-    };
+    return applyNumero(explicitMeta);
   }
 
   const saved = report.data?.orcamento;
   if (saved?.atualizadoEm) {
-    return {
-      ...saved,
-      numeroSequencial: saved.numeroSequencial ?? numero.sequencial,
-      ano: saved.ano ?? numero.ano,
-      numeroFormatado: saved.numeroFormatado || numero.numeroFormatado,
-    };
+    return applyNumero(saved);
   }
 
-  return {
+  return applyNumero({
     ...(saved || {}),
     ...buildOrcamentoMetaDraft(report, numero),
     numeroSequencial: numero.sequencial,
     ano: numero.ano,
-    numeroFormatado: numero.numeroFormatado,
-  };
+  });
 }
 
 /**

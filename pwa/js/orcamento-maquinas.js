@@ -65,6 +65,19 @@ export function formatOrcamentoMaquinaShortLabel(row, index = 0) {
   return `Eq.${index + 1}`;
 }
 
+/** Rótulo curto na tabela do PDF (detalhe do equipamento já aparece acima). */
+export function formatOrcamentoMaquinaPdfTableLabel(index = 0) {
+  return `Eq.${index + 1}`;
+}
+
+export function formatOrcamentoMaquinaCompactLine(row, index = 0) {
+  const label = formatOrcamentoMaquinaLabel(row, index);
+  const matricula = formatOrcamentoMaquinaMatricula(row);
+  const parts = [label];
+  if (matricula && matricula !== '—') parts.push(`${LABEL_N_INTERNO}: ${matricula}`);
+  return parts.join(' — ');
+}
+
 export function renderOrcamentoEquipamentoSelect(maquinas = [], selectedIndex = 0) {
   const list = normalizeOrcamentoMaquinasList(maquinas);
   const options = list

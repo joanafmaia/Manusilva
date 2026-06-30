@@ -8,9 +8,12 @@ import {
 import { suggestOrcamentoMaquinas } from '../js/orcamento-cabecalho.js';
 import { resolveOrcamentoIntro } from '../js/orcamento-fill-data.js';
 import {
+  formatOrcamentoNumeroLabel,
+  isPlaceholderOrcamentoNumero,
   normalizeEquipamentoIndex,
   normalizeOrcamentoLinhas,
   resolveLinhaEquipamentoLabel,
+  resolveOrcamentoNumeroFormatado,
 } from '../js/orcamento-linhas.js';
 
 describe('orcamento-maquinas', () => {
@@ -63,5 +66,16 @@ describe('orcamento-maquinas', () => {
     assert.equal(linhas[0].equipamentoIndex, 1);
     assert.match(resolveLinhaEquipamentoLabel(linhas[0], maquinas), /Eq\.2/);
     assert.equal(normalizeEquipamentoIndex(99, 2), 0);
+  });
+
+  it('ignora placeholder «Atribuído ao guardar» no número do orçamento', () => {
+    assert.equal(isPlaceholderOrcamentoNumero('Atribuído ao guardar'), true);
+    assert.equal(
+      resolveOrcamentoNumeroFormatado(
+        { numeroFormatado: 'Atribuído ao guardar', numeroSequencial: 305, ano: 2026 },
+        { year: 2026 },
+      ),
+      formatOrcamentoNumeroLabel(305, 2026),
+    );
   });
 });
