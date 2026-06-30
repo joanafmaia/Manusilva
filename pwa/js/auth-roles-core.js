@@ -5,17 +5,24 @@
 
 // >>> RH_CONFIG_START (npm run sync:rh-config)
 const RH_CONFIG = {
-  roleValues: [
-    'RH',
-    'rh',
-    'admin',
-    'Admin',
-    'ADMIN',
-    'administracao',
-    'Administracao',
+  "roleValues": [
+    "RH",
+    "rh",
+    "admin",
+    "Admin",
+    "ADMIN",
+    "administracao",
+    "Administracao"
   ],
-  emails: ['joanamaia97@gmail.com', 'filipa@sistema.com', 'filipa@rh.manusilva.internal'],
-  names: ['joana', 'filipa'],
+  "emails": [
+    "joanamaia97@gmail.com",
+    "filipa@sistema.com",
+    "filipa@rh.manusilva.internal"
+  ],
+  "names": [
+    "joana",
+    "filipa"
+  ]
 };
 // <<< RH_CONFIG_END
 
