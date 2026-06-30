@@ -5,6 +5,13 @@
 import { getClient, getForklift, getJob, getServiceType } from './app.js';
 import { migrateLegacyEmpilhadoresMaquinas } from './views/relatorio-empilhadores-maquinas.js';
 import { getPedidoOrcamentoDetalhe, reportHasPedidoOrcamento } from './pedido-orcamento.js';
+import {
+  hasOrcamentoMaquinaData,
+  normalizeOrcamentoMaquina,
+  normalizeOrcamentoMaquinasList,
+  readOrcamentoMaquinasFromDom,
+  syncLegacyMaquinaFieldsFromList,
+} from './orcamento-maquinas.js';
 
 export const ORCAMENTO_FORMA_PAGAMENTO_DEFAULT = 'Pronto Pagamento';
 export const ORCAMENTO_VALIDADE_DEFAULT = '10 Dias';
@@ -52,6 +59,57 @@ export function resolveReportObservacoesTecnico(report) {
     if (parts.length) return parts.join('\n');
   }
   return String(values.observacoes || values.observacao || '').trim();
+}
+
+/** Sugere máquinas a partir do relatório técnico ou meta RH guardada. */
+export function suggestOrcamentoMaquinas(report) {
+  const meta = readOrcamentoMeta(report);
+  const saved = normalizeOrcamentoMaquinasList(meta.maquinas);
+  if (saved.some(hasOrcamentoMaquinaData)) return saved;
+
+  const serviceType = String(report?.serviceType || '');
+  const values = report?.data?.values || {};
+
+  if (serviceType === 'manutencao_preventiva_empilhadores') {
+    const fromReport = migrateLegacyEmpilhadoresMaquinas(values)
+      .map((row) =>
+        normalizeOrcamentoMaquina({
+          marca: row.marca,
+          modelo: row.modelo,
+          numeroSerie: row.numero_de_serie,
+          numeroInterno: row.n_interno,
+        }),
+      )
+      .filter(hasOrcamentoMaquinaData);
+    if (fromReport.length) return fromReport;
+  }
+
+  if (serviceType === 'manutencao_baterias_grandes') {
+    const rows = values?.identificacao_baterias;
+    if (Array.isArray(rows)) {
+      const fromBaterias = rows
+        .map((row) =>
+          normalizeOrcamentoMaquina({
+            marca: row?.maquina,
+            tipo: row?.tipo,
+            numeroInterno: row?.matricula,
+          }),
+        )
+        .filter(hasOrcamentoMaquinaData);
+      if (fromBaterias.length) return fromBaterias;
+    }
+  }
+
+  const equip = resolveReportEquipamentoFields(report);
+  return [
+    normalizeOrcamentoMaquina({
+      marca: equip.marca,
+      modelo: equip.modelo,
+      tipo: equip.tipo,
+      numeroSerie: equip.numeroSerie,
+      numeroInterno: equip.numeroInterno,
+    }),
+  ];
 }
 
 /** Marca, modelo, tipo e números a partir do relatório técnico (por tipo de serviço). */
@@ -160,6 +218,7 @@ function buildDefaultsFromReport(report) {
     maquina: equipamento.maquina,
     matricula: equipamento.matricula,
     observacoesTecnico: resolveReportObservacoesTecnico(report),
+    observacoesCliente: '',
     formaPagamento: ORCAMENTO_FORMA_PAGAMENTO_DEFAULT,
     validadeOrcamento: ORCAMENTO_VALIDADE_DEFAULT,
   };
@@ -175,6 +234,7 @@ const CABECALHO_FIELD_KEYS = [
   'maquina',
   'matricula',
   'observacoesTecnico',
+  'observacoesCliente',
   'formaPagamento',
   'validadeOrcamento',
 ];
@@ -187,9 +247,10 @@ function pickCabecalhoField(meta, defaults, key) {
   return String(defaults[key] ?? '').trim();
 }
 
-function syncDerivedEquipamento(cabecalho) {
-  const maquina = joinParts([cabecalho.marca, cabecalho.modelo, cabecalho.tipo]);
-  const matricula = cabecalho.numeroInterno || cabecalho.numeroSerie;
+function syncDerivedEquipamento(cabecalho, maquinas = []) {
+  const fromList = syncLegacyMaquinaFieldsFromList(maquinas);
+  const maquina = joinParts([cabecalho.marca, cabecalho.modelo, cabecalho.tipo]) || fromList.maquina;
+  const matricula = cabecalho.numeroInterno || cabecalho.numeroSerie || fromList.matricula;
   return {
     ...cabecalho,
     maquina: maquina || cabecalho.maquina,
@@ -215,33 +276,47 @@ export function resolveOrcamentoCabecalho(report) {
   const picked = Object.fromEntries(
     CABECALHO_FIELD_KEYS.map((key) => [key, pickCabecalhoField(meta, defaults, key)]),
   );
+  const maquinas = suggestOrcamentoMaquinas(report);
+  const legacy = syncLegacyMaquinaFieldsFromList(maquinas);
 
-  const cabecalho = syncDerivedEquipamento({
-    clienteNome: resolveOrcamentoClienteNome(report),
-    clienteAc: picked.clienteAc || 'Exmos. Senhores',
-    ...picked,
-    formaPagamento: picked.formaPagamento || ORCAMENTO_FORMA_PAGAMENTO_DEFAULT,
-    validadeOrcamento: picked.validadeOrcamento || ORCAMENTO_VALIDADE_DEFAULT,
-  });
+  const cabecalho = syncDerivedEquipamento(
+    {
+      clienteNome: resolveOrcamentoClienteNome(report),
+      clienteAc: picked.clienteAc || 'Exmos. Senhores',
+      ...picked,
+      marca: picked.marca || legacy.marca,
+      modelo: picked.modelo || legacy.modelo,
+      tipo: picked.tipo || legacy.tipo,
+      numeroSerie: picked.numeroSerie || legacy.numeroSerie,
+      numeroInterno: picked.numeroInterno || legacy.numeroInterno,
+      formaPagamento: picked.formaPagamento || ORCAMENTO_FORMA_PAGAMENTO_DEFAULT,
+      validadeOrcamento: picked.validadeOrcamento || ORCAMENTO_VALIDADE_DEFAULT,
+    },
+    maquinas,
+  );
 
-  return cabecalho;
+  return { ...cabecalho, maquinas };
 }
 
 export function readOrcamentoCabecalhoFromDom(root, report) {
   const read = (field) => root?.querySelector(`[data-orc-field="${field}"]`)?.value?.trim() || '';
-  const cabecalho = syncDerivedEquipamento({
-    clienteNome: resolveOrcamentoClienteNome(report),
-    clienteAc: read('clienteAc') || 'Exmos. Senhores',
-    marca: read('marca'),
-    modelo: read('modelo'),
-    tipo: read('tipo'),
-    numeroSerie: read('numeroSerie'),
-    numeroInterno: read('numeroInterno'),
-    maquina: read('maquina'),
-    matricula: read('matricula'),
-    observacoesTecnico: read('observacoesTecnico'),
-    formaPagamento: read('formaPagamento') || ORCAMENTO_FORMA_PAGAMENTO_DEFAULT,
-    validadeOrcamento: read('validadeOrcamento') || ORCAMENTO_VALIDADE_DEFAULT,
-  });
-  return cabecalho;
+  const maquinas = readOrcamentoMaquinasFromDom(root);
+  const legacy = syncLegacyMaquinaFieldsFromList(maquinas);
+  const cabecalho = syncDerivedEquipamento(
+    {
+      clienteNome: resolveOrcamentoClienteNome(report),
+      clienteAc: read('clienteAc') || 'Exmos. Senhores',
+      marca: legacy.marca,
+      modelo: legacy.modelo,
+      tipo: legacy.tipo,
+      numeroSerie: legacy.numeroSerie,
+      numeroInterno: legacy.numeroInterno,
+      observacoesTecnico: read('observacoesTecnico'),
+      observacoesCliente: read('observacoesCliente'),
+      formaPagamento: read('formaPagamento') || ORCAMENTO_FORMA_PAGAMENTO_DEFAULT,
+      validadeOrcamento: read('validadeOrcamento') || ORCAMENTO_VALIDADE_DEFAULT,
+    },
+    maquinas,
+  );
+  return { ...cabecalho, maquinas };
 }

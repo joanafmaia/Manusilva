@@ -15,17 +15,13 @@ import {
 } from './orcamento-linhas.js';
 import { resolveOrcamentoCabecalho } from './orcamento-cabecalho.js';
 import {
+  bindOrcamentoMaquinasSection,
+  renderOrcamentoMaquinasSection,
+} from './orcamento-maquinas.js';
+import {
   getReportOrcamentoPdfUrl,
   openOrcamentoStorageUrl,
 } from './pedido-orcamento.js';
-import {
-  LABEL_MARCA,
-  LABEL_MODELO,
-  LABEL_TIPO,
-  LABEL_NUMERO_SERIE,
-  LABEL_N_INTERNO,
-  LABEL_MATRICULA,
-} from './field-labels.js';
 import { bindOrcamentoCatalogoComboboxes } from './orcamento-catalogo-combobox.js';
 import { escapeHtml } from './html-utils.js';
 
@@ -101,28 +97,13 @@ export function renderOrcamentoEditor(report, { client } = {}) {
             <span>A/C.</span>
             <input type="text" class="review-orc-input" data-orc-field="clienteAc" value="${escapeHtml(cab.clienteAc)}" placeholder="Destinatário / contacto" />
           </label>
-          <label class="review-orc-field">
-            <span>${LABEL_MARCA}</span>
-            <input type="text" class="review-orc-input" data-orc-field="marca" value="${escapeHtml(cab.marca)}" placeholder="${LABEL_MARCA}" />
-          </label>
-          <label class="review-orc-field">
-            <span>${LABEL_MODELO}</span>
-            <input type="text" class="review-orc-input" data-orc-field="modelo" value="${escapeHtml(cab.modelo)}" placeholder="${LABEL_MODELO}" />
-          </label>
-          <label class="review-orc-field">
-            <span>${LABEL_TIPO}</span>
-            <input type="text" class="review-orc-input" data-orc-field="tipo" value="${escapeHtml(cab.tipo)}" placeholder="${LABEL_TIPO}" />
-          </label>
-          <label class="review-orc-field">
-            <span>${LABEL_NUMERO_SERIE}</span>
-            <input type="text" class="review-orc-input" data-orc-field="numeroSerie" value="${escapeHtml(cab.numeroSerie)}" placeholder="${LABEL_NUMERO_SERIE}" />
-          </label>
-          <label class="review-orc-field">
-            <span>${LABEL_N_INTERNO}</span>
-            <input type="text" class="review-orc-input" data-orc-field="numeroInterno" value="${escapeHtml(cab.numeroInterno)}" placeholder="${LABEL_N_INTERNO} / ${LABEL_MATRICULA}" />
-            <span class="review-orc-field-hint text-muted">Sugerido a partir do relatório técnico — pode editar.</span>
-          </label>
         </div>
+        ${renderOrcamentoMaquinasSection(cab.maquinas)}
+        <label class="review-orc-field review-orc-field--full">
+          <span>Observações ao cliente</span>
+          <textarea class="review-orc-input review-orc-textarea" data-orc-field="observacoesCliente" rows="3" placeholder="Texto explicativo para o cliente (aparece no PDF da proposta)">${escapeHtml(cab.observacoesCliente)}</textarea>
+          <span class="review-orc-field-hint text-muted">Incluído no PDF MS.015 enviado ao cliente.</span>
+        </label>
         <label class="review-orc-field review-orc-field--full">
           <span>Apoio do orçamento</span>
           <textarea class="review-orc-input review-orc-textarea" data-orc-field="observacoesTecnico" rows="3" placeholder="O que é necessário (relatório técnico)">${escapeHtml(cab.observacoesTecnico)}</textarea>
@@ -296,6 +277,7 @@ export function bindOrcamentoEditor(container, { report, onUpdated } = {}) {
   let currentReport = report;
 
   bindLinhaEvents(root, currentReport);
+  bindOrcamentoMaquinasSection(root);
   refreshLineTotals(root, currentReport);
 
   const saveMeta = async () => {

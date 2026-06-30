@@ -147,6 +147,7 @@ export function buildOrcamentoMetaDraft(report, numeroReservado = null) {
       sequencial != null ? formatOrcamentoNumeroLabel(sequencial, ano) : existing?.numeroFormatado || null,
     emailDestinatario: existing?.emailDestinatario ?? '',
     ...cabecalho,
+    maquinas: cabecalho.maquinas,
     taxaSaida: taxaSaida === '' ? '' : formatEuro(taxaSaida),
     prazoEntrega: String(prazoEntrega || ''),
     linhas,

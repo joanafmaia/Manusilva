@@ -2,7 +2,7 @@
  * Dados para preencher o template MS.015 (Proposta Comercial / Orçamentos).
  */
 
-import { getJob } from './app.js';
+import { getJob, getServiceType } from './app.js';
 import {
   computeOrcamentoTotals,
   formatEuro,
@@ -10,7 +10,12 @@ import {
   normalizeOrcamentoLinhas,
   suggestOrcamentoLinhas,
 } from './orcamento-linhas.js';
-import { resolveOrcamentoCabecalho } from './orcamento-cabecalho.js';
+import { resolveOrcamentoCabecalho, suggestOrcamentoMaquinas } from './orcamento-cabecalho.js';
+import {
+  formatOrcamentoMaquinasDocxText,
+  hasOrcamentoMaquinaData,
+  normalizeOrcamentoMaquinasList,
+} from './orcamento-maquinas.js';
 
 const MESES_PT = [
   'Janeiro',
@@ -45,19 +50,26 @@ export function formatOrcamentoDateLong(raw) {
   return text;
 }
 
-export function resolveOrcamentoIntro(serviceType) {
+export function resolveOrcamentoIntro(serviceType, machineCount = 1) {
   const id = String(serviceType || '');
+  const plural = Number(machineCount) > 1;
   if (/bateria/i.test(id)) {
-    return 'a reparação das seguintes baterias:';
+    return plural ? 'a reparação das seguintes baterias:' : 'a reparação da seguinte bateria:';
   }
   if (/inspecao|dl50|empilhador|maquina|avaria|corretiva/i.test(id)) {
-    return 'a reparação / manutenção do seguinte equipamento:';
+    return plural
+      ? 'a reparação / manutenção dos seguintes equipamentos:'
+      : 'a reparação / manutenção do seguinte equipamento:';
   }
   const service = getServiceType(id);
   if (service?.label) {
-    return `a intervenção de ${String(service.label).toLowerCase()}:`;
+    return plural
+      ? `as intervenções de ${String(service.label).toLowerCase()}:`
+      : `a intervenção de ${String(service.label).toLowerCase()}:`;
   }
-  return 'a reparação / manutenção do seguinte equipamento:';
+  return plural
+    ? 'a reparação / manutenção dos seguintes equipamentos:'
+    : 'a reparação / manutenção do seguinte equipamento:';
 }
 
 export function buildOrcamentoFillData(report, job = null) {
@@ -65,6 +77,17 @@ export function buildOrcamentoFillData(report, job = null) {
   const resolvedJob = job || (report?.jobId ? getJob(report.jobId) : null);
   const year = new Date().getFullYear();
   const cabecalho = resolveOrcamentoCabecalho(report);
+  const maquinas = normalizeOrcamentoMaquinasList(cabecalho.maquinas || suggestOrcamentoMaquinas(report)).filter(
+    hasOrcamentoMaquinaData,
+  );
+  const maquinasForPdf = maquinas.length ? maquinas : normalizeOrcamentoMaquinasList(suggestOrcamentoMaquinas(report));
+  const firstMachine = maquinasForPdf[0] || {};
+  const legacyMaquina = [firstMachine.marca, firstMachine.modelo, firstMachine.tipo]
+    .map((value) => String(value || '').trim())
+    .filter(Boolean)
+    .join(' / ');
+  const legacyMatricula = firstMachine.numeroInterno || firstMachine.numeroSerie || '';
+  const observacoesCliente = String(cabecalho.observacoesCliente || '').trim();
 
   const orcamentoMeta = getReportOrcamentoMeta(report);
   const orcamentoNumero =
@@ -96,14 +119,21 @@ export function buildOrcamentoFillData(report, job = null) {
     cliente_ac: display(cabecalho.clienteAc),
     orcamento_numero: orcamentoNumero,
     data_extenso: dataExtenso,
-    intro_servico: resolveOrcamentoIntro(report?.serviceType),
-    maquina: display(cabecalho.maquina),
-    matricula: display(cabecalho.matricula),
-    marca: display(cabecalho.marca),
-    modelo: display(cabecalho.modelo),
-    tipo: display(cabecalho.tipo),
-    numero_serie: display(cabecalho.numeroSerie),
-    numero_interno: display(cabecalho.numeroInterno),
+    intro_servico: resolveOrcamentoIntro(report?.serviceType, maquinasForPdf.length),
+    maquina:
+      maquinasForPdf.length > 1
+        ? formatOrcamentoMaquinasDocxText(maquinasForPdf)
+        : display(legacyMaquina || cabecalho.maquina),
+    matricula: display(legacyMatricula || cabecalho.matricula),
+    marca: display(firstMachine.marca || cabecalho.marca),
+    modelo: display(firstMachine.modelo || cabecalho.modelo),
+    tipo: display(firstMachine.tipo || cabecalho.tipo),
+    numero_serie: display(firstMachine.numeroSerie || cabecalho.numeroSerie),
+    numero_interno: display(firstMachine.numeroInterno || cabecalho.numeroInterno),
+    maquinas: maquinasForPdf,
+    maquinas_texto: formatOrcamentoMaquinasDocxText(maquinasForPdf),
+    observacoes_cliente: observacoesCliente || '—',
+    reparacao_necessaria: observacoesCliente || '—',
     taxa_saida: taxaSaida === '' ? '—' : formatEuro(taxaSaida),
     prazo_entrega: prazoEntrega || '—',
     forma_pagamento: display(cabecalho.formaPagamento),

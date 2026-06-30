@@ -10,6 +10,12 @@ import { isLogoConfigured, getPdfLogoFormat } from './brand-ui.js';
 import MANUSILVA_LOGO from './logo_data.js';
 import { buildOrcamentoFillData } from './orcamento-fill-data.js';
 import {
+  formatOrcamentoMaquinaLabel,
+  formatOrcamentoMaquinaMatricula,
+  hasOrcamentoMaquinaData,
+  normalizeOrcamentoMaquina,
+} from './orcamento-maquinas.js';
+import {
   computeLinhaTotal,
   formatEuro,
   getReportOrcamentoMeta,
@@ -315,6 +321,86 @@ function drawLegalPage(doc, legalText) {
   doc.text(COMPANY.address || '', MARGIN, PAGE_BOTTOM);
 }
 
+function drawOrcamentoEquipamentoBlocks(doc, fill, startY) {
+  let y = startY;
+  const maquinas = (fill.maquinas || []).filter(hasOrcamentoMaquinaData);
+  const blocks = maquinas.length
+    ? maquinas
+    : [
+        normalizeOrcamentoMaquina({
+          marca: fill.marca,
+          modelo: fill.modelo,
+          tipo: fill.tipo,
+          numeroSerie: fill.numero_serie,
+          numeroInterno: fill.numero_interno,
+          maquina: fill.maquina,
+        }),
+      ];
+
+  blocks.forEach((row, index) => {
+    const machine = normalizeOrcamentoMaquina(row);
+    if (!hasOrcamentoMaquinaData(machine) && fill.maquina === '—') return;
+
+    if (blocks.length > 1 && canDrawBodyLine(y, 8)) {
+      pdfSetFont(doc, 'bold');
+      doc.setFontSize(PDF_FONT_BODY);
+      doc.setTextColor(...PDF_COLOR_TEXT_DARK);
+      doc.text(`Equipamento ${index + 1}`, MARGIN, y);
+      y = advanceBodyY(y, 6);
+    }
+
+    const equipRows = [
+      [LABEL_MARCA, machine.marca],
+      [LABEL_MODELO, machine.modelo],
+      [LABEL_TIPO, machine.tipo],
+      [LABEL_NUMERO_SERIE, machine.numeroSerie],
+      [LABEL_N_INTERNO, machine.numeroInterno],
+    ].filter(([, value]) => String(value || '').trim());
+
+    if (!equipRows.length) {
+      const label = formatOrcamentoMaquinaLabel(machine, index);
+      const matricula = formatOrcamentoMaquinaMatricula(machine);
+      equipRows.push([LABEL_MAQUINA, label], [LABEL_MATRICULA, matricula]);
+    }
+
+    equipRows.forEach(([label, value]) => {
+      if (!canDrawBodyLine(y)) return;
+      pdfSetFont(doc, 'bold');
+      const prefix = `${label}: `;
+      doc.text(prefix, MARGIN, y);
+      const prefixW = doc.getTextWidth(prefix);
+      pdfSetFont(doc, 'normal');
+      doc.text(pdfSafeText(value || '—'), MARGIN + prefixW, y);
+      y = advanceBodyY(y, 5.5);
+    });
+
+    if (index < blocks.length - 1) y = advanceBodyY(y, 2);
+  });
+
+  return advanceBodyY(y, 4);
+}
+
+function drawOrcamentoObservacoesCliente(doc, fill, startY) {
+  const text = String(fill.observacoes_cliente || '').trim();
+  if (!text || text === '—') return startY;
+  let y = startY;
+  if (!canDrawBodyLine(y, 10)) return y;
+
+  pdfSetFont(doc, 'bold');
+  doc.setFontSize(PDF_FONT_BODY);
+  doc.setTextColor(...PDF_COLOR_TEXT_DARK);
+  doc.text('Observações:', MARGIN, y);
+  y = advanceBodyY(y, 5);
+
+  pdfSetFont(doc, 'normal');
+  pdfSplitText(doc, text, CONTENT_W).forEach((line) => {
+    if (!canDrawBodyLine(y)) return;
+    doc.text(line, MARGIN, y);
+    y = advanceBodyY(y, 4.5);
+  });
+  return advanceBodyY(y, 3);
+}
+
 /**
  * @param {object} report
  * @returns {Promise<import('jspdf').jsPDF>}
@@ -341,32 +427,11 @@ export async function renderOrcamentoPDF(report) {
   });
   y = advanceBodyY(y, 4);
 
-  if (canDrawBodyLine(y, 28)) {
-    const equipRows = [
-      [LABEL_MARCA, fill.marca],
-      [LABEL_MODELO, fill.modelo],
-      [LABEL_TIPO, fill.tipo],
-      [LABEL_NUMERO_SERIE, fill.numero_serie],
-      [LABEL_N_INTERNO, fill.numero_interno],
-    ].filter(([, value]) => value !== '—');
-
-    if (!equipRows.length) {
-      equipRows.push([LABEL_MAQUINA, fill.maquina], [LABEL_MATRICULA, fill.matricula]);
-    }
-
-    equipRows.forEach(([label, value]) => {
-      if (!canDrawBodyLine(y)) return;
-      pdfSetFont(doc, 'bold');
-      const prefix = `${label}: `;
-      doc.text(prefix, MARGIN, y);
-      const prefixW = doc.getTextWidth(prefix);
-      pdfSetFont(doc, 'normal');
-      doc.text(pdfSafeText(value), MARGIN + prefixW, y);
-      y = advanceBodyY(y, 5.5);
-    });
-
-    y = advanceBodyY(y, 4);
+  if (canDrawBodyLine(y, 12)) {
+    y = drawOrcamentoEquipamentoBlocks(doc, fill, y);
   }
+
+  y = drawOrcamentoObservacoesCliente(doc, fill, y);
 
   y = drawOrcamentoTable(doc, fill.linhas, y);
 

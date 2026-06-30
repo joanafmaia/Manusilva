@@ -56,7 +56,7 @@ export async function renderOrcamentoDOCX(report, job = null) {
   const data = buildOrcamentoFillData(report, job);
 
   Object.entries(data).forEach(([key, value]) => {
-    if (key === 'linhas') return;
+    if (key === 'linhas' || key === 'maquinas') return;
     const safe = escapeXmlText(value);
     xml = xml.split(`{${key}}`).join(safe);
   });
