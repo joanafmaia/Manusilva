@@ -37,6 +37,7 @@ import {
   formatRelatoriosError,
 } from './relatorios-db.js';
 import { reportHasPedidoOrcamento, reportOrcamentoPorPreparar } from './pedido-orcamento.js';
+import { deleteStandaloneOrcamentoReport, reportIsStandaloneOrcamento } from './orcamento-standalone.js';
 
 /**
  * @param {object} report
@@ -390,6 +391,18 @@ export async function cancelPedidoOrcamentoReport(reportId) {
     showToast('Relatório não encontrado.', 'error');
     return false;
   }
+
+  if (reportIsStandaloneOrcamento(report)) {
+    const meta = report?.data?.orcamento;
+    const client = getClient(report.clientId);
+    const label = client?.name || client?.Nome || 'esta proposta';
+    const ok = window.confirm(
+      `Eliminar a proposta MS.015 de ${label}?\n\nSerá removida por completo (não há relatório técnico associado).`,
+    );
+    if (!ok) return false;
+    return deleteStandaloneOrcamentoReport(reportId);
+  }
+
   if (!reportHasPedidoOrcamento(report)) {
     showToast('Este relatório já não tem pedido de orçamento.', 'info');
     return false;

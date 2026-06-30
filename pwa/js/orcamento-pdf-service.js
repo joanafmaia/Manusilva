@@ -6,6 +6,7 @@ import { getJob } from './app.js';
 import {
   getReportOrcamentoPdfUrl,
   reportHasPedidoOrcamento,
+  reportIsRhOrcamento,
   withOrcamentoUrlCacheBust,
 } from './pedido-orcamento.js';
 import { buildOrcamentoPdfFilename, renderOrcamentoPDF } from './pdf-orcamento.js';
@@ -62,7 +63,7 @@ function resolveOrcamentoMetaForRender(report, numero, explicitMeta = null) {
  * @returns {Promise<object|null>}
  */
 export async function attachOrcamentoPdfToReport(report, options = {}) {
-  if (!report?.id || !reportHasPedidoOrcamento(report)) return report;
+  if (!report?.id || !reportIsRhOrcamento(report)) return report;
 
   const savedMeta = getReportOrcamentoMeta(report);
   if (!options.force && !options.orcamentoMeta) {

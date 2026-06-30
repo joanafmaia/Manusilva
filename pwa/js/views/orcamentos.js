@@ -21,10 +21,14 @@ import {
   getReportTechnicalPdfUrl,
   isRhOrcamentoQueueReport,
   openOrcamentoStorageUrl,
-  reportHasPedidoOrcamento,
+  reportIsStandaloneOrcamento,
   reportOrcamentoGuardado,
   reportOrcamentoPorPreparar,
 } from '../pedido-orcamento.js';
+import {
+  openNovaPropostaModal,
+  reportOrcamentoQueueLabel,
+} from '../orcamento-standalone.js';
 import { getReportOrcamentoMeta } from '../orcamento-linhas.js';
 import { dedupeReportsByJobPreferNewest } from '../relatorios-db.js';
 
@@ -97,9 +101,7 @@ function statusClass(status) {
 }
 
 function reportStatusLabel(report) {
-  if (report.status === 'approved') return 'Relatório aprovado';
-  if (report.status === 'pending_review') return 'Aguarda aprovação RH';
-  return report.status || '—';
+  return reportOrcamentoQueueLabel(report);
 }
 
 function renderKpis(counts) {
@@ -137,7 +139,7 @@ function renderTableRow(report) {
   const service = getServiceType(report.serviceType);
   const workflow = orcamentoWorkflowStatus(report);
   const meta = getReportOrcamentoMeta(report);
-  const detalhe = getPedidoOrcamentoDetalhe(report);
+  const detalhe = reportIsStandaloneOrcamento(report) ? '' : getPedidoOrcamentoDetalhe(report);
   const detalheShort = detalhe
     ? detalhe.length > 48
       ? `${detalhe.slice(0, 45)}…`
@@ -145,8 +147,9 @@ function renderTableRow(report) {
     : '—';
   const pdfUrl = getReportOrcamentoPdfUrl(report);
   const techPdfUrl = getReportTechnicalPdfUrl(report) || (job?.urlPdf ? String(job.urlPdf).trim() : '');
-  const canApproveReport = report.status === 'pending_review';
+  const canApproveReport = !reportIsStandaloneOrcamento(report) && report.status === 'pending_review';
   const canCancelPedido = !meta?.enviadoEm;
+  const canReviewReport = !reportIsStandaloneOrcamento(report);
   const highlighted = highlightReportId && report.id === highlightReportId;
   const clientName = client?.name || client?.Nome || '—';
 
@@ -179,7 +182,11 @@ function renderTableRow(report) {
               ? `<button type="button" class="btn-outline btn-sm rh-btn-compact" data-orc-tech-pdf="${escapeHtml(techPdfUrl)}" title="Abrir PDF do relatório técnico">PDF</button>`
               : ''
           }
-          <button type="button" class="btn-outline btn-sm rh-btn-compact" data-orc-review="${escapeHtml(report.id)}" title="Rever relatório">Rever</button>
+          ${
+            canReviewReport
+              ? `<button type="button" class="btn-outline btn-sm rh-btn-compact" data-orc-review="${escapeHtml(report.id)}" title="Rever relatório">Rever</button>`
+              : ''
+          }
           ${
             pdfUrl
               ? `<button type="button" class="btn-ghost btn-sm rh-btn-compact" data-orc-pdf="${escapeHtml(report.id)}" title="Abrir PDF da proposta">Prop.</button>`
@@ -187,7 +194,7 @@ function renderTableRow(report) {
           }
           ${
             canCancelPedido
-              ? `<button type="button" class="btn-danger btn-sm rh-btn-compact" data-orc-cancel="${escapeHtml(report.id)}" title="Eliminar pedido de orçamento">Eliminar</button>`
+              ? `<button type="button" class="btn-danger btn-sm rh-btn-compact" data-orc-cancel="${escapeHtml(report.id)}" title="${reportIsStandaloneOrcamento(report) ? 'Eliminar proposta' : 'Eliminar pedido de orçamento'}">Eliminar</button>`
               : ''
           }
         </div>
@@ -203,9 +210,14 @@ function renderPanel() {
   return `
     <div class="orcamentos-panel rh-admin-panel">
       <header class="orcamentos-header">
-        <h2 class="orcamentos-title">Orçamentos / Propostas MS.015</h2>
+        <div class="orcamentos-header__top">
+          <h2 class="orcamentos-title">Orçamentos / Propostas MS.015</h2>
+          <button type="button" class="btn-primary btn-touch orcamentos-new-btn" data-orc-new>
+            Nova proposta
+          </button>
+        </div>
         <p class="orcamentos-lead text-muted">
-          Propostas comerciais independentes do relatório técnico. Pode aprovar o relatório primeiro e preparar o orçamento depois — o e-mail da proposta é enviado à parte.
+          Crie propostas comerciais do zero ou a partir de pedidos dos técnicos. O e-mail da proposta é enviado à parte do relatório de intervenção.
         </p>
       </header>
 
@@ -318,12 +330,29 @@ function bindPanelEvents() {
       const client = report ? getClient(report.clientId) : null;
       const job = report?.jobId ? getJob(report.jobId) : null;
       const label = client?.name || client?.Nome || formatOrdemLabel(job) || 'este pedido';
+      if (reportIsStandaloneOrcamento(report)) {
+        void cancelPedidoOrcamentoReport(reportId).then((done) => {
+          if (done) refreshOrcamentosPanel().catch(console.error);
+        });
+        return;
+      }
       const ok = window.confirm(
         `Eliminar o pedido de orçamento de ${label}?\n\nO relatório técnico mantém-se. A proposta MS.015 por preparar será removida.`,
       );
       if (!ok) return;
       void cancelPedidoOrcamentoReport(reportId).then((done) => {
         if (done) refreshOrcamentosPanel().catch(console.error);
+      });
+      return;
+    }
+
+    const newBtn = e.target.closest('[data-orc-new]');
+    if (newBtn) {
+      openNovaPropostaModal({
+        onCreated: (report) => {
+          highlightReportId = report?.id || null;
+          refreshOrcamentosPanel().catch(console.error);
+        },
       });
       return;
     }

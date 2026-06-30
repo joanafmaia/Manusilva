@@ -12265,6 +12265,20 @@ body.tech-dashboard-page .tech-navbar__offline, body.tech-dashboard-page #tech-s
 .orcamentos-header {
   margin-bottom: 0.15rem;
 }
+.orcamentos-header__top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.orcamentos-new-btn {
+  flex-shrink: 0;
+}
+.nova-proposta-lead {
+  margin: 0 0 0.75rem;
+  font-size: 0.9rem;
+}
 .orcamentos-title {
   margin: 0;
   font-size: 1.15rem;

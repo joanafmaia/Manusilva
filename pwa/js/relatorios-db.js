@@ -116,6 +116,7 @@ export function mapRowToReport(row) {
       urlDocxOrcamento: dados.urlDocxOrcamento || null,
       orcamentoDocxFilename: dados.orcamentoDocxFilename || null,
       orcamento: dados.orcamento && typeof dados.orcamento === 'object' ? dados.orcamento : null,
+      orcamentoOrigem: dados.orcamentoOrigem || null,
     },
   };
 }
@@ -158,6 +159,7 @@ export function mapReportToRow(report) {
       urlDocxOrcamento: data.urlDocxOrcamento || null,
       orcamentoDocxFilename: data.orcamentoDocxFilename || null,
       orcamento: data.orcamento && typeof data.orcamento === 'object' ? data.orcamento : null,
+      orcamentoOrigem: data.orcamentoOrigem || null,
     },
   };
 }
@@ -353,4 +355,15 @@ export async function deleteRelatoriosByTrabalho(trabalhoId) {
   if (reportsCache) {
     reportsCache = reportsCache.filter((r) => r.jobId !== trabalhoId);
   }
+}
+
+export async function deleteRelatorioById(reportId) {
+  if (!reportId) return;
+  const supabase = await getAuthenticatedSupabaseClient();
+  const { error } = await supabase.from('relatorios').delete().eq('id', reportId);
+  if (error) {
+    console.error('[ManuSilva] Erro ao eliminar relatório:', error);
+    throw new Error(formatRelatoriosError(error));
+  }
+  removeReportFromCache(reportId);
 }

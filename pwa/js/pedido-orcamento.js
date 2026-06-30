@@ -2,24 +2,49 @@
  * Pedido de orçamento — deteção e URLs associados ao relatório.
  */
 
+import {
+  reportIsStandaloneOrcamento,
+  STANDALONE_ORCAMENTO_ORIGEM,
+  STANDALONE_ORCAMENTO_SERVICE_TYPE,
+} from './orcamento-standalone.js';
+
+export {
+  reportIsStandaloneOrcamento,
+  STANDALONE_ORCAMENTO_ORIGEM,
+  STANDALONE_ORCAMENTO_SERVICE_TYPE,
+} from './orcamento-standalone.js';
+
 export function reportHasPedidoOrcamento(report) {
   const values = report?.data?.values || {};
   return String(values.pedido_orcamento || '').trim().toLowerCase() === 'sim';
 }
 
+/** Relatório com pedido técnico ou proposta RH criada do zero. */
+export function reportIsRhOrcamento(report) {
+  return reportHasPedidoOrcamento(report) || reportIsStandaloneOrcamento(report);
+}
+
 /** Proposta MS.015 ainda não guardada/enviada pelo RH (inclui após aprovar o relatório técnico). */
 export function reportOrcamentoPorPreparar(report) {
-  if (!reportHasPedidoOrcamento(report)) return false;
+  if (!reportIsRhOrcamento(report)) return false;
   const meta = report?.data?.orcamento;
   if (meta?.enviadoEm) return false;
   return !reportOrcamentoGuardado(report);
 }
 
-/** Fila RH «Orçamento» — pedido de orçamento (pode coincidir com Pendente RH até o relatório ser aprovado). */
+/** Fila RH «Orçamento» — pedido de orçamento ou proposta criada pelo RH. */
 export function isRhOrcamentoQueueReport(report) {
-  if (!reportHasPedidoOrcamento(report)) return false;
+  if (!reportIsRhOrcamento(report)) return false;
+  if (reportIsStandaloneOrcamento(report)) {
+    if (report?.status === 'rejected') return false;
+    return true;
+  }
   if (report?.status === 'pending_review') return true;
-  if (report?.status === 'approved') return reportOrcamentoPorPreparar(report);
+  if (report?.status === 'approved') {
+    const meta = report?.data?.orcamento;
+    if (meta?.enviadoEm || reportOrcamentoGuardado(report)) return true;
+    return reportOrcamentoPorPreparar(report);
+  }
   return false;
 }
 
