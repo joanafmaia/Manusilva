@@ -9758,6 +9758,26 @@ details[open] .expand-icon { transform: rotate(90deg); }
 .review-orc-maquinas-add {
   margin-top: 0.65rem;
 }
+.review-orc-table--multi-equip .review-orc-equip-th,
+.review-orc-table--multi-equip .review-orc-equip-cell {
+  width: min(14rem, 22vw);
+  min-width: 9rem;
+}
+.review-orc-input--equip {
+  width: 100%;
+  min-width: 8.5rem;
+  font-size: 0.82rem;
+}
+.orcamento-page .review-orc-table--multi-equip th:first-child,
+.orcamento-page .review-orc-table--multi-equip td:first-child {
+  min-width: 9rem;
+  width: auto;
+}
+.orcamento-page .review-orc-table--multi-equip th:nth-child(2),
+.orcamento-page .review-orc-table--multi-equip td:nth-child(2) {
+  min-width: min(36vw, 420px);
+  width: 45%;
+}
 @media (max-width: 720px) {
   .orcamento-page-app {
     padding: 0.65rem 0.65rem 1.25rem;

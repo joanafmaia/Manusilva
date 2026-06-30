@@ -7,6 +7,11 @@ import {
 } from '../js/orcamento-maquinas.js';
 import { suggestOrcamentoMaquinas } from '../js/orcamento-cabecalho.js';
 import { resolveOrcamentoIntro } from '../js/orcamento-fill-data.js';
+import {
+  normalizeEquipamentoIndex,
+  normalizeOrcamentoLinhas,
+  resolveLinhaEquipamentoLabel,
+} from '../js/orcamento-linhas.js';
 
 describe('orcamento-maquinas', () => {
   it('normaliza e deteta dados de equipamento', () => {
@@ -44,5 +49,19 @@ describe('orcamento-maquinas', () => {
       { marca: 'Toyota', modelo: 'A', numeroInterno: 'M1' },
       { marca: 'Linde', modelo: 'B', numeroInterno: 'M2' },
     ]), /1\. Toyota \/ A/);
+  });
+
+  it('associa linhas de orçamento ao equipamento', () => {
+    const maquinas = [
+      { marca: 'Toyota', modelo: 'A' },
+      { marca: 'Linde', modelo: 'B' },
+    ];
+    const linhas = normalizeOrcamentoLinhas(
+      [{ descricao: 'Anilha', qtd: '2', equipamentoIndex: 1 }],
+      { machineCount: 2 },
+    );
+    assert.equal(linhas[0].equipamentoIndex, 1);
+    assert.match(resolveLinhaEquipamentoLabel(linhas[0], maquinas), /Eq\.2/);
+    assert.equal(normalizeEquipamentoIndex(99, 2), 0);
   });
 });

@@ -16,7 +16,11 @@ import {
 import { resolveOrcamentoCabecalho } from './orcamento-cabecalho.js';
 import {
   bindOrcamentoMaquinasSection,
+  readOrcamentoMaquinasFromDom,
+  renderOrcamentoEquipamentoSelect,
   renderOrcamentoMaquinasSection,
+  shouldShowLinhaEquipamentoColumn,
+  syncOrcamentoLinhaEquipamentoColumn,
 } from './orcamento-maquinas.js';
 import {
   getReportOrcamentoPdfUrl,
@@ -31,14 +35,19 @@ function defaultOrcamentoEmail(report, client) {
   return '';
 }
 
-function renderLinhaRow(row, index) {
+function renderLinhaRow(row, index, maquinas = []) {
   const descricao = escapeHtml(row.descricao || '');
   const qtd = escapeHtml(row.qtd || '1');
   const precoUnit = escapeHtml(row.precoUnit || '');
   const total = computeLinhaTotal(row);
   const totalLabel = total > 0 ? formatEuro(total) : '';
+  const multi = shouldShowLinhaEquipamentoColumn(maquinas);
+  const equipCell = multi
+    ? `<td class="review-orc-equip-cell" data-orc-equip-td>${renderOrcamentoEquipamentoSelect(maquinas, row.equipamentoIndex ?? 0)}</td>`
+    : '';
   return `
-    <tr data-orcamento-linha data-index="${index}">
+    <tr data-orcamento-linha data-index="${index}" data-equipamento-index="${Number(row.equipamentoIndex) || 0}">
+      ${equipCell}
       <td><input type="text" class="review-orc-input review-orc-input--descricao" data-orc-field="descricao" value="${descricao}" placeholder="Artigo / descrição" /></td>
       <td><input type="text" class="review-orc-input review-orc-input--qty" data-orc-field="qtd" value="${qtd}" inputmode="decimal" /></td>
       <td><input type="text" class="review-orc-input review-orc-input--money" data-orc-field="precoUnit" value="${precoUnit}" inputmode="decimal" placeholder="0,00" /></td>
@@ -46,6 +55,21 @@ function renderLinhaRow(row, index) {
       <td class="review-orc-row-actions">
         <button type="button" class="btn-icon review-orc-remove" title="Remover linha" aria-label="Remover linha">×</button>
       </td>
+    </tr>`;
+}
+
+function renderLinhasTableHead(maquinas = []) {
+  const equipTh = shouldShowLinhaEquipamentoColumn(maquinas)
+    ? '<th class="review-orc-equip-th" data-orc-equip-th scope="col">Equipamento</th>'
+    : '';
+  return `
+    <tr>
+      ${equipTh}
+      <th>Na reparação precisa</th>
+      <th>Qtd.</th>
+      <th>Preço unit. (€)</th>
+      <th>Total (€)</th>
+      <th></th>
     </tr>`;
 }
 
@@ -127,19 +151,13 @@ export function renderOrcamentoEditor(report, { client } = {}) {
       </label>
 
       <div class="review-orc-table-wrap">
-        <p class="review-orc-catalog-hint text-muted">Na coluna «Na reparação precisa», escreva para pesquisar no catálogo de produtos e serviços (preço preenche automaticamente).</p>
-        <table class="review-orc-table">
+        <p class="review-orc-catalog-hint text-muted">Na coluna «Na reparação precisa», escreva para pesquisar no catálogo. Com várias máquinas, indique o equipamento em cada linha.</p>
+        <table class="review-orc-table${shouldShowLinhaEquipamentoColumn(cab.maquinas) ? ' review-orc-table--multi-equip' : ''}">
           <thead>
-            <tr>
-              <th>Na reparação precisa</th>
-              <th>Qtd.</th>
-              <th>Preço unit. (€)</th>
-              <th>Total (€)</th>
-              <th></th>
-            </tr>
+            ${renderLinhasTableHead(cab.maquinas)}
           </thead>
           <tbody id="review-orc-linhas-body">
-            ${linhas.map((row, i) => renderLinhaRow(row, i)).join('')}
+            ${linhas.map((row, i) => renderLinhaRow(row, i, cab.maquinas)).join('')}
           </tbody>
         </table>
       </div>
@@ -225,6 +243,13 @@ function bindLinhaEvents(root, report) {
     if (e.target.matches('[data-orc-field]')) refreshLineTotals(root, report);
   });
 
+  tbody.addEventListener('change', (e) => {
+    if (e.target.matches('[data-orc-field="equipamentoIndex"]')) {
+      const tr = e.target.closest('[data-orcamento-linha]');
+      if (tr) tr.dataset.equipamentoIndex = e.target.value;
+    }
+  });
+
   tbody.addEventListener('click', (e) => {
     const btn = e.target.closest('.review-orc-remove');
     if (!btn) return;
@@ -235,6 +260,9 @@ function bindLinhaEvents(root, report) {
       row.querySelectorAll('input').forEach((input) => {
         input.value = input.dataset.orcField === 'qtd' ? '1' : '';
       });
+      row.querySelectorAll('select').forEach((select) => {
+        select.value = '0';
+      });
     } else {
       row.remove();
     }
@@ -242,8 +270,10 @@ function bindLinhaEvents(root, report) {
   });
 
   root.querySelector('#review-orc-add-linha')?.addEventListener('click', () => {
+    const maquinas = readOrcamentoMaquinasFromDom(root);
     const index = tbody.querySelectorAll('[data-orcamento-linha]').length;
-    tbody.insertAdjacentHTML('beforeend', renderLinhaRow(emptyOrcamentoLinha(), index));
+    tbody.insertAdjacentHTML('beforeend', renderLinhaRow(emptyOrcamentoLinha(), index, maquinas));
+    syncOrcamentoLinhaEquipamentoColumn(root);
     bindCatalog();
     refreshLineTotals(root, report);
   });
@@ -276,8 +306,11 @@ export function bindOrcamentoEditor(container, { report, onUpdated } = {}) {
 
   let currentReport = report;
 
+  const syncEquipColumn = () => syncOrcamentoLinhaEquipamentoColumn(root);
+
   bindLinhaEvents(root, currentReport);
-  bindOrcamentoMaquinasSection(root);
+  bindOrcamentoMaquinasSection(root, { onChange: syncEquipColumn });
+  syncEquipColumn();
   refreshLineTotals(root, currentReport);
 
   const saveMeta = async () => {

@@ -3,26 +3,14 @@
  */
 
 import { escapeXmlText } from './orcamento-fill-data.js';
-import { formatEuro, normalizeOrcamentoLinhas } from './orcamento-linhas.js';
+import {
+  formatEuro,
+  normalizeOrcamentoLinhas,
+  resolveLinhaEquipamentoLabel,
+} from './orcamento-linhas.js';
 
-const COL_WIDTHS = [5200, 900, 1700, 1700];
-
-function cellXml(text, { bold = false, align = 'left' } = {}) {
-  const jc =
-    align === 'right'
-      ? '<w:jc w:val="right"/>'
-      : align === 'center'
-        ? '<w:jc w:val="center"/>'
-        : '';
-  const rPr = bold ? '<w:rPr><w:b/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr>' : '<w:rPr><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr>';
-  return `<w:tc>
-    <w:tcPr><w:tcW w:w="${COL_WIDTHS[0]}" w:type="dxa"/>${jc}</w:tcPr>
-    <w:p><w:r>${rPr}<w:t xml:space="preserve">${escapeXmlText(text)}</w:t></w:r></w:p>
-  </w:tc>`.replace(`w:w="${COL_WIDTHS[0]}"`, (m, i) => {
-    void i;
-    return m;
-  });
-}
+const COL_WIDTHS_SINGLE = [5200, 900, 1700, 1700];
+const COL_WIDTHS_MULTI = [1400, 3800, 900, 1700, 1700];
 
 function cellWithWidth(text, width, opts = {}) {
   const jc =
@@ -43,35 +31,62 @@ function rowXml(cells) {
 }
 
 /**
- * @param {Array<{ descricao?: string, qtd?: string, precoUnit?: string, total?: string }>} linhas
+ * @param {Array<{ descricao?: string, qtd?: string, precoUnit?: string, total?: string, equipamentoIndex?: number }>} linhas
+ * @param {{ maquinas?: Array<object> }} [options]
  */
-export function buildOrcamentoWordTableXml(linhas) {
-  const rows = normalizeOrcamentoLinhas(linhas).filter(
+export function buildOrcamentoWordTableXml(linhas, { maquinas = [] } = {}) {
+  const multi = Array.isArray(maquinas) && maquinas.length > 1;
+  const COL_WIDTHS = multi ? COL_WIDTHS_MULTI : COL_WIDTHS_SINGLE;
+  const rows = normalizeOrcamentoLinhas(linhas, { machineCount: maquinas.length || 1 }).filter(
     (r) => r.descricao || r.precoUnit || r.qtd !== '1',
   );
   const dataRows = rows.length ? rows : [{ descricao: '—', qtd: '1', precoUnit: '', total: '' }];
 
-  const header = rowXml([
-    cellWithWidth('Na reparação precisa', COL_WIDTHS[0], { bold: true }),
-    cellWithWidth('Qtd.', COL_WIDTHS[1], { bold: true, align: 'center' }),
-    cellWithWidth('Preço Unit. (€)', COL_WIDTHS[2], { bold: true, align: 'right' }),
-    cellWithWidth('Total (€)', COL_WIDTHS[3], { bold: true, align: 'right' }),
-  ]);
+  const headerCells = multi
+    ? [
+        cellWithWidth('Equipamento', COL_WIDTHS[0], { bold: true }),
+        cellWithWidth('Na reparação precisa', COL_WIDTHS[1], { bold: true }),
+        cellWithWidth('Qtd.', COL_WIDTHS[2], { bold: true, align: 'center' }),
+        cellWithWidth('Preço Unit. (€)', COL_WIDTHS[3], { bold: true, align: 'right' }),
+        cellWithWidth('Total (€)', COL_WIDTHS[4], { bold: true, align: 'right' }),
+      ]
+    : [
+        cellWithWidth('Na reparação precisa', COL_WIDTHS[0], { bold: true }),
+        cellWithWidth('Qtd.', COL_WIDTHS[1], { bold: true, align: 'center' }),
+        cellWithWidth('Preço Unit. (€)', COL_WIDTHS[2], { bold: true, align: 'right' }),
+        cellWithWidth('Total (€)', COL_WIDTHS[3], { bold: true, align: 'right' }),
+      ];
+  const header = rowXml(headerCells);
 
   const body = dataRows
-    .map((row) =>
-      rowXml([
-        cellWithWidth(row.descricao || '—', COL_WIDTHS[0]),
-        cellWithWidth(row.qtd || '1', COL_WIDTHS[1], { align: 'center' }),
-        cellWithWidth(
-          row.precoUnit ? formatEuro(row.precoUnit, { blankIfZero: true }) : '',
-          COL_WIDTHS[2],
-          { align: 'right' },
-        ),
-        cellWithWidth(row.total || '', COL_WIDTHS[3], { align: 'right' }),
-      ]),
-    )
+    .map((row) => {
+      const cells = multi
+        ? [
+            cellWithWidth(resolveLinhaEquipamentoLabel(row, maquinas) || '—', COL_WIDTHS[0]),
+            cellWithWidth(row.descricao || '—', COL_WIDTHS[1]),
+            cellWithWidth(row.qtd || '1', COL_WIDTHS[2], { align: 'center' }),
+            cellWithWidth(
+              row.precoUnit ? formatEuro(row.precoUnit, { blankIfZero: true }) : '',
+              COL_WIDTHS[3],
+              { align: 'right' },
+            ),
+            cellWithWidth(row.total || '', COL_WIDTHS[4], { align: 'right' }),
+          ]
+        : [
+            cellWithWidth(row.descricao || '—', COL_WIDTHS[0]),
+            cellWithWidth(row.qtd || '1', COL_WIDTHS[1], { align: 'center' }),
+            cellWithWidth(
+              row.precoUnit ? formatEuro(row.precoUnit, { blankIfZero: true }) : '',
+              COL_WIDTHS[2],
+              { align: 'right' },
+            ),
+            cellWithWidth(row.total || '', COL_WIDTHS[3], { align: 'right' }),
+          ];
+      return rowXml(cells);
+    })
     .join('');
+
+  const gridCols = COL_WIDTHS.map((w) => `<w:gridCol w:w="${w}"/>`).join('');
 
   return `<w:tbl>
     <w:tblPr>
@@ -86,10 +101,7 @@ export function buildOrcamentoWordTableXml(linhas) {
       </w:tblBorders>
     </w:tblPr>
     <w:tblGrid>
-      <w:gridCol w:w="${COL_WIDTHS[0]}"/>
-      <w:gridCol w:w="${COL_WIDTHS[1]}"/>
-      <w:gridCol w:w="${COL_WIDTHS[2]}"/>
-      <w:gridCol w:w="${COL_WIDTHS[3]}"/>
+      ${gridCols}
     </w:tblGrid>
     ${header}
     ${body}

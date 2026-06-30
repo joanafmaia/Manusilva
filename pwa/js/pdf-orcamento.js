@@ -20,6 +20,7 @@ import {
   formatEuro,
   getReportOrcamentoMeta,
   normalizeOrcamentoLinhas,
+  resolveLinhaEquipamentoLabel,
 } from './orcamento-linhas.js';
 import {
   LABEL_MARCA,
@@ -160,17 +161,20 @@ function drawOrcamentoLetterhead(doc, fill) {
   return y + 9;
 }
 
-function drawOrcamentoTable(doc, linhas, startY) {
-  const rows = normalizeOrcamentoLinhas(linhas).filter(
+function drawOrcamentoTable(doc, linhas, startY, { maquinas = [] } = {}) {
+  const multi = Array.isArray(maquinas) && maquinas.length > 1;
+  const rows = normalizeOrcamentoLinhas(linhas, { machineCount: maquinas.length || 1 }).filter(
     (r) => r.descricao || r.precoUnit || r.qtd !== '1',
   );
   const dataRows = rows.length ? rows : [{ descricao: '—', qtd: '1', precoUnit: '', total: '' }];
 
-  const colX = [MARGIN, MARGIN + 98, MARGIN + 112, MARGIN + 148, MARGIN + CONTENT_W];
+  const colX = multi
+    ? [MARGIN, MARGIN + 26, MARGIN + 94, MARGIN + 108, MARGIN + 144, MARGIN + CONTENT_W]
+    : [MARGIN, MARGIN + 98, MARGIN + 112, MARGIN + 148, MARGIN + CONTENT_W];
   const rowH = 6.5;
   let y = startY;
 
-  const drawRow = (cells, { bold = false, fill = false } = {}) => {
+  const drawRow = (cells, { bold = false, fill = false, multiRow = multi } = {}) => {
     if (!canDrawBodyLine(y, rowH + 2)) return y;
     if (fill) {
       doc.setFillColor(241, 245, 249);
@@ -179,26 +183,56 @@ function drawOrcamentoTable(doc, linhas, startY) {
     pdfSetFont(doc, bold ? 'bold' : 'normal');
     doc.setFontSize(8.5);
     doc.setTextColor(...PDF_COLOR_TEXT_DARK);
-    doc.text(pdfSafeText(cells[0]), colX[0] + 1, y);
-    doc.text(pdfSafeText(cells[1]), colX[2] - 2, y, { align: 'right' });
-    doc.text(pdfSafeText(cells[2]), colX[3] - 2, y, { align: 'right' });
-    doc.text(pdfSafeText(cells[3]), colX[4] - 1, y, { align: 'right' });
+    if (multiRow) {
+      doc.text(pdfSafeText(cells[0]), colX[0] + 1, y);
+      doc.text(pdfSafeText(cells[1]), colX[1] + 1, y);
+      doc.text(pdfSafeText(cells[2]), colX[3] - 2, y, { align: 'right' });
+      doc.text(pdfSafeText(cells[3]), colX[4] - 2, y, { align: 'right' });
+      doc.text(pdfSafeText(cells[4]), colX[5] - 1, y, { align: 'right' });
+    } else {
+      doc.text(pdfSafeText(cells[0]), colX[0] + 1, y);
+      doc.text(pdfSafeText(cells[1]), colX[2] - 2, y, { align: 'right' });
+      doc.text(pdfSafeText(cells[2]), colX[3] - 2, y, { align: 'right' });
+      doc.text(pdfSafeText(cells[3]), colX[4] - 1, y, { align: 'right' });
+    }
     doc.setDrawColor(203, 213, 225);
     doc.line(MARGIN, y + 1.5, MARGIN + CONTENT_W, y + 1.5);
     return y + rowH;
   };
 
-  y = drawRow(['Na reparação precisa', 'Qtd.', 'Preço Unit.', 'Total'], { bold: true, fill: true });
+  if (multi) {
+    y = drawRow(['Equip.', 'Na reparação precisa', 'Qtd.', 'Preço Unit.', 'Total'], {
+      bold: true,
+      fill: true,
+      multiRow: true,
+    });
+  } else {
+    y = drawRow(['Na reparação precisa', 'Qtd.', 'Preço Unit.', 'Total'], { bold: true, fill: true });
+  }
+
   dataRows.forEach((row) => {
     const total =
       row.total ||
       (computeLinhaTotal(row) > 0 ? formatEuro(computeLinhaTotal(row)) : '');
-    y = drawRow([
-      row.descricao || '—',
-      row.qtd || '1',
-      row.precoUnit ? formatEuro(row.precoUnit) : '',
-      total,
-    ]);
+    if (multi) {
+      y = drawRow(
+        [
+          resolveLinhaEquipamentoLabel(row, maquinas) || '—',
+          row.descricao || '—',
+          row.qtd || '1',
+          row.precoUnit ? formatEuro(row.precoUnit) : '',
+          total,
+        ],
+        { multiRow: true },
+      );
+    } else {
+      y = drawRow([
+        row.descricao || '—',
+        row.qtd || '1',
+        row.precoUnit ? formatEuro(row.precoUnit) : '',
+        total,
+      ]);
+    }
   });
   return y + 4;
 }
@@ -433,7 +467,7 @@ export async function renderOrcamentoPDF(report) {
 
   y = drawOrcamentoObservacoesCliente(doc, fill, y);
 
-  y = drawOrcamentoTable(doc, fill.linhas, y);
+  y = drawOrcamentoTable(doc, fill.linhas, y, { maquinas: fill.maquinas });
 
   y = drawLabelValueLine(
     doc,

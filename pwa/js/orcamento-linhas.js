@@ -4,13 +4,42 @@
 
 import { normalizeMaterialRows } from './material-table-field.js';
 import { getPedidoOrcamentoDetalhe } from './pedido-orcamento.js';
-import { readOrcamentoCabecalhoFromDom, resolveOrcamentoCabecalho } from './orcamento-cabecalho.js';
+import { readOrcamentoCabecalhoFromDom, resolveOrcamentoCabecalho, suggestOrcamentoMaquinas } from './orcamento-cabecalho.js';
+import {
+  formatOrcamentoMaquinaShortLabel,
+  hasOrcamentoMaquinaData,
+  normalizeOrcamentoMaquinasList,
+} from './orcamento-maquinas.js';
 
 const IVA_RATE = 0.23;
 const MIN_LINHAS_VAZIAS = 3;
 
-export function emptyOrcamentoLinha() {
-  return { descricao: '', qtd: '1', precoUnit: '', total: '' };
+export function normalizeEquipamentoIndex(value, machineCount = 1) {
+  if (machineCount <= 1) return 0;
+  const n = Number(value);
+  if (Number.isInteger(n) && n >= 0 && n < machineCount) return n;
+  return 0;
+}
+
+export function emptyOrcamentoLinha(equipamentoIndex = 0) {
+  return { descricao: '', qtd: '1', precoUnit: '', total: '', equipamentoIndex };
+}
+
+export function resolveLinhaEquipamentoLabel(linha, maquinas = []) {
+  const list = normalizeOrcamentoMaquinasList(maquinas);
+  if (list.length <= 1) return '';
+  const idx = normalizeEquipamentoIndex(linha?.equipamentoIndex, list.length);
+  return formatOrcamentoMaquinaShortLabel(list[idx] || {}, idx);
+}
+
+export function resolveLinhaEquipamentoDescricao(linha, maquinas = []) {
+  const list = normalizeOrcamentoMaquinasList(maquinas);
+  if (list.length <= 1) return String(linha?.descricao ?? '').trim();
+  const descricao = String(linha?.descricao ?? '').trim();
+  if (!descricao) return '';
+  const idx = normalizeEquipamentoIndex(linha?.equipamentoIndex, list.length);
+  const prefix = formatOrcamentoMaquinaShortLabel(list[idx] || {}, idx);
+  return prefix ? `[${prefix}] ${descricao}` : descricao;
 }
 
 export function parseOrcamentoNumber(value) {
@@ -43,8 +72,14 @@ export function computeLinhaTotal(linha) {
   return Math.round(qtd * preco * 100) / 100;
 }
 
-export function normalizeOrcamentoLinhas(raw) {
+export function normalizeOrcamentoLinhas(raw, { machineCount } = {}) {
   if (!Array.isArray(raw)) return [];
+  const count =
+    machineCount ??
+    Math.max(
+      1,
+      ...raw.map((row) => normalizeEquipamentoIndex(row?.equipamentoIndex, 99) + 1),
+    );
   return raw.map((row) => {
     const descricao = String(row?.descricao ?? '').trim();
     const qtd = String(row?.qtd ?? '1').trim() || '1';
@@ -55,6 +90,7 @@ export function normalizeOrcamentoLinhas(raw) {
       qtd,
       precoUnit,
       total: totalNum > 0 ? formatEuro(totalNum) : String(row?.total ?? '').trim(),
+      equipamentoIndex: normalizeEquipamentoIndex(row?.equipamentoIndex, count),
     };
   });
 }
@@ -104,7 +140,14 @@ function linhasFromMaterial(values) {
 
 /** Sugere linhas a partir do relatório técnico (sem preços — RH completa). */
 export function suggestOrcamentoLinhas(report) {
-  const existing = normalizeOrcamentoLinhas(getReportOrcamentoMeta(report)?.linhas);
+  const meta = getReportOrcamentoMeta(report);
+  const machineCount = Math.max(
+    1,
+    normalizeOrcamentoMaquinasList(suggestOrcamentoMaquinas(report)).filter(hasOrcamentoMaquinaData).length,
+    normalizeOrcamentoMaquinasList(meta?.maquinas).length,
+  );
+  const existingRaw = meta?.linhas;
+  const existing = normalizeOrcamentoLinhas(existingRaw, { machineCount });
   if (existing.some((r) => r.descricao || r.precoUnit)) return existing;
 
   const values = report?.data?.values || {};
@@ -163,12 +206,14 @@ export function readOrcamentoFormFromDom(root, report) {
     const descricao = row.querySelector('[data-orc-field="descricao"]')?.value?.trim() || '';
     const qtd = row.querySelector('[data-orc-field="qtd"]')?.value?.trim() || '1';
     const precoUnit = row.querySelector('[data-orc-field="precoUnit"]')?.value?.trim() || '';
+    const equipamentoRaw = row.querySelector('[data-orc-field="equipamentoIndex"]')?.value;
     const total = computeLinhaTotal({ qtd, precoUnit });
     linhas.push({
       descricao,
       qtd,
       precoUnit,
       total: total > 0 ? formatEuro(total) : '',
+      equipamentoIndex: equipamentoRaw != null && equipamentoRaw !== '' ? Number(equipamentoRaw) : 0,
     });
   });
 
@@ -177,6 +222,7 @@ export function readOrcamentoFormFromDom(root, report) {
   const emailDestinatario =
     root.querySelector('[data-orc-field="emailDestinatario"]')?.value?.trim() || '';
   const cabecalho = readOrcamentoCabecalhoFromDom(root, report);
+  const machineCount = Math.max(1, cabecalho.maquinas?.length || 1);
   const totals = computeOrcamentoTotals(linhas, taxaSaida);
   const meta = getReportOrcamentoMetaFromDom(root);
 
@@ -186,7 +232,7 @@ export function readOrcamentoFormFromDom(root, report) {
     emailDestinatario,
     taxaSaida: taxaSaida === '' ? '' : formatEuro(taxaSaida),
     prazoEntrega,
-    linhas: normalizeOrcamentoLinhas(linhas),
+    linhas: normalizeOrcamentoLinhas(linhas, { machineCount }),
     subtotal: formatEuro(totals.subtotal),
     iva: formatEuro(totals.iva),
     total: formatEuro(totals.total),

@@ -61,7 +61,7 @@ export async function renderOrcamentoDOCX(report, job = null) {
     xml = xml.split(`{${key}}`).join(safe);
   });
 
-  const tableXml = buildOrcamentoWordTableXml(data.linhas || []);
+  const tableXml = buildOrcamentoWordTableXml(data.linhas || [], { maquinas: data.maquinas || [] });
   if (xml.includes('[[TABELA_ORCAMENTO]]')) {
     xml = xml.replace(
       /<w:p\b[^>]*>[\s\S]*?\[\[TABELA_ORCAMENTO\]\][\s\S]*?<\/w:p>/,

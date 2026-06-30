@@ -100,6 +100,7 @@ export function buildOrcamentoFillData(report, job = null) {
 
   const linhas = normalizeOrcamentoLinhas(
     orcamentoMeta?.linhas?.length ? orcamentoMeta.linhas : suggestOrcamentoLinhas(report),
+    { machineCount: maquinasForPdf.length },
   );
   const taxaSaida = orcamentoMeta?.taxaSaida ?? '';
   const prazoEntrega = String(orcamentoMeta?.prazoEntrega || '').trim();
