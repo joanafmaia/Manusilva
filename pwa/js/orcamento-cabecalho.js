@@ -4,6 +4,7 @@
 
 import { getClient, getForklift, getJob, getServiceType } from './app.js';
 import { migrateLegacyEmpilhadoresMaquinas } from './views/relatorio-empilhadores-maquinas.js';
+import { getPedidoOrcamentoDetalhe, reportHasPedidoOrcamento } from './pedido-orcamento.js';
 
 export const ORCAMENTO_FORMA_PAGAMENTO_DEFAULT = 'Pronto Pagamento';
 export const ORCAMENTO_VALIDADE_DEFAULT = '10 Dias';
@@ -30,8 +31,12 @@ function firstGrandesBatteryRow(values) {
   return withData || rows[0] || null;
 }
 
-/** Observações do técnico no relatório (apoio à faturação RH). */
+/** Apoio à faturação RH — «O que é necessário» quando há pedido de orçamento; senão observações do relatório. */
 export function resolveReportObservacoesTecnico(report) {
+  if (reportHasPedidoOrcamento(report)) {
+    return getPedidoOrcamentoDetalhe(report);
+  }
+
   const values = report?.data?.values || {};
   if (String(report?.serviceType || '') === 'manutencao_preventiva_empilhadores') {
     const maquinas = migrateLegacyEmpilhadoresMaquinas(values);

@@ -123,9 +123,9 @@ export function renderOrcamentoEditor(report, { client } = {}) {
           </label>
         </div>
         <label class="review-orc-field review-orc-field--full">
-          <span>Observações do técnico</span>
-          <textarea class="review-orc-input review-orc-textarea" data-orc-field="observacoesTecnico" rows="3" placeholder="Observações do relatório técnico">${escapeHtml(cab.observacoesTecnico)}</textarea>
-          <span class="review-orc-field-hint text-muted">Apoio interno à faturação — não incluído no PDF da proposta.</span>
+          <span>Apoio do orçamento</span>
+          <textarea class="review-orc-input review-orc-textarea" data-orc-field="observacoesTecnico" rows="3" placeholder="O que é necessário (relatório técnico)">${escapeHtml(cab.observacoesTecnico)}</textarea>
+          <span class="review-orc-field-hint text-muted">Preenchido a partir de «O que é necessário» no relatório — apoio interno à faturação, não incluído no PDF da proposta.</span>
         </label>
       </section>
 
