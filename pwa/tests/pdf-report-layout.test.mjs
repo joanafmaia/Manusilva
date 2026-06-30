@@ -158,3 +158,32 @@ describe('pdf-rav-bateria', () => {
     }
   });
 });
+
+describe('pdf-empilhadores', () => {
+  it('expõe layout da preventiva empilhadores', async () => {
+    const mod = await import('../js/pdf-empilhadores.js');
+    for (const name of [
+      'EMPILHADORES_SERVICE_ID',
+      'drawEmpilhadoresDualVerificationBlocks',
+      'drawEmpilhadoresMaterialSectionBlock',
+      'drawEmpilhadoresMachineGrid',
+      'isEmpilhadoresMaterialField',
+    ]) {
+      assert.ok(mod[name] != null, `export em falta: ${name}`);
+    }
+  });
+});
+
+describe('pdf-inspecao-dl50', () => {
+  it('expõe layout da inspeção DL50', async () => {
+    const mod = await import('../js/pdf-inspecao-dl50.js');
+    for (const name of [
+      'INSPECAO_DL50_SERVICE_ID',
+      'DL50_SERVICE_META_BOTTOM_MM',
+      'drawDl50MachineGrid',
+      'drawDl50DualMatrixInspectionBlock',
+    ]) {
+      assert.ok(mod[name] != null, `export em falta: ${name}`);
+    }
+  });
+});

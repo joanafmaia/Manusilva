@@ -147,7 +147,6 @@ import {
   INSPECAO_DL50_MACHINE_FIELD_IDS,
   INSPECAO_DL50_PDF_SKIP_FIELD_IDS,
   resolveInspecaoDl50MachineFields,
-  splitDl50MatrixCategories,
 } from './inspecao-dl50-categories.js';
 import { resolvePdfFotoSources } from './job-fotos.js';
 import { getClient, getTechnician, getServiceType, getJob } from './entity-lookups.js';
@@ -244,6 +243,22 @@ import {
   drawRavBateriaBody,
   drawRavBateriaClosingSection,
 } from './pdf-rav-bateria.js';
+import {
+  EMPILHADORES_SERVICE_ID,
+  isEmpilhadoresMaterialField,
+  isEmpilhadoresMaterialSection,
+  drawEmpilhadoresDualVerificationBlocks,
+  drawEmpilhadoresMaterialSectionBlock,
+  collectEmpilhadoresMaterialFields,
+  markEmpilhadoresMaterialFieldsRendered,
+  drawEmpilhadoresMachineGrid,
+} from './pdf-empilhadores.js';
+import {
+  INSPECAO_DL50_SERVICE_ID,
+  DL50_SERVICE_META_BOTTOM_MM,
+  drawDl50MachineGrid,
+  drawDl50DualMatrixInspectionBlock,
+} from './pdf-inspecao-dl50.js';
 import {
   drawPreventivaBateriaMirrorHeader,
   drawFolhaTitleBar,
@@ -584,67 +599,6 @@ export async function generateReportPdfByServiceType(report) {
 
 /* ─── Layout blocks ─── */
 
-const EMPILHADORES_SERVICE_ID = 'manutencao_preventiva_empilhadores';
-const INSPECAO_DL50_SERVICE_ID = 'inspecao_dl50_2005';
-/** Informações da Máquina — PDF empilhadores (inclui Horas) */
-const EMPILHADORES_MACHINE_PDF_SPECS = [
-  { id: 'marca', label: 'Marca' },
-  { id: 'modelo', label: 'Modelo' },
-  {
-    id: 'numero_de_serie',
-    label: 'Nº Série',
-    aliases: ['num_serie', 'numero_serie', 'n_serie'],
-  },
-  { id: 'horas', label: 'Horas', aliases: ['horas_gastas'] },
-  { id: 'n_interno', label: 'Nº Interno', aliases: ['num_interno'] },
-];
-/** Informações da Máquina — PDF DL50 */
-const INSPECAO_DL50_MACHINE_PDF_SPECS = [
-  { id: 'marca', label: 'Marca' },
-  { id: 'modelo', label: 'Modelo' },
-  { id: 'tipo', label: 'Tipo' },
-  {
-    id: 'numero_de_serie',
-    label: 'Nº Série',
-    aliases: ['num_serie', 'numero_serie', 'n_serie'],
-  },
-  { id: 'n_interno', label: 'Número Interno', aliases: ['num_interno', 'numero_interno'] },
-  { id: 'horas', label: 'Número de Horas', aliases: ['horas_gastas', 'numero_horas'] },
-  { id: 'data_fabrico', label: 'Data Fabrico', aliases: ['data_de_fabrico', 'data_fabricacao'] },
-];
-/** gap ~20px entre colunas da matriz DL50 */
-const DL50_DUAL_MATRIX_GAP_MM = 5.3;
-const DL50_MATRIX_CAT_BAND_MM = 7;
-const DL50_MATRIX_FONT_PT = 9;
-const DL50_MATRIX_CAT_FONT_PT = 10;
-const DL50_SERVICE_META_BOTTOM_MM = 4;
-/** Mínimo de linhas visíveis com o título antes de saltar de página */
-const DL50_MIN_ORPHAN_ROWS = 4;
-/** Espaço reservado no fim da checklist para declaração + assinaturas */
-const DL50_CLOSING_RESERVE_MM = 46;
-/** Categorias com muitos pontos — tabela partida em 2 colunas */
-const DL50_SPLIT_TABLE_MIN_ITEMS = 9;
-const EMPILHADORES_DUAL_VERIFY_GAP_MM = 5.3;
-const EMPILHADORES_VERIFY_COL_BAND_MM = 7;
-const EMPILHADORES_MATERIAL_FONT_PT = 9.5;
-const EMPILHADORES_MATERIAL_COLS = 4;
-/** Rótulos curtos no PDF — evita quebras de linha na grelha de material */
-const EMPILHADORES_MATERIAL_PDF_LABELS = {
-  litros_oleo_diferencial: 'Óleo Diferencial (L)',
-  litros_oleo_torque: 'Óleo Torque (L)',
-  litros_oleo_hidraulico: 'Óleo Hidráulico (L)',
-  litros_oleo_travoes: 'Óleo Travões (L)',
-  litros_oleo_motor: 'Óleo Motor (L)',
-  qtd_filtro_oleo_motor: 'Filtro Óleo Motor',
-  qtd_filtro_ar: 'Filtro Ar',
-  qtd_filtro_combustivel: 'Filtro Combustível',
-  qtd_kit_gaseificador: 'Kit Gaseificador',
-  qtd_limpeza_lubrificante: 'Limpeza/Lubrificante',
-};
-const EMPILHADORES_MATERIAL_ROW_H_MM = 5.5;
-/** ~15px de respiro acima da secção de material */
-const EMPILHADORES_MATERIAL_SECTION_TOP_GAP_MM = 4;
-
 /** Layout profissional — relatórios com cabeçalho espelho e tabelas fechadas */
 
 const REPARACAO_AVARIAS_ESTADO_FINAL_FIELD_IDS = new Set(['observacao', 'estado_final']);
@@ -660,33 +614,6 @@ function sanitizePdfTitle(title) {
 
 function pdfGridCell(label, value) {
   return `${label}: ${pdfDisplayValue(value)}`;
-}
-
-function formatEmpilhadoresHorasPdf(raw) {
-  if (raw === undefined || raw === null || String(raw).trim() === '') return '';
-  const n = Number(raw);
-  if (!Number.isNaN(n)) return Number.isInteger(n) ? String(n) : String(n);
-  return cleanPdfText(raw);
-}
-
-function pdfGridCellEmpilhadoresMachine(label, value, options = {}) {
-  if (options.horas) {
-    const horasText = formatEmpilhadoresHorasPdf(value);
-    return horasText ? `${label}: ${horasText}` : `${label}:`;
-  }
-  return pdfGridCell(label, value);
-}
-
-function buildFourColumnGridBody(cells) {
-  const body = [];
-  for (let i = 0; i < cells.length; i += EMPILHADORES_MATERIAL_COLS) {
-    const row = [];
-    for (let col = 0; col < EMPILHADORES_MATERIAL_COLS; col += 1) {
-      row.push(cells[i + col] || '');
-    }
-    body.push(row);
-  }
-  return body;
 }
 
 function buildTwoColumnGridBody(pairs) {
@@ -712,235 +639,6 @@ function buildThreeColumnGridBody(pairs) {
     ]);
   }
   return body;
-}
-
-function isEmpilhadoresMaterialSection(section) {
-  const norm = pdfNormalizeHeading(section || '');
-  return norm.includes('substituicao') && norm.includes('material');
-}
-
-function isEmpilhadoresMaterialField(service, field) {
-  return (
-    service?.id === EMPILHADORES_SERVICE_ID &&
-    Boolean(field) &&
-    isEmpilhadoresMaterialSection(field.section)
-  );
-}
-
-function buildVerificationTableBody(items, states) {
-  return (items || []).map((item) => {
-    const spec = normalizeVerifyItem(item);
-    const state = states?.[spec.id] || 'OK';
-    return [pdfSafeText(spec.label), state];
-  });
-}
-
-async function drawVerificationTableColumn(doc, startY, x, width, title, items, states, options = {}) {
-  const compact = Boolean(options.compact);
-  let y = drawColumnSectionTitle(doc, x, startY, width, title, {
-    bandH: compact ? EMPILHADORES_VERIFY_COL_BAND_MM : PDF_SECTION_BAND_HEIGHT_MM,
-    fontSize: compact ? PDF_FONT_CAPTION : PDF_FONT_SECTION,
-    gapAfter: compact ? 1 : 2,
-  });
-  const body = buildVerificationTableBody(items, states);
-  if (!body.length) return y;
-
-  const pointW = width * 0.68;
-  const stateW = width - pointW;
-  const cellPadding = compact ? PDF_TABLE_CELL_PADDING_COMPACT : PDF_TABLE_CELL_PADDING;
-  const minCellHeight = compact ? PDF_TABLE_MIN_CELL_HEIGHT_COMPACT : PDF_TABLE_MIN_CELL_HEIGHT;
-
-  return drawPdfGridTable(doc, y, {
-    head: [['Ponto', 'Est.']],
-    body,
-    marginLeft: x,
-    marginRight: PAGE_W - x - width,
-    tableWidth: width,
-    styles: {
-      font: pdfAutoTableFont(doc),
-      fontSize: PDF_FONT_TABLE,
-      cellPadding,
-      minCellHeight,
-      lineColor: PDF_TABLE_LINE,
-      lineWidth: PDF_TABLE_LINE_WIDTH,
-      textColor: TEXT_DARK,
-      valign: 'middle',
-      overflow: 'linebreak',
-    },
-    headStyles: {
-      font: pdfAutoTableFont(doc),
-      fillColor: PDF_SECTION_BG,
-      textColor: CORPORATE_BLUE,
-      fontStyle: 'bold',
-      fontSize: PDF_FONT_TABLE,
-      cellPadding,
-      minCellHeight,
-      lineColor: PDF_TABLE_LINE,
-      lineWidth: PDF_TABLE_LINE_WIDTH,
-      halign: 'left',
-      overflow: 'linebreak',
-    },
-    bodyStyles: { minCellHeight, cellPadding },
-    columnStyles: {
-      0: { cellWidth: pointW, overflow: 'linebreak', fontSize: PDF_FONT_TABLE },
-      1: {
-        cellWidth: stateW,
-        halign: 'center',
-        overflow: 'linebreak',
-        fontSize: PDF_FONT_TABLE,
-      },
-    },
-    didParseCell: (data) => {
-      if (compact) {
-        data.cell.styles.cellPadding = cellPadding;
-        data.cell.styles.minCellHeight = minCellHeight;
-      }
-      if (data.section === 'body' && data.column.index === 1) {
-        const state = String(data.cell.raw || '');
-        data.cell.styles.textColor = state === 'OK' ? SUCCESS : DANGER;
-        data.cell.styles.fontStyle = 'bold';
-      }
-    },
-    gapAfter: compact ? 1 : PDF_SECTION_GAP_MM,
-  });
-}
-
-/** Verificações Externas + Internas — grid 2 colunas (1fr 1fr, gap 20px) */
-async function drawEmpilhadoresDualVerificationBlocks(doc, y, left, right) {
-  const gap = EMPILHADORES_DUAL_VERIFY_GAP_MM;
-  const colW = (CONTENT_W - gap) / 2;
-  const leftX = MARGIN;
-  const rightX = MARGIN + colW + gap;
-
-  const rowEstimate = Math.max(left?.items?.length || 0, right?.items?.length || 0);
-  y = ensureSpace(
-    doc,
-    y,
-    EMPILHADORES_VERIFY_COL_BAND_MM + rowEstimate * 3.6 + 8,
-  );
-
-  const startY = y;
-  const compactOpts = { compact: true };
-  const leftEnd = await drawVerificationTableColumn(
-    doc,
-    startY,
-    leftX,
-    colW,
-    left.title,
-    left.items,
-    left.states,
-    compactOpts,
-  );
-  const rightEnd = right
-    ? await drawVerificationTableColumn(
-        doc,
-        startY,
-        rightX,
-        colW,
-        right.title,
-        right.items,
-        right.states,
-        compactOpts,
-      )
-    : startY;
-
-  return Math.max(leftEnd, rightEnd) + PDF_SECTION_GAP_MM;
-}
-
-/** Substituição de material — grelha 4 colunas compacta (dashboard) */
-function formatEmpilhadoresMaterialPdfLabel(field) {
-  return EMPILHADORES_MATERIAL_PDF_LABELS[field.id] || field.label;
-}
-
-async function drawEmpilhadoresMaterialGrid(doc, y, fields, values, pdfContext, options = {}) {
-  if (!fields.length) return y;
-  const cells = fields.map((field) =>
-    pdfGridCell(
-      formatEmpilhadoresMaterialPdfLabel(field),
-      coercePdfFieldValue(field, values[field.id], pdfContext),
-    ),
-  );
-  const body = buildFourColumnGridBody(cells);
-  if (!body.length) return y;
-
-  const colW = CONTENT_W / EMPILHADORES_MATERIAL_COLS;
-  const tableStyles = {
-    font: pdfAutoTableFont(doc),
-    fontSize: EMPILHADORES_MATERIAL_FONT_PT,
-    cellPadding: PDF_TABLE_CELL_PADDING_COMPACT,
-    minCellHeight: PDF_TABLE_MIN_CELL_HEIGHT_COMPACT,
-    lineColor: PDF_TABLE_LINE,
-    lineWidth: PDF_TABLE_LINE_WIDTH,
-    textColor: TEXT_DARK,
-    valign: 'middle',
-    overflow: 'linebreak',
-  };
-  const columnStyles = {
-    0: { cellWidth: colW, overflow: 'linebreak', fontSize: EMPILHADORES_MATERIAL_FONT_PT },
-    1: { cellWidth: colW, overflow: 'linebreak', fontSize: EMPILHADORES_MATERIAL_FONT_PT },
-    2: { cellWidth: colW, overflow: 'linebreak', fontSize: EMPILHADORES_MATERIAL_FONT_PT },
-    3: { cellWidth: colW, overflow: 'linebreak', fontSize: EMPILHADORES_MATERIAL_FONT_PT },
-  };
-
-  if (!options.skipLeadingEnsure) {
-    y = ensureSpace(doc, y, 8 + body.length * EMPILHADORES_MATERIAL_ROW_H_MM);
-  }
-
-  for (let rowIdx = 0; rowIdx < body.length; rowIdx += 1) {
-    y = ensureSpace(doc, y, EMPILHADORES_MATERIAL_ROW_H_MM + 1);
-    y = await drawPdfGridTable(doc, y, {
-      body: [body[rowIdx]],
-      styles: tableStyles,
-      columnStyles,
-      gapAfter: rowIdx < body.length - 1 ? 0 : PDF_SECTION_GAP_MM,
-      autoTableExtra: { rowPageBreak: 'avoid' },
-    });
-  }
-
-  return y;
-}
-
-function collectEmpilhadoresMaterialFields(service, values, pdfContext, skipIds = new Set()) {
-  return (service?.fields || []).filter((field) => {
-    if (skipIds.has(field.id)) return false;
-    if (!isEmpilhadoresMaterialField(service, field)) return false;
-    if (!isPdfScalarField(field)) return false;
-    const value = coercePdfFieldValue(field, values[field.id], pdfContext);
-    return !isPdfEmptyValue(field, value);
-  });
-}
-
-function markEmpilhadoresMaterialFieldsRendered(service, scalarRenderedIds) {
-  (service?.fields || []).forEach((field) => {
-    if (isEmpilhadoresMaterialField(service, field)) {
-      scalarRenderedIds.add(field.id);
-    }
-  });
-}
-
-/** Bloco completo — título + grelha de óleos/filtros (sempre após verificações) */
-async function drawEmpilhadoresMaterialSectionBlock(
-  doc,
-  y,
-  service,
-  values,
-  pdfContext,
-  fields = null,
-  skipIds = new Set(),
-) {
-  const materialFields =
-    fields ||
-    collectEmpilhadoresMaterialFields(service, values, pdfContext, skipIds);
-  if (!materialFields.length) return y;
-
-  y += EMPILHADORES_MATERIAL_SECTION_TOP_GAP_MM;
-  y = ensureSpace(doc, y, 12);
-
-  y = drawSectionTitle(doc, y, EMPILHADORES_MATERIAL_SECTION, { skipEnsure: true });
-  y = drawDivider(doc, y - 4);
-  return drawEmpilhadoresMaterialGrid(doc, y, materialFields, values, pdfContext, {
-    skipLeadingEnsure: true,
-  });
 }
 
 function isPdfScalarField(field) {
@@ -1064,68 +762,15 @@ async function drawStandardMachineBlock(doc, y, values, pdfContext = null, servi
   y = drawSectionTitle(doc, y, PDF_MACHINE_SECTION, { skipEnsure: true });
   y = drawDivider(doc, y - 4);
 
-  const isEmpilhadores = service?.id === EMPILHADORES_SERVICE_ID;
-  const isDl50 = service?.id === INSPECAO_DL50_SERVICE_ID;
-  const specs = isEmpilhadores
-    ? EMPILHADORES_MACHINE_PDF_SPECS
-    : isDl50
-      ? INSPECAO_DL50_MACHINE_PDF_SPECS
-      : PDF_STANDARD_MACHINE_SPECS;
-
-  if (isEmpilhadores) {
-    const cells = specs.map((spec) => {
-      let fallback = null;
-      if (spec.id === 'numero_de_serie') {
-        fallback = pdfContext?.forkliftSerial || pdfContext?.report?.forkliftSerial || null;
-      }
-      const raw = resolvePdfStandardFieldValue(values, spec, fallback);
-      if (spec.id === 'horas') {
-        return pdfGridCellEmpilhadoresMachine(spec.label, raw, { horas: true });
-      }
-      return pdfGridCell(spec.label, pdfDisplayValue(raw));
-    });
-    const body = [];
-    for (let i = 0; i < cells.length; i += 3) {
-      body.push([cells[i] || '', cells[i + 1] || '', cells[i + 2] || '']);
-    }
-    if (!body.length) return y;
-    y = ensureSpace(doc, y, 10);
-    const colW = CONTENT_W / 3;
-    return drawPdfGridTable(doc, y, {
-      body,
-      columnStyles: {
-        0: { cellWidth: colW, overflow: 'linebreak', fontSize: PDF_FONT_TABLE },
-        1: { cellWidth: colW, overflow: 'linebreak', fontSize: PDF_FONT_TABLE },
-        2: { cellWidth: colW, overflow: 'linebreak', fontSize: PDF_FONT_TABLE },
-      },
-    });
+  if (service?.id === EMPILHADORES_SERVICE_ID) {
+    return drawEmpilhadoresMachineGrid(doc, y, values, pdfContext);
   }
 
-  if (isDl50) {
-    const cells = specs.map((spec) => {
-      let fallback = null;
-      if (spec.id === 'numero_de_serie') {
-        fallback = pdfContext?.forkliftSerial || pdfContext?.report?.forkliftSerial || null;
-      }
-      const raw = resolvePdfStandardFieldValue(values, spec, fallback);
-      return pdfGridCell(spec.label, pdfDisplayValue(raw));
-    });
-    const body = [];
-    for (let i = 0; i < cells.length; i += 2) {
-      body.push([cells[i] || '', cells[i + 1] || '']);
-    }
-    if (!body.length) return y;
-    y = ensureSpace(doc, y, 10);
-    const colW = CONTENT_W / 2;
-    return drawPdfGridTable(doc, y, {
-      body,
-      columnStyles: {
-        0: { cellWidth: colW, overflow: 'linebreak', fontSize: PDF_FONT_BODY },
-        1: { cellWidth: colW, overflow: 'linebreak', fontSize: PDF_FONT_BODY },
-      },
-    });
+  if (service?.id === INSPECAO_DL50_SERVICE_ID) {
+    return drawDl50MachineGrid(doc, y, values, pdfContext);
   }
 
+  const specs = PDF_STANDARD_MACHINE_SPECS;
   const pairs = specs.map((spec) => {
     let fallback = null;
     if (spec.id === 'numero_de_serie') {
@@ -1824,52 +1469,6 @@ function buildMatrixCategoryTable(doc, cat, catData) {
   return { body, rowOpts };
 }
 
-/** DL50 — lista todos os pontos; itens sem resposta mostram «—». */
-function buildDl50CategoryTable(doc, cat, catData) {
-  const body = [];
-  const rowOpts = [];
-
-  (cat.items || []).forEach((item) => {
-    const opt = catData[columnKey(item)];
-    body.push([pdfSafeText(item), matrixDisplayState(opt)]);
-    rowOpts.push(opt || null);
-  });
-
-  return { body, rowOpts };
-}
-
-function estimateDl50CategoryOrphanHeight(doc, body, colWidth) {
-  const sample = body.slice(0, DL50_MIN_ORPHAN_ROWS);
-  return estimateDl50CategoryBlockHeight(doc, sample, colWidth);
-}
-
-function ensureDl50CategoryOrphanSpace(doc, y, body, colWidth, maxBottomY = null) {
-  const limit = maxBottomY ?? pdfContentBottomY();
-  const orphanH = estimateDl50CategoryOrphanHeight(doc, body, colWidth);
-  if (orphanH > 0 && y + orphanH > limit) {
-    doc.addPage();
-    touchPdfContentPage(doc);
-    return PDF_PAGE_CONTENT_START_Y;
-  }
-  return y;
-}
-
-function ensureDl50DualRowOrphanSpace(doc, y, leftBody, rightBody, colW) {
-  let orphanH = 0;
-  if (leftBody.length) {
-    orphanH = Math.max(orphanH, estimateDl50CategoryOrphanHeight(doc, leftBody, colW));
-  }
-  if (rightBody.length) {
-    orphanH = Math.max(orphanH, estimateDl50CategoryOrphanHeight(doc, rightBody, colW));
-  }
-  if (orphanH > 0 && y + orphanH > pdfContentBottomY()) {
-    doc.addPage();
-    touchPdfContentPage(doc);
-    return PDF_PAGE_CONTENT_START_Y;
-  }
-  return y;
-}
-
 function estimateMatrixAutoTableHeight(doc, body, pointColWidth = MATRIX_POINT_COL_W) {
   if (!body.length) return 0;
   let height = MATRIX_CAT_TITLE_H + MATRIX_TABLE_HEADER_H;
@@ -1878,193 +1477,6 @@ function estimateMatrixAutoTableHeight(doc, body, pointColWidth = MATRIX_POINT_C
     height += Math.max(MATRIX_TABLE_ROW_MIN_H, lines.length * 3.2 + 2.5) + 0.5;
   });
   return height + MATRIX_CAT_GAP;
-}
-
-function estimateDl50CategoryBlockHeight(doc, body, colWidth) {
-  const pointColWidth = colWidth * 0.72;
-  const titleH = DL50_MATRIX_CAT_BAND_MM + 1;
-  let tableH = PDF_TABLE_MIN_CELL_HEIGHT_COMPACT + 1;
-  body.forEach((row) => {
-    const lines = pdfSplitText(doc, row[0], pointColWidth - 4);
-    tableH += Math.max(PDF_TABLE_MIN_CELL_HEIGHT_COMPACT, lines.length * 3 + 2);
-  });
-  return titleH + tableH + 1.5;
-}
-
-async function drawDl50CategoryGridTable(doc, x, y, width, body, rowOpts) {
-  const pointW = width * 0.72;
-  const stateW = width - pointW;
-  const cellPadding = PDF_TABLE_CELL_PADDING_COMPACT;
-
-  return drawPdfGridTable(doc, y, {
-    head: [['Ponto', 'Est.']],
-    body,
-    marginLeft: x,
-    marginRight: PAGE_W - x - width,
-    tableWidth: width,
-    styles: {
-      font: pdfAutoTableFont(doc),
-      fontSize: DL50_MATRIX_FONT_PT,
-      cellPadding,
-      minCellHeight: PDF_TABLE_MIN_CELL_HEIGHT_COMPACT,
-      lineColor: PDF_TABLE_LINE,
-      lineWidth: PDF_TABLE_LINE_WIDTH,
-      textColor: TEXT_DARK,
-      valign: 'middle',
-      overflow: 'linebreak',
-    },
-    headStyles: {
-      font: pdfAutoTableFont(doc),
-      fillColor: PDF_SECTION_BG,
-      textColor: CORPORATE_BLUE,
-      fontStyle: 'bold',
-      fontSize: DL50_MATRIX_FONT_PT,
-      cellPadding,
-      minCellHeight: PDF_TABLE_MIN_CELL_HEIGHT_COMPACT,
-      lineColor: PDF_TABLE_LINE,
-      lineWidth: PDF_TABLE_LINE_WIDTH,
-      halign: 'left',
-      overflow: 'linebreak',
-    },
-    bodyStyles: {
-      fillColor: PDF_TABLE_BODY_FILL,
-      minCellHeight: PDF_TABLE_MIN_CELL_HEIGHT_COMPACT,
-      cellPadding,
-    },
-    columnStyles: {
-      0: { cellWidth: pointW, overflow: 'linebreak', fontSize: DL50_MATRIX_FONT_PT },
-      1: {
-        cellWidth: stateW,
-        halign: 'center',
-        overflow: 'linebreak',
-        fontSize: DL50_MATRIX_FONT_PT,
-        fontStyle: 'bold',
-      },
-    },
-    didParseCell: (data) => {
-      if (data.section === 'body' && data.column.index === 1) {
-        const opt = rowOpts[data.row.index];
-        data.cell.styles.textColor = matrixPdfRgb(opt);
-        data.cell.styles.fontStyle = 'bold';
-      }
-    },
-    gapAfter: 1.5,
-  });
-}
-
-async function drawDl50SplitMatrixCategoryTable(doc, x, startY, width, categoryName, body, rowOpts) {
-  const gap = DL50_DUAL_MATRIX_GAP_MM;
-  const halfW = (width - gap) / 2;
-  const mid = Math.ceil(body.length / 2);
-  const leftBody = body.slice(0, mid);
-  const leftOpts = rowOpts.slice(0, mid);
-  const rightBody = body.slice(mid);
-  const rightOpts = rowOpts.slice(mid);
-
-  const titleY = drawColumnSectionTitle(doc, x, startY, width, categoryName, {
-    bandH: DL50_MATRIX_CAT_BAND_MM,
-    fontSize: DL50_MATRIX_CAT_FONT_PT,
-    gapAfter: 1,
-    singleLine: true,
-  });
-  const leftEnd = await drawDl50CategoryGridTable(doc, x, titleY, halfW, leftBody, leftOpts);
-  const rightEnd = await drawDl50CategoryGridTable(
-    doc,
-    x + halfW + gap,
-    titleY,
-    halfW,
-    rightBody,
-    rightOpts,
-  );
-  return Math.max(leftEnd, rightEnd) + 1.5;
-}
-
-async function drawDl50MatrixCategoryTable(doc, x, startY, width, cat, catData, options = {}) {
-  const { body, rowOpts } = buildDl50CategoryTable(doc, cat, catData);
-  if (!body.length) return startY;
-
-  const maxBottomY = options.maxBottomY ?? null;
-  let y = options.skipOrphanCheck
-    ? startY
-    : ensureDl50CategoryOrphanSpace(doc, startY, body, width, maxBottomY);
-
-  if (options.splitDualTable && body.length >= DL50_SPLIT_TABLE_MIN_ITEMS) {
-    return drawDl50SplitMatrixCategoryTable(doc, x, y, width, cat.name, body, rowOpts);
-  }
-
-  y = drawColumnSectionTitle(doc, x, y, width, cat.name, {
-    bandH: DL50_MATRIX_CAT_BAND_MM,
-    fontSize: DL50_MATRIX_CAT_FONT_PT,
-    gapAfter: 1,
-    singleLine: true,
-  });
-
-  return drawDl50CategoryGridTable(doc, x, y, width, body, rowOpts);
-}
-
-async function drawDl50DualMatrixInspectionBlock(doc, y, field, matrixValue) {
-  const categories = field.categories || [];
-  const [leftCats, rightCats] = splitDl50MatrixCategories(categories);
-  const gap = DL50_DUAL_MATRIX_GAP_MM;
-  const colW = (CONTENT_W - gap) / 2;
-  const leftX = MARGIN;
-  const rightX = MARGIN + colW + gap;
-
-  y = drawSectionTitle(doc, y, getBlockPdfTitle(field) || 'Pontos de Inspeção');
-  y = drawDivider(doc, y - 4);
-
-  const rowCount = Math.max(leftCats.length, rightCats.length);
-  for (let i = 0; i < rowCount; i++) {
-    const leftCat = leftCats[i];
-    const rightCat = rightCats[i];
-    const isSoloLastRow = Boolean(leftCat && !rightCat);
-
-    if (isSoloLastRow) {
-      const catData = matrixValue[columnKey(leftCat.name)] || {};
-      const { body } = buildDl50CategoryTable(doc, leftCat, catData);
-      y = await drawDl50MatrixCategoryTable(doc, MARGIN, y, CONTENT_W, leftCat, catData, {
-        splitDualTable: body.length >= DL50_SPLIT_TABLE_MIN_ITEMS,
-        maxBottomY: pdfContentBottomY() - DL50_CLOSING_RESERVE_MM,
-      });
-      continue;
-    }
-
-    const leftData = leftCat ? matrixValue[columnKey(leftCat.name)] || {} : {};
-    const rightData = rightCat ? matrixValue[columnKey(rightCat.name)] || {} : {};
-    const leftBody = leftCat ? buildDl50CategoryTable(doc, leftCat, leftData).body : [];
-    const rightBody = rightCat ? buildDl50CategoryTable(doc, rightCat, rightData).body : [];
-
-    const rowStartY = ensureDl50DualRowOrphanSpace(doc, y, leftBody, rightBody, colW);
-    let leftEnd = rowStartY;
-    let rightEnd = rowStartY;
-
-    if (leftCat) {
-      leftEnd = await drawDl50MatrixCategoryTable(
-        doc,
-        leftX,
-        rowStartY,
-        colW,
-        leftCat,
-        leftData,
-        { skipOrphanCheck: true },
-      );
-    }
-    if (rightCat) {
-      rightEnd = await drawDl50MatrixCategoryTable(
-        doc,
-        rightX,
-        rowStartY,
-        colW,
-        rightCat,
-        rightData,
-        { skipOrphanCheck: true },
-      );
-    }
-
-    y = Math.max(leftEnd, rightEnd) + 1.2;
-  }
-
-  return y + PDF_SECTION_GAP_MM;
 }
 
 async function drawMatrixInspectionBlock(doc, y, field, matrixValue, service = null) {
