@@ -567,30 +567,28 @@ module.exports = async function handler(req, res) {
     res.setHeader('Allow', ['POST']);
     return res.status(405).json({ error: 'Método não permitido.' });
   }
-
-  if (!EMAIL_USER || !EMAIL_PASS) {
-    return res.status(500).json({
-      error: 'Variáveis SMTP não configuradas.',
-      hint: 'Configure EMAIL_USER e EMAIL_PASS na Vercel (Gmail: use App Password com 2FA).',
-    });
-  }
-
-  const token = getBearerToken(req);
-  if (!token) {
-    return res.status(401).json({ error: 'Autenticação obrigatória (Authorization: Bearer <JWT>).' });
-  }
-
-  const authUser = await getAuthenticatedUser(token);
-  if (!authUser) {
-    return res.status(401).json({ error: 'Sessão inválida ou expirada.' });
-  }
-  if (!isRhOrAdminAuthUser(authUser)) {
-    return res.status(403).json({ error: 'Acesso reservado a Recursos Humanos ou Admin autenticados.' });
-  }
-
-  const emailPass = String(EMAIL_PASS).replace(/\s+/g, '');
-
   try {
+    if (!EMAIL_USER || !EMAIL_PASS) {
+      return res.status(500).json({
+        error: 'Variáveis SMTP não configuradas.',
+        hint: 'Configure EMAIL_USER e EMAIL_PASS na Vercel (Gmail: use App Password com 2FA).',
+      });
+    }
+
+    const token = getBearerToken(req);
+    if (!token) {
+      return res.status(401).json({ error: 'Autenticação obrigatória (Authorization: Bearer <JWT>).' });
+    }
+
+    const authUser = await getAuthenticatedUser(token);
+    if (!authUser) {
+      return res.status(401).json({ error: 'Sessão inválida ou expirada.' });
+    }
+    if (!isRhOrAdminAuthUser(authUser)) {
+      return res.status(403).json({ error: 'Acesso reservado a Recursos Humanos ou Admin autenticados.' });
+    }
+
+    const emailPass = String(EMAIL_PASS).replace(/\s+/g, '');
     const payload = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : req.body || {};
 
     const reportId = String(payload.reportId || '').trim();

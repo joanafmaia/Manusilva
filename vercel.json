@@ -1,5 +1,5 @@
 {
-  "buildCommand": "node pwa/scripts/write-mapbox-config.js && node pwa/scripts/write-build-version.js && node pwa/scripts/write-api-runtime-config.mjs && node pwa/scripts/sync-rh-config.mjs",
+  "buildCommand": "node pwa/scripts/write-mapbox-config.js && node pwa/scripts/write-build-version.js && node pwa/scripts/write-api-runtime-config.mjs && node pwa/scripts/sync-rh-admin-config.mjs",
   "outputDirectory": "pwa",
   "cleanUrls": true,
   "routes": [

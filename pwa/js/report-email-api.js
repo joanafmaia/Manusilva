@@ -51,7 +51,7 @@ export async function sendOfficialReportEmail(meta = {}) {
   if (!response.ok) {
     const err = await response.json().catch(() => ({}));
     const details = formatEmailApiError(err);
-    throw new Error(details || 'Falha ao enviar e-mail pela API.');
+    throw new Error(details || `Falha ao enviar e-mail pela API (código de erro: ${response.status}).`);
   }
 
   return true;
@@ -95,7 +95,7 @@ export async function sendOrcamentoProposalEmail(meta = {}) {
   if (!response.ok) {
     const err = await response.json().catch(() => ({}));
     const details = formatEmailApiError(err);
-    throw new Error(details || 'Falha ao enviar e-mail da proposta.');
+    throw new Error(details || `Falha ao enviar e-mail da proposta (código de erro: ${response.status}).`);
   }
 
   return true;
