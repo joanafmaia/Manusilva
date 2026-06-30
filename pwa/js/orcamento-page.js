@@ -30,7 +30,7 @@ function renderMissingReport() {
 }
 
 export async function initOrcamentoPage() {
-  const user = await requireAuth('RH');
+  const user = requireAuth('admin');
   if (!user) return;
 
   applyBrandLogo();
