@@ -858,7 +858,7 @@ function renderTechRejectedBanner() {
     <div class="tech-rejected-banner__content">
       <span class="tech-rejected-banner__icon" aria-hidden="true">↩</span>
       <div class="tech-rejected-banner__text">
-        <strong>Relatório rejeitado</strong> — ${escapeHtml(client?.name || 'Cliente')}${more}
+        <strong>Relatório rejeitado — ${escapeHtml(client?.name || 'Cliente')}${more}</strong>
         ${note ? `<span class="tech-rejected-banner__note">${escapeHtml(note.length > 120 ? `${note.slice(0, 120)}…` : note)}</span>` : ''}
       </div>
       <button type="button" class="btn-primary btn-sm tech-rejected-banner__action" data-rejected-job="${escapeHtml(first.id)}">Corrigir</button>
