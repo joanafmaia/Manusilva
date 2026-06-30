@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <meta name="theme-color" content="#f8fafc">
+  <title>Manusilva — Proposta MS.015</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/app.css?v=light-only-v3">
+</head>
+<body class="orcamento-page admin-rh-page">
+  <div class="bg-mesh"></div>
+
+  <div class="orcamento-page-app">
+    <header class="orcamento-page-header glass-card">
+      <div class="orcamento-page-header__start">
+        <a href="admin.html#orcamentos" class="btn-outline btn-sm orcamento-page-back" id="orcamento-page-back">
+          ← Voltar aos orçamentos
+        </a>
+        <div class="orcamento-page-title-wrap">
+          <h1 class="orcamento-page-title">Proposta MS.015</h1>
+          <span class="orcamento-page-title-num" id="orcamento-page-title-num" hidden></span>
+        </div>
+      </div>
+      <button type="button" class="btn-outline btn-sm" id="orcamento-page-logout">Terminar sessão</button>
+    </header>
+
+    <main class="orcamento-page-main glass-card" id="orcamento-page-main" aria-live="polite">
+      <p class="text-muted">A carregar proposta…</p>
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/vendor/jspdf.umd.min.js" data-jspdf defer></script>
+  <script src="js/vendor/jszip.min.js" data-jszip defer></script>
+  <script src="js/vendor/jspdf.plugin.autotable.min.js" data-jspdf-autotable defer></script>
+  <script type="module">
+    try {
+      const { APP_BUILD_ID } = await import('./js/build-version.js');
+      const v = APP_BUILD_ID;
+      const { ensureFreshAppBuild, recoverFromModuleLoadFailure, clearModuleRecoveryFlag } =
+        await import(`./js/app-version.js?v=${v}`);
+      if (await ensureFreshAppBuild()) {
+        /* recarrega com build novo */
+      } else {
+        const { initLocalDatabase } = await import(`./js/app.js?v=${v}`);
+        const { initOrcamentoPage } = await import(`./js/orcamento-page.js?v=${v}`);
+
+        initLocalDatabase();
+        await initOrcamentoPage();
+        clearModuleRecoveryFlag();
+      }
+    } catch (err) {
+      console.error('[Manusilva] Falha ao carregar orçamento:', err);
+      const { recoverFromModuleLoadFailure } = await import('./js/app-version.js');
+      await recoverFromModuleLoadFailure();
+    }
+  </script>
+</body>
+</html>

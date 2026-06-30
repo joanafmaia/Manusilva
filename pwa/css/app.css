@@ -9611,6 +9611,125 @@ details[open] .expand-icon { transform: rotate(90deg); }
 .orcamento-modal-footer {
   border-top: 1px solid var(--border-subtle);
 }
+
+/* —— Proposta MS.015 — página dedicada (ecrã completo) —— */
+.orcamento-page-app {
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: 1rem 1.25rem 2rem;
+  max-width: 1440px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.orcamento-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+  flex-wrap: wrap;
+}
+.orcamento-page-header__start {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+  min-width: 0;
+}
+.orcamento-page-title-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+.orcamento-page-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.orcamento-page-title-num {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #b45309;
+}
+.orcamento-page-main {
+  flex: 1;
+  padding: 1.25rem 1.5rem 1.5rem;
+  overflow: visible;
+}
+.orcamento-page-empty {
+  padding: 2rem 1rem;
+  text-align: center;
+}
+.orcamento-view-lead {
+  margin: 0 0 0.75rem;
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+.orcamento-view-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1.25rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+.orcamento-page .review-orc-cabecalho__grid {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+.orcamento-page .review-orc-textarea {
+  min-height: 7rem;
+}
+.orcamento-page .review-orc-table-wrap {
+  overflow: visible;
+}
+.orcamento-page .review-orc-table {
+  font-size: 0.88rem;
+}
+.orcamento-page .review-orc-table th:first-child,
+.orcamento-page .review-orc-table td:first-child {
+  min-width: min(42vw, 480px);
+  width: 50%;
+}
+.orcamento-page .review-orc-input--descricao {
+  min-width: 12rem;
+}
+.orcamento-page .review-orc-catalog-combobox .client-combobox-list {
+  max-height: min(320px, 40vh);
+  z-index: 80;
+}
+.orcamento-page .review-orcamento-editor__extras {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.65rem 1rem;
+}
+.orcamento-page .review-orcamento-editor__actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  margin-top: 1rem;
+  padding: 0.85rem 0 0.25rem;
+  background: linear-gradient(180deg, rgba(248, 250, 252, 0) 0%, rgba(248, 250, 252, 0.92) 28%, #f8fafc 100%);
+}
+@media (max-width: 720px) {
+  .orcamento-page-app {
+    padding: 0.65rem 0.65rem 1.25rem;
+  }
+  .orcamento-page-main {
+    padding: 1rem;
+  }
+  .orcamento-page .review-orc-table th:first-child,
+  .orcamento-page .review-orc-table td:first-child {
+    min-width: 12rem;
+  }
+}
 .review-orc-cabecalho {
   margin-bottom: 0.85rem;
   padding-bottom: 0.75rem;

@@ -43,7 +43,7 @@ function renderLinhaRow(row, index) {
   const totalLabel = total > 0 ? formatEuro(total) : '';
   return `
     <tr data-orcamento-linha data-index="${index}">
-      <td><input type="text" class="review-orc-input" data-orc-field="descricao" value="${descricao}" placeholder="Artigo / descrição" /></td>
+      <td><input type="text" class="review-orc-input review-orc-input--descricao" data-orc-field="descricao" value="${descricao}" placeholder="Artigo / descrição" /></td>
       <td><input type="text" class="review-orc-input review-orc-input--qty" data-orc-field="qtd" value="${qtd}" inputmode="decimal" /></td>
       <td><input type="text" class="review-orc-input review-orc-input--money" data-orc-field="precoUnit" value="${precoUnit}" inputmode="decimal" placeholder="0,00" /></td>
       <td class="review-orc-total" data-orc-line-total>${totalLabel}</td>
