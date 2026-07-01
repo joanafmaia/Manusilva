@@ -229,7 +229,7 @@ export function renderOrcamentoEditor(report, { client } = {}) {
 
       <div class="review-orcamento-editor__actions review-orcamento-editor__actions--split">
         <button type="button" class="btn-primary btn-touch" id="review-orc-save">Guardar proposta</button>
-        <button type="button" class="btn-outline btn-touch" id="orcamento-pdf">Ver PDF</button>
+        <button type="button" class="btn-outline btn-touch" id="orcamento-pdf">Ver PDF da proposta</button>
         <button type="button" class="btn-success btn-touch" id="orcamento-send-email">Enviar proposta por e-mail</button>
       </div>
       <p class="text-muted review-orcamento-editor__hint">Guarde antes de enviar. O e-mail inclui apenas a proposta comercial, não o relatório técnico.</p>

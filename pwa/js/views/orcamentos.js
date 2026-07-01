@@ -209,18 +209,18 @@ function renderTableRow(report) {
             ${workflow === 'por_preparar' ? 'Preparar' : 'Editar'}
           </button>
           ${
+            pdfUrl
+              ? `<button type="button" class="btn-outline btn-sm rh-btn-compact" data-orc-pdf="${escapeHtml(report.id)}" title="Abrir PDF da proposta comercial">PDF</button>`
+              : ''
+          }
+          ${
             techPdfUrl && report.status === 'approved'
-              ? `<button type="button" class="btn-outline btn-sm rh-btn-compact" data-orc-tech-pdf="${escapeHtml(techPdfUrl)}" title="Abrir PDF do relatório técnico">PDF</button>`
+              ? `<button type="button" class="btn-outline btn-sm rh-btn-compact" data-orc-tech-pdf="${escapeHtml(techPdfUrl)}" title="Abrir PDF do relatório técnico">Relatório</button>`
               : ''
           }
           ${
             canReviewReport
               ? `<button type="button" class="btn-outline btn-sm rh-btn-compact" data-orc-review="${escapeHtml(report.id)}" title="Rever relatório">Rever</button>`
-              : ''
-          }
-          ${
-            pdfUrl
-              ? `<button type="button" class="btn-ghost btn-sm rh-btn-compact" data-orc-pdf="${escapeHtml(report.id)}" title="Abrir PDF da proposta">Prop.</button>`
               : ''
           }
           ${
@@ -364,7 +364,7 @@ function bindPanelEvents() {
     const techPdfBtn = e.target.closest('[data-orc-tech-pdf]');
     if (techPdfBtn) {
       const url = techPdfBtn.dataset.orcTechPdf;
-      if (url) window.open(url, '_blank', 'noopener,noreferrer');
+      if (url) openOrcamentoStorageUrl(url);
       else showToast('PDF do relatório técnico não disponível.', 'warning');
       return;
     }
