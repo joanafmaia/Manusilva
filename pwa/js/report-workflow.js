@@ -78,6 +78,8 @@ export async function saveReportDraft(report, options = {}) {
   try {
     const saved = await upsertRelatorio(draft);
     if (saved) mergeReportInCache(saved);
+    const { removeLocalReportDraft } = await import('./report-local-storage.js');
+    await removeLocalReportDraft(draft.jobId);
     const { upsertClienteEquipamentosFromReport } = await import('./cliente-equipamentos-db.js');
     void upsertClienteEquipamentosFromReport(saved || draft);
     window.dispatchEvent(new CustomEvent('db-updated'));

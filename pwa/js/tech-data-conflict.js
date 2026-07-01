@@ -24,6 +24,9 @@ function reportsDifferMeaningfully(local, server) {
 export async function detectReportDataConflict(jobId, serverReport, options = {}) {
   if (!serverReport || options.viewOnly) return null;
 
+  // Rascunho em aberto: resolveReportForJob escolhe a versão mais recente sem modal.
+  if (serverReport.status === 'draft') return null;
+
   const local = await getLocalReportDraft(jobId);
   if (!local) return null;
 
