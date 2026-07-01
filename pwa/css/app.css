@@ -9718,40 +9718,39 @@ details[open] .expand-icon { transform: rotate(90deg); }
   padding: 0.85rem 0 0.25rem;
   background: linear-gradient(180deg, rgba(248, 250, 252, 0) 0%, rgba(248, 250, 252, 0.92) 28%, #f8fafc 100%);
 }
-.review-orc-equip-campos {
-  margin: 0.5rem 0 0.85rem;
-  padding: 0.75rem 0.85rem;
-  border: 1px dashed rgba(15, 23, 42, 0.14);
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.65);
-}
-.review-orc-equip-campos__head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.35rem 0.75rem;
-  margin-bottom: 0.55rem;
-}
-.review-orc-equip-campos__list {
-  display: grid;
-  gap: 0.45rem;
-}
-.review-orc-equip-campo {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-}
-.review-orc-equip-campo__label {
-  flex: 1;
-  min-width: 0;
-}
-.review-orc-equip-campos-add {
-  margin-top: 0.55rem;
-}
 .review-orc-maquinas {
   margin: 0.85rem 0 1rem;
   padding-top: 0.35rem;
   border-top: 1px solid rgba(15, 23, 42, 0.08);
+}
+.review-orc-maquinas__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.65rem;
+}
+.review-orc-maquina__fields {
+  display: grid;
+  gap: 0.5rem;
+}
+.review-orc-maquina-field {
+  display: grid;
+  grid-template-columns: minmax(6.5rem, 1fr) minmax(9rem, 2fr) auto;
+  gap: 0.45rem;
+  align-items: center;
+}
+.review-orc-maquina-campo-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+.review-orc-maquina-campo-label-readonly {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-muted, #64748b);
+  padding: 0.35rem 0;
+}
+.review-orc-maquina-field__value {
+  min-width: 0;
 }
 .review-orc-maquinas__head {
   display: flex;
@@ -9784,9 +9783,6 @@ details[open] .expand-icon { transform: rotate(90deg); }
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 0.55rem 0.75rem;
-}
-.review-orc-maquinas-add {
-  margin-top: 0.65rem;
 }
 .review-orc-table--multi-equip .review-orc-equip-th,
 .review-orc-table--multi-equip .review-orc-equip-cell {

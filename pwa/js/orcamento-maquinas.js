@@ -2,13 +2,12 @@
  * Máquinas da proposta MS.015 — vários equipamentos, campos editáveis por orçamento.
  */
 
-import { LABEL_N_INTERNO, LABEL_MAQUINA, LABEL_MATRICULA } from './field-labels.js';
+import { LABEL_N_INTERNO } from './field-labels.js';
 import { escapeHtml } from './html-utils.js';
 import {
   normalizeEquipamentoCampos,
   nextEquipamentoCampoKey,
   readOrcamentoEquipamentoCamposFromDom,
-  renderOrcamentoEquipamentoCamposSection,
 } from './orcamento-equipamento-campos.js';
 
 function readMaquinaFieldValue(raw, key) {
@@ -188,35 +187,62 @@ export function formatOrcamentoMaquinasDocxText(maquinas = [], campos = null) {
     .join('\n');
 }
 
-function renderMaquinaCard(row, index, campos, { canRemove }) {
+function renderMaquinaFieldRow({ key, label }, value, { isSchemaCard, canRemoveCampo }) {
+  const labelCell = isSchemaCard
+    ? `<input
+        type="text"
+        class="review-orc-input review-orc-maquina-campo-label"
+        data-orc-campo-label
+        value="${escapeHtml(label)}"
+        placeholder="Campo"
+        aria-label="Nome do campo"
+      />`
+    : `<span class="review-orc-maquina-campo-label-readonly" data-orc-maquina-label-for="${escapeHtml(key)}">${escapeHtml(label)}</span>`;
+
+  const removeBtn =
+    isSchemaCard && canRemoveCampo
+      ? `<button type="button" class="btn-icon review-orc-maquina-campo-remove" title="Remover campo" aria-label="Remover campo">×</button>`
+      : '';
+
+  return `
+    <div class="review-orc-maquina-field" data-orc-maquina-campo data-campo-key="${escapeHtml(key)}">
+      ${labelCell}
+      <input
+        type="text"
+        class="review-orc-input review-orc-maquina-field__value"
+        data-orc-maquina-field="${escapeHtml(key)}"
+        value="${escapeHtml(value || '')}"
+        placeholder="${escapeHtml(label)}"
+        aria-label="${escapeHtml(label)}"
+      />
+      ${removeBtn}
+    </div>`;
+}
+
+function renderMaquinaCard(row, index, campos, { canRemoveMachine, campoCount }) {
   const fields = normalizeEquipamentoCampos(campos);
   const m = normalizeOrcamentoMaquina(row, fields);
+  const isSchemaCard = index === 0;
   const inputs = fields
-    .map(
-      ({ key, label }) => `
-        <label class="review-orc-field">
-          <span data-orc-maquina-label-for="${escapeHtml(key)}">${escapeHtml(label)}</span>
-          <input
-            type="text"
-            class="review-orc-input"
-            data-orc-maquina-field="${escapeHtml(key)}"
-            value="${escapeHtml(m[key] || '')}"
-            placeholder="${escapeHtml(label)}"
-          />
-        </label>`,
+    .map((campo) =>
+      renderMaquinaFieldRow(campo, m[campo.key], {
+        isSchemaCard,
+        canRemoveCampo: campoCount > 1,
+      }),
     )
     .join('');
+
   return `
     <article class="review-orc-maquina" data-orcamento-maquina data-index="${index}">
       <div class="review-orc-maquina__head">
         <strong class="review-orc-maquina__title">Equipamento ${index + 1}</strong>
         ${
-          canRemove
+          canRemoveMachine
             ? `<button type="button" class="btn-icon review-orc-maquina-remove" title="Remover equipamento" aria-label="Remover equipamento">×</button>`
             : ''
         }
       </div>
-      <div class="review-orc-maquina__grid">
+      <div class="review-orc-maquina__fields">
         ${inputs}
       </div>
     </article>`;
@@ -227,7 +253,12 @@ function renderMaquinasList(maquinas, campos) {
   const rows = normalizeOrcamentoMaquinasList(maquinas, fields);
   const list = rows.length ? rows : [emptyOrcamentoMaquina(fields)];
   return list
-    .map((row, index) => renderMaquinaCard(row, index, fields, { canRemove: list.length > 1 }))
+    .map((row, index) =>
+      renderMaquinaCard(row, index, fields, {
+        canRemoveMachine: list.length > 1,
+        campoCount: fields.length,
+      }),
+    )
     .join('');
 }
 
@@ -239,6 +270,7 @@ function syncMaquinaFieldLabels(root, campos) {
     });
     root.querySelectorAll(`[data-orc-maquina-field="${key}"]`).forEach((input) => {
       input.placeholder = label;
+      if (!input.value.trim()) input.setAttribute('aria-label', label);
     });
   });
 }
@@ -246,16 +278,18 @@ function syncMaquinaFieldLabels(root, campos) {
 export function renderOrcamentoMaquinasSection(maquinas = [], equipamentoCampos = null) {
   const campos = normalizeEquipamentoCampos(equipamentoCampos);
   return `
-    ${renderOrcamentoEquipamentoCamposSection(campos)}
     <section class="review-orc-maquinas" aria-label="Equipamentos da proposta">
       <div class="review-orc-maquinas__head">
         <h4 class="review-orc-cabecalho__title">Equipamentos</h4>
-        <span class="review-orc-field-hint text-muted">Pode incluir várias máquinas no mesmo orçamento.</span>
+        <span class="review-orc-field-hint text-muted">Edite o nome de cada campo no primeiro equipamento; os valores preenchem-se em cada máquina.</span>
       </div>
       <div class="review-orc-maquinas__list" id="review-orc-maquinas-list">
         ${renderMaquinasList(maquinas, campos)}
       </div>
-      <button type="button" class="btn-outline btn-touch review-orc-maquinas-add" id="review-orc-add-maquina">+ Adicionar máquina</button>
+      <div class="review-orc-maquinas__actions">
+        <button type="button" class="btn-outline btn-touch" id="review-orc-add-campo">+ Adicionar campo</button>
+        <button type="button" class="btn-outline btn-touch review-orc-maquinas-add" id="review-orc-add-maquina">+ Adicionar máquina</button>
+      </div>
     </section>`;
 }
 
@@ -275,14 +309,13 @@ export function readOrcamentoMaquinasFromDom(root, campos = null) {
   return rows.length ? rows : [emptyOrcamentoMaquina(fields)];
 }
 
-export { readOrcamentoEquipamentoCamposFromDom, renderOrcamentoEquipamentoCamposSection };
+export { readOrcamentoEquipamentoCamposFromDom };
 
 export function bindOrcamentoMaquinasSection(root, { onChange } = {}) {
   const list = root?.querySelector('#review-orc-maquinas-list');
-  const camposList = root?.querySelector('#review-orc-equip-campos-list');
   const addMaquinaBtn = root?.querySelector('#review-orc-add-maquina');
   const addCampoBtn = root?.querySelector('#review-orc-add-campo');
-  if (!list || !addMaquinaBtn || !camposList) return;
+  if (!list || !addMaquinaBtn) return;
 
   const notify = () => onChange?.();
 
@@ -305,46 +338,60 @@ export function bindOrcamentoMaquinasSection(root, { onChange } = {}) {
     notify();
   };
 
-  const rerenderCamposRemoveButtons = () => {
-    const rows = camposList.querySelectorAll('[data-orc-equip-campo]');
-    rows.forEach((row) => {
-      const btn = row.querySelector('.review-orc-equip-campo-remove');
-      if (btn) btn.hidden = rows.length <= 1;
-    });
-  };
-
   addCampoBtn?.addEventListener('click', () => {
     const campos = readOrcamentoEquipamentoCamposFromDom(root);
     const key = nextEquipamentoCampoKey(campos);
-    const newCampo = { key, label: 'Novo campo' };
-    camposList.insertAdjacentHTML(
-      'beforeend',
-      `<div class="review-orc-equip-campo" data-orc-equip-campo data-campo-key="${escapeHtml(key)}">
-        <input type="text" class="review-orc-input review-orc-equip-campo__label" data-orc-campo-label value="${escapeHtml(newCampo.label)}" placeholder="Nome do campo" aria-label="Rótulo do campo" />
-        <button type="button" class="btn-icon review-orc-equip-campo-remove" title="Remover campo" aria-label="Remover campo">×</button>
-      </div>`,
-    );
-    rerenderCamposRemoveButtons();
-    rerenderMaquinas();
-  });
-
-  camposList.addEventListener('click', (e) => {
-    const btn = e.target.closest('.review-orc-equip-campo-remove');
-    if (!btn) return;
-    const row = btn.closest('[data-orc-equip-campo]');
-    if (!row) return;
-    const rows = camposList.querySelectorAll('[data-orc-equip-campo]');
-    if (rows.length <= 1) return;
-    row.remove();
-    rerenderCamposRemoveButtons();
-    rerenderMaquinas();
-  });
-
-  camposList.addEventListener('input', (e) => {
-    if (!e.target.matches('[data-orc-campo-label]')) return;
-    const campos = readOrcamentoEquipamentoCamposFromDom(root);
-    syncMaquinaFieldLabels(root, campos);
+    const maquinas = readOrcamentoMaquinasFromDom(root, campos);
+    maquinas.forEach((row) => {
+      row[key] = '';
+    });
+    const nextCampos = [...campos, { key, label: 'Novo campo' }];
+    list.innerHTML = renderMaquinasList(maquinas, nextCampos);
+    renumber();
     notify();
+  });
+
+  list.addEventListener('click', (e) => {
+    const campoBtn = e.target.closest('.review-orc-maquina-campo-remove');
+    if (campoBtn) {
+      const row = campoBtn.closest('[data-orc-maquina-campo]');
+      const firstCard = list.querySelector('[data-orcamento-maquina]');
+      if (!row || !firstCard?.contains(row)) return;
+      const campos = readOrcamentoEquipamentoCamposFromDom(root);
+      if (campos.length <= 1) return;
+      const key = row.dataset.campoKey;
+      const nextCampos = campos.filter((c) => c.key !== key);
+      const maquinas = readOrcamentoMaquinasFromDom(root, campos);
+      list.innerHTML = renderMaquinasList(maquinas, nextCampos);
+      renumber();
+      notify();
+      return;
+    }
+
+    const btn = e.target.closest('.review-orc-maquina-remove');
+    if (!btn) return;
+    const card = btn.closest('[data-orcamento-maquina]');
+    if (!card) return;
+    const cards = list.querySelectorAll('[data-orcamento-maquina]');
+    if (cards.length <= 1) {
+      card.querySelectorAll('[data-orc-maquina-field]').forEach((input) => {
+        input.value = '';
+      });
+      notify();
+      return;
+    }
+    card.remove();
+    rerenderMaquinas();
+  });
+
+  list.addEventListener('input', (e) => {
+    if (e.target.matches('[data-orc-campo-label]')) {
+      const campos = readOrcamentoEquipamentoCamposFromDom(root);
+      syncMaquinaFieldLabels(root, campos);
+      notify();
+      return;
+    }
+    if (e.target.matches('[data-orc-maquina-field]')) notify();
   });
 
   addMaquinaBtn.addEventListener('click', () => {
@@ -352,31 +399,12 @@ export function bindOrcamentoMaquinasSection(root, { onChange } = {}) {
     const index = list.querySelectorAll('[data-orcamento-maquina]').length;
     list.insertAdjacentHTML(
       'beforeend',
-      renderMaquinaCard(emptyOrcamentoMaquina(campos), index, campos, { canRemove: true }),
+      renderMaquinaCard(emptyOrcamentoMaquina(campos), index, campos, {
+        canRemoveMachine: true,
+        campoCount: campos.length,
+      }),
     );
     renumber();
     notify();
-  });
-
-  list.addEventListener('click', (e) => {
-    const btn = e.target.closest('.review-orc-maquina-remove');
-    if (!btn) return;
-    const card = btn.closest('[data-orcamento-maquina]');
-    if (!card) return;
-    const cards = list.querySelectorAll('[data-orcamento-maquina]');
-    if (cards.length <= 1) {
-      card.querySelectorAll('input').forEach((input) => {
-        input.value = '';
-      });
-      notify();
-      return;
-    }
-    card.remove();
-    renumber();
-    notify();
-  });
-
-  list.addEventListener('input', (e) => {
-    if (e.target.matches('[data-orc-maquina-field]')) notify();
   });
 }
