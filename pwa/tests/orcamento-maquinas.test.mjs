@@ -8,6 +8,7 @@ import {
 import { suggestOrcamentoMaquinas } from '../js/orcamento-cabecalho.js';
 import {
   normalizeEquipamentoCampos,
+  suggestEquipamentoCampos,
 } from '../js/orcamento-equipamento-campos.js';
 import {
   formatOrcamentoNumeroLabel,
@@ -67,6 +68,25 @@ describe('orcamento-maquinas', () => {
     const row = normalizeOrcamentoMaquina({ maquina: 'Toyota 8FB', bateriaTipo: 'Chumbo' }, campos);
     assert.equal(hasOrcamentoMaquinaData(row, campos), true);
     assert.equal(row.bateriaTipo, 'Chumbo');
+  });
+
+  it('preserva campos personalizados guardados para o PDF', () => {
+    const report = {
+      data: {
+        orcamento: {
+          equipamentoCampos: [
+            { key: 'marca', label: 'Máquina' },
+            { key: 'campo_1', label: 'Bateria Tipo' },
+          ],
+          maquinas: [{ marca: 'STILL', modelo: 'FMX-10', campo_1: 'Chumbo' }],
+        },
+      },
+    };
+    const campos = suggestEquipamentoCampos(report);
+    const rows = suggestOrcamentoMaquinas(report);
+    assert.equal(campos[1].label, 'Bateria Tipo');
+    assert.equal(rows[0].marca, 'STILL');
+    assert.equal(rows[0].campo_1, 'Chumbo');
   });
 
   it('associa linhas de orçamento ao equipamento', () => {

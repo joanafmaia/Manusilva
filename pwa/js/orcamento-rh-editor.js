@@ -28,6 +28,7 @@ import {
 } from './pedido-orcamento.js';
 import { bindOrcamentoCatalogoComboboxes } from './orcamento-catalogo-combobox.js';
 import { escapeHtml } from './html-utils.js';
+import { reportIsStandaloneOrcamento } from './orcamento-standalone.js';
 
 function defaultOrcamentoEmail(report, client) {
   const meta = getReportOrcamentoMeta(report);
@@ -97,6 +98,15 @@ export function renderOrcamentoEditor(report, { client } = {}) {
   const emailDestinatario = escapeHtml(defaultOrcamentoEmail(report, client));
   const clienteEmailHint = escapeHtml(client?.email || client?.['E-mail'] || '');
   const cab = resolveOrcamentoCabecalho(report);
+  const isStandalone = reportIsStandaloneOrcamento(report);
+  const apoioOrcamentoField = isStandalone
+    ? ''
+    : `
+        <label class="review-orc-field review-orc-field--full">
+          <span>Apoio do orçamento</span>
+          <textarea class="review-orc-input review-orc-textarea" data-orc-field="observacoesTecnico" rows="3" placeholder="O que é necessário (relatório técnico)">${escapeHtml(cab.observacoesTecnico)}</textarea>
+          <span class="review-orc-field-hint text-muted">Preenchido a partir de «O que é necessário» no relatório — apoio interno à faturação, não incluído no PDF da proposta.</span>
+        </label>`;
 
   return `
     <div class="review-orcamento-editor" id="orcamento-editor">
@@ -133,11 +143,7 @@ export function renderOrcamentoEditor(report, { client } = {}) {
           <textarea class="review-orc-input review-orc-textarea" data-orc-field="observacoesCliente" rows="3" placeholder="Texto explicativo para o cliente (aparece no PDF da proposta)">${escapeHtml(cab.observacoesCliente)}</textarea>
           <span class="review-orc-field-hint text-muted">Incluído no PDF MS.015 enviado ao cliente.</span>
         </label>
-        <label class="review-orc-field review-orc-field--full">
-          <span>Apoio do orçamento</span>
-          <textarea class="review-orc-input review-orc-textarea" data-orc-field="observacoesTecnico" rows="3" placeholder="O que é necessário (relatório técnico)">${escapeHtml(cab.observacoesTecnico)}</textarea>
-          <span class="review-orc-field-hint text-muted">Preenchido a partir de «O que é necessário» no relatório — apoio interno à faturação, não incluído no PDF da proposta.</span>
-        </label>
+        ${apoioOrcamentoField}
       </section>
 
       <label class="review-orc-field review-orc-field--email">

@@ -56,16 +56,22 @@ export function buildOrcamentoFillData(report, job = null) {
   const values = report?.data?.values || {};
   const resolvedJob = job || (report?.jobId ? getJob(report.jobId) : null);
   const year = new Date().getFullYear();
+  const orcamentoMeta = getReportOrcamentoMeta(report);
   const cabecalho = resolveOrcamentoCabecalho(report);
   const equipamentoCampos = normalizeEquipamentoCampos(
-    cabecalho.equipamentoCampos || suggestEquipamentoCampos(report),
+    orcamentoMeta?.equipamentoCampos ??
+      cabecalho.equipamentoCampos ??
+      suggestEquipamentoCampos(report),
   );
-  const maquinas = normalizeOrcamentoMaquinasList(cabecalho.maquinas || suggestOrcamentoMaquinas(report), equipamentoCampos).filter(
-    (row) => hasOrcamentoMaquinaData(row, equipamentoCampos),
+  const maquinasRaw =
+    Array.isArray(orcamentoMeta?.maquinas) && orcamentoMeta.maquinas.length
+      ? orcamentoMeta.maquinas
+      : cabecalho.maquinas || suggestOrcamentoMaquinas(report);
+  const maquinasNormalized = normalizeOrcamentoMaquinasList(maquinasRaw, equipamentoCampos);
+  const maquinasWithData = maquinasNormalized.filter((row) =>
+    hasOrcamentoMaquinaData(row, equipamentoCampos),
   );
-  const maquinasForPdf = maquinas.length
-    ? maquinas
-    : normalizeOrcamentoMaquinasList(suggestOrcamentoMaquinas(report), equipamentoCampos);
+  const maquinasForPdf = maquinasWithData.length ? maquinasWithData : maquinasNormalized;
   const firstMachine = maquinasForPdf[0] || {};
   const legacyMaquina = [firstMachine.marca, firstMachine.modelo, firstMachine.tipo]
     .map((value) => String(value || '').trim())
@@ -74,7 +80,6 @@ export function buildOrcamentoFillData(report, job = null) {
   const legacyMatricula = firstMachine.numeroInterno || firstMachine.numeroSerie || '';
   const observacoesCliente = String(cabecalho.observacoesCliente || '').trim();
 
-  const orcamentoMeta = getReportOrcamentoMeta(report);
   const orcamentoNumero = resolveOrcamentoNumeroFormatado(orcamentoMeta, {
     year,
     numeroOrdem: resolvedJob?.numeroOrdem ?? null,

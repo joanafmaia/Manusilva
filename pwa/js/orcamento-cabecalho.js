@@ -5,6 +5,8 @@
 import { getClient, getForklift, getJob, getServiceType } from './app.js';
 import { migrateLegacyEmpilhadoresMaquinas } from './views/relatorio-empilhadores-maquinas.js';
 import { getPedidoOrcamentoDetalhe, reportHasPedidoOrcamento } from './pedido-orcamento.js';
+import { reportIsStandaloneOrcamento } from './orcamento-standalone.js';
+import { suggestEquipamentoCampos } from './orcamento-equipamento-campos.js';
 import {
   hasOrcamentoMaquinaData,
   normalizeOrcamentoMaquina,
@@ -13,7 +15,6 @@ import {
   readOrcamentoEquipamentoCamposFromDom,
   syncLegacyMaquinaFieldsFromList,
 } from './orcamento-maquinas.js';
-import { suggestEquipamentoCampos } from './orcamento-equipamento-campos.js';
 
 export const ORCAMENTO_FORMA_PAGAMENTO_DEFAULT = 'Pronto Pagamento';
 export const ORCAMENTO_VALIDADE_DEFAULT = '10 Dias';
@@ -70,8 +71,11 @@ export function resolveReportObservacoesTecnico(report) {
 /** Sugere máquinas a partir do relatório técnico ou meta RH guardada. */
 export function suggestOrcamentoMaquinas(report) {
   const meta = readOrcamentoMeta(report);
-  const saved = normalizeOrcamentoMaquinasList(meta.maquinas);
-  if (saved.some(hasOrcamentoMaquinaData)) return saved;
+  const campos = suggestEquipamentoCampos(report);
+  if (Array.isArray(meta.maquinas) && meta.maquinas.length) {
+    const saved = normalizeOrcamentoMaquinasList(meta.maquinas, campos);
+    if (saved.some((row) => hasOrcamentoMaquinaData(row, campos))) return saved;
+  }
 
   const serviceType = String(report?.serviceType || '');
   const values = report?.data?.values || {};
@@ -79,14 +83,17 @@ export function suggestOrcamentoMaquinas(report) {
   if (serviceType === 'manutencao_preventiva_empilhadores') {
     const fromReport = migrateLegacyEmpilhadoresMaquinas(values)
       .map((row) =>
-        normalizeOrcamentoMaquina({
-          marca: row.marca,
-          modelo: row.modelo,
-          numeroSerie: row.numero_de_serie,
-          numeroInterno: row.n_interno,
-        }),
+        normalizeOrcamentoMaquina(
+          {
+            marca: row.marca,
+            modelo: row.modelo,
+            numeroSerie: row.numero_de_serie,
+            numeroInterno: row.n_interno,
+          },
+          campos,
+        ),
       )
-      .filter(hasOrcamentoMaquinaData);
+      .filter((row) => hasOrcamentoMaquinaData(row, campos));
     if (fromReport.length) return fromReport;
   }
 
@@ -95,26 +102,32 @@ export function suggestOrcamentoMaquinas(report) {
     if (Array.isArray(rows)) {
       const fromBaterias = rows
         .map((row) =>
-          normalizeOrcamentoMaquina({
-            marca: row?.maquina,
-            tipo: row?.tipo,
-            numeroInterno: row?.matricula,
-          }),
+          normalizeOrcamentoMaquina(
+            {
+              marca: row?.maquina,
+              tipo: row?.tipo,
+              numeroInterno: row?.matricula,
+            },
+            campos,
+          ),
         )
-        .filter(hasOrcamentoMaquinaData);
+        .filter((row) => hasOrcamentoMaquinaData(row, campos));
       if (fromBaterias.length) return fromBaterias;
     }
   }
 
   const equip = resolveReportEquipamentoFields(report);
   return [
-    normalizeOrcamentoMaquina({
-      marca: equip.marca,
-      modelo: equip.modelo,
-      tipo: equip.tipo,
-      numeroSerie: equip.numeroSerie,
-      numeroInterno: equip.numeroInterno,
-    }),
+    normalizeOrcamentoMaquina(
+      {
+        marca: equip.marca,
+        modelo: equip.modelo,
+        tipo: equip.tipo,
+        numeroSerie: equip.numeroSerie,
+        numeroInterno: equip.numeroInterno,
+      },
+      campos,
+    ),
   ];
 }
 
@@ -238,7 +251,9 @@ function buildDefaultsFromReport(report) {
     numeroInterno: equipamento.numeroInterno,
     maquina: equipamento.maquina,
     matricula: equipamento.matricula,
-    observacoesTecnico: resolveReportObservacoesTecnico(report),
+    observacoesTecnico: reportIsStandaloneOrcamento(report)
+      ? ''
+      : resolveReportObservacoesTecnico(report),
     observacoesCliente: '',
     textoIntro: suggestOrcamentoTextoIntro(report),
     formaPagamento: ORCAMENTO_FORMA_PAGAMENTO_DEFAULT,
@@ -315,6 +330,7 @@ export function resolveOrcamentoCabecalho(report) {
       numeroInterno: picked.numeroInterno || legacy.numeroInterno,
       formaPagamento: picked.formaPagamento || ORCAMENTO_FORMA_PAGAMENTO_DEFAULT,
       validadeOrcamento: picked.validadeOrcamento || ORCAMENTO_VALIDADE_DEFAULT,
+      observacoesTecnico: reportIsStandaloneOrcamento(report) ? '' : picked.observacoesTecnico,
     },
     maquinas,
   );
@@ -336,7 +352,7 @@ export function readOrcamentoCabecalhoFromDom(root, report) {
       tipo: legacy.tipo,
       numeroSerie: legacy.numeroSerie,
       numeroInterno: legacy.numeroInterno,
-      observacoesTecnico: read('observacoesTecnico'),
+      observacoesTecnico: reportIsStandaloneOrcamento(report) ? '' : read('observacoesTecnico'),
       observacoesCliente: read('observacoesCliente'),
       textoIntro: read('textoIntro') || suggestOrcamentoTextoIntro(report, maquinas.length || 1),
       formaPagamento: read('formaPagamento') || ORCAMENTO_FORMA_PAGAMENTO_DEFAULT,
