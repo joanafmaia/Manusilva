@@ -459,7 +459,7 @@ function buildHtmlBody(payload = {}, options = {}) {
             <tr>
               <td style="padding:20px 24px 16px 24px;border-bottom:1px solid #e2e8f0;">
                 <p style="margin:0;font-size:16px;font-weight:700;color:#0f172a;">ManuSilva</p>
-                <p style="margin:4px 0 0 0;font-size:12px;color:#64748b;">Proposta comercial MS.015</p>
+                <p style="margin:4px 0 0 0;font-size:12px;color:#64748b;">Proposta comercial</p>
               </td>
             </tr>
             <tr>

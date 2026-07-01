@@ -119,7 +119,7 @@ export function renderOrcamentoEditor(report, { client } = {}) {
         </p>
       </div>
 
-      <section class="review-orc-cabecalho" aria-label="Dados da proposta MS.015">
+      <section class="review-orc-cabecalho" aria-label="Dados da proposta comercial">
         <h4 class="review-orc-cabecalho__title">Dados da proposta</h4>
         <div class="review-orc-cabecalho__grid">
           <div class="review-orc-field review-orc-field--readonly">
@@ -141,7 +141,7 @@ export function renderOrcamentoEditor(report, { client } = {}) {
         <label class="review-orc-field review-orc-field--full">
           <span>Observações ao cliente</span>
           <textarea class="review-orc-input review-orc-textarea" data-orc-field="observacoesCliente" rows="3" placeholder="Texto explicativo para o cliente (aparece no PDF da proposta)">${escapeHtml(cab.observacoesCliente)}</textarea>
-          <span class="review-orc-field-hint text-muted">Incluído no PDF MS.015 enviado ao cliente.</span>
+          <span class="review-orc-field-hint text-muted">Incluído no PDF da proposta enviado ao cliente.</span>
         </label>
         ${apoioOrcamentoField}
       </section>
@@ -207,7 +207,7 @@ export function renderOrcamentoEditor(report, { client } = {}) {
         <button type="button" class="btn-outline btn-touch" id="orcamento-pdf">Ver PDF</button>
         <button type="button" class="btn-success btn-touch" id="orcamento-send-email">Enviar proposta por e-mail</button>
       </div>
-      <p class="text-muted review-orcamento-editor__hint">Guarde antes de enviar. O e-mail inclui apenas a proposta MS.015, não o relatório técnico.</p>
+      <p class="text-muted review-orcamento-editor__hint">Guarde antes de enviar. O e-mail inclui apenas a proposta comercial, não o relatório técnico.</p>
     </div>`;
 }
 
@@ -296,7 +296,7 @@ function bindLinhaEvents(root, report) {
 
 async function openOrcamentoPdf(report, { saveMeta }) {
   const { showToast } = await import('./app.js');
-  showToast('A atualizar proposta MS.015…', 'info', 2500);
+  showToast('A atualizar proposta comercial…', 'info', 2500);
   const saved = await saveMeta();
   const url = getReportOrcamentoPdfUrl(saved);
   if (!url) {
@@ -345,9 +345,9 @@ export function bindOrcamentoEditor(container, { report, onUpdated } = {}) {
     btn.disabled = true;
     try {
       const { showToast } = await import('./app.js');
-      showToast('A guardar proposta MS.015…', 'info', 3000);
+      showToast('A guardar proposta comercial…', 'info', 3000);
       await saveMeta();
-      showToast('Proposta MS.015 guardada.', 'success');
+      showToast('Proposta comercial guardada.', 'success');
     } catch (err) {
       console.error('[RH] Guardar orçamento:', err);
       const { showToast } = await import('./app.js');

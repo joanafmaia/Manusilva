@@ -348,7 +348,7 @@ export async function approveReport(reportId, options = {}) {
     ) {
       window.setTimeout(() => {
         showToast(
-          'Há pedido de orçamento: abra a aba Orçamentos na barra lateral para preparar a proposta MS.015.',
+          'Há pedido de orçamento: abra a aba Orçamentos na barra lateral para preparar a proposta comercial.',
           'info',
           9000,
         );
@@ -397,7 +397,7 @@ export async function cancelPedidoOrcamentoReport(reportId) {
     const client = getClient(report.clientId);
     const label = client?.name || client?.Nome || 'esta proposta';
     const ok = window.confirm(
-      `Eliminar a proposta MS.015 de ${label}?\n\nSerá removida por completo (não há relatório técnico associado).`,
+      `Eliminar a proposta comercial de ${label}?\n\nSerá removida por completo (não há relatório técnico associado).`,
     );
     if (!ok) return false;
     return deleteStandaloneOrcamentoReport(reportId);
@@ -410,7 +410,7 @@ export async function cancelPedidoOrcamentoReport(reportId) {
 
   const meta = report?.data?.orcamento;
   if (meta?.enviadoEm) {
-    showToast('A proposta MS.015 já foi enviada ao cliente. Não é possível eliminar o pedido.', 'warning', 8000);
+    showToast('A proposta comercial já foi enviada ao cliente. Não é possível eliminar o pedido.', 'warning', 8000);
     return false;
   }
 

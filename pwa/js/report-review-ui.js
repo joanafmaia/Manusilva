@@ -159,7 +159,7 @@ export function renderReviewOrcamentoBanner(report) {
   }
 
   const leadText = relatorioAprovado
-    ? 'O relatório técnico já foi aprovado. A proposta MS.015 prepara-se na aba Orçamentos — envio independente do relatório.'
+    ? 'O relatório técnico já foi aprovado. A proposta comercial prepara-se na aba Orçamentos — envio independente do relatório.'
     : 'Há pedido de orçamento. Após rever o relatório, prepare a proposta na aba Orçamentos (barra lateral).';
 
   return `

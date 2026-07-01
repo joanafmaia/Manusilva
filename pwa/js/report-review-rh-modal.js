@@ -168,7 +168,7 @@ export function buildRhReviewListItem({ job, report, client, tech }) {
   const age = formatReportAge(report?.submittedAt);
   const orcamentoBadge = reportHasPedidoOrcamento(report)
     ? reportOrcamentoPorPreparar(report)
-      ? '<span class="rh-list-item__orcamento-badge rh-list-item__orcamento-badge--pending" title="Proposta MS.015 por preparar">Orçamento</span>'
+      ? '<span class="rh-list-item__orcamento-badge rh-list-item__orcamento-badge--pending" title="Proposta comercial por preparar">Orçamento</span>'
       : '<span class="rh-list-item__orcamento-badge" title="Pedido de orçamento">Orçamento</span>'
     : '';
   const urgency = getReportUrgencyLevel(report?.submittedAt, report?.status);
@@ -461,7 +461,7 @@ export function buildRhReviewModalContent({
     hint:
       canResendEmail && !showWorkflow
         ? 'E-mail para reenvio do relatório técnico. Se alterar, a base de dados do cliente será atualizada.'
-        : 'E-mail para envio do relatório técnico após aprovação. A proposta MS.015 usa outro destinatário.',
+        : 'E-mail para envio do relatório técnico após aprovação. A proposta comercial usa outro destinatário.',
   });
   const hasFotos = reviewJobHasFotos(job, report);
   const checks = computeReviewChecks({ report, job, client, values });

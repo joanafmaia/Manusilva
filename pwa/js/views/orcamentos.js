@@ -210,7 +210,7 @@ function renderTableRow(report) {
               ? `<button type="button" class="btn-success btn-sm rh-btn-compact" data-orc-approve-report="${escapeHtml(report.id)}" title="Aprovar e enviar o relatório técnico ao cliente">Aprovar</button>`
               : ''
           }
-          <button type="button" class="btn-primary btn-sm rh-btn-compact" data-orc-open="${escapeHtml(report.id)}" title="${workflow === 'por_preparar' ? 'Preparar proposta MS.015' : 'Editar proposta'}">
+          <button type="button" class="btn-primary btn-sm rh-btn-compact" data-orc-open="${escapeHtml(report.id)}" title="${workflow === 'por_preparar' ? 'Preparar proposta comercial' : 'Editar proposta'}">
             ${workflow === 'por_preparar' ? 'Preparar' : 'Editar'}
           </button>
           ${
@@ -247,7 +247,7 @@ function renderPanel() {
     <div class="orcamentos-panel rh-admin-panel">
       <header class="orcamentos-header">
         <div class="orcamentos-header__top">
-          <h2 class="orcamentos-title">Orçamentos / Propostas MS.015</h2>
+          <h2 class="orcamentos-title">Orçamentos / Propostas comerciais</h2>
           <button type="button" class="btn-primary btn-touch orcamentos-new-btn" data-orc-new>
             Nova proposta
           </button>
@@ -373,7 +373,7 @@ function bindPanelEvents() {
         return;
       }
       const ok = window.confirm(
-        `Eliminar o pedido de orçamento de ${label}?\n\nO relatório técnico mantém-se. A proposta MS.015 por preparar será removida.`,
+        `Eliminar o pedido de orçamento de ${label}?\n\nO relatório técnico mantém-se. A proposta comercial por preparar será removida.`,
       );
       if (!ok) return;
       void cancelPedidoOrcamentoReport(reportId).then((done) => {

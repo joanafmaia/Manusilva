@@ -114,7 +114,7 @@ export function openNovaPropostaModal({ onCreated } = {}) {
   const content = `
     <form id="nova-proposta-form" class="nova-proposta-form">
       <p class="text-muted nova-proposta-lead">
-        Cria uma proposta comercial sem relatório de intervenção. Pode adicionar máquinas, linhas e gerar o PDF MS.015 de seguida.
+        Cria uma proposta comercial sem relatório de intervenção. Pode adicionar máquinas, linhas e gerar o PDF de seguida.
       </p>
       ${renderClientCombobox({
         fieldId: 'nova-proposta-client',
@@ -128,7 +128,7 @@ export function openNovaPropostaModal({ onCreated } = {}) {
     <button type="button" class="btn-outline" data-nova-proposta-cancel>Cancelar</button>
     <button type="button" class="btn-primary" data-nova-proposta-create>Criar proposta</button>`;
 
-  const overlay = openModal('Nova proposta MS.015', content, actions);
+  const overlay = openModal('Nova proposta comercial', content, actions);
   bindClientComboboxes(overlay);
 
   const combo = overlay.querySelector('[data-client-combobox][data-field-id="nova-proposta-client"]');
@@ -180,7 +180,7 @@ export function openNovaPropostaModal({ onCreated } = {}) {
 
 /** Etiqueta curta para listagens RH. */
 export function standaloneOrcamentoLabel() {
-  return 'Proposta RH';
+  return 'Proposta comercial';
 }
 
 export function reportOrcamentoQueueLabel(report) {

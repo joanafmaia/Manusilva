@@ -110,7 +110,7 @@ const RH_EMPTY_MESSAGES = {
   draft: 'Nenhum rascunho em curso.',
   approved: 'Nenhum relatório aprovado.',
   rejected: 'Nenhum relatório recusado.',
-  orcamento_pendente: 'Nenhuma proposta MS.015 por preparar.',
+  orcamento_pendente: 'Nenhuma proposta comercial por preparar.',
 };
 
 const AGENDA_SWIPE_OPEN_PX = 88;
