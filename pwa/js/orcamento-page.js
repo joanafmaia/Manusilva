@@ -83,5 +83,10 @@ export async function initOrcamentoPage() {
         titleNum.hidden = !num;
       }
     },
+    onSent: () => {
+      window.setTimeout(() => {
+        window.location.href = returnUrl || 'admin.html#orcamentos';
+      }, 900);
+    },
   });
 }

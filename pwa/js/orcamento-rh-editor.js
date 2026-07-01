@@ -35,6 +35,7 @@ import {
   resolveOrcamentoWorkflowStatus,
   setOrcamentoRespostaCliente,
 } from './orcamento-workflow.js';
+import { formatInterventionDatePt } from './report-intervention-date.js';
 
 function defaultOrcamentoEmail(report, client) {
   const meta = getReportOrcamentoMeta(report);
@@ -90,8 +91,67 @@ function renderTotals(meta) {
   };
 }
 
+function renderOrcamentoRespostaSection(report) {
+  const workflow = resolveOrcamentoWorkflowStatus(report);
+  return `
+    <section class="review-orc-resposta" aria-label="Resposta do cliente">
+      <h4 class="review-orc-cabecalho__title">Resposta do cliente</h4>
+      <p class="review-orc-resposta__status">
+        Estado:
+        <span class="orcamentos-status ${resolveOrcamentoWorkflowClass(workflow)}">${escapeHtml(resolveOrcamentoWorkflowLabel(workflow))}</span>
+      </p>
+      <div class="review-orc-resposta__actions">
+        <button type="button" class="btn-success btn-sm btn-touch" data-orc-mark-aceite>Marca aceite</button>
+        <button type="button" class="btn-danger btn-sm btn-touch" data-orc-mark-recusada>Marca recusada</button>
+      </div>
+      <p class="text-muted review-orcamento-editor__hint">Registe aqui se o cliente aceitou ou recusou a proposta enviada.</p>
+    </section>`;
+}
+
+function renderOrcamentoSentSummary(report, { client } = {}) {
+  const meta = getReportOrcamentoMeta(report) || {};
+  const numeroLabel =
+    meta.numeroFormatado ||
+    (meta.numeroSequencial
+      ? formatOrcamentoNumeroLabel(meta.numeroSequencial, meta.ano)
+      : '—');
+  const workflow = resolveOrcamentoWorkflowStatus(report);
+  const enviadoEm = formatInterventionDatePt(meta.enviadoEm) || '—';
+  const email = escapeHtml(meta.emailDestinatario || defaultOrcamentoEmail(report, client) || '—');
+  const pdfUrl = getReportOrcamentoPdfUrl(report);
+
+  return `
+    <div class="review-orcamento-editor review-orcamento-editor--sent" id="orcamento-editor" data-orc-sent="1">
+      <div class="review-orcamento-editor__head">
+        <p class="review-orcamento-editor__numero">
+          Orçamento nº <strong>${escapeHtml(numeroLabel)}</strong>
+        </p>
+      </div>
+      <p class="review-orcamento-sent-notice">
+        Esta proposta já foi enviada ao cliente em <strong>${escapeHtml(enviadoEm)}</strong>.
+        Não é possível alterá-la — use a lista de orçamentos para consultar o PDF ou registar a resposta.
+      </p>
+      <dl class="review-orcamento-sent-meta">
+        <div><dt>Estado</dt><dd><span class="orcamentos-status ${resolveOrcamentoWorkflowClass(workflow)}">${escapeHtml(resolveOrcamentoWorkflowLabel(workflow))}</span></dd></div>
+        <div><dt>Enviada para</dt><dd>${email}</dd></div>
+      </dl>
+      ${renderOrcamentoRespostaSection(report)}
+      <div class="review-orcamento-editor__actions">
+        ${
+          pdfUrl
+            ? '<button type="button" class="btn-outline btn-touch" id="orcamento-pdf-open">Ver PDF da proposta</button>'
+            : ''
+        }
+      </div>
+    </div>`;
+}
+
 export function renderOrcamentoEditor(report, { client } = {}) {
   const meta = getReportOrcamentoMeta(report) || buildOrcamentoMetaDraft(report);
+  if (meta?.enviadoEm) {
+    return renderOrcamentoSentSummary(report, { client });
+  }
+
   const linhas = suggestOrcamentoLinhas(report);
   const numeroLabel =
     meta.numeroFormatado ||
@@ -105,23 +165,6 @@ export function renderOrcamentoEditor(report, { client } = {}) {
   const clienteEmailHint = escapeHtml(client?.email || client?.['E-mail'] || '');
   const cab = resolveOrcamentoCabecalho(report);
   const isStandalone = reportIsStandaloneOrcamento(report);
-  const workflow = resolveOrcamentoWorkflowStatus(report);
-  const metaEnviado = Boolean(meta?.enviadoEm);
-  const respostaSection = metaEnviado
-    ? `
-      <section class="review-orc-resposta" aria-label="Resposta do cliente">
-        <h4 class="review-orc-cabecalho__title">Resposta do cliente</h4>
-        <p class="review-orc-resposta__status">
-          Estado:
-          <span class="orcamentos-status ${resolveOrcamentoWorkflowClass(workflow)}">${escapeHtml(resolveOrcamentoWorkflowLabel(workflow))}</span>
-        </p>
-        <div class="review-orc-resposta__actions">
-          <button type="button" class="btn-success btn-sm btn-touch" data-orc-mark-aceite>Marca aceite</button>
-          <button type="button" class="btn-danger btn-sm btn-touch" data-orc-mark-recusada>Marca recusada</button>
-        </div>
-        <p class="text-muted review-orcamento-editor__hint">Registe aqui se o cliente aceitou ou recusou a proposta enviada.</p>
-      </section>`
-    : '';
   const apoioOrcamentoField = isStandalone
     ? ''
     : `
@@ -224,8 +267,6 @@ export function renderOrcamentoEditor(report, { client } = {}) {
         <div><span>IVA (23%)</span><strong data-orc-iva>${totals.iva} €</strong></div>
         <div class="review-orcamento-editor__total-line"><span>Total</span><strong data-orc-total>${totals.total} €</strong></div>
       </div>
-
-      ${respostaSection}
 
       <div class="review-orcamento-editor__actions review-orcamento-editor__actions--split">
         <button type="button" class="btn-primary btn-touch" id="review-orc-save">Guardar proposta</button>
@@ -332,15 +373,74 @@ async function openOrcamentoPdf(report, { saveMeta }) {
   return saved;
 }
 
+function bindOrcamentoRespostaActions(root, { getReport, onUpdated }) {
+  root.querySelector('[data-orc-mark-aceite]')?.addEventListener('click', async () => {
+    try {
+      const { showToast } = await import('./app.js');
+      const current = getReport();
+      const saved = await setOrcamentoRespostaCliente(current.id, 'aceite');
+      if (!saved) throw new Error('Não foi possível guardar.');
+      onUpdated?.(saved);
+      showToast('Proposta marcada como aceite.', 'success');
+      window.location.reload();
+    } catch (err) {
+      const { showToast } = await import('./app.js');
+      showToast(err?.message || 'Erro ao guardar.', 'error');
+    }
+  });
+
+  root.querySelector('[data-orc-mark-recusada]')?.addEventListener('click', async () => {
+    try {
+      const { showToast } = await import('./app.js');
+      const current = getReport();
+      const saved = await setOrcamentoRespostaCliente(current.id, 'recusada');
+      if (!saved) throw new Error('Não foi possível guardar.');
+      onUpdated?.(saved);
+      showToast('Proposta marcada como recusada.', 'info');
+      window.location.reload();
+    } catch (err) {
+      const { showToast } = await import('./app.js');
+      showToast(err?.message || 'Erro ao guardar.', 'error');
+    }
+  });
+}
+
+function bindOrcamentoSentView(root, { report, onUpdated }) {
+  let currentReport = report;
+
+  root.querySelector('#orcamento-pdf-open')?.addEventListener('click', async () => {
+    const url = getReportOrcamentoPdfUrl(currentReport);
+    if (!url) {
+      const { showToast } = await import('./app.js');
+      showToast('PDF da proposta não disponível.', 'warning');
+      return;
+    }
+    openOrcamentoStorageUrl(url);
+  });
+
+  bindOrcamentoRespostaActions(root, {
+    getReport: () => currentReport,
+    onUpdated: (saved) => {
+      currentReport = saved;
+      onUpdated?.(saved);
+    },
+  });
+}
+
 /**
  * @param {HTMLElement} container
- * @param {{ report: object, onUpdated?: (report: object) => void }} ctx
+ * @param {{ report: object, onUpdated?: (report: object) => void, onSent?: (report: object) => void }} ctx
  */
-export function bindOrcamentoEditor(container, { report, onUpdated } = {}) {
+export function bindOrcamentoEditor(container, { report, onUpdated, onSent } = {}) {
   const root = container?.querySelector('#orcamento-editor');
   if (!root) return;
 
   let currentReport = report;
+
+  if (root.dataset.orcSent === '1' || getReportOrcamentoMeta(currentReport)?.enviadoEm) {
+    bindOrcamentoSentView(root, { report: currentReport, onUpdated });
+    return;
+  }
 
   const syncEquipColumn = () => syncOrcamentoLinhaEquipamentoColumn(root);
 
@@ -397,34 +497,6 @@ export function bindOrcamentoEditor(container, { report, onUpdated } = {}) {
       showToast(err?.message || 'Erro ao abrir o PDF.', 'error');
     } finally {
       btn.disabled = false;
-    }
-  });
-
-  root.querySelector('[data-orc-mark-aceite]')?.addEventListener('click', async () => {
-    try {
-      const { showToast } = await import('./app.js');
-      const saved = await setOrcamentoRespostaCliente(currentReport.id, 'aceite');
-      if (!saved) throw new Error('Não foi possível guardar.');
-      currentReport = saved;
-      onUpdated?.(saved);
-      showToast('Proposta marcada como aceite.', 'success');
-    } catch (err) {
-      const { showToast } = await import('./app.js');
-      showToast(err?.message || 'Erro ao guardar.', 'error');
-    }
-  });
-
-  root.querySelector('[data-orc-mark-recusada]')?.addEventListener('click', async () => {
-    try {
-      const { showToast } = await import('./app.js');
-      const saved = await setOrcamentoRespostaCliente(currentReport.id, 'recusada');
-      if (!saved) throw new Error('Não foi possível guardar.');
-      currentReport = saved;
-      onUpdated?.(saved);
-      showToast('Proposta marcada como recusada.', 'info');
-    } catch (err) {
-      const { showToast } = await import('./app.js');
-      showToast(err?.message || 'Erro ao guardar.', 'error');
     }
   });
 
@@ -486,7 +558,8 @@ export function bindOrcamentoEditor(container, { report, onUpdated } = {}) {
       });
 
       mergeReportInCache(saved);
-      showToast(`Proposta enviada para ${email}.`, 'success', 6000);
+      showToast(`Proposta enviada para ${email}.`, 'success', 4000);
+      onSent?.(saved);
     } catch (err) {
       console.error('[Orçamento] Envio e-mail:', err);
       const { showToast } = await import('./app.js');

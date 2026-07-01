@@ -9935,6 +9935,29 @@ details[open] .expand-icon { transform: rotate(90deg); }
   flex-wrap: wrap;
   gap: 0.5rem;
 }
+.review-orcamento-sent-notice {
+  margin: 0 0 1rem;
+  padding: 0.85rem 1rem;
+  border-radius: 8px;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  color: #065f46;
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+.review-orcamento-sent-meta {
+  display: grid;
+  gap: 0.5rem 1.5rem;
+  margin: 0 0 1rem;
+  font-size: 0.9rem;
+}
+.review-orcamento-sent-meta dt {
+  font-weight: 600;
+  color: var(--text-muted, #6b7280);
+}
+.review-orcamento-sent-meta dd {
+  margin: 0.15rem 0 0;
+}
 .review-orcamento-preview {
   margin: 0 0 0.65rem;
   font-size: 0.85rem;

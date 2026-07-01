@@ -178,6 +178,7 @@ function renderTableRow(report) {
   const techPdfUrl = getReportTechnicalPdfUrl(report) || (job?.urlPdf ? String(job.urlPdf).trim() : '');
   const canApproveReport = !reportIsStandaloneOrcamento(report) && report.status === 'pending_review';
   const canCancelPedido = !meta?.enviadoEm;
+  const canEditProposal = !meta?.enviadoEm;
   const canReviewReport = !reportIsStandaloneOrcamento(report);
   const aguardaResposta = orcamentoAguardaRespostaCliente(report);
   const podeMarcarResposta = Boolean(meta?.enviadoEm);
@@ -205,9 +206,13 @@ function renderTableRow(report) {
               ? `<button type="button" class="btn-success btn-sm rh-btn-compact" data-orc-approve-report="${escapeHtml(report.id)}" title="Aprovar e enviar o relatório técnico ao cliente">Aprovar</button>`
               : ''
           }
-          <button type="button" class="btn-primary btn-sm rh-btn-compact" data-orc-open="${escapeHtml(report.id)}" title="${workflow === 'por_preparar' ? 'Preparar proposta comercial' : 'Editar proposta'}">
+          ${
+            canEditProposal
+              ? `<button type="button" class="btn-primary btn-sm rh-btn-compact" data-orc-open="${escapeHtml(report.id)}" title="${workflow === 'por_preparar' ? 'Preparar proposta comercial' : 'Editar proposta'}">
             ${workflow === 'por_preparar' ? 'Preparar' : 'Editar'}
-          </button>
+          </button>`
+              : ''
+          }
           ${
             pdfUrl
               ? `<button type="button" class="btn-outline btn-sm rh-btn-compact" data-orc-pdf="${escapeHtml(report.id)}" title="Abrir PDF da proposta comercial">PDF</button>`
