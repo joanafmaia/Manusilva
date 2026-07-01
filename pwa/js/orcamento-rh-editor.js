@@ -132,12 +132,12 @@ export function renderOrcamentoEditor(report, { client } = {}) {
             <input type="text" class="review-orc-input" data-orc-field="clienteAc" value="${escapeHtml(cab.clienteAc)}" placeholder="Destinatário / contacto" />
           </label>
         </div>
-        ${renderOrcamentoMaquinasSection(cab.maquinas, cab.equipamentoCampos)}
         <label class="review-orc-field review-orc-field--full">
           <span>Texto introdutório (PDF)</span>
           <textarea class="review-orc-input review-orc-textarea" data-orc-field="textoIntro" rows="2" placeholder="Frase antes dos dados da máquina">${escapeHtml(cab.textoIntro)}</textarea>
           <span class="review-orc-field-hint text-muted">Aparece no início da proposta, antes dos equipamentos.</span>
         </label>
+        ${renderOrcamentoMaquinasSection(cab.maquinas, cab.equipamentoCampos)}
         <label class="review-orc-field review-orc-field--full">
           <span>Observações ao cliente</span>
           <textarea class="review-orc-input review-orc-textarea" data-orc-field="observacoesCliente" rows="3" placeholder="Texto explicativo para o cliente (aparece no PDF da proposta)">${escapeHtml(cab.observacoesCliente)}</textarea>
