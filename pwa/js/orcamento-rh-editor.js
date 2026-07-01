@@ -381,7 +381,9 @@ export function bindOrcamentoEditor(container, { report, onUpdated } = {}) {
     try {
       const { showToast, getClient, getJob, getTechnician, sendOrcamentoProposalEmail } =
         await import('./app.js');
-      const { resolveReportInterventionDatePt } = await import('./report-intervention-date.js');
+      const { resolveOrcamentoDocumentDate } = await import('./orcamento-fill-data.js');
+      const { formatInterventionDatePt } = await import('./report-intervention-date.js');
+      const { mergeReportInCache } = await import('./relatorios-db.js');
       const { isValidEmail } = await import('./validators.js');
 
       const meta = readOrcamentoFormFromDom(root, currentReport);
@@ -395,14 +397,20 @@ export function bindOrcamentoEditor(container, { report, onUpdated } = {}) {
         return;
       }
 
+      const sentAt = new Date().toISOString();
+      meta.emailDestinatario = email;
+      meta.enviadoEm = sentAt;
+
       showToast('A preparar envio da proposta…', 'info', 3000);
-      const saved = await saveMeta();
+      const { saveAndRegenerateOrcamento } = await import('./orcamento-pdf-service.js');
+      const saved = await saveAndRegenerateOrcamento(currentReport, meta);
+      if (!saved) throw new Error('Não foi possível guardar a proposta.');
       currentReport = saved;
       onUpdated?.(saved);
 
       const pdfUrl = getReportOrcamentoPdfUrl(saved);
       if (!pdfUrl) {
-        showToast('Gere o PDF da proposta antes de enviar.', 'error');
+        showToast('Não foi possível gerar o PDF da proposta.', 'error');
         return;
       }
 
@@ -416,28 +424,13 @@ export function bindOrcamentoEditor(container, { report, onUpdated } = {}) {
         reportId: saved.id,
         clienteNome: values.nome_empresa || values.cliente || client?.name || client?.Nome || '',
         tecnico: values.tecnico || tech?.name || '',
-        dataConclusao: resolveReportInterventionDatePt(saved, job),
+        dataConclusao: formatInterventionDatePt(resolveOrcamentoDocumentDate(saved)),
         orcamentoNumero: saved.data?.orcamento?.numeroFormatado || '',
         numeroOrdem: job?.numeroOrdem ?? null,
         pdfUrl,
       });
 
-      const { updateRelatorio, mergeReportInCache } = await import('./relatorios-db.js');
-      const withSent = await updateRelatorio(saved.id, {
-        data: {
-          orcamento: {
-            ...(saved.data?.orcamento || {}),
-            emailDestinatario: email,
-            enviadoEm: new Date().toISOString(),
-          },
-        },
-      });
-      if (withSent) {
-        mergeReportInCache(withSent);
-        currentReport = withSent;
-        onUpdated?.(withSent);
-      }
-
+      mergeReportInCache(saved);
       showToast(`Proposta enviada para ${email}.`, 'success', 6000);
     } catch (err) {
       console.error('[Orçamento] Envio e-mail:', err);

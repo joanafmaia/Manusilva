@@ -52,6 +52,16 @@ export function formatOrcamentoDateLong(raw) {
   return text;
 }
 
+/**
+ * Data do documento da proposta — dia em que a proposta é (ou foi) enviada ao cliente.
+ * Não usa a data da intervenção técnica.
+ */
+export function resolveOrcamentoDocumentDate(report) {
+  const enviadoEm = getReportOrcamentoMeta(report)?.enviadoEm;
+  if (enviadoEm) return String(enviadoEm).trim();
+  return new Date().toISOString();
+}
+
 export function buildOrcamentoFillData(report, job = null) {
   const values = report?.data?.values || {};
   const resolvedJob = job || (report?.jobId ? getJob(report.jobId) : null);
@@ -93,9 +103,7 @@ export function buildOrcamentoFillData(report, job = null) {
   const prazoEntrega = String(orcamentoMeta?.prazoEntrega || '').trim();
   const totals = computeOrcamentoTotals(linhas, taxaSaida);
 
-  const dataExtenso = formatOrcamentoDateLong(
-    values.data_de_conclusao || report?.submittedAt || report?.approvedAt,
-  );
+  const dataExtenso = formatOrcamentoDateLong(resolveOrcamentoDocumentDate(report));
 
   const display = (value) => {
     const text = String(value ?? '').trim();
