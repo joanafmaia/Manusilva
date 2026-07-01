@@ -10,8 +10,10 @@ import {
   normalizeOrcamentoMaquina,
   normalizeOrcamentoMaquinasList,
   readOrcamentoMaquinasFromDom,
+  readOrcamentoEquipamentoCamposFromDom,
   syncLegacyMaquinaFieldsFromList,
 } from './orcamento-maquinas.js';
+import { suggestEquipamentoCampos } from './orcamento-equipamento-campos.js';
 
 export const ORCAMENTO_FORMA_PAGAMENTO_DEFAULT = 'Pronto Pagamento';
 export const ORCAMENTO_VALIDADE_DEFAULT = '10 Dias';
@@ -298,7 +300,8 @@ export function resolveOrcamentoCabecalho(report) {
     CABECALHO_FIELD_KEYS.map((key) => [key, pickCabecalhoField(meta, defaults, key)]),
   );
   const maquinas = suggestOrcamentoMaquinas(report);
-  const legacy = syncLegacyMaquinaFieldsFromList(maquinas);
+  const equipamentoCampos = suggestEquipamentoCampos(report);
+  const legacy = syncLegacyMaquinaFieldsFromList(maquinas, equipamentoCampos);
 
   const cabecalho = syncDerivedEquipamento(
     {
@@ -316,13 +319,14 @@ export function resolveOrcamentoCabecalho(report) {
     maquinas,
   );
 
-  return { ...cabecalho, maquinas };
+  return { ...cabecalho, maquinas, equipamentoCampos };
 }
 
 export function readOrcamentoCabecalhoFromDom(root, report) {
   const read = (field) => root?.querySelector(`[data-orc-field="${field}"]`)?.value?.trim() || '';
-  const maquinas = readOrcamentoMaquinasFromDom(root);
-  const legacy = syncLegacyMaquinaFieldsFromList(maquinas);
+  const equipamentoCampos = readOrcamentoEquipamentoCamposFromDom(root);
+  const maquinas = readOrcamentoMaquinasFromDom(root, equipamentoCampos);
+  const legacy = syncLegacyMaquinaFieldsFromList(maquinas, equipamentoCampos);
   const cabecalho = syncDerivedEquipamento(
     {
       clienteNome: resolveOrcamentoClienteNome(report),
@@ -340,5 +344,5 @@ export function readOrcamentoCabecalhoFromDom(root, report) {
     },
     maquinas,
   );
-  return { ...cabecalho, maquinas };
+  return { ...cabecalho, maquinas, equipamentoCampos };
 }

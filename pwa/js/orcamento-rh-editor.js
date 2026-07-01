@@ -122,7 +122,7 @@ export function renderOrcamentoEditor(report, { client } = {}) {
             <input type="text" class="review-orc-input" data-orc-field="clienteAc" value="${escapeHtml(cab.clienteAc)}" placeholder="Destinatário / contacto" />
           </label>
         </div>
-        ${renderOrcamentoMaquinasSection(cab.maquinas)}
+        ${renderOrcamentoMaquinasSection(cab.maquinas, cab.equipamentoCampos)}
         <label class="review-orc-field review-orc-field--full">
           <span>Texto introdutório (PDF)</span>
           <textarea class="review-orc-input review-orc-textarea" data-orc-field="textoIntro" rows="2" placeholder="Frase antes dos dados da máquina">${escapeHtml(cab.textoIntro)}</textarea>

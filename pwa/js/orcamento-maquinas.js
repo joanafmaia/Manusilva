@@ -1,44 +1,45 @@
 /**
- * Máquinas da proposta MS.015 — vários equipamentos por orçamento.
+ * Máquinas da proposta MS.015 — vários equipamentos, campos editáveis por orçamento.
  */
 
-import {
-  LABEL_MARCA,
-  LABEL_MODELO,
-  LABEL_TIPO,
-  LABEL_NUMERO_SERIE,
-  LABEL_N_INTERNO,
-} from './field-labels.js';
+import { LABEL_N_INTERNO, LABEL_MAQUINA, LABEL_MATRICULA } from './field-labels.js';
 import { escapeHtml } from './html-utils.js';
+import {
+  normalizeEquipamentoCampos,
+  nextEquipamentoCampoKey,
+  readOrcamentoEquipamentoCamposFromDom,
+  renderOrcamentoEquipamentoCamposSection,
+} from './orcamento-equipamento-campos.js';
 
-export function emptyOrcamentoMaquina() {
-  return {
-    marca: '',
-    modelo: '',
-    tipo: '',
-    numeroSerie: '',
-    numeroInterno: '',
-  };
+function readMaquinaFieldValue(raw, key) {
+  if (raw == null || typeof raw !== 'object') return '';
+  if (Object.prototype.hasOwnProperty.call(raw, key)) {
+    return String(raw[key] ?? '').trim();
+  }
+  if (key === 'numeroSerie') return String(raw.numero_de_serie ?? '').trim();
+  if (key === 'numeroInterno') return String(raw.n_interno ?? raw.numeroInterno ?? '').trim();
+  return '';
 }
 
-export function hasOrcamentoMaquinaData(row) {
-  const m = normalizeOrcamentoMaquina(row);
-  return Boolean(m.marca || m.modelo || m.tipo || m.numeroSerie || m.numeroInterno);
+export function emptyOrcamentoMaquina(campos = null) {
+  const fields = normalizeEquipamentoCampos(campos);
+  return Object.fromEntries(fields.map(({ key }) => [key, '']));
 }
 
-export function normalizeOrcamentoMaquina(raw = {}) {
-  return {
-    marca: String(raw?.marca ?? '').trim(),
-    modelo: String(raw?.modelo ?? '').trim(),
-    tipo: String(raw?.tipo ?? '').trim(),
-    numeroSerie: String(raw?.numeroSerie ?? raw?.numero_de_serie ?? '').trim(),
-    numeroInterno: String(raw?.numeroInterno ?? raw?.n_interno ?? '').trim(),
-  };
+export function hasOrcamentoMaquinaData(row, campos = null) {
+  const fields = normalizeEquipamentoCampos(campos);
+  const m = normalizeOrcamentoMaquina(row, fields);
+  return fields.some(({ key }) => Boolean(String(m[key] ?? '').trim()));
 }
 
-export function normalizeOrcamentoMaquinasList(raw) {
+export function normalizeOrcamentoMaquina(raw = {}, campos = null) {
+  const fields = normalizeEquipamentoCampos(campos);
+  return Object.fromEntries(fields.map(({ key }) => [key, readMaquinaFieldValue(raw, key)]));
+}
+
+export function normalizeOrcamentoMaquinasList(raw, campos = null) {
   if (!Array.isArray(raw)) return [];
-  return raw.map(normalizeOrcamentoMaquina);
+  return raw.map((row) => normalizeOrcamentoMaquina(row, campos));
 }
 
 function joinParts(parts, separator = ' / ') {
@@ -48,19 +49,20 @@ function joinParts(parts, separator = ' / ') {
     .join(separator);
 }
 
-export function formatOrcamentoMaquinaLabel(row, index = 0) {
-  const m = normalizeOrcamentoMaquina(row);
-  const label = joinParts([m.marca, m.modelo, m.tipo]);
-  return label || `Máquina ${index + 1}`;
+export function formatOrcamentoMaquinaLabel(row, index = 0, campos = null) {
+  const fields = normalizeEquipamentoCampos(campos);
+  const m = normalizeOrcamentoMaquina(row, fields);
+  const label = joinParts(fields.map(({ key }) => m[key]).filter((v) => String(v).trim()).slice(0, 3));
+  return label || `Equipamento ${index + 1}`;
 }
 
-export function formatOrcamentoMaquinaMatricula(row) {
-  const m = normalizeOrcamentoMaquina(row);
-  return m.numeroInterno || m.numeroSerie || '—';
+export function formatOrcamentoMaquinaMatricula(row, campos = null) {
+  const m = normalizeOrcamentoMaquina(row, campos);
+  return m.numeroInterno || m.matricula || m.numeroSerie || '—';
 }
 
-export function formatOrcamentoMaquinaShortLabel(row, index = 0) {
-  const label = formatOrcamentoMaquinaLabel(row, index);
+export function formatOrcamentoMaquinaShortLabel(row, index = 0, campos = null) {
+  const label = formatOrcamentoMaquinaLabel(row, index, campos);
   if (label.length <= 24) return `Eq.${index + 1} — ${label}`;
   return `Eq.${index + 1}`;
 }
@@ -70,19 +72,25 @@ export function formatOrcamentoMaquinaPdfTableLabel(index = 0) {
   return `Eq.${index + 1}`;
 }
 
-export function formatOrcamentoMaquinaCompactLine(row, index = 0) {
-  const label = formatOrcamentoMaquinaLabel(row, index);
-  const matricula = formatOrcamentoMaquinaMatricula(row);
-  const parts = [label];
-  if (matricula && matricula !== '—') parts.push(`${LABEL_N_INTERNO}: ${matricula}`);
-  return parts.join(' — ');
+export function formatOrcamentoMaquinaCompactLine(row, index = 0, campos = null) {
+  const fields = normalizeEquipamentoCampos(campos);
+  const m = normalizeOrcamentoMaquina(row, fields);
+  const pairs = fields
+    .map(({ key, label }) => {
+      const value = String(m[key] ?? '').trim();
+      if (!value) return '';
+      return `${label}: ${value}`;
+    })
+    .filter(Boolean);
+  return pairs.join(' — ') || formatOrcamentoMaquinaLabel(row, index, campos);
 }
 
-export function renderOrcamentoEquipamentoSelect(maquinas = [], selectedIndex = 0) {
-  const list = normalizeOrcamentoMaquinasList(maquinas);
+export function renderOrcamentoEquipamentoSelect(maquinas = [], selectedIndex = 0, campos = null) {
+  const fields = normalizeEquipamentoCampos(campos);
+  const list = normalizeOrcamentoMaquinasList(maquinas, fields);
   const options = list
     .map((row, index) => {
-      const label = formatOrcamentoMaquinaLabel(row, index);
+      const label = formatOrcamentoMaquinaLabel(row, index, fields);
       const selected = normalizeEquipamentoIndex(selectedIndex, list.length) === index ? ' selected' : '';
       return `<option value="${index}"${selected}>${escapeHtml(label)}</option>`;
     })
@@ -97,14 +105,15 @@ function normalizeEquipamentoIndex(value, machineCount = 1) {
   return 0;
 }
 
-export function countOrcamentoMaquinasForLinhas(maquinas = []) {
-  const list = normalizeOrcamentoMaquinasList(maquinas);
-  const withData = list.filter(hasOrcamentoMaquinaData);
+export function countOrcamentoMaquinasForLinhas(maquinas = [], campos = null) {
+  const fields = normalizeEquipamentoCampos(campos);
+  const list = normalizeOrcamentoMaquinasList(maquinas, fields);
+  const withData = list.filter((row) => hasOrcamentoMaquinaData(row, fields));
   return Math.max(withData.length, list.length, 1);
 }
 
-export function shouldShowLinhaEquipamentoColumn(maquinas = []) {
-  return countOrcamentoMaquinasForLinhas(maquinas) > 1;
+export function shouldShowLinhaEquipamentoColumn(maquinas = [], campos = null) {
+  return countOrcamentoMaquinasForLinhas(maquinas, campos) > 1;
 }
 
 /** Atualiza coluna «Equipamento» na tabela de linhas (ao adicionar/remover máquinas). */
@@ -114,8 +123,9 @@ export function syncOrcamentoLinhaEquipamentoColumn(root) {
   const tbody = root?.querySelector('#review-orc-linhas-body');
   if (!table || !theadRow || !tbody) return;
 
-  const maquinas = readOrcamentoMaquinasFromDom(root);
-  const multi = shouldShowLinhaEquipamentoColumn(maquinas);
+  const campos = readOrcamentoEquipamentoCamposFromDom(root);
+  const maquinas = readOrcamentoMaquinasFromDom(root, campos);
+  const multi = shouldShowLinhaEquipamentoColumn(maquinas, campos);
   table.classList.toggle('review-orc-table--multi-equip', multi);
 
   let equipTh = theadRow.querySelector('[data-orc-equip-th]');
@@ -144,7 +154,7 @@ export function syncOrcamentoLinhaEquipamentoColumn(root) {
         equipTd = tr.querySelector('[data-orc-equip-td]');
       }
       if (equipTd) {
-        equipTd.innerHTML = renderOrcamentoEquipamentoSelect(maquinas, selected);
+        equipTd.innerHTML = renderOrcamentoEquipamentoSelect(maquinas, selected, campos);
       }
     } else if (equipTd) {
       equipTd.remove();
@@ -152,30 +162,50 @@ export function syncOrcamentoLinhaEquipamentoColumn(root) {
   });
 }
 
-export function syncLegacyMaquinaFieldsFromList(maquinas = []) {
-  const first = normalizeOrcamentoMaquina(maquinas[0] || {});
+export function syncLegacyMaquinaFieldsFromList(maquinas = [], campos = null) {
+  const fields = normalizeEquipamentoCampos(campos);
+  const first = normalizeOrcamentoMaquina(maquinas[0] || {}, fields);
   const maquina = joinParts([first.marca, first.modelo, first.tipo]);
   const matricula = first.numeroInterno || first.numeroSerie;
   return { ...first, maquina, matricula };
 }
 
-export function formatOrcamentoMaquinasDocxText(maquinas = []) {
-  const rows = normalizeOrcamentoMaquinasList(maquinas).filter(hasOrcamentoMaquinaData);
+export function formatOrcamentoMaquinasDocxText(maquinas = [], campos = null) {
+  const fields = normalizeEquipamentoCampos(campos);
+  const rows = normalizeOrcamentoMaquinasList(maquinas, fields).filter((row) =>
+    hasOrcamentoMaquinaData(row, fields),
+  );
   if (!rows.length) return '—';
   if (rows.length === 1) {
-    return formatOrcamentoMaquinaLabel(rows[0], 0);
+    return formatOrcamentoMaquinaLabel(rows[0], 0, fields);
   }
   return rows
     .map((row, index) => {
-      const label = formatOrcamentoMaquinaLabel(row, index);
-      const matricula = formatOrcamentoMaquinaMatricula(row);
+      const label = formatOrcamentoMaquinaLabel(row, index, fields);
+      const matricula = formatOrcamentoMaquinaMatricula(row, fields);
       return `${index + 1}. ${label} — ${LABEL_N_INTERNO}: ${matricula}`;
     })
     .join('\n');
 }
 
-function renderMaquinaCard(row, index, { canRemove }) {
-  const m = normalizeOrcamentoMaquina(row);
+function renderMaquinaCard(row, index, campos, { canRemove }) {
+  const fields = normalizeEquipamentoCampos(campos);
+  const m = normalizeOrcamentoMaquina(row, fields);
+  const inputs = fields
+    .map(
+      ({ key, label }) => `
+        <label class="review-orc-field">
+          <span data-orc-maquina-label-for="${escapeHtml(key)}">${escapeHtml(label)}</span>
+          <input
+            type="text"
+            class="review-orc-input"
+            data-orc-maquina-field="${escapeHtml(key)}"
+            value="${escapeHtml(m[key] || '')}"
+            placeholder="${escapeHtml(label)}"
+          />
+        </label>`,
+    )
+    .join('');
   return `
     <article class="review-orc-maquina" data-orcamento-maquina data-index="${index}">
       <div class="review-orc-maquina__head">
@@ -187,70 +217,72 @@ function renderMaquinaCard(row, index, { canRemove }) {
         }
       </div>
       <div class="review-orc-maquina__grid">
-        <label class="review-orc-field">
-          <span>${LABEL_MARCA}</span>
-          <input type="text" class="review-orc-input" data-orc-maquina-field="marca" value="${escapeHtml(m.marca)}" placeholder="${LABEL_MARCA}" />
-        </label>
-        <label class="review-orc-field">
-          <span>${LABEL_MODELO}</span>
-          <input type="text" class="review-orc-input" data-orc-maquina-field="modelo" value="${escapeHtml(m.modelo)}" placeholder="${LABEL_MODELO}" />
-        </label>
-        <label class="review-orc-field">
-          <span>${LABEL_TIPO}</span>
-          <input type="text" class="review-orc-input" data-orc-maquina-field="tipo" value="${escapeHtml(m.tipo)}" placeholder="${LABEL_TIPO}" />
-        </label>
-        <label class="review-orc-field">
-          <span>${LABEL_NUMERO_SERIE}</span>
-          <input type="text" class="review-orc-input" data-orc-maquina-field="numeroSerie" value="${escapeHtml(m.numeroSerie)}" placeholder="${LABEL_NUMERO_SERIE}" />
-        </label>
-        <label class="review-orc-field">
-          <span>${LABEL_N_INTERNO}</span>
-          <input type="text" class="review-orc-input" data-orc-maquina-field="numeroInterno" value="${escapeHtml(m.numeroInterno)}" placeholder="${LABEL_N_INTERNO}" />
-        </label>
+        ${inputs}
       </div>
     </article>`;
 }
 
-export function renderOrcamentoMaquinasSection(maquinas = []) {
-  const rows = normalizeOrcamentoMaquinasList(maquinas);
-  const list = rows.length ? rows : [emptyOrcamentoMaquina()];
+function renderMaquinasList(maquinas, campos) {
+  const fields = normalizeEquipamentoCampos(campos);
+  const rows = normalizeOrcamentoMaquinasList(maquinas, fields);
+  const list = rows.length ? rows : [emptyOrcamentoMaquina(fields)];
+  return list
+    .map((row, index) => renderMaquinaCard(row, index, fields, { canRemove: list.length > 1 }))
+    .join('');
+}
+
+function syncMaquinaFieldLabels(root, campos) {
+  const fields = normalizeEquipamentoCampos(campos);
+  fields.forEach(({ key, label }) => {
+    root.querySelectorAll(`[data-orc-maquina-label-for="${key}"]`).forEach((el) => {
+      el.textContent = label;
+    });
+    root.querySelectorAll(`[data-orc-maquina-field="${key}"]`).forEach((input) => {
+      input.placeholder = label;
+    });
+  });
+}
+
+export function renderOrcamentoMaquinasSection(maquinas = [], equipamentoCampos = null) {
+  const campos = normalizeEquipamentoCampos(equipamentoCampos);
   return `
+    ${renderOrcamentoEquipamentoCamposSection(campos)}
     <section class="review-orc-maquinas" aria-label="Equipamentos da proposta">
       <div class="review-orc-maquinas__head">
         <h4 class="review-orc-cabecalho__title">Equipamentos</h4>
         <span class="review-orc-field-hint text-muted">Pode incluir várias máquinas no mesmo orçamento.</span>
       </div>
       <div class="review-orc-maquinas__list" id="review-orc-maquinas-list">
-        ${list.map((row, index) => renderMaquinaCard(row, index, { canRemove: list.length > 1 })).join('')}
+        ${renderMaquinasList(maquinas, campos)}
       </div>
       <button type="button" class="btn-outline btn-touch review-orc-maquinas-add" id="review-orc-add-maquina">+ Adicionar máquina</button>
     </section>`;
 }
 
-export function readOrcamentoMaquinasFromDom(root) {
+export function readOrcamentoMaquinasFromDom(root, campos = null) {
+  const fields = normalizeEquipamentoCampos(campos ?? readOrcamentoEquipamentoCamposFromDom(root));
   const list = root?.querySelector('#review-orc-maquinas-list');
-  if (!list) return [];
+  if (!list) return [emptyOrcamentoMaquina(fields)];
   const rows = [];
   list.querySelectorAll('[data-orcamento-maquina]').forEach((card) => {
-    const read = (field) =>
-      card.querySelector(`[data-orc-maquina-field="${field}"]`)?.value?.trim() || '';
-    rows.push(
-      normalizeOrcamentoMaquina({
-        marca: read('marca'),
-        modelo: read('modelo'),
-        tipo: read('tipo'),
-        numeroSerie: read('numeroSerie'),
-        numeroInterno: read('numeroInterno'),
-      }),
-    );
+    const values = {};
+    fields.forEach(({ key }) => {
+      values[key] =
+        card.querySelector(`[data-orc-maquina-field="${key}"]`)?.value?.trim() || '';
+    });
+    rows.push(normalizeOrcamentoMaquina(values, fields));
   });
-  return rows.length ? rows : [emptyOrcamentoMaquina()];
+  return rows.length ? rows : [emptyOrcamentoMaquina(fields)];
 }
+
+export { readOrcamentoEquipamentoCamposFromDom, renderOrcamentoEquipamentoCamposSection };
 
 export function bindOrcamentoMaquinasSection(root, { onChange } = {}) {
   const list = root?.querySelector('#review-orc-maquinas-list');
-  const addBtn = root?.querySelector('#review-orc-add-maquina');
-  if (!list || !addBtn) return;
+  const camposList = root?.querySelector('#review-orc-equip-campos-list');
+  const addMaquinaBtn = root?.querySelector('#review-orc-add-maquina');
+  const addCampoBtn = root?.querySelector('#review-orc-add-campo');
+  if (!list || !addMaquinaBtn || !camposList) return;
 
   const notify = () => onChange?.();
 
@@ -265,11 +297,62 @@ export function bindOrcamentoMaquinasSection(root, { onChange } = {}) {
     });
   };
 
-  addBtn.addEventListener('click', () => {
+  const rerenderMaquinas = () => {
+    const campos = readOrcamentoEquipamentoCamposFromDom(root);
+    const maquinas = readOrcamentoMaquinasFromDom(root, campos);
+    list.innerHTML = renderMaquinasList(maquinas, campos);
+    renumber();
+    notify();
+  };
+
+  const rerenderCamposRemoveButtons = () => {
+    const rows = camposList.querySelectorAll('[data-orc-equip-campo]');
+    rows.forEach((row) => {
+      const btn = row.querySelector('.review-orc-equip-campo-remove');
+      if (btn) btn.hidden = rows.length <= 1;
+    });
+  };
+
+  addCampoBtn?.addEventListener('click', () => {
+    const campos = readOrcamentoEquipamentoCamposFromDom(root);
+    const key = nextEquipamentoCampoKey(campos);
+    const newCampo = { key, label: 'Novo campo' };
+    camposList.insertAdjacentHTML(
+      'beforeend',
+      `<div class="review-orc-equip-campo" data-orc-equip-campo data-campo-key="${escapeHtml(key)}">
+        <input type="text" class="review-orc-input review-orc-equip-campo__label" data-orc-campo-label value="${escapeHtml(newCampo.label)}" placeholder="Nome do campo" aria-label="Rótulo do campo" />
+        <button type="button" class="btn-icon review-orc-equip-campo-remove" title="Remover campo" aria-label="Remover campo">×</button>
+      </div>`,
+    );
+    rerenderCamposRemoveButtons();
+    rerenderMaquinas();
+  });
+
+  camposList.addEventListener('click', (e) => {
+    const btn = e.target.closest('.review-orc-equip-campo-remove');
+    if (!btn) return;
+    const row = btn.closest('[data-orc-equip-campo]');
+    if (!row) return;
+    const rows = camposList.querySelectorAll('[data-orc-equip-campo]');
+    if (rows.length <= 1) return;
+    row.remove();
+    rerenderCamposRemoveButtons();
+    rerenderMaquinas();
+  });
+
+  camposList.addEventListener('input', (e) => {
+    if (!e.target.matches('[data-orc-campo-label]')) return;
+    const campos = readOrcamentoEquipamentoCamposFromDom(root);
+    syncMaquinaFieldLabels(root, campos);
+    notify();
+  });
+
+  addMaquinaBtn.addEventListener('click', () => {
+    const campos = readOrcamentoEquipamentoCamposFromDom(root);
     const index = list.querySelectorAll('[data-orcamento-maquina]').length;
     list.insertAdjacentHTML(
       'beforeend',
-      renderMaquinaCard(emptyOrcamentoMaquina(), index, { canRemove: true }),
+      renderMaquinaCard(emptyOrcamentoMaquina(campos), index, campos, { canRemove: true }),
     );
     renumber();
     notify();

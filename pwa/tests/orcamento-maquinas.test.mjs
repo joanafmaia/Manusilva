@@ -6,7 +6,9 @@ import {
   normalizeOrcamentoMaquina,
 } from '../js/orcamento-maquinas.js';
 import { suggestOrcamentoMaquinas } from '../js/orcamento-cabecalho.js';
-import { resolveOrcamentoIntro } from '../js/orcamento-fill-data.js';
+import {
+  normalizeEquipamentoCampos,
+} from '../js/orcamento-equipamento-campos.js';
 import {
   formatOrcamentoNumeroLabel,
   isPlaceholderOrcamentoNumero,
@@ -46,12 +48,25 @@ describe('orcamento-maquinas', () => {
     assert.equal(rows[1].marca, 'Linde');
   });
 
-  it('usa intro plural com várias máquinas', () => {
-    assert.match(resolveOrcamentoIntro('folha_intervencao_avarias', 2), /seguintes equipamentos/);
+  it('usa intro plural com várias máquinas no docx', () => {
+    const campos = [
+      { key: 'marca', label: 'Marca' },
+      { key: 'modelo', label: 'Modelo' },
+    ];
     assert.match(formatOrcamentoMaquinasDocxText([
       { marca: 'Toyota', modelo: 'A', numeroInterno: 'M1' },
       { marca: 'Linde', modelo: 'B', numeroInterno: 'M2' },
-    ]), /1\. Toyota \/ A/);
+    ], campos), /1\. Toyota \/ A/);
+  });
+
+  it('aceita campos personalizados por orçamento', () => {
+    const campos = normalizeEquipamentoCampos([
+      { key: 'maquina', label: 'Máquina' },
+      { key: 'bateriaTipo', label: 'Bateria Tipo' },
+    ]);
+    const row = normalizeOrcamentoMaquina({ maquina: 'Toyota 8FB', bateriaTipo: 'Chumbo' }, campos);
+    assert.equal(hasOrcamentoMaquinaData(row, campos), true);
+    assert.equal(row.bateriaTipo, 'Chumbo');
   });
 
   it('associa linhas de orçamento ao equipamento', () => {

@@ -9718,6 +9718,36 @@ details[open] .expand-icon { transform: rotate(90deg); }
   padding: 0.85rem 0 0.25rem;
   background: linear-gradient(180deg, rgba(248, 250, 252, 0) 0%, rgba(248, 250, 252, 0.92) 28%, #f8fafc 100%);
 }
+.review-orc-equip-campos {
+  margin: 0.5rem 0 0.85rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px dashed rgba(15, 23, 42, 0.14);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.65);
+}
+.review-orc-equip-campos__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.75rem;
+  margin-bottom: 0.55rem;
+}
+.review-orc-equip-campos__list {
+  display: grid;
+  gap: 0.45rem;
+}
+.review-orc-equip-campo {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+.review-orc-equip-campo__label {
+  flex: 1;
+  min-width: 0;
+}
+.review-orc-equip-campos-add {
+  margin-top: 0.55rem;
+}
 .review-orc-maquinas {
   margin: 0.85rem 0 1rem;
   padding-top: 0.35rem;

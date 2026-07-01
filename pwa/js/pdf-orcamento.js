@@ -17,6 +17,7 @@ import {
   hasOrcamentoMaquinaData,
   normalizeOrcamentoMaquina,
 } from './orcamento-maquinas.js';
+import { normalizeEquipamentoCampos } from './orcamento-equipamento-campos.js';
 import {
   computeLinhaTotal,
   formatEuro,
@@ -25,11 +26,6 @@ import {
   normalizeOrcamentoLinhas,
 } from './orcamento-linhas.js';
 import {
-  LABEL_MARCA,
-  LABEL_MODELO,
-  LABEL_TIPO,
-  LABEL_NUMERO_SERIE,
-  LABEL_N_INTERNO,
   LABEL_MAQUINA,
   LABEL_MATRICULA,
 } from './field-labels.js';
@@ -389,23 +385,27 @@ function drawLegalPage(doc, legalText) {
 
 function drawOrcamentoEquipamentoBlocks(doc, fill, startY) {
   let y = startY;
-  const maquinas = (fill.maquinas || []).filter(hasOrcamentoMaquinaData);
+  const campos = normalizeEquipamentoCampos(fill.equipamento_campos);
+  const maquinas = (fill.maquinas || []).filter((row) => hasOrcamentoMaquinaData(row, campos));
   const blocks = maquinas.length
     ? maquinas
     : [
-        normalizeOrcamentoMaquina({
-          marca: fill.marca,
-          modelo: fill.modelo,
-          tipo: fill.tipo,
-          numeroSerie: fill.numero_serie,
-          numeroInterno: fill.numero_interno,
-          maquina: fill.maquina,
-        }),
+        normalizeOrcamentoMaquina(
+          {
+            marca: fill.marca,
+            modelo: fill.modelo,
+            tipo: fill.tipo,
+            numeroSerie: fill.numero_serie,
+            numeroInterno: fill.numero_interno,
+            maquina: fill.maquina,
+          },
+          campos,
+        ),
       ];
 
   blocks.forEach((row, index) => {
-    const machine = normalizeOrcamentoMaquina(row);
-    if (!hasOrcamentoMaquinaData(machine) && fill.maquina === '—') return;
+    const machine = normalizeOrcamentoMaquina(row, campos);
+    if (!hasOrcamentoMaquinaData(machine, campos) && fill.maquina === '—') return;
 
     if (blocks.length > 1) {
       if (!canDrawContentLine(y, 8)) return;
@@ -416,7 +416,7 @@ function drawOrcamentoEquipamentoBlocks(doc, fill, startY) {
       doc.text(prefix, MARGIN, y);
       const prefixW = doc.getTextWidth(prefix);
       pdfSetFont(doc, 'normal');
-      pdfSplitText(doc, formatOrcamentoMaquinaCompactLine(machine, index), CONTENT_W - prefixW).forEach(
+      pdfSplitText(doc, formatOrcamentoMaquinaCompactLine(machine, index, campos), CONTENT_W - prefixW).forEach(
         (line, lineIndex) => {
           if (lineIndex === 0) {
             doc.text(pdfSafeText(line), MARGIN + prefixW, y);
@@ -431,17 +431,13 @@ function drawOrcamentoEquipamentoBlocks(doc, fill, startY) {
       return;
     }
 
-    const equipRows = [
-      [LABEL_MARCA, machine.marca],
-      [LABEL_MODELO, machine.modelo],
-      [LABEL_TIPO, machine.tipo],
-      [LABEL_NUMERO_SERIE, machine.numeroSerie],
-      [LABEL_N_INTERNO, machine.numeroInterno],
-    ].filter(([, value]) => String(value || '').trim());
+    const equipRows = campos
+      .map(({ key, label }) => [label, machine[key]])
+      .filter(([, value]) => String(value || '').trim());
 
     if (!equipRows.length) {
-      const label = formatOrcamentoMaquinaLabel(machine, index);
-      const matricula = formatOrcamentoMaquinaMatricula(machine);
+      const label = formatOrcamentoMaquinaLabel(machine, index, campos);
+      const matricula = formatOrcamentoMaquinaMatricula(machine, campos);
       equipRows.push([LABEL_MAQUINA, label], [LABEL_MATRICULA, matricula]);
     }
 

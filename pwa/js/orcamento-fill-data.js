@@ -17,6 +17,7 @@ import {
   hasOrcamentoMaquinaData,
   normalizeOrcamentoMaquinasList,
 } from './orcamento-maquinas.js';
+import { normalizeEquipamentoCampos, suggestEquipamentoCampos } from './orcamento-equipamento-campos.js';
 
 const MESES_PT = [
   'Janeiro',
@@ -56,10 +57,15 @@ export function buildOrcamentoFillData(report, job = null) {
   const resolvedJob = job || (report?.jobId ? getJob(report.jobId) : null);
   const year = new Date().getFullYear();
   const cabecalho = resolveOrcamentoCabecalho(report);
-  const maquinas = normalizeOrcamentoMaquinasList(cabecalho.maquinas || suggestOrcamentoMaquinas(report)).filter(
-    hasOrcamentoMaquinaData,
+  const equipamentoCampos = normalizeEquipamentoCampos(
+    cabecalho.equipamentoCampos || suggestEquipamentoCampos(report),
   );
-  const maquinasForPdf = maquinas.length ? maquinas : normalizeOrcamentoMaquinasList(suggestOrcamentoMaquinas(report));
+  const maquinas = normalizeOrcamentoMaquinasList(cabecalho.maquinas || suggestOrcamentoMaquinas(report), equipamentoCampos).filter(
+    (row) => hasOrcamentoMaquinaData(row, equipamentoCampos),
+  );
+  const maquinasForPdf = maquinas.length
+    ? maquinas
+    : normalizeOrcamentoMaquinasList(suggestOrcamentoMaquinas(report), equipamentoCampos);
   const firstMachine = maquinasForPdf[0] || {};
   const legacyMaquina = [firstMachine.marca, firstMachine.modelo, firstMachine.tipo]
     .map((value) => String(value || '').trim())
@@ -100,7 +106,7 @@ export function buildOrcamentoFillData(report, job = null) {
     intro_servico: display(cabecalho.textoIntro),
     maquina:
       maquinasForPdf.length > 1
-        ? formatOrcamentoMaquinasDocxText(maquinasForPdf)
+        ? formatOrcamentoMaquinasDocxText(maquinasForPdf, equipamentoCampos)
         : display(legacyMaquina || cabecalho.maquina),
     matricula: display(legacyMatricula || cabecalho.matricula),
     marca: display(firstMachine.marca || cabecalho.marca),
@@ -109,7 +115,8 @@ export function buildOrcamentoFillData(report, job = null) {
     numero_serie: display(firstMachine.numeroSerie || cabecalho.numeroSerie),
     numero_interno: display(firstMachine.numeroInterno || cabecalho.numeroInterno),
     maquinas: maquinasForPdf,
-    maquinas_texto: formatOrcamentoMaquinasDocxText(maquinasForPdf),
+    equipamento_campos: equipamentoCampos,
+    maquinas_texto: formatOrcamentoMaquinasDocxText(maquinasForPdf, equipamentoCampos),
     observacoes_cliente: observacoesCliente || '—',
     reparacao_necessaria: observacoesCliente || '—',
     taxa_saida: taxaSaida === '' ? '—' : formatEuro(taxaSaida),
