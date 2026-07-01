@@ -12,6 +12,10 @@ import {
   reportOrcamentoPorPreparar,
 } from './pedido-orcamento.js';
 import { getReportOrcamentoMeta } from './orcamento-linhas.js';
+import {
+  resolveOrcamentoWorkflowLabel,
+  resolveOrcamentoWorkflowStatus,
+} from './orcamento-workflow.js';
 import { isEmpilhadoresMultiMaquinaReport } from './views/relatorio-empilhadores-maquinas.js';
 
 function escapeAttr(str) {
@@ -134,8 +138,8 @@ export function renderReviewOrcamentoBanner(report) {
   if (!reportHasPedidoOrcamento(report)) return '';
 
   const meta = getReportOrcamentoMeta(report);
+  const workflow = resolveOrcamentoWorkflowStatus(report);
   const numeroLabel = meta?.numeroFormatado;
-  const enviado = meta?.enviadoEm;
   const porPreparar = reportOrcamentoPorPreparar(report);
   const relatorioAprovado = report?.status === 'approved';
   const detalhe = getPedidoOrcamentoDetalhe(report);
@@ -145,18 +149,16 @@ export function renderReviewOrcamentoBanner(report) {
       : detalhe
     : '';
 
-  let statusText = 'Por preparar na aba Orçamentos';
-  let statusClass = 'review-orcamento-status--warning';
-  if (enviado) {
-    statusText = 'Proposta enviada';
-    statusClass = 'review-orcamento-status--ok';
-  } else if (!porPreparar) {
-    statusText = 'Proposta guardada';
-    statusClass = 'review-orcamento-status--ok';
-  } else if (relatorioAprovado) {
-    statusText = 'Por preparar na aba Orçamentos';
-    statusClass = 'review-orcamento-status--warning';
-  }
+  const statusText =
+    porPreparar && relatorioAprovado && workflow === 'por_preparar'
+      ? 'Por preparar na aba Orçamentos'
+      : resolveOrcamentoWorkflowLabel(workflow);
+  const statusClass = (() => {
+    if (workflow === 'aceite') return 'review-orcamento-status--aceite';
+    if (workflow === 'recusada') return 'review-orcamento-status--recusada';
+    if (workflow === 'enviada' || workflow === 'guardada') return 'review-orcamento-status--ok';
+    return 'review-orcamento-status--warning';
+  })();
 
   const leadText = relatorioAprovado
     ? 'O relatório técnico já foi aprovado. A proposta comercial prepara-se na aba Orçamentos — envio independente do relatório.'

@@ -29,6 +29,12 @@ import {
 import { bindOrcamentoCatalogoComboboxes } from './orcamento-catalogo-combobox.js';
 import { escapeHtml } from './html-utils.js';
 import { reportIsStandaloneOrcamento } from './orcamento-standalone.js';
+import {
+  resolveOrcamentoWorkflowClass,
+  resolveOrcamentoWorkflowLabel,
+  resolveOrcamentoWorkflowStatus,
+  setOrcamentoRespostaCliente,
+} from './orcamento-workflow.js';
 
 function defaultOrcamentoEmail(report, client) {
   const meta = getReportOrcamentoMeta(report);
@@ -99,6 +105,23 @@ export function renderOrcamentoEditor(report, { client } = {}) {
   const clienteEmailHint = escapeHtml(client?.email || client?.['E-mail'] || '');
   const cab = resolveOrcamentoCabecalho(report);
   const isStandalone = reportIsStandaloneOrcamento(report);
+  const workflow = resolveOrcamentoWorkflowStatus(report);
+  const metaEnviado = Boolean(meta?.enviadoEm);
+  const respostaSection = metaEnviado
+    ? `
+      <section class="review-orc-resposta" aria-label="Resposta do cliente">
+        <h4 class="review-orc-cabecalho__title">Resposta do cliente</h4>
+        <p class="review-orc-resposta__status">
+          Estado:
+          <span class="orcamentos-status ${resolveOrcamentoWorkflowClass(workflow)}">${escapeHtml(resolveOrcamentoWorkflowLabel(workflow))}</span>
+        </p>
+        <div class="review-orc-resposta__actions">
+          <button type="button" class="btn-success btn-sm btn-touch" data-orc-mark-aceite>Marca aceite</button>
+          <button type="button" class="btn-danger btn-sm btn-touch" data-orc-mark-recusada>Marca recusada</button>
+        </div>
+        <p class="text-muted review-orcamento-editor__hint">Registe aqui se o cliente aceitou ou recusou a proposta enviada.</p>
+      </section>`
+    : '';
   const apoioOrcamentoField = isStandalone
     ? ''
     : `
@@ -201,6 +224,8 @@ export function renderOrcamentoEditor(report, { client } = {}) {
         <div><span>IVA (23%)</span><strong data-orc-iva>${totals.iva} €</strong></div>
         <div class="review-orcamento-editor__total-line"><span>Total</span><strong data-orc-total>${totals.total} €</strong></div>
       </div>
+
+      ${respostaSection}
 
       <div class="review-orcamento-editor__actions review-orcamento-editor__actions--split">
         <button type="button" class="btn-primary btn-touch" id="review-orc-save">Guardar proposta</button>
@@ -375,6 +400,34 @@ export function bindOrcamentoEditor(container, { report, onUpdated } = {}) {
     }
   });
 
+  root.querySelector('[data-orc-mark-aceite]')?.addEventListener('click', async () => {
+    try {
+      const { showToast } = await import('./app.js');
+      const saved = await setOrcamentoRespostaCliente(currentReport.id, 'aceite');
+      if (!saved) throw new Error('Não foi possível guardar.');
+      currentReport = saved;
+      onUpdated?.(saved);
+      showToast('Proposta marcada como aceite.', 'success');
+    } catch (err) {
+      const { showToast } = await import('./app.js');
+      showToast(err?.message || 'Erro ao guardar.', 'error');
+    }
+  });
+
+  root.querySelector('[data-orc-mark-recusada]')?.addEventListener('click', async () => {
+    try {
+      const { showToast } = await import('./app.js');
+      const saved = await setOrcamentoRespostaCliente(currentReport.id, 'recusada');
+      if (!saved) throw new Error('Não foi possível guardar.');
+      currentReport = saved;
+      onUpdated?.(saved);
+      showToast('Proposta marcada como recusada.', 'info');
+    } catch (err) {
+      const { showToast } = await import('./app.js');
+      showToast(err?.message || 'Erro ao guardar.', 'error');
+    }
+  });
+
   root.querySelector('#orcamento-send-email')?.addEventListener('click', async (e) => {
     const btn = e.currentTarget;
     btn.disabled = true;
@@ -400,6 +453,8 @@ export function bindOrcamentoEditor(container, { report, onUpdated } = {}) {
       const sentAt = new Date().toISOString();
       meta.emailDestinatario = email;
       meta.enviadoEm = sentAt;
+      meta.respostaCliente = null;
+      meta.respostaClienteEm = null;
 
       showToast('A preparar envio da proposta…', 'info', 3000);
       const { saveAndRegenerateOrcamento } = await import('./orcamento-pdf-service.js');

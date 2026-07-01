@@ -22,7 +22,6 @@ import {
   isRhOrcamentoQueueReport,
   openOrcamentoStorageUrl,
   reportIsStandaloneOrcamento,
-  reportOrcamentoGuardado,
   reportOrcamentoPorPreparar,
 } from '../pedido-orcamento.js';
 import {
@@ -31,6 +30,13 @@ import {
 } from '../orcamento-standalone.js';
 import { getReportOrcamentoMeta } from '../orcamento-linhas.js';
 import { dedupeReportsForDisplay } from '../relatorios-db.js';
+import {
+  orcamentoAguardaRespostaCliente,
+  resolveOrcamentoWorkflowClass,
+  resolveOrcamentoWorkflowLabel,
+  resolveOrcamentoWorkflowStatus,
+  setOrcamentoRespostaCliente,
+} from '../orcamento-workflow.js';
 
 const PANEL_STATUSES = new Set(['pending_review', 'approved']);
 
@@ -38,13 +44,6 @@ let mountRoot = null;
 let activeFilter = 'todas';
 let searchQuery = '';
 let highlightReportId = null;
-
-function orcamentoWorkflowStatus(report) {
-  const meta = getReportOrcamentoMeta(report);
-  if (meta?.enviadoEm) return 'enviada';
-  if (reportOrcamentoGuardado(report)) return 'guardada';
-  return 'por_preparar';
-}
 
 function listOrcamentoReports() {
   return dedupeReportsForDisplay(
@@ -63,7 +62,7 @@ function filterOrcamentoReports(reports) {
   if (activeFilter === 'por_preparar') {
     rows = rows.filter(reportOrcamentoPorPreparar);
   } else if (activeFilter !== 'todas') {
-    rows = rows.filter((report) => orcamentoWorkflowStatus(report) === activeFilter);
+    rows = rows.filter((report) => resolveOrcamentoWorkflowStatus(report) === activeFilter);
   }
 
   const q = searchQuery.trim().toLowerCase();
@@ -82,22 +81,12 @@ function filterOrcamentoReports(reports) {
 function countByWorkflow(reports) {
   return {
     por_preparar: reports.filter(reportOrcamentoPorPreparar).length,
-    guardada: reports.filter((r) => orcamentoWorkflowStatus(r) === 'guardada').length,
-    enviada: reports.filter((r) => orcamentoWorkflowStatus(r) === 'enviada').length,
+    guardada: reports.filter((r) => resolveOrcamentoWorkflowStatus(r) === 'guardada').length,
+    enviada: reports.filter((r) => resolveOrcamentoWorkflowStatus(r) === 'enviada').length,
+    aceite: reports.filter((r) => resolveOrcamentoWorkflowStatus(r) === 'aceite').length,
+    recusada: reports.filter((r) => resolveOrcamentoWorkflowStatus(r) === 'recusada').length,
     todas: reports.length,
   };
-}
-
-function statusLabel(status) {
-  if (status === 'enviada') return 'Enviada';
-  if (status === 'guardada') return 'Guardada';
-  return 'Por preparar';
-}
-
-function statusClass(status) {
-  if (status === 'enviada') return 'orcamentos-status--ok';
-  if (status === 'guardada') return 'orcamentos-status--saved';
-  return 'orcamentos-status--pending';
 }
 
 function reportStatusLabel(report) {
@@ -110,7 +99,9 @@ function renderFilterHint(counts, total) {
   const hints = [
     { id: 'por_preparar', label: 'por preparar', count: counts.por_preparar },
     { id: 'guardada', label: 'guardadas', count: counts.guardada },
-    { id: 'enviada', label: 'enviadas', count: counts.enviada },
+    { id: 'enviada', label: 'enviadas (aguardam resposta)', count: counts.enviada },
+    { id: 'aceite', label: 'aceites', count: counts.aceite },
+    { id: 'recusada', label: 'recusadas', count: counts.recusada },
   ].filter(({ id, count }) => id !== activeFilter && count > 0);
 
   if (!hints.length) return '';
@@ -145,6 +136,8 @@ function renderKpis(counts) {
     { id: 'por_preparar', label: 'Por preparar', count: counts.por_preparar },
     { id: 'guardada', label: 'Guardadas', count: counts.guardada },
     { id: 'enviada', label: 'Enviadas', count: counts.enviada },
+    { id: 'aceite', label: 'Aceites', count: counts.aceite },
+    { id: 'recusada', label: 'Recusadas', count: counts.recusada },
     { id: 'todas', label: 'Todas', count: counts.todas },
   ];
 
@@ -173,7 +166,7 @@ function renderTableRow(report) {
   const job = report.jobId ? getJob(report.jobId) : null;
   const tech = getTechnician(report.technicianId);
   const service = getServiceType(report.serviceType);
-  const workflow = orcamentoWorkflowStatus(report);
+  const workflow = resolveOrcamentoWorkflowStatus(report);
   const meta = getReportOrcamentoMeta(report);
   const detalhe = reportIsStandaloneOrcamento(report) ? '' : getPedidoOrcamentoDetalhe(report);
   const detalheShort = detalhe
@@ -186,6 +179,8 @@ function renderTableRow(report) {
   const canApproveReport = !reportIsStandaloneOrcamento(report) && report.status === 'pending_review';
   const canCancelPedido = !meta?.enviadoEm;
   const canReviewReport = !reportIsStandaloneOrcamento(report);
+  const aguardaResposta = orcamentoAguardaRespostaCliente(report);
+  const podeMarcarResposta = Boolean(meta?.enviadoEm);
   const highlighted = highlightReportId && report.id === highlightReportId;
   const clientName = client?.name || client?.Nome || '—';
 
@@ -198,7 +193,7 @@ function renderTableRow(report) {
       </td>
       <td class="rh-cell-muted">${escapeHtml(reportStatusLabel(report))}</td>
       <td class="rh-cell-muted">
-        <span class="orcamentos-status ${statusClass(workflow)}">${escapeHtml(statusLabel(workflow))}</span>
+        <span class="orcamentos-status ${resolveOrcamentoWorkflowClass(workflow)}">${escapeHtml(resolveOrcamentoWorkflowLabel(workflow))}</span>
         ${meta?.numeroFormatado ? `<span class="orcamentos-numero">nº ${escapeHtml(meta.numeroFormatado)}</span>` : ''}
       </td>
       <td class="rh-cell-muted orcamentos-col-detalhe" title="${escapeHtml(detalhe)}">${escapeHtml(detalheShort)}</td>
@@ -226,6 +221,22 @@ function renderTableRow(report) {
           ${
             pdfUrl
               ? `<button type="button" class="btn-ghost btn-sm rh-btn-compact" data-orc-pdf="${escapeHtml(report.id)}" title="Abrir PDF da proposta">Prop.</button>`
+              : ''
+          }
+          ${
+            aguardaResposta
+              ? `<button type="button" class="btn-success btn-sm rh-btn-compact" data-orc-aceite="${escapeHtml(report.id)}" title="Cliente aceitou a proposta">Aceite</button>
+                 <button type="button" class="btn-danger btn-sm rh-btn-compact" data-orc-recusada="${escapeHtml(report.id)}" title="Cliente recusou a proposta">Recusada</button>`
+              : ''
+          }
+          ${
+            podeMarcarResposta && !aguardaResposta && workflow !== 'aceite'
+              ? `<button type="button" class="btn-outline btn-sm rh-btn-compact" data-orc-aceite="${escapeHtml(report.id)}" title="Marcar como aceite">Aceite</button>`
+              : ''
+          }
+          ${
+            podeMarcarResposta && !aguardaResposta && workflow !== 'recusada'
+              ? `<button type="button" class="btn-outline btn-sm rh-btn-compact" data-orc-recusada="${escapeHtml(report.id)}" title="Marcar como recusada">Recusada</button>`
               : ''
           }
           ${
@@ -390,6 +401,36 @@ function bindPanelEvents() {
           refreshOrcamentosPanel().catch(console.error);
         },
       });
+      return;
+    }
+
+    const aceiteBtn = e.target.closest('[data-orc-aceite]');
+    if (aceiteBtn) {
+      const reportId = aceiteBtn.dataset.orcAceite;
+      if (!reportId) return;
+      void setOrcamentoRespostaCliente(reportId, 'aceite')
+        .then((saved) => {
+          if (saved) {
+            showToast('Proposta marcada como aceite.', 'success');
+            refreshOrcamentosPanel().catch(console.error);
+          }
+        })
+        .catch((err) => showToast(err?.message || 'Erro ao guardar.', 'error'));
+      return;
+    }
+
+    const recusadaBtn = e.target.closest('[data-orc-recusada]');
+    if (recusadaBtn) {
+      const reportId = recusadaBtn.dataset.orcRecusada;
+      if (!reportId) return;
+      void setOrcamentoRespostaCliente(reportId, 'recusada')
+        .then((saved) => {
+          if (saved) {
+            showToast('Proposta marcada como recusada.', 'info');
+            refreshOrcamentosPanel().catch(console.error);
+          }
+        })
+        .catch((err) => showToast(err?.message || 'Erro ao guardar.', 'error'));
       return;
     }
 

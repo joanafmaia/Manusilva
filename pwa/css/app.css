@@ -9911,6 +9911,30 @@ details[open] .expand-icon { transform: rotate(90deg); }
   color: #c2410c;
   font-weight: 600;
 }
+.review-orcamento-status--aceite {
+  color: #047857;
+  font-weight: 600;
+}
+.review-orcamento-status--recusada {
+  color: #b91c1c;
+  font-weight: 600;
+}
+.review-orc-resposta {
+  margin: 1rem 0;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 8px;
+  background: var(--surface-muted, #f9fafb);
+}
+.review-orc-resposta__status {
+  margin: 0 0 0.65rem;
+  font-size: 0.9rem;
+}
+.review-orc-resposta__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
 .review-orcamento-preview {
   margin: 0 0 0.65rem;
   font-size: 0.85rem;
@@ -12402,6 +12426,12 @@ body.tech-dashboard-page .tech-navbar__offline, body.tech-dashboard-page #tech-s
 }
 .orcamentos-status--ok {
   color: var(--success, #059669);
+}
+.orcamentos-status--aceite {
+  color: #047857;
+}
+.orcamentos-status--recusada {
+  color: #b91c1c;
 }
 .orcamentos-numero {
   display: block;

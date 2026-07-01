@@ -244,10 +244,12 @@ export function readOrcamentoFormFromDom(root, report) {
   const cabecalho = readOrcamentoCabecalhoFromDom(root, report);
   const machineCount = Math.max(1, cabecalho.maquinas?.length || 1);
   const totals = computeOrcamentoTotals(linhas, taxaSaida);
-  const meta = getReportOrcamentoMetaFromDom(root);
+  const existing = getReportOrcamentoMeta(report) || {};
+  const domMeta = getReportOrcamentoMetaFromDom(root);
 
   return {
-    ...meta,
+    ...existing,
+    ...domMeta,
     ...cabecalho,
     emailDestinatario,
     taxaSaida: taxaSaida === '' ? '' : formatEuro(taxaSaida),
