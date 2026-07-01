@@ -48,6 +48,7 @@ import {
   PDF_TABLE_LINE_WIDTH,
 } from './pdf-design-system.js';
 import { loadJsPDF } from './pdf-report.js';
+import { stampOrcamentoCertificacaoSelosAllPages } from './pdf-orcamento-certificacao.js';
 
 const MARGIN = PDF_MARGIN;
 const CONTENT_W = PDF_CONTENT_W;
@@ -556,6 +557,7 @@ export async function renderOrcamentoPDF(report) {
   }
 
   stampMs015DocumentRefAllPages(doc);
+  await stampOrcamentoCertificacaoSelosAllPages(doc);
 
   return doc;
 }
