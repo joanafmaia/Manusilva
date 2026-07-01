@@ -12,7 +12,7 @@ import {
 } from './mock_data.js';
 import { getClientFromCatalog } from './clients-catalog.js';
 import { getJobsSnapshot } from './trabalhos-db.js';
-import { getReportsSnapshot, dedupeReportsByJobPreferNewest } from './relatorios-db.js';
+import { getReportsSnapshot, dedupeReportsForDisplay } from './relatorios-db.js';
 import { sameEntityId } from './entity-id.js';
 import { isDevMockEnabled } from './env.js';
 import {
@@ -132,7 +132,7 @@ export function getReportForJob(jobId) {
   const matches = getReportsSnapshot().filter((r) => sameEntityId(r.jobId, jobId));
   if (!matches.length) return null;
   if (matches.length === 1) return matches[0];
-  return dedupeReportsByJobPreferNewest(matches)[0] || matches[0];
+  return dedupeReportsForDisplay(matches)[0] || matches[0];
 }
 
 export function resolveJobForForm(jobId) {

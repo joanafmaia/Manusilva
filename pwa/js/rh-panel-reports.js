@@ -2,7 +2,7 @@
  * Fila e filtros de relatórios no painel RH.
  */
 
-import { dedupeReportsByJobPreferNewest, getReportsSnapshot } from './relatorios-db.js';
+import { dedupeReportsForDisplay, getReportsSnapshot } from './relatorios-db.js';
 import { isRhOrcamentoQueueReport } from './pedido-orcamento.js';
 
 /** Estados de relatório exibidos no painel RH (histórico completo) */
@@ -22,11 +22,11 @@ function getPendingReviewReportsSnapshot() {
 }
 
 function getRhPanelReports() {
-  return dedupeReportsByJobPreferNewest(getRhPanelReportsRaw());
+  return dedupeReportsForDisplay(getRhPanelReportsRaw());
 }
 
 function getRhOrcamentoQueueReports() {
-  return dedupeReportsByJobPreferNewest(
+  return dedupeReportsForDisplay(
     getRhPanelReportsRaw().filter(isRhOrcamentoQueueReport),
   );
 }
@@ -39,13 +39,13 @@ function sortReportsForRhPanel(a, b) {
 }
 
 export function getPendingReports() {
-  return dedupeReportsByJobPreferNewest(getPendingReviewReportsSnapshot());
+  return dedupeReportsForDisplay(getPendingReviewReportsSnapshot());
 }
 
 /** Relatórios visíveis no painel RH (com filtro opcional por estado) */
 export function getAdminReviewReports(filter = 'all') {
   if (filter === 'pending_review') {
-    return dedupeReportsByJobPreferNewest(getPendingReviewReportsSnapshot()).sort(
+    return dedupeReportsForDisplay(getPendingReviewReportsSnapshot()).sort(
       sortReportsForRhPanel,
     );
   }
@@ -60,7 +60,7 @@ export function getAdminReviewReports(filter = 'all') {
 /** Contagens por estado para filtros rápidos do painel RH */
 export function getRhPanelReportCounts() {
   const list = getRhPanelReports();
-  const pendingReview = dedupeReportsByJobPreferNewest(getPendingReviewReportsSnapshot());
+  const pendingReview = dedupeReportsForDisplay(getPendingReviewReportsSnapshot());
   return {
     all: list.length,
     pending_review: pendingReview.length,

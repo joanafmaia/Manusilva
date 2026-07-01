@@ -18,7 +18,7 @@ import {
   formatDate,
   showToast,
 } from '../app.js';
-import { dedupeReportsByJobPreferNewest } from '../relatorios-db.js';
+import { dedupeReportsForDisplay } from '../relatorios-db.js';
 import { renderClientCombobox, bindClientComboboxes } from '../client-combobox.js';
 import { formatOrdemLabel } from '../report-review-ui.js';
 import { PAYMENT_CONDITION_OPTIONS } from './client-profile-drawer.js';
@@ -226,7 +226,7 @@ function reportDateOf(report) {
 
 /** Todas as faturas registadas — o histórico nunca é apagado do Supabase. */
 function getInvoicedReports() {
-  return dedupeReportsByJobPreferNewest(
+  return dedupeReportsForDisplay(
     getReportsSnapshot().filter((r) => r.faturacaoStatus === 'faturado'),
   );
 }

@@ -17,6 +17,7 @@ import { mapClientToLegacy } from '../mock_data.js';
 import { openReportReviewModal, downloadReportPDF } from '../report-review-modal.js';
 import { openClientProfilePanel } from './client-profile-drawer.js';
 import { isTestClient, TEST_JOB_ORDEM_LABEL } from '../client-test-utils.js';
+import { dedupeReportsForDisplay } from '../relatorios-db.js';
 
 /** Tipos de relatório técnico de bateria (MS. 061) */
 export const BATTERY_REPORT_SERVICE_TYPES = new Set([
@@ -80,13 +81,14 @@ function formatOrdemDisplay(numeroOrdem, client = null) {
 
 function getClientHistoryReports(clientId, { batteryOnly = true } = {}) {
   const db = getDB();
-  return (db.reports || [])
-    .filter((r) => {
-      if (!reportBelongsToClient(r, clientId)) return false;
-      if (batteryOnly && !BATTERY_REPORT_SERVICE_TYPES.has(r.serviceType)) return false;
-      return true;
-    })
-    .sort((a, b) => new Date(b.submittedAt || 0) - new Date(a.submittedAt || 0));
+  return dedupeReportsForDisplay(
+    (db.reports || [])
+      .filter((r) => {
+        if (!reportBelongsToClient(r, clientId)) return false;
+        if (batteryOnly && !BATTERY_REPORT_SERVICE_TYPES.has(r.serviceType)) return false;
+        return true;
+      }),
+  ).sort((a, b) => new Date(b.submittedAt || 0) - new Date(a.submittedAt || 0));
 }
 
 export function getClientBatteryReports(clientId) {

@@ -30,7 +30,7 @@ import {
   reportOrcamentoQueueLabel,
 } from '../orcamento-standalone.js';
 import { getReportOrcamentoMeta } from '../orcamento-linhas.js';
-import { dedupeReportsByJobPreferNewest } from '../relatorios-db.js';
+import { dedupeReportsForDisplay } from '../relatorios-db.js';
 
 const PANEL_STATUSES = new Set(['pending_review', 'approved']);
 
@@ -47,7 +47,7 @@ function orcamentoWorkflowStatus(report) {
 }
 
 function listOrcamentoReports() {
-  return dedupeReportsByJobPreferNewest(
+  return dedupeReportsForDisplay(
     getReportsSnapshot()
       .filter((report) => isRhOrcamentoQueueReport(report))
       .sort((a, b) => {

@@ -39,7 +39,7 @@ import {
   getReportUrgencyLevel,
 } from './rh-panel-utils.js';
 import { reportHasPedidoOrcamento, reportOrcamentoPorPreparar } from './pedido-orcamento.js';
-import { dedupeReportsByJobPreferNewest } from './relatorios-db.js';
+import { dedupeReportsForDisplay } from './relatorios-db.js';
 import {
   computeReviewChecks,
   reviewHasBlockingIssues,
@@ -235,7 +235,7 @@ export function buildRhReviewListItem({ job, report, client, tech }) {
  * Lista RH — um cartão por relatório (sem pastas de visita).
  */
 export function buildRhReviewGroupedStack(reports, { getJobFn = getJob } = {}) {
-  return dedupeReportsByJobPreferNewest(reports)
+  return dedupeReportsForDisplay(reports)
     .map((report) => {
       const job = report.jobId ? getJobFn(report.jobId) : null;
       return buildRhReviewListItem({

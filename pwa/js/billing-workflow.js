@@ -3,7 +3,7 @@
  */
 
 import {
-  dedupeReportsByJobPreferNewest,
+  dedupeReportsForDisplay,
   formatRelatoriosError,
   getReportsSnapshot,
   updateRelatorio,
@@ -25,7 +25,7 @@ export function isPendingBilling(report) {
 }
 
 export function getPendingBillingReports() {
-  return dedupeReportsByJobPreferNewest(getReportsSnapshot().filter(isPendingBilling)).sort(
+  return dedupeReportsForDisplay(getReportsSnapshot().filter(isPendingBilling)).sort(
     (a, b) => String(a.approvedAt || '').localeCompare(String(b.approvedAt || '')),
   );
 }
@@ -53,7 +53,7 @@ export function resolveInvoiceBillingFields(condicaoPagamento, statusRecebimento
 
 /** Relatórios já faturados com cobrança em aberto */
 export function getPendingPaymentInvoices() {
-  return dedupeReportsByJobPreferNewest(
+  return dedupeReportsForDisplay(
     getReportsSnapshot().filter(
       (r) => r.faturacaoStatus === 'faturado' && r.statusRecebimento === 'pendente',
     ),
@@ -66,7 +66,7 @@ export function getPendingPaymentInvoices() {
 
 /** Métricas de fluxo de caixa (faturas emitidas na app) */
 export function getBillingFinancialMetrics() {
-  const invoiced = dedupeReportsByJobPreferNewest(
+  const invoiced = dedupeReportsForDisplay(
     getReportsSnapshot().filter((r) => r.faturacaoStatus === 'faturado'),
   );
   let totalFaturado = 0;

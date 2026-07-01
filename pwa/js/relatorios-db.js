@@ -24,22 +24,21 @@ export function isUuid(value) {
   return UUID_RE.test(String(value || ''));
 }
 
-/** Prioridade ao escolher um relatório canónico por trabalho (fila RH). */
-const RH_REPORT_STATUS_PRIORITY = {
+/** Prioridade ao escolher um relatório canónico por trabalho/OP nas listas. */
+const DISPLAY_REPORT_STATUS_PRIORITY = {
+  approved: 50,
   pending_review: 40,
   draft: 30,
-  approved: 20,
-  rejected: 10,
+  rejected: 20,
 };
 
-function compareReportsForJobDedupe(a, b) {
-  const pa = RH_REPORT_STATUS_PRIORITY[a?.status] || 0;
-  const pb = RH_REPORT_STATUS_PRIORITY[b?.status] || 0;
+function compareReportsForDisplayDedupe(a, b) {
+  const pa = DISPLAY_REPORT_STATUS_PRIORITY[a?.status] || 0;
+  const pb = DISPLAY_REPORT_STATUS_PRIORITY[b?.status] || 0;
   if (pa !== pb) return pa - pb;
   const ta = String(a?.submittedAt || a?.approvedAt || '');
   const tb = String(b?.submittedAt || b?.approvedAt || '');
   if (ta !== tb) return ta.localeCompare(tb);
-  // Mesmo estado e data: preferir relatório com pedido de orçamento (evita perder MS.015 após aprovar).
   const oa = String(a?.data?.values?.pedido_orcamento || '').toLowerCase() === 'sim' ? 1 : 0;
   const ob = String(b?.data?.values?.pedido_orcamento || '').toLowerCase() === 'sim' ? 1 : 0;
   return oa - ob;
@@ -57,12 +56,48 @@ export function dedupeReportsByJobPreferNewest(reports = []) {
     }
     const key = String(report.jobId);
     const existing = byJob.get(key);
-    if (!existing || compareReportsForJobDedupe(existing, report) < 0) {
+    if (!existing || compareReportsForDisplayDedupe(existing, report) < 0) {
       byJob.set(key, report);
     }
   }
 
   return [...withoutJob, ...byJob.values()];
+}
+
+function resolveReportNumeroOrdem(report) {
+  if (!report?.jobId) return null;
+  const job = getJobsSnapshot().find((j) => sameEntityId(j.id, report.jobId));
+  const n = job?.numeroOrdem;
+  return n != null && Number.isFinite(Number(n)) ? Number(n) : null;
+}
+
+/**
+ * Uma OP oficial por número — evita duplicados quando existem vários relatórios/trabalhos
+ * com o mesmo numero_ordem (erro de dados ou submissões repetidas).
+ */
+export function dedupeReportsByNumeroOrdem(reports = []) {
+  const byOrdem = new Map();
+  const rest = [];
+
+  for (const report of reports) {
+    const ordem = resolveReportNumeroOrdem(report);
+    if (ordem == null) {
+      rest.push(report);
+      continue;
+    }
+    const key = String(ordem);
+    const existing = byOrdem.get(key);
+    if (!existing || compareReportsForDisplayDedupe(existing, report) < 0) {
+      byOrdem.set(key, report);
+    }
+  }
+
+  return [...rest, ...byOrdem.values()];
+}
+
+/** Deduplicação completa para listas (trabalho + OP). */
+export function dedupeReportsForDisplay(reports = []) {
+  return dedupeReportsByNumeroOrdem(dedupeReportsByJobPreferNewest(reports));
 }
 
 function parseClientId(clientId) {
@@ -264,10 +299,23 @@ export function removeReportsForJobFromCache(jobId) {
   reportsCache = reportsCache.filter((r) => String(r.jobId ?? '') !== id);
 }
 
-function findExistingReportId(report) {
+async function findExistingReportId(report) {
   if (report.id && isUuid(report.id)) return report.id;
   const byJob = reportsCache?.find((r) => report.jobId && sameEntityId(r.jobId, report.jobId));
   if (byJob?.id && isUuid(byJob.id)) return byJob.id;
+
+  if (report.jobId && isUuid(report.jobId)) {
+    const supabase = await getAuthenticatedSupabaseClient();
+    const { data, error } = await supabase
+      .from('relatorios')
+      .select('id')
+      .eq('trabalho_id', report.jobId)
+      .order('atualizado_em', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (!error && data?.id) return String(data.id);
+  }
+
   return null;
 }
 
@@ -296,7 +344,7 @@ export async function upsertRelatorio(report) {
 
   const supabase = await getAuthenticatedSupabaseClient();
   const row = mapReportToRow(linkedReport);
-  const existingId = findExistingReportId(linkedReport);
+  const existingId = await findExistingReportId(linkedReport);
 
   let data;
   let error;

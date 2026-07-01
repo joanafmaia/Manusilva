@@ -39,7 +39,7 @@ import {
 import { initLogoutButton } from './auth.js';
 import { getLastClientIntervention } from './views/historico-cliente.js';
 import { ensureTrabalhosSemana } from './trabalhos-db.js';
-import { dedupeReportsByJobPreferNewest } from './relatorios-db.js';
+import { dedupeReportsForDisplay } from './relatorios-db.js';
 import { triggerTechDataSync } from './tech-sync.js';
 import {
   filterJobsBySearch,
@@ -480,7 +480,7 @@ function renderAgendadosWeekPreview(techId) {
 const REALIZADOS_VISIBLE_STATUSES = new Set(['approved', 'pending_review']);
 
 function getRealizadosItems(techId) {
-  return dedupeReportsByJobPreferNewest(
+  return dedupeReportsForDisplay(
     getReportsSnapshot().filter(
       (report) =>
         REALIZADOS_VISIBLE_STATUSES.has(report.status) &&
