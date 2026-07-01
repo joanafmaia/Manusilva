@@ -29,8 +29,47 @@ export function parseCatalogPayload(payload) {
         row.precoVenda != null && Number.isFinite(Number(row.precoVenda))
           ? Number(row.precoVenda)
           : null,
+      source: 'json',
     }))
     .filter((row) => row.descricao || row.codigo);
+}
+
+/** Junta catálogo estático (Excel/JSON) com artigos gravados na base de dados. */
+export function mergeCatalogItems(staticItems = [], dbItems = []) {
+  const seen = new Set();
+  const merged = [];
+
+  for (const item of [...staticItems, ...dbItems]) {
+    const key = normKey(item.codigo) || normKey(item.descricao);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    merged.push(item);
+  }
+
+  return merged;
+}
+
+async function loadCatalogoFromJson() {
+  const res = await fetch(CATALOG_URL, { cache: 'no-cache' });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const payload = await res.json();
+  const items = parseCatalogPayload(payload);
+  return {
+    items,
+    updatedAt: payload.updatedAt || null,
+    itemCount: items.length,
+    source: payload.source || null,
+  };
+}
+
+async function loadCatalogoFromDb() {
+  try {
+    const { fetchCatalogoProdutosFromDb } = await import('./catalogo-produtos-db.js');
+    return await fetchCatalogoProdutosFromDb();
+  } catch (err) {
+    console.warn('[Catálogo] Falha ao carregar artigos da base de dados:', err);
+    return [];
+  }
 }
 
 /** @returns {Promise<{ items: object[], updatedAt: string|null, itemCount: number }>} */
@@ -40,20 +79,22 @@ export async function loadCatalogoProdutos({ force = false } = {}) {
 
   loadPromise = (async () => {
     try {
-      const res = await fetch(CATALOG_URL, { cache: 'no-cache' });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const payload = await res.json();
-      const items = parseCatalogPayload(payload);
+      const [jsonCatalog, dbItems] = await Promise.all([
+        loadCatalogoFromJson(),
+        loadCatalogoFromDb(),
+      ]);
+      const items = mergeCatalogItems(jsonCatalog.items, dbItems);
       cache = {
         items,
-        updatedAt: payload.updatedAt || null,
+        updatedAt: jsonCatalog.updatedAt,
         itemCount: items.length,
-        source: payload.source || null,
+        source: jsonCatalog.source,
+        dbItemCount: dbItems.length,
       };
       return cache;
     } catch (err) {
       console.warn('[Catálogo] Falha ao carregar produtos:', err);
-      cache = { items: [], updatedAt: null, itemCount: 0, source: null };
+      cache = { items: [], updatedAt: null, itemCount: 0, source: null, dbItemCount: 0 };
       return cache;
     } finally {
       loadPromise = null;

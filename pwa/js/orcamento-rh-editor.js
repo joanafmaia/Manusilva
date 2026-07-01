@@ -462,6 +462,13 @@ export function bindOrcamentoEditor(container, { report, onUpdated, onSent } = {
         document.createTextNode(formatado),
       );
     }
+    void import('./catalogo-produtos-db.js').then(async ({ persistOrcamentoLinhasToCatalogo }) => {
+      const count = await persistOrcamentoLinhasToCatalogo(meta.linhas);
+      if (count > 0) {
+        const { invalidateCatalogoProdutosCache } = await import('./catalogo-produtos.js');
+        invalidateCatalogoProdutosCache();
+      }
+    });
     return saved;
   };
 

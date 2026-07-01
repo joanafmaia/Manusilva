@@ -31,7 +31,7 @@ function formatOptionMeta(item) {
 
 function renderOptions(items, activeIndex, query, catalogEmpty) {
   if (catalogEmpty) {
-    return '<li class="client-combobox-hint">Catálogo vazio — importe Listagem Produtos.xlsx</li>';
+    return '<li class="client-combobox-hint">Escreva o artigo — ao sair do campo fica guardado no catálogo</li>';
   }
   if (!String(query || '').trim()) {
     return '<li class="client-combobox-hint">Escreva código ou descrição do artigo</li>';
@@ -86,6 +86,28 @@ function bindDescricaoCombobox(input, { pool, catalogEmpty, onChange }) {
 
   let activeIndex = -1;
   let items = [];
+  let catalogEmptyState = catalogEmpty;
+
+  const refreshPoolFromDb = async () => {
+    const { invalidateCatalogoProdutosCache, loadCatalogoProdutos } = await import(
+      './catalogo-produtos.js'
+    );
+    invalidateCatalogoProdutosCache();
+    const catalog = await loadCatalogoProdutos({ force: true });
+    pool.splice(0, pool.length, ...catalog.items);
+    catalogEmptyState = pool.length === 0;
+  };
+
+  const persistRowToCatalog = async () => {
+    if (!row) return;
+    try {
+      const { persistOrcamentoLinhaFromDomRow } = await import('./catalogo-produtos-db.js');
+      const saved = await persistOrcamentoLinhaFromDomRow(row);
+      if (saved) await refreshPoolFromDb();
+    } catch (err) {
+      console.warn('[Catálogo] Gravar linha:', err);
+    }
+  };
 
   const close = () => {
     list.hidden = true;
@@ -100,7 +122,7 @@ function bindDescricaoCombobox(input, { pool, catalogEmpty, onChange }) {
     const query = input.value;
     items = searchCatalogoProdutos(query, pool);
     if (activeIndex >= items.length) activeIndex = items.length - 1;
-    list.innerHTML = renderOptions(items, activeIndex, query, catalogEmpty);
+    list.innerHTML = renderOptions(items, activeIndex, query, catalogEmptyState);
     if (String(query || '').trim()) open();
     else close();
   };
@@ -121,6 +143,10 @@ function bindDescricaoCombobox(input, { pool, catalogEmpty, onChange }) {
 
   input.addEventListener('focus', () => {
     if (String(input.value || '').trim()) refresh();
+  });
+
+  input.addEventListener('blur', () => {
+    void persistRowToCatalog();
   });
 
   input.addEventListener('keydown', (e) => {
@@ -159,6 +185,10 @@ function bindDescricaoCombobox(input, { pool, catalogEmpty, onChange }) {
 
   document.addEventListener('click', (e) => {
     if (!wrap.contains(e.target)) close();
+  });
+
+  row?.querySelector('[data-orc-field="precoUnit"]')?.addEventListener('blur', () => {
+    void persistRowToCatalog();
   });
 }
 
