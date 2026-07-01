@@ -1,6 +1,35 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { resolveReportObservacoesTecnico } from '../js/orcamento-cabecalho.js';
+import {
+  ORCAMENTO_TEXTO_INTRO_PLURAL,
+  ORCAMENTO_TEXTO_INTRO_SINGULAR,
+  resolveReportObservacoesTecnico,
+  suggestOrcamentoTextoIntro,
+} from '../js/orcamento-cabecalho.js';
+
+describe('suggestOrcamentoTextoIntro', () => {
+  it('usa texto por defeito para uma máquina', () => {
+    const report = { data: { orcamento: { maquinas: [{ marca: 'Toyota' }] } } };
+    assert.equal(suggestOrcamentoTextoIntro(report), ORCAMENTO_TEXTO_INTRO_SINGULAR);
+  });
+
+  it('usa plural com várias máquinas', () => {
+    const report = {
+      data: {
+        orcamento: {
+          maquinas: [{ marca: 'A' }, { marca: 'B' }],
+        },
+      },
+    };
+    assert.equal(suggestOrcamentoTextoIntro(report), ORCAMENTO_TEXTO_INTRO_PLURAL);
+  });
+
+  it('respeita texto guardado pelo RH', () => {
+    const custom = 'Texto personalizado:';
+    const report = { data: { orcamento: { textoIntro: custom } } };
+    assert.equal(suggestOrcamentoTextoIntro(report), custom);
+  });
+});
 
 describe('resolveReportObservacoesTecnico', () => {
   it('usa «O que é necessário» quando há pedido de orçamento', () => {

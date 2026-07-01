@@ -15,6 +15,10 @@ import {
 
 export const ORCAMENTO_FORMA_PAGAMENTO_DEFAULT = 'Pronto Pagamento';
 export const ORCAMENTO_VALIDADE_DEFAULT = '10 Dias';
+export const ORCAMENTO_TEXTO_INTRO_SINGULAR =
+  'Vimos por este meio enviar o nosso orçamento para a seguinte máquina:';
+export const ORCAMENTO_TEXTO_INTRO_PLURAL =
+  'Vimos por este meio enviar o nosso orçamento para as seguintes máquinas:';
 
 function readOrcamentoMeta(report) {
   const meta = report?.data?.orcamento;
@@ -192,6 +196,21 @@ export function resolveReportEquipamentoFields(report) {
   return { marca, modelo, tipo, numeroSerie, numeroInterno, maquina, matricula };
 }
 
+/** Texto introdutório do PDF — editável pelo RH; plural com várias máquinas. */
+export function suggestOrcamentoTextoIntro(report, machineCount = null) {
+  const meta = readOrcamentoMeta(report);
+  const saved = String(meta.textoIntro || '').trim();
+  if (saved) return saved;
+
+  const maquinas = normalizeOrcamentoMaquinasList(meta.maquinas || suggestOrcamentoMaquinas(report)).filter(
+    hasOrcamentoMaquinaData,
+  );
+  const count =
+    machineCount ??
+    Math.max(1, maquinas.length || normalizeOrcamentoMaquinasList(suggestOrcamentoMaquinas(report)).length);
+  return count > 1 ? ORCAMENTO_TEXTO_INTRO_PLURAL : ORCAMENTO_TEXTO_INTRO_SINGULAR;
+}
+
 /** @deprecated usar resolveReportEquipamentoFields */
 export function resolveReportEquipamentoDefaults(report) {
   const fields = resolveReportEquipamentoFields(report);
@@ -219,6 +238,7 @@ function buildDefaultsFromReport(report) {
     matricula: equipamento.matricula,
     observacoesTecnico: resolveReportObservacoesTecnico(report),
     observacoesCliente: '',
+    textoIntro: suggestOrcamentoTextoIntro(report),
     formaPagamento: ORCAMENTO_FORMA_PAGAMENTO_DEFAULT,
     validadeOrcamento: ORCAMENTO_VALIDADE_DEFAULT,
   };
@@ -235,6 +255,7 @@ const CABECALHO_FIELD_KEYS = [
   'matricula',
   'observacoesTecnico',
   'observacoesCliente',
+  'textoIntro',
   'formaPagamento',
   'validadeOrcamento',
 ];
@@ -313,6 +334,7 @@ export function readOrcamentoCabecalhoFromDom(root, report) {
       numeroInterno: legacy.numeroInterno,
       observacoesTecnico: read('observacoesTecnico'),
       observacoesCliente: read('observacoesCliente'),
+      textoIntro: read('textoIntro') || suggestOrcamentoTextoIntro(report, maquinas.length || 1),
       formaPagamento: read('formaPagamento') || ORCAMENTO_FORMA_PAGAMENTO_DEFAULT,
       validadeOrcamento: read('validadeOrcamento') || ORCAMENTO_VALIDADE_DEFAULT,
     },

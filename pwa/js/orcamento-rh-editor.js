@@ -124,6 +124,11 @@ export function renderOrcamentoEditor(report, { client } = {}) {
         </div>
         ${renderOrcamentoMaquinasSection(cab.maquinas)}
         <label class="review-orc-field review-orc-field--full">
+          <span>Texto introdutório (PDF)</span>
+          <textarea class="review-orc-input review-orc-textarea" data-orc-field="textoIntro" rows="2" placeholder="Frase antes dos dados da máquina">${escapeHtml(cab.textoIntro)}</textarea>
+          <span class="review-orc-field-hint text-muted">Aparece no início da proposta, antes dos equipamentos.</span>
+        </label>
+        <label class="review-orc-field review-orc-field--full">
           <span>Observações ao cliente</span>
           <textarea class="review-orc-input review-orc-textarea" data-orc-field="observacoesCliente" rows="3" placeholder="Texto explicativo para o cliente (aparece no PDF da proposta)">${escapeHtml(cab.observacoesCliente)}</textarea>
           <span class="review-orc-field-hint text-muted">Incluído no PDF MS.015 enviado ao cliente.</span>

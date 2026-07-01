@@ -57,6 +57,8 @@ const MARGIN = PDF_MARGIN;
 const CONTENT_W = PDF_CONTENT_W;
 const PAGE_W = PDF_PAGE_W;
 const PAGE_BOTTOM = 287;
+const MS015_DOC_REF = 'MS.015.0';
+const MS015_DOC_REF_Y = 293.5;
 /** Espaço reservado no fundo da folha 1 para a caixa de aprovação do cliente. */
 const APPROVAL_BOX_H = 52;
 const APPROVAL_TOP = PAGE_BOTTOM - APPROVAL_BOX_H - 6;
@@ -172,6 +174,22 @@ function drawOrcamentoLetterhead(doc, fill) {
   doc.text(pdfSafeText(fill.data_extenso), MARGIN + CONTENT_W, y, { align: 'right' });
   doc.setTextColor(...PDF_COLOR_TEXT_DARK);
   return y + 9;
+}
+
+/** Referência do documento — canto inferior esquerdo de cada página. */
+function drawMs015DocumentRef(doc) {
+  pdfSetFont(doc, 'normal');
+  doc.setFontSize(7);
+  doc.setTextColor(...PDF_COLOR_TEXT_MUTED);
+  doc.text(MS015_DOC_REF, MARGIN, MS015_DOC_REF_Y);
+}
+
+function stampMs015DocumentRefAllPages(doc) {
+  const total = doc.getNumberOfPages();
+  for (let page = 1; page <= total; page += 1) {
+    doc.setPage(page);
+    drawMs015DocumentRef(doc);
+  }
 }
 
 function drawOrcamentoTable(doc, linhas, startY, { maquinas = [] } = {}) {
@@ -366,7 +384,7 @@ function drawLegalPage(doc, legalText) {
   pdfSetFont(doc, 'normal');
   doc.setFontSize(7);
   doc.setTextColor(...PDF_COLOR_TEXT_MUTED);
-  doc.text(COMPANY.address || '', MARGIN, PAGE_BOTTOM);
+  drawMs015DocumentRef(doc);
 }
 
 function drawOrcamentoEquipamentoBlocks(doc, fill, startY) {
@@ -516,7 +534,7 @@ export async function renderOrcamentoPDF(report) {
 
   pdfSetFont(doc, 'normal');
   doc.setFontSize(PDF_FONT_BODY);
-  const intro = `Vimos por este meio enviar o orçamento para ${fill.intro_servico}`;
+  const intro = String(fill.texto_intro || '').trim() || 'Vimos por este meio enviar o nosso orçamento para a seguinte máquina:';
   pdfSplitText(doc, intro, CONTENT_W).forEach((line) => {
     if (!canDrawBodyLine(y)) return;
     doc.text(line, MARGIN, y);
@@ -540,6 +558,8 @@ export async function renderOrcamentoPDF(report) {
   if (legalText) {
     drawLegalPage(doc, legalText);
   }
+
+  stampMs015DocumentRefAllPages(doc);
 
   return doc;
 }

@@ -2,7 +2,7 @@
  * Dados para preencher o template MS.015 (Proposta Comercial / Orçamentos).
  */
 
-import { getJob, getServiceType } from './app.js';
+import { getJob } from './app.js';
 import {
   computeOrcamentoTotals,
   formatEuro,
@@ -51,28 +51,6 @@ export function formatOrcamentoDateLong(raw) {
   return text;
 }
 
-export function resolveOrcamentoIntro(serviceType, machineCount = 1) {
-  const id = String(serviceType || '');
-  const plural = Number(machineCount) > 1;
-  if (/bateria/i.test(id)) {
-    return plural ? 'a reparação das seguintes baterias:' : 'a reparação da seguinte bateria:';
-  }
-  if (/inspecao|dl50|empilhador|maquina|avaria|corretiva/i.test(id)) {
-    return plural
-      ? 'a reparação / manutenção dos seguintes equipamentos:'
-      : 'a reparação / manutenção do seguinte equipamento:';
-  }
-  const service = getServiceType(id);
-  if (service?.label) {
-    return plural
-      ? `as intervenções de ${String(service.label).toLowerCase()}:`
-      : `a intervenção de ${String(service.label).toLowerCase()}:`;
-  }
-  return plural
-    ? 'a reparação / manutenção dos seguintes equipamentos:'
-    : 'a reparação / manutenção do seguinte equipamento:';
-}
-
 export function buildOrcamentoFillData(report, job = null) {
   const values = report?.data?.values || {};
   const resolvedJob = job || (report?.jobId ? getJob(report.jobId) : null);
@@ -118,7 +96,8 @@ export function buildOrcamentoFillData(report, job = null) {
     cliente_ac: display(cabecalho.clienteAc),
     orcamento_numero: orcamentoNumero,
     data_extenso: dataExtenso,
-    intro_servico: resolveOrcamentoIntro(report?.serviceType, maquinasForPdf.length),
+    texto_intro: display(cabecalho.textoIntro),
+    intro_servico: display(cabecalho.textoIntro),
     maquina:
       maquinasForPdf.length > 1
         ? formatOrcamentoMaquinasDocxText(maquinasForPdf)
