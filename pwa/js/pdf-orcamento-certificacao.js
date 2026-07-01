@@ -4,7 +4,7 @@
 
 import { getPdfLogoFormat } from './brand-ui.js';
 import { getDataUrlImageDimensions } from './pdf-image-fit.js';
-import { detectImageFormat, loadImageForPdf } from './pdf-image-loader.js';
+import { blobToDataUrlForPdf } from './pdf-image-loader.js';
 import { PDF_PAGE_H, PDF_PAGE_W } from './pdf-design-system.js';
 
 export const ORCAMENTO_CERTIFICACAO_SELOS_SRC = 'assets/certificacao/selos-certificacao.png';
@@ -18,10 +18,17 @@ let certificacaoSelosCache = null;
 
 export async function loadOrcamentoCertificacaoSelosImage() {
   if (certificacaoSelosCache) return certificacaoSelosCache;
-  const dataUrl = await loadImageForPdf(ORCAMENTO_CERTIFICACAO_SELOS_SRC);
-  if (!dataUrl) return null;
-  certificacaoSelosCache = dataUrl;
-  return dataUrl;
+  try {
+    const res = await fetch(ORCAMENTO_CERTIFICACAO_SELOS_SRC, { mode: 'cors' });
+    if (!res.ok) return null;
+    const dataUrl = await blobToDataUrlForPdf(await res.blob());
+    if (!dataUrl) return null;
+    certificacaoSelosCache = dataUrl;
+    return dataUrl;
+  } catch (err) {
+    console.warn('[PDF] Selos de certificação indisponíveis:', err);
+    return null;
+  }
 }
 
 function resolveSeloLayout(dataUrl, dims) {
@@ -30,7 +37,7 @@ function resolveSeloLayout(dataUrl, dims) {
   const w = dims.width * scale;
   const x = PDF_PAGE_W - SELO_MARGIN_RIGHT_MM - w;
   const y = PDF_PAGE_H - SELO_MARGIN_BOTTOM_MM - h;
-  const format = getPdfLogoFormat(dataUrl) || detectImageFormat(dataUrl);
+  const format = getPdfLogoFormat(dataUrl);
   return { x, y, w, h, format };
 }
 
