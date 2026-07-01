@@ -388,12 +388,22 @@ function jobMatchesTechOnDate(job, techId, isoDate) {
   return toPureDate(job.date) === isoDate;
 }
 
-/** Trabalhos do dia selecionado — todos os estados (agendado, em curso, pendente, realizado, rejeitado). */
+/** Concluídos (aprovados) só na aba Realizados — não na lista Agendados nem no calendário. */
+function isAgendadosActiveJob(job) {
+  const report = getReportForJob(job.id);
+  return resolveCalendarEventState(job, report) !== 'approved';
+}
+
+function filterAgendadosActiveJobs(jobs) {
+  return jobs.filter(isAgendadosActiveJob);
+}
+
+/** Trabalhos do dia selecionado — exclui concluídos (aprovados pelo RH). */
 function getAgendadosJobs(techId) {
   const selected = toPureDate(selectedDate);
-  return getJobsSnapshot()
-    .filter((job) => jobMatchesTechOnDate(job, techId, selected))
-    .sort(sortAgendadosJobs);
+  return filterAgendadosActiveJobs(
+    getJobsSnapshot().filter((job) => jobMatchesTechOnDate(job, techId, selected)),
+  ).sort(sortAgendadosJobs);
 }
 
 /** Trabalhos no resto da semana do dia selecionado (exclui o próprio dia). */
@@ -402,14 +412,14 @@ function getRestOfWeekScheduledJobs(techId) {
   const weekOfSelected = getWeekDates(new Date(`${selected}T12:00:00`));
   const dateSet = new Set(weekOfSelected);
 
-  return getJobsSnapshot()
-    .filter((job) => {
+  return filterAgendadosActiveJobs(
+    getJobsSnapshot().filter((job) => {
       const jobDate = toPureDate(job.date);
       if (!jobAssignedToTechnician(job, techId)) return false;
       if (!dateSet.has(jobDate) || jobDate === selected) return false;
       return true;
-    })
-    .sort(sortAgendadosJobs);
+    }),
+  ).sort(sortAgendadosJobs);
 }
 
 function resolveAgendadosRowAction(state) {
@@ -423,7 +433,6 @@ function renderAgendadosStateLegend() {
     { state: 'scheduled', label: 'Agendado' },
     { state: 'draft', label: 'Em curso' },
     { state: 'pending', label: 'À espera de aprovação' },
-    { state: 'approved', label: 'Realizado' },
     { state: 'rejected', label: 'Rejeitado' },
   ];
   const chips = items
@@ -747,13 +756,15 @@ function getRejectedJobsForTech(techId) {
 
 function getTodayAgendadosCount(techId) {
   const today = getTodayIso();
-  return getJobsSnapshot().filter((job) => jobMatchesTechOnDate(job, techId, today)).length;
+  return getJobsSnapshot().filter(
+    (job) => jobMatchesTechOnDate(job, techId, today) && isAgendadosActiveJob(job),
+  ).length;
 }
 
 function countJobsByStateForDate(techId, isoDate) {
-  const counts = { draft: 0, pending: 0, approved: 0, scheduled: 0, rejected: 0 };
+  const counts = { draft: 0, pending: 0, scheduled: 0, rejected: 0 };
   getJobsSnapshot()
-    .filter((job) => jobMatchesTechOnDate(job, techId, isoDate))
+    .filter((job) => jobMatchesTechOnDate(job, techId, isoDate) && isAgendadosActiveJob(job))
     .forEach((job) => {
       const state = resolveCalendarEventState(job, getReportForJob(job.id));
       if (counts[state] !== undefined) counts[state] += 1;
@@ -809,9 +820,6 @@ async function renderTechDaySummary() {
   }
   if (todayStates.pending) {
     stateParts.push(`<strong>${todayStates.pending}</strong> à espera de aprovação`);
-  }
-  if (todayStates.approved) {
-    stateParts.push(`<strong>${todayStates.approved}</strong> realizado${todayStates.approved === 1 ? '' : 's'}`);
   }
 
   const parts = [
@@ -1253,7 +1261,9 @@ function renderMonthCalendar() {
 
   cellsHtml += dates
     .map((date) => {
-      const dayJobs = techId ? getJobsForTechnician(techId, date) : [];
+      const dayJobs = techId
+        ? filterAgendadosActiveJobs(getJobsForTechnician(techId, date))
+        : [];
       const isSelected = date === selectedDate;
       const classes = [
         'cal-cell',
@@ -1298,7 +1308,9 @@ function renderCalendarStrip() {
     .map((date) => {
       const isSelected = date === selectedDate;
       const today = isToday(date);
-      const dayJobs = techId ? getJobsForTechnician(techId, date) : [];
+      const dayJobs = techId
+        ? filterAgendadosActiveJobs(getJobsForTechnician(techId, date))
+        : [];
       const hasJobs = dayJobs.length > 0;
       const classes = [
         'cal-day',
