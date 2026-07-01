@@ -179,7 +179,6 @@ function renderTableRow(report) {
   const canApproveReport = !reportIsStandaloneOrcamento(report) && report.status === 'pending_review';
   const canCancelPedido = !meta?.enviadoEm;
   const canEditProposal = !meta?.enviadoEm;
-  const canReviewReport = !reportIsStandaloneOrcamento(report);
   const aguardaResposta = orcamentoAguardaRespostaCliente(report);
   const podeMarcarResposta = Boolean(meta?.enviadoEm);
   const highlighted = highlightReportId && report.id === highlightReportId;
@@ -221,11 +220,6 @@ function renderTableRow(report) {
           ${
             techPdfUrl && report.status === 'approved'
               ? `<button type="button" class="btn-outline btn-sm rh-btn-compact" data-orc-tech-pdf="${escapeHtml(techPdfUrl)}" title="Abrir PDF do relatório técnico">Relatório</button>`
-              : ''
-          }
-          ${
-            canReviewReport
-              ? `<button type="button" class="btn-outline btn-sm rh-btn-compact" data-orc-review="${escapeHtml(report.id)}" title="Rever relatório">Rever</button>`
               : ''
           }
           ${
@@ -337,19 +331,6 @@ function bindPanelEvents() {
       openOrcamentoModal(report, {
         onUpdated: () => refreshOrcamentosPanel().catch(console.error),
       });
-      return;
-    }
-
-    const reviewBtn = e.target.closest('[data-orc-review]');
-    if (reviewBtn) {
-      const reportId = reviewBtn.dataset.orcReview;
-      if (!reportId) return;
-      void import('../report-review-rh-modal.js').then(({ openRhReviewModal }) =>
-        openRhReviewModal(reportId, {
-          onApproved: () => refreshOrcamentosPanel().catch(console.error),
-          onRejected: () => refreshOrcamentosPanel().catch(console.error),
-        }),
-      );
       return;
     }
 
