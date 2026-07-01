@@ -67,9 +67,9 @@ const GRANDES_BATTERY_PDF_HEADERS = [
   'Dens.',
   'Nível El.',
   'Cofre',
-  'C.C.?',
+  'C.C.',
 ];
-/** Índices de colunas curtas — sem quebra de palavra no PDF (Tensão, Dens., C.C.?) */
+/** Índices de colunas curtas — sem quebra de palavra no PDF (Tensão, Dens., C.C.) */
 const GRANDES_BATTERY_NOWRAP_COLS = new Set([3, 4, 7]);
 const GRANDES_BATTERY_COL_WIDTHS = [28, 22, 22, 14, 14, 46, 18, 16];
 

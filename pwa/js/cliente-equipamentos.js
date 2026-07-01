@@ -281,7 +281,7 @@ function batteryRowFromEquipamento(equipamento = {}) {
     densidade: equipamento.densidade != null ? String(equipamento.densidade) : '',
     nivel_eletrolito: '',
     estado_cofre: '',
-    curto_circuito: 'Não',
+    curto_circuito: '',
   };
 }
 

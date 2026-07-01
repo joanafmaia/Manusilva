@@ -21,16 +21,10 @@ export const GRANDES_BATTERY_COLUMNS = [
     options: ['Correto', 'Abaixo do Nível', 'Necessita Reposição Urgentemente'],
   },
   { key: 'estado_cofre', label: 'Estado Cofre', input: 'text' },
-  {
-    key: 'curto_circuito',
-    label: 'Curto-Circuito?',
-    input: 'select',
-    options: ['Não', 'Sim'],
-  },
+  { key: 'curto_circuito', label: 'C.C.', input: 'text' },
 ];
 
 const NIVEL_OPTIONS = GRANDES_BATTERY_COLUMNS.find((c) => c.key === 'nivel_eletrolito').options;
-const CURTO_OPTIONS = GRANDES_BATTERY_COLUMNS.find((c) => c.key === 'curto_circuito').options;
 
 function emptyRow() {
   return {
@@ -41,7 +35,7 @@ function emptyRow() {
     densidade: '',
     nivel_eletrolito: '',
     estado_cofre: '',
-    curto_circuito: 'Não',
+    curto_circuito: '',
   };
 }
 
@@ -73,7 +67,7 @@ export function migrateLegacyBatteryRows(values = {}) {
       densidade: values.densidade,
       nivel_eletrolito: values.nivel_eletrolito,
       estado_cofre: values.estado_cofre,
-      curto_circuito: values.curto_circuito === 'Sim' ? 'Sim' : 'Não',
+      curto_circuito: values.curto_circuito ?? '',
     }),
   ];
 }
@@ -81,8 +75,7 @@ export function migrateLegacyBatteryRows(values = {}) {
 function renderCell(col, row) {
   const val = row[col.key] ?? '';
   if (col.input === 'select') {
-    const options = col.key === 'nivel_eletrolito' ? NIVEL_OPTIONS : CURTO_OPTIONS;
-    const opts = options
+    const opts = NIVEL_OPTIONS
       .map(
         (opt) =>
           `<option value="${escapeHtml(opt)}"${opt === val ? ' selected' : ''}>${escapeHtml(opt)}</option>`,
@@ -243,7 +236,7 @@ function bindRemoveButton(btn, wrap, tbody, onRowChange) {
     if (rows.length <= 1) {
       rows[0]?.querySelectorAll('.grandes-battery-cell').forEach((el) => {
         if (el.tagName === 'SELECT') el.selectedIndex = 0;
-        else el.value = el.dataset.col === 'curto_circuito' ? 'Não' : '';
+        else el.value = '';
       });
       onRowChange?.();
       return;
@@ -311,7 +304,7 @@ export function collect(overlay) {
     GRANDES_BATTERY_COLUMNS.forEach((col) => {
       const el = tr.querySelector(`[data-col="${col.key}"]`);
       const val = el?.value?.trim() ?? '';
-      row[col.key] = val || (col.key === 'curto_circuito' ? 'Não' : '');
+      row[col.key] = val;
       if (val) hasData = true;
     });
     if (hasData) rows.push(row);
