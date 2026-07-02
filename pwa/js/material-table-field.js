@@ -15,6 +15,31 @@ export function emptyMaterialRow() {
   return { artigo: '', qtd: '' };
 }
 
+export function fieldHasMaquinaColumn(field) {
+  return (field?.columns || []).some((col) => columnKey(col) === 'maquina');
+}
+
+export function emptyMaterialRowForField(field) {
+  const row = emptyMaterialRow();
+  if (fieldHasMaquinaColumn(field)) row.maquina = '';
+  return row;
+}
+
+/** Consumíveis Clientes Grandes — máquina escolhida a partir de «Identificação Bateria». */
+export function createGrandesConsumiveisField() {
+  return createMaterialTableField({
+    id: 'consumiveis_utilizados',
+    columns: [
+      { id: 'maquina', label: 'Máquina' },
+      { id: 'artigo', label: 'Artigo / Descrição' },
+      { id: 'qtd', label: 'Quantidade' },
+    ],
+    columnTypes: { qtd: 'number', maquina: 'grandes_maquina_select' },
+    machineSourceFieldId: 'identificacao_baterias',
+    fieldHint: 'Escolha a máquina registada em Identificação Bateria.',
+  });
+}
+
 const LEGACY_MATERIAL_KEYS = {
   material: 'artigo',
   equipamento: 'artigo',
@@ -165,6 +190,9 @@ export function normalizeMaterialRows(value) {
     return {
       artigo: materialCellText(out.artigo),
       qtd: materialCellText(out.qtd),
+      ...(Object.prototype.hasOwnProperty.call(out, 'maquina')
+        ? { maquina: materialCellText(out.maquina) }
+        : {}),
     };
   });
 }

@@ -12,6 +12,7 @@ import {
   columnKey,
   columnLabel,
   emptyMaterialRow,
+  emptyMaterialRowForField,
   isMaterialTableField,
   normalizeMaterialRows,
   MATERIAL_FIELD_IDS,
@@ -24,6 +25,7 @@ import {
   GRANDES_BATTERY_COLUMNS,
   getColumnLabels,
   getColumnKeys,
+  refreshGrandesMachineSelectsInOverlay,
 } from './views/relatorio-grandes.js';
 import {
   collectEmpilhadoresMaquinas,
@@ -828,6 +830,15 @@ function renderDynamicTableCell(field, col, key, row) {
     return `<input type="number" class="form-input form-input-sm" data-col="${key}"
       value="${escapeHtml(val)}" placeholder="0" min="0" ${numberInputAttrs({}, step)}>`;
   }
+  if (inputType === 'grandes_maquina_select') {
+    const selected = val
+      ? `<option value="${escapeHtml(val)}" selected>${escapeHtml(val)}</option>`
+      : '';
+    return `<select class="form-input form-input-sm dynamic-table-maquina-select" data-col="${key}" data-maquina-select="1" aria-label="${escapeHtml(colLabel)}">
+      <option value="">—</option>
+      ${selected}
+    </select>`;
+  }
   return `<input type="text" class="form-input form-input-sm" data-col="${key}"
     value="${escapeHtml(val)}" placeholder="${escapeHtml(placeholder)}">`;
 }
@@ -1019,10 +1030,13 @@ export function collectReportValues(overlay) {
     const fieldId = wrap.dataset.dynamicTable;
     const columns = JSON.parse(wrap.dataset.columns || '[]');
     const rows = [];
-    const fieldDef = { columnTypes: {} };
+    const storedColumnTypes = JSON.parse(wrap.dataset.columnTypes || '{}');
+    const fieldDef = { columnTypes: { ...storedColumnTypes } };
     columns.forEach((col) => {
       const key = columnKey(col);
-      fieldDef.columnTypes[key] = getDynamicColumnInputType(fieldDef, key);
+      if (!fieldDef.columnTypes[key]) {
+        fieldDef.columnTypes[key] = getDynamicColumnInputType(fieldDef, key);
+      }
     });
 
     wrap.querySelectorAll('.dynamic-table-row').forEach((rowEl) => {
@@ -1967,7 +1981,9 @@ function renderDynamicTableField(field, value, context = {}) {
   const defaultRow = resolveDynamicRowDefaults(field, context);
   let rows = Array.isArray(value) && value.length ? value : [];
   if (isMaterialTableField(field)) {
-    rows = normalizeMaterialRows(rows.length ? rows : [emptyMaterialRow()]);
+    rows = normalizeMaterialRows(
+      rows.length ? rows : [emptyMaterialRowForField(field)],
+    );
   } else if (!rows.length) {
     rows = [Object.keys(defaultRow).length ? { ...defaultRow } : {}];
   }
@@ -2003,8 +2019,10 @@ function renderDynamicTableField(field, value, context = {}) {
       data-dynamic-table="${field.id}"
       data-columns='${JSON.stringify(columns)}'
       data-column-types='${JSON.stringify(field.columnTypes || {})}'
-      data-default-row='${JSON.stringify(defaultRow)}'>
+      data-default-row='${JSON.stringify(defaultRow)}'
+      ${field.machineSourceFieldId ? `data-machine-source="${escapeHtml(field.machineSourceFieldId)}"` : ''}>
       <label class="form-label">${escapeHtml(field.label)}</label>
+      ${field.fieldHint ? `<p class="field-hint text-muted">${escapeHtml(field.fieldHint)}</p>` : ''}
       <div class="dynamic-table-wrap glass-card-inner">
         <table class="dynamic-table">
           <thead><tr>${headerCells}<th class="dynamic-table-actions-th"></th></tr></thead>
@@ -2486,8 +2504,11 @@ export async function bindFormFieldInteractions(overlay) {
     };
 
     const addRow = () => {
-      const seed = MATERIAL_FIELD_IDS.has(fieldId) ? emptyMaterialRow() : { ...defaultRow };
+      const seed = MATERIAL_FIELD_IDS.has(fieldId)
+        ? emptyMaterialRowForField(fieldDef)
+        : { ...defaultRow };
       tbody.appendChild(buildRow(seed));
+      if (wrap.dataset.machineSource) refreshGrandesMachineSelectsInOverlay(overlay);
     };
 
     wrap.querySelector('.dynamic-table-add')?.addEventListener('click', (e) => {
@@ -2503,6 +2524,10 @@ export async function bindFormFieldInteractions(overlay) {
       });
     });
   });
+
+  if (overlay.querySelector('[data-machine-source]')) {
+    refreshGrandesMachineSelectsInOverlay(overlay);
+  }
 
   overlay.querySelectorAll('[data-multi-checkbox]').forEach((group) => {
     group.querySelectorAll('.multi-check-item').forEach((btn) => {

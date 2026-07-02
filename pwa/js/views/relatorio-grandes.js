@@ -321,3 +321,55 @@ export function getColumnLabels() {
 export function getColumnKeys() {
   return GRANDES_BATTERY_COLUMNS.map((c) => c.key);
 }
+
+/** Rótulo legível para associar consumível à máquina da identificação bateria. */
+export function formatGrandesMaquinaOptionLabel(row = {}) {
+  const maquina = String(row.maquina ?? '').trim();
+  const matricula = String(row.matricula ?? '').trim();
+  const tipo = String(row.tipo ?? '').trim();
+  if (!maquina && !matricula && !tipo) return '';
+  const parts = [];
+  if (maquina) parts.push(maquina);
+  if (matricula) parts.push(matricula);
+  if (!maquina && tipo) parts.push(tipo);
+  return parts.join(' · ');
+}
+
+export function listGrandesBatteryMaquinaOptions(rows = []) {
+  const options = [];
+  const seen = new Set();
+  rows.forEach((row) => {
+    const label = formatGrandesMaquinaOptionLabel(row);
+    if (!label || seen.has(label)) return;
+    seen.add(label);
+    options.push(label);
+  });
+  return options;
+}
+
+export function readGrandesBatteryMaquinaOptionsFromOverlay(overlay) {
+  return listGrandesBatteryMaquinaOptions(collect(overlay));
+}
+
+/** Atualiza os selects «Máquina» nos consumíveis após alterar a identificação bateria. */
+export function refreshGrandesMachineSelectsInOverlay(overlay) {
+  if (!overlay) return;
+  const options = readGrandesBatteryMaquinaOptionsFromOverlay(overlay);
+  overlay.querySelectorAll('[data-maquina-select]').forEach((select) => {
+    const current = select.value?.trim() || '';
+    const optionHtml = options
+      .map((label) => `<option value="${escapeHtml(label)}">${escapeHtml(label)}</option>`)
+      .join('');
+    select.innerHTML = `<option value="">—</option>${optionHtml}`;
+    if (current && options.includes(current)) {
+      select.value = current;
+      return;
+    }
+    if (current) {
+      select.insertAdjacentHTML(
+        'beforeend',
+        `<option value="${escapeHtml(current)}" selected>${escapeHtml(current)} (já não na lista)</option>`,
+      );
+    }
+  });
+}

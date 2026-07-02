@@ -239,24 +239,41 @@ async function drawGrandesBatteryTable(doc, y, rows) {
 }
 
 async function drawGrandesConsumablesTableAt(doc, startY, rows, x, width) {
+  const hasMaquina = rows.some((row) => String(row.maquina || '').trim());
   const normalized = rows.length
-    ? rows.map((row) => [pdfDisplayValue(row.artigo), pdfDisplayValue(row.qtd)])
-    : [['—', '—']];
-  const artW = width * 0.72;
-  const qtdW = width - artW;
+    ? hasMaquina
+      ? rows.map((row) => [
+          pdfDisplayValue(row.maquina),
+          pdfDisplayValue(row.artigo),
+          pdfDisplayValue(row.qtd),
+        ])
+      : rows.map((row) => [pdfDisplayValue(row.artigo), pdfDisplayValue(row.qtd)])
+    : hasMaquina
+      ? [['—', '—', '—']]
+      : [['—', '—']];
+  const artW = width * (hasMaquina ? 0.5 : 0.72);
+  const maqW = hasMaquina ? width * 0.28 : 0;
+  const qtdW = width - artW - maqW;
 
   let y = await drawGrandesSectionBar(doc, startY, 'Consumíveis Utilizados', { x, width });
   const pack = grandesTableStylePack(doc);
+  const columnStyles = hasMaquina
+    ? {
+        0: { cellWidth: maqW, halign: 'left', fontSize: GRANDES_TABLE_FONT_PT },
+        1: { cellWidth: artW, halign: 'left', fontSize: GRANDES_TABLE_FONT_PT },
+        2: { cellWidth: qtdW, halign: 'center', fontSize: GRANDES_TABLE_FONT_PT },
+      }
+    : {
+        0: { cellWidth: artW, halign: 'left', fontSize: GRANDES_TABLE_FONT_PT },
+        1: { cellWidth: qtdW, halign: 'center', fontSize: GRANDES_TABLE_FONT_PT },
+      };
   const endY = await drawPdfGridTable(doc, y, {
-    head: [['Artigo / Desc.', 'Qtd.']],
+    head: [hasMaquina ? ['Máquina', 'Artigo / Desc.', 'Qtd.'] : ['Artigo / Desc.', 'Qtd.']],
     body: normalized,
     marginLeft: x,
     marginRight: PAGE_W - x - width,
     tableWidth: width,
-    columnStyles: {
-      0: { cellWidth: artW, halign: 'left', fontSize: GRANDES_TABLE_FONT_PT },
-      1: { cellWidth: qtdW, halign: 'center', fontSize: GRANDES_TABLE_FONT_PT },
-    },
+    columnStyles,
     gapAfter: 0,
     ...pack,
     didParseCell: mergePdfTableDidParseCell(pack.didParseCell),

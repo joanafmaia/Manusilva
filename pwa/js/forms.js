@@ -49,6 +49,7 @@ import {
   migrateLegacyBatteryRows,
   GRANDES_BATTERY_FIELD_ID,
   init as initGrandesBatteryTable,
+  refreshGrandesMachineSelectsInOverlay,
 } from './views/relatorio-grandes.js';
 import {
   EMPILHADORES_MAQUINAS_FIELD_ID,
@@ -1028,8 +1029,12 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport, opt
 
   if (!viewOnly && service?.id === 'manutencao_baterias_grandes') {
     initGrandesBatteryTable(overlay, {
-      onRowChange: () => formAutosave?.markDirty(),
+      onRowChange: () => {
+        formAutosave?.markDirty();
+        refreshGrandesMachineSelectsInOverlay(overlay);
+      },
     });
+    refreshGrandesMachineSelectsInOverlay(overlay);
   }
 
   if (!viewOnly && service?.id === 'manutencao_preventiva_empilhadores') {

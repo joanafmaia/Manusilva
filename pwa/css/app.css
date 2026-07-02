@@ -8727,6 +8727,10 @@ body.client-ficha-open {
 .grandes-dashboard-section .dynamic-table tbody tr:nth-child(even) td {
   background: #f8fafc;
 }
+.grandes-dashboard-section .dynamic-table-maquina-select {
+  min-width: 7.5rem;
+  max-width: 12rem;
+}
 .grandes-footer-dual {
   display: grid;
   grid-template-columns: 1fr 1fr;

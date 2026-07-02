@@ -7,7 +7,7 @@ import {
   VERIFICACOES_EXTERNAS_ITEMS,
   VERIFICACOES_INTERNAS_ITEMS,
 } from './preventiva-empilhadores-items.js';
-import { createMaterialTableField } from './material-table-field.js';
+import { createMaterialTableField, createGrandesConsumiveisField } from './material-table-field.js';
 import {
   LABEL_MARCA,
   LABEL_MODELO,
@@ -124,7 +124,7 @@ export const MANUTENCAO_BATERIAS_GRANDES = {
       label: 'Identificação Bateria',
       section: 'Identificação Bateria',
     },
-    createMaterialTableField({ id: 'consumiveis_utilizados' }),
+    createGrandesConsumiveisField(),
     { type: 'textarea', id: 'observacoes', label: 'Observações' },
     {
       type: 'number',
