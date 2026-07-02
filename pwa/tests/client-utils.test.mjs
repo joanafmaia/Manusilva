@@ -5,7 +5,13 @@
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { isValidEmail, normalizeEmail } from '../js/validators.js';
+import {
+  isValidEmail,
+  normalizeEmail,
+  normalizeEmailList,
+  isValidEmailList,
+  formatEmailListForStorage,
+} from '../js/validators.js';
 
 describe('isValidEmail', () => {
   it('aceita e-mails válidos', () => {
@@ -23,6 +29,30 @@ describe('isValidEmail', () => {
 describe('normalizeEmail', () => {
   it('normaliza para minúsculas sem espaços', () => {
     assert.equal(normalizeEmail('  Cliente@Empresa.PT '), 'cliente@empresa.pt');
+  });
+});
+
+describe('lista de e-mails (orçamentos)', () => {
+  it('aceita vários e-mails separados por ponto e vírgula', () => {
+    assert.deepEqual(
+      normalizeEmailList('compras@empresa.pt; contabilidade@empresa.pt'),
+      ['compras@empresa.pt', 'contabilidade@empresa.pt'],
+    );
+  });
+
+  it('valida lista e remove duplicados', () => {
+    assert.equal(
+      isValidEmailList('a@empresa.pt, b@empresa.pt; a@empresa.pt'),
+      true,
+    );
+    assert.deepEqual(
+      formatEmailListForStorage('A@empresa.pt; b@empresa.pt'),
+      'a@empresa.pt; b@empresa.pt',
+    );
+  });
+
+  it('rejeita lista com e-mail inválido', () => {
+    assert.equal(isValidEmailList('ok@empresa.pt; invalido'), false);
   });
 });
 

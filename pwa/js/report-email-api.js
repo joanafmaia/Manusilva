@@ -66,9 +66,15 @@ export async function sendOrcamentoProposalEmail(meta = {}) {
   }
 
   const dateStamp = formatInterventionDatePt(meta.dataConclusao) || '';
+  const toList = Array.isArray(meta.to)
+    ? meta.to
+    : String(meta.to || '')
+        .split(/[;,\n]+/)
+        .map((s) => s.trim())
+        .filter(Boolean);
 
   const payload = {
-    to: meta.to,
+    to: toList,
     reportId: meta.reportId,
     clienteNome: meta.clienteNome || meta.nome_empresa || 'Cliente não indicado',
     tecnico: meta.tecnico || 'Técnico não indicado',

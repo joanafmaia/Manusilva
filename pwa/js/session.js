@@ -4,6 +4,7 @@
 
 export const APP_SESSION_KEY = 'app_session';
 const LEGACY_SESSION_KEY = 'manusilva_session';
+export const AUTH_STORAGE_KEYS = [APP_SESSION_KEY, LEGACY_SESSION_KEY];
 
 const TECHNICIAN_IDS = {
   'filipasilvahugo2013@gmail.com': 'tech-1',
@@ -62,6 +63,10 @@ export function getSession() {
 export function clearSession() {
   localStorage.removeItem(APP_SESSION_KEY);
   sessionStorage.removeItem(LEGACY_SESSION_KEY);
+}
+
+export function clearAuthStorage() {
+  clearSession();
 }
 
 export function setRawSession(sessao) {

@@ -8,6 +8,7 @@ import {
   formatEuro,
   getReportOrcamentoMeta,
   normalizeOrcamentoLinhas,
+  normalizeTaxasSaida,
   resolveOrcamentoNumeroFormatado,
   suggestOrcamentoLinhas,
 } from './orcamento-linhas.js';
@@ -99,9 +100,9 @@ export function buildOrcamentoFillData(report, job = null) {
     orcamentoMeta?.linhas?.length ? orcamentoMeta.linhas : suggestOrcamentoLinhas(report),
     { machineCount: maquinasForPdf.length },
   );
-  const taxaSaida = orcamentoMeta?.taxaSaida ?? '';
+  const taxasSaidaLista = normalizeTaxasSaida(orcamentoMeta);
   const prazoEntrega = String(orcamentoMeta?.prazoEntrega || '').trim();
-  const totals = computeOrcamentoTotals(linhas, taxaSaida);
+  const totals = computeOrcamentoTotals(linhas, orcamentoMeta);
 
   const dataExtenso = formatOrcamentoDateLong(resolveOrcamentoDocumentDate(report));
 
@@ -132,7 +133,13 @@ export function buildOrcamentoFillData(report, job = null) {
     maquinas_texto: formatOrcamentoMaquinasDocxText(maquinasForPdf, equipamentoCampos),
     observacoes_cliente: observacoesCliente || '—',
     reparacao_necessaria: observacoesCliente || '—',
-    taxa_saida: taxaSaida === '' ? '—' : formatEuro(taxaSaida),
+    taxas_saida: taxasSaidaLista.map((value) => formatEuro(value)),
+    taxa_saida:
+      taxasSaidaLista.length === 0
+        ? '—'
+        : taxasSaidaLista.length === 1
+          ? formatEuro(taxasSaidaLista[0])
+          : taxasSaidaLista.map((value) => formatEuro(value)).join(' + '),
     prazo_entrega: prazoEntrega || '—',
     forma_pagamento: display(cabecalho.formaPagamento),
     validade_orcamento: display(cabecalho.validadeOrcamento),

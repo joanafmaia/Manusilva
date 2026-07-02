@@ -1,5 +1,8 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   resolveLoginEmail,
   resolveLoginEmailCandidates,
@@ -7,6 +10,9 @@ import {
   LEGACY_RH_LOGIN_EMAIL_DOMAIN,
 } from '../js/auth.js';
 import { FILIPA_AUTH_EMAIL, FILIPA_LEGACY_AUTH_EMAIL } from '../js/mock_data.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const authSrc = fs.readFileSync(path.join(__dirname, '../js/auth.js'), 'utf8');
 
 describe('resolveLoginEmailCandidates', () => {
   it('mantém e-mail quando o identificador contém @', () => {
@@ -49,5 +55,10 @@ describe('resolveLoginEmailCandidates', () => {
 
   it('expõe domínio legado RH', () => {
     assert.equal(LEGACY_RH_LOGIN_EMAIL_DOMAIN, 'rh.manusilva.internal');
+  });
+
+  it('não herda role ou technicianId do catálogo local no perfil autenticado', () => {
+    assert.doesNotMatch(authSrc, /meta\.role\s*\|\|\s*fromPool\?\.role/);
+    assert.doesNotMatch(authSrc, /meta\.technician_id\s*\|\|\s*meta\.technicianId\s*\|\|\s*fromPool\?\.technicianId/);
   });
 });

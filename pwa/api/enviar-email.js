@@ -125,6 +125,19 @@ async function fetchClientEmailDomains(token) {
   return domains;
 }
 
+function parseEmailRecipients(raw) {
+  const items = Array.isArray(raw) ? raw : String(raw ?? '').split(/[;,\n]+/);
+  const seen = new Set();
+  const out = [];
+  for (const item of items) {
+    const norm = normalizeEmail(item);
+    if (!norm || !isValidEmailAddress(norm) || seen.has(norm)) continue;
+    seen.add(norm);
+    out.push(norm);
+  }
+  return out;
+}
+
 /**
  * Destinatário permitido se:
  * - coincide com o e-mail registado no cliente do relatório aprovado, ou
@@ -595,9 +608,9 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: 'reportId em falta.' });
     }
 
-    const recipient = normalizeEmail(payload.to);
-    if (!recipient) {
-      return res.status(400).json({ error: 'Destinatário (to) em falta.' });
+    const recipients = parseEmailRecipients(payload.to);
+    if (!recipients.length) {
+      return res.status(400).json({ error: 'Destinatário (to) em falta ou inválido.' });
     }
 
     const tipoRelatorio = String(payload.tipoRelatorio || 'outro').toLowerCase();
@@ -613,12 +626,14 @@ module.exports = async function handler(req, res) {
     const registeredEmail = await fetchClienteEmail(report.cliente_id, token);
     const clientDomains = await fetchClientEmailDomains(token);
 
-    if (!isRecipientAllowed(recipient, registeredEmail, clientDomains)) {
-      return res.status(403).json({
-        error: registeredEmail
-          ? 'Destinatário não autorizado. Use o e-mail do cliente ou outro endereço do mesmo domínio corporativo registado na base de clientes.'
-          : 'Destinatário não autorizado para este cliente.',
-      });
+    for (const recipient of recipients) {
+      if (!isRecipientAllowed(recipient, registeredEmail, clientDomains)) {
+        return res.status(403).json({
+          error: registeredEmail
+            ? `Destinatário não autorizado: ${recipient}. Use o e-mail do cliente ou outro endereço do mesmo domínio corporativo registado na base de clientes.`
+            : `Destinatário não autorizado: ${recipient}.`,
+        });
+      }
     }
 
     const pdfResolved = await resolveEmailPdfAttachments(payload);
@@ -663,7 +678,7 @@ module.exports = async function handler(req, res) {
 
     await transporter.sendMail({
       from: EMAIL_USER,
-      to: recipient,
+      to: recipients.join(', '),
       subject: buildSubject(emailPayload),
       html: buildHtmlBody(emailPayload, {
         hasPdfAttachment: attachments.length > 0,

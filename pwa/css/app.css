@@ -10122,6 +10122,30 @@ details[open] .expand-icon { transform: rotate(90deg); }
 .review-orcamento-editor__toolbar {
   margin-bottom: 0.65rem;
 }
+.review-orc-field--taxas-saida {
+  grid-column: 1 / -1;
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+.review-orc-field--taxas-saida > legend {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0;
+  margin-bottom: 0.25rem;
+}
+.review-orc-taxas-saida__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.65rem;
+}
+.review-orc-taxa-saida-slot {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
 .review-orcamento-editor__extras {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));

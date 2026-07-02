@@ -4,18 +4,26 @@ import { getSavedLoginIdentifier, loadLoginPrefs, saveLoginPrefs } from '../logi
 
 const MAX_FAILED_ATTEMPTS = 5;
 const LOGIN_LOCK_MS = 120_000;
-const FAILED_COUNT_KEY = 'manusilva_login_failed_count';
+const FAILED_COUNT_KEY_PREFIX = 'manusilva_login_failed_count:';
 
-function getFailedCount() {
-  return Number(localStorage.getItem(FAILED_COUNT_KEY) || 0);
+function normalizeIdentifierKey(role, identifier) {
+  return `${role}:${String(identifier || '').trim().toLowerCase()}`;
 }
 
-function setFailedCount(n) {
-  localStorage.setItem(FAILED_COUNT_KEY, String(Math.max(0, n)));
+function failedCountKey(role, identifier) {
+  return `${FAILED_COUNT_KEY_PREFIX}${normalizeIdentifierKey(role, identifier)}`;
 }
 
-function resetFailedCount() {
-  localStorage.removeItem(FAILED_COUNT_KEY);
+function getFailedCount(role, identifier) {
+  return Number(localStorage.getItem(failedCountKey(role, identifier)) || 0);
+}
+
+function setFailedCount(role, identifier, n) {
+  localStorage.setItem(failedCountKey(role, identifier), String(Math.max(0, n)));
+}
+
+function resetFailedCount(role, identifier) {
+  localStorage.removeItem(failedCountKey(role, identifier));
 }
 
 function selectLoginRole(roleButtons, role) {
@@ -180,21 +188,22 @@ export const LoginView = {
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
-      if (btnSubmit.disabled && getFailedCount() >= MAX_FAILED_ATTEMPTS) return;
+      const identifier = identifierInput.value.trim();
+      const loginKeyRole = selectedUiRole;
+      if (btnSubmit.disabled && getFailedCount(loginKeyRole, identifier) >= MAX_FAILED_ATTEMPTS) return;
 
       hideMessages();
 
       setLoginLocked(true);
       btnText.textContent = 'A verificar...';
 
-      const identifier = identifierInput.value.trim();
       const password = passwordInput.value;
       const roleFiltro = ROLE_UI_TO_DB[selectedUiRole];
 
       const resultado = await AuthService.login(identifier, password, roleFiltro);
 
       if (resultado.success) {
-        resetFailedCount();
+        resetFailedCount(loginKeyRole, identifier);
         saveLoginPrefs({ role: selectedUiRole, identifier });
         window.location.reload();
         return;
@@ -202,8 +211,8 @@ export const LoginView = {
 
       const email =
         resultado.email || resolveLoginEmail(identifier, roleFiltro) || identifier;
-      const failures = getFailedCount() + 1;
-      setFailedCount(failures);
+      const failures = getFailedCount(loginKeyRole, identifier) + 1;
+      setFailedCount(loginKeyRole, identifier, failures);
 
       if (failures >= MAX_FAILED_ATTEMPTS) {
         if (userUsesNameOnlyLogin(identifier, roleFiltro)) {

@@ -2,7 +2,7 @@
  * Cliente Supabase (browser) — requer o script CDN em index.html / admin.html / dashboard.html
  */
 
-import { clearSession, getRawSession, setRawSession } from './session.js';
+import { clearAuthStorage, clearSession, getRawSession, setRawSession } from './session.js';
 
 const SUPABASE_URL = 'https://zhfbezrevosmbmcbyskw.supabase.co';
 /** Chave anon (public) — Supabase → Settings → API. Não uses a secret key aqui. */
@@ -86,16 +86,9 @@ export function handleFatalAuthSessionError(reason) {
   supabaseClient = null;
 
   try {
-    clearSession();
+    clearAuthStorage();
   } catch (err) {
     console.warn('[Supabase] clearSession:', err);
-  }
-
-  try {
-    localStorage.clear();
-    sessionStorage.clear();
-  } catch (err) {
-    console.warn('[Supabase] Limpeza de storage:', err);
   }
 
   if (isLoginPage()) {

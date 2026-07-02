@@ -10,8 +10,10 @@ import {
   formatEuro,
   formatOrcamentoNumeroLabel,
   getReportOrcamentoMeta,
+  MAX_TAXAS_SAIDA,
   readOrcamentoFormFromDom,
   suggestOrcamentoLinhas,
+  taxasSaidaSlotsFromMeta,
 } from './orcamento-linhas.js';
 import { resolveOrcamentoCabecalho } from './orcamento-cabecalho.js';
 import {
@@ -83,12 +85,40 @@ function renderLinhasTableHead(maquinas = []) {
 
 function renderTotals(meta) {
   const linhas = meta?.linhas || [];
-  const totals = computeOrcamentoTotals(linhas, meta?.taxaSaida ?? '');
+  const totals = computeOrcamentoTotals(linhas, meta);
   return {
     subtotal: formatEuro(totals.subtotal),
     iva: formatEuro(totals.iva),
     total: formatEuro(totals.total),
   };
+}
+
+function renderTaxasSaidaFields(meta) {
+  const slots = taxasSaidaSlotsFromMeta(meta);
+  return `
+    <fieldset class="review-orc-field review-orc-field--taxas-saida">
+      <legend>Taxas de saída (€)</legend>
+      <div class="review-orc-taxas-saida__grid">
+        ${slots
+          .map(
+            (value, index) => `
+          <label class="review-orc-taxa-saida-slot">
+            <span>Taxa ${index + 1}</span>
+            <input
+              type="text"
+              class="review-orc-input"
+              data-orc-field="taxaSaida"
+              data-taxa-index="${index}"
+              value="${escapeHtml(value)}"
+              inputmode="decimal"
+              placeholder="0,00"
+            />
+          </label>`,
+          )
+          .join('')}
+      </div>
+      <span class="review-orc-field-hint text-muted">Até ${MAX_TAXAS_SAIDA} taxas; em branco ignora. A soma entra no subtotal.</span>
+    </fieldset>`;
 }
 
 function renderOrcamentoRespostaSection(report) {
@@ -159,7 +189,6 @@ export function renderOrcamentoEditor(report, { client } = {}) {
       ? formatOrcamentoNumeroLabel(meta.numeroSequencial, meta.ano)
       : 'Atribuído ao guardar');
   const totals = renderTotals({ ...meta, linhas });
-  const taxaSaida = meta.taxaSaida != null ? String(meta.taxaSaida) : '';
   const prazoEntrega = escapeHtml(meta.prazoEntrega || '');
   const emailDestinatario = escapeHtml(defaultOrcamentoEmail(report, client));
   const clienteEmailHint = escapeHtml(client?.email || client?.['E-mail'] || '');
@@ -215,15 +244,15 @@ export function renderOrcamentoEditor(report, { client } = {}) {
       <label class="review-orc-field review-orc-field--email">
         <span>Enviar proposta para</span>
         <input
-          type="email"
+          type="text"
           class="review-orc-input"
           data-orc-field="emailDestinatario"
           value="${emailDestinatario}"
           autocomplete="email"
-          placeholder="compras@empresa.pt"
+          placeholder="compras@empresa.pt; contabilidade@empresa.pt"
         />
         <span class="review-orc-field-hint text-muted">
-          E-mail da proposta comercial — pode ser diferente do relatório técnico${clienteEmailHint ? ` (ficha cliente: ${clienteEmailHint})` : ''}.
+          Um ou vários e-mails, separados por ponto e vírgula ou vírgula${clienteEmailHint ? ` (ficha cliente: ${clienteEmailHint})` : ''}.
         </span>
       </label>
 
@@ -244,10 +273,7 @@ export function renderOrcamentoEditor(report, { client } = {}) {
       </div>
 
       <div class="review-orcamento-editor__extras">
-        <label class="review-orc-field">
-          <span>Taxa de saída (€)</span>
-          <input type="text" class="review-orc-input" data-orc-field="taxaSaida" value="${escapeHtml(taxaSaida)}" inputmode="decimal" placeholder="0,00" />
-        </label>
+        ${renderTaxasSaidaFields(meta)}
         <label class="review-orc-field">
           <span>Prazo de entrega</span>
           <input type="text" class="review-orc-input" data-orc-field="prazoEntrega" value="${prazoEntrega}" placeholder="ex.: 5 dias úteis" />
@@ -292,7 +318,7 @@ function refreshLineTotals(root, report = null) {
   });
 
   const meta = readOrcamentoFormFromDom(root, report);
-  const totals = computeOrcamentoTotals(meta.linhas, meta.taxaSaida);
+  const totals = computeOrcamentoTotals(meta.linhas, meta);
   root.querySelector('[data-orc-subtotal]')?.replaceChildren(
     document.createTextNode(`${formatEuro(totals.subtotal)} €`),
   );
@@ -355,8 +381,10 @@ function bindLinhaEvents(root, report) {
     refreshLineTotals(root, report);
   });
 
-  root.querySelector('[data-orc-field="taxaSaida"]')?.addEventListener('input', () => {
-    refreshLineTotals(root, report);
+  root.querySelectorAll('[data-orc-field="taxaSaida"]').forEach((input) => {
+    input.addEventListener('input', () => {
+      refreshLineTotals(root, report);
+    });
   });
 }
 
@@ -516,21 +544,23 @@ export function bindOrcamentoEditor(container, { report, onUpdated, onSent } = {
       const { resolveOrcamentoDocumentDate } = await import('./orcamento-fill-data.js');
       const { formatInterventionDatePt } = await import('./report-intervention-date.js');
       const { mergeReportInCache } = await import('./relatorios-db.js');
-      const { isValidEmail } = await import('./validators.js');
+      const { isValidEmailList, formatEmailListForStorage, normalizeEmailList } =
+        await import('./validators.js');
 
       const meta = readOrcamentoFormFromDom(root, currentReport);
-      const email = String(meta.emailDestinatario || '').trim();
-      if (!email) {
-        showToast('Indique o e-mail para envio da proposta.', 'error');
+      const emailRaw = String(meta.emailDestinatario || '').trim();
+      const recipients = normalizeEmailList(emailRaw);
+      if (!recipients.length) {
+        showToast('Indique pelo menos um e-mail para envio da proposta.', 'error');
         return;
       }
-      if (!isValidEmail(email)) {
-        showToast('E-mail da proposta inválido.', 'error');
+      if (!isValidEmailList(emailRaw)) {
+        showToast('Um ou mais e-mails da proposta são inválidos.', 'error');
         return;
       }
 
       const sentAt = new Date().toISOString();
-      meta.emailDestinatario = email;
+      meta.emailDestinatario = formatEmailListForStorage(recipients);
       meta.enviadoEm = sentAt;
       meta.respostaCliente = null;
       meta.respostaClienteEm = null;
@@ -554,7 +584,7 @@ export function bindOrcamentoEditor(container, { report, onUpdated, onSent } = {
       const tech = getTechnician(saved.technicianId);
 
       await sendOrcamentoProposalEmail({
-        to: email,
+        to: recipients,
         reportId: saved.id,
         clienteNome: values.nome_empresa || values.cliente || client?.name || client?.Nome || '',
         tecnico: values.tecnico || tech?.name || '',
@@ -565,7 +595,7 @@ export function bindOrcamentoEditor(container, { report, onUpdated, onSent } = {
       });
 
       mergeReportInCache(saved);
-      showToast(`Proposta enviada para ${email}.`, 'success', 4000);
+      showToast(`Proposta enviada para ${recipients.join(', ')}.`, 'success', 4000);
       onSent?.(saved);
     } catch (err) {
       console.error('[Orçamento] Envio e-mail:', err);

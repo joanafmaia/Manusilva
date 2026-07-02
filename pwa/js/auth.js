@@ -3,12 +3,17 @@
  */
 
 import { getSupabaseClient } from './supabase-client.js';
-import { clearSession, getRawSession, normalizeSession, setRawSession } from './session.js';
+import { clearAuthStorage, clearSession, getRawSession, normalizeSession, setRawSession } from './session.js';
 
 /** Página de login da PWA (não existe login.html separado). */
 export const LOGIN_URL = 'index.html';
 import { UTILIZADORES } from './mock_data.js';
-import { isRhOrAdminRole, normalizeDbRole } from './auth-roles-core.js';
+import {
+  isRhOrAdminEmail,
+  isRhOrAdminName,
+  isRhOrAdminRole,
+  normalizeDbRole,
+} from './auth-roles-core.js';
 
 export const AUTH_BUILD = '2026-06-11-login-filipa-fix';
 
@@ -149,14 +154,20 @@ function profileFromAuthUser(user, roleFiltro) {
   const meta = user.user_metadata || {};
   const email = (user.email || '').toLowerCase();
   const fromPool = buildLoginPool().find((u) => u.email.toLowerCase() === email);
-
-  const rawRole = meta.role || fromPool?.role;
-  const role = normalizeDbRole(rawRole) || rawRole;
+  const normalizedMetaRole = normalizeDbRole(meta.role);
+  const role = isRhOrAdminRole(meta.role)
+    ? 'RH'
+    : isRhOrAdminEmail(email) || isRhOrAdminName(meta.nome || meta.name)
+      ? 'RH'
+      : normalizedMetaRole === 'Tecnico'
+        ? 'Tecnico'
+        : technicianIdFor({ email, role: 'Tecnico' })
+          ? 'Tecnico'
+          : null;
   const nome = meta.nome || meta.name || fromPool?.nome || email;
-  const technicianId =
-    meta.technician_id || meta.technicianId || fromPool?.technicianId || null;
+  const technicianId = meta.technician_id || meta.technicianId || null;
 
-  if (roleFiltro === 'RH' && isRhOrAdminRole(rawRole)) {
+  if (roleFiltro === 'RH' && role === 'RH') {
     /* RH/Admin — OK */
   } else if (roleFiltro && role && role !== roleFiltro) {
     return {
@@ -332,8 +343,7 @@ export async function forceLogout() {
     console.warn('Erro ao limpar sessão no Supabase, a forçar limpeza local...', err);
   } finally {
     try {
-      localStorage.clear();
-      sessionStorage.clear();
+      clearAuthStorage();
     } catch (storageErr) {
       console.warn('[Auth] Limpeza de storage falhou, a tentar clearSession:', storageErr);
       try {

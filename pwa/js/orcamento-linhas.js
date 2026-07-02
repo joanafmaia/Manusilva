@@ -85,6 +85,55 @@ export function getReportOrcamentoMeta(report) {
   return meta && typeof meta === 'object' ? meta : null;
 }
 
+export const MAX_TAXAS_SAIDA = 3;
+
+/** @param {unknown} source */
+export function normalizeTaxasSaida(source) {
+  if (source == null) return [];
+  if (Array.isArray(source)) {
+    return source.map((value) => String(value ?? '').trim()).filter((value) => value !== '');
+  }
+  if (typeof source === 'object') {
+    if (Array.isArray(source.taxasSaida) && source.taxasSaida.length) {
+      return normalizeTaxasSaida(source.taxasSaida);
+    }
+    const legacy = String(source.taxaSaida ?? '').trim();
+    return legacy ? [legacy] : [];
+  }
+  const single = String(source).trim();
+  return single ? [single] : [];
+}
+
+/** @param {unknown} meta */
+export function taxasSaidaSlotsFromMeta(meta) {
+  const list = normalizeTaxasSaida(meta);
+  const slots = [...list];
+  while (slots.length < MAX_TAXAS_SAIDA) slots.push('');
+  return slots.slice(0, MAX_TAXAS_SAIDA);
+}
+
+/** @param {ParentNode | null | undefined} root */
+export function readTaxasSaidaFromDom(root) {
+  const inputs = root?.querySelectorAll('[data-orc-field="taxaSaida"]');
+  if (!inputs?.length) return taxasSaidaSlotsFromMeta(null);
+  const values = Array.from(inputs).map((el) => el.value?.trim() || '');
+  while (values.length < MAX_TAXAS_SAIDA) values.push('');
+  return values.slice(0, MAX_TAXAS_SAIDA);
+}
+
+/** @param {string[]} slots */
+export function formatTaxasSaidaMetaFromSlots(slots) {
+  const taxasSaida = slots
+    .map((value) => String(value ?? '').trim())
+    .filter((value) => value !== '')
+    .map((value) => formatEuro(value));
+  const taxaTotal = slots.reduce((sum, value) => sum + parseOrcamentoNumber(value), 0);
+  return {
+    taxasSaida,
+    taxaSaida: taxaTotal > 0 ? formatEuro(taxaTotal) : '',
+  };
+}
+
 export function computeLinhaTotal(linha) {
   const qtd = parseOrcamentoNumber(linha?.qtd);
   const preco = parseOrcamentoNumber(linha?.precoUnit);
@@ -115,16 +164,18 @@ export function normalizeOrcamentoLinhas(raw, { machineCount } = {}) {
   });
 }
 
-export function computeOrcamentoTotals(linhas = [], taxaSaida = '') {
+export function computeOrcamentoTotals(linhas = [], taxasInput = '') {
   const rows = normalizeOrcamentoLinhas(linhas);
   const subtotalLinhas = rows.reduce((sum, row) => sum + computeLinhaTotal(row), 0);
-  const taxa = parseOrcamentoNumber(taxaSaida);
-  const base = subtotalLinhas + taxa;
+  const taxasLista = normalizeTaxasSaida(taxasInput);
+  const taxaTotal = taxasLista.reduce((sum, value) => sum + parseOrcamentoNumber(value), 0);
+  const base = subtotalLinhas + taxaTotal;
   const iva = Math.round(base * IVA_RATE * 100) / 100;
   const total = Math.round((base + iva) * 100) / 100;
   return {
     subtotalLinhas,
-    taxaSaida: taxa,
+    taxaSaida: taxaTotal,
+    taxasSaida: taxasLista.map((value) => parseOrcamentoNumber(value)),
     subtotal: base,
     iva,
     total,
@@ -198,9 +249,9 @@ export function buildOrcamentoMetaDraft(report, numeroReservado = null) {
   const ano = numeroReservado?.ano || existing?.ano || new Date().getFullYear();
   const sequencial = numeroReservado?.sequencial || existing?.numeroSequencial || null;
   const linhas = suggestOrcamentoLinhas(report);
-  const taxaSaida = existing?.taxaSaida ?? '';
+  const { taxasSaida, taxaSaida } = formatTaxasSaidaMetaFromSlots(taxasSaidaSlotsFromMeta(existing));
   const prazoEntrega = existing?.prazoEntrega ?? '';
-  const totals = computeOrcamentoTotals(linhas, taxaSaida);
+  const totals = computeOrcamentoTotals(linhas, existing || taxasSaida);
   const cabecalho = resolveOrcamentoCabecalho(report);
 
   return {
@@ -211,7 +262,8 @@ export function buildOrcamentoMetaDraft(report, numeroReservado = null) {
     emailDestinatario: existing?.emailDestinatario ?? '',
     ...cabecalho,
     maquinas: cabecalho.maquinas,
-    taxaSaida: taxaSaida === '' ? '' : formatEuro(taxaSaida),
+    taxasSaida,
+    taxaSaida,
     prazoEntrega: String(prazoEntrega || ''),
     linhas,
     subtotal: formatEuro(totals.subtotal),
@@ -237,13 +289,14 @@ export function readOrcamentoFormFromDom(root, report) {
     });
   });
 
-  const taxaSaida = root.querySelector('[data-orc-field="taxaSaida"]')?.value?.trim() || '';
+  const taxaSlots = readTaxasSaidaFromDom(root);
+  const { taxasSaida, taxaSaida } = formatTaxasSaidaMetaFromSlots(taxaSlots);
   const prazoEntrega = root.querySelector('[data-orc-field="prazoEntrega"]')?.value?.trim() || '';
   const emailDestinatario =
     root.querySelector('[data-orc-field="emailDestinatario"]')?.value?.trim() || '';
   const cabecalho = readOrcamentoCabecalhoFromDom(root, report);
   const machineCount = Math.max(1, cabecalho.maquinas?.length || 1);
-  const totals = computeOrcamentoTotals(linhas, taxaSaida);
+  const totals = computeOrcamentoTotals(linhas, taxaSlots);
   const existing = getReportOrcamentoMeta(report) || {};
   const domMeta = getReportOrcamentoMetaFromDom(root);
 
@@ -252,7 +305,8 @@ export function readOrcamentoFormFromDom(root, report) {
     ...domMeta,
     ...cabecalho,
     emailDestinatario,
-    taxaSaida: taxaSaida === '' ? '' : formatEuro(taxaSaida),
+    taxasSaida,
+    taxaSaida,
     prazoEntrega,
     linhas: normalizeOrcamentoLinhas(linhas, { machineCount }),
     subtotal: formatEuro(totals.subtotal),

@@ -496,7 +496,19 @@ function drawOrcamentoFooter(doc, fill) {
     y += 5;
   };
 
-  drawLabelValue('Taxa de Saída – ', `${fill.taxa_saida === '—' ? '_______' : fill.taxa_saida} €`);
+  const drawTaxasSaida = () => {
+    const taxas = Array.isArray(fill.taxas_saida) ? fill.taxas_saida.filter(Boolean) : [];
+    if (!taxas.length) {
+      drawLabelValue('Taxa de Saída – ', '_______ €');
+      return;
+    }
+    taxas.forEach((value, index) => {
+      const label = taxas.length === 1 ? 'Taxa de Saída – ' : `Taxa de Saída ${index + 1} – `;
+      drawLabelValue(label, `${value} €`);
+    });
+  };
+
+  drawTaxasSaida();
   drawLabelValue(
     'Prazo de Entrega: ',
     fill.prazo_entrega === '—' ? '_______________' : fill.prazo_entrega,
