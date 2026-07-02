@@ -84,6 +84,17 @@ export function getBillingFinancialMetrics() {
   return { totalFaturado, totalRecebido, totalDivida };
 }
 
+/** Valor da faturação pode ficar em branco quando a fatura agrega vários relatórios. */
+export function normalizeInvoiceAmountInput(valorFaturado) {
+  const valorRaw = String(valorFaturado ?? '').trim().replace(',', '.');
+  if (!valorRaw) return { value: null, isBlank: true };
+  const value = Number(valorRaw);
+  if (!Number.isFinite(value) || value < 0) {
+    throw new Error('Indique um valor total faturado válido.');
+  }
+  return { value, isBlank: false };
+}
+
 /** Regista fatura emitida externamente — contas a receber */
 export async function registerReportInvoice(
   reportId,
@@ -97,12 +108,9 @@ export async function registerReportInvoice(
 
   const numero = String(numeroFatura ?? '').trim();
   const data = String(dataFatura ?? '').trim();
-  const valor = Number(valorFaturado);
+  const { value: valor } = normalizeInvoiceAmountInput(valorFaturado);
   if (!numero) throw new Error('Indique o número da fatura.');
   if (!data) throw new Error('Indique a data de emissão da fatura.');
-  if (!Number.isFinite(valor) || valor <= 0) {
-    throw new Error('Indique um valor total faturado válido.');
-  }
 
   const billing = resolveInvoiceBillingFields(condicaoPagamento, statusRecebimento, data);
 
@@ -110,7 +118,7 @@ export async function registerReportInvoice(
     faturacaoStatus: 'faturado',
     numeroFatura: numero,
     dataFatura: data,
-    valorFaturado: Math.round(valor * 100) / 100,
+    valorFaturado: valor == null ? null : Math.round(valor * 100) / 100,
     faturaCondicaoPagamento: billing.faturaCondicaoPagamento,
     statusRecebimento: billing.statusRecebimento,
     dataVencimento: billing.dataVencimento,

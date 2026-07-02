@@ -181,6 +181,12 @@ function formatCurrencyEur(value) {
   }).format(Number(value) || 0);
 }
 
+function formatCurrencyEurNullable(value) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return '—';
+  return formatCurrencyEur(num);
+}
+
 /** Data legível a partir de timestamps ISO completos ou datas puras. */
 function formatDateSafe(iso) {
   const pure = String(iso || '').split('T')[0];
@@ -323,7 +329,7 @@ function buildBillingRows(reports) {
 function buildReceivableRows(reports) {
   return reports.map((report) => {
     const meta = resolveClientMeta(report.clientId);
-    const valor = Number(report.valorFaturado) || 0;
+    const valor = Number(report.valorFaturado);
     const vencimento = report.dataVencimento || null;
     const vencimentoUrg = vencimentoUrgency(vencimento);
     return {
@@ -331,7 +337,7 @@ function buildReceivableRows(reports) {
       ...meta,
       numeroFatura: report.numeroFatura || '—',
       valor,
-      valorLabel: formatCurrencyEur(valor),
+      valorLabel: formatCurrencyEurNullable(valor),
       emissaoLabel: formatHistoryDate(String(report.dataFatura || '').split('T')[0]),
       condicaoLabel: labelFaturaCondicao(report.faturaCondicaoPagamento),
       statusLabel: labelStatusRecebimento(report.statusRecebimento),
@@ -446,7 +452,7 @@ function renderInvoiceHistoryRow(report, acumulado, showAcum) {
         </button>
       </td>
       <td class="rh-cell-ordem"><code class="rh-ordem-badge faturacao-ordem">${escapeHtml(report.numeroFatura || '—')}</code></td>
-      <td class="rh-cell-valor">${escapeHtml(formatCurrencyEur(report.valorFaturado))}</td>
+      <td class="rh-cell-valor">${escapeHtml(formatCurrencyEurNullable(report.valorFaturado))}</td>
       ${
         showAcum
           ? `<td class="rh-cell-muted faturacao-history-acum" title="Acumulado do cliente até esta fatura">${acumulado != null ? `Σ ${escapeHtml(formatCurrencyEur(acumulado))}` : '—'}</td>`
@@ -866,8 +872,8 @@ function openRegisterInvoiceModal(reportId) {
       </div>
       <div class="form-group">
         <label class="form-label" for="invoice-valor">Valor Total Faturado (€)</label>
-        <input type="number" class="form-input" id="invoice-valor" name="valor" required
-          min="0.01" step="0.01" value="${defaultValor.toFixed(2)}">
+        <input type="number" class="form-input" id="invoice-valor" name="valor"
+          min="0" step="0.01" placeholder="${defaultValor.toFixed(2)}">
       </div>
       <div class="form-group">
         <label class="form-label" for="invoice-data">Data de Emissão</label>
@@ -886,7 +892,7 @@ function openRegisterInvoiceModal(reportId) {
         </select>
       </div>
       <p class="text-muted faturacao-invoice-hint">
-        A fatura legal é emitida no programa externo. «30 Dias» / «60 Dias» calculam a data de vencimento automaticamente.
+        A fatura legal é emitida no programa externo. Se este relatório for faturado em conjunto com outros do mesmo cliente, pode deixar o valor em branco. «30 Dias» / «60 Dias» calculam a data de vencimento automaticamente.
       </p>
     </form>
   `;
@@ -903,7 +909,7 @@ function openRegisterInvoiceModal(reportId) {
   document.getElementById('btn-save-invoice')?.addEventListener('click', async () => {
     const numero = document.getElementById('invoice-numero')?.value?.trim();
     const data = document.getElementById('invoice-data')?.value?.trim();
-    const valor = Number(document.getElementById('invoice-valor')?.value);
+    const valor = document.getElementById('invoice-valor')?.value?.trim() || '';
     const condicao = document.getElementById('invoice-condicao')?.value;
     const statusRecebimento = document.getElementById('invoice-status')?.value;
     const btn = document.getElementById('btn-save-invoice');
@@ -912,9 +918,12 @@ function openRegisterInvoiceModal(reportId) {
       showToast('Preencha o número e a data de emissão.', 'warning');
       return;
     }
-    if (!Number.isFinite(valor) || valor <= 0) {
-      showToast('Indique um valor total faturado válido.', 'warning');
-      return;
+    if (valor) {
+      const valorNum = Number(valor.replace(',', '.'));
+      if (!Number.isFinite(valorNum) || valorNum < 0) {
+        showToast('Indique um valor total faturado válido.', 'warning');
+        return;
+      }
     }
 
     btn.disabled = true;
@@ -933,6 +942,7 @@ function openRegisterInvoiceModal(reportId) {
       console.error('[Faturação] Registo:', err);
       showToast(err?.message || 'Erro ao registar fatura.', 'error');
       btn.disabled = false;
+      return;
     }
   });
 }
@@ -1004,7 +1014,7 @@ function openInvoiceHistoryDetailModal(reportId) {
       <div><dt>NIF</dt><dd>${escapeHtml(meta.nif)}</dd></div>
       <div><dt>Nº Fatura</dt><dd><code class="faturacao-ordem">${escapeHtml(report.numeroFatura || '—')}</code></dd></div>
       ${job ? `<div><dt>Ordem de produção</dt><dd>${escapeHtml(formatOrdemLabel(job))}</dd></div>` : ''}
-      <div><dt>Valor faturado</dt><dd>${escapeHtml(formatCurrencyEur(report.valorFaturado))}</dd></div>
+      <div><dt>Valor faturado</dt><dd>${escapeHtml(formatCurrencyEurNullable(report.valorFaturado))}</dd></div>
       <div><dt>Data do relatório</dt><dd>${escapeHtml(formatHistoryDate(reportDateOf(report)))}</dd></div>
       <div><dt>Data da faturação</dt><dd>${escapeHtml(formatHistoryDate(invoiceDateOf(report)))}</dd></div>
       <div><dt>Data do recebimento</dt><dd>${escapeHtml(recebimentoLabel)}</dd></div>
@@ -1032,7 +1042,7 @@ function openConfirmPaymentModal(reportId) {
       <p class="text-muted faturacao-invoice-hint">
         Confirmar recebimento de <strong>${escapeHtml(meta.nome)}</strong>
         — fatura <strong>${escapeHtml(report.numeroFatura || '—')}</strong>
-        (${escapeHtml(formatCurrencyEur(report.valorFaturado))}).
+        (${escapeHtml(formatCurrencyEurNullable(report.valorFaturado))}).
       </p>
       <div class="form-group">
         <label class="form-label" for="payment-data">Data de recebimento</label>
@@ -1136,7 +1146,7 @@ function exportFilteredInvoicesCsv() {
       meta.nome,
       meta.nif,
       report.numeroFatura || '',
-      Number(report.valorFaturado) || 0,
+      Number.isFinite(Number(report.valorFaturado)) ? Number(report.valorFaturado) : '',
       labelStatusRecebimento(report.statusRecebimento),
       labelFaturaCondicao(report.faturaCondicaoPagamento),
       reportDateOf(report),
