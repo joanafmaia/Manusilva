@@ -456,22 +456,20 @@ function formatHistoryDate(isoDate) {
 }
 
 function renderInvoiceRow(row, acumulado, showAcum) {
-  const { report, nome, nif, pago, numeroFatura, valorLabel, emissaoLabel, condicaoLabel, vencimentoLabel, vencimentoClass, vencimentoUrg } = row;
+  const { report, nome, pago, numeroFatura, valorLabel, emissaoLabel, vencimentoLabel, vencimentoClass, vencimentoUrg } = row;
   const urgentRow = !pago && vencimentoUrg === 'overdue';
 
   return `
     <tr class="rh-data-table-row faturacao-history-row faturacao-invoice-row${urgentRow ? ' faturacao-row--urgent' : ''}" data-invoice-id="${escapeHtml(report.id)}">
       <td class="rh-cell-date faturacao-cell-date">${escapeHtml(emissaoLabel)}</td>
       <td class="rh-cell-client faturacao-cell-client faturacao-cell-client--wrap">
-        <button type="button" class="rh-cell-link-btn faturacao-history-client-btn faturacao-cell-client-name" data-history-detail="${escapeHtml(report.id)}" title="Ver datas do relatório, faturação e recebimento">
+        <button type="button" class="rh-cell-link-btn faturacao-history-client-btn faturacao-cell-client-name" data-history-detail="${escapeHtml(report.id)}" title="Ver detalhe da fatura (NIF, condição de pagamento, datas)">
           ${escapeHtml(nome)}
         </button>
-        ${vencimentoUrg === 'overdue' ? ' <span class="faturacao-urgent-badge">Vencida</span>' : ''}${vencimentoUrg === 'soon' ? ' <span class="faturacao-urgent-badge faturacao-urgent-badge--soon">A vencer</span>' : ''}
+        ${vencimentoUrg === 'soon' ? ' <span class="faturacao-urgent-badge faturacao-urgent-badge--soon">A vencer</span>' : ''}
       </td>
-      <td class="faturacao-cell-nif">${escapeHtml(nif)}</td>
       <td class="rh-cell-ordem faturacao-cell-ordem"><code class="rh-ordem-badge faturacao-ordem">${escapeHtml(numeroFatura)}</code></td>
       <td class="rh-cell-valor faturacao-col-valor">${escapeHtml(valorLabel)}</td>
-      <td class="faturacao-cell-muted">${escapeHtml(condicaoLabel)}</td>
       <td class="faturacao-cell-date ${escapeHtml(vencimentoClass)}">${escapeHtml(vencimentoLabel)}</td>
       ${
         showAcum
@@ -519,10 +517,8 @@ function renderInvoicesSection(invoices = getFilteredInvoices()) {
             <tr>
               <th scope="col">Emissão</th>
               <th scope="col">Cliente</th>
-              <th scope="col">NIF</th>
               <th scope="col">Fatura</th>
               <th scope="col">Valor</th>
-              <th scope="col">Condição</th>
               <th scope="col">Vencimento</th>
               ${clientActive ? '<th scope="col">Acumulado</th>' : ''}
               <th scope="col">Estado</th>
@@ -594,10 +590,8 @@ function renderBillingTable(rows) {
           <thead>
             <tr>
               <th scope="col">Cliente</th>
-              <th scope="col">NIF</th>
               <th scope="col">Relatório</th>
               <th scope="col">Aprovação</th>
-              <th scope="col">Condição</th>
               <th scope="col" class="faturacao-col-action">Ação</th>
             </tr>
           </thead>
@@ -607,10 +601,8 @@ function renderBillingTable(rows) {
                 (row) => `
               <tr class="rh-data-table-row${row.urgent ? ' faturacao-row--urgent' : ''}" data-report-id="${escapeHtml(row.report.id)}">
                 <td class="faturacao-cell-client" title="${escapeHtml(row.nome)}">${escapeHtml(row.nome)}${row.urgent ? ' <span class="faturacao-urgent-badge">Urgente</span>' : ''}</td>
-                <td class="faturacao-cell-nif">${escapeHtml(row.nif)}</td>
                 <td class="faturacao-cell-ordem"><code class="faturacao-ordem">${escapeHtml(row.ordem)}</code></td>
                 <td class="faturacao-cell-date">${escapeHtml(row.approvedLabel)}</td>
-                <td class="faturacao-cell-muted">${escapeHtml(row.condicao)}</td>
                 <td class="faturacao-col-action">
                   <div class="faturacao-billing-actions">
                     <button type="button" class="btn-outline btn-sm faturacao-btn-compact" data-billing-pdf="${escapeHtml(row.report.id)}" title="Abrir PDF do relatório técnico">PDF</button>
@@ -987,6 +979,10 @@ function openInvoiceHistoryDetailModal(reportId) {
       ? '—'
       : 'Pendente';
 
+  const vencimentoLabel = pago
+    ? '—'
+    : formatHistoryDate(String(report.dataVencimento || '').split('T')[0]);
+
   const content = `
     <dl class="faturacao-detail-grid">
       <div><dt>Cliente</dt><dd>${escapeHtml(meta.nome)}</dd></div>
@@ -994,8 +990,10 @@ function openInvoiceHistoryDetailModal(reportId) {
       <div><dt>Nº Fatura</dt><dd><code class="faturacao-ordem">${escapeHtml(report.numeroFatura || '—')}</code></dd></div>
       ${job ? `<div><dt>Ordem de produção</dt><dd>${escapeHtml(formatOrdemLabel(job))}</dd></div>` : ''}
       <div><dt>Valor faturado</dt><dd>${escapeHtml(formatCurrencyEurNullable(report.valorFaturado))}</dd></div>
+      <div><dt>Condição de pagamento</dt><dd>${escapeHtml(labelFaturaCondicao(report.faturaCondicaoPagamento))}</dd></div>
       <div><dt>Data do relatório</dt><dd>${escapeHtml(formatHistoryDate(reportDateOf(report)))}</dd></div>
       <div><dt>Data da faturação</dt><dd>${escapeHtml(formatHistoryDate(invoiceDateOf(report)))}</dd></div>
+      <div><dt>Data de vencimento</dt><dd>${escapeHtml(vencimentoLabel)}</dd></div>
       <div><dt>Data do recebimento</dt><dd>${escapeHtml(recebimentoLabel)}</dd></div>
       <div><dt>Estado</dt><dd>${pago ? 'Pago' : 'Pendente'}</dd></div>
     </dl>
