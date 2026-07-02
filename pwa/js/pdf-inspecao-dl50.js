@@ -33,7 +33,8 @@ import {
   LABEL_NUMERO_SERIE,
   LABEL_N_INTERNO,
   LABEL_HORAS,
-  LABEL_DATA_FABRICO,
+  LABEL_ANO_FABRICO,
+  formatAnoFabricoDisplay,
 } from './field-labels.js';
 import { pdfDisplayValue } from './pdf-format-utils.js';
 import {
@@ -60,7 +61,7 @@ export const INSPECAO_DL50_MACHINE_PDF_SPECS = [
   },
   { id: 'n_interno', label: LABEL_N_INTERNO, aliases: ['num_interno', 'numero_interno'] },
   { id: 'horas', label: LABEL_HORAS, aliases: ['horas_gastas', 'numero_horas'] },
-  { id: 'data_fabrico', label: LABEL_DATA_FABRICO, aliases: ['data_de_fabrico', 'data_fabricacao'] },
+  { id: 'data_fabrico', label: LABEL_ANO_FABRICO, aliases: ['data_de_fabrico', 'data_fabricacao'] },
 ];
 
 /** gap ~20px entre colunas da matriz DL50 */
@@ -282,7 +283,11 @@ export async function drawDl50MachineGrid(doc, y, values, pdfContext = null) {
       fallback = pdfContext?.forkliftSerial || pdfContext?.report?.forkliftSerial || null;
     }
     const raw = resolvePdfStandardFieldValue(values, spec, fallback);
-    return pdfGridCell(spec.label, pdfDisplayValue(raw));
+    const value =
+      spec.id === 'data_fabrico'
+        ? formatAnoFabricoDisplay(raw) || pdfDisplayValue(raw)
+        : pdfDisplayValue(raw);
+    return pdfGridCell(spec.label, value);
   });
   const body = [];
   for (let i = 0; i < cells.length; i += 2) {

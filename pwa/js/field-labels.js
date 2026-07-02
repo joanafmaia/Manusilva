@@ -8,6 +8,19 @@ export const LABEL_N_INTERNO = 'Nº Interno';
 export const LABEL_HORAS = 'Horas';
 export const LABEL_HORAS_GASTAS = 'Horas Gastas';
 export const LABEL_DATA_FABRICO = 'Data de Fabrico';
+/** Inspeção DL 50/2005 — ano de fabrico da máquina */
+export const LABEL_ANO_FABRICO = 'Ano';
+
+/** Mostra só o ano quando o valor veio como data ISO legada. */
+export function formatAnoFabricoDisplay(raw) {
+  const text = String(raw ?? '').trim();
+  if (!text) return '';
+  const isoYear = text.match(/^(\d{4})-\d{2}-\d{2}/);
+  if (isoYear) return isoYear[1];
+  const yearOnly = text.match(/^(\d{4})$/);
+  if (yearOnly) return yearOnly[1];
+  return text;
+}
 export const LABEL_MARCA_MODELO = 'Marca/Modelo';
 export const LABEL_MODELO_TIPO = 'Modelo / Tipo';
 export const LABEL_ETIQUETA = 'Etiqueta';

@@ -45,3 +45,28 @@ export const VERIFICACOES_INTERNAS_ITEMS = [
   'Tubos',
   'Escape',
 ];
+
+/** Estados do checklist preventiva empilhadores (MS.061). */
+export const EMPILHADORES_VERIFY_STATES = ['', 'OK', 'Não OK', 'N/A'];
+
+export function formatEmpilhadoresVerifyState(state) {
+  const value = String(state ?? '').trim();
+  if (!value) return '—';
+  return value;
+}
+
+export function empilhadoresVerifyRowClass(state) {
+  const value = String(state ?? '').trim();
+  if (value === 'OK') return 'verification-card--ok';
+  if (value === 'Não OK') return 'verification-card--fail';
+  if (value === 'N/A') return 'verification-card--na';
+  return 'verification-card--blank';
+}
+
+export function empilhadoresVerifyBadgeClass(state) {
+  const value = String(state ?? '').trim();
+  if (value === 'OK') return 'verification-badge--ok';
+  if (value === 'Não OK') return 'verification-badge--fail';
+  if (value === 'N/A') return 'verification-badge--na';
+  return 'verification-badge--blank';
+}

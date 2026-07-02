@@ -44,6 +44,12 @@ import {
   VISITAS_FIELD_ID,
 } from './deslocacao-field.js';
 import { splitDl50MatrixCategories } from './inspecao-dl50-categories.js';
+import {
+  EMPILHADORES_VERIFY_STATES,
+  empilhadoresVerifyBadgeClass,
+  empilhadoresVerifyRowClass,
+  formatEmpilhadoresVerifyState,
+} from './preventiva-empilhadores-items.js';
 import { escapeHtml } from './html-utils.js';
 import {
   EMPILHADORES_SERVICE_ID,
@@ -327,27 +333,33 @@ function renderEmpilhadoresVerificationTable(field, value) {
   const items = field.items || [];
   const states = value && typeof value === 'object' ? value : {};
   const title = field.pdfTitle || field.section || field.label;
-  const { ok, total } = countVerificationProgress(items, states);
+  const { ok, fail, blank, total } = countEmpilhadoresVerificationProgress(items, states);
+
+  const stateOptions = EMPILHADORES_VERIFY_STATES.map((stateValue) => ({
+    value: stateValue,
+    label: formatEmpilhadoresVerifyState(stateValue),
+  }));
 
   const rows = items
     .map((item) => {
       const spec = normalizeVerifyItem(item);
-      const isFail = states[spec.id] === 'Não OK';
-      const stateClass = isFail ? 'verification-card--fail' : 'verification-card--ok';
-      const badgeClass = isFail ? 'verification-badge--fail' : 'verification-badge--ok';
-      const badgeText = isFail ? 'Não OK' : 'OK';
-      const checked = isFail ? 'checked' : '';
+      const current = states[spec.id] ?? '';
+      const stateClass = empilhadoresVerifyRowClass(current);
+      const badgeClass = empilhadoresVerifyBadgeClass(current);
+      const badgeText = formatEmpilhadoresVerifyState(current);
+      const options = stateOptions
+        .map(
+          (opt) =>
+            `<option value="${escapeHtml(opt.value)}"${opt.value === current ? ' selected' : ''}>${escapeHtml(opt.label)}</option>`,
+        )
+        .join('');
 
       return `
-        <tr class="checklist-inspection-row verification-card empilhadores-verify-row ${stateClass}" data-verify-card="${spec.id}" role="button" tabindex="0"
-          aria-label="${escapeHtml(spec.label)} — ${badgeText}">
+        <tr class="checklist-inspection-row verification-card empilhadores-verify-row ${stateClass}" data-verify-card="${spec.id}">
           <th scope="row" class="checklist-inspection-point empilhadores-verify-point verification-card-label">${escapeHtml(spec.label)}</th>
           <td class="checklist-inspection-state empilhadores-verify-state verification-card-control">
-            <span class="verification-badge ${badgeClass}" data-verify-badge="${spec.id}">${badgeText}</span>
-            <label class="verification-switch" aria-label="Alternar estado ${escapeHtml(spec.label)}">
-              <input type="checkbox" class="sr-only" data-verify-item="${spec.id}" ${checked}>
-              <span class="verify-track"><span class="verify-thumb"></span></span>
-            </label>
+            <span class="verification-badge ${badgeClass}" data-verify-badge="${spec.id}">${escapeHtml(badgeText)}</span>
+            <select class="form-select form-select-sm empilhadores-verify-select" data-verify-item="${escapeHtml(spec.id)}" aria-label="Estado ${escapeHtml(spec.label)}">${options}</select>
           </td>
         </tr>
       `;
@@ -355,11 +367,11 @@ function renderEmpilhadoresVerificationTable(field, value) {
     .join('');
 
   return `
-    <div class="checklist-inspection-column empilhadores-verify-column verification-toggles-field" data-verification-field="${field.id}">
+    <div class="checklist-inspection-column empilhadores-verify-column verification-toggles-field" data-verification-field="${field.id}" data-empilhadores-verify="1">
       <div class="checklist-inspection-header empilhadores-verify-column-header">
         <h5 class="checklist-inspection-title empilhadores-verify-column-title">${escapeHtml(title)}</h5>
         <div class="checklist-inspection-meta empilhadores-verify-column-meta">
-          <span class="matrix-cat-progress" data-verify-progress>${ok}/${total}</span>
+          <span class="matrix-cat-progress" data-verify-progress>${ok}/${total} OK${blank > 0 ? ` · ${blank} por preencher` : ''}</span>
           ${verificationBulkOkBtnHtml(title, { compact: true })}
         </div>
       </div>
@@ -994,7 +1006,10 @@ export function collectReportValues(overlay) {
   overlay.querySelectorAll('[data-verification-field]').forEach((wrap) => {
     const fieldId = wrap.dataset.verificationField;
     const items = {};
-    wrap.querySelectorAll('[data-verify-item]').forEach((input) => {
+    wrap.querySelectorAll('select[data-verify-item]').forEach((select) => {
+      items[select.dataset.verifyItem] = select.value;
+    });
+    wrap.querySelectorAll("input[type='checkbox'][data-verify-item]").forEach((input) => {
       items[input.dataset.verifyItem] = input.checked ? 'Não OK' : 'OK';
     });
     values[fieldId] = items;
@@ -1201,12 +1216,18 @@ export function renderReportValuesForReview(service, values = {}) {
           if (field.type === 'verification_toggles' && val && typeof val === 'object') {
             const rows = (field.items || []).map((item) => {
               const spec = normalizeVerifyItem(item);
-              const state = val[spec.id] || 'OK';
-              const cls = state === 'OK' ? 'verification-badge--ok' : 'verification-badge--fail';
+              const state = val[spec.id] ?? '';
+              const isEmp = service?.id === EMPILHADORES_SERVICE_ID;
+              const display = isEmp ? formatEmpilhadoresVerifyState(state) : state || 'OK';
+              const cls = isEmp
+                ? empilhadoresVerifyBadgeClass(state)
+                : state === 'OK' || !state
+                  ? 'verification-badge--ok'
+                  : 'verification-badge--fail';
               return `
                 <div class="review-verify-row">
                   <span>${escapeHtml(spec.label)}</span>
-                  <span class="verification-badge ${cls}">${escapeHtml(state)}</span>
+                  <span class="verification-badge ${cls}">${escapeHtml(display)}</span>
                 </div>
               `;
             }).join('');
@@ -1623,12 +1644,89 @@ function countVerificationProgress(items, states) {
   return { ok, fail, total: items.length };
 }
 
+function countEmpilhadoresVerificationProgress(items, states) {
+  let ok = 0;
+  let fail = 0;
+  let blank = 0;
+  items.forEach((item) => {
+    const spec = normalizeVerifyItem(item);
+    const state = String(states[spec.id] ?? '').trim();
+    if (state === 'Não OK') fail += 1;
+    else if (state === 'OK') ok += 1;
+    else if (!state) blank += 1;
+  });
+  return { ok, fail, blank, total: items.length };
+}
+
+function syncEmpilhadoresVerifySelect(select, wrap) {
+  const value = String(select?.value ?? '').trim();
+  const card = select.closest('.verification-card');
+  const badge = wrap.querySelector(`[data-verify-badge="${select.dataset.verifyItem}"]`);
+  if (card) {
+    card.classList.remove(
+      'verification-card--ok',
+      'verification-card--fail',
+      'verification-card--na',
+      'verification-card--blank',
+    );
+    card.classList.add(empilhadoresVerifyRowClass(value));
+  }
+  if (badge) {
+    badge.textContent = formatEmpilhadoresVerifyState(value);
+    badge.classList.remove(
+      'verification-badge--ok',
+      'verification-badge--fail',
+      'verification-badge--na',
+      'verification-badge--blank',
+    );
+    badge.classList.add(empilhadoresVerifyBadgeClass(value));
+  }
+}
+
+function updateEmpilhadoresVerificationProgress(wrap, items = []) {
+  const progressEl = wrap.querySelector('[data-verify-progress]');
+  const failEl = wrap.querySelector('[data-verify-fail-count]');
+  if (!progressEl) return;
+
+  const states = {};
+  wrap.querySelectorAll('select[data-verify-item]').forEach((select) => {
+    states[select.dataset.verifyItem] = select.value;
+  });
+  const counts = countEmpilhadoresVerificationProgress(items, states);
+  progressEl.textContent = `${counts.ok}/${counts.total} OK${counts.blank > 0 ? ` · ${counts.blank} por preencher` : ''}`;
+  if (failEl) {
+    failEl.textContent = counts.fail > 0 ? `${counts.fail} Não OK` : '';
+    failEl.classList.toggle('is-visible', counts.fail > 0);
+    failEl.hidden = counts.fail <= 0;
+  }
+  updateVerificationBulkOkBtnState(wrap);
+}
+
+function isEmpilhadoresVerificationFieldAllOk(wrap) {
+  const selects = wrap?.querySelectorAll('select[data-verify-item]');
+  if (!selects?.length) return false;
+  return Array.from(selects).every((select) => select.value === 'OK');
+}
+
+function markEmpilhadoresVerificationAllOk(wrap) {
+  if (!wrap) return;
+  wrap.querySelectorAll('select[data-verify-item]').forEach((select) => {
+    select.value = 'OK';
+    syncEmpilhadoresVerifySelect(select, wrap);
+  });
+  const fieldId = wrap.dataset.verificationField;
+  const items =
+    EMPILHADORES_PER_MACHINE_FIELD_DEFS.find((field) => field.id === fieldId)?.items || [];
+  updateEmpilhadoresVerificationProgress(wrap, items);
+  wrap.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
 function updateVerificationAccordionProgress(wrap) {
   const progressEl = wrap.querySelector('[data-verify-progress]');
   const failEl = wrap.querySelector('[data-verify-fail-count]');
   if (!progressEl) return;
 
-  const items = wrap.querySelectorAll('[data-verify-item]');
+  const items = wrap.querySelectorAll("input[type='checkbox'][data-verify-item]");
   let ok = 0;
   let fail = 0;
   items.forEach((input) => {
@@ -1646,7 +1744,10 @@ function updateVerificationAccordionProgress(wrap) {
 }
 
 function isVerificationFieldAllOk(wrap) {
-  const items = wrap?.querySelectorAll('[data-verify-item]');
+  if (wrap?.dataset.empilhadoresVerify === '1') {
+    return isEmpilhadoresVerificationFieldAllOk(wrap);
+  }
+  const items = wrap?.querySelectorAll('input[type="checkbox"][data-verify-item]');
   if (!items?.length) return false;
   return Array.from(items).every((input) => !input.checked);
 }
@@ -1672,7 +1773,11 @@ function syncVerificationItemState(input, wrap) {
 
 function markVerificationAllOk(wrap) {
   if (!wrap) return;
-  wrap.querySelectorAll('[data-verify-item]').forEach((input) => {
+  if (wrap.dataset.empilhadoresVerify === '1') {
+    markEmpilhadoresVerificationAllOk(wrap);
+    return;
+  }
+  wrap.querySelectorAll("input[type='checkbox'][data-verify-item]").forEach((input) => {
     input.checked = false;
     syncVerificationItemState(input, wrap);
   });
@@ -1682,7 +1787,8 @@ function markVerificationAllOk(wrap) {
 
 function clearVerificationAllOk(wrap) {
   if (!wrap) return;
-  wrap.querySelectorAll('[data-verify-item]').forEach((input) => {
+  if (wrap.dataset.empilhadoresVerify === '1') return;
+  wrap.querySelectorAll("input[type='checkbox'][data-verify-item]").forEach((input) => {
     input.checked = true;
     syncVerificationItemState(input, wrap);
   });
@@ -2265,6 +2371,23 @@ export async function bindFormFieldInteractions(overlay) {
   });
 
   overlay.querySelectorAll('[data-verification-field]').forEach((wrap) => {
+    if (wrap.dataset.empilhadoresVerify === '1') {
+      const fieldId = wrap.dataset.verificationField;
+      const fieldItems =
+        EMPILHADORES_PER_MACHINE_FIELD_DEFS.find((field) => field.id === fieldId)?.items || [];
+      wrap.querySelectorAll('select[data-verify-item]').forEach((select) => {
+        const sync = () => {
+          syncEmpilhadoresVerifySelect(select, wrap);
+          updateEmpilhadoresVerificationProgress(wrap, fieldItems);
+        };
+        select.addEventListener('change', sync);
+        sync();
+      });
+      updateEmpilhadoresVerificationProgress(wrap, fieldItems);
+      updateVerificationBulkOkBtnState(wrap);
+      return;
+    }
+
     const pulseCard = (card) => {
       if (!card) return;
       card.classList.remove('verification-card--pulse');
@@ -2273,7 +2396,7 @@ export async function bindFormFieldInteractions(overlay) {
       card.addEventListener('animationend', () => card.classList.remove('verification-card--pulse'), { once: true });
     };
 
-    wrap.querySelectorAll('[data-verify-item]').forEach((input) => {
+    wrap.querySelectorAll("input[type='checkbox'][data-verify-item]").forEach((input) => {
       const syncCard = () => {
         syncVerificationItemState(input, wrap);
         updateVerificationAccordionProgress(wrap);

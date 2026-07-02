@@ -10,7 +10,8 @@ import {
   LABEL_NUMERO_SERIE,
   LABEL_N_INTERNO,
   LABEL_HORAS,
-  LABEL_DATA_FABRICO,
+  LABEL_ANO_FABRICO,
+  formatAnoFabricoDisplay,
 } from './field-labels.js';
 import { pdfAutoTableFont, pdfSetFont, pdfSafeText, pdfSplitText } from './pdf-font.js';
 
@@ -315,7 +316,7 @@ export function buildInspecaoDl50MachineTableBody(machine) {
       machinePdfCell(LABEL_N_INTERNO, machine.n_interno),
       machinePdfCell(LABEL_HORAS, machine.horas),
     ],
-    [machinePdfCell(LABEL_DATA_FABRICO, machine.data_fabrico), ''],
+    [machinePdfCell(LABEL_ANO_FABRICO, formatAnoFabricoDisplay(machine.data_fabrico)), ''],
   ];
 }
 

@@ -3,6 +3,7 @@
  */
 
 import { EMPILHADORES_MATERIAL_SECTION } from './mock_data.js';
+import { formatEmpilhadoresVerifyState } from './preventiva-empilhadores-items.js';
 import { pdfAutoTableFont, pdfSafeText } from './pdf-font.js';
 import {
   PDF_COLOR_CORPORATE_BLUE as CORPORATE_BLUE,
@@ -153,8 +154,9 @@ function normalizeVerifyItem(item) {
 function buildVerificationTableBody(items, states) {
   return (items || []).map((item) => {
     const spec = normalizeVerifyItem(item);
-    const state = states?.[spec.id] || 'OK';
-    return [pdfSafeText(spec.label), state];
+    const state = states?.[spec.id];
+    const display = formatEmpilhadoresVerifyState(state);
+    return [pdfSafeText(spec.label), pdfSafeText(display === '—' ? '' : display)];
   });
 }
 

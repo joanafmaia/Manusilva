@@ -66,7 +66,7 @@ function defaultVerificationMap(items = []) {
   const out = {};
   items.forEach((item) => {
     const id = typeof item === 'string' ? columnKey(item) : item.id || columnKey(item.label);
-    out[id] = 'OK';
+    out[id] = '';
   });
   return out;
 }
@@ -318,7 +318,10 @@ function collectChecklistFromPanel(overlay) {
   panel.querySelectorAll('[data-verification-field]').forEach((wrap) => {
     const fieldId = wrap.dataset.verificationField;
     const items = {};
-    wrap.querySelectorAll('[data-verify-item]').forEach((input) => {
+    wrap.querySelectorAll('select[data-verify-item]').forEach((select) => {
+      items[select.dataset.verifyItem] = select.value;
+    });
+    wrap.querySelectorAll("input[type='checkbox'][data-verify-item]").forEach((input) => {
       items[input.dataset.verifyItem] = input.checked ? 'Não OK' : 'OK';
     });
     out[fieldId] = items;
