@@ -4,7 +4,6 @@
 
 import {
   getPendingBillingReports,
-  getPendingPaymentInvoices,
   getReportsSnapshot,
   getReport,
   getClient,
@@ -326,25 +325,42 @@ function buildBillingRows(reports) {
   });
 }
 
-function buildReceivableRows(reports) {
+function buildInvoiceRows(reports) {
   return reports.map((report) => {
     const meta = resolveClientMeta(report.clientId);
     const valor = Number(report.valorFaturado);
+    const pago = report.statusRecebimento === 'pago';
     const vencimento = report.dataVencimento || null;
-    const vencimentoUrg = vencimentoUrgency(vencimento);
+    const vencimentoUrg = pago ? 'none' : vencimentoUrgency(vencimento);
     return {
       report,
       ...meta,
+      pago,
       numeroFatura: report.numeroFatura || '—',
       valor,
       valorLabel: formatCurrencyEurNullable(valor),
       emissaoLabel: formatHistoryDate(String(report.dataFatura || '').split('T')[0]),
       condicaoLabel: labelFaturaCondicao(report.faturaCondicaoPagamento),
       statusLabel: labelStatusRecebimento(report.statusRecebimento),
-      vencimentoLabel: formatHistoryDate(String(vencimento || '').split('T')[0]),
+      vencimentoLabel: pago
+        ? '—'
+        : formatHistoryDate(String(vencimento || '').split('T')[0]),
       vencimentoClass: vencimentoCellClass(vencimentoUrg),
       vencimentoUrg,
     };
+  });
+}
+
+/** Pendentes primeiro (vencimento mais antigo); recebidas por data de emissão. */
+function sortInvoiceRowsForDisplay(rows) {
+  return [...rows].sort((a, b) => {
+    if (a.pago !== b.pago) return a.pago ? 1 : -1;
+    if (!a.pago) {
+      const va = String(a.report.dataVencimento || a.report.dataFatura || '');
+      const vb = String(b.report.dataVencimento || b.report.dataFatura || '');
+      return va.localeCompare(vb);
+    }
+    return invoiceDateOf(b.report).localeCompare(invoiceDateOf(a.report));
   });
 }
 
@@ -430,7 +446,7 @@ function renderFiltersSection() {
   `;
 }
 
-/* ─── Histórico de Faturas Emitidas ─── */
+/* ─── Faturas emitidas (pendentes + histórico) ─── */
 
 /** dd/mm/aaaa — o histórico pode abranger vários anos. */
 function formatHistoryDate(isoDate) {
@@ -439,20 +455,24 @@ function formatHistoryDate(isoDate) {
   return `${d}/${m}/${y}`;
 }
 
-function renderInvoiceHistoryRow(report, acumulado, showAcum) {
-  const meta = resolveClientMeta(report.clientId);
-  const pago = report.statusRecebimento === 'pago';
+function renderInvoiceRow(row, acumulado, showAcum) {
+  const { report, nome, nif, pago, numeroFatura, valorLabel, emissaoLabel, condicaoLabel, vencimentoLabel, vencimentoClass, vencimentoUrg } = row;
+  const urgentRow = !pago && vencimentoUrg === 'overdue';
 
   return `
-    <tr class="rh-data-table-row faturacao-history-row" data-history-id="${escapeHtml(report.id)}">
-      <td class="rh-cell-date">${escapeHtml(formatHistoryDate(invoiceDateOf(report)))}</td>
-      <td class="rh-cell-client">
-        <button type="button" class="rh-cell-link-btn faturacao-history-client-btn" data-history-detail="${escapeHtml(report.id)}" title="Ver datas do relatório, faturação e recebimento">
-          ${escapeHtml(meta.nome)}
+    <tr class="rh-data-table-row faturacao-history-row faturacao-invoice-row${urgentRow ? ' faturacao-row--urgent' : ''}" data-invoice-id="${escapeHtml(report.id)}">
+      <td class="rh-cell-date faturacao-cell-date">${escapeHtml(emissaoLabel)}</td>
+      <td class="rh-cell-client faturacao-cell-client faturacao-cell-client--wrap">
+        <button type="button" class="rh-cell-link-btn faturacao-history-client-btn faturacao-cell-client-name" data-history-detail="${escapeHtml(report.id)}" title="Ver datas do relatório, faturação e recebimento">
+          ${escapeHtml(nome)}
         </button>
+        ${vencimentoUrg === 'overdue' ? ' <span class="faturacao-urgent-badge">Vencida</span>' : ''}${vencimentoUrg === 'soon' ? ' <span class="faturacao-urgent-badge faturacao-urgent-badge--soon">A vencer</span>' : ''}
       </td>
-      <td class="rh-cell-ordem"><code class="rh-ordem-badge faturacao-ordem">${escapeHtml(report.numeroFatura || '—')}</code></td>
-      <td class="rh-cell-valor">${escapeHtml(formatCurrencyEurNullable(report.valorFaturado))}</td>
+      <td class="faturacao-cell-nif">${escapeHtml(nif)}</td>
+      <td class="rh-cell-ordem faturacao-cell-ordem"><code class="rh-ordem-badge faturacao-ordem">${escapeHtml(numeroFatura)}</code></td>
+      <td class="rh-cell-valor faturacao-col-valor">${escapeHtml(valorLabel)}</td>
+      <td class="faturacao-cell-muted">${escapeHtml(condicaoLabel)}</td>
+      <td class="faturacao-cell-date ${escapeHtml(vencimentoClass)}">${escapeHtml(vencimentoLabel)}</td>
       ${
         showAcum
           ? `<td class="rh-cell-muted faturacao-history-acum" title="Acumulado do cliente até esta fatura">${acumulado != null ? `Σ ${escapeHtml(formatCurrencyEur(acumulado))}` : '—'}</td>`
@@ -461,17 +481,26 @@ function renderInvoiceHistoryRow(report, acumulado, showAcum) {
       <td>
         <span class="faturacao-history-estado ${pago ? 'is-pago' : 'is-pendente'}">${pago ? 'Pago' : 'Pendente'}</span>
       </td>
+      <td class="faturacao-col-action">
+        ${
+          pago
+            ? '<span class="text-muted">—</span>'
+            : `<button type="button" class="btn-success btn-sm faturacao-btn-compact" data-confirm-payment="${escapeHtml(report.id)}" title="Confirmar recebimento">Recebido</button>`
+        }
+      </td>
     </tr>
   `;
 }
 
-function renderHistorySection(invoices = getFilteredInvoices()) {
+function renderInvoicesSection(invoices = getFilteredInvoices()) {
   const clientActive = Boolean(billingFilters.clientId);
+  const invoiceRows = sortInvoiceRowsForDisplay(buildInvoiceRows(invoices));
+  const pendingCount = invoiceRows.filter((row) => !row.pago).length;
 
   let rowsHtml = '<p class="text-muted faturacao-empty">Sem faturas emitidas nos filtros selecionados.</p>';
   let cumulativeByReport = null;
 
-  if (invoices.length) {
+  if (invoiceRows.length) {
     if (clientActive) {
       cumulativeByReport = new Map();
       let running = 0;
@@ -484,24 +513,28 @@ function renderHistorySection(invoices = getFilteredInvoices()) {
     }
 
     rowsHtml = `
-      <div class="faturacao-table-wrap">
-        <table class="rh-data-table rh-data-table--compact faturacao-history-table">
+      <div class="faturacao-table-wrap rh-table-scroll">
+        <table class="rh-data-table rh-data-table--compact faturacao-history-table faturacao-table faturacao-table--compact faturacao-table--invoices">
           <thead>
             <tr>
-              <th>Data</th>
-              <th>Cliente</th>
-              <th>Fatura</th>
-              <th>Valor</th>
-              ${clientActive ? '<th>Acumulado</th>' : ''}
-              <th>Estado</th>
+              <th scope="col">Emissão</th>
+              <th scope="col">Cliente</th>
+              <th scope="col">NIF</th>
+              <th scope="col">Fatura</th>
+              <th scope="col">Valor</th>
+              <th scope="col">Condição</th>
+              <th scope="col">Vencimento</th>
+              ${clientActive ? '<th scope="col">Acumulado</th>' : ''}
+              <th scope="col">Estado</th>
+              <th scope="col" class="faturacao-col-action">Ação</th>
             </tr>
           </thead>
           <tbody>
-            ${invoices
-              .map((r) =>
-                renderInvoiceHistoryRow(
-                  r,
-                  cumulativeByReport ? cumulativeByReport.get(r.id) : null,
+            ${invoiceRows
+              .map((row) =>
+                renderInvoiceRow(
+                  row,
+                  cumulativeByReport ? cumulativeByReport.get(row.report.id) : null,
                   clientActive,
                 ),
               )
@@ -517,10 +550,15 @@ function renderHistorySection(invoices = getFilteredInvoices()) {
     clientActive && invoices.length
       ? `<p class="faturacao-history-total">Renda Total — ${escapeHtml(billingFilters.clientNome || 'cliente selecionado')}: <strong>${escapeHtml(formatCurrencyEur(total))}</strong></p>`
       : '';
+  const pendingHint =
+    pendingCount > 0
+      ? `<p class="text-muted faturacao-invoices-lead">${pendingCount === 1 ? '1 fatura por receber' : `${pendingCount} faturas por receber`} — use «Recebido» quando o pagamento entrar.</p>`
+      : '';
 
   return `
-    <section class="faturacao-history-section rh-section glass-card" aria-label="Histórico de faturas emitidas">
-      <h3 class="ms-h2 faturacao-section-title">Histórico de Faturas Emitidas <span class="badge-count">${invoices.length}</span></h3>
+    <section class="faturacao-invoices-section rh-section glass-card" aria-label="Faturas emitidas">
+      <h3 class="ms-h2 faturacao-section-title">Faturas emitidas <span class="badge-count">${invoices.length}</span></h3>
+      ${pendingHint}
       ${rendaTotal}
       ${rowsHtml}
     </section>
@@ -579,64 +617,6 @@ function renderBillingTable(rows) {
                     <button type="button" class="btn-primary btn-sm faturacao-btn-compact" data-register-invoice="${escapeHtml(row.report.id)}" title="Marcar como faturado">Faturar</button>
                     <button type="button" class="btn-danger btn-sm faturacao-btn-compact" data-billing-dismiss="${escapeHtml(row.report.id)}" title="Retirar da lista por faturar">Eliminar</button>
                   </div>
-                </td>
-              </tr>
-            `,
-              )
-              .join('')}
-          </tbody>
-        </table>
-      </div>
-    </section>
-  `;
-}
-
-function renderReceivablesTable(rows) {
-  if (!rows.length) {
-    return `
-      <section class="faturacao-receivables-section rh-section glass-card">
-        <h3 class="ms-h2 faturacao-section-title">Faturas Pendentes de Pagamento</h3>
-        <p class="text-muted faturacao-empty">Nenhuma fatura em aberto — tudo recebido.</p>
-      </section>
-    `;
-  }
-
-  return `
-    <section class="faturacao-receivables-section rh-section glass-card">
-      <h3 class="ms-h2 faturacao-section-title">Faturas Pendentes de Pagamento <span class="badge-count">${rows.length}</span></h3>
-      <div class="rh-table-scroll">
-        <table class="rh-data-table rh-data-table--compact faturacao-table faturacao-table--compact faturacao-table--receivables">
-          <thead>
-            <tr>
-              <th scope="col">Cliente</th>
-              <th scope="col">NIF</th>
-              <th scope="col">Fatura</th>
-              <th scope="col">Valor</th>
-              <th scope="col">Emissão</th>
-              <th scope="col">Condição</th>
-              <th scope="col">Vencimento</th>
-              <th scope="col" class="faturacao-col-action">Ação</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${rows
-              .map(
-                (row) => `
-              <tr class="rh-data-table-row${row.vencimentoUrg === 'overdue' ? ' faturacao-row--urgent' : ''}" data-invoice-id="${escapeHtml(row.report.id)}">
-                <td class="faturacao-cell-client faturacao-cell-client--wrap">
-                  <span class="faturacao-cell-client-name">${escapeHtml(row.nome)}</span>
-                  ${row.vencimentoUrg === 'overdue' ? ' <span class="faturacao-urgent-badge">Vencida</span>' : ''}${row.vencimentoUrg === 'soon' ? ' <span class="faturacao-urgent-badge faturacao-urgent-badge--soon">A vencer</span>' : ''}
-                </td>
-                <td class="faturacao-cell-nif">${escapeHtml(row.nif)}</td>
-                <td class="faturacao-cell-ordem"><code class="faturacao-ordem">${escapeHtml(row.numeroFatura)}</code></td>
-                <td class="faturacao-col-valor">${escapeHtml(row.valorLabel)}</td>
-                <td class="faturacao-cell-date">${escapeHtml(row.emissaoLabel)}</td>
-                <td class="faturacao-cell-muted">${escapeHtml(row.condicaoLabel)}</td>
-                <td class="faturacao-cell-date ${escapeHtml(row.vencimentoClass)}">${escapeHtml(row.vencimentoLabel)}</td>
-                <td class="faturacao-col-action">
-                  <button type="button" class="btn-success btn-sm faturacao-btn-compact" data-confirm-payment="${escapeHtml(row.report.id)}" title="Confirmar recebimento">
-                    Recebido
-                  </button>
                 </td>
               </tr>
             `,
@@ -760,12 +740,10 @@ async function softRefreshFaturacaoPanel() {
     );
   }
   const billingRows = buildBillingRows(billingReports);
-  const receivableRows = buildReceivableRows(getPendingPaymentInvoices());
 
   replaceMountedSection('.faturacao-kpis', renderKpis(metrics));
   replaceMountedSection('.faturacao-table-section--billing', renderBillingTable(billingRows));
-  replaceMountedSection('.faturacao-receivables-section', renderReceivablesTable(receivableRows));
-  replaceMountedSection('.faturacao-history-section', renderHistorySection(invoices));
+  replaceMountedSection('.faturacao-invoices-section', renderInvoicesSection(invoices));
   bindTableActions();
   await updateChartData(metrics);
 }
@@ -776,8 +754,9 @@ async function applyBillingFilters() {
   const invoices = getFilteredInvoices();
   const metrics = computeFilteredMetrics(invoices);
   replaceMountedSection('.faturacao-kpis', renderKpis(metrics));
-  replaceMountedSection('.faturacao-history-section', renderHistorySection(invoices));
+  replaceMountedSection('.faturacao-invoices-section', renderInvoicesSection(invoices));
   bindHistoryDetailActions();
+  bindConfirmPaymentActions();
   await updateChartData(metrics);
 }
 
@@ -1198,7 +1177,6 @@ function renderPanel() {
     );
   }
   const billingRows = buildBillingRows(billingReports);
-  const receivableRows = buildReceivableRows(getPendingPaymentInvoices());
 
   return `
     <div class="faturacao-panel rh-admin-panel dashboard-panel-inner">
@@ -1212,8 +1190,7 @@ function renderPanel() {
       ${renderKpis(metrics)}
       ${renderChartSection()}
       ${renderBillingTable(billingRows)}
-      ${renderReceivablesTable(receivableRows)}
-      ${renderHistorySection(invoices)}
+      ${renderInvoicesSection(invoices)}
     </div>
   `;
 }

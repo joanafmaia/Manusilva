@@ -11412,6 +11412,16 @@ body .admin-rh-page .btn-primary, body .admin-rh-page .btn-secondary, body .admi
 .faturacao-kpis-grid--3 {
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
 }
+.faturacao-invoices-section {
+  padding: 1rem 1.15rem;
+}
+.faturacao-invoices-lead {
+  margin: -0.35rem 0 0.65rem;
+  font-size: 0.8rem;
+}
+.faturacao-table--invoices .btn-success {
+  font-weight: 600;
+}
 .faturacao-receivables-section {
   padding: 1rem 1.15rem;
 }
@@ -11453,8 +11463,7 @@ body .admin-rh-page .btn-primary, body .admin-rh-page .btn-secondary, body .admi
 }
 .admin-rh-page .rh-admin-section,
 .admin-rh-page .faturacao-table-section,
-.admin-rh-page .faturacao-receivables-section,
-.admin-rh-page .faturacao-history-section {
+.admin-rh-page .faturacao-invoices-section {
   padding: 1rem 1.15rem;
 }
 .admin-rh-page .rh-data-table--compact th,
