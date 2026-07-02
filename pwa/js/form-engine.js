@@ -2261,7 +2261,7 @@ function renderMatrix4OptionsField(field, value, service = null) {
 }
 
 function matrixLegendLabel(opt) {
-  const map = { B: 'Bom', N: 'Mau', D: 'Danificado', 'N.A.': 'Não aplicável' };
+  const map = { B: 'Bom', N: 'Normal', D: 'Danificado', 'N.A.': 'Não aplicável' };
   return map[opt] || opt;
 }
 
