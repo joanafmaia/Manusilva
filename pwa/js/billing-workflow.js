@@ -48,6 +48,29 @@ export function isServicoReportBillable(report) {
   return !reportIsCommercialOrcamento(report);
 }
 
+/** Compara URLs do Storage ignorando query string (?v= cache bust). */
+export function normalizeStoragePdfUrl(url) {
+  return String(url || '').trim().split('?')[0];
+}
+
+function isSameStoragePdfUrl(a, b) {
+  const left = normalizeStoragePdfUrl(a);
+  const right = normalizeStoragePdfUrl(b);
+  return Boolean(left && right && left === right);
+}
+
+/** Exclui MS.015 quando a fila «por faturar» pede o relatório técnico da OP. */
+function filterTechnicalBillingPdfUrls(report, urls = []) {
+  const orcamentoUrl = getReportOrcamentoPdfUrl(report);
+  if (!orcamentoUrl) {
+    return urls.map((url) => String(url).trim()).filter(Boolean);
+  }
+  return urls
+    .map((url) => String(url).trim())
+    .filter(Boolean)
+    .filter((url) => !isSameStoragePdfUrl(url, orcamentoUrl));
+}
+
 /**
  * PDFs para o painel Faturação — intervenção técnica, não MS.015.
  * Orçamento comercial só quando a proposta aceite está na fila de faturação.
@@ -66,26 +89,46 @@ export function resolveBillingReportPdfEntries(report, getJobFn = getJob) {
     }
   }
 
-  const urls = Array.isArray(report?.data?.urlPdfs) ? report.data.urlPdfs.filter(Boolean) : [];
+  const rawUrls = Array.isArray(report?.data?.urlPdfs) ? report.data.urlPdfs.filter(Boolean) : [];
   const names = Array.isArray(report?.data?.pdfFilenames) ? report.data.pdfFilenames : [];
+  const urls = filterTechnicalBillingPdfUrls(report, rawUrls);
   if (urls.length) {
-    return urls.map((url, index) => ({
-      url: String(url).trim(),
-      label: names[index] || `Relatório ${index + 1}`,
-    }));
+    return urls.map((url, index) => {
+      const rawIndex = rawUrls.findIndex((candidate) => isSameStoragePdfUrl(candidate, url));
+      const nameIndex = rawIndex >= 0 ? rawIndex : index;
+      return {
+        url,
+        label: names[nameIndex] || `Relatório ${index + 1}`,
+      };
+    });
   }
 
-  const technical = getReportTechnicalPdfUrl(report);
-  if (technical) {
-    return [{ url: technical, label: 'Relatório técnico' }];
+  const rawTechnical = getReportTechnicalPdfUrl(report);
+  const technicalUrls = rawTechnical
+    ? filterTechnicalBillingPdfUrls(report, [rawTechnical])
+    : [];
+  if (technicalUrls.length) {
+    return [{ url: technicalUrls[0], label: 'Relatório técnico' }];
   }
 
   const job = report.jobId ? getJobFn(report.jobId) : null;
-  if (job?.urlPdf && String(job.urlPdf).trim()) {
-    return [{ url: String(job.urlPdf).trim(), label: 'Relatório técnico' }];
+  const jobUrl = job?.urlPdf && String(job.urlPdf).trim() ? String(job.urlPdf).trim() : '';
+  const jobTechnicalUrls = filterTechnicalBillingPdfUrls(report, jobUrl ? [jobUrl] : []);
+  if (jobTechnicalUrls.length) {
+    return [{ url: jobTechnicalUrls[0], label: 'Relatório técnico' }];
   }
 
   return [];
+}
+
+/** Relatório da visita cujo PDF técnico está disponível (para botão PDF na fila). */
+export function resolvePrimaryBillingReportId(reports = []) {
+  for (const report of reports) {
+    if (resolveBillingReportPdfEntries(report).length) {
+      return String(report.id);
+    }
+  }
+  return reports[0]?.id ? String(reports[0].id) : '';
 }
 
 /** Relatório aprovado ainda por faturar (controlo interno; exclui visitas e propostas comerciais). */

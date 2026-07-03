@@ -30,6 +30,7 @@ import {
 import {
   isServicoReportBillable,
   resolveBillingReportPdfEntries,
+  resolvePrimaryBillingReportId,
 } from '../billing-workflow.js';
 import { isPendingOrcamentoBilling } from '../orcamento-billing-workflow.js';
 import { renderClientCombobox, bindClientComboboxes } from '../client-combobox.js';
@@ -390,7 +391,7 @@ function buildBillingRowsFromItems(items) {
         approvedLabel: formatHistoryDate(latestApproval),
         urgent: urgentReport ? isBillingUrgent(urgentReport, meta.client) : false,
         estimate: estimateServicoValue(billingReports),
-        primaryReportId: billingReports[0]?.id || '',
+        primaryReportId: resolvePrimaryBillingReportId(billingReports),
       };
     }
 

@@ -150,4 +150,46 @@ describe('billing-workflow', () => {
     assert.equal(entries[0].url, 'https://example.com/intervencao.pdf');
     assert.match(entries[0].label, /folha_avarias/i);
   });
+
+  it('resolveBillingReportPdfEntries — ignora MS.015 se urlPdfs só tem orçamento', () => {
+    const orcamentoUrl = 'https://example.com/ms015.pdf?v=1';
+    const tecnicoUrl = 'https://example.com/intervencao-op39.pdf';
+    const relatorio = {
+      id: 'r-sinflex',
+      status: 'approved',
+      serviceType: 'folha_intervencao_avarias',
+      jobId: 'job-39',
+      data: {
+        values: { pedido_orcamento: 'Sim' },
+        urlPdfOrcamento: orcamentoUrl,
+        urlPdfs: [orcamentoUrl],
+        pdfFilenames: ['MS015.pdf'],
+      },
+    };
+    const entries = resolveBillingReportPdfEntries(relatorio, () => ({
+      id: 'job-39',
+      urlPdf: tecnicoUrl,
+    }));
+    assert.equal(entries.length, 1);
+    assert.equal(entries[0].url, tecnicoUrl);
+  });
+
+  it('resolveBillingReportPdfEntries — não devolve MS.015 quando job.urlPdf é orçamento', () => {
+    const orcamentoUrl = 'https://example.com/ms015-op39.pdf';
+    const relatorio = {
+      id: 'r-sinflex-2',
+      status: 'approved',
+      serviceType: 'folha_intervencao_avarias',
+      jobId: 'job-39',
+      data: {
+        values: { pedido_orcamento: 'Sim' },
+        urlPdfOrcamento: orcamentoUrl,
+      },
+    };
+    const entries = resolveBillingReportPdfEntries(relatorio, () => ({
+      id: 'job-39',
+      urlPdf: orcamentoUrl,
+    }));
+    assert.equal(entries.length, 0);
+  });
 });
