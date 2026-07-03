@@ -440,7 +440,18 @@ export function removeReportsForServicoFromCache(servicoId) {
 }
 
 async function findExistingReportId(report) {
-  if (report.id && isUuid(report.id)) return report.id;
+  if (report.id && isUuid(report.id)) {
+    const supabase = await getAuthenticatedSupabaseClient();
+    const { data, error } = await supabase
+      .from('relatorios')
+      .select('id')
+      .eq('id', report.id)
+      .maybeSingle();
+    if (!error && data?.id) return String(data.id);
+
+    // UUID gerado no cliente — ainda não existe no Supabase → INSERT
+    return null;
+  }
 
   const byId = reportsCache?.find((r) => report.id && sameEntityId(r.id, report.id));
   if (byId?.id && isUuid(byId.id)) return byId.id;
@@ -504,7 +515,9 @@ export async function upsertRelatorio(report) {
       .eq('id', existingId)
       .select());
   } else {
-    ({ data, error } = await supabase.from('relatorios').insert(row).select());
+    const insertRow =
+      linkedReport.id && isUuid(linkedReport.id) ? { id: linkedReport.id, ...row } : row;
+    ({ data, error } = await supabase.from('relatorios').insert(insertRow).select());
   }
 
   if (error) {
@@ -512,10 +525,42 @@ export async function upsertRelatorio(report) {
     throw new Error(formatRelatoriosError(error));
   }
 
-  const inserted = Array.isArray(data) ? data[0] : data;
+  let inserted = Array.isArray(data) ? data[0] : data;
+
+  if (!inserted && existingId) {
+    ({ data, error } = await supabase
+      .from('relatorios')
+      .insert({ id: existingId, ...row })
+      .select());
+    if (error) {
+      console.error('[ManuSilva] Erro ao inserir relatório (fallback):', error);
+      throw new Error(formatRelatoriosError(error));
+    }
+    inserted = Array.isArray(data) ? data[0] : data;
+  }
+
   if (!inserted) {
     await ensureReportsLoaded(true);
-    return reportsCache?.find((r) => sameEntityId(r.jobId, linkedReport.jobId)) || null;
+    const cached = reportsCache || [];
+    if (linkedReport.id) {
+      const byId = cached.find((r) => sameEntityId(r.id, linkedReport.id));
+      if (byId) return byId;
+    }
+    if (linkedReport.servicoId && linkedReport.serviceType) {
+      return (
+        cached.find(
+          (r) =>
+            sameEntityId(r.servicoId, linkedReport.servicoId) &&
+            r.serviceType === linkedReport.serviceType &&
+            linkedReport.id &&
+            sameEntityId(r.id, linkedReport.id),
+        ) || null
+      );
+    }
+    if (linkedReport.jobId) {
+      return cached.find((r) => sameEntityId(r.jobId, linkedReport.jobId)) || null;
+    }
+    return null;
   }
 
   const saved = mapRowToReport(inserted);

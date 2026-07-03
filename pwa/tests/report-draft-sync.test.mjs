@@ -5,8 +5,9 @@ import { isDraftSafelySynced } from '../js/report-draft-sync.js';
 import { pendingReportKey } from '../js/trabalhos-offline.js';
 
 describe('report-draft-sync', () => {
-  it('isDraftSafelySynced — visita com servico_id', () => {
+  it('isDraftSafelySynced — visita com servico_id e mesmo id', () => {
     const local = {
+      id: '550e8400-e29b-41d4-a716-446655440000',
       servicoId: 'svc-1',
       serviceType: 'manutencao_preventiva_empilhadores',
       jobId: '',
@@ -18,6 +19,22 @@ describe('report-draft-sync', () => {
       jobId: '',
     };
     assert.equal(isDraftSafelySynced(local, saved), true);
+  });
+
+  it('isDraftSafelySynced — rejeita mesmo serviço/tipo com id diferente', () => {
+    const local = {
+      id: '550e8400-e29b-41d4-a716-446655440010',
+      servicoId: 'svc-1',
+      serviceType: 'manutencao',
+      jobId: '',
+    };
+    const saved = {
+      id: '550e8400-e29b-41d4-a716-446655440099',
+      servicoId: 'svc-1',
+      serviceType: 'manutencao',
+      jobId: '',
+    };
+    assert.equal(isDraftSafelySynced(local, saved), false);
   });
 
   it('isDraftSafelySynced — rejeita se servico_id não coincide', () => {

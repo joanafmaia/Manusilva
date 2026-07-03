@@ -17,6 +17,10 @@ export function isDraftSafelySynced(local, saved) {
   if (!local || !saved) return false;
   if (!saved.id || !isUuid(saved.id)) return false;
 
+  if (local.id && isUuid(local.id) && !sameEntityId(saved.id, local.id)) {
+    return false;
+  }
+
   if (local.servicoId) {
     if (!sameEntityId(saved.servicoId, local.servicoId)) return false;
     if (local.serviceType && saved.serviceType !== local.serviceType) return false;
