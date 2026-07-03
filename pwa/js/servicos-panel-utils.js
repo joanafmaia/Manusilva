@@ -5,7 +5,7 @@
 import { getAllJobs, getJob, getServiceType, jobAssignedToTechnician } from './entity-lookups.js';
 import { sameEntityId } from './entity-id.js';
 import { filterOutLocallyDeletedReports } from './report-deleted-local.js';
-import { getReportsSnapshot } from './relatorios-db.js';
+import { dedupeReportsByNumeroOrdem, getReportsSnapshot } from './relatorios-db.js';
 import { getServico, getServicosSnapshot, isServicosCacheLoaded } from './servicos-db.js';
 
 /** Id do serviço/visita a que o relatório pertence (servico_id ou trabalho legado com o mesmo id). */
@@ -23,7 +23,7 @@ export function getReportsForServico(servicoId) {
   if (servicoId == null || servicoId === '') return [];
   const key = String(servicoId);
   const seen = new Set();
-  return filterOutLocallyDeletedReports(
+  const raw = filterOutLocallyDeletedReports(
     getReportsSnapshot().filter((r) => {
       if (!sameEntityId(r.servicoId, key) && !sameEntityId(r.jobId, key)) return false;
       const id = String(r.id);
@@ -32,6 +32,7 @@ export function getReportsForServico(servicoId) {
       return true;
     }),
   );
+  return dedupeReportsByNumeroOrdem(raw);
 }
 
 /** Rascunho que o técnico marcou como concluído (aguarda «Concluir visita»). */
@@ -89,15 +90,36 @@ function mapServicoStatusForCalendar(servico) {
   return 'scheduled';
 }
 
-function collectJobIdsLinkedToServicos(servicoIds) {
-  const linked = new Set(servicoIds);
+function collectCalendarHiddenJobIds(servicoIds) {
+  const hidden = new Set([...servicoIds].map(String));
+  const ordensOnServicos = new Set();
+
+  for (const job of getAllJobs()) {
+    if (job.servicoId) hidden.add(String(job.id));
+  }
+
+  for (const sid of servicoIds) {
+    for (const report of getReportsForServico(sid)) {
+      const ordem = getReportNumeroOrdem(report);
+      if (ordem != null) ordensOnServicos.add(ordem);
+    }
+  }
+
   for (const report of getReportsSnapshot()) {
     const servicoId = resolveServicoIdForReport(report);
     if (!servicoId) continue;
-    linked.add(String(servicoId));
-    if (report.jobId) linked.add(String(report.jobId));
+    hidden.add(String(servicoId));
+    if (report.jobId) hidden.add(String(report.jobId));
   }
-  return linked;
+
+  for (const job of getAllJobs()) {
+    const ordem = job.numeroOrdem;
+    if (ordem != null && ordensOnServicos.has(Number(ordem))) {
+      hidden.add(String(job.id));
+    }
+  }
+
+  return hidden;
 }
 
 /**
@@ -106,9 +128,9 @@ function collectJobIdsLinkedToServicos(servicoIds) {
 export function getAdminCalendarItems() {
   const servicos = getServicosSnapshot();
   const servicoIds = new Set(servicos.map((s) => String(s.id)));
-  const linkedJobIds = collectJobIdsLinkedToServicos(servicoIds);
+  const hiddenJobIds = collectCalendarHiddenJobIds(servicoIds);
   const fromServicos = servicos.map(servicoToCalendarItem);
-  const legacyJobs = getAllJobs().filter((j) => !linkedJobIds.has(String(j.id)));
+  const legacyJobs = getAllJobs().filter((j) => !hiddenJobIds.has(String(j.id)));
   return [...fromServicos, ...legacyJobs];
 }
 

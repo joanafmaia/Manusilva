@@ -124,6 +124,109 @@ describe('servicos-panel-utils', () => {
     assert.equal(items.filter((i) => i.clientId === '10' && i.date === '2026-07-03').length, 1);
   });
 
+  it('getAdminCalendarItems — oculta trabalho legado com OP já na visita', async () => {
+    const trabalhosDb = await import('../js/trabalhos-db.js');
+    const relatoriosDb = await import('../js/relatorios-db.js');
+    trabalhosDb.mergeJobFromRealtime({
+      id: 'job-op43',
+      cliente_id: 10,
+      data: '2026-07-03',
+      tecnico_id: 'Hugo',
+      tipo_servico: 'manutencao',
+      estado: 'scheduled',
+      numero_ordem: 43,
+    });
+    trabalhosDb.mergeJobFromRealtime({
+      id: 'job-op43-approved',
+      cliente_id: 10,
+      data: '2026-07-03',
+      tecnico_id: 'Hugo',
+      tipo_servico: 'manutencao',
+      estado: 'completed',
+      numero_ordem: 43,
+      servico_id: 'svc-1',
+    });
+    relatoriosDb.mergeReportInCache({
+      id: 'r-approved-43',
+      servicoId: 'svc-1',
+      jobId: 'job-op43-approved',
+      serviceType: 'manutencao',
+      status: 'approved',
+      clientId: '10',
+      technicianId: 'Hugo',
+      data: {},
+    });
+    relatoriosDb.mergeReportInCache({
+      id: 'r-stale-draft-43',
+      jobId: 'job-op43',
+      servicoId: '',
+      serviceType: 'manutencao',
+      status: 'draft',
+      clientId: '10',
+      technicianId: 'Hugo',
+      data: {},
+    });
+    const { getAdminCalendarItems } = await import('../js/servicos-panel-utils.js');
+    const items = getAdminCalendarItems();
+    const ids = items.map((i) => i.id);
+    assert.ok(ids.includes('svc-1'));
+    assert.ok(!ids.includes('job-op43'));
+    assert.ok(!ids.includes('job-op43-approved'));
+    assert.equal(items.filter((i) => i.clientId === '10' && i.date === '2026-07-03').length, 1);
+  });
+
+  it('getReportsForServico — deduplica rascunho órfão quando já existe aprovado com a mesma OP', async () => {
+    const trabalhosDb = await import('../js/trabalhos-db.js');
+    const relatoriosDb = await import('../js/relatorios-db.js');
+    relatoriosDb.invalidateReportsCache();
+    trabalhosDb.mergeJobFromRealtime({
+      id: 'job-a',
+      cliente_id: 10,
+      data: '2026-07-03',
+      tecnico_id: 'Hugo',
+      tipo_servico: 'manutencao',
+      estado: 'completed',
+      numero_ordem: 43,
+      servico_id: 'svc-1',
+    });
+    trabalhosDb.mergeJobFromRealtime({
+      id: 'job-b',
+      cliente_id: 10,
+      data: '2026-07-03',
+      tecnico_id: 'Hugo',
+      tipo_servico: 'manutencao',
+      estado: 'scheduled',
+      numero_ordem: 43,
+    });
+    relatoriosDb.mergeReportInCache({
+      id: 'r-approved',
+      servicoId: 'svc-1',
+      jobId: 'job-a',
+      serviceType: 'manutencao',
+      status: 'approved',
+      clientId: '10',
+      technicianId: 'Hugo',
+      data: {},
+    });
+    relatoriosDb.mergeReportInCache({
+      id: 'r-stale',
+      servicoId: 'svc-1',
+      jobId: 'job-b',
+      serviceType: 'manutencao',
+      status: 'draft',
+      clientId: '10',
+      technicianId: 'Hugo',
+      data: {},
+    });
+    const { getReportsForServico, getPrimaryReportForServico } = await import(
+      '../js/servicos-panel-utils.js'
+    );
+    const reports = getReportsForServico('svc-1');
+    assert.equal(reports.length, 1);
+    assert.equal(reports[0].id, 'r-approved');
+    assert.equal(getPrimaryReportForServico('svc-1')?.status, 'approved');
+  });
+
   it('getCalendarItemSubtitle — vários relatórios do mesmo tipo', async () => {
     const { getCalendarItemSubtitle, servicoToCalendarItem } = await import(
       '../js/servicos-panel-utils.js'
