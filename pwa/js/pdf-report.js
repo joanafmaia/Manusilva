@@ -289,25 +289,32 @@ export async function renderInterventionPDF(report) {
   await ensurePdfFonts(doc);
   pdfSetFont(doc, 'normal');
 
-  const service = getServiceType(report.serviceType);
-  const tech = getTechnician(report.technicianId);
-  const job = report.jobId ? getJob(report.jobId) : null;
-  const data = report.data || {};
+  const { withServicoSignaturesForPdf } = await import('./report-pdf-signatures.js');
+  if (report?.servicoId) {
+    const { ensureServicosLoadedSafe } = await import('./servicos-db.js');
+    await ensureServicosLoadedSafe();
+  }
+  const reportForPdf = withServicoSignaturesForPdf(report);
+
+  const service = getServiceType(reportForPdf.serviceType);
+  const tech = getTechnician(reportForPdf.technicianId);
+  const job = reportForPdf.jobId ? getJob(reportForPdf.jobId) : null;
+  const data = reportForPdf.data || {};
 
   const title = sanitizePdfTitle(
-    PDF_DOCUMENT_TITLES[report.serviceType] ||
+    PDF_DOCUMENT_TITLES[reportForPdf.serviceType] ||
       `FOLHA DE INTERVENÇÃO — ${(service?.label || 'SERVIÇO TÉCNICO').toUpperCase()}`,
   );
 
-  const clientMeta = await resolvePdfClientMeta(report, normalizeReportValues(data));
-  const isDl50Pdf = report.serviceType === 'inspecao_dl50_2005';
-  const isPreventivaBateriaPdf = report.serviceType === 'manutencao_preventiva_bateria';
-  const isFolhaIntervencaoAvariasPdf = report.serviceType === 'folha_intervencao_avarias';
-  const isReparacaoAvariasBateriaPdf = report.serviceType === 'reparacao_avarias_bateria';
-  const isReparacaoCarregadorPdf = report.serviceType === 'reparacao_carregador';
-  const isCorretivaMaquinasPdf = report.serviceType === 'manutencao_corretiva_maquinas';
-  const isGrandesBateriasPdf = report.serviceType === 'manutencao_baterias_grandes';
-  const isEmpilhadoresPdf = report.serviceType === EMPILHADORES_SERVICE_ID;
+  const clientMeta = await resolvePdfClientMeta(reportForPdf, normalizeReportValues(data));
+  const isDl50Pdf = reportForPdf.serviceType === 'inspecao_dl50_2005';
+  const isPreventivaBateriaPdf = reportForPdf.serviceType === 'manutencao_preventiva_bateria';
+  const isFolhaIntervencaoAvariasPdf = reportForPdf.serviceType === 'folha_intervencao_avarias';
+  const isReparacaoAvariasBateriaPdf = reportForPdf.serviceType === 'reparacao_avarias_bateria';
+  const isReparacaoCarregadorPdf = reportForPdf.serviceType === 'reparacao_carregador';
+  const isCorretivaMaquinasPdf = reportForPdf.serviceType === 'manutencao_corretiva_maquinas';
+  const isGrandesBateriasPdf = reportForPdf.serviceType === 'manutencao_baterias_grandes';
+  const isEmpilhadoresPdf = reportForPdf.serviceType === EMPILHADORES_SERVICE_ID;
   const { fotoAntesUrl, fotoDepoisUrl } = resolvePdfFotoSources(job, data);
   const techName = tech?.name || '—';
 

@@ -88,6 +88,24 @@ export async function saveServicoVisitSignatures(servicoId, signatures) {
   });
 }
 
+/** Grava assinaturas da visita em todos os relatórios (para PDFs e revisão RH). */
+export async function propagateServicoSignaturesToReports(servicoId, signatures) {
+  const { updateRelatorio } = await import('./relatorios-db.js');
+  const reports = getReportsForServico(servicoId).filter(
+    (r) => r.id && r.status !== 'rejected',
+  );
+
+  for (const report of reports) {
+    try {
+      await updateRelatorio(report.id, {
+        data: { signatures: { ...(signatures || {}) } },
+      });
+    } catch (err) {
+      console.warn('[ManuSilva] Propagar assinaturas ao relatório', report.id, err);
+    }
+  }
+}
+
 /**
  * Conclui a visita: assinaturas no serviço + submissão dos relatórios em rascunho.
  * @param {string} servicoId
@@ -105,6 +123,8 @@ export async function submitServicoVisit(servicoId, signatures) {
 
   try {
     await saveServicoVisitSignatures(servicoId, signatures);
+
+    await propagateServicoSignaturesToReports(servicoId, signatures);
 
     const { submitReport } = await import('./report-workflow.js');
     const { removeLocalReportDraft } = await import('./report-local-storage.js');
