@@ -5,7 +5,8 @@
 import { buildReportEmailMeta } from './report-email-meta.js';
 import { showToast } from './toast-modal.js';
 import { sameEntityId } from './entity-id.js';
-import { isTestClient } from './client-test-utils.js';
+import { reportIsRhOrcamento } from './pedido-orcamento.js';
+import { FATURACAO_AGUARDA_ACEITE_ORCAMENTO } from './orcamento-billing-workflow.js';
 import {
   getClient,
   getJob,
@@ -311,7 +312,11 @@ export async function approveReport(reportId, options = {}) {
       status: 'approved',
       approvedAt: new Date().toISOString(),
       pdfFilename: filename,
-      faturacaoStatus: servicoId ? 'via_servico' : 'pendente',
+      faturacaoStatus: servicoId
+        ? 'via_servico'
+        : reportIsRhOrcamento(report)
+          ? FATURACAO_AGUARDA_ACEITE_ORCAMENTO
+          : 'pendente',
       data: {
         ...(report.data || {}),
         urlPdfs,

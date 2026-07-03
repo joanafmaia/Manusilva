@@ -29,6 +29,10 @@ import {
 } from '../servicos-billing-workflow.js';
 import { renderClientCombobox, bindClientComboboxes } from '../client-combobox.js';
 import { formatOrdemLabel } from '../report-review-ui.js';
+import { getReportOrcamentoMeta } from '../orcamento-linhas.js';
+import { getReportOrcamentoPdfUrl } from '../pedido-orcamento.js';
+import { reportIsStandaloneOrcamento, standaloneOrcamentoLabel } from '../orcamento-standalone.js';
+import { resolveOrcamentoBillingTotal } from '../orcamento-billing-workflow.js';
 import { PAYMENT_CONDITION_OPTIONS } from './client-profile-drawer.js';
 import {
   FATURA_CONDICAO_OPCOES,
@@ -176,6 +180,8 @@ export function isBillingUrgent(report, client) {
 
 export function estimateReportValue(report) {
   if (!report) return DEFAULT_ESTIMATE_EUR;
+  const orcamentoTotal = resolveOrcamentoBillingTotal(report);
+  if (orcamentoTotal > 0) return orcamentoTotal;
   const fromData = Number(report.data?.values?.valor_total ?? report.data?.values?.valor);
   if (Number.isFinite(fromData) && fromData > 0) return fromData;
   return ESTIMATE_EUR_BY_SERVICE[report.serviceType] ?? DEFAULT_ESTIMATE_EUR;
@@ -316,6 +322,14 @@ function resolveClientMeta(clientId) {
 
 function resolveBillingReportPdfEntries(report) {
   if (!report) return [];
+  const orcamentoUrl = getReportOrcamentoPdfUrl(report);
+  if (orcamentoUrl) {
+    const meta = getReportOrcamentoMeta(report);
+    const label = meta?.numeroFormatado
+      ? `Proposta nº ${meta.numeroFormatado}`
+      : 'Proposta comercial MS.015';
+    return [{ url: orcamentoUrl, label }];
+  }
   const job = report.jobId ? getJob(report.jobId) : null;
   const urls = Array.isArray(report?.data?.urlPdfs) ? report.data.urlPdfs.filter(Boolean) : [];
   const names = Array.isArray(report?.data?.pdfFilenames) ? report.data.pdfFilenames : [];
@@ -361,6 +375,13 @@ function estimateServicoValue(reports = []) {
   return reports.reduce((sum, report) => sum + estimateReportValue(report), 0);
 }
 
+function formatOrcamentoBillingLabel(report) {
+  const meta = getReportOrcamentoMeta(report);
+  if (meta?.numeroFormatado) return `nº ${meta.numeroFormatado}`;
+  if (reportIsStandaloneOrcamento(report)) return standaloneOrcamentoLabel();
+  return 'Proposta comercial';
+}
+
 function buildBillingRowsFromItems(items) {
   return items.map((item) => {
     if (item.kind === 'servico') {
@@ -379,6 +400,29 @@ function buildBillingRowsFromItems(items) {
         urgent: urgentReport ? isBillingUrgent(urgentReport, meta.client) : false,
         estimate: estimateServicoValue(reports),
         primaryReportId: reports[0]?.id || '',
+      };
+    }
+
+    if (item.kind === 'orcamento') {
+      const report = item.report;
+      const meta = resolveClientMeta(report.clientId);
+      const orcMeta = getReportOrcamentoMeta(report);
+      return {
+        kind: 'orcamento',
+        report,
+        ...meta,
+        ordem: formatOrcamentoBillingLabel(report),
+        detail: 'Proposta aceite pelo cliente',
+        approvedLabel: formatHistoryDate(
+          String(orcMeta?.respostaClienteEm || report.approvedAt || '').split('T')[0],
+        ),
+        urgent: isBillingUrgent(
+          { ...report, approvedAt: orcMeta?.respostaClienteEm || report.approvedAt },
+          meta.client,
+        ),
+        estimate: resolveOrcamentoBillingTotal(report),
+        hasPdf: Boolean(getReportOrcamentoPdfUrl(report)),
+        primaryReportId: report.id,
       };
     }
 
@@ -699,10 +743,12 @@ function renderBillingTable(rows) {
             ${rows
               .map((row) => {
                 const isServico = row.kind === 'servico';
+                const isOrcamento = row.kind === 'orcamento';
                 const rowIdAttr = isServico
                   ? `data-servico-id="${escapeHtml(row.servico.id)}"`
                   : `data-report-id="${escapeHtml(row.report.id)}"`;
                 const pdfId = row.primaryReportId;
+                const pdfTitle = isOrcamento ? 'Abrir PDF da proposta' : 'Abrir PDF do relatório técnico';
                 const registerAttr = isServico
                   ? `data-register-invoice-servico="${escapeHtml(row.servico.id)}"`
                   : `data-register-invoice="${escapeHtml(row.report.id)}"`;
@@ -719,7 +765,7 @@ function renderBillingTable(rows) {
                 <td class="faturacao-cell-date">${escapeHtml(row.approvedLabel)}</td>
                 <td class="faturacao-col-action">
                   <div class="faturacao-billing-actions">
-                    ${pdfId ? `<button type="button" class="btn-outline btn-sm faturacao-btn-compact" data-billing-pdf="${escapeHtml(pdfId)}" title="Abrir PDF do relatório técnico">PDF</button>` : ''}
+                    ${pdfId ? `<button type="button" class="btn-outline btn-sm faturacao-btn-compact" data-billing-pdf="${escapeHtml(pdfId)}" title="${escapeHtml(pdfTitle)}">PDF</button>` : ''}
                     <button type="button" class="btn-primary btn-sm faturacao-btn-compact" ${registerAttr} title="Marcar como faturado">Faturar</button>
                     <button type="button" class="btn-danger btn-sm faturacao-btn-compact" ${dismissAttr} title="Retirar da lista por faturar">Eliminar</button>
                   </div>
@@ -930,11 +976,14 @@ function bindFilterEvents() {
 
 function openRegisterInvoiceModal(reportId) {
   const report = getReport(reportId);
+  const isOrcamento = report && Boolean(getReportOrcamentoPdfUrl(report));
   openRegisterInvoiceModalCore({
     title: 'Registar Fatura',
     defaultValor: estimateReportValue(report),
     client: report?.clientId ? getClient(report.clientId) : null,
-    hint: 'A fatura legal é emitida no programa externo. Se este relatório for faturado em conjunto com outros do mesmo cliente, pode deixar o valor em branco. «30 Dias» / «60 Dias» calculam a data de vencimento automaticamente.',
+    hint: isOrcamento
+      ? 'Proposta comercial aceite pelo cliente. O valor sugerido é o total da MS.015 (com IVA). A fatura legal é emitida no programa externo.'
+      : 'A fatura legal é emitida no programa externo. Se este relatório for faturado em conjunto com outros do mesmo cliente, pode deixar o valor em branco. «30 Dias» / «60 Dias» calculam a data de vencimento automaticamente.',
     onSave: (payload) => registerReportInvoice(reportId, payload),
   });
 }
@@ -1097,9 +1146,12 @@ function bindBillingRowActionButtons() {
       const report = getReport(reportId);
       const client = report ? getClient(report.clientId) : null;
       const job = report?.jobId ? getJob(report.jobId) : null;
-      const label = client?.name || client?.Nome || formatOrdemLabel(job) || 'este relatório';
+      const isOrcamento = report && Boolean(getReportOrcamentoPdfUrl(report));
+      const label = client?.name || client?.Nome || formatOrdemLabel(job) || (isOrcamento ? 'esta proposta' : 'este relatório');
       const ok = window.confirm(
-        `Retirar ${label} da lista por faturar?\n\nO relatório técnico aprovado mantém-se — apenas deixa de aparecer nesta fila.`,
+        isOrcamento
+          ? `Retirar ${label} da lista por faturar?\n\nA proposta aceite mantém-se — apenas deixa de aparecer nesta fila.`
+          : `Retirar ${label} da lista por faturar?\n\nO relatório técnico aprovado mantém-se — apenas deixa de aparecer nesta fila.`,
       );
       if (!ok) return;
       void dismissPendingBillingReport(reportId).then((done) => {

@@ -11,19 +11,21 @@ import {
 import { normalizeFaturaCondicao, normalizeStatusRecebimento } from './billing-constants.js';
 import { sameEntityId } from './entity-id.js';
 import { addDaysToIsoDate } from './date-utils.js';
-import { showToast } from './toast-modal.js';
-import { getInvoicedServicos } from './servicos-db.js';
+import { reportIsRhOrcamento } from './pedido-orcamento.js';
+import { isPendingOrcamentoBilling } from './orcamento-billing-workflow.js';
 
 function findReport(reportId) {
   return getReportsSnapshot().find((r) => sameEntityId(r.id, reportId)) || null;
 }
 
-/** Relatório aprovado ainda por faturar (controlo interno; exclui visitas multi-relatório). */
+/** Relatório aprovado ainda por faturar (controlo interno; exclui visitas e propostas comerciais). */
 export function isPendingBilling(report) {
   if (!report || report.status !== 'approved') return false;
   if (report.servicoId) return false;
+  if (reportIsRhOrcamento(report)) return false;
   const fs = report.faturacaoStatus;
   if (fs === 'via_servico' || fs === 'dispensado' || fs === 'faturado') return false;
+  if (fs === 'aguarda_aceite_orcamento') return false;
   return fs === 'pendente' || !fs;
 }
 
@@ -106,7 +108,7 @@ export async function registerReportInvoice(
 ) {
   const report = findReport(reportId);
   if (!report) throw new Error('Relatório não encontrado.');
-  if (!isPendingBilling(report)) {
+  if (!isPendingBilling(report) && !isPendingOrcamentoBilling(report)) {
     throw new Error('Este relatório já não está pendente de faturação.');
   }
 
@@ -138,7 +140,7 @@ export async function dismissPendingBillingReport(reportId) {
     showToast('Relatório não encontrado.', 'error');
     return false;
   }
-  if (!isPendingBilling(report)) {
+  if (!isPendingBilling(report) && !isPendingOrcamentoBilling(report)) {
     showToast('Este relatório já não está pendente de faturação.', 'info');
     return false;
   }

@@ -46,6 +46,7 @@ function buildStandaloneReportDraft({ clientId, clientRecord }) {
     status: 'approved',
     submittedAt: now,
     approvedAt: now,
+    faturacaoStatus: 'aguarda_aceite_orcamento',
     forkliftSerial: '',
     data: {
       values: {

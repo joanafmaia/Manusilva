@@ -11,6 +11,7 @@ import {
   getPendingBillingReports,
 } from './billing-workflow.js';
 import { getServicoActiveReports, isServicoVisitFullyApproved } from './servicos-email-workflow.js';
+import { getPendingOrcamentoBillingReports } from './orcamento-billing-workflow.js';
 import { showToast } from './toast-modal.js';
 
 /** Relatório com faturação delegada ao serviço (não aparece na fila por relatório). */
@@ -53,13 +54,22 @@ export function getPendingBillingItems() {
     id: String(report.id),
     report,
   }));
-  return [...servicos, ...reports].sort((a, b) =>
+  const orcamentos = getPendingOrcamentoBillingReports().map((report) => ({
+    kind: 'orcamento',
+    id: String(report.id),
+    report,
+  }));
+  return [...servicos, ...reports, ...orcamentos].sort((a, b) =>
     billingItemSortKey(a).localeCompare(billingItemSortKey(b)),
   );
 }
 
 function billingItemSortKey(item) {
   if (item.kind === 'servico') return servicoBillingSortKey(item.servico);
+  if (item.kind === 'orcamento') {
+    const meta = item.report?.data?.orcamento;
+    return String(meta?.respostaClienteEm || item.report?.approvedAt || '').split('T')[0];
+  }
   return String(item.report?.approvedAt || '').split('T')[0];
 }
 

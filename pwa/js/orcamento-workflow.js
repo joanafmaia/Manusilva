@@ -3,6 +3,10 @@
  */
 
 import { getReportOrcamentoMeta } from './orcamento-linhas.js';
+import {
+  markOrcamentoAceitePendingBilling,
+  clearOrcamentoBillingOnClienteRecusa,
+} from './orcamento-billing-workflow.js';
 import { reportOrcamentoGuardado, reportOrcamentoPorPreparar } from './pedido-orcamento.js';
 
 export const ORCAMENTO_RESPOSTA = {
@@ -86,6 +90,13 @@ export async function setOrcamentoRespostaCliente(reportId, resposta) {
   });
 
   if (saved) mergeReportInCache(saved);
+
+  if (valid === ORCAMENTO_RESPOSTA.ACEITE) {
+    await markOrcamentoAceitePendingBilling(reportId);
+  } else if (valid === ORCAMENTO_RESPOSTA.RECUSADA || !valid) {
+    await clearOrcamentoBillingOnClienteRecusa(reportId);
+  }
+
   return saved;
 }
 

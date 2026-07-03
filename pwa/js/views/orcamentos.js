@@ -397,7 +397,7 @@ function bindPanelEvents() {
       void setOrcamentoRespostaCliente(reportId, 'aceite')
         .then((saved) => {
           if (saved) {
-            showToast('Proposta marcada como aceite.', 'success');
+            showToast('Proposta marcada como aceite. Adicionada à Faturação.', 'success');
             refreshOrcamentosPanel().catch(console.error);
           }
         })
