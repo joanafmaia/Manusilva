@@ -2,6 +2,9 @@
  * Manusilva PWA — Signature Canvas Module
  */
 
+const MAX_SIGNATURE_DPR = 2;
+const RESIZE_DEBOUNCE_MS = 120;
+
 function readThemeVar(name, fallback) {
   const value = getComputedStyle(document.body).getPropertyValue(name).trim();
   return value || fallback;
@@ -14,10 +17,14 @@ export function getSignatureTheme() {
   };
 }
 
+function getSignatureDpr() {
+  return Math.min(window.devicePixelRatio || 1, MAX_SIGNATURE_DPR);
+}
+
 export class SignaturePad {
   constructor(canvas, options = {}) {
     this.canvas = canvas;
-    this.ctx = canvas.getContext('2d');
+    this.ctx = canvas.getContext('2d', { alpha: false, desynchronized: true });
     this.drawing = false;
     this.hasSignature = false;
     const theme = getSignatureTheme();
@@ -26,10 +33,19 @@ export class SignaturePad {
     this.lineWidth = options.lineWidth || 2.5;
     this.onChange = options.onChange || (() => {});
     this._savedImage = null;
+    this._lastX = 0;
+    this._lastY = 0;
+    this._pendingPos = null;
+    this._drawRaf = 0;
+    this._resizeTimer = 0;
 
     this._resize();
     this._bindEvents();
-    window.addEventListener('resize', () => this._resize());
+    this._onWindowResize = () => {
+      clearTimeout(this._resizeTimer);
+      this._resizeTimer = setTimeout(() => this._resize(), RESIZE_DEBOUNCE_MS);
+    };
+    window.addEventListener('resize', this._onWindowResize);
   }
 
   _paintCanvasBackground(width, height) {
@@ -64,11 +80,31 @@ export class SignaturePad {
     return { cssW, cssH };
   }
 
+  _syncSavedImageFromCanvas() {
+    if (!this.hasSignature || !this.canvas.width || !this.canvas.height) return;
+
+    if (!(this._savedImage instanceof HTMLCanvasElement)) {
+      this._savedImage = document.createElement('canvas');
+    }
+    if (
+      this._savedImage.width !== this.canvas.width ||
+      this._savedImage.height !== this.canvas.height
+    ) {
+      this._savedImage.width = this.canvas.width;
+      this._savedImage.height = this.canvas.height;
+    }
+    const tctx = this._savedImage.getContext('2d');
+    tctx.clearRect(0, 0, this._savedImage.width, this._savedImage.height);
+    tctx.drawImage(this.canvas, 0, 0);
+  }
+
   _resize() {
+    if (this.hasSignature) this._syncSavedImageFromCanvas();
+
     const { cssW, cssH } = this._resolveCanvasSize();
-    const ratio = window.devicePixelRatio || 1;
-    this.canvas.width = cssW * ratio;
-    this.canvas.height = cssH * ratio;
+    const ratio = getSignatureDpr();
+    this.canvas.width = Math.max(1, Math.round(cssW * ratio));
+    this.canvas.height = Math.max(1, Math.round(cssH * ratio));
     this.canvas.style.width = `${cssW}px`;
     this.canvas.style.height = `${cssH}px`;
     this.ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
@@ -88,11 +124,39 @@ export class SignaturePad {
     }
   }
 
+  _markHasSignature() {
+    if (this.hasSignature) return;
+    this.hasSignature = true;
+    this._syncBlockState(true);
+    this.onChange(true);
+  }
+
+  _scheduleStrokeDraw() {
+    if (this._drawRaf) return;
+    this._drawRaf = requestAnimationFrame(() => {
+      this._drawRaf = 0;
+      if (!this.drawing || !this._pendingPos) return;
+
+      const pos = this._pendingPos;
+      this._pendingPos = null;
+
+      const midX = (this._lastX + pos.x) / 2;
+      const midY = (this._lastY + pos.y) / 2;
+      this.ctx.quadraticCurveTo(this._lastX, this._lastY, midX, midY);
+      this.ctx.stroke();
+      this._lastX = pos.x;
+      this._lastY = pos.y;
+      this._markHasSignature();
+    });
+  }
+
   _bindEvents() {
     const start = (e) => {
       e.preventDefault();
       this.drawing = true;
       const pos = this._getPos(e);
+      this._lastX = pos.x;
+      this._lastY = pos.y;
       this.ctx.beginPath();
       this.ctx.moveTo(pos.x, pos.y);
     };
@@ -100,20 +164,23 @@ export class SignaturePad {
     const move = (e) => {
       if (!this.drawing) return;
       e.preventDefault();
-      const pos = this._getPos(e);
-      this.ctx.lineTo(pos.x, pos.y);
-      this.ctx.stroke();
-      if (!this.hasSignature) {
-        this.hasSignature = true;
-        this._syncBlockState(true);
-        this.onChange(true);
-      }
+      this._pendingPos = this._getPos(e);
+      this._scheduleStrokeDraw();
     };
 
     const end = () => {
+      if (!this.drawing) return;
       this.drawing = false;
-      if (!this.hasSignature) return;
-      commitSignatureSnapshot(this);
+      if (this._pendingPos) {
+        this.ctx.lineTo(this._pendingPos.x, this._pendingPos.y);
+        this.ctx.stroke();
+        this._pendingPos = null;
+      }
+      if (this._drawRaf) {
+        cancelAnimationFrame(this._drawRaf);
+        this._drawRaf = 0;
+      }
+      if (this.hasSignature) this._syncSavedImageFromCanvas();
     };
 
     this.canvas.addEventListener('mousedown', start);
@@ -148,7 +215,9 @@ export class SignaturePad {
   }
 
   toDataURL() {
-    return this.hasSignature ? this.canvas.toDataURL('image/png') : null;
+    if (!this.hasSignature) return null;
+    this._syncSavedImageFromCanvas();
+    return this.canvas.toDataURL('image/png');
   }
 
   loadFromDataURL(dataUrl) {
@@ -164,6 +233,12 @@ export class SignaturePad {
       this.onChange(true);
     };
     img.src = dataUrl;
+  }
+
+  destroy() {
+    window.removeEventListener('resize', this._onWindowResize);
+    clearTimeout(this._resizeTimer);
+    if (this._drawRaf) cancelAnimationFrame(this._drawRaf);
   }
 }
 
@@ -198,12 +273,8 @@ export function initSignaturePads(ids, onUpdate) {
 /** Persiste o bitmap atual do canvas (evita perda após resize / troca de aba). */
 export function commitSignatureSnapshot(pad) {
   if (!pad?.canvas || !pad.hasSignature) return null;
-  const dataUrl = pad.toDataURL();
-  if (!dataUrl) return null;
-  const snapshot = new Image();
-  snapshot.src = dataUrl;
-  pad._savedImage = snapshot;
-  return dataUrl;
+  pad._syncSavedImageFromCanvas?.();
+  return pad.toDataURL();
 }
 
 function isDataUrlSignature(value) {
@@ -213,7 +284,6 @@ function isDataUrlSignature(value) {
 /** Verifica se o pad tem traço válido (flag ou bitmap). */
 export function padHasSignature(pad) {
   if (!pad) return false;
-  commitSignatureSnapshot(pad);
   if (pad.hasSignature) return true;
   return isDataUrlSignature(pad.toDataURL?.());
 }
@@ -248,7 +318,6 @@ export function resolveReportSignatures(pads, stored = {}) {
 
 /** @deprecated Preferir resolveReportSignatures — mantido para compatibilidade. */
 export function technicianSignatureReady(pads, storedSignatures = null) {
-  Object.values(pads || {}).forEach(commitSignatureSnapshot);
   if (padHasSignature(pads?.technician)) return true;
   const sig = storedSignatures || {};
   return isDataUrlSignature(sig.technicianData);
@@ -258,7 +327,7 @@ export function technicianSignatureReady(pads, storedSignatures = null) {
 export function refreshSignaturePads(pads = {}) {
   Object.values(pads).forEach((pad) => {
     if (!pad || typeof pad.resize !== 'function') return;
-    commitSignatureSnapshot(pad);
+    if (pad.hasSignature) pad._syncSavedImageFromCanvas?.();
     pad.resize();
   });
 }

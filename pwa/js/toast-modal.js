@@ -91,7 +91,7 @@ export function openModal(title, content, actions = '', options = {}) {
   closeModal();
   const overlay = document.createElement('div');
   overlay.id = 'modal-overlay';
-  overlay.className = `modal-overlay${options.review ? ' modal-overlay--review' : ''}${options.reviewWide ? ' modal-overlay--review-wide' : ''}`;
+  overlay.className = `modal-overlay${options.review ? ' modal-overlay--review' : ''}${options.reviewWide ? ' modal-overlay--review-wide' : ''}${options.signatures ? ' modal-overlay--signatures' : ''}`;
   overlay.innerHTML = `
     <div class="modal glass-card">
       <div class="modal-header">

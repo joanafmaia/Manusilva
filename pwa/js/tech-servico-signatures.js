@@ -61,16 +61,15 @@ export async function openServicoVisitSubmit(servicoId) {
     <button type="button" class="btn-primary" id="servico-visit-submit">Concluir visita</button>
   `;
 
-  const overlay = openModal('Concluir visita', content, actions);
+  const overlay = openModal('Concluir visita', content, actions, { signatures: true });
 
   let pads = null;
 
   requestAnimationFrame(() => {
     pads = initSignaturePads(['technician', 'client']);
     restoreSignaturePads(pads, existingSigs);
-    overlay.querySelectorAll('.signature-canvas').forEach((canvas) => {
-      canvas.addEventListener('touchstart', () => {}, { passive: true });
-    });
+    pads.technician?.resize?.();
+    pads.client?.resize?.();
   });
 
   overlay.querySelector('#servico-visit-cancel')?.addEventListener('click', closeModal);

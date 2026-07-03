@@ -5010,6 +5010,24 @@ body.tech-dashboard-page .form-overlay .signature-canvas-wrap, body.tech-dashboa
 .signature-block.has-signature .signature-placeholder {
   opacity: 0;
 }
+/* Modal de assinaturas da visita — sem blur (melhor resposta no tablet) */
+.modal-overlay--signatures {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.modal-overlay--signatures .modal.glass-card {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.tech-servico-signatures-grid .signature-canvas-wrap,
+.tech-servico-signatures-grid .signature-canvas {
+  height: min(200px, 32vh);
+  min-height: 160px;
+}
+.modal-overlay--signatures .signature-canvas-wrap {
+  contain: layout paint style;
+  isolation: isolate;
+}
 /* Fotos Antes / Depois (formulário técnico) */ .foto-antes-depois-hint {
   margin: 0 0 0.75rem;
   font-size: 0.8125rem;
