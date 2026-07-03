@@ -43,6 +43,7 @@ import { dedupeReportsForDisplay } from './relatorios-db.js';
 import {
   groupReportsForRhStack,
   getFirstPendingReportIdForServico,
+  getRhApproveNextLabel,
   getServicoReviewMeta,
   summarizeServicoReviewState,
 } from './servicos-rh-review.js';
@@ -422,7 +423,10 @@ export async function openRhReviewModal(reportId, callbacks = {}) {
   const values = report.data?.values || {};
   const fieldsHTML = renderReportValuesForReview(service, values);
   const showWorkflow = report.status === 'pending_review';
-  const hasNext = Boolean(showWorkflow && callbacks.getNextReportId?.(reportId));
+  const nextReportId = showWorkflow ? callbacks.getNextReportId?.(reportId) : null;
+  const hasNext = Boolean(nextReportId);
+  const nextReport = nextReportId ? getReport(nextReportId) : null;
+  const approveNextLabel = getRhApproveNextLabel(report, nextReport);
   const showBilling = Boolean(showWorkflow && callbacks.navigateToBilling);
   const servicoId = report.servicoId ? String(report.servicoId) : '';
   const visitBannerHtml = servicoId ? buildRhVisitReviewBanner(servicoId, reportId) : '';
@@ -446,6 +450,7 @@ export async function openRhReviewModal(reportId, callbacks = {}) {
     showWorkflow,
     showApproveNext: hasNext,
     showApproveBilling: showBilling,
+    approveNextLabel,
     signatures,
     visitBannerHtml,
   });
@@ -477,7 +482,8 @@ export async function openRhReviewModal(reportId, callbacks = {}) {
     const runApprove = async (mode = 'single') => {
       const andNext = mode === 'next';
       const andBilling = mode === 'billing';
-      const checks = computeReviewChecks({ report, job, client, values });
+      const clientEmailDraft = readReviewClientEmail(overlay);
+      const checks = computeReviewChecks({ report, job, client, values, clientEmail: clientEmailDraft });
       if (reviewHasBlockingIssues(checks)) {
         const proceed = window.confirm(
           'Ainda há verificações em falha (a vermelho). Deseja aprovar na mesma?',
@@ -493,26 +499,39 @@ export async function openRhReviewModal(reportId, callbacks = {}) {
         showToast(emailErr, 'error');
         return;
       }
-      if (btn) btn.disabled = true;
-      const clientEmail = readReviewClientEmail(overlay);
-      const ok = await approveReport(reportId, { clientEmail });
-      if (btn) btn.disabled = false;
-      if (!ok) return;
-
-      closeModal();
-      await callbacks.onApproved?.();
-
-      if (andBilling && callbacks.navigateToBilling) {
-        await callbacks.navigateToBilling(reportId);
-        return;
+      if (btn) {
+        btn.disabled = true;
+        btn.setAttribute('aria-busy', 'true');
       }
+      try {
+        const clientEmail = readReviewClientEmail(overlay);
+        const ok = await approveReport(reportId, { clientEmail });
+        if (!ok) return;
 
-      if (andNext) {
-        const nextId = callbacks.getNextReportId?.(reportId);
-        if (nextId) {
-          await openRhReviewModal(nextId, callbacks);
-        } else {
-          showToast('Não há mais relatórios pendentes na fila atual.', 'info');
+        const nextId = andNext ? callbacks.getNextReportId?.(reportId) : null;
+
+        closeModal();
+        await callbacks.onApproved?.();
+
+        if (andBilling && callbacks.navigateToBilling) {
+          await callbacks.navigateToBilling(reportId);
+          return;
+        }
+
+        if (andNext) {
+          if (nextId) {
+            await openRhReviewModal(nextId, callbacks);
+          } else {
+            showToast('Não há mais relatórios pendentes na fila atual.', 'info');
+          }
+        }
+      } catch (err) {
+        console.error('[RH] Aprovar relatório:', err);
+        showToast(err?.message || 'Erro ao aprovar o relatório.', 'error', 8000);
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.removeAttribute('aria-busy');
         }
       }
     };
@@ -585,6 +604,7 @@ export function buildRhReviewModalContent({
   showWorkflow = true,
   showApproveNext = false,
   showApproveBilling = false,
+  approveNextLabel = 'Aprovar e seguinte',
   signatures = null,
   visitBannerHtml = '',
 }) {
@@ -613,10 +633,6 @@ export function buildRhReviewModalContent({
     ? `${service.icon || '📋'} ${service.label || report?.serviceType || '—'}`
     : '—';
   const queueAge = report?.submittedAt ? formatReportAge(report.submittedAt) : '';
-  const approveNextLabel =
-    report?.servicoId && visitBannerHtml
-      ? 'Aprovar e seguinte na visita'
-      : 'Aprovar e seguinte';
 
   const workflowHtml = showWorkflow
     ? `

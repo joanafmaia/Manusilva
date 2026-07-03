@@ -4,6 +4,7 @@
 
 import { escapeHtml } from './app.js';
 import { resolveJobFotos } from './job-fotos.js';
+import { resolvePdfSignaturesForReport } from './report-pdf-signatures.js';
 import { formatReportAge } from './rh-panel-utils.js';
 import { countFilledFields } from './form-engine.js';
 
@@ -27,9 +28,9 @@ function grandesCellAlert(key, val) {
 }
 
 /** Verificações visíveis antes de aprovar */
-export function computeReviewChecks({ report, job, client, values = {} }) {
+export function computeReviewChecks({ report, job, client, values = {}, clientEmail = '' }) {
   const checks = [];
-  const email = String(client?.email || client?.['E-mail'] || '').trim();
+  const email = String(clientEmail || client?.email || client?.['E-mail'] || '').trim();
 
   checks.push({
     id: 'email',
@@ -38,18 +39,20 @@ export function computeReviewChecks({ report, job, client, values = {} }) {
     level: isValidEmail(email) ? 'ok' : 'error',
   });
 
-  const sig = report?.data?.signatures || {};
+  const sig = resolvePdfSignaturesForReport(report) || {};
+  const hasTechSig = Boolean(sig.technician || sig.technicianData);
+  const hasClientSig = Boolean(sig.client || sig.clientData);
   checks.push({
     id: 'sig-tech',
     label: 'Assinatura do técnico',
-    ok: Boolean(sig.technician),
-    level: sig.technician ? 'ok' : 'error',
+    ok: hasTechSig,
+    level: hasTechSig ? 'ok' : 'error',
   });
   checks.push({
     id: 'sig-client',
     label: 'Assinatura do cliente',
-    ok: Boolean(sig.client),
-    level: sig.client ? 'ok' : 'warn',
+    ok: hasClientSig,
+    level: hasClientSig ? 'ok' : 'warn',
   });
 
   const { antes, depois } = resolveJobFotos(job, report);

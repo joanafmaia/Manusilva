@@ -79,7 +79,25 @@ describe('servicos-rh-review', () => {
       { id: 'r3', servicoId: '', status: 'pending_review' },
     ];
     assert.equal(getNextPendingReportId('r1', queue), 'r2');
-    assert.equal(getNextPendingReportId('r2', queue), 'r1');
+    assert.equal(getNextPendingReportId('r2', queue), 'r3');
+  });
+
+  it('getRhApproveNextLabel — distingue visita e fila global', async () => {
+    const { getRhApproveNextLabel } = await import('../js/servicos-rh-review.js');
+    assert.equal(
+      getRhApproveNextLabel(
+        { servicoId: 'svc-1' },
+        { servicoId: 'svc-1', id: 'r2' },
+      ),
+      'Aprovar e seguinte na visita',
+    );
+    assert.equal(
+      getRhApproveNextLabel(
+        { servicoId: 'svc-1' },
+        { servicoId: 'svc-2', id: 'r3' },
+      ),
+      'Aprovar e seguinte visita',
+    );
   });
 
   it('getFirstPendingReportIdForServico', async () => {

@@ -1076,7 +1076,13 @@ function rhReviewModalCallbacks() {
     navigateToBilling: (reportId) => navigateToBillingReport(reportId),
     onApproved: async () => {
       if (isOpsTabActive()) {
-        refreshOpsTab();
+        renderCalendar();
+        updateAdminChrome();
+        await renderRhReviewStack();
+        if (currentTab === 'calendario') {
+          await refreshMetricsPanel(getMetricActionHandlers()).catch(console.error);
+        }
+        adminTabDirty.ops = false;
       } else {
         adminTabDirty.ops = true;
       }

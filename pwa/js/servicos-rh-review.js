@@ -97,32 +97,52 @@ export function getFirstPendingReportIdForServico(servicoId) {
 }
 
 /**
- * Seguinte pendente na fila — prioriza relatórios da mesma visita.
+ * Seguinte pendente na fila — prioriza relatórios da mesma visita (ordem cronológica),
+ * depois passa à visita seguinte na fila global.
  * @param {string} currentId
  * @param {object[]} reports — fila visível (filtrada)
  */
 export function getNextPendingReportId(currentId, reports) {
-  const pending = dedupeReportsForDisplay(reports || []).filter(
-    (r) => r.status === 'pending_review',
+  const pending = sortReportsChronologically(
+    dedupeReportsForDisplay(reports || []).filter((r) => r.status === 'pending_review'),
   );
   if (!pending.length) return null;
 
-  const current = pending.find((r) => r.id === currentId) || pending[0];
+  const current = pending.find((r) => r.id === currentId) || null;
   const servicoId = current?.servicoId ? String(current.servicoId) : '';
 
   if (servicoId) {
     const inVisit = pending.filter((r) => String(r.servicoId) === servicoId);
-    const idx = inVisit.findIndex((r) => r.id === currentId);
-    if (idx >= 0 && idx < inVisit.length - 1) return inVisit[idx + 1].id;
-    if (inVisit.length > 1 && idx === inVisit.length - 1) {
-      return inVisit.find((r) => r.id !== currentId)?.id || null;
+    const visitIdx = inVisit.findIndex((r) => r.id === currentId);
+    if (visitIdx >= 0 && visitIdx < inVisit.length - 1) {
+      return inVisit[visitIdx + 1].id;
     }
+    const outsideVisit = pending.filter((r) => String(r.servicoId) !== servicoId);
+    if (outsideVisit.length) return outsideVisit[0].id;
   }
 
   const globalIdx = pending.findIndex((r) => r.id === currentId);
-  if (globalIdx >= 0 && globalIdx < pending.length - 1) return pending[globalIdx + 1].id;
-  if (globalIdx > 0) return pending[0].id;
-  return pending.find((r) => r.id !== currentId)?.id || null;
+  if (globalIdx >= 0 && globalIdx < pending.length - 1) {
+    return pending[globalIdx + 1].id;
+  }
+
+  if (globalIdx < 0 && pending.length) {
+    return pending[0].id;
+  }
+
+  return null;
+}
+
+/** Etiqueta do botão «Aprovar e seguinte» consoante o destino na fila. */
+export function getRhApproveNextLabel(currentReport, nextReport) {
+  if (!nextReport) return 'Aprovar e seguinte';
+  const currentSid = currentReport?.servicoId ? String(currentReport.servicoId) : '';
+  const nextSid = nextReport?.servicoId ? String(nextReport.servicoId) : '';
+  if (currentSid && nextSid && currentSid === nextSid) {
+    return 'Aprovar e seguinte na visita';
+  }
+  if (nextSid) return 'Aprovar e seguinte visita';
+  return 'Aprovar e seguinte';
 }
 
 export function getServicoReviewMeta(servicoId) {
