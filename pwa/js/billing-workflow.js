@@ -37,6 +37,14 @@ function sharesNumeroOrdemWithCommercialOrcamento(report, allReports) {
   });
 }
 
+/** Relatório aprovado de visita que conta para faturação (exclui só orçamento MS.015). */
+export function isServicoReportBillable(report) {
+  if (!report || report.status !== 'approved') return false;
+  if (reportIsCommercialOrcamento(report)) return false;
+  if (reportHasPedidoOrcamento(report) && !isOrcamentoClienteAceite(report)) return false;
+  return true;
+}
+
 /** Relatório aprovado ainda por faturar (controlo interno; exclui visitas e propostas comerciais). */
 export function isPendingBilling(report, allReports = null) {
   if (!report || report.status !== 'approved') return false;

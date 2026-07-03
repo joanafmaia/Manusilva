@@ -87,6 +87,25 @@ WHERE r.estado = 'approved'
     OR r.dados->>'orcamentoOrigem' = 'rh_standalone'
   );
 
+-- Visitas só com pedido de orçamento — fora de «Por faturar» (faturação após aceite MS.015)
+UPDATE public.servicos s
+SET
+  faturacao_status = 'dispensado',
+  atualizado_em = now()
+WHERE COALESCE(s.faturacao_status, 'pendente') = 'pendente'
+  AND s.estado = 'approved'
+  AND EXISTS (
+    SELECT 1 FROM public.relatorios r
+    WHERE r.servico_id = s.id AND r.estado = 'approved'
+  )
+  AND NOT EXISTS (
+    SELECT 1 FROM public.relatorios r
+    WHERE r.servico_id = s.id
+      AND r.estado = 'approved'
+      AND r.tipo_servico IS DISTINCT FROM 'proposta_ms015_rh'
+      AND lower(COALESCE(r.dados->'values'->>'pedido_orcamento', '')) IS DISTINCT FROM 'sim'
+  );
+
 -- Duplicado técnico na mesma OP que já tem proposta comercial → dispensar só o duplicado técnico
 UPDATE public.relatorios r_tech
 SET

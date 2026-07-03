@@ -6,6 +6,7 @@ import { getServico, getServicosSnapshot, updateServico, formatServicosError } f
 import { updateRelatorio } from './relatorios-db.js';
 import { sameEntityId } from './entity-id.js';
 import {
+  isServicoReportBillable,
   normalizeInvoiceAmountInput,
   resolveInvoiceBillingFields,
   getPendingBillingReports,
@@ -22,7 +23,8 @@ export function isServicoPendingBilling(servico) {
   if (fs && fs !== 'pendente') return false;
   const reports = getServicoActiveReports(servico.id);
   if (!reports.length) return false;
-  return reports.every((r) => r.status === 'approved');
+  if (!reports.every((r) => r.status === 'approved')) return false;
+  return reports.some((r) => isServicoReportBillable(r));
 }
 
 export function getPendingBillingServicos() {
@@ -78,6 +80,8 @@ export async function markServicoPendingBillingIfReady(servicoId) {
   if (fs && fs !== 'pendente') return false;
 
   const reports = getServicoActiveReports(servicoId);
+  if (!reports.some((r) => isServicoReportBillable(r))) return false;
+
   const latestApproval = reports
     .map((r) => r.approvedAt)
     .filter(Boolean)

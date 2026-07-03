@@ -88,4 +88,22 @@ describe('servicos-billing-workflow', () => {
     const { getReport } = await import('../js/entity-lookups.js');
     assert.equal(isPendingBilling(getReport('rb1')), false);
   });
+
+  it('isServicoPendingBilling — exclui visita só com pedido de orçamento', async () => {
+    const relatoriosDb = await import('../js/relatorios-db.js');
+    relatoriosDb.mergeReportInCache({
+      id: 'r-orc-visita',
+      servicoId: 'svc-bill',
+      serviceType: 'folha_intervencao_avarias',
+      status: 'approved',
+      approvedAt: '2026-07-02T09:00:00.000Z',
+      clientId: '10',
+      technicianId: 'Hugo',
+      data: { values: { pedido_orcamento: 'Sim' } },
+    });
+
+    const { isServicoPendingBilling } = await import('../js/servicos-billing-workflow.js');
+    const { getServico } = await import('../js/servicos-db.js');
+    assert.equal(isServicoPendingBilling(getServico('svc-bill')), false);
+  });
 });
