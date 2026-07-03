@@ -165,6 +165,7 @@ export async function registerManualInvoice({
 
   const billing = resolveInvoiceBillingFields(condicaoPagamento, statusRecebimento, data);
   const descricaoTrim = String(descricao ?? '').trim();
+  if (!descricaoTrim) throw new Error('Indique do que é a fatura (Visita / Relatório).');
 
   const supabase = await getAuthenticatedSupabaseClient();
   const { data: inserted, error } = await supabase

@@ -442,12 +442,14 @@ function buildInvoiceRows(items) {
     const pago = entity.statusRecebimento === 'pago';
     const vencimento = entity.dataVencimento || null;
     const vencimentoUrg = pago ? 'none' : vencimentoUrgency(vencimento);
+    const trabalho = resolveInvoiceTrabalhoLabel(item);
     return {
       kind: item.kind,
       entity,
       report: item.kind === 'report' ? entity : null,
       servico: item.kind === 'servico' ? entity : null,
       ...meta,
+      ...trabalho,
       pago,
       numeroFatura: entity.numeroFatura || '—',
       valor,
@@ -462,6 +464,32 @@ function buildInvoiceRows(items) {
       vencimentoUrg,
     };
   });
+}
+
+/** Coluna «Visita / Relatório» — OP + tipo (ou texto livre nas manuais). */
+function resolveInvoiceTrabalhoLabel(item) {
+  const entity = item.entity;
+  if (item.kind === 'manual') {
+    const detail = String(entity.descricao || '').trim();
+    return {
+      ordem: 'Manual',
+      detail: detail || 'Fatura avulsa',
+    };
+  }
+  if (item.kind === 'servico') {
+    const reports = getApprovedReportsForServico(entity.id);
+    return {
+      ordem: formatServicoOrdemLabel(entity, reports),
+      detail: formatServicoReportsLabel(reports),
+    };
+  }
+  const job = entity.jobId ? getJob(entity.jobId) : null;
+  const ordem =
+    job?.numeroOrdem != null
+      ? String(job.numeroOrdem).padStart(4, '0')
+      : formatOrdemLabel(job);
+  const detail = getServiceType(entity.serviceType)?.label || entity.serviceType || 'Relatório';
+  return { ordem, detail };
 }
 
 /** Pendentes primeiro (vencimento mais antigo); recebidas por data de emissão. */
@@ -574,8 +602,20 @@ function formatHistoryDate(isoDate) {
 }
 
 function renderInvoiceRow(row, acumulado, showAcum) {
-  const { entity, nome, pago, numeroFatura, valorLabel, emissaoLabel, vencimentoLabel, vencimentoClass, vencimentoUrg, kind } =
-    row;
+  const {
+    entity,
+    nome,
+    pago,
+    numeroFatura,
+    ordem,
+    detail,
+    valorLabel,
+    emissaoLabel,
+    vencimentoLabel,
+    vencimentoClass,
+    vencimentoUrg,
+    kind,
+  } = row;
   const urgentRow = !pago && vencimentoUrg === 'overdue';
   const detailId = entity.id;
   const detailAttr =
@@ -590,12 +630,7 @@ function renderInvoiceRow(row, acumulado, showAcum) {
       : kind === 'manual'
         ? `data-confirm-payment-manual="${escapeHtml(detailId)}"`
         : `data-confirm-payment="${escapeHtml(detailId)}"`;
-  const kindBadge =
-    kind === 'servico'
-      ? ' <span class="faturacao-visit-badge">Visita</span>'
-      : kind === 'manual'
-        ? ' <span class="faturacao-visit-badge faturacao-visit-badge--manual">Manual</span>'
-        : '';
+  const kindBadge = kind === 'servico' ? ' <span class="faturacao-visit-badge">Visita</span>' : '';
 
   return `
     <tr class="rh-data-table-row faturacao-history-row faturacao-invoice-row${urgentRow ? ' faturacao-row--urgent' : ''}" data-invoice-kind="${kind}" data-invoice-id="${escapeHtml(detailId)}">
@@ -605,6 +640,10 @@ function renderInvoiceRow(row, acumulado, showAcum) {
           ${escapeHtml(nome)}${kindBadge}
         </button>
         ${vencimentoUrg === 'soon' ? ' <span class="faturacao-urgent-badge faturacao-urgent-badge--soon">A vencer</span>' : ''}
+      </td>
+      <td class="faturacao-cell-ordem">
+        <code class="faturacao-ordem">${escapeHtml(ordem)}</code>
+        <span class="faturacao-cell-detail">${escapeHtml(detail)}</span>
       </td>
       <td class="rh-cell-ordem faturacao-cell-ordem"><code class="rh-ordem-badge faturacao-ordem">${escapeHtml(numeroFatura)}</code></td>
       <td class="rh-cell-valor faturacao-col-valor">${escapeHtml(valorLabel)}</td>
@@ -656,6 +695,7 @@ function renderInvoicesSection(invoices = getFilteredInvoices()) {
             <tr>
               <th scope="col">Emissão</th>
               <th scope="col">Cliente</th>
+              <th scope="col">Visita / Relatório</th>
               <th scope="col">Fatura</th>
               <th scope="col">Valor</th>
               <th scope="col">Vencimento</th>
@@ -1049,9 +1089,10 @@ function openRegisterManualInvoiceModal() {
         <select class="form-input" id="manual-invoice-status" required>${statusOptions}</select>
       </div>
       <div class="form-group">
-        <label class="form-label" for="manual-invoice-descricao">Descrição <span class="text-muted">(opcional)</span></label>
-        <input type="text" class="form-input" id="manual-invoice-descricao" maxlength="240"
-          placeholder="ex: Material avulso, reparação antiga…" autocomplete="off">
+        <label class="form-label" for="manual-invoice-trabalho">Visita / Relatório</label>
+        <input type="text" class="form-input" id="manual-invoice-trabalho" maxlength="240" required
+          placeholder="ex: Material avulso, reparação antiga, manutenção preventiva…" autocomplete="off">
+        <p class="text-muted faturacao-field-hint">Do que é esta fatura — aparece na lista como nas visitas da app.</p>
       </div>
     </form>
   `;
@@ -1075,7 +1116,7 @@ function openRegisterManualInvoiceModal() {
     const valor = overlay.querySelector('#manual-invoice-valor')?.value?.trim() || '';
     const condicao = overlay.querySelector('#manual-invoice-condicao')?.value;
     const statusRecebimento = overlay.querySelector('#manual-invoice-status')?.value;
-    const descricao = overlay.querySelector('#manual-invoice-descricao')?.value?.trim() || '';
+    const descricao = overlay.querySelector('#manual-invoice-trabalho')?.value?.trim() || '';
     const btn = overlay.querySelector('#btn-save-manual-invoice');
 
     if (!clientId) {
@@ -1084,6 +1125,10 @@ function openRegisterManualInvoiceModal() {
     }
     if (!numero || !data) {
       showToast('Preencha o número e a data de emissão.', 'warning');
+      return;
+    }
+    if (!descricao) {
+      showToast('Indique do que é a fatura (Visita / Relatório).', 'warning');
       return;
     }
     if (valor) {
@@ -1413,8 +1458,8 @@ function openManualInvoiceHistoryDetailModal(invoiceId) {
       <div><dt>Cliente</dt><dd>${escapeHtml(meta.nome)}</dd></div>
       <div><dt>NIF</dt><dd>${escapeHtml(meta.nif)}</dd></div>
       <div><dt>Origem</dt><dd>Registo manual</dd></div>
+      <div><dt>Visita / Relatório</dt><dd>${escapeHtml(invoice.descricao || '—')}</dd></div>
       <div><dt>Nº Fatura</dt><dd><code class="faturacao-ordem">${escapeHtml(invoice.numeroFatura || '—')}</code></dd></div>
-      ${invoice.descricao ? `<div><dt>Descrição</dt><dd>${escapeHtml(invoice.descricao)}</dd></div>` : ''}
       <div><dt>Valor faturado</dt><dd>${escapeHtml(formatCurrencyEurNullable(invoice.valorFaturado))}</dd></div>
       <div><dt>Condição de pagamento</dt><dd>${escapeHtml(labelFaturaCondicao(invoice.faturaCondicaoPagamento))}</dd></div>
       <div><dt>Data da faturação</dt><dd>${escapeHtml(formatHistoryDate(String(invoice.dataFatura || '').split('T')[0]))}</dd></div>
@@ -1674,11 +1719,11 @@ function exportFilteredInvoicesCsv() {
     'Data faturação',
     'Cliente',
     'NIF',
+    'Visita / Relatório',
     'Nº Fatura',
     'Valor (EUR)',
     'Estado',
     'Condição',
-    'Data relatório',
     'Data recebimento',
   ];
   const lines = [header.join(';')];
@@ -1687,21 +1732,17 @@ function exportFilteredInvoicesCsv() {
     const entity = item.entity;
     const meta = resolveClientMeta(entity.clientId);
     const recebimento = entity.dataRecebimento ? String(entity.dataRecebimento).split('T')[0] : '';
-    const reportDate =
-      item.kind === 'report'
-        ? reportDateOf(entity)
-        : item.kind === 'manual'
-          ? entity.descricao || '—'
-          : formatDateSafe(entity.date);
+    const trabalho = resolveInvoiceTrabalhoLabel(item);
+    const trabalhoLabel = [trabalho.ordem, trabalho.detail].filter(Boolean).join(' — ');
     const row = [
       invoiceDateOfEntity(item),
       meta.nome,
       meta.nif,
+      trabalhoLabel,
       entity.numeroFatura || '',
       Number.isFinite(Number(entity.valorFaturado)) ? Number(entity.valorFaturado) : '',
       labelStatusRecebimento(entity.statusRecebimento),
       labelFaturaCondicao(entity.faturaCondicaoPagamento),
-      reportDate,
       recebimento,
     ].map(csvEscape);
     lines.push(row.join(';'));
