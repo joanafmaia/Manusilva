@@ -16,6 +16,7 @@ import {
   getTechnician,
 } from './entity-lookups.js';
 import { syncClientEmailIfChanged } from './clients-admin.js';
+import { isTestClient } from './client-test-utils.js';
 import { canReachServer } from './offline-mode.js';
 import { isDraftSafelySynced } from './report-draft-sync.js';
 import { sendOfficialReportEmail } from './report-email-api.js';
