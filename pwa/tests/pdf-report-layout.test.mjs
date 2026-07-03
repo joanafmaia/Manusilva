@@ -144,6 +144,17 @@ describe('pdf-grandes-baterias', () => {
       assert.equal(typeof mod[name], 'function', `export em falta: ${name}`);
     }
   });
+
+  it('coluna C.C. no PDF tem largura suficiente e permite quebra de linha', async () => {
+    const { PDF_CONTENT_W } = await import('../js/pdf-design-system.js');
+    const { GRANDES_BATTERY_PDF_COL_WIDTHS, GRANDES_BATTERY_PDF_NOWRAP_COLS } = await import(
+      '../js/pdf-grandes-baterias.js'
+    );
+    const total = GRANDES_BATTERY_PDF_COL_WIDTHS.reduce((a, b) => a + b, 0);
+    assert.equal(total, PDF_CONTENT_W);
+    assert.ok(GRANDES_BATTERY_PDF_COL_WIDTHS[7] >= 30, 'C.C. deve ter coluna mais larga');
+    assert.equal(GRANDES_BATTERY_PDF_NOWRAP_COLS.has(7), false, 'C.C. não deve usar ellipsize');
+  });
 });
 
 describe('pdf-rav-bateria', () => {

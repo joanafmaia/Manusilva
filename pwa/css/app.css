@@ -8560,8 +8560,11 @@ body.client-ficha-open {
 .grandes-battery-table tbody tr:nth-child(even) td {
   background: #f8fafc;
 }
-.grandes-battery-col--nowrap, .grandes-battery-table th[data-col-key='tipo'], .grandes-battery-table th[data-col-key='tensao_v'], .grandes-battery-table th[data-col-key='densidade'], .grandes-battery-table th[data-col-key='curto_circuito'] {
+.grandes-battery-col--nowrap, .grandes-battery-table th[data-col-key='tipo'], .grandes-battery-table th[data-col-key='tensao_v'], .grandes-battery-table th[data-col-key='densidade'] {
   white-space: nowrap;
+}
+.grandes-battery-table td[data-col-label='C.C.'] .grandes-battery-cell {
+  min-width: 5.5rem;
 }
 .grandes-battery-table .grandes-battery-idx {
   width: 2rem;

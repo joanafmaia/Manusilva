@@ -121,7 +121,7 @@ function renderRow(row, rowIndex) {
   const cells = GRANDES_BATTERY_COLUMNS.map(
     (col) => {
       const nowrapClass =
-        col.key === 'tipo' || col.key === 'tensao_v' || col.key === 'densidade' || col.key === 'curto_circuito'
+        col.key === 'tipo' || col.key === 'tensao_v' || col.key === 'densidade'
           ? ' grandes-battery-col--nowrap'
           : '';
       return `<td class="grandes-battery-col${nowrapClass}" data-col-label="${escapeHtml(col.label)}">${renderCell(col, row)}</td>`;
@@ -214,7 +214,7 @@ function buildRowElement(rowData = emptyRow()) {
     <td class="grandes-battery-idx grandes-battery-row-num"></td>
     ${GRANDES_BATTERY_COLUMNS.map((col) => {
       const nowrapClass =
-        col.key === 'tipo' || col.key === 'tensao_v' || col.key === 'densidade' || col.key === 'curto_circuito'
+        col.key === 'tipo' || col.key === 'tensao_v' || col.key === 'densidade'
           ? ' grandes-battery-col--nowrap'
           : '';
       return `<td class="grandes-battery-col${nowrapClass}" data-col-label="${escapeHtml(col.label)}">${renderCell(col, rowData)}</td>`;
