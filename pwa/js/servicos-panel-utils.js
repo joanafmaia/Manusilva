@@ -4,6 +4,7 @@
 
 import { getAllJobs, getServiceType, jobAssignedToTechnician } from './entity-lookups.js';
 import { sameEntityId } from './entity-id.js';
+import { filterOutLocallyDeletedReports } from './report-deleted-local.js';
 import { getReportsSnapshot } from './relatorios-db.js';
 import { getServico, getServicosSnapshot, isServicosCacheLoaded } from './servicos-db.js';
 
@@ -22,13 +23,15 @@ export function getReportsForServico(servicoId) {
   if (servicoId == null || servicoId === '') return [];
   const key = String(servicoId);
   const seen = new Set();
-  return getReportsSnapshot().filter((r) => {
-    if (!sameEntityId(r.servicoId, key) && !sameEntityId(r.jobId, key)) return false;
-    const id = String(r.id);
-    if (seen.has(id)) return false;
-    seen.add(id);
-    return true;
-  });
+  return filterOutLocallyDeletedReports(
+    getReportsSnapshot().filter((r) => {
+      if (!sameEntityId(r.servicoId, key) && !sameEntityId(r.jobId, key)) return false;
+      const id = String(r.id);
+      if (seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    }),
+  );
 }
 
 /** Rascunho que o técnico marcou como concluído (aguarda «Concluir visita»). */

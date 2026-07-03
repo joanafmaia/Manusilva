@@ -10,6 +10,7 @@ import {
 } from './trabalhos-db.js';
 import { legacyPrazoToCondicao } from './billing-constants.js';
 import { sameEntityId } from './entity-id.js';
+import { isReportLocallyDeleted, filterOutLocallyDeletedReports } from './report-deleted-local.js';
 
 let reportsCache = null;
 /** Índice lazy jobId → relatório canónico (deduplicado). */
@@ -354,7 +355,7 @@ async function loadReportsFromSupabase() {
     throw new Error(formatRelatoriosError(error));
   }
 
-  reportsCache = (data || []).map(mapRowToReport).filter(Boolean);
+  reportsCache = filterOutLocallyDeletedReports((data || []).map(mapRowToReport).filter(Boolean));
   reportsFullyLoaded = true;
   invalidateReportsJobIndex();
   console.info(`[ManuSilva] ${reportsCache.length} relatório(s) carregados do Supabase.`);
@@ -383,7 +384,7 @@ function reportsShareSameSlot(a, b) {
 }
 
 function upsertCacheEntry(report) {
-  if (!report) return;
+  if (!report || isReportLocallyDeleted(report)) return;
   if (!reportsCache) reportsCache = [];
   reportsCache = reportsCache.filter((r) => {
     if (sameEntityId(r.id, report.id)) return false;

@@ -14,6 +14,10 @@ import {
   isUuid,
   removeReportFromCache,
 } from './relatorios-db.js';
+import {
+  markReportLocallyDeleted,
+  purgeLocallyDeletedFromCache,
+} from './report-deleted-local.js';
 
 /**
  * Remove um rascunho da visita (cache local, IndexedDB e Supabase quando possível).
@@ -41,9 +45,11 @@ export async function removeServicoReport(servicoId, reportId) {
   if (!ok) return false;
 
   try {
-    const { removeLocalReportDraft, reportDraftStorageKey } = await import('./report-local-storage.js');
+    markReportLocallyDeleted(report);
+
+    const { removeAllLocalDraftsForReport } = await import('./report-local-storage.js');
     try {
-      await removeLocalReportDraft(reportDraftStorageKey(report));
+      await removeAllLocalDraftsForReport(report);
     } catch (err) {
       console.warn('[ManuSilva] removeServicoReport — rascunho local:', err);
     }
@@ -55,16 +61,18 @@ export async function removeServicoReport(servicoId, reportId) {
       console.warn('[ManuSilva] removeServicoReport — fila offline:', err);
     }
 
+    removeReportFromCache(report.id);
+    await purgeLocallyDeletedFromCache();
+
     const { canSyncToServer } = await import('./trabalhos-offline.js');
     if (canSyncToServer() && isUuid(report.id)) {
       try {
         await deleteRelatorioById(report.id);
+        const { clearReportLocallyDeleted } = await import('./report-deleted-local.js');
+        clearReportLocallyDeleted(report.id);
       } catch (err) {
         console.warn('[ManuSilva] removeServicoReport — servidor:', err);
-        removeReportFromCache(report.id);
       }
-    } else {
-      removeReportFromCache(report.id);
     }
 
     window.dispatchEvent(new CustomEvent('db-updated'));

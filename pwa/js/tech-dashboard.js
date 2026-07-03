@@ -809,8 +809,13 @@ async function warmTechDashboardInitial(technicianId) {
 function scheduleWarmTechDashboardFull() {
   void warmOperacoes()
     .then(async () => {
+      const { reconcileLocallyDeletedReports, purgeLocallyDeletedFromCache } = await import(
+        './report-deleted-local.js'
+      );
       const { hydrateLocalReportsIntoCache } = await import('./report-local-storage.js');
       const { syncLocalReportDraftsToServer } = await import('./report-draft-sync.js');
+      await reconcileLocallyDeletedReports();
+      await purgeLocallyDeletedFromCache();
       await hydrateLocalReportsIntoCache();
       await syncLocalReportDraftsToServer({ notify: false });
       window.dispatchEvent(new CustomEvent('db-updated'));

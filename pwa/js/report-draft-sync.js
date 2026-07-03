@@ -51,6 +51,13 @@ export async function syncLocalReportDraftsToServer(options = {}) {
     const status = draft.status || 'draft';
     if (status !== 'draft' && status !== 'pending_review') continue;
 
+    const { isReportLocallyDeleted } = await import('./report-deleted-local.js');
+    if (isReportLocallyDeleted(draft)) {
+      const { removeAllLocalDraftsForReport } = await import('./report-local-storage.js');
+      await removeAllLocalDraftsForReport(draft).catch(() => {});
+      continue;
+    }
+
     const key = reportDraftStorageKey(draft);
     try {
       const report = await uploadPendingFotosFromReport(draft);

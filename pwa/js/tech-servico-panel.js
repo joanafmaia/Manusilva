@@ -159,6 +159,17 @@ export async function openTechServicoDetail(servicoId) {
     return;
   }
 
+  try {
+    const { ensureRelatoriosForServicos } = await import('./relatorios-db.js');
+    const { purgeLocallyDeletedFromCache } = await import('./report-deleted-local.js');
+    const { hydrateLocalReportsIntoCache } = await import('./report-local-storage.js');
+    await ensureRelatoriosForServicos([servicoId]).catch(() => {});
+    await purgeLocallyDeletedFromCache();
+    await hydrateLocalReportsIntoCache();
+  } catch (err) {
+    console.warn('[Tech] Pré-carga relatórios da visita:', err);
+  }
+
   const client = getClient(servico.clientId);
   const reports = getReportsForServico(servicoId);
   const reportsHtml = reports.length

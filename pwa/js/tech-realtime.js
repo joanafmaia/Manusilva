@@ -15,7 +15,8 @@ import {
   removeReportsForServicoFromCache,
 } from './relatorios-db.js';
 import { mergeServicoFromRealtime, removeServicoFromCache } from './servicos-db.js';
-import { removeLocalReportDraft, reportDraftStorageKey } from './report-local-storage.js';
+import { removeAllLocalDraftsForReport, removeLocalReportDraft, reportDraftStorageKey } from './report-local-storage.js';
+import { clearReportLocallyDeleted } from './report-deleted-local.js';
 import {
   maybeNotifyTechJobScheduled,
   maybeNotifyTechReportApproved,
@@ -66,7 +67,8 @@ async function handleRelatorioDeleted(oldRow) {
   const removed = removeReportFromCache(reportId);
   if (removed) {
     try {
-      await removeLocalReportDraft(reportDraftStorageKey(removed));
+      await removeAllLocalDraftsForReport(removed);
+      clearReportLocallyDeleted(reportId);
     } catch {
       /* melhor esforço — o filtro de render também ignora rascunhos órfãos */
     }

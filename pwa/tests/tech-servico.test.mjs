@@ -70,4 +70,18 @@ describe('servicos-panel-utils — técnico', () => {
     assert.equal(canRemoveServicoReport({ status: 'approved' }), false);
     assert.equal(canRemoveServicoReport({ status: 'rejected' }), false);
   });
+
+  it('getReportsForServico — ignora relatórios eliminados localmente', async () => {
+    const store = new Map();
+    globalThis.localStorage = globalThis.localStorage || {
+      getItem: (k) => (store.has(k) ? store.get(k) : null),
+      setItem: (k, v) => store.set(k, String(v)),
+      removeItem: (k) => store.delete(k),
+      clear: () => store.clear(),
+    };
+    const { markReportLocallyDeleted } = await import('../js/report-deleted-local.js');
+    markReportLocallyDeleted({ id: 'r1' });
+    const { getReportsForServico } = await import('../js/servicos-panel-utils.js');
+    assert.equal(getReportsForServico('svc-1').length, 0);
+  });
 });

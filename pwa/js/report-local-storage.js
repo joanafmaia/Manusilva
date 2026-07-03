@@ -210,13 +210,62 @@ export async function removeLocalReportDraft(jobId) {
   await idbDelete(STORE_REPORT_DRAFTS, jobId);
 }
 
+/**
+ * Remove todas as entradas IndexedDB associadas a um relatório (várias chaves possíveis).
+ * @param {object} report
+ */
+export async function removeAllLocalDraftsForReport(report) {
+  await ensureMigrated();
+  if (!report) return 0;
+
+  const idKey = report.id ? String(report.id) : '';
+  const svcKey =
+    report.servicoId && report.serviceType
+      ? `svc:${report.servicoId}:${report.serviceType}`
+      : '';
+
+  const keys = new Set();
+  if (idKey) keys.add(idKey);
+  if (svcKey) keys.add(svcKey);
+  if (report.jobId) keys.add(String(report.jobId));
+
+  const records = await idbGetAll(STORE_REPORT_DRAFTS);
+  for (const record of records) {
+    const storeKey = record?.jobId != null ? String(record.jobId) : '';
+    const draft = record?.report;
+    if (!storeKey || !draft) continue;
+
+    const sameId = idKey && draft.id && sameEntityId(draft.id, idKey);
+    const sameStoreKey = idKey && storeKey === idKey;
+    const legacySvc =
+      svcKey &&
+      storeKey === svcKey &&
+      (!draft.id || !idKey || sameEntityId(draft.id, idKey));
+
+    if (sameId || sameStoreKey || legacySvc) {
+      keys.add(storeKey);
+    }
+  }
+
+  for (const key of keys) {
+    await idbDelete(STORE_REPORT_DRAFTS, key);
+  }
+  return keys.size;
+}
+
 export async function getAllLocalReportDrafts() {
   await ensureMigrated();
+  const { isReportLocallyDeleted } = await import('./report-deleted-local.js');
   const records = await idbGetAll(STORE_REPORT_DRAFTS);
   const drafts = [];
   for (const record of records) {
     const merged = await mergePhotosIntoReport(record);
-    if (merged) drafts.push(merged);
+    if (!merged) continue;
+    if (isReportLocallyDeleted(merged)) {
+      removeAllLocalDraftsForReport(merged).catch(() => {});
+      continue;
+    }
+    drafts.push(merged);
   }
   return drafts;
 }
@@ -268,14 +317,15 @@ function findServerReportForDraft(draft, serverReports) {
   if (draft.id) {
     const byId = serverReports.find((r) => sameEntityId(r.id, draft.id));
     if (byId) return byId;
+    return null;
   }
   if (draft.servicoId && draft.serviceType) {
-    return (
-      serverReports.find(
-        (r) =>
-          sameEntityId(r.servicoId, draft.servicoId) && r.serviceType === draft.serviceType,
-      ) || null
+    const matches = serverReports.filter(
+      (r) =>
+        sameEntityId(r.servicoId, draft.servicoId) && r.serviceType === draft.serviceType,
     );
+    if (matches.length === 1) return matches[0];
+    return null;
   }
   if (draft.jobId) {
     return serverReports.find((r) => sameEntityId(r.jobId, draft.jobId)) || null;
@@ -300,6 +350,7 @@ function isDraftOfDeletedJob(draft, serverReport, serverJobIds) {
  * — e removidos do tablet quando o relatório foi aprovado ou o trabalho foi eliminado pelo RH.
  */
 export async function hydrateLocalReportsIntoCache() {
+  const { isReportLocallyDeleted } = await import('./report-deleted-local.js');
   const drafts = await getAllLocalReportDrafts();
   const serverReports = getReportsSnapshot();
   const serverJobIds = isJobsCacheLoaded()
@@ -307,6 +358,11 @@ export async function hydrateLocalReportsIntoCache() {
     : null;
 
   for (const draft of drafts) {
+    if (isReportLocallyDeleted(draft)) {
+      removeAllLocalDraftsForReport(draft).catch(() => {});
+      continue;
+    }
+
     const server = findServerReportForDraft(draft, serverReports);
 
     if (server?.status === 'pending_review') {
@@ -349,7 +405,9 @@ export async function hydrateLocalReportsIntoCache() {
     const { getTrabalhosPendentes } = await import('./trabalhos-offline.js');
     const pending = await getTrabalhosPendentes();
     pending.forEach((item) => {
-      if (item?.report) mergeReportInCache(item.report);
+      if (item?.report && !isReportLocallyDeleted(item.report)) {
+        mergeReportInCache(item.report);
+      }
     });
   } catch (err) {
     console.warn('[ManuSilva] Hidratar fila offline:', err);

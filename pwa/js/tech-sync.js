@@ -6,6 +6,12 @@ import { warmOperacoes } from './app.js';
 import { hydrateLocalReportsIntoCache } from './report-local-storage.js';
 
 export async function triggerTechDataSync() {
+  const { reconcileLocallyDeletedReports, purgeLocallyDeletedFromCache } = await import(
+    './report-deleted-local.js'
+  );
+  await reconcileLocallyDeletedReports();
+  await purgeLocallyDeletedFromCache();
+
   await warmOperacoes();
   await hydrateLocalReportsIntoCache();
 
