@@ -21,7 +21,9 @@ import { getInvoicedServicos, getServico } from '../servicos-db.js';
 import {
   confirmManualInvoicePayment,
   deleteManualInvoice,
+  ensureDeletedManualInvoicesLoadedSafe,
   ensureFaturasManuaisLoadedSafe,
+  getDeletedManualInvoicesSnapshot,
   getManualInvoice,
   getManualInvoicesSnapshot,
   registerManualInvoice,
@@ -750,6 +752,74 @@ function renderInvoicesSection(invoices = getFilteredInvoices()) {
   `;
 }
 
+function getFilteredDeletedManualInvoices() {
+  const entries = getDeletedManualInvoicesSnapshot();
+  if (!billingFilters.clientId) return entries;
+  return entries.filter((entry) => String(entry.clientId) === String(billingFilters.clientId));
+}
+
+function renderDeletedManualInvoicesSection(entries = getFilteredDeletedManualInvoices()) {
+  const count = entries.length;
+  const rowsHtml = count
+    ? `
+      <div class="faturacao-table-wrap rh-table-scroll">
+        <table class="rh-data-table rh-data-table--compact faturacao-table faturacao-table--compact faturacao-deleted-log-table">
+          <thead>
+            <tr>
+              <th scope="col">Eliminada em</th>
+              <th scope="col">Por</th>
+              <th scope="col">Cliente</th>
+              <th scope="col">Visita / Relatório</th>
+              <th scope="col">Fatura</th>
+              <th scope="col">Emissão</th>
+              <th scope="col">Valor</th>
+              <th scope="col">Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${entries
+              .map((entry) => {
+                const meta = resolveClientMeta(entry.clientId);
+                const estado =
+                  entry.statusRecebimento === 'pago'
+                    ? '<span class="badge badge--success">Recebido</span>'
+                    : '<span class="badge badge--warning">Por receber</span>';
+                return `
+                  <tr>
+                    <td>${escapeHtml(formatDate(entry.eliminadoEm))}</td>
+                    <td>${escapeHtml(entry.eliminadoPor || '—')}</td>
+                    <td>${escapeHtml(meta.nome)}</td>
+                    <td><span class="badge badge--muted">Manual</span> ${escapeHtml(entry.descricao || '—')}</td>
+                    <td>${escapeHtml(entry.numeroFatura || '—')}</td>
+                    <td>${escapeHtml(formatDate(entry.dataFatura))}</td>
+                    <td>${escapeHtml(formatCurrencyEurNullable(entry.valorFaturado))}</td>
+                    <td>${estado}</td>
+                  </tr>
+                `;
+              })
+              .join('')}
+          </tbody>
+        </table>
+      </div>
+    `
+    : '<p class="text-muted faturacao-empty">Nenhuma fatura manual eliminada registada.</p>';
+
+  return `
+    <section class="faturacao-deleted-log-section rh-section glass-card" aria-label="Registo de eliminações">
+      <details class="faturacao-deleted-log">
+        <summary class="faturacao-section-title ms-h2">
+          Registo de eliminações (faturas manuais)
+          <span class="badge-count">${count}</span>
+        </summary>
+        <p class="text-muted faturacao-deleted-log-lead">
+          Histórico imutável — quem eliminou e quando. Útil para detetar erros ou eliminações intencionais.
+        </p>
+        ${rowsHtml}
+      </details>
+    </section>
+  `;
+}
+
 function renderChartSection() {
   return `
     <section class="faturacao-chart-section rh-section glass-card" aria-label="Gráfico de fluxo de caixa">
@@ -941,6 +1011,7 @@ async function softRefreshFaturacaoPanel() {
   replaceMountedSection('.faturacao-kpis', renderKpis(metrics));
   replaceMountedSection('.faturacao-table-section--billing', renderBillingTable(billingRows));
   replaceMountedSection('.faturacao-invoices-section', renderInvoicesSection(invoices));
+  replaceMountedSection('.faturacao-deleted-log-section', renderDeletedManualInvoicesSection());
   bindTableActions();
   await updateChartData(metrics);
 }
@@ -952,6 +1023,7 @@ async function applyBillingFilters() {
   const metrics = computeFilteredMetrics(invoices);
   replaceMountedSection('.faturacao-kpis', renderKpis(metrics));
   replaceMountedSection('.faturacao-invoices-section', renderInvoicesSection(invoices));
+  replaceMountedSection('.faturacao-deleted-log-section', renderDeletedManualInvoicesSection());
   bindHistoryDetailActions();
   bindConfirmPaymentActions();
   await updateChartData(metrics);
@@ -1719,12 +1791,17 @@ function bindConfirmPaymentActions() {
       const meta = resolveClientMeta(invoice.clientId);
       const label = invoice.numeroFatura || invoice.descricao || 'esta fatura';
       const ok = window.confirm(
-        `Eliminar a fatura ${label} de ${meta.nome}?\n\nO registo manual será removido do controlo financeiro. A fatura legal emitida externamente mantém-se — apenas deixa de aparecer aqui.`,
+        `Eliminar a fatura ${label} de ${meta.nome}?\n\nO registo manual será removido do controlo financeiro. A eliminação fica registada no histórico (quem e quando). A fatura legal emitida externamente mantém-se — apenas deixa de aparecer aqui.`,
       );
       if (!ok) return;
       void deleteManualInvoice(invoiceId)
-        .then(() => {
-          showToast('Fatura manual eliminada.', 'success');
+        .then((result) => {
+          showToast(
+            result?.auditLogged === false
+              ? 'Fatura eliminada (auditoria indisponível — executar migração 023).'
+              : 'Fatura manual eliminada e registada no histórico.',
+            result?.auditLogged === false ? 'info' : 'success',
+          );
           refreshFaturacaoPanel({ soft: true }).catch(console.error);
         })
         .catch((err) => {
@@ -1861,6 +1938,7 @@ function renderPanel() {
       ${renderChartSection()}
       ${renderBillingTable(billingRows)}
       ${renderInvoicesSection(invoices)}
+      ${renderDeletedManualInvoicesSection()}
     </div>
   `;
 }
@@ -1878,6 +1956,7 @@ export async function refreshFaturacaoPanel(options = {}) {
       ensureReportsLoaded(true),
       ensureServicosLoadedSafe(true),
       ensureFaturasManuaisLoadedSafe(true),
+      ensureDeletedManualInvoicesLoadedSafe(true),
     ]);
   }
 

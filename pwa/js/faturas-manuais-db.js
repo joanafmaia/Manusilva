@@ -4,6 +4,7 @@
  */
 
 import { getAuthenticatedSupabaseClient } from './supabase-client.js';
+import { getSession } from './session.js';
 import {
   normalizeInvoiceAmountInput,
   resolveInvoiceBillingFields,
@@ -12,6 +13,9 @@ import {
 let faturasManuaisCache = null;
 let faturasManuaisLoadPromise = null;
 let faturasManuaisFullyLoaded = false;
+let deletedManualInvoicesCache = null;
+let deletedManualInvoicesLoadPromise = null;
+let deletedManualInvoicesFullyLoaded = false;
 
 function formatDateOnly(value) {
   if (!value) return '';
@@ -68,6 +72,50 @@ export function formatFaturasManuaisError(err) {
   }
 
   return msg || 'Erro ao aceder às faturas manuais.';
+}
+
+function formatFaturasManuaisAuditError(err) {
+  if (!err) return 'Erro ao registar eliminação.';
+  const msg = String(err.message || err.details || err.hint || '').trim();
+  const code = err.code || '';
+
+  if (
+    code === 'PGRST205' ||
+    /Could not find the table|relation.*faturas_manuais_eliminadas.*does not exist/i.test(msg)
+  ) {
+    return 'Tabela "faturas_manuais_eliminadas" não encontrada. Executa pwa/supabase/migrations/023_faturas_manuais_audit.sql no Supabase.';
+  }
+  if (code === '42501' || /permission denied|row-level security/i.test(msg)) {
+    return 'Sem permissão na tabela faturas_manuais_eliminadas (RLS).';
+  }
+
+  return msg || 'Erro ao registar eliminação.';
+}
+
+function resolveDeleteActor() {
+  const session = getSession();
+  return session?.name || session?.username || session?.email || 'RH';
+}
+
+/** Linha de auditoria → formato da app. */
+export function mapRowToDeletedManualInvoiceLog(row) {
+  if (!row) return null;
+  return {
+    id: String(row.id),
+    faturaId: String(row.fatura_id),
+    clientId: row.cliente_id != null ? String(row.cliente_id) : '',
+    numeroFatura: row.numero_fatura || '',
+    dataFatura: formatDateOnly(row.data_fatura),
+    valorFaturado:
+      row.valor_faturado != null && row.valor_faturado !== ''
+        ? Number(row.valor_faturado)
+        : null,
+    descricao: row.descricao || null,
+    statusRecebimento: row.status_recebimento || null,
+    eliminadoPor: row.eliminado_por || '—',
+    eliminadoEm: row.eliminado_em || null,
+    snapshot: row.snapshot || null,
+  };
 }
 
 export function getManualInvoicesSnapshot() {
@@ -134,6 +182,108 @@ export function invalidateFaturasManuaisCache() {
   faturasManuaisCache = null;
   faturasManuaisLoadPromise = null;
   faturasManuaisFullyLoaded = false;
+  deletedManualInvoicesCache = null;
+  deletedManualInvoicesLoadPromise = null;
+  deletedManualInvoicesFullyLoaded = false;
+}
+
+export function getDeletedManualInvoicesSnapshot() {
+  return deletedManualInvoicesCache ? [...deletedManualInvoicesCache] : [];
+}
+
+export async function ensureDeletedManualInvoicesLoaded(force = false) {
+  if (deletedManualInvoicesFullyLoaded && deletedManualInvoicesCache && !force) {
+    return deletedManualInvoicesCache;
+  }
+  if (!deletedManualInvoicesLoadPromise || force) {
+    deletedManualInvoicesLoadPromise = loadDeletedManualInvoicesFromSupabase().catch((err) => {
+      deletedManualInvoicesLoadPromise = null;
+      throw err;
+    });
+  }
+  return deletedManualInvoicesLoadPromise;
+}
+
+/** Não falha o painel se a migração 023 ainda não foi aplicada. */
+export async function ensureDeletedManualInvoicesLoadedSafe(force = false) {
+  try {
+    return await ensureDeletedManualInvoicesLoaded(force);
+  } catch (err) {
+    const msg = formatFaturasManuaisAuditError(err);
+    if (
+      /faturas_manuais_eliminadas.*não encontrada|Could not find the table|relation.*faturas_manuais_eliminadas/i.test(
+        msg,
+      )
+    ) {
+      console.warn(
+        '[ManuSilva] Tabela faturas_manuais_eliminadas ainda não existe — executar migração 023.',
+      );
+      deletedManualInvoicesCache = [];
+      deletedManualInvoicesFullyLoaded = true;
+      return [];
+    }
+    throw err;
+  }
+}
+
+async function loadDeletedManualInvoicesFromSupabase() {
+  const supabase = await getAuthenticatedSupabaseClient();
+  const { data, error } = await supabase
+    .from('faturas_manuais_eliminadas')
+    .select('*')
+    .order('eliminado_em', { ascending: false })
+    .limit(200);
+
+  if (error) {
+    console.error('[ManuSilva] Erro ao carregar eliminações de faturas manuais:', error);
+    throw new Error(formatFaturasManuaisAuditError(error));
+  }
+
+  deletedManualInvoicesCache = (data || []).map(mapRowToDeletedManualInvoiceLog).filter(Boolean);
+  deletedManualInvoicesFullyLoaded = true;
+  return deletedManualInvoicesCache;
+}
+
+function mergeDeletedManualInvoiceInCache(entry) {
+  if (!entry?.id) return;
+  if (!deletedManualInvoicesCache) deletedManualInvoicesCache = [];
+  const id = String(entry.id);
+  deletedManualInvoicesCache = deletedManualInvoicesCache.filter((item) => String(item.id) !== id);
+  deletedManualInvoicesCache.unshift(entry);
+}
+
+async function logManualInvoiceDeletion(supabase, invoice) {
+  const { data: inserted, error } = await supabase
+    .from('faturas_manuais_eliminadas')
+    .insert({
+      fatura_id: invoice.id,
+      cliente_id: Number(invoice.clientId),
+      numero_fatura: invoice.numeroFatura,
+      data_fatura: invoice.dataFatura || null,
+      valor_faturado: invoice.valorFaturado ?? null,
+      descricao: invoice.descricao ?? null,
+      status_recebimento: invoice.statusRecebimento ?? null,
+      snapshot: invoice,
+      eliminado_por: resolveDeleteActor(),
+    })
+    .select();
+
+  if (error) {
+    const msg = formatFaturasManuaisAuditError(error);
+    if (
+      /faturas_manuais_eliminadas.*não encontrada|Could not find the table|relation.*faturas_manuais_eliminadas/i.test(
+        msg,
+      )
+    ) {
+      console.warn('[ManuSilva] Eliminação sem auditoria — migração 023 pendente.');
+      return null;
+    }
+    console.error('[ManuSilva] logManualInvoiceDeletion:', error);
+    throw new Error(`Não foi possível registar a eliminação: ${msg}`);
+  }
+
+  const row = Array.isArray(inserted) ? inserted[0] : inserted;
+  return mapRowToDeletedManualInvoiceLog(row);
 }
 
 export function mergeManualInvoiceInCache(invoice) {
@@ -236,12 +386,17 @@ export function removeManualInvoiceFromCache(invoiceId) {
   faturasManuaisCache = faturasManuaisCache.filter((item) => String(item.id) !== id);
 }
 
-/** Elimina registo manual de fatura (só faturas_manuais — não afeta relatórios). */
+/**
+ * Elimina registo manual de fatura (só faturas_manuais — não afeta relatórios).
+ * Grava snapshot em faturas_manuais_eliminadas antes do DELETE (migração 023).
+ */
 export async function deleteManualInvoice(invoiceId) {
   const invoice = getManualInvoice(invoiceId);
   if (!invoice) throw new Error('Fatura não encontrada.');
 
   const supabase = await getAuthenticatedSupabaseClient();
+  const auditEntry = await logManualInvoiceDeletion(supabase, invoice);
+
   const { error } = await supabase.from('faturas_manuais').delete().eq('id', invoiceId);
 
   if (error) {
@@ -250,6 +405,7 @@ export async function deleteManualInvoice(invoiceId) {
   }
 
   removeManualInvoiceFromCache(invoiceId);
+  if (auditEntry) mergeDeletedManualInvoiceInCache(auditEntry);
   window.dispatchEvent(new CustomEvent('db-updated'));
-  return true;
+  return { auditLogged: Boolean(auditEntry) };
 }
