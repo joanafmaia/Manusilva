@@ -18,6 +18,8 @@ import {
   getReportsForServico,
 } from './servicos-panel-utils.js';
 import { renderWorkStateBadge, resolveCalendarEventState } from './calendar-event-state.js';
+import { getServicoVisitSubmitState } from './servicos-submit-workflow.js';
+import { openServicoVisitSubmit } from './tech-servico-signatures.js';
 
 function reportStatusLabel(report) {
   if (!report) return 'Sem relatório';
@@ -135,6 +137,8 @@ export async function openTechServicoDetail(servicoId) {
     : '<p class="text-muted">Ainda não há relatórios nesta visita. Adicione o primeiro abaixo.</p>';
 
   const canAdd = getAvailableServiceTypesForServico(servicoId, SERVICE_TYPES).length > 0;
+  const visitState = getServicoVisitSubmitState(servicoId);
+  const canConclude = visitState.canSubmit;
 
   const content = `
     <dl class="job-detail-grid" style="margin-bottom:1rem">
@@ -147,7 +151,8 @@ export async function openTechServicoDetail(servicoId) {
 
   const actions = `
     <button type="button" class="btn-ghost" id="tech-servico-close">Fechar</button>
-    ${canAdd ? '<button type="button" class="btn-primary" id="tech-servico-add">+ Adicionar relatório</button>' : ''}
+    ${canConclude ? '<button type="button" class="btn-primary" id="tech-servico-conclude">Concluir visita</button>' : ''}
+    ${canAdd ? '<button type="button" class="btn-secondary" id="tech-servico-add">+ Adicionar relatório</button>' : ''}
   `;
 
   const overlay = openModal(
@@ -157,6 +162,10 @@ export async function openTechServicoDetail(servicoId) {
   );
 
   overlay.querySelector('#tech-servico-close')?.addEventListener('click', closeModal);
+  overlay.querySelector('#tech-servico-conclude')?.addEventListener('click', () => {
+    closeModal();
+    void openServicoVisitSubmit(servicoId);
+  });
   overlay.querySelector('#tech-servico-add')?.addEventListener('click', () => {
     openAddReportPicker(servicoId, overlay);
   });

@@ -395,6 +395,8 @@ export async function openServicoReportForm(servicoId, options = {}) {
       options.editPending === true ||
       (options.editPending !== false && serverReport?.status === 'pending_review');
 
+    const servicoVisitMode = !viewOnly && !editPendingOpt;
+
     const draftKey =
       serverReport?.id || `svc:${servicoId}:${serviceType}`;
     const conflictChoice = await resolveReportOpenConflict(draftKey, serverReport, {
@@ -459,6 +461,7 @@ export async function openServicoReportForm(servicoId, options = {}) {
     overlay.innerHTML = buildFormHTML(job, client, tech, service, existingReport, {
       viewOnly,
       equipamentos,
+      servicoVisitMode,
     });
     document.body.appendChild(overlay);
     document.body.style.overflow = 'hidden';
@@ -466,7 +469,10 @@ export async function openServicoReportForm(servicoId, options = {}) {
     requestAnimationFrame(() => overlay.classList.add('show'));
     if (viewOnly) overlay.classList.add('form-overlay--readonly');
 
-    bindFormEvents(overlay, job, client, tech, service, existingReport, { viewOnly });
+    bindFormEvents(overlay, job, client, tech, service, existingReport, {
+      viewOnly,
+      servicoVisitMode,
+    });
     await bindFormFieldInteractions(overlay);
 
     if (!viewOnly && equipamentos.length) {
@@ -559,6 +565,7 @@ function refreshInterventionFotografiasPreview(overlay) {
 
 function buildFormHTML(job, client, tech, service, existingReport, options = {}) {
   const viewOnly = options.viewOnly === true;
+  const servicoVisitMode = options.servicoVisitMode === true;
   const saved = getFormValues(existingReport);
   const formContext = {
     tech,
@@ -655,15 +662,23 @@ function buildFormHTML(job, client, tech, service, existingReport, options = {})
         </div>
       </div>
     </section>
-    <section class="form-section form-section--final form-section-card">
+    ${
+      servicoVisitMode
+        ? `<section class="form-section form-section--final form-section-card">
+      <div class="servico-visit-signatures-hint" role="status">
+        <strong>Assinaturas no fim da visita</strong>
+        <p class="text-muted" style="margin:0.35rem 0 0">Guarde este relatório e use <strong>Concluir visita</strong> no ecrã da visita para assinar e enviar tudo ao RH.</p>
+      </div>
+    </section>`
+        : `<section class="form-section form-section--final form-section-card">
       <h3 class="section-title">Assinaturas Digitais <span class="text-muted section-title-hint">(opcional)</span></h3>
       <p class="text-muted foto-antes-depois-hint">Pode concluir o relatório com ou sem assinaturas do técnico e do cliente.</p>
       <div class="signatures-grid">
         ${createSignatureBlock('Assinatura do Técnico', 'technician')}
         ${createSignatureBlock('Assinatura do Cliente', 'client')}
       </div>
-    </section>
-  `;
+    </section>`
+    }`;
 
   const isDl50Form = service?.id === 'inspecao_dl50_2005';
   const isCarregadorForm = service?.id === 'reparacao_carregador';
@@ -758,6 +773,11 @@ function buildFormHTML(job, client, tech, service, existingReport, options = {})
           ${viewOnly ? `
           <div class="form-panel-footer-row">
             <button type="button" class="btn-primary btn-touch" id="btn-view-pdf-full">Ver PDF do relatório</button>
+          </div>` : servicoVisitMode ? `
+          <p class="form-footer-hint text-muted">Guarde o relatório em rascunho. No ecrã da visita, use <strong>Concluir visita</strong> para assinar e enviar ao RH.</p>
+          <div class="form-panel-footer-row">
+            <button type="button" class="btn-secondary btn-touch" id="btn-save-draft">Guardar e sair</button>
+            <button type="button" class="btn-primary btn-touch" id="btn-submit-report">Guardar relatório</button>
           </div>` : `
           <p class="form-footer-hint text-muted">Guardar e sair mantém o relatório <strong>em aberto</strong>. Concluir envia-o para aprovação do RH.</p>
           <div class="form-panel-footer-row">
@@ -820,7 +840,10 @@ function buildReportFromForm(overlay, job, existingReport, signaturePads, report
     submittedAt: existingReport?.submittedAt || new Date().toISOString(),
     data: {
       values,
-      signatures: resolveFormSignatures(existingReport),
+      signatures:
+        job.servicoId && !editingPending
+          ? existingReport?.data?.signatures || {}
+          : resolveFormSignatures(existingReport),
       ...(() => {
         const antes = fotoPersistPayload(fotoAntesState);
         const depois = fotoPersistPayload(fotoDepoisState);
@@ -1114,7 +1137,9 @@ function onReportTabActivated(tabId, overlay) {
       }
     }
   }
-  if (tabId === 'finalizacao') ensureSignaturePadsInitialized();
+  if (tabId === 'finalizacao' && overlay?.dataset?.servicoVisitMode !== '1') {
+    ensureSignaturePadsInitialized();
+  }
 }
 
 let existingReportRef = null;
@@ -1139,6 +1164,8 @@ function applyFormReadOnly(overlay) {
 
 function bindFormEvents(overlay, job, client, tech, service, existingReport, options = {}) {
   const viewOnly = options.viewOnly === true;
+  const servicoVisitMode = options.servicoVisitMode === true;
+  if (servicoVisitMode) overlay.dataset.servicoVisitMode = '1';
   const draftReportId = existingReport?.id || null;
   existingReportRef = existingReport;
   signaturesRestoredFromReport = false;
@@ -1290,12 +1317,14 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport, opt
   });
 
   if (!viewOnly) overlay.querySelector('#btn-submit-report')?.addEventListener('click', async () => {
-    ensureSignaturePadsInitialized();
-    if (padHasSignature(signaturePads?.technician)) {
-      commitSignatureSnapshot(signaturePads.technician);
-    }
-    if (padHasSignature(signaturePads?.client)) {
-      commitSignatureSnapshot(signaturePads.client);
+    if (!servicoVisitMode) {
+      ensureSignaturePadsInitialized();
+      if (padHasSignature(signaturePads?.technician)) {
+        commitSignatureSnapshot(signaturePads.technician);
+      }
+      if (padHasSignature(signaturePads?.client)) {
+        commitSignatureSnapshot(signaturePads.client);
+      }
     }
 
     await formAutosave?.flush?.();
@@ -1307,6 +1336,16 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport, opt
       let report = buildReportFromForm(overlay, job, existingReport, signaturePads, draftReportId);
       if (relatorioIdEmEdicao) report.id = relatorioIdEmEdicao;
       else if (existingReport?.id) report.id = existingReport.id;
+
+      if (servicoVisitMode) {
+        formAutosave?.destroy();
+        formAutosave = null;
+        await saveReportDraft(report);
+        showToast('Relatório guardado. Conclua a visita para assinar e enviar ao RH.', 'success', 5500);
+        closeForm(overlay);
+        window.dispatchEvent(new CustomEvent('db-updated'));
+        return;
+      }
 
       const warnings = collectSubmitWarnings({
         report,

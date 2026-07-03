@@ -109,7 +109,7 @@ export async function saveReportDraft(report, options = {}) {
  * @param {{ isCorrection?: boolean }} [options]
  */
 export async function submitReport(report, options = {}) {
-  const { isCorrection = false } = options;
+  const { isCorrection = false, skipDuplicateToast = false } = options;
   const {
     addTrabalhoPendente,
     sincronizarTrabalhosOffline,
@@ -128,7 +128,26 @@ export async function submitReport(report, options = {}) {
       : new Date().toISOString(),
   };
 
-  if (!isCorrection && final.jobId) {
+  if (!isCorrection && final.servicoId && final.serviceType) {
+    await ensureReportsLoaded();
+    const duplicatePending = getReportsSnapshot().find(
+      (r) =>
+        sameEntityId(r.servicoId, final.servicoId) &&
+        r.serviceType === final.serviceType &&
+        r.status === 'pending_review' &&
+        (!final.id || !sameEntityId(r.id, final.id)),
+    );
+    if (duplicatePending) {
+      if (!skipDuplicateToast) {
+        showToast(
+          'Este relatório já foi enviado para aprovação do RH.',
+          'warning',
+          7000,
+        );
+      }
+      return { queued: false };
+    }
+  } else if (!isCorrection && final.jobId) {
     await ensureReportsLoaded();
     const duplicatePending = getReportsSnapshot().find(
       (r) =>
@@ -137,11 +156,13 @@ export async function submitReport(report, options = {}) {
         (!final.id || !sameEntityId(r.id, final.id)),
     );
     if (duplicatePending) {
-      showToast(
-        'Este trabalho já tem um relatório à espera de aprovação do RH.',
-        'warning',
-        7000,
-      );
+      if (!skipDuplicateToast) {
+        showToast(
+          'Este trabalho já tem um relatório à espera de aprovação do RH.',
+          'warning',
+          7000,
+        );
+      }
       return { queued: false };
     }
   }
@@ -173,8 +194,17 @@ export async function submitReport(report, options = {}) {
     await sincronizarTrabalhosOffline({ notify: false });
 
     if (!(await hasTrabalhoPendente(pendingId))) {
-      await removeLocalReportDraft(final.jobId);
-      const syncedReport = getReportForJob(final.jobId) || final;
+      const { reportDraftStorageKey } = await import('./report-local-storage.js');
+      await removeLocalReportDraft(reportDraftStorageKey(final));
+      const syncedReport =
+        (final.servicoId && final.serviceType
+          ? getReportsSnapshot().find(
+              (r) =>
+                sameEntityId(r.servicoId, final.servicoId) && r.serviceType === final.serviceType,
+            )
+          : null) ||
+        getReportForJob(final.jobId) ||
+        final;
       const { upsertClienteEquipamentosFromReport } = await import('./cliente-equipamentos-db.js');
       void upsertClienteEquipamentosFromReport(syncedReport);
       window.dispatchEvent(new CustomEvent('db-updated'));
