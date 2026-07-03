@@ -73,6 +73,10 @@ import {
   buildRhOpsSummaryText,
 } from './rh-panel-utils.js';
 import { computeDashboardMetrics } from './views/dashboard-metrics.js';
+import {
+  bindRhNotificationPermissionOnGesture,
+  maybeNotifyRhPendingReport,
+} from './rh-notifications.js';
 import { LABEL_NUMERO_SERIE } from './field-labels.js';
 import {
   filterCalendarItemsByTech,
@@ -463,6 +467,7 @@ export async function initAdminDashboard() {
     bindAssignWork();
     bindOpsMobileToggle();
     bindHeaderShortcuts();
+    bindRhNotificationPermissionOnGesture();
     bindCalTodayBtn();
     updateAdminChrome();
     renderRhReviewStack().catch(console.error);
@@ -471,7 +476,6 @@ export async function initAdminDashboard() {
       updateAdminTabUI();
       syncReviewPanelHeight();
     });
-    showMorningSummary();
   } catch (err) {
     console.error('[Admin] Erro ao iniciar painel:', err);
     showToast('Erro ao carregar o calendário. Veja a consola (F12).', 'error');
@@ -710,12 +714,6 @@ async function approveAllWithValidEmail() {
   } else {
     showToast('Nenhum relatório foi aprovado.', 'warning');
   }
-}
-
-function showMorningSummary() {
-  const metrics = computeDashboardMetrics();
-  const text = buildRhOpsSummaryText(metrics);
-  showToast(`Resumo: ${text}`, 'info', 7000);
 }
 
 function updateOpsSummary() {
@@ -1599,6 +1597,7 @@ function showPendingReportNotification(report) {
   const job = report.jobId ? getJob(report.jobId) : null;
   const client = getClient(report.clientId);
   const ordem = formatOrdemOp2026(job?.numeroOrdem, client);
+  const clientName = client?.name || client?.Nome || '';
 
   showNotificationToast(
     'Novo Relatório Pendente!',
@@ -1610,6 +1609,12 @@ function showPendingReportNotification(report) {
       onClick: () => scrollToReportInPanel(report.id),
     },
   );
+
+  maybeNotifyRhPendingReport(report, {
+    techName: tech?.name,
+    ordem,
+    clientName,
+  });
 }
 
 async function handleNewPendingReport(report, opts = {}, beep) {
