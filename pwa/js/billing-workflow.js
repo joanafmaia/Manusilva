@@ -11,7 +11,12 @@ import {
 import { normalizeFaturaCondicao, normalizeStatusRecebimento } from './billing-constants.js';
 import { sameEntityId } from './entity-id.js';
 import { addDaysToIsoDate } from './date-utils.js';
-import { reportIsCommercialOrcamento } from './pedido-orcamento.js';
+import { getReportOrcamentoMeta } from './orcamento-linhas.js';
+import {
+  getReportOrcamentoPdfUrl,
+  getReportTechnicalPdfUrl,
+  reportIsCommercialOrcamento,
+} from './pedido-orcamento.js';
 import { isPendingOrcamentoBilling } from './orcamento-billing-workflow.js';
 import { getJob } from './entity-lookups.js';
 
@@ -41,6 +46,46 @@ function sharesNumeroOrdemWithCommercialOrcamento(report, allReports) {
 export function isServicoReportBillable(report) {
   if (!report || report.status !== 'approved') return false;
   return !reportIsCommercialOrcamento(report);
+}
+
+/**
+ * PDFs para o painel Faturação — intervenção técnica, não MS.015.
+ * Orçamento comercial só quando a proposta aceite está na fila de faturação.
+ */
+export function resolveBillingReportPdfEntries(report, getJobFn = getJob) {
+  if (!report) return [];
+
+  if (isPendingOrcamentoBilling(report)) {
+    const orcamentoUrl = getReportOrcamentoPdfUrl(report);
+    if (orcamentoUrl) {
+      const meta = getReportOrcamentoMeta(report);
+      const label = meta?.numeroFormatado
+        ? `Proposta nº ${meta.numeroFormatado}`
+        : 'Proposta comercial MS.015';
+      return [{ url: orcamentoUrl, label }];
+    }
+  }
+
+  const urls = Array.isArray(report?.data?.urlPdfs) ? report.data.urlPdfs.filter(Boolean) : [];
+  const names = Array.isArray(report?.data?.pdfFilenames) ? report.data.pdfFilenames : [];
+  if (urls.length) {
+    return urls.map((url, index) => ({
+      url: String(url).trim(),
+      label: names[index] || `Relatório ${index + 1}`,
+    }));
+  }
+
+  const technical = getReportTechnicalPdfUrl(report);
+  if (technical) {
+    return [{ url: technical, label: 'Relatório técnico' }];
+  }
+
+  const job = report.jobId ? getJobFn(report.jobId) : null;
+  if (job?.urlPdf && String(job.urlPdf).trim()) {
+    return [{ url: String(job.urlPdf).trim(), label: 'Relatório técnico' }];
+  }
+
+  return [];
 }
 
 /** Relatório aprovado ainda por faturar (controlo interno; exclui visitas e propostas comerciais). */

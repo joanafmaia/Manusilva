@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {
   normalizeInvoiceAmountInput,
   isPendingBilling,
+  resolveBillingReportPdfEntries,
 } from '../js/billing-workflow.js';
 import { STANDALONE_ORCAMENTO_ORIGEM, STANDALONE_ORCAMENTO_SERVICE_TYPE } from '../js/orcamento-standalone.js';
 import { ORCAMENTO_RESPOSTA } from '../js/orcamento-workflow.js';
@@ -130,5 +131,23 @@ describe('billing-workflow', () => {
     const tech = relatoriosDb.getReportsSnapshot().find((r) => r.id === 'r-tech-39');
     assert.equal(isPendingBilling(tech), false);
     assert.equal(getPendingBillingReports().some((r) => r.id === 'r-tech-39'), false);
+  });
+
+  it('resolveBillingReportPdfEntries — pedido de orçamento abre PDF técnico', () => {
+    const relatorio = {
+      id: 'r-epoli',
+      status: 'approved',
+      serviceType: 'folha_intervencao_avarias',
+      data: {
+        values: { pedido_orcamento: 'Sim' },
+        urlPdfOrcamento: 'https://example.com/ms015.pdf',
+        urlPdfs: ['https://example.com/intervencao.pdf'],
+        pdfFilenames: ['Folha_Avarias.pdf'],
+      },
+    };
+    const entries = resolveBillingReportPdfEntries(relatorio, () => null);
+    assert.equal(entries.length, 1);
+    assert.equal(entries[0].url, 'https://example.com/intervencao.pdf');
+    assert.match(entries[0].label, /folha_avarias/i);
   });
 });

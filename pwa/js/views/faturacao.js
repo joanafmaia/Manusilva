@@ -27,10 +27,13 @@ import {
   confirmServicoInvoicePayment,
   resolveBillingFocusTarget,
 } from '../servicos-billing-workflow.js';
+import {
+  isServicoReportBillable,
+  resolveBillingReportPdfEntries,
+} from '../billing-workflow.js';
+import { isPendingOrcamentoBilling } from '../orcamento-billing-workflow.js';
 import { renderClientCombobox, bindClientComboboxes } from '../client-combobox.js';
 import { formatOrdemLabel } from '../report-review-ui.js';
-import { getReportOrcamentoMeta } from '../orcamento-linhas.js';
-import { getReportOrcamentoPdfUrl } from '../pedido-orcamento.js';
 import { resolveOrcamentoBillingTotal } from '../orcamento-billing-workflow.js';
 import { PAYMENT_CONDITION_OPTIONS } from './client-profile-drawer.js';
 import {
@@ -179,8 +182,10 @@ export function isBillingUrgent(report, client) {
 
 export function estimateReportValue(report) {
   if (!report) return DEFAULT_ESTIMATE_EUR;
-  const orcamentoTotal = resolveOrcamentoBillingTotal(report);
-  if (orcamentoTotal > 0) return orcamentoTotal;
+  if (isPendingOrcamentoBilling(report)) {
+    const orcamentoTotal = resolveOrcamentoBillingTotal(report);
+    if (orcamentoTotal > 0) return orcamentoTotal;
+  }
   const fromData = Number(report.data?.values?.valor_total ?? report.data?.values?.valor);
   if (Number.isFinite(fromData) && fromData > 0) return fromData;
   return ESTIMATE_EUR_BY_SERVICE[report.serviceType] ?? DEFAULT_ESTIMATE_EUR;
@@ -319,31 +324,6 @@ function resolveClientMeta(clientId) {
   return { client, nome, nif, condicao };
 }
 
-function resolveBillingReportPdfEntries(report) {
-  if (!report) return [];
-  const orcamentoUrl = getReportOrcamentoPdfUrl(report);
-  if (orcamentoUrl) {
-    const meta = getReportOrcamentoMeta(report);
-    const label = meta?.numeroFormatado
-      ? `Proposta nº ${meta.numeroFormatado}`
-      : 'Proposta comercial MS.015';
-    return [{ url: orcamentoUrl, label }];
-  }
-  const job = report.jobId ? getJob(report.jobId) : null;
-  const urls = Array.isArray(report?.data?.urlPdfs) ? report.data.urlPdfs.filter(Boolean) : [];
-  const names = Array.isArray(report?.data?.pdfFilenames) ? report.data.pdfFilenames : [];
-  if (urls.length) {
-    return urls.map((url, index) => ({
-      url: String(url).trim(),
-      label: names[index] || `Relatório ${index + 1}`,
-    }));
-  }
-  if (job?.urlPdf && String(job.urlPdf).trim()) {
-    return [{ url: String(job.urlPdf).trim(), label: 'Relatório técnico' }];
-  }
-  return [];
-}
-
 function formatServicoOrdemLabel(servico, reports = []) {
   const ops = [
     ...new Set(
@@ -394,20 +374,23 @@ function buildBillingRowsFromItems(items) {
   return items.map((item) => {
     if (item.kind === 'servico') {
       const { servico, reports } = item;
+      const billableReports = reports.filter((r) => isServicoReportBillable(r));
+      const billingReports = billableReports.length ? billableReports : reports;
       const meta = resolveClientMeta(servico.clientId);
-      const latestApproval = servicoLatestApproval(reports);
-      const urgentReport = reports.find((r) => isBillingUrgent(r, meta.client)) || reports[0];
+      const latestApproval = servicoLatestApproval(billingReports);
+      const urgentReport =
+        billingReports.find((r) => isBillingUrgent(r, meta.client)) || billingReports[0];
       return {
         kind: 'servico',
         servico,
-        reports,
+        reports: billingReports,
         ...meta,
-        ordem: formatServicoOrdemLabel(servico, reports),
-        detail: formatServicoReportsLabel(reports),
+        ordem: formatServicoOrdemLabel(servico, billingReports),
+        detail: formatServicoReportsLabel(billingReports),
         approvedLabel: formatHistoryDate(latestApproval),
         urgent: urgentReport ? isBillingUrgent(urgentReport, meta.client) : false,
-        estimate: estimateServicoValue(reports),
-        primaryReportId: reports[0]?.id || '',
+        estimate: estimateServicoValue(billingReports),
+        primaryReportId: billingReports[0]?.id || '',
       };
     }
 
@@ -965,7 +948,7 @@ function bindFilterEvents() {
 
 function openRegisterInvoiceModal(reportId) {
   const report = getReport(reportId);
-  const isOrcamento = report && Boolean(getReportOrcamentoPdfUrl(report));
+  const isOrcamento = report && isPendingOrcamentoBilling(report);
   openRegisterInvoiceModalCore({
     title: 'Registar Fatura',
     defaultValor: estimateReportValue(report),
