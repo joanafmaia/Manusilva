@@ -15,7 +15,60 @@ export function resolveServicoIdForReport(report) {
   if (direct) return direct;
   const jobId = report.jobId ? String(report.jobId) : '';
   if (jobId && getServico(jobId)) return jobId;
+  if (jobId) {
+    const job = getJob(jobId);
+    const viaJob = job?.servicoId ? String(job.servicoId) : '';
+    if (viaJob && getServico(viaJob)) return viaJob;
+  }
   return '';
+}
+
+/** Relatório pertence a esta visita (servico_id, job legado ou trabalho.servico_id). */
+export function reportBelongsToServico(report, servicoId) {
+  if (!report || servicoId == null || servicoId === '') return false;
+  const key = String(servicoId);
+  if (sameEntityId(report.servicoId, key)) return true;
+  if (sameEntityId(report.jobId, key)) return true;
+  if (report.jobId) {
+    const job = getJob(report.jobId);
+    if (job?.servicoId && sameEntityId(job.servicoId, key)) return true;
+  }
+  return false;
+}
+
+/** Remove rascunhos obsoletos quando já existe relatório aprovado (mesma OP ou mesmo tipo). */
+export function dropSupersededServicoDrafts(reports = []) {
+  const list = Array.isArray(reports) ? reports : [];
+  return list.filter((draft) => {
+    if (draft?.status !== 'draft') return true;
+    const ordem = getReportNumeroOrdem(draft);
+    if (ordem != null) {
+      return !list.some(
+        (other) =>
+          other.id !== draft.id &&
+          other.status === 'approved' &&
+          getReportNumeroOrdem(other) === ordem,
+      );
+    }
+    if (draft.jobId) {
+      return !list.some(
+        (other) =>
+          other.id !== draft.id &&
+          other.status === 'approved' &&
+          sameEntityId(other.jobId, draft.jobId),
+      );
+    }
+    return !list.some(
+      (other) =>
+        other.id !== draft.id &&
+        other.status === 'approved' &&
+        other.serviceType === draft.serviceType,
+    );
+  });
+}
+
+function normalizeServicoVisitReports(raw) {
+  return dropSupersededServicoDrafts(dedupeReportsByNumeroOrdem(raw));
 }
 
 /** Relatórios ligados a um serviço (servico_id ou trabalho legado com o mesmo id). */
@@ -25,14 +78,14 @@ export function getReportsForServico(servicoId) {
   const seen = new Set();
   const raw = filterOutLocallyDeletedReports(
     getReportsSnapshot().filter((r) => {
-      if (!sameEntityId(r.servicoId, key) && !sameEntityId(r.jobId, key)) return false;
+      if (!reportBelongsToServico(r, key)) return false;
       const id = String(r.id);
       if (seen.has(id)) return false;
       seen.add(id);
       return true;
     }),
   );
-  return dedupeReportsByNumeroOrdem(raw);
+  return normalizeServicoVisitReports(raw);
 }
 
 /** Rascunho que o técnico marcou como concluído (aguarda «Concluir visita»). */
@@ -81,6 +134,9 @@ export function servicoToCalendarItem(servico) {
 }
 
 function mapServicoStatusForCalendar(servico) {
+  if (servico.faturacaoStatus === 'faturado' || servico.faturacaoStatus === 'dispensado') {
+    return 'completed';
+  }
   const reports = getReportsForServico(servico.id);
   if (reports.some((r) => r.status === 'rejected')) return 'rejected';
   if (reports.some((r) => r.status === 'pending_review')) return 'scheduled';

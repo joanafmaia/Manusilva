@@ -266,6 +266,59 @@ describe('servicos-panel-utils', () => {
     assert.equal(getCalendarItemSubtitle(item), '2 relatórios');
   });
 
+  it('getReportsForServico — inclui relatório aprovado ligado só via trabalho.servico_id', async () => {
+    const servicosDb = await import('../js/servicos-db.js');
+    const trabalhosDb = await import('../js/trabalhos-db.js');
+    const relatoriosDb = await import('../js/relatorios-db.js');
+    relatoriosDb.invalidateReportsCache();
+    servicosDb.mergeServicoInCache({
+      id: 'svc-op43',
+      clientId: '10',
+      date: '2026-06-29',
+      technicianIds: 'Hugo',
+      status: 'scheduled',
+      faturacaoStatus: 'faturado',
+    });
+    trabalhosDb.mergeJobFromRealtime({
+      id: 'job-via-servico',
+      cliente_id: 10,
+      data: '2026-06-29',
+      tecnico_id: 'Hugo',
+      tipo_servico: 'manutencao_preventiva_empilhadores',
+      estado: 'completed',
+      numero_ordem: 43,
+      servico_id: 'svc-op43',
+    });
+    relatoriosDb.mergeReportInCache({
+      id: 'r-approved-via-job',
+      servicoId: '',
+      jobId: 'job-via-servico',
+      serviceType: 'manutencao_preventiva_empilhadores',
+      status: 'approved',
+      clientId: '10',
+      technicianId: 'Hugo',
+      data: { values: { numero_ordem: '43' } },
+    });
+    relatoriosDb.mergeReportInCache({
+      id: 'r-stale-draft-servico',
+      servicoId: 'svc-op43',
+      jobId: '',
+      serviceType: 'manutencao_preventiva_empilhadores',
+      status: 'draft',
+      clientId: '10',
+      technicianId: 'Hugo',
+      data: { values: { numero_ordem: '43' } },
+    });
+    const { getReportsForServico, getPrimaryReportForServico, servicoToCalendarItem } =
+      await import('../js/servicos-panel-utils.js');
+    const reports = getReportsForServico('svc-op43');
+    assert.equal(reports.length, 1);
+    assert.equal(reports[0].id, 'r-approved-via-job');
+    assert.equal(getPrimaryReportForServico('svc-op43')?.status, 'approved');
+    const item = servicoToCalendarItem(servicosDb.getServico('svc-op43'));
+    assert.equal(item.status, 'completed');
+  });
+
   it('getReportsForServico — por servico_id', async () => {
     const { getReportsForServico } = await import('../js/servicos-panel-utils.js');
     const reports = getReportsForServico('svc-1');

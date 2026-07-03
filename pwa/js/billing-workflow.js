@@ -12,6 +12,7 @@ import { normalizeFaturaCondicao, normalizeStatusRecebimento } from './billing-c
 import { sameEntityId } from './entity-id.js';
 import { addDaysToIsoDate } from './date-utils.js';
 import { reportIsRhOrcamento } from './pedido-orcamento.js';
+import { reportIsStandaloneOrcamento } from './orcamento-standalone.js';
 import { isPendingOrcamentoBilling } from './orcamento-billing-workflow.js';
 
 function findReport(reportId) {
@@ -23,6 +24,8 @@ export function isPendingBilling(report) {
   if (!report || report.status !== 'approved') return false;
   if (report.servicoId) return false;
   if (reportIsRhOrcamento(report)) return false;
+  if (reportIsStandaloneOrcamento(report)) return false;
+  if (isPendingOrcamentoBilling(report)) return false;
   const fs = report.faturacaoStatus;
   if (fs === 'via_servico' || fs === 'dispensado' || fs === 'faturado') return false;
   if (fs === 'aguarda_aceite_orcamento') return false;
