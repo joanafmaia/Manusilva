@@ -299,3 +299,34 @@ export async function confirmInvoicePayment(reportId, { dataRecebimento } = {}) 
   window.dispatchEvent(new CustomEvent('db-updated'));
   return true;
 }
+
+/**
+ * Reverte fatura de relatório para «por faturar» (ex.: valor errado).
+ * Só permitido enquanto o recebimento não foi confirmado.
+ */
+export async function revertReportInvoice(reportId) {
+  const report = findReport(reportId);
+  if (!report) throw new Error('Relatório não encontrado.');
+  if (report.servicoId) {
+    throw new Error('Esta fatura pertence a uma visita — corrija pela linha da visita.');
+  }
+  if (report.faturacaoStatus !== 'faturado') {
+    throw new Error('Este relatório ainda não foi faturado.');
+  }
+  if (report.statusRecebimento === 'pago') {
+    throw new Error('Não é possível reverter — o recebimento já foi confirmado.');
+  }
+
+  await updateRelatorio(reportId, {
+    faturacaoStatus: 'pendente',
+    numeroFatura: null,
+    dataFatura: null,
+    valorFaturado: null,
+    faturaCondicaoPagamento: null,
+    statusRecebimento: null,
+    dataVencimento: null,
+    dataRecebimento: null,
+  });
+  window.dispatchEvent(new CustomEvent('db-updated'));
+  return true;
+}

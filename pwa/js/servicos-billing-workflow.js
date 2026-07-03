@@ -138,6 +138,51 @@ export async function registerServicoInvoice(
   return true;
 }
 
+/**
+ * Reverte fatura de visita para «por faturar» (ex.: valor errado).
+ * Só permitido enquanto o recebimento não foi confirmado.
+ */
+export async function revertServicoInvoice(servicoId) {
+  const servico = getServico(servicoId);
+  if (!servico) throw new Error('Visita não encontrada.');
+  if (servico.faturacaoStatus !== 'faturado') {
+    throw new Error('Esta visita ainda não foi faturada.');
+  }
+  if (servico.statusRecebimento === 'pago') {
+    throw new Error('Não é possível reverter — o recebimento já foi confirmado.');
+  }
+
+  await updateServico(servicoId, {
+    faturacao_status: 'pendente',
+    numero_fatura: null,
+    data_fatura: null,
+    valor_faturado: null,
+    condicao_pagamento: null,
+    status_recebimento: null,
+    data_vencimento: null,
+    data_recebimento: null,
+  });
+
+  const reports = getServicoActiveReports(servicoId).filter((r) => r.status === 'approved');
+  await Promise.all(
+    reports.map((r) =>
+      updateRelatorio(r.id, {
+        faturacaoStatus: 'pendente',
+        numeroFatura: null,
+        dataFatura: null,
+        valorFaturado: null,
+        faturaCondicaoPagamento: null,
+        statusRecebimento: null,
+        dataVencimento: null,
+        dataRecebimento: null,
+      }),
+    ),
+  );
+
+  window.dispatchEvent(new CustomEvent('db-updated'));
+  return true;
+}
+
 /** Retira visita aprovada da fila «por faturar». */
 export async function dismissPendingBillingServico(servicoId) {
   const servico = getServico(servicoId);

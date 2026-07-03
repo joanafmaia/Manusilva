@@ -33,12 +33,14 @@ import {
   registerServicoInvoice,
   dismissPendingBillingServico,
   confirmServicoInvoicePayment,
+  revertServicoInvoice,
   resolveBillingFocusTarget,
 } from '../servicos-billing-workflow.js';
 import {
   isServicoReportBillable,
   resolveBillingReportPdfEntries,
   resolvePrimaryBillingReportId,
+  revertReportInvoice,
 } from '../billing-workflow.js';
 import { isPendingOrcamentoBilling } from '../orcamento-billing-workflow.js';
 import { renderClientCombobox, bindClientComboboxes } from '../client-combobox.js';
@@ -670,7 +672,14 @@ function renderInvoiceRow(row, acumulado, showAcum) {
               </div>`
             : pago
               ? '<span class="text-muted">—</span>'
-              : `<button type="button" class="btn-success btn-sm faturacao-btn-compact" ${paymentAttr} title="Confirmar recebimento">Recebido</button>`
+              : `<div class="faturacao-billing-actions">
+                  <button type="button" class="btn-success btn-sm faturacao-btn-compact" ${paymentAttr} title="Confirmar recebimento">Recebido</button>
+                  ${
+                    kind === 'servico'
+                      ? `<button type="button" class="btn-secondary btn-sm faturacao-btn-compact" data-revert-invoice-servico="${escapeHtml(detailId)}" title="Voltar à lista por faturar para corrigir">Corrigir</button>`
+                      : `<button type="button" class="btn-secondary btn-sm faturacao-btn-compact" data-revert-invoice-report="${escapeHtml(detailId)}" title="Voltar à lista por faturar para corrigir">Corrigir</button>`
+                  }
+                </div>`
         }
       </td>
     </tr>
@@ -1395,9 +1404,17 @@ function openInvoiceHistoryDetailModal(reportId) {
     </dl>
   `;
 
-  const actions = `<button type="button" class="btn-secondary" data-modal-cancel>Fechar</button>`;
+  const canRevert = !pago && !report.servicoId;
+  const actions = `
+    ${canRevert ? `<button type="button" class="btn-warning btn-sm" data-revert-invoice-report-modal="${escapeHtml(reportId)}">Voltar a por faturar</button>` : ''}
+    <button type="button" class="btn-secondary" data-modal-cancel>Fechar</button>
+  `;
   openModal('Detalhe da fatura', content, actions);
   document.querySelector('[data-modal-cancel]')?.addEventListener('click', closeModal);
+  document.querySelector('[data-revert-invoice-report-modal]')?.addEventListener('click', () => {
+    closeModal();
+    runRevertReportInvoice(reportId);
+  });
 }
 
 function openServicoInvoiceHistoryDetailModal(servicoId) {
@@ -1439,9 +1456,16 @@ function openServicoInvoiceHistoryDetailModal(servicoId) {
     </dl>
   `;
 
-  const actions = `<button type="button" class="btn-secondary" data-modal-cancel>Fechar</button>`;
+  const actions = `
+    ${pago ? '' : `<button type="button" class="btn-warning btn-sm" data-revert-invoice-servico-modal="${escapeHtml(servicoId)}">Voltar a por faturar</button>`}
+    <button type="button" class="btn-secondary" data-modal-cancel>Fechar</button>
+  `;
   openModal('Detalhe da fatura (visita)', content, actions);
   document.querySelector('[data-modal-cancel]')?.addEventListener('click', closeModal);
+  document.querySelector('[data-revert-invoice-servico-modal]')?.addEventListener('click', () => {
+    closeModal();
+    runRevertServicoInvoice(servicoId);
+  });
 }
 
 function openManualInvoiceHistoryDetailModal(invoiceId) {
@@ -1645,6 +1669,52 @@ function openConfirmManualPaymentModal(invoiceId) {
   });
 }
 
+function runRevertServicoInvoice(servicoId) {
+  const servico = getServico(servicoId);
+  if (!servico) {
+    showToast('Visita não encontrada.', 'error');
+    return;
+  }
+  const meta = resolveClientMeta(servico.clientId);
+  const reports = getApprovedReportsForServico(servicoId);
+  const visita = formatServicoOrdemLabel(servico, reports);
+  const ok = window.confirm(
+    `Voltar a visita ${visita} (${meta.nome}) à lista por faturar?\n\nA fatura ${servico.numeroFatura || ''} deixa de constar como emitida — poderá registar de novo com o valor correcto.`,
+  );
+  if (!ok) return;
+  void revertServicoInvoice(servicoId)
+    .then(() => {
+      showToast('Visita devolvida à lista por faturar.', 'success');
+      refreshFaturacaoPanel({ soft: true }).catch(console.error);
+    })
+    .catch((err) => {
+      console.error('[Faturação] Reverter fatura visita:', err);
+      showToast(err?.message || 'Erro ao reverter a fatura.', 'error');
+    });
+}
+
+function runRevertReportInvoice(reportId) {
+  const report = getReport(reportId);
+  if (!report) {
+    showToast('Fatura não encontrada.', 'error');
+    return;
+  }
+  const meta = resolveClientMeta(report.clientId);
+  const ok = window.confirm(
+    `Voltar este relatório (${meta.nome}) à lista por faturar?\n\nA fatura ${report.numeroFatura || ''} deixa de constar como emitida — poderá registar de novo com o valor correcto.`,
+  );
+  if (!ok) return;
+  void revertReportInvoice(reportId)
+    .then(() => {
+      showToast('Relatório devolvido à lista por faturar.', 'success');
+      refreshFaturacaoPanel({ soft: true }).catch(console.error);
+    })
+    .catch((err) => {
+      console.error('[Faturação] Reverter fatura relatório:', err);
+      showToast(err?.message || 'Erro ao reverter a fatura.', 'error');
+    });
+}
+
 function bindHistoryDetailActions() {
   mountRoot?.querySelectorAll('[data-history-detail]').forEach((btn) => {
     if (btn.dataset.boundHistory === '1') return;
@@ -1731,6 +1801,24 @@ function bindConfirmPaymentActions() {
           console.error('[Faturação] Eliminar fatura manual:', err);
           showToast(err?.message || 'Erro ao eliminar a fatura.', 'error');
         });
+    });
+  });
+
+  mountRoot?.querySelectorAll('[data-revert-invoice-servico]').forEach((btn) => {
+    if (btn.dataset.boundRevertServico === '1') return;
+    btn.dataset.boundRevertServico = '1';
+    btn.addEventListener('click', () => {
+      const servicoId = btn.getAttribute('data-revert-invoice-servico');
+      if (servicoId) runRevertServicoInvoice(servicoId);
+    });
+  });
+
+  mountRoot?.querySelectorAll('[data-revert-invoice-report]').forEach((btn) => {
+    if (btn.dataset.boundRevertReport === '1') return;
+    btn.dataset.boundRevertReport = '1';
+    btn.addEventListener('click', () => {
+      const reportId = btn.getAttribute('data-revert-invoice-report');
+      if (reportId) runRevertReportInvoice(reportId);
     });
   });
 }
