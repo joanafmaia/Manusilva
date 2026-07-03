@@ -242,18 +242,19 @@ export function buildRhReviewListItem({ job, report, client, tech }) {
  * Pasta de visita no painel RH — vários relatórios do mesmo serviço.
  */
 export function buildRhVisitaFolder({ servicoId, reports, getJobFn = getJob }) {
-  const { title, dateLabel, state } = getServicoReviewMeta(servicoId);
+  const { title, dateLabel, state, servico } = getServicoReviewMeta(servicoId);
   const statusParts = [];
   if (state.pending) statusParts.push(`${state.pending} pendente${state.pending === 1 ? '' : 's'}`);
   if (state.approved) statusParts.push(`${state.approved} aprovado${state.approved === 1 ? '' : 's'}`);
   if (state.rejected) statusParts.push(`${state.rejected} rejeitado${state.rejected === 1 ? '' : 's'}`);
   if (state.draft) statusParts.push(`${state.draft} rascunho${state.draft === 1 ? '' : 's'}`);
 
-  const emailHint =
-    state.total > 1 && !state.allApproved
+  const emailHint = servico?.clientEmailSentAt
+    ? `<span class="rh-visita-folder__email-hint text-muted">E-mail enviado ao cliente</span>`
+    : state.total > 1 && !state.allApproved
       ? `<span class="rh-visita-folder__email-hint text-muted">E-mail único quando todos estiverem aprovados</span>`
       : state.allApproved
-        ? `<span class="rh-visita-folder__email-hint text-muted">Visita concluída — todos aprovados</span>`
+        ? `<span class="rh-visita-folder__email-hint text-muted">Pronto para enviar e-mail ao cliente</span>`
         : '';
 
   const reviewBtn = state.hasPending

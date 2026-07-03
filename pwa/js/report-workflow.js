@@ -38,6 +38,7 @@ import {
 } from './relatorios-db.js';
 import { reportHasPedidoOrcamento, reportOrcamentoPorPreparar } from './pedido-orcamento.js';
 import { deleteStandaloneOrcamentoReport, reportIsStandaloneOrcamento } from './orcamento-standalone.js';
+import { getServicoActiveReports, shouldDeferServicoVisitEmail } from './servicos-email-workflow.js';
 
 /**
  * @param {object} report
@@ -335,12 +336,55 @@ export async function approveReport(reportId, options = {}) {
     const recipientEmail =
       clientEmailInput || client?.email || client?.['E-mail'] || '';
 
+    const servicoId = report.servicoId ? String(report.servicoId) : '';
+    const deferVisitEmail = servicoId && shouldDeferServicoVisitEmail(report);
+
     if (emailSynced) {
       showToast(
         'Relatório aprovado e email do cliente atualizado na base de dados!',
         'success',
         6000,
       );
+    } else if (testClient) {
+      showToast('Relatório aprovado (cliente teste — sem e-mail ao cliente).', 'success', 6000);
+    } else if (servicoId && deferVisitEmail) {
+      const {
+        isServicoVisitFullyApproved,
+        wasServicoVisitEmailSent,
+        sendServicoVisitClientEmail,
+      } = await import('./servicos-email-workflow.js');
+
+      if (isServicoVisitFullyApproved(servicoId) && !wasServicoVisitEmailSent(servicoId)) {
+        if (!recipientEmail) {
+          showToast(
+            'Todos os relatórios da visita aprovados, mas o cliente não tem e-mail registado.',
+            'warning',
+            8000,
+          );
+        } else {
+          showToast(
+            `Visita concluída — a enviar ${getServicoActiveReports(servicoId).length} relatório(s) num único e-mail para ${recipientEmail}...`,
+            'success',
+            7000,
+          );
+          sendServicoVisitClientEmail(servicoId, { clientEmail: recipientEmail }).catch((err) => {
+            console.error('[Email] Envio visita:', err);
+            showToast(
+              `Relatórios aprovados, mas o e-mail da visita falhou. ${err?.message || ''}`.trim(),
+              'warning',
+              9000,
+            );
+          });
+        }
+      } else if (!isServicoVisitFullyApproved(servicoId)) {
+        showToast(
+          'Relatório aprovado. O e-mail ao cliente será enviado quando todos os relatórios da visita estiverem aprovados.',
+          'success',
+          7000,
+        );
+      } else {
+        showToast('Relatório aprovado.', 'success', 5000);
+      }
     } else if (recipientEmail && !skipClientEmail) {
       const pdfCount = pdfEntries.length;
       showToast(
@@ -350,11 +394,7 @@ export async function approveReport(reportId, options = {}) {
         'success',
         7000,
       );
-    } else if (!emailSynced) {
-      showToast('Relatório aprovado, mas o cliente não tem e-mail registado.', 'warning');
-    }
 
-    if (recipientEmail && !skipClientEmail) {
       sendOfficialReportEmail({
         ...buildReportEmailMeta(report, {
           client,
@@ -371,6 +411,8 @@ export async function approveReport(reportId, options = {}) {
           8000,
         );
       });
+    } else if (!emailSynced) {
+      showToast('Relatório aprovado, mas o cliente não tem e-mail registado.', 'warning');
     }
 
     const approvedReport = getReport(reportId) || reportForPdf;

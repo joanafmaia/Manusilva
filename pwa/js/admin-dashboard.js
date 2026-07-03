@@ -1124,7 +1124,7 @@ async function approveSelectedRhReports(panel) {
   if (!ids.length) return;
 
   const confirmed = window.confirm(
-    `Aprovar ${ids.length} relatório(s) selecionado(s)?\n\nCada relatório aprovado envia o respetivo e-mail ao cliente (quando aplicável).`,
+    `Aprovar ${ids.length} relatório(s) selecionado(s)?\n\nVisitas com vários relatórios enviam um único e-mail ao cliente quando todos estiverem aprovados.`,
   );
   if (!confirmed) return;
 
