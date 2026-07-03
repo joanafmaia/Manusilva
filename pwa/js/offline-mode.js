@@ -32,7 +32,7 @@ export function setOfflineMode(value) {
       .then((m) => m.sincronizarTrabalhosOffline())
       .catch(console.error);
     import('./report-draft-sync.js')
-      .then((m) => m.syncLocalReportDraftsToServer({ notify: true }))
+      .then((m) => m.syncLocalReportDraftsToServer({ notify: false }))
       .catch(console.error);
     syncOfflineQueue().catch(console.error);
   }

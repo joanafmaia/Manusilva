@@ -116,7 +116,7 @@ export async function saveReportDraft(report, options = {}) {
  * @param {{ isCorrection?: boolean }} [options]
  */
 export async function submitReport(report, options = {}) {
-  const { isCorrection = false, skipDuplicateToast = false } = options;
+  const { isCorrection = false, skipDuplicateToast = false, silent = false } = options;
   const {
     addTrabalhoPendente,
     sincronizarTrabalhosOffline,
@@ -208,12 +208,14 @@ export async function submitReport(report, options = {}) {
       const { upsertClienteEquipamentosFromReport } = await import('./cliente-equipamentos-db.js');
       void upsertClienteEquipamentosFromReport(syncedReport);
       window.dispatchEvent(new CustomEvent('db-updated'));
-      showToast(
-        isCorrection
-          ? 'Relatório concluído e reenviado para aprovação do RH.'
-          : 'Relatório concluído e enviado para aprovação do RH.',
-        'success',
-      );
+      if (!silent) {
+        showToast(
+          isCorrection
+            ? 'Relatório concluído e reenviado para aprovação do RH.'
+            : 'Relatório concluído e enviado para aprovação do RH.',
+          'success',
+        );
+      }
       return { queued: false, updated: isCorrection };
     }
 

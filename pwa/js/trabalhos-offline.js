@@ -334,16 +334,16 @@ export function initTrabalhosOfflineSync() {
     window.__trabalhosOfflineToastInit = true;
     window.addEventListener('trabalhos-offline-synced', async (e) => {
       const n = e.detail?.synced || 0;
-      if (n > 0) {
-        const { showToast } = await import('./app.js');
-        showToast(
-          n === 1
-            ? '1 relatório sincronizado com a base de dados.'
-            : `${n} relatórios sincronizados com a base de dados.`,
-          'success',
-          5000,
-        );
-      }
+      if (n <= 0) return;
+      if (document.body?.classList.contains('tech-dashboard-page')) return;
+      const { showToast } = await import('./app.js');
+      showToast(
+        n === 1
+          ? '1 relatório sincronizado com a base de dados.'
+          : `${n} relatórios sincronizados com a base de dados.`,
+        'success',
+        5000,
+      );
     });
   }
 
@@ -352,7 +352,7 @@ export function initTrabalhosOfflineSync() {
       console.error('[ManuSilva] Sincronização ao recuperar rede:', err);
     });
     import('./report-draft-sync.js')
-      .then((m) => m.syncLocalReportDraftsToServer({ notify: true }))
+      .then((m) => m.syncLocalReportDraftsToServer({ notify: false }))
       .catch((err) => {
         console.error('[ManuSilva] Sync rascunhos ao recuperar rede:', err);
       });

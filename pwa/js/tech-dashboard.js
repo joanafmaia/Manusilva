@@ -666,18 +666,12 @@ async function runTechDataSync() {
   try {
     const { synced, remaining } = await triggerTechDataSync();
     if (synced > 0) {
-      showToast(
-        synced === 1 ? '1 relatório enviado com sucesso.' : `${synced} relatórios enviados com sucesso.`,
-        'success',
-        5000,
-      );
       periodJobsCacheKey = null;
       techTabDataCacheKey = null;
       await refreshTechCalendar();
     } else if (remaining > 0) {
       showToast('Não foi possível enviar agora. Tente novamente dentro de momentos.', 'warning', 6000);
     } else {
-      showToast('Dados atualizados.', 'success', 3500);
       periodJobsCacheKey = null;
       techTabDataCacheKey = null;
       await refreshTechCalendar();

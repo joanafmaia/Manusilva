@@ -1306,9 +1306,6 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport, opt
           clearDepois: fotoDepoisState.cleared,
         });
         await saveReportDraft(report, { silent: servicoVisitMode });
-        if (servicoVisitMode) {
-          showToast('Rascunho guardado neste dispositivo.', 'info', 4500);
-        }
         formAutosave?.destroy();
         formAutosave = null;
         closeForm(overlay);
@@ -1326,9 +1323,6 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport, opt
         await ensureFotoUrlsOnTrabalho(job.id, report.data.fotoAntesUrl, report.data.fotoDepoisUrl);
       }
       await saveReportDraft(report, { silent: servicoVisitMode });
-      if (servicoVisitMode) {
-        showToast('Rascunho guardado. Pode continuar mais tarde.', 'success', 5000);
-      }
       formAutosave?.destroy();
       formAutosave = null;
       closeForm(overlay);
@@ -1420,11 +1414,6 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport, opt
           await saveReportDraft(report, { silent: true });
           formAutosave?.destroy();
           formAutosave = null;
-          showToast(
-            'Relatório concluído neste dispositivo. Conclua a visita para assinar e enviar ao RH.',
-            'success',
-            6000,
-          );
           closeForm(overlay);
           window.dispatchEvent(new CustomEvent('db-updated'));
           return;
@@ -1437,11 +1426,6 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport, opt
         formAutosave?.destroy();
         formAutosave = null;
         await saveReportDraft(report, { silent: true });
-        showToast(
-          'Relatório concluído. Use «Concluir visita» para assinar e enviar ao RH.',
-          'success',
-          6000,
-        );
         closeForm(overlay);
         window.dispatchEvent(new CustomEvent('db-updated'));
         return;

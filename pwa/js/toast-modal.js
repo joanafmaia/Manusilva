@@ -7,7 +7,28 @@ import { escapeHtml } from './html-utils.js';
 let toastContainer = null;
 let adminToastContainer = null;
 
-export function showToast(message, type = 'info', duration = 4000) {
+function isTechTabletPage() {
+  return (
+    typeof document !== 'undefined' &&
+    document.body.classList.contains('tech-dashboard-page')
+  );
+}
+
+/**
+ * @param {string} message
+ * @param {'success'|'error'|'warning'|'info'} [type]
+ * @param {number} [duration]
+ * @param {{ force?: boolean }} [options] — force: mostrar mesmo no tablet (raro)
+ */
+export function showToast(message, type = 'info', duration = 4000, options = {}) {
+  if (
+    !options.force &&
+    isTechTabletPage() &&
+    (type === 'success' || type === 'info')
+  ) {
+    return;
+  }
+
   if (!toastContainer) {
     toastContainer = document.createElement('div');
     toastContainer.id = 'toast-container';

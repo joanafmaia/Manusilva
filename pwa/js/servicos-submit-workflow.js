@@ -146,6 +146,7 @@ export async function submitServicoVisit(servicoId, signatures) {
       const result = await submitReport(withSignatures, {
         isCorrection: false,
         skipDuplicateToast: true,
+        silent: true,
       });
       if (result && !result.queued) {
         submitted += 1;
@@ -159,15 +160,13 @@ export async function submitServicoVisit(servicoId, signatures) {
     window.dispatchEvent(new CustomEvent('jobs-updated'));
 
     if (state.readyDraftReports.length) {
-      showToast(
-        submitted
-          ? `Visita concluída — ${submitted} relatório(s) enviado(s) para aprovação do RH.`
-          : 'Assinaturas guardadas. Os relatórios serão sincronizados quando houver rede.',
-        submitted ? 'success' : 'warning',
-        7000,
-      );
-    } else {
-      showToast('Assinaturas da visita guardadas com sucesso.', 'success');
+      if (!submitted) {
+        showToast(
+          'Assinaturas guardadas. Os relatórios serão sincronizados quando houver rede.',
+          'warning',
+          7000,
+        );
+      }
     }
 
     return true;
