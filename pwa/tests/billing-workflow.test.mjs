@@ -54,7 +54,23 @@ describe('billing-workflow', () => {
     assert.equal(isPendingBilling(proposta), false);
   });
 
-  it('isPendingBilling — exclui relatório técnico com PDF MS.015 na mesma OP', async () => {
+  it('isPendingBilling — inclui relatório técnico com pedido de orçamento', () => {
+    const relatorio = {
+      id: 'r-pedido-39',
+      status: 'approved',
+      serviceType: 'folha_intervencao_avarias',
+      clientId: '10',
+      faturacaoStatus: 'pendente',
+      data: {
+        values: { pedido_orcamento: 'Sim' },
+        urlPdfOrcamento: 'https://example.com/op39.pdf',
+        orcamento: { enviadoEm: '2026-06-29T12:00:00.000Z' },
+      },
+    };
+    assert.equal(isPendingBilling(relatorio), true);
+  });
+
+  it('isPendingBilling — exclui só proposta comercial standalone na mesma OP', async () => {
     const trabalhosDb = await import('../js/trabalhos-db.js');
     const relatoriosDb = await import('../js/relatorios-db.js');
     relatoriosDb.invalidateReportsCache();
@@ -78,14 +94,14 @@ describe('billing-workflow', () => {
       numero_ordem: 39,
     });
     relatoriosDb.mergeReportInCache({
-      id: 'r-orc-39',
+      id: 'r-proposta-50',
       jobId: 'job-39-orc',
-      serviceType: 'folha_intervencao_avarias',
+      serviceType: 'proposta_ms015_rh',
       status: 'approved',
       clientId: '10',
       data: {
-        values: { pedido_orcamento: 'Sim' },
-        urlPdfOrcamento: 'https://example.com/op39.pdf',
+        orcamentoOrigem: 'rh_standalone',
+        urlPdfOrcamento: 'https://example.com/op50.pdf',
         orcamento: { enviadoEm: '2026-06-29T12:00:00.000Z' },
       },
     });
@@ -99,7 +115,8 @@ describe('billing-workflow', () => {
       data: { values: { pedido_orcamento: 'Não' } },
     });
     const { isPendingBilling, getPendingBillingReports } = await import('../js/billing-workflow.js');
-    assert.equal(isPendingBilling(relatoriosDb.getReportsSnapshot().find((r) => r.id === 'r-tech-39')), false);
+    const tech = relatoriosDb.getReportsSnapshot().find((r) => r.id === 'r-tech-39');
+    assert.equal(isPendingBilling(tech), false);
     assert.equal(getPendingBillingReports().some((r) => r.id === 'r-tech-39'), false);
   });
 });

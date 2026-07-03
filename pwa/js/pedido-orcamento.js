@@ -24,24 +24,20 @@ export function reportIsRhOrcamento(report) {
   return reportHasPedidoOrcamento(report) || reportIsStandaloneOrcamento(report);
 }
 
-function readOrcamentoMeta(report) {
-  const meta = report?.data?.orcamento;
-  return meta && typeof meta === 'object' ? meta : null;
-}
-
 /**
- * Relatório ligado a proposta MS.015 (pedido técnico, standalone ou PDF/meta comercial).
- * Não deve aparecer em «Por faturar» como relatório técnico.
+ * Proposta comercial MS.015 (aba Orçamentos) — não confundir com relatório técnico
+ * que tenha «pedido de orçamento = Sim» (esse relatório fatura-se normalmente).
  */
-export function reportHasOrcamentoSignals(report) {
+export function reportIsCommercialOrcamento(report) {
   if (!report) return false;
-  if (reportIsRhOrcamento(report)) return true;
-  if (getReportOrcamentoPdfUrl(report)) return true;
-  const meta = readOrcamentoMeta(report);
-  if (meta?.enviadoEm || meta?.atualizadoEm) return true;
-  if (String(report?.data?.orcamentoOrigem || '').trim()) return true;
+  if (reportIsStandaloneOrcamento(report)) return true;
   if (String(report?.data?.faturacaoOrigem || '') === 'orcamento_aceite') return true;
   return false;
+}
+
+/** @deprecated Preferir reportIsCommercialOrcamento na faturação de relatórios técnicos. */
+export function reportHasOrcamentoSignals(report) {
+  return reportIsCommercialOrcamento(report);
 }
 
 /** Proposta MS.015 ainda não guardada/enviada pelo RH (inclui após aprovar o relatório técnico). */

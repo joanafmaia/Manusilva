@@ -11,7 +11,7 @@ import {
 import { normalizeFaturaCondicao, normalizeStatusRecebimento } from './billing-constants.js';
 import { sameEntityId } from './entity-id.js';
 import { addDaysToIsoDate } from './date-utils.js';
-import { reportHasOrcamentoSignals } from './pedido-orcamento.js';
+import { reportIsCommercialOrcamento } from './pedido-orcamento.js';
 import { isPendingOrcamentoBilling } from './orcamento-billing-workflow.js';
 import { getJob } from './entity-lookups.js';
 
@@ -27,12 +27,12 @@ function reportNumeroOrdem(report) {
 }
 
 /** Outro relatório da mesma OP é proposta comercial — não faturar duplicado técnico. */
-function sharesNumeroOrdemWithOrcamento(report, allReports) {
+function sharesNumeroOrdemWithCommercialOrcamento(report, allReports) {
   const ordem = reportNumeroOrdem(report);
   if (ordem == null) return false;
   return allReports.some((other) => {
     if (sameEntityId(other.id, report.id)) return false;
-    if (!reportHasOrcamentoSignals(other)) return false;
+    if (!reportIsCommercialOrcamento(other)) return false;
     return reportNumeroOrdem(other) === ordem;
   });
 }
@@ -42,8 +42,8 @@ export function isPendingBilling(report, allReports = null) {
   if (!report || report.status !== 'approved') return false;
   if (report.servicoId) return false;
   const snapshot = allReports || getReportsSnapshot();
-  if (reportHasOrcamentoSignals(report)) return false;
-  if (sharesNumeroOrdemWithOrcamento(report, snapshot)) return false;
+  if (reportIsCommercialOrcamento(report)) return false;
+  if (sharesNumeroOrdemWithCommercialOrcamento(report, snapshot)) return false;
   if (isPendingOrcamentoBilling(report)) return false;
   const fs = report.faturacaoStatus;
   if (fs === 'via_servico' || fs === 'dispensado' || fs === 'faturado') return false;

@@ -7,7 +7,7 @@ import {
   getReportOrcamentoMeta,
 } from './orcamento-linhas.js';
 import { ORCAMENTO_RESPOSTA } from './orcamento-workflow.js';
-import { reportIsRhOrcamento } from './pedido-orcamento.js';
+import { reportIsStandaloneOrcamento } from './pedido-orcamento.js';
 import {
   dedupeReportsForDisplay,
   formatRelatoriosError,
@@ -36,9 +36,9 @@ export function isOrcamentoClienteAceite(report) {
   return String(meta.respostaCliente || '').trim().toLowerCase() === ORCAMENTO_RESPOSTA.ACEITE;
 }
 
-/** Proposta aceite pelo cliente, ainda por faturar. */
+/** Proposta comercial aceite pelo cliente (só standalone — não relatório técnico com pedido de orçamento). */
 export function isPendingOrcamentoBilling(report) {
-  if (!reportIsRhOrcamento(report)) return false;
+  if (!reportIsStandaloneOrcamento(report)) return false;
   if (!isOrcamentoClienteAceite(report)) return false;
 
   const fs = report.faturacaoStatus;

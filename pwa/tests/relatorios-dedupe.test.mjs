@@ -98,14 +98,14 @@ describe('dedupeReportsForDisplay', () => {
     });
     const reports = [
       {
-        id: 'rep-orc',
+        id: 'rep-proposta',
         jobId: 'job-orc-43',
         clientId: '10',
         status: 'approved',
         approvedAt: '2026-06-29T12:00:00.000Z',
-        serviceType: 'folha_intervencao_avarias',
+        serviceType: 'proposta_ms015_rh',
         data: {
-          values: { pedido_orcamento: 'Sim' },
+          orcamentoOrigem: 'rh_standalone',
           urlPdfOrcamento: 'https://example.com/ms015.pdf',
           orcamento: { enviadoEm: '2026-06-29T11:00:00.000Z' },
         },
@@ -123,5 +123,38 @@ describe('dedupeReportsForDisplay', () => {
     const deduped = dedupeReportsForDisplay(reports);
     assert.equal(deduped.length, 1);
     assert.equal(deduped[0].id, 'rep-tech');
+  });
+
+  it('mantém relatório técnico com pedido de orçamento na deduplicação por OP', async () => {
+    const { dedupeReportsForDisplay } = await import('../js/relatorios-db.js');
+    const { mergeJobFromRealtime, invalidateJobsCache } = await import('../js/trabalhos-db.js');
+    invalidateJobsCache();
+    mergeJobFromRealtime({
+      id: 'job-pedido-39',
+      numero_ordem: 39,
+      cliente_id: 10,
+      tecnico_id: 'Hugo',
+      tipo_servico: 'folha_intervencao_avarias',
+      data: '2026-06-29',
+      estado: 'completed',
+    });
+    const reports = [
+      {
+        id: 'rep-pedido',
+        jobId: 'job-pedido-39',
+        clientId: '10',
+        status: 'approved',
+        approvedAt: '2026-06-29T10:00:00.000Z',
+        serviceType: 'folha_intervencao_avarias',
+        data: {
+          values: { pedido_orcamento: 'Sim' },
+          urlPdfOrcamento: 'https://example.com/ms015.pdf',
+          orcamento: { enviadoEm: '2026-06-29T11:00:00.000Z' },
+        },
+      },
+    ];
+    const deduped = dedupeReportsForDisplay(reports);
+    assert.equal(deduped.length, 1);
+    assert.equal(deduped[0].id, 'rep-pedido');
   });
 });

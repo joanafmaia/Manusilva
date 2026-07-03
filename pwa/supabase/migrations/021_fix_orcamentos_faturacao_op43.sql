@@ -1,13 +1,13 @@
--- 021 — Corrigir orçamentos em «Por faturar» + visita OP-43 (Quinta Da Foz)
+-- 021 — Propostas comerciais fora de «Por faturar» + visita OP-43 (Quinta Da Foz)
+--
+-- REGRA: «Por faturar» = relatórios técnicos (incl. pedido de orçamento = Sim).
+--        Propostas MS.015 (tipo proposta_ms015_rh) = aba Orçamentos, não Faturação.
 --
 -- Executar no Supabase → SQL Editor (projeto ManuSilva).
--- 1) Correr só o bloco «PRÉ-VISUALIZAÇÃO» e confirmar linhas.
--- 2) Correr o bloco «APLICAR» na mesma sessão.
---
--- Nota: isto corrige DADOS na base. A PWA ainda deve estar atualizada (deploy + Ctrl+F5).
+-- 1) PRÉ-VISUALIZAÇÃO → 2) APLICAR → 3) VERIFICAÇÃO
 
 -- ═══════════════════════════════════════════════════════════════════
--- PRÉ-VISUALIZAÇÃO — orçamentos que não deviam estar «por faturar»
+-- PRÉ-VISUALIZAÇÃO — só propostas comerciais (não relatórios técnicos)
 -- ═══════════════════════════════════════════════════════════════════
 
 SELECT
@@ -17,9 +17,7 @@ SELECT
   r.tipo_servico,
   r.estado,
   r.faturacao_status,
-  lower(COALESCE(r.dados->'values'->>'pedido_orcamento', '')) AS pedido_orcamento,
-  r.dados->>'orcamentoOrigem' AS orcamento_origem,
-  (r.dados->>'urlPdfOrcamento' IS NOT NULL) AS tem_pdf_ms015
+  r.dados->>'orcamentoOrigem' AS orcamento_origem
 FROM public.relatorios r
 LEFT JOIN public.trabalhos t ON t.id = r.trabalho_id
 LEFT JOIN public.servicos s ON s.id = r.servico_id
@@ -29,11 +27,6 @@ WHERE r.estado = 'approved'
   AND (
     r.tipo_servico = 'proposta_ms015_rh'
     OR r.dados->>'orcamentoOrigem' = 'rh_standalone'
-    OR lower(COALESCE(r.dados->'values'->>'pedido_orcamento', '')) = 'sim'
-    OR (
-      r.dados->>'urlPdfOrcamento' IS NOT NULL
-      AND r.dados->'orcamento'->>'enviadoEm' IS NOT NULL
-    )
   )
 ORDER BY op NULLS LAST, cliente;
 
@@ -75,10 +68,22 @@ WHERE t.numero_ordem = 43
 ORDER BY r.estado, r.criado_em;
 
 -- ═══════════════════════════════════════════════════════════════════
--- APLICAR — retirar orçamentos da fila de faturação (relatórios)
+-- APLICAR — propostas comerciais fora de «Por faturar»
 -- ═══════════════════════════════════════════════════════════════════
 
 BEGIN;
+
+-- Reverter se o script antigo dispensou relatórios técnicos com pedido de orçamento
+UPDATE public.relatorios r
+SET
+  faturacao_status = 'pendente',
+  atualizado_em = now()
+WHERE r.estado = 'approved'
+  AND r.faturacao_status = 'dispensado'
+  AND r.tipo_servico IS DISTINCT FROM 'proposta_ms015_rh'
+  AND COALESCE(r.dados->>'orcamentoOrigem', '') IS DISTINCT FROM 'rh_standalone'
+  AND lower(COALESCE(r.dados->'values'->>'pedido_orcamento', '')) = 'sim'
+  AND r.servico_id IS NULL;
 
 UPDATE public.relatorios r
 SET
@@ -89,14 +94,9 @@ WHERE r.estado = 'approved'
   AND (
     r.tipo_servico = 'proposta_ms015_rh'
     OR r.dados->>'orcamentoOrigem' = 'rh_standalone'
-    OR lower(COALESCE(r.dados->'values'->>'pedido_orcamento', '')) = 'sim'
-    OR (
-      r.dados->>'urlPdfOrcamento' IS NOT NULL
-      AND r.dados->'orcamento'->>'enviadoEm' IS NOT NULL
-    )
   );
 
--- Relatórios técnicos duplicados na mesma OP que já tem proposta/orçamento → dispensar
+-- Duplicado técnico na mesma OP que já tem proposta comercial → dispensar só o duplicado técnico
 UPDATE public.relatorios r_tech
 SET
   faturacao_status = 'dispensado',
@@ -106,21 +106,17 @@ WHERE r_tech.trabalho_id = t_tech.id
   AND r_tech.estado = 'approved'
   AND COALESCE(r_tech.faturacao_status, '') NOT IN ('faturado', 'via_servico', 'dispensado')
   AND r_tech.servico_id IS NULL
+  AND r_tech.tipo_servico IS DISTINCT FROM 'proposta_ms015_rh'
   AND t_tech.numero_ordem IS NOT NULL
   AND EXISTS (
     SELECT 1
-    FROM public.relatorios r_orc
-    LEFT JOIN public.trabalhos t_orc ON t_orc.id = r_orc.trabalho_id
-    WHERE COALESCE(t_orc.numero_ordem, 0) = t_tech.numero_ordem
-      AND r_orc.id <> r_tech.id
+    FROM public.relatorios r_prop
+    LEFT JOIN public.trabalhos t_prop ON t_prop.id = r_prop.trabalho_id
+    WHERE COALESCE(t_prop.numero_ordem, 0) = t_tech.numero_ordem
+      AND r_prop.id <> r_tech.id
       AND (
-        r_orc.tipo_servico = 'proposta_ms015_rh'
-        OR r_orc.dados->>'orcamentoOrigem' = 'rh_standalone'
-        OR lower(COALESCE(r_orc.dados->'values'->>'pedido_orcamento', '')) = 'sim'
-        OR (
-          r_orc.dados->>'urlPdfOrcamento' IS NOT NULL
-          AND r_orc.dados->'orcamento'->>'enviadoEm' IS NOT NULL
-        )
+        r_prop.tipo_servico = 'proposta_ms015_rh'
+        OR r_prop.dados->>'orcamentoOrigem' = 'rh_standalone'
       )
   );
 
@@ -224,14 +220,14 @@ COMMIT;
 -- VERIFICAÇÃO (depois de APLICAR)
 -- ═══════════════════════════════════════════════════════════════════
 
-SELECT 'orcamentos_ainda_por_faturar' AS check_name, COUNT(*) AS n
+SELECT 'propostas_ainda_por_faturar' AS check_name, COUNT(*) AS n
 FROM public.relatorios r
 WHERE r.estado = 'approved'
   AND COALESCE(r.faturacao_status, '') IN ('pendente', '')
   AND r.servico_id IS NULL
   AND (
     r.tipo_servico = 'proposta_ms015_rh'
-    OR lower(COALESCE(r.dados->'values'->>'pedido_orcamento', '')) = 'sim'
+    OR r.dados->>'orcamentoOrigem' = 'rh_standalone'
   );
 
 SELECT 'op43_servico' AS check_name, s.estado, s.faturacao_status, s.numero_fatura,
