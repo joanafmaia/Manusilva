@@ -4,18 +4,31 @@
 
 import { getAllJobs, getServiceType, jobAssignedToTechnician } from './entity-lookups.js';
 import { sameEntityId } from './entity-id.js';
-import { dedupeReportsForDisplay, getReportsSnapshot } from './relatorios-db.js';
-import { getServicosSnapshot, isServicosCacheLoaded } from './servicos-db.js';
+import { getReportsSnapshot } from './relatorios-db.js';
+import { getServico, getServicosSnapshot, isServicosCacheLoaded } from './servicos-db.js';
+
+/** Id do serviço/visita a que o relatório pertence (servico_id ou trabalho legado com o mesmo id). */
+export function resolveServicoIdForReport(report) {
+  if (!report) return '';
+  const direct = report.servicoId ? String(report.servicoId) : '';
+  if (direct) return direct;
+  const jobId = report.jobId ? String(report.jobId) : '';
+  if (jobId && getServico(jobId)) return jobId;
+  return '';
+}
 
 /** Relatórios ligados a um serviço (servico_id ou trabalho legado com o mesmo id). */
 export function getReportsForServico(servicoId) {
   if (servicoId == null || servicoId === '') return [];
   const key = String(servicoId);
-  return dedupeReportsForDisplay(
-    getReportsSnapshot().filter(
-      (r) => sameEntityId(r.servicoId, key) || sameEntityId(r.jobId, key),
-    ),
-  );
+  const seen = new Set();
+  return getReportsSnapshot().filter((r) => {
+    if (!sameEntityId(r.servicoId, key) && !sameEntityId(r.jobId, key)) return false;
+    const id = String(r.id);
+    if (seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  });
 }
 
 /** Relatório «principal» para badge de estado no calendário. */

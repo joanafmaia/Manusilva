@@ -354,7 +354,10 @@ function reportsShareSameSlot(a, b) {
     return Boolean(a.serviceType && b.serviceType && a.serviceType === b.serviceType);
   }
   if (a.jobId && b.jobId && sameEntityId(a.jobId, b.jobId)) {
-    return !a.servicoId && !b.servicoId;
+    if (a.servicoId || b.servicoId) return false;
+    // Visita multi-relatório: mesmo jobId/serviço com tipos diferentes são relatórios distintos.
+    if (a.serviceType && b.serviceType && a.serviceType !== b.serviceType) return false;
+    return true;
   }
   return false;
 }

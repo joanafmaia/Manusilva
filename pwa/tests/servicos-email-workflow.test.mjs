@@ -83,4 +83,30 @@ describe('servicos-email-workflow', () => {
     const { shouldDeferServicoVisitEmail } = await import('../js/servicos-email-workflow.js');
     assert.equal(shouldDeferServicoVisitEmail({ servicoId: 'svc-1' }), false);
   });
+
+  it('shouldDeferServicoVisitEmail — visita via jobId legado (sem servicoId)', async () => {
+    const relatoriosDb = await import('../js/relatorios-db.js');
+    relatoriosDb.mergeReportInCache({
+      id: 'rj1',
+      jobId: 'svc-1',
+      servicoId: '',
+      serviceType: 'manutencao',
+      status: 'approved',
+      clientId: '10',
+      technicianId: 'Filipe',
+      data: {},
+    });
+    relatoriosDb.mergeReportInCache({
+      id: 'rj2',
+      jobId: 'svc-1',
+      servicoId: '',
+      serviceType: 'manutencao_baterias_grandes',
+      status: 'pending_review',
+      clientId: '10',
+      technicianId: 'Filipe',
+      data: {},
+    });
+    const { shouldDeferServicoVisitEmail } = await import('../js/servicos-email-workflow.js');
+    assert.equal(shouldDeferServicoVisitEmail({ jobId: 'svc-1' }), true);
+  });
 });

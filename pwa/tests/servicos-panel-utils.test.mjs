@@ -95,4 +95,29 @@ describe('servicos-panel-utils', () => {
     const reports = getReportsForServico('svc-1');
     assert.equal(reports.length, 2);
   });
+
+  it('getReportsForServico — vários relatórios com o mesmo jobId (visita)', async () => {
+    const relatoriosDb = await import('../js/relatorios-db.js');
+    relatoriosDb.invalidateReportsCache();
+    relatoriosDb.mergeReportInCache({
+      id: 'rj1',
+      jobId: 'svc-1',
+      servicoId: '',
+      serviceType: 'manutencao',
+      status: 'approved',
+      clientId: '10',
+      data: {},
+    });
+    relatoriosDb.mergeReportInCache({
+      id: 'rj2',
+      jobId: 'svc-1',
+      servicoId: '',
+      serviceType: 'manutencao_baterias_grandes',
+      status: 'pending_review',
+      clientId: '10',
+      data: {},
+    });
+    const { getReportsForServico } = await import('../js/servicos-panel-utils.js');
+    assert.equal(getReportsForServico('svc-1').length, 2);
+  });
 });

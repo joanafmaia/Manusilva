@@ -38,7 +38,8 @@ import {
 } from './relatorios-db.js';
 import { reportHasPedidoOrcamento, reportOrcamentoPorPreparar } from './pedido-orcamento.js';
 import { deleteStandaloneOrcamentoReport, reportIsStandaloneOrcamento } from './orcamento-standalone.js';
-import { getServicoActiveReports, shouldDeferServicoVisitEmail } from './servicos-email-workflow.js';
+import { getServicoActiveReports, resolveServicoIdForVisitEmail, shouldDeferServicoVisitEmail } from './servicos-email-workflow.js';
+import { resolveServicoIdForReport } from './servicos-panel-utils.js';
 
 /**
  * @param {object} report
@@ -301,7 +302,10 @@ export async function approveReport(reportId, options = {}) {
             { ...pdfEntries[0], base64: await blobToBase64(pdfEntries[0].blob) },
           ]);
 
-    const servicoId = report.servicoId ? String(report.servicoId) : '';
+    const servicoId =
+      resolveServicoIdForReport(reportForPdf) ||
+      resolveServicoIdForReport(report) ||
+      resolveServicoIdForVisitEmail(getReport(reportId));
 
     await updateRelatorio(reportId, {
       status: 'approved',
@@ -343,7 +347,7 @@ export async function approveReport(reportId, options = {}) {
     const recipientEmail =
       clientEmailInput || client?.email || client?.['E-mail'] || '';
 
-    const deferVisitEmail = servicoId && shouldDeferServicoVisitEmail(report);
+    const deferVisitEmail = servicoId && shouldDeferServicoVisitEmail({ ...report, servicoId, jobId: report.jobId || servicoId });
 
     if (emailSynced) {
       showToast(
