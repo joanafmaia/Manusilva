@@ -586,7 +586,8 @@ export async function initTechDashboard() {
   bindTechConnectivityActions();
   import('./app-refresh-ui.js').then(({ bindAppRefreshButton }) => {
     bindAppRefreshButton('btn-force-app-refresh', {
-      updateHint: 'Nova versão disponível — toque em «Atualizar» no topo do ecrã.',
+      notifyStyle: 'button',
+      updateHint: 'Nova versão disponível — toque em Atualizar.',
     });
   });
   bindTechJobsSearch();

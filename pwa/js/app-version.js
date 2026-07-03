@@ -106,6 +106,7 @@ export function clearModuleRecoveryFlag() {
 }
 
 let buildWatchStarted = false;
+let buildUpdateNotified = false;
 
 /**
  * Avisa quando há deploy novo com a app aberta (sessões longas).
@@ -118,7 +119,10 @@ export function startBuildIdWatch(onUpdate) {
   const check = async () => {
     const remote = await fetchAppBuildId();
     const local = localStorage.getItem(STORAGE_KEY);
-    if (remote && local && remote !== local) onUpdate(remote);
+    if (remote && local && remote !== local && !buildUpdateNotified) {
+      buildUpdateNotified = true;
+      onUpdate(remote);
+    }
   };
 
   window.setInterval(check, 5 * 60 * 1000);
