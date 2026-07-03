@@ -477,6 +477,36 @@ body .glass-card-inner {
   display: none;
   line-height: 1;
 }
+.tech-refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-width: 40px;
+  min-height: 40px;
+  padding: 0.45rem 0.65rem;
+  border: 1px solid var(--ms-border-md, #e2e8f0);
+  border-radius: var(--ms-radius-lg, 0.5rem);
+  background: var(--ms-card-bg, #fff);
+  color: var(--ms-text-muted, #64748b);
+  font-family: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.tech-refresh-btn:hover {
+  color: var(--ms-primary, #2563eb);
+  border-color: color-mix(in srgb, var(--ms-primary, #2563eb) 35%, transparent);
+  background: color-mix(in srgb, var(--ms-primary, #2563eb) 6%, #fff);
+}
+.tech-refresh-icon {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+.tech-refresh-label {
+  line-height: 1;
+}
 .connection-badge {
   display: inline-flex;
   align-items: center;
@@ -8312,6 +8342,17 @@ body.client-ficha-open {
     min-width: 44px;
     min-height: 44px;
     padding: 0.5rem 0.75rem;
+  }
+
+  .tech-refresh-btn {
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0.5rem 0.75rem;
+  }
+
+  .tech-refresh-label {
+    display: inline;
+    font-size: 0.85rem;
   }
 
   .tech-logout-icon {

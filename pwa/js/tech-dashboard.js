@@ -584,10 +584,9 @@ export async function initTechDashboard() {
   renderOfflineToggle();
   renderTechConnectivityBar();
   bindTechConnectivityActions();
-  bindTechOfflineMenu();
   import('./app-refresh-ui.js').then(({ bindAppRefreshButton }) => {
     bindAppRefreshButton('btn-force-app-refresh', {
-      updateHint: 'Nova versão disponível — abra o menu ⋯ e toque em «Atualizar app».',
+      updateHint: 'Nova versão disponível — toque em «Atualizar» no topo do ecrã.',
     });
   });
   bindTechJobsSearch();
@@ -697,28 +696,6 @@ function bindTechConnectivityActions() {
   techConnectivityBound = true;
   document.getElementById('tech-connectivity-sync-btn')?.addEventListener('click', () => {
     void runTechDataSync();
-  });
-}
-
-let techOfflineMenuBound = false;
-
-function bindTechOfflineMenu() {
-  if (techOfflineMenuBound) return;
-  techOfflineMenuBound = true;
-
-  const menuBtn = document.getElementById('tech-offline-menu-btn');
-  const menu = document.getElementById('tech-offline-menu');
-  menuBtn?.addEventListener('click', () => {
-    const open = menu?.hidden !== false;
-    if (menu) menu.hidden = !open;
-    menuBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
-  });
-
-  document.addEventListener('click', (e) => {
-    if (!menu || menu.hidden) return;
-    if (e.target.closest('#tech-offline-menu') || e.target.closest('#tech-offline-menu-btn')) return;
-    menu.hidden = true;
-    menuBtn?.setAttribute('aria-expanded', 'false');
   });
 }
 
@@ -1041,16 +1018,23 @@ function renderHeader() {
 
 function renderOfflineToggle() {
   const toggle = document.getElementById('offline-toggle');
-  const label = document.getElementById('offline-label');
   const badge = document.getElementById('connection-badge');
-  if (!toggle) return;
+  if (!toggle && isOffline()) {
+    setOfflineMode(false);
+  }
 
-  const manualOffline = isOffline();
+  const manualOffline = toggle ? isOffline() : false;
   const networkOffline = !isNetworkOnline();
   const effectivelyOffline = manualOffline || networkOffline;
 
-  toggle.checked = manualOffline;
-  if (label) label.textContent = effectivelyOffline ? 'Offline' : 'Online';
+  if (toggle) {
+    toggle.checked = manualOffline;
+    toggle.onchange = () => {
+      setOfflineMode(toggle.checked);
+      renderOfflineToggle();
+      refreshTechDashboardChrome().catch(console.error);
+    };
+  }
 
   const badgeLabel = document.getElementById('connection-badge-label');
   if (badge) {
@@ -1065,12 +1049,6 @@ function renderOfflineToggle() {
       badgeLabel.textContent = 'Online';
     }
   }
-
-  toggle.onchange = () => {
-    setOfflineMode(toggle.checked);
-    renderOfflineToggle();
-    refreshTechDashboardChrome().catch(console.error);
-  };
 }
 
 function getMonthDates(anchorDate) {

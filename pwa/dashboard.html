@@ -34,6 +34,10 @@
             <span class="connection-badge__dot" aria-hidden="true"></span>
             <span class="connection-badge__label" id="connection-badge-label">Online</span>
           </span>
+          <button type="button" class="tech-refresh-btn" id="btn-force-app-refresh" title="Descarregar a versão mais recente da aplicação" aria-label="Atualizar app">
+            <span class="tech-refresh-icon" aria-hidden="true">↻</span>
+            <span class="tech-refresh-label">Atualizar</span>
+          </button>
           <button type="button" class="tech-logout-btn" id="logout-btn" title="Terminar sessão" aria-label="Terminar sessão">
             <svg class="tech-logout-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
@@ -49,20 +53,8 @@
         <div class="tech-connectivity-bar__row">
           <span class="tech-connectivity-bar__dot" aria-hidden="true"></span>
           <span class="tech-connectivity-bar__text" id="tech-connectivity-text">A verificar sincronização…</span>
-          <button type="button" class="tech-connectivity-bar__menu-btn" id="tech-offline-menu-btn" aria-expanded="false" aria-controls="tech-offline-menu" title="Opções de ligação">⋯</button>
         </div>
         <button type="button" class="tech-connectivity-bar__sync-btn" id="tech-connectivity-sync-btn" hidden>Sincronizar</button>
-      </div>
-      <div id="tech-offline-menu" class="tech-offline-menu" hidden>
-        <label class="tech-offline-menu__toggle">
-          <span>Modo offline manual</span>
-          <input type="checkbox" id="offline-toggle">
-          <span class="toggle-track"></span>
-        </label>
-        <p class="tech-offline-menu__hint text-muted">Os relatórios continuam guardados neste tablet.</p>
-        <button type="button" class="btn-ghost btn-sm tech-offline-menu__refresh" id="btn-force-app-refresh" title="Descarregar a versão mais recente da aplicação">
-          ↻ <span class="tech-refresh-label">Atualizar app</span>
-        </button>
       </div>
 
       <div class="tech-jobs-tabs tech-jobs-tabs--header" role="tablist" aria-label="Filtrar trabalhos">

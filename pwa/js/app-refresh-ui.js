@@ -18,7 +18,11 @@ export function bindAppRefreshButton(buttonId = 'btn-force-app-refresh', options
     refreshBtn.disabled = true;
     const label = refreshBtn.querySelector('.sidebar-refresh-label, .tech-refresh-label');
     if (label) label.textContent = 'A atualizar…';
-    else refreshBtn.textContent = 'A atualizar…';
+    else if (refreshBtn.classList.contains('tech-refresh-btn')) {
+      const textLabel = refreshBtn.querySelector('.tech-refresh-label');
+      if (textLabel) textLabel.textContent = 'A atualizar…';
+      else refreshBtn.textContent = 'A atualizar…';
+    } else refreshBtn.textContent = 'A atualizar…';
     await forceAppRefresh();
   });
 
