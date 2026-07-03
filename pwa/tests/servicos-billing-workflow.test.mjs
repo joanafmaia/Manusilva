@@ -89,7 +89,7 @@ describe('servicos-billing-workflow', () => {
     assert.equal(isPendingBilling(getReport('rb1')), false);
   });
 
-  it('isServicoPendingBilling — exclui visita só com pedido de orçamento', async () => {
+  it('isServicoPendingBilling — visita com relatório técnico e pedido de orçamento', async () => {
     const relatoriosDb = await import('../js/relatorios-db.js');
     relatoriosDb.mergeReportInCache({
       id: 'r-orc-visita',
@@ -104,6 +104,6 @@ describe('servicos-billing-workflow', () => {
 
     const { isServicoPendingBilling } = await import('../js/servicos-billing-workflow.js');
     const { getServico } = await import('../js/servicos-db.js');
-    assert.equal(isServicoPendingBilling(getServico('svc-bill')), false);
+    assert.equal(isServicoPendingBilling(getServico('svc-bill')), true);
   });
 });

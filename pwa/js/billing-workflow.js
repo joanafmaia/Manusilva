@@ -11,8 +11,8 @@ import {
 import { normalizeFaturaCondicao, normalizeStatusRecebimento } from './billing-constants.js';
 import { sameEntityId } from './entity-id.js';
 import { addDaysToIsoDate } from './date-utils.js';
-import { reportHasPedidoOrcamento, reportIsCommercialOrcamento } from './pedido-orcamento.js';
-import { isOrcamentoClienteAceite, isPendingOrcamentoBilling } from './orcamento-billing-workflow.js';
+import { reportIsCommercialOrcamento } from './pedido-orcamento.js';
+import { isPendingOrcamentoBilling } from './orcamento-billing-workflow.js';
 import { getJob } from './entity-lookups.js';
 
 function findReport(reportId) {
@@ -37,12 +37,10 @@ function sharesNumeroOrdemWithCommercialOrcamento(report, allReports) {
   });
 }
 
-/** Relatório aprovado de visita que conta para faturação (exclui só orçamento MS.015). */
+/** Relatório aprovado de visita que conta para faturação (exclui só proposta MS.015). */
 export function isServicoReportBillable(report) {
   if (!report || report.status !== 'approved') return false;
-  if (reportIsCommercialOrcamento(report)) return false;
-  if (reportHasPedidoOrcamento(report) && !isOrcamentoClienteAceite(report)) return false;
-  return true;
+  return !reportIsCommercialOrcamento(report);
 }
 
 /** Relatório aprovado ainda por faturar (controlo interno; exclui visitas e propostas comerciais). */
@@ -53,8 +51,6 @@ export function isPendingBilling(report, allReports = null) {
   if (reportIsCommercialOrcamento(report)) return false;
   if (sharesNumeroOrdemWithCommercialOrcamento(report, snapshot)) return false;
   if (isPendingOrcamentoBilling(report)) return false;
-  // Relatório técnico com pedido de orçamento — só entra em Faturação após aceite MS.015
-  if (reportHasPedidoOrcamento(report) && !isOrcamentoClienteAceite(report)) return false;
   const fs = report.faturacaoStatus;
   if (fs === 'via_servico' || fs === 'dispensado' || fs === 'faturado') return false;
   if (fs === 'aguarda_aceite_orcamento') return false;
