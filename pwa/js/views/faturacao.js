@@ -20,6 +20,7 @@ import { dedupeReportsForDisplay } from '../relatorios-db.js';
 import { getInvoicedServicos, getServico } from '../servicos-db.js';
 import {
   confirmManualInvoicePayment,
+  deleteManualInvoice,
   ensureFaturasManuaisLoadedSafe,
   getManualInvoice,
   getManualInvoicesSnapshot,
@@ -658,9 +659,18 @@ function renderInvoiceRow(row, acumulado, showAcum) {
       </td>
       <td class="faturacao-col-action">
         ${
-          pago
-            ? '<span class="text-muted">—</span>'
-            : `<button type="button" class="btn-success btn-sm faturacao-btn-compact" ${paymentAttr} title="Confirmar recebimento">Recebido</button>`
+          kind === 'manual'
+            ? `<div class="faturacao-billing-actions">
+                ${
+                  pago
+                    ? ''
+                    : `<button type="button" class="btn-success btn-sm faturacao-btn-compact" ${paymentAttr} title="Confirmar recebimento">Recebido</button>`
+                }
+                <button type="button" class="btn-danger btn-sm faturacao-btn-compact" data-delete-manual-invoice="${escapeHtml(detailId)}" title="Eliminar registo da fatura">Eliminar</button>
+              </div>`
+            : pago
+              ? '<span class="text-muted">—</span>'
+              : `<button type="button" class="btn-success btn-sm faturacao-btn-compact" ${paymentAttr} title="Confirmar recebimento">Recebido</button>`
         }
       </td>
     </tr>
@@ -1692,6 +1702,35 @@ function bindConfirmPaymentActions() {
     btn.addEventListener('click', () => {
       const invoiceId = btn.getAttribute('data-confirm-payment-manual');
       if (invoiceId) openConfirmManualPaymentModal(invoiceId);
+    });
+  });
+
+  mountRoot?.querySelectorAll('[data-delete-manual-invoice]').forEach((btn) => {
+    if (btn.dataset.boundDeleteManual === '1') return;
+    btn.dataset.boundDeleteManual = '1';
+    btn.addEventListener('click', () => {
+      const invoiceId = btn.getAttribute('data-delete-manual-invoice');
+      if (!invoiceId) return;
+      const invoice = getManualInvoice(invoiceId);
+      if (!invoice) {
+        showToast('Fatura não encontrada.', 'error');
+        return;
+      }
+      const meta = resolveClientMeta(invoice.clientId);
+      const label = invoice.numeroFatura || invoice.descricao || 'esta fatura';
+      const ok = window.confirm(
+        `Eliminar a fatura ${label} de ${meta.nome}?\n\nO registo manual será removido do controlo financeiro. A fatura legal emitida externamente mantém-se — apenas deixa de aparecer aqui.`,
+      );
+      if (!ok) return;
+      void deleteManualInvoice(invoiceId)
+        .then(() => {
+          showToast('Fatura manual eliminada.', 'success');
+          refreshFaturacaoPanel({ soft: true }).catch(console.error);
+        })
+        .catch((err) => {
+          console.error('[Faturação] Eliminar fatura manual:', err);
+          showToast(err?.message || 'Erro ao eliminar a fatura.', 'error');
+        });
     });
   });
 }

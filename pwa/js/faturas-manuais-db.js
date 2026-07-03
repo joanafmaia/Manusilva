@@ -229,3 +229,27 @@ export async function confirmManualInvoicePayment(invoiceId, { dataRecebimento }
   window.dispatchEvent(new CustomEvent('db-updated'));
   return saved;
 }
+
+export function removeManualInvoiceFromCache(invoiceId) {
+  if (!faturasManuaisCache || invoiceId == null) return;
+  const id = String(invoiceId);
+  faturasManuaisCache = faturasManuaisCache.filter((item) => String(item.id) !== id);
+}
+
+/** Elimina registo manual de fatura (só faturas_manuais — não afeta relatórios). */
+export async function deleteManualInvoice(invoiceId) {
+  const invoice = getManualInvoice(invoiceId);
+  if (!invoice) throw new Error('Fatura não encontrada.');
+
+  const supabase = await getAuthenticatedSupabaseClient();
+  const { error } = await supabase.from('faturas_manuais').delete().eq('id', invoiceId);
+
+  if (error) {
+    console.error('[ManuSilva] deleteManualInvoice:', error);
+    throw new Error(formatFaturasManuaisError(error));
+  }
+
+  removeManualInvoiceFromCache(invoiceId);
+  window.dispatchEvent(new CustomEvent('db-updated'));
+  return true;
+}
