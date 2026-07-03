@@ -345,7 +345,25 @@ function resolveBillingReportPdfEntries(report) {
   return [];
 }
 
-function formatServicoOrdemLabel(servico) {
+function formatServicoOrdemLabel(servico, reports = []) {
+  const ops = [
+    ...new Set(
+      (reports || [])
+        .map((r) => {
+          if (!r?.jobId) return null;
+          const job = getJob(r.jobId);
+          return job?.numeroOrdem != null ? Number(job.numeroOrdem) : null;
+        })
+        .filter((n) => n != null),
+    ),
+  ];
+  if (ops.length === 1) return String(ops[0]).padStart(4, '0');
+  if (ops.length > 1) {
+    return ops
+      .sort((a, b) => a - b)
+      .map((n) => String(n).padStart(4, '0'))
+      .join(', ');
+  }
   if (servico?.numeroOrdem != null) {
     return String(servico.numeroOrdem).padStart(4, '0');
   }
@@ -392,7 +410,7 @@ function buildBillingRowsFromItems(items) {
         servico,
         reports,
         ...meta,
-        ordem: formatServicoOrdemLabel(servico),
+        ordem: formatServicoOrdemLabel(servico, reports),
         detail: formatServicoReportsLabel(reports),
         approvedLabel: formatHistoryDate(latestApproval),
         urgent: urgentReport ? isBillingUrgent(urgentReport, meta.client) : false,
@@ -1262,7 +1280,7 @@ function openServicoInvoiceHistoryDetailModal(servicoId) {
     <dl class="faturacao-detail-grid">
       <div><dt>Cliente</dt><dd>${escapeHtml(meta.nome)}</dd></div>
       <div><dt>NIF</dt><dd>${escapeHtml(meta.nif)}</dd></div>
-      <div><dt>Visita</dt><dd>${escapeHtml(formatServicoOrdemLabel(servico))} — ${escapeHtml(formatDateSafe(servico.date))}</dd></div>
+      <div><dt>Visita</dt><dd>${escapeHtml(formatServicoOrdemLabel(servico, reports))} — ${escapeHtml(formatDateSafe(servico.date))}</dd></div>
       <div><dt>Nº Fatura</dt><dd><code class="faturacao-ordem">${escapeHtml(servico.numeroFatura || '—')}</code></dd></div>
       <div><dt>Relatórios</dt><dd><ul class="faturacao-invoice-report-list">${reportList || '<li>—</li>'}</ul></dd></div>
       <div><dt>Valor faturado</dt><dd>${escapeHtml(formatCurrencyEurNullable(servico.valorFaturado))}</dd></div>

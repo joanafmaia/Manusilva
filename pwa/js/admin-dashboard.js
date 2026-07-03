@@ -1412,7 +1412,12 @@ function buildCalendarItemDetailContent(item) {
     ? `<ul class="job-detail-reports" style="margin:0;padding-left:1.1rem">${reports
         .map((r) => {
           const st = getServiceType(r.serviceType);
-          return `<li>${st?.icon || '🔧'} ${escapeHtml(st?.label || r.serviceType || 'Relatório')} — ${escapeHtml(reportStatusLine(r))}</li>`;
+          const job = r.jobId ? getJob(r.jobId) : null;
+          const op =
+            job?.numeroOrdem != null
+              ? ` · OP-2026-${String(job.numeroOrdem).padStart(2, '0')}`
+              : '';
+          return `<li>${st?.icon || '🔧'} ${escapeHtml(st?.label || r.serviceType || 'Relatório')}${escapeHtml(op)} — ${escapeHtml(reportStatusLine(r))}</li>`;
         })
         .join('')}</ul>`
     : '<p class="text-muted" style="margin:0">Ainda sem relatórios — o técnico adiciona no tablet.</p>';

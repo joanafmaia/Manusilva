@@ -479,13 +479,10 @@ async function findExistingReportId(report) {
  * @returns {{ report: object, job: object | null }}
  */
 async function ensureTrabalhoForReport(report) {
-  if (report.servicoId) {
-    return { report: { ...report, jobId: report.jobId || '' }, job: null };
-  }
-
   await ensureJobsLoaded();
+
   if (report.jobId) {
-    const job = getJobsSnapshot().find((j) => j.id === report.jobId);
+    const job = getJobsSnapshot().find((j) => sameEntityId(j.id, report.jobId));
     if (job) return { report, job };
   }
 

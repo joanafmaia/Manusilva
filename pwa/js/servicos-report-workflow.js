@@ -75,6 +75,15 @@ export async function removeServicoReport(servicoId, reportId) {
       }
     }
 
+    if (report.jobId && report.status === 'draft') {
+      const { deleteTrabalho } = await import('./trabalhos-db.js');
+      try {
+        await deleteTrabalho(report.jobId);
+      } catch (err) {
+        console.warn('[ManuSilva] removeServicoReport — trabalho/OP:', err);
+      }
+    }
+
     window.dispatchEvent(new CustomEvent('db-updated'));
     showToast('Relatório removido.', 'success');
     return true;

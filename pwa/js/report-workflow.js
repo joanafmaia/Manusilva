@@ -135,14 +135,10 @@ export async function submitReport(report, options = {}) {
       : new Date().toISOString(),
   };
 
-  if (!isCorrection && final.servicoId && final.serviceType) {
+  if (!isCorrection && final.id) {
     await ensureReportsLoaded();
     const duplicatePending = getReportsSnapshot().find(
-      (r) =>
-        sameEntityId(r.servicoId, final.servicoId) &&
-        r.serviceType === final.serviceType &&
-        r.status === 'pending_review' &&
-        (!final.id || !sameEntityId(r.id, final.id)),
+      (r) => sameEntityId(r.id, final.id) && r.status === 'pending_review',
     );
     if (duplicatePending) {
       if (!skipDuplicateToast) {
@@ -204,11 +200,8 @@ export async function submitReport(report, options = {}) {
       const { reportDraftStorageKey } = await import('./report-local-storage.js');
       await removeLocalReportDraft(reportDraftStorageKey(final));
       const syncedReport =
-        (final.servicoId && final.serviceType
-          ? getReportsSnapshot().find(
-              (r) =>
-                sameEntityId(r.servicoId, final.servicoId) && r.serviceType === final.serviceType,
-            )
+        (final.id
+          ? getReportsSnapshot().find((r) => sameEntityId(r.id, final.id))
           : null) ||
         getReportForJob(final.jobId) ||
         final;

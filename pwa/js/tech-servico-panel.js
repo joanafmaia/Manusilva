@@ -6,6 +6,7 @@ import {
   escapeHtml,
   formatDateLong,
   getClient,
+  getJob,
   getServiceType,
   openModal,
   closeModal,
@@ -19,6 +20,7 @@ import {
   getReportsForServico,
   isServicoReportTechnicianComplete,
 } from './servicos-panel-utils.js';
+import { formatOrdemLabel } from './report-review-ui.js';
 import { renderWorkStateBadge, resolveCalendarEventState } from './calendar-event-state.js';
 import { getServicoVisitSubmitState } from './servicos-submit-workflow.js';
 import { openServicoVisitSubmit } from './tech-servico-signatures.js';
@@ -58,6 +60,12 @@ function formatReportTypeLabel(report, servicoReports) {
 function buildReportRow(servico, report, servicoReports) {
   const st = getServiceType(report.serviceType);
   const typeLabel = formatReportTypeLabel(report, servicoReports);
+  const job = report.jobId ? getJob(report.jobId) : null;
+  const opLabel = formatOrdemLabel(job);
+  const opHtml =
+    opLabel && opLabel !== '—'
+      ? `<span class="tech-servico-report-op text-muted">${escapeHtml(opLabel)}</span>`
+      : '';
   const pseudoJob = {
     id: servico.id,
     clientId: servico.clientId,
@@ -92,6 +100,7 @@ function buildReportRow(servico, report, servicoReports) {
       <div class="tech-servico-report-row__main">
         <div class="tech-servico-report-row__top">
           <span>${st?.icon || '🔧'} ${escapeHtml(typeLabel)}</span>
+          ${opHtml}
           ${renderWorkStateBadge(pseudoJob, report)}
         </div>
         <p class="text-muted" style="margin:0.25rem 0 0;font-size:0.8125rem">${escapeHtml(reportStatusLabel(report))}</p>

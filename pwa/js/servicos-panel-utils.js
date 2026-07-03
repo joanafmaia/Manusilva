@@ -2,7 +2,7 @@
  * Utilitários do calendário RH — serviços como visitas multi-relatório.
  */
 
-import { getAllJobs, getServiceType, jobAssignedToTechnician } from './entity-lookups.js';
+import { getAllJobs, getJob, getServiceType, jobAssignedToTechnician } from './entity-lookups.js';
 import { sameEntityId } from './entity-id.js';
 import { filterOutLocallyDeletedReports } from './report-deleted-local.js';
 import { getReportsSnapshot } from './relatorios-db.js';
@@ -52,6 +52,14 @@ export function getPrimaryReportForServico(servicoId) {
   if (!reports.length) return null;
   const priority = { rejected: 0, pending_review: 1, draft: 2, approved: 3 };
   return [...reports].sort((a, b) => (priority[a.status] ?? 9) - (priority[b.status] ?? 9))[0];
+}
+
+/** OP oficial do relatório (cada relatório da visita tem o seu trabalho/OP). */
+export function getReportNumeroOrdem(report) {
+  if (!report?.jobId) return null;
+  const job = getJob(report.jobId);
+  const n = job?.numeroOrdem;
+  return n != null && Number.isFinite(Number(n)) ? Number(n) : null;
 }
 
 /** Item no formato esperado pelo calendário admin (compatível com trabalhos legados). */

@@ -3,6 +3,7 @@
  */
 
 import { getAuthenticatedSupabaseClient } from './supabase-client.js';
+import { getServico } from './servicos-db.js';
 
 let jobsCache = null;
 let jobsLoadPromise = null;
@@ -33,6 +34,7 @@ export function mapRowToJob(row) {
   return {
     id: String(row.id),
     numeroOrdem: row.numero_ordem != null ? Number(row.numero_ordem) : null,
+    servicoId: row.servico_id ? String(row.servico_id) : '',
     technicianId: row.tecnico_id,
     clientId: row.cliente_id != null ? String(row.cliente_id) : '',
     forkliftSerial: row.numero_serie || '',
@@ -59,6 +61,7 @@ function mapJobToRow(jobData, overrides = {}) {
     nota_rejeicao: overrides.nota_rejeicao ?? jobData.rejectionNote ?? null,
     foto_antes: overrides.foto_antes ?? jobData.fotoAntes ?? null,
     foto_depois: overrides.foto_depois ?? jobData.fotoDepois ?? null,
+    servico_id: jobData.servicoId || null,
   };
 }
 
@@ -282,15 +285,27 @@ export function getJobsForClient(clientId) {
 /** Dados mínimos de um relatório → linha `trabalhos` (obtém numero_ordem no INSERT) */
 export function jobDataFromReport(report) {
   const submitted = report.submittedAt || new Date().toISOString();
+  let date = String(submitted).split('T')[0];
+  let technicianId = report.technicianId;
+
+  if (report.servicoId) {
+    const servico = getServico(report.servicoId);
+    if (servico) {
+      date = servico.date || date;
+      technicianId = servico.technicianIds || technicianId;
+    }
+  }
+
   return {
-    technicianId: report.technicianId,
+    technicianId,
     clientId: report.clientId,
     forkliftSerial: report.forkliftSerial || '',
     serviceType: report.serviceType,
-    date: String(submitted).split('T')[0],
+    date,
     time: '',
     status: 'scheduled',
     rejectionNote: null,
+    servicoId: report.servicoId ? String(report.servicoId) : '',
   };
 }
 
