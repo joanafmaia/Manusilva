@@ -12,15 +12,18 @@ import { normalizeFaturaCondicao, normalizeStatusRecebimento } from './billing-c
 import { sameEntityId } from './entity-id.js';
 import { addDaysToIsoDate } from './date-utils.js';
 import { showToast } from './toast-modal.js';
+import { getInvoicedServicos } from './servicos-db.js';
 
 function findReport(reportId) {
   return getReportsSnapshot().find((r) => sameEntityId(r.id, reportId)) || null;
 }
 
-/** Relatório aprovado ainda por faturar (controlo interno) */
+/** Relatório aprovado ainda por faturar (controlo interno; exclui visitas multi-relatório). */
 export function isPendingBilling(report) {
   if (!report || report.status !== 'approved') return false;
+  if (report.servicoId) return false;
   const fs = report.faturacaoStatus;
+  if (fs === 'via_servico' || fs === 'dispensado' || fs === 'faturado') return false;
   return fs === 'pendente' || !fs;
 }
 
@@ -64,24 +67,25 @@ export function getPendingPaymentInvoices() {
   );
 }
 
-/** Métricas de fluxo de caixa (faturas emitidas na app) */
+function accumulateInvoiceMetrics(entity, totals) {
+  const valor = Number(entity.valorFaturado);
+  if (!Number.isFinite(valor) || valor <= 0) return;
+  totals.totalFaturado += valor;
+  if (entity.statusRecebimento === 'pago') totals.totalRecebido += valor;
+  else if (entity.statusRecebimento === 'pendente') totals.totalDivida += valor;
+}
+
+/** Métricas de fluxo de caixa (faturas emitidas na app — relatórios legados + visitas). */
 export function getBillingFinancialMetrics() {
-  const invoiced = dedupeReportsForDisplay(
-    getReportsSnapshot().filter((r) => r.faturacaoStatus === 'faturado'),
+  const invoicedReports = dedupeReportsForDisplay(
+    getReportsSnapshot().filter((r) => r.faturacaoStatus === 'faturado' && !r.servicoId),
   );
-  let totalFaturado = 0;
-  let totalRecebido = 0;
-  let totalDivida = 0;
+  const totals = { totalFaturado: 0, totalRecebido: 0, totalDivida: 0 };
 
-  invoiced.forEach((r) => {
-    const valor = Number(r.valorFaturado);
-    if (!Number.isFinite(valor) || valor <= 0) return;
-    totalFaturado += valor;
-    if (r.statusRecebimento === 'pago') totalRecebido += valor;
-    else if (r.statusRecebimento === 'pendente') totalDivida += valor;
-  });
+  invoicedReports.forEach((r) => accumulateInvoiceMetrics(r, totals));
+  getInvoicedServicos().forEach((s) => accumulateInvoiceMetrics(s, totals));
 
-  return { totalFaturado, totalRecebido, totalDivida };
+  return totals;
 }
 
 /** Valor da faturação pode ficar em branco quando a fatura agrega vários relatórios. */

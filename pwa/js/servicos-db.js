@@ -229,6 +229,11 @@ export function getServico(id) {
   return getServicosSnapshot().find((s) => String(s.id) === key) || null;
 }
 
+/** Serviços com fatura registada na app. */
+export function getInvoicedServicos() {
+  return getServicosSnapshot().filter((s) => s.faturacaoStatus === 'faturado');
+}
+
 export async function insertServico(servicoData) {
   const supabase = await getAuthenticatedSupabaseClient();
   const row = mapServicoToRow(servicoData, { estado: 'scheduled' });

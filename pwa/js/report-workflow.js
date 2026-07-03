@@ -301,17 +301,24 @@ export async function approveReport(reportId, options = {}) {
             { ...pdfEntries[0], base64: await blobToBase64(pdfEntries[0].blob) },
           ]);
 
+    const servicoId = report.servicoId ? String(report.servicoId) : '';
+
     await updateRelatorio(reportId, {
       status: 'approved',
       approvedAt: new Date().toISOString(),
       pdfFilename: filename,
-      faturacaoStatus: 'pendente',
+      faturacaoStatus: servicoId ? 'via_servico' : 'pendente',
       data: {
         ...(report.data || {}),
         urlPdfs,
         pdfFilenames,
       },
     });
+
+    if (servicoId) {
+      const { markServicoPendingBillingIfReady } = await import('./servicos-billing-workflow.js');
+      await markServicoPendingBillingIfReady(servicoId);
+    }
 
     if (reportForPdf.jobId) {
       await patchTrabalho(reportForPdf.jobId, {
@@ -336,7 +343,6 @@ export async function approveReport(reportId, options = {}) {
     const recipientEmail =
       clientEmailInput || client?.email || client?.['E-mail'] || '';
 
-    const servicoId = report.servicoId ? String(report.servicoId) : '';
     const deferVisitEmail = servicoId && shouldDeferServicoVisitEmail(report);
 
     if (emailSynced) {

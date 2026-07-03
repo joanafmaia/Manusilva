@@ -3,7 +3,6 @@
  */
 
 import {
-  getPendingBillingReports,
   getReportsSnapshot,
   getReport,
   getClient,
@@ -18,6 +17,16 @@ import {
   showToast,
 } from '../app.js';
 import { dedupeReportsForDisplay } from '../relatorios-db.js';
+import { getInvoicedServicos, getServico } from '../servicos-db.js';
+import { getServiceType } from '../entity-lookups.js';
+import { getReportsForServico } from '../servicos-panel-utils.js';
+import {
+  getPendingBillingItems,
+  registerServicoInvoice,
+  dismissPendingBillingServico,
+  confirmServicoInvoicePayment,
+  resolveBillingFocusTarget,
+} from '../servicos-billing-workflow.js';
 import { renderClientCombobox, bindClientComboboxes } from '../client-combobox.js';
 import { formatOrdemLabel } from '../report-review-ui.js';
 import { PAYMENT_CONDITION_OPTIONS } from './client-profile-drawer.js';
@@ -61,6 +70,7 @@ const billingFilters = {
 };
 
 let highlightReportId = null;
+let highlightServicoId = null;
 
 async function openBillingReportPdf(reportId) {
   const report = getReport(reportId);
@@ -229,25 +239,39 @@ function reportDateOf(report) {
   return String(report?.approvedAt || report?.submittedAt || '').split('T')[0];
 }
 
-/** Todas as faturas registadas — o histórico nunca é apagado do Supabase. */
+/** Todas as faturas registadas — relatórios legados + visitas (serviços). */
 function getInvoicedReports() {
   return dedupeReportsForDisplay(
-    getReportsSnapshot().filter((r) => r.faturacaoStatus === 'faturado'),
+    getReportsSnapshot().filter((r) => r.faturacaoStatus === 'faturado' && !r.servicoId),
   );
 }
 
-function invoiceMatchesFilters(report) {
+function getAllInvoicedEntities() {
+  const reports = getInvoicedReports().map((report) => ({ kind: 'report', entity: report }));
+  const servicos = getInvoicedServicos().map((servico) => ({ kind: 'servico', entity: servico }));
+  return [...reports, ...servicos];
+}
+
+function invoiceDateOfEntity(item) {
+  if (item.kind === 'servico') {
+    return String(item.entity.dataFatura || item.entity.approvedAt || '').split('T')[0];
+  }
+  return invoiceDateOf(item.entity);
+}
+
+function invoiceMatchesFilters(item) {
   const { from, to } = getPeriodRange();
-  const date = invoiceDateOf(report);
+  const date = invoiceDateOfEntity(item);
   if (from && (!date || date < from)) return false;
   if (to && (!date || date > to)) return false;
-  if (billingFilters.clientId && String(report.clientId) !== String(billingFilters.clientId)) {
+  const clientId = item.entity.clientId;
+  if (billingFilters.clientId && String(clientId) !== String(billingFilters.clientId)) {
     return false;
   }
-  if (billingFilters.recebimentoStatus === 'pendente' && report.statusRecebimento !== 'pendente') {
+  if (billingFilters.recebimentoStatus === 'pendente' && item.entity.statusRecebimento !== 'pendente') {
     return false;
   }
-  if (billingFilters.recebimentoStatus === 'pago' && report.statusRecebimento !== 'pago') {
+  if (billingFilters.recebimentoStatus === 'pago' && item.entity.statusRecebimento !== 'pago') {
     return false;
   }
   return true;
@@ -255,9 +279,9 @@ function invoiceMatchesFilters(report) {
 
 /** Faturas dentro dos filtros ativos — mais recentes primeiro. */
 function getFilteredInvoices() {
-  return getInvoicedReports()
+  return getAllInvoicedEntities()
     .filter(invoiceMatchesFilters)
-    .sort((a, b) => invoiceDateOf(b).localeCompare(invoiceDateOf(a)));
+    .sort((a, b) => invoiceDateOfEntity(b).localeCompare(invoiceDateOfEntity(a)));
 }
 
 /** KPIs calculados sobre as faturas filtradas. */
@@ -266,12 +290,12 @@ function computeFilteredMetrics(invoices = getFilteredInvoices()) {
   let totalRecebido = 0;
   let totalDivida = 0;
 
-  invoices.forEach((r) => {
-    const valor = Number(r.valorFaturado);
+  invoices.forEach((item) => {
+    const valor = Number(item.entity.valorFaturado);
     if (!Number.isFinite(valor) || valor <= 0) return;
     totalFaturado += valor;
-    if (r.statusRecebimento === 'pago') totalRecebido += valor;
-    else if (r.statusRecebimento === 'pendente') totalDivida += valor;
+    if (item.entity.statusRecebimento === 'pago') totalRecebido += valor;
+    else if (item.entity.statusRecebimento === 'pendente') totalDivida += valor;
   });
 
   return { totalFaturado, totalRecebido, totalDivida };
@@ -307,41 +331,104 @@ function resolveBillingReportPdfEntries(report) {
   return [];
 }
 
-function buildBillingRows(reports) {
-  return reports.map((report) => {
+function formatServicoOrdemLabel(servico) {
+  if (servico?.numeroOrdem != null) {
+    return String(servico.numeroOrdem).padStart(4, '0');
+  }
+  return formatDateSafe(servico?.date);
+}
+
+function formatServicoReportsLabel(reports = []) {
+  const labels = [
+    ...new Set(
+      reports.map((r) => getServiceType(r.serviceType)?.label || r.serviceType).filter(Boolean),
+    ),
+  ];
+  if (labels.length === 1) return labels[0];
+  if (labels.length > 1) return `${labels.length} relatórios`;
+  return `${reports.length} relatório(s)`;
+}
+
+function servicoLatestApproval(reports = []) {
+  const dates = reports
+    .map((r) => String(r.approvedAt || '').split('T')[0])
+    .filter(Boolean)
+    .sort();
+  return dates[dates.length - 1] || '';
+}
+
+function estimateServicoValue(reports = []) {
+  return reports.reduce((sum, report) => sum + estimateReportValue(report), 0);
+}
+
+function buildBillingRowsFromItems(items) {
+  return items.map((item) => {
+    if (item.kind === 'servico') {
+      const { servico, reports } = item;
+      const meta = resolveClientMeta(servico.clientId);
+      const latestApproval = servicoLatestApproval(reports);
+      const urgentReport = reports.find((r) => isBillingUrgent(r, meta.client)) || reports[0];
+      return {
+        kind: 'servico',
+        servico,
+        reports,
+        ...meta,
+        ordem: formatServicoOrdemLabel(servico),
+        detail: formatServicoReportsLabel(reports),
+        approvedLabel: formatHistoryDate(latestApproval),
+        urgent: urgentReport ? isBillingUrgent(urgentReport, meta.client) : false,
+        estimate: estimateServicoValue(reports),
+        primaryReportId: reports[0]?.id || '',
+      };
+    }
+
+    const report = item.report;
     const meta = resolveClientMeta(report.clientId);
     const job = report.jobId ? getJob(report.jobId) : null;
     const pdfEntries = resolveBillingReportPdfEntries(report);
     return {
+      kind: 'report',
       report,
       ...meta,
       ordem: formatOrdemLabel(job),
+      detail: formatOrdemLabel(job),
       approvedLabel: formatHistoryDate(String(report.approvedAt || '').split('T')[0]),
       urgent: isBillingUrgent(report, meta.client),
       estimate: estimateReportValue(report),
       pdfEntries,
       hasPdf: pdfEntries.length > 0,
+      primaryReportId: report.id,
     };
   });
 }
 
-function buildInvoiceRows(reports) {
-  return reports.map((report) => {
-    const meta = resolveClientMeta(report.clientId);
-    const valor = Number(report.valorFaturado);
-    const pago = report.statusRecebimento === 'pago';
-    const vencimento = report.dataVencimento || null;
+function buildBillingRows(reports) {
+  return buildBillingRowsFromItems(
+    reports.map((report) => ({ kind: 'report', id: String(report.id), report })),
+  );
+}
+
+function buildInvoiceRows(items) {
+  return items.map((item) => {
+    const entity = item.entity;
+    const meta = resolveClientMeta(entity.clientId);
+    const valor = Number(entity.valorFaturado);
+    const pago = entity.statusRecebimento === 'pago';
+    const vencimento = entity.dataVencimento || null;
     const vencimentoUrg = pago ? 'none' : vencimentoUrgency(vencimento);
     return {
-      report,
+      kind: item.kind,
+      entity,
+      report: item.kind === 'report' ? entity : null,
+      servico: item.kind === 'servico' ? entity : null,
       ...meta,
       pago,
-      numeroFatura: report.numeroFatura || '—',
+      numeroFatura: entity.numeroFatura || '—',
       valor,
       valorLabel: formatCurrencyEurNullable(valor),
-      emissaoLabel: formatHistoryDate(String(report.dataFatura || '').split('T')[0]),
-      condicaoLabel: labelFaturaCondicao(report.faturaCondicaoPagamento),
-      statusLabel: labelStatusRecebimento(report.statusRecebimento),
+      emissaoLabel: formatHistoryDate(String(entity.dataFatura || '').split('T')[0]),
+      condicaoLabel: labelFaturaCondicao(entity.faturaCondicaoPagamento),
+      statusLabel: labelStatusRecebimento(entity.statusRecebimento),
       vencimentoLabel: pago
         ? '—'
         : formatHistoryDate(String(vencimento || '').split('T')[0]),
@@ -356,11 +443,13 @@ function sortInvoiceRowsForDisplay(rows) {
   return [...rows].sort((a, b) => {
     if (a.pago !== b.pago) return a.pago ? 1 : -1;
     if (!a.pago) {
-      const va = String(a.report.dataVencimento || a.report.dataFatura || '');
-      const vb = String(b.report.dataVencimento || b.report.dataFatura || '');
+      const va = String(a.entity.dataVencimento || a.entity.dataFatura || '');
+      const vb = String(b.entity.dataVencimento || b.entity.dataFatura || '');
       return va.localeCompare(vb);
     }
-    return invoiceDateOf(b.report).localeCompare(invoiceDateOf(a.report));
+    return invoiceDateOfEntity({ kind: a.kind, entity: a.entity }).localeCompare(
+      invoiceDateOfEntity({ kind: b.kind, entity: b.entity }),
+    );
   });
 }
 
@@ -456,15 +545,25 @@ function formatHistoryDate(isoDate) {
 }
 
 function renderInvoiceRow(row, acumulado, showAcum) {
-  const { report, nome, pago, numeroFatura, valorLabel, emissaoLabel, vencimentoLabel, vencimentoClass, vencimentoUrg } = row;
+  const { entity, nome, pago, numeroFatura, valorLabel, emissaoLabel, vencimentoLabel, vencimentoClass, vencimentoUrg, kind } =
+    row;
   const urgentRow = !pago && vencimentoUrg === 'overdue';
+  const detailId = kind === 'servico' ? entity.id : entity.id;
+  const detailAttr =
+    kind === 'servico'
+      ? `data-history-detail-servico="${escapeHtml(detailId)}"`
+      : `data-history-detail="${escapeHtml(detailId)}"`;
+  const paymentAttr =
+    kind === 'servico'
+      ? `data-confirm-payment-servico="${escapeHtml(detailId)}"`
+      : `data-confirm-payment="${escapeHtml(detailId)}"`;
 
   return `
-    <tr class="rh-data-table-row faturacao-history-row faturacao-invoice-row${urgentRow ? ' faturacao-row--urgent' : ''}" data-invoice-id="${escapeHtml(report.id)}">
+    <tr class="rh-data-table-row faturacao-history-row faturacao-invoice-row${urgentRow ? ' faturacao-row--urgent' : ''}" data-invoice-kind="${kind}" data-invoice-id="${escapeHtml(detailId)}">
       <td class="rh-cell-date faturacao-cell-date">${escapeHtml(emissaoLabel)}</td>
       <td class="rh-cell-client faturacao-cell-client faturacao-cell-client--wrap">
-        <button type="button" class="rh-cell-link-btn faturacao-history-client-btn faturacao-cell-client-name" data-history-detail="${escapeHtml(report.id)}" title="Ver detalhe da fatura (NIF, condição de pagamento, datas)">
-          ${escapeHtml(nome)}
+        <button type="button" class="rh-cell-link-btn faturacao-history-client-btn faturacao-cell-client-name" ${detailAttr} title="Ver detalhe da fatura (NIF, condição de pagamento, datas)">
+          ${escapeHtml(nome)}${kind === 'servico' ? ' <span class="faturacao-visit-badge">Visita</span>' : ''}
         </button>
         ${vencimentoUrg === 'soon' ? ' <span class="faturacao-urgent-badge faturacao-urgent-badge--soon">A vencer</span>' : ''}
       </td>
@@ -483,7 +582,7 @@ function renderInvoiceRow(row, acumulado, showAcum) {
         ${
           pago
             ? '<span class="text-muted">—</span>'
-            : `<button type="button" class="btn-success btn-sm faturacao-btn-compact" data-confirm-payment="${escapeHtml(report.id)}" title="Confirmar recebimento">Recebido</button>`
+            : `<button type="button" class="btn-success btn-sm faturacao-btn-compact" ${paymentAttr} title="Confirmar recebimento">Recebido</button>`
         }
       </td>
     </tr>
@@ -503,10 +602,11 @@ function renderInvoicesSection(invoices = getFilteredInvoices()) {
       cumulativeByReport = new Map();
       let running = 0;
       [...invoices]
-        .sort((a, b) => invoiceDateOf(a).localeCompare(invoiceDateOf(b)))
-        .forEach((r) => {
-          running += Number(r.valorFaturado) || 0;
-          cumulativeByReport.set(r.id, running);
+        .sort((a, b) => invoiceDateOfEntity(a).localeCompare(invoiceDateOfEntity(b)))
+        .forEach((item) => {
+          running += Number(item.entity.valorFaturado) || 0;
+          const key = `${item.kind}:${item.entity.id}`;
+          cumulativeByReport.set(key, running);
         });
     }
 
@@ -530,7 +630,7 @@ function renderInvoicesSection(invoices = getFilteredInvoices()) {
               .map((row) =>
                 renderInvoiceRow(
                   row,
-                  cumulativeByReport ? cumulativeByReport.get(row.report.id) : null,
+                  cumulativeByReport ? cumulativeByReport.get(`${row.kind}:${row.entity.id}`) : null,
                   clientActive,
                 ),
               )
@@ -541,7 +641,7 @@ function renderInvoicesSection(invoices = getFilteredInvoices()) {
     `;
   }
 
-  const total = invoices.reduce((sum, r) => sum + (Number(r.valorFaturado) || 0), 0);
+  const total = invoices.reduce((sum, item) => sum + (Number(item.entity.valorFaturado) || 0), 0);
   const rendaTotal =
     clientActive && invoices.length
       ? `<p class="faturacao-history-total">Renda Total — ${escapeHtml(billingFilters.clientNome || 'cliente selecionado')}: <strong>${escapeHtml(formatCurrencyEur(total))}</strong></p>`
@@ -576,43 +676,57 @@ function renderBillingTable(rows) {
   if (!rows.length) {
     return `
       <section class="faturacao-table-section faturacao-table-section--billing rh-section glass-card">
-        <h3 class="ms-h2 faturacao-section-title">Relatórios por faturar</h3>
-        <p class="text-muted faturacao-empty">Nenhum relatório aprovado aguarda faturação.</p>
+        <h3 class="ms-h2 faturacao-section-title">Por faturar</h3>
+        <p class="text-muted faturacao-empty">Nenhuma visita ou relatório aprovado aguarda faturação.</p>
       </section>
     `;
   }
 
   return `
     <section class="faturacao-table-section faturacao-table-section--billing rh-section glass-card">
-      <h3 class="ms-h2 faturacao-section-title">Relatórios por faturar <span class="badge-count">${rows.length}</span></h3>
+      <h3 class="ms-h2 faturacao-section-title">Por faturar <span class="badge-count">${rows.length}</span></h3>
       <div class="rh-table-scroll">
         <table class="rh-data-table rh-data-table--compact faturacao-table faturacao-table--compact faturacao-billing-table">
           <thead>
             <tr>
               <th scope="col">Cliente</th>
-              <th scope="col">Relatório</th>
+              <th scope="col">Visita / Relatório</th>
               <th scope="col">Aprovação</th>
               <th scope="col" class="faturacao-col-action">Ação</th>
             </tr>
           </thead>
           <tbody>
             ${rows
-              .map(
-                (row) => `
-              <tr class="rh-data-table-row${row.urgent ? ' faturacao-row--urgent' : ''}" data-report-id="${escapeHtml(row.report.id)}">
+              .map((row) => {
+                const isServico = row.kind === 'servico';
+                const rowIdAttr = isServico
+                  ? `data-servico-id="${escapeHtml(row.servico.id)}"`
+                  : `data-report-id="${escapeHtml(row.report.id)}"`;
+                const pdfId = row.primaryReportId;
+                const registerAttr = isServico
+                  ? `data-register-invoice-servico="${escapeHtml(row.servico.id)}"`
+                  : `data-register-invoice="${escapeHtml(row.report.id)}"`;
+                const dismissAttr = isServico
+                  ? `data-billing-dismiss-servico="${escapeHtml(row.servico.id)}"`
+                  : `data-billing-dismiss="${escapeHtml(row.report.id)}"`;
+                return `
+              <tr class="rh-data-table-row${row.urgent ? ' faturacao-row--urgent' : ''}" ${rowIdAttr}>
                 <td class="faturacao-cell-client" title="${escapeHtml(row.nome)}">${escapeHtml(row.nome)}${row.urgent ? ' <span class="faturacao-urgent-badge">Urgente</span>' : ''}</td>
-                <td class="faturacao-cell-ordem"><code class="faturacao-ordem">${escapeHtml(row.ordem)}</code></td>
+                <td class="faturacao-cell-ordem">
+                  <code class="faturacao-ordem">${escapeHtml(row.ordem)}</code>
+                  <span class="faturacao-cell-detail">${escapeHtml(row.detail)}</span>
+                </td>
                 <td class="faturacao-cell-date">${escapeHtml(row.approvedLabel)}</td>
                 <td class="faturacao-col-action">
                   <div class="faturacao-billing-actions">
-                    <button type="button" class="btn-outline btn-sm faturacao-btn-compact" data-billing-pdf="${escapeHtml(row.report.id)}" title="Abrir PDF do relatório técnico">PDF</button>
-                    <button type="button" class="btn-primary btn-sm faturacao-btn-compact" data-register-invoice="${escapeHtml(row.report.id)}" title="Marcar como faturado">Faturar</button>
-                    <button type="button" class="btn-danger btn-sm faturacao-btn-compact" data-billing-dismiss="${escapeHtml(row.report.id)}" title="Retirar da lista por faturar">Eliminar</button>
+                    ${pdfId ? `<button type="button" class="btn-outline btn-sm faturacao-btn-compact" data-billing-pdf="${escapeHtml(pdfId)}" title="Abrir PDF do relatório técnico">PDF</button>` : ''}
+                    <button type="button" class="btn-primary btn-sm faturacao-btn-compact" ${registerAttr} title="Marcar como faturado">Faturar</button>
+                    <button type="button" class="btn-danger btn-sm faturacao-btn-compact" ${dismissAttr} title="Retirar da lista por faturar">Eliminar</button>
                   </div>
                 </td>
               </tr>
-            `,
-              )
+            `;
+              })
               .join('')}
           </tbody>
         </table>
@@ -725,13 +839,14 @@ async function softRefreshFaturacaoPanel() {
 
   const invoices = getFilteredInvoices();
   const metrics = computeFilteredMetrics(invoices);
-  let billingReports = getPendingBillingReports();
+  let billingItems = getPendingBillingItems();
   if (billingFilters.clientId) {
-    billingReports = billingReports.filter(
-      (r) => String(r.clientId) === String(billingFilters.clientId),
-    );
+    billingItems = billingItems.filter((item) => {
+      const clientId = item.kind === 'servico' ? item.servico.clientId : item.report.clientId;
+      return String(clientId) === String(billingFilters.clientId);
+    });
   }
-  const billingRows = buildBillingRows(billingReports);
+  const billingRows = buildBillingRowsFromItems(billingItems);
 
   replaceMountedSection('.faturacao-kpis', renderKpis(metrics));
   replaceMountedSection('.faturacao-table-section--billing', renderBillingTable(billingRows));
@@ -815,9 +930,44 @@ function bindFilterEvents() {
 
 function openRegisterInvoiceModal(reportId) {
   const report = getReport(reportId);
-  const defaultValor = estimateReportValue(report);
+  openRegisterInvoiceModalCore({
+    title: 'Registar Fatura',
+    defaultValor: estimateReportValue(report),
+    client: report?.clientId ? getClient(report.clientId) : null,
+    hint: 'A fatura legal é emitida no programa externo. Se este relatório for faturado em conjunto com outros do mesmo cliente, pode deixar o valor em branco. «30 Dias» / «60 Dias» calculam a data de vencimento automaticamente.',
+    onSave: (payload) => registerReportInvoice(reportId, payload),
+  });
+}
+
+function openRegisterServicoInvoiceModal(servicoId, reports = []) {
+  const client = reports[0]?.clientId ? getClient(reports[0].clientId) : null;
+  const reportLines = reports
+    .map((r) => {
+      const label = getServiceType(r.serviceType)?.label || r.serviceType || 'Relatório';
+      return `<li>${escapeHtml(label)}</li>`;
+    })
+    .join('');
+  openRegisterInvoiceModalCore({
+    title: 'Registar Fatura da Visita',
+    defaultValor: estimateServicoValue(reports),
+    client,
+    extraHtml: reportLines
+      ? `<p class="text-muted faturacao-invoice-hint"><strong>Relatórios incluídos:</strong></p><ul class="faturacao-invoice-report-list">${reportLines}</ul>`
+      : '',
+    hint: 'Uma única fatura para todos os relatórios desta visita. O valor pode ficar em branco se agregar vários trabalhos do mesmo cliente.',
+    onSave: (payload) => registerServicoInvoice(servicoId, payload),
+  });
+}
+
+function openRegisterInvoiceModalCore({
+  title,
+  defaultValor,
+  client,
+  hint,
+  extraHtml = '',
+  onSave,
+}) {
   const today = new Date().toISOString().split('T')[0];
-  const client = report?.clientId ? getClient(report.clientId) : null;
   const defaultCondicao = condicaoFromClientCatalog(
     client?.condicao_pagamento ||
       client?.condicaoPagamento ||
@@ -836,6 +986,7 @@ function openRegisterInvoiceModal(reportId) {
 
   const content = `
     <form id="register-invoice-form" class="faturacao-invoice-form">
+      ${extraHtml}
       <div class="form-group">
         <label class="form-label" for="invoice-numero">Número da Fatura</label>
         <input type="text" class="form-input" id="invoice-numero" name="numero" required
@@ -862,9 +1013,7 @@ function openRegisterInvoiceModal(reportId) {
           ${statusOptions}
         </select>
       </div>
-      <p class="text-muted faturacao-invoice-hint">
-        A fatura legal é emitida no programa externo. Se este relatório for faturado em conjunto com outros do mesmo cliente, pode deixar o valor em branco. «30 Dias» / «60 Dias» calculam a data de vencimento automaticamente.
-      </p>
+      <p class="text-muted faturacao-invoice-hint">${escapeHtml(hint)}</p>
     </form>
   `;
 
@@ -873,7 +1022,7 @@ function openRegisterInvoiceModal(reportId) {
     <button type="button" class="btn-primary" id="btn-save-invoice">Marcar como Faturado</button>
   `;
 
-  openModal('Registar Fatura', content, actions);
+  openModal(title, content, actions);
 
   document.querySelector('[data-modal-cancel]')?.addEventListener('click', closeModal);
 
@@ -899,7 +1048,7 @@ function openRegisterInvoiceModal(reportId) {
 
     btn.disabled = true;
     try {
-      await registerReportInvoice(reportId, {
+      await onSave({
         numeroFatura: numero,
         dataFatura: data,
         valorFaturado: valor,
@@ -913,7 +1062,6 @@ function openRegisterInvoiceModal(reportId) {
       console.error('[Faturação] Registo:', err);
       showToast(err?.message || 'Erro ao registar fatura.', 'error');
       btn.disabled = false;
-      return;
     }
   });
 }
@@ -960,6 +1108,39 @@ function bindBillingRowActionButtons() {
       });
     });
   });
+
+  mountRoot?.querySelectorAll('[data-register-invoice-servico]').forEach((btn) => {
+    if (btn.dataset.boundBillingServico === '1') return;
+    btn.dataset.boundBillingServico = '1';
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const servicoId = btn.getAttribute('data-register-invoice-servico');
+      if (!servicoId) return;
+      const reports = getReportsForServico(servicoId).filter((r) => r.status === 'approved');
+      openRegisterServicoInvoiceModal(servicoId, reports);
+    });
+  });
+
+  mountRoot?.querySelectorAll('[data-billing-dismiss-servico]').forEach((btn) => {
+    if (btn.dataset.boundBillingServico === '1') return;
+    btn.dataset.boundBillingServico = '1';
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const servicoId = btn.getAttribute('data-billing-dismiss-servico');
+      if (!servicoId) return;
+      const servico = getServico(servicoId);
+      const client = servico ? getClient(servico.clientId) : null;
+      const label = client?.name || client?.Nome || 'esta visita';
+      const ok = window.confirm(
+        `Retirar ${label} da lista por faturar?\n\nOs relatórios técnicos aprovados mantêm-se — apenas deixa de aparecer nesta fila.`,
+      );
+      if (!ok) return;
+      void dismissPendingBillingServico(servicoId).then((done) => {
+        if (!done) return;
+        refreshFaturacaoPanel({ soft: true }).catch(console.error);
+      });
+    });
+  });
 }
 
 function openInvoiceHistoryDetailModal(reportId) {
@@ -1001,6 +1182,50 @@ function openInvoiceHistoryDetailModal(reportId) {
 
   const actions = `<button type="button" class="btn-secondary" data-modal-cancel>Fechar</button>`;
   openModal('Detalhe da fatura', content, actions);
+  document.querySelector('[data-modal-cancel]')?.addEventListener('click', closeModal);
+}
+
+function openServicoInvoiceHistoryDetailModal(servicoId) {
+  const servico = getServico(servicoId);
+  if (!servico) {
+    showToast('Fatura não encontrada.', 'error');
+    return;
+  }
+
+  const reports = getReportsForServico(servicoId).filter((r) => r.status === 'approved');
+  const meta = resolveClientMeta(servico.clientId);
+  const pago = servico.statusRecebimento === 'pago';
+  const recebimentoRaw = servico.dataRecebimento ? String(servico.dataRecebimento).split('T')[0] : '';
+  const recebimentoLabel = recebimentoRaw
+    ? formatHistoryDate(recebimentoRaw)
+    : pago
+      ? '—'
+      : 'Pendente';
+  const vencimentoLabel = pago
+    ? '—'
+    : formatHistoryDate(String(servico.dataVencimento || '').split('T')[0]);
+  const reportList = reports
+    .map((r) => `<li>${escapeHtml(getServiceType(r.serviceType)?.label || r.serviceType || 'Relatório')}</li>`)
+    .join('');
+
+  const content = `
+    <dl class="faturacao-detail-grid">
+      <div><dt>Cliente</dt><dd>${escapeHtml(meta.nome)}</dd></div>
+      <div><dt>NIF</dt><dd>${escapeHtml(meta.nif)}</dd></div>
+      <div><dt>Visita</dt><dd>${escapeHtml(formatServicoOrdemLabel(servico))} — ${escapeHtml(formatDateSafe(servico.date))}</dd></div>
+      <div><dt>Nº Fatura</dt><dd><code class="faturacao-ordem">${escapeHtml(servico.numeroFatura || '—')}</code></dd></div>
+      <div><dt>Relatórios</dt><dd><ul class="faturacao-invoice-report-list">${reportList || '<li>—</li>'}</ul></dd></div>
+      <div><dt>Valor faturado</dt><dd>${escapeHtml(formatCurrencyEurNullable(servico.valorFaturado))}</dd></div>
+      <div><dt>Condição de pagamento</dt><dd>${escapeHtml(labelFaturaCondicao(servico.faturaCondicaoPagamento))}</dd></div>
+      <div><dt>Data da faturação</dt><dd>${escapeHtml(formatHistoryDate(String(servico.dataFatura || '').split('T')[0]))}</dd></div>
+      <div><dt>Data de vencimento</dt><dd>${escapeHtml(vencimentoLabel)}</dd></div>
+      <div><dt>Data do recebimento</dt><dd>${escapeHtml(recebimentoLabel)}</dd></div>
+      <div><dt>Estado</dt><dd>${pago ? 'Pago' : 'Pendente'}</dd></div>
+    </dl>
+  `;
+
+  const actions = `<button type="button" class="btn-secondary" data-modal-cancel>Fechar</button>`;
+  openModal('Detalhe da fatura (visita)', content, actions);
   document.querySelector('[data-modal-cancel]')?.addEventListener('click', closeModal);
 }
 
@@ -1058,6 +1283,60 @@ function openConfirmPaymentModal(reportId) {
   });
 }
 
+function openConfirmServicoPaymentModal(servicoId) {
+  const servico = getServico(servicoId);
+  if (!servico) {
+    showToast('Fatura não encontrada.', 'error');
+    return;
+  }
+
+  const meta = resolveClientMeta(servico.clientId);
+  const today = new Date().toISOString().split('T')[0];
+
+  const content = `
+    <form id="confirm-payment-form" class="faturacao-invoice-form">
+      <p class="text-muted faturacao-invoice-hint">
+        Confirmar recebimento de <strong>${escapeHtml(meta.nome)}</strong>
+        — fatura <strong>${escapeHtml(servico.numeroFatura || '—')}</strong>
+        (${escapeHtml(formatCurrencyEurNullable(servico.valorFaturado))}).
+      </p>
+      <div class="form-group">
+        <label class="form-label" for="payment-data">Data de recebimento</label>
+        <input type="date" class="form-input" id="payment-data" name="data" required value="${today}">
+      </div>
+    </form>
+  `;
+
+  const actions = `
+    <button type="button" class="btn-outline" data-modal-cancel>Cancelar</button>
+    <button type="button" class="btn-success" id="btn-confirm-payment">Confirmar recebimento</button>
+  `;
+
+  openModal('Confirmar Recebimento', content, actions);
+
+  document.querySelector('[data-modal-cancel]')?.addEventListener('click', closeModal);
+
+  document.getElementById('btn-confirm-payment')?.addEventListener('click', async () => {
+    const data = document.getElementById('payment-data')?.value?.trim();
+    const btn = document.getElementById('btn-confirm-payment');
+    if (!data) {
+      showToast('Indique a data de recebimento.', 'warning');
+      return;
+    }
+    btn.disabled = true;
+    try {
+      await confirmServicoInvoicePayment(servicoId, { dataRecebimento: data });
+      closeModal();
+      showToast('Recebimento confirmado. Valor movido para caixa.', 'success');
+      await refreshFaturacaoPanel({ soft: true });
+    } catch (err) {
+      console.error('[Faturação] Confirmar recebimento:', err);
+      showToast(err?.message || 'Erro ao confirmar recebimento.', 'error');
+      btn.disabled = false;
+    }
+  });
+}
+
 function bindHistoryDetailActions() {
   mountRoot?.querySelectorAll('[data-history-detail]').forEach((btn) => {
     if (btn.dataset.boundHistory === '1') return;
@@ -1066,6 +1345,16 @@ function bindHistoryDetailActions() {
       e.stopPropagation();
       const reportId = btn.getAttribute('data-history-detail');
       if (reportId) openInvoiceHistoryDetailModal(reportId);
+    });
+  });
+
+  mountRoot?.querySelectorAll('[data-history-detail-servico]').forEach((btn) => {
+    if (btn.dataset.boundHistory === '1') return;
+    btn.dataset.boundHistory = '1';
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const servicoId = btn.getAttribute('data-history-detail-servico');
+      if (servicoId) openServicoInvoiceHistoryDetailModal(servicoId);
     });
   });
 }
@@ -1077,6 +1366,15 @@ function bindConfirmPaymentActions() {
     btn.addEventListener('click', () => {
       const reportId = btn.getAttribute('data-confirm-payment');
       if (reportId) openConfirmPaymentModal(reportId);
+    });
+  });
+
+  mountRoot?.querySelectorAll('[data-confirm-payment-servico]').forEach((btn) => {
+    if (btn.dataset.boundPayment === '1') return;
+    btn.dataset.boundPayment = '1';
+    btn.addEventListener('click', () => {
+      const servicoId = btn.getAttribute('data-confirm-payment-servico');
+      if (servicoId) openConfirmServicoPaymentModal(servicoId);
     });
   });
 }
@@ -1113,20 +1411,23 @@ function exportFilteredInvoicesCsv() {
   ];
   const lines = [header.join(';')];
 
-  invoices.forEach((report) => {
-    const meta = resolveClientMeta(report.clientId);
-    const recebimento = report.dataRecebimento
-      ? String(report.dataRecebimento).split('T')[0]
-      : '';
+  invoices.forEach((item) => {
+    const entity = item.entity;
+    const meta = resolveClientMeta(entity.clientId);
+    const recebimento = entity.dataRecebimento ? String(entity.dataRecebimento).split('T')[0] : '';
+    const reportDate =
+      item.kind === 'report'
+        ? reportDateOf(entity)
+        : formatDateSafe(entity.date);
     const row = [
-      invoiceDateOf(report),
+      invoiceDateOfEntity(item),
       meta.nome,
       meta.nif,
-      report.numeroFatura || '',
-      Number.isFinite(Number(report.valorFaturado)) ? Number(report.valorFaturado) : '',
-      labelStatusRecebimento(report.statusRecebimento),
-      labelFaturaCondicao(report.faturaCondicaoPagamento),
-      reportDateOf(report),
+      entity.numeroFatura || '',
+      Number.isFinite(Number(entity.valorFaturado)) ? Number(entity.valorFaturado) : '',
+      labelStatusRecebimento(entity.statusRecebimento),
+      labelFaturaCondicao(entity.faturaCondicaoPagamento),
+      reportDate,
       recebimento,
     ].map(csvEscape);
     lines.push(row.join(';'));
@@ -1143,15 +1444,36 @@ function exportFilteredInvoicesCsv() {
   showToast(`${invoices.length} linha(s) exportada(s).`, 'success');
 }
 
-/** Destaca relatório após refresh do painel de faturação. */
+/** Destaca visita ou relatório após refresh do painel de faturação. */
 export function queueBillingReportFocus(reportId) {
-  highlightReportId = reportId ? String(reportId) : null;
+  const target = resolveBillingFocusTarget(reportId, getReport);
+  highlightServicoId = target.servicoId;
+  highlightReportId = target.reportId;
 }
 
-/** Destaca e faz scroll até um relatório na tabela «por faturar». */
+/** Destaca e faz scroll até uma linha na tabela «por faturar». */
 export function focusBillingReport(reportId) {
-  if (!reportId || !mountRoot) return;
-  highlightReportId = String(reportId);
+  queueBillingReportFocus(reportId);
+  applyBillingHighlight();
+}
+
+function focusBillingServico(servicoId) {
+  if (!servicoId || !mountRoot) return;
+  const row = mountRoot.querySelector(`[data-servico-id="${CSS.escape(servicoId)}"]`);
+  if (!row) return;
+  row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  row.classList.add('faturacao-row--highlight');
+  setTimeout(() => row.classList.remove('faturacao-row--highlight'), 4500);
+}
+
+function applyBillingHighlight() {
+  if (highlightServicoId) {
+    focusBillingServico(highlightServicoId);
+    highlightServicoId = null;
+    highlightReportId = null;
+    return;
+  }
+  if (!highlightReportId || !mountRoot) return;
   const row = mountRoot.querySelector(`[data-report-id="${CSS.escape(highlightReportId)}"]`);
   if (!row) return;
   row.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -1160,21 +1482,17 @@ export function focusBillingReport(reportId) {
   highlightReportId = null;
 }
 
-function applyBillingHighlight() {
-  if (!highlightReportId) return;
-  focusBillingReport(highlightReportId);
-}
-
 function renderPanel() {
   const invoices = getFilteredInvoices();
   const metrics = computeFilteredMetrics(invoices);
-  let billingReports = getPendingBillingReports();
+  let billingItems = getPendingBillingItems();
   if (billingFilters.clientId) {
-    billingReports = billingReports.filter(
-      (r) => String(r.clientId) === String(billingFilters.clientId),
-    );
+    billingItems = billingItems.filter((item) => {
+      const clientId = item.kind === 'servico' ? item.servico.clientId : item.report.clientId;
+      return String(clientId) === String(billingFilters.clientId);
+    });
   }
-  const billingRows = buildBillingRows(billingReports);
+  const billingRows = buildBillingRowsFromItems(billingItems);
 
   return `
     <div class="faturacao-panel rh-admin-panel dashboard-panel-inner">

@@ -161,6 +161,18 @@ export {
 } from './billing-workflow.js';
 
 export {
+  getPendingBillingItems,
+  getPendingBillingCount,
+  getPendingBillingServicos,
+  isServicoPendingBilling,
+  registerServicoInvoice,
+  dismissPendingBillingServico,
+  confirmServicoInvoicePayment,
+  markServicoPendingBillingIfReady,
+  resolveBillingFocusTarget,
+} from './servicos-billing-workflow.js';
+
+export {
   COMPANY,
   CLIENTS,
   DEMO_CLIENT_FORKLIFTS,

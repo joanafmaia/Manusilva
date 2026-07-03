@@ -9,7 +9,7 @@ import {
   getTechnician,
   getServiceType,
   getPendingReports,
-  getPendingBillingReports,
+  getPendingBillingCount,
   getAdminReviewReports,
   getRhPanelReportCounts,
   getReportsSnapshot,
@@ -732,7 +732,7 @@ function updateOpsSummary() {
 
 function updateSidebarBadges() {
   const pending = getPendingReports().length;
-  const billing = getPendingBillingReports().length;
+  const billing = getPendingBillingCount();
   const orcamentos = countOrcamentosPorPreparar();
 
   const relBadge = document.getElementById('nav-badge-relatorios');

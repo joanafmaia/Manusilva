@@ -6,7 +6,7 @@ import { escapeHtml } from '../html-utils.js';
 import {
   getDB,
   getPendingReports,
-  getPendingBillingReports,
+  getPendingBillingCount,
   getAllJobs,
   getWeekDates,
   getAllTechnicians,
@@ -36,7 +36,7 @@ export function computeDashboardMetrics(db = getDB()) {
     scheduled: jobs.filter((j) => j.status === 'scheduled').length,
     inProgress: jobs.filter((j) => j.status === 'in_progress').length,
     technicians: getAllTechnicians().length,
-    pendingBilling: getPendingBillingReports().length,
+    pendingBilling: getPendingBillingCount(),
     teamTotalConcluidos: team.totalGlobal,
     teamTopMonth: team.topMonth
       ? `${team.topMonth.tech.name} (${team.topMonth.month})`
