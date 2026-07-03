@@ -135,17 +135,28 @@ async function ensureMigrated() {
 
 /**
  * Grava rascunho no IndexedDB (auto-save / gravar rascunho).
+ * A chave em `jobId` pode ser o id do trabalho, do relatório ou `svc:{servicoId}:{tipo}`.
  * @param {object} report
  */
+export function reportDraftStorageKey(report) {
+  if (!report) return '';
+  if (report.id && isUuid(report.id)) return String(report.id);
+  if (report.servicoId && report.serviceType) {
+    return `svc:${report.servicoId}:${report.serviceType}`;
+  }
+  return String(report.jobId || '');
+}
+
 export async function saveLocalReportDraft(report) {
   await ensureMigrated();
 
-  if (!report?.jobId) {
-    throw new Error('Rascunho sem identificador do trabalho (jobId).');
+  const key = reportDraftStorageKey(report);
+  if (!key) {
+    throw new Error('Rascunho sem identificador (jobId ou servicoId+tipo).');
   }
 
   const data = report.data || {};
-  const existing = await idbGet(STORE_REPORT_DRAFTS, report.jobId);
+  const existing = await idbGet(STORE_REPORT_DRAFTS, key);
 
   const photoAntes = await resolveDraftPhotoBlob('antes', data, existing);
   const photoDepois = await resolveDraftPhotoBlob('depois', data, existing);
@@ -157,14 +168,14 @@ export async function saveLocalReportDraft(report) {
   }
 
   await idbPut(STORE_REPORT_DRAFTS, {
-    jobId: report.jobId,
+    jobId: key,
     report: entry,
     photoAntes,
     photoDepois,
   });
 
   window.dispatchEvent(
-    new CustomEvent('report-draft-saved', { detail: { jobId: report.jobId } }),
+    new CustomEvent('report-draft-saved', { detail: { jobId: key } }),
   );
 
   return entry;
@@ -215,6 +226,19 @@ export async function getAllLocalReportDrafts() {
  */
 export async function resolveReportForJob(jobId, serverReport, options = {}) {
   const local = await getLocalReportDraft(jobId);
+  return mergeLocalAndServerReport(local, serverReport, options);
+}
+
+/** Resolve rascunho local vs servidor para relatório de um serviço. */
+export async function resolveReportForServico(servicoId, serviceType, serverReport, options = {}) {
+  const key = serverReport?.id
+    ? String(serverReport.id)
+    : `svc:${servicoId}:${serviceType}`;
+  const local = await getLocalReportDraft(key);
+  return mergeLocalAndServerReport(local, serverReport, options);
+}
+
+function mergeLocalAndServerReport(local, serverReport, options = {}) {
   if (!local) return serverReport || null;
   if (!serverReport) return local;
   if (serverReport.status === 'approved') return serverReport;

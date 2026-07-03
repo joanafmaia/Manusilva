@@ -1,0 +1,182 @@
+/**
+ * Painel do técnico — detalhe de visita (serviço) com vários relatórios.
+ */
+
+import {
+  escapeHtml,
+  formatDateLong,
+  getClient,
+  getServiceType,
+  openModal,
+  closeModal,
+  showToast,
+  SERVICE_TYPES,
+} from './app.js';
+import { getServico } from './servicos-db.js';
+import {
+  getAvailableServiceTypesForServico,
+  getReportsForServico,
+} from './servicos-panel-utils.js';
+import { renderWorkStateBadge, resolveCalendarEventState } from './calendar-event-state.js';
+
+function reportStatusLabel(report) {
+  if (!report) return 'Sem relatório';
+  if (report.status === 'draft') return 'Rascunho';
+  if (report.status === 'pending_review') return 'À espera de aprovação';
+  if (report.status === 'approved') return 'Aprovado';
+  if (report.status === 'rejected') return 'Rejeitado — corrigir';
+  return report.status;
+}
+
+function reportActionForStatus(status) {
+  if (status === 'approved') return 'view';
+  if (status === 'scheduled') return 'start';
+  return 'continue';
+}
+
+async function openServicoReportFormLazy(servicoId, options) {
+  const { openServicoReportForm } = await import('./forms.js');
+  await openServicoReportForm(servicoId, options);
+}
+
+function buildReportRow(servico, report) {
+  const st = getServiceType(report.serviceType);
+  const pseudoJob = {
+    id: servico.id,
+    clientId: servico.clientId,
+    serviceType: report.serviceType,
+    date: servico.date,
+    status: report.status === 'rejected' ? 'rejected' : 'scheduled',
+    rejectionNote: report.rejectionNote,
+  };
+  const state = resolveCalendarEventState(pseudoJob, report);
+  const action = reportActionForStatus(report.status);
+  const btnLabel =
+    action === 'view' ? 'Ver' : action === 'start' ? 'Iniciar' : report.status === 'rejected' ? 'Corrigir' : 'Continuar';
+
+  const rejection =
+    report.status === 'rejected' && report.rejectionNote
+      ? `<p class="text-muted" style="margin:0.35rem 0 0;font-size:0.8125rem">↩ ${escapeHtml(report.rejectionNote)}</p>`
+      : '';
+
+  return `
+    <div class="tech-servico-report-row">
+      <div class="tech-servico-report-row__main">
+        <div class="tech-servico-report-row__top">
+          <span>${st?.icon || '🔧'} ${escapeHtml(st?.label || report.serviceType)}</span>
+          ${renderWorkStateBadge(pseudoJob, report)}
+        </div>
+        <p class="text-muted" style="margin:0.25rem 0 0;font-size:0.8125rem">${escapeHtml(reportStatusLabel(report))}</p>
+        ${rejection}
+      </div>
+      <button
+        type="button"
+        class="btn-secondary btn-sm tech-servico-report-open"
+        data-servico-id="${escapeHtml(servico.id)}"
+        data-service-type="${escapeHtml(report.serviceType)}"
+        data-report-id="${escapeHtml(report.id || '')}"
+        data-action="${escapeHtml(action)}"
+      >${escapeHtml(btnLabel)}</button>
+    </div>
+  `;
+}
+
+function openAddReportPicker(servicoId, overlay) {
+  const available = getAvailableServiceTypesForServico(servicoId, SERVICE_TYPES);
+  if (!available.length) {
+    showToast('Já existem relatórios para todos os tipos nesta visita.', 'info', 5000);
+    return;
+  }
+
+  const options = available
+    .map(
+      (t) =>
+        `<button type="button" class="btn-ghost tech-servico-type-pick" data-service-type="${escapeHtml(t.id)}" style="justify-content:flex-start;width:100%;margin-bottom:0.35rem">${t.icon} ${escapeHtml(t.label)}</button>`,
+    )
+    .join('');
+
+  const picker = openModal(
+    'Adicionar relatório',
+    `<p class="text-muted" style="margin-bottom:0.75rem">Escolha o tipo de relatório para esta visita:</p>${options}`,
+    '<button type="button" class="btn-ghost" id="cancel-add-report">Cancelar</button>',
+  );
+
+  picker.querySelector('#cancel-add-report')?.addEventListener('click', closeModal);
+  picker.querySelectorAll('.tech-servico-type-pick').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const serviceType = btn.dataset.serviceType;
+      closeModal();
+      closeModal();
+      try {
+        await openServicoReportFormLazy(servicoId, { serviceType });
+      } catch (err) {
+        console.error('[Tech] Novo relatório:', err);
+        showToast('Não foi possível abrir o formulário.', 'error');
+      }
+    });
+  });
+}
+
+/**
+ * Modal com lista de relatórios do serviço e opção de adicionar novo.
+ * @param {string} servicoId
+ */
+export async function openTechServicoDetail(servicoId) {
+  const servico = getServico(servicoId);
+  if (!servico) {
+    showToast('Serviço não encontrado. Atualize o calendário.', 'warning', 6000);
+    return;
+  }
+
+  const client = getClient(servico.clientId);
+  const reports = getReportsForServico(servicoId);
+  const reportsHtml = reports.length
+    ? reports.map((r) => buildReportRow(servico, r)).join('')
+    : '<p class="text-muted">Ainda não há relatórios nesta visita. Adicione o primeiro abaixo.</p>';
+
+  const canAdd = getAvailableServiceTypesForServico(servicoId, SERVICE_TYPES).length > 0;
+
+  const content = `
+    <dl class="job-detail-grid" style="margin-bottom:1rem">
+      <div><dt>Cliente</dt><dd>${escapeHtml(client?.name || '—')}</dd></div>
+      <div><dt>Data</dt><dd>${escapeHtml(formatDateLong(servico.date))}</dd></div>
+    </dl>
+    <h4 style="margin:0 0 0.5rem;font-size:0.9375rem">Relatórios desta visita</h4>
+    <div class="tech-servico-reports-list">${reportsHtml}</div>
+  `;
+
+  const actions = `
+    <button type="button" class="btn-ghost" id="tech-servico-close">Fechar</button>
+    ${canAdd ? '<button type="button" class="btn-primary" id="tech-servico-add">+ Adicionar relatório</button>' : ''}
+  `;
+
+  const overlay = openModal(
+    `📋 ${client?.name || 'Visita'} — ${formatDateLong(servico.date)}`,
+    content,
+    actions,
+  );
+
+  overlay.querySelector('#tech-servico-close')?.addEventListener('click', closeModal);
+  overlay.querySelector('#tech-servico-add')?.addEventListener('click', () => {
+    openAddReportPicker(servicoId, overlay);
+  });
+
+  overlay.querySelectorAll('.tech-servico-report-open').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const action = btn.dataset.action;
+      const opts = {
+        serviceType: btn.dataset.serviceType,
+        reportId: btn.dataset.reportId || undefined,
+        viewOnly: action === 'view',
+        editPending: action === 'continue',
+      };
+      closeModal();
+      try {
+        await openServicoReportFormLazy(btn.dataset.servicoId, opts);
+      } catch (err) {
+        console.error('[Tech] Abrir relatório do serviço:', err);
+        showToast('Não foi possível abrir o relatório.', 'error');
+      }
+    });
+  });
+}

@@ -70,7 +70,15 @@ import {
 import { initReportFormAutosave } from './report-form-autosave.js';
 import { VISITAS_FIELD_ID, VISIT_DATES_FIELD_ID, normalizeVisitasForService } from './deslocacao-field.js';
 import { ensureProductionCatalog } from './clients-catalog.js';
+import { ensureReportsLoaded } from './relatorios-db.js';
 import { ensureJobsLoaded } from './trabalhos-db.js';
+import { ensureServicosLoadedSafe, getServico } from './servicos-db.js';
+import {
+  getReportByServicoAndType,
+  getReportsForServico,
+} from './servicos-panel-utils.js';
+import { getReport } from './entity-lookups.js';
+import { resolveReportForServico } from './report-local-storage.js';
 import {
   syncJobFotosAntesDepois,
   ensureFotoUrlsOnTrabalho,
@@ -310,6 +318,168 @@ export async function openJobForm(jobId, options = {}) {
     }
   } catch (err) {
     captureError(err, { action: 'openJobForm', jobId });
+    showToast('Não foi possível abrir este relatório.', 'error', 7000);
+    document.getElementById('form-overlay')?.remove();
+    document.body.style.overflow = '';
+  }
+}
+
+/**
+ * Abre formulário de relatório dentro de um serviço (visita multi-relatório).
+ * @param {string} servicoId
+ * @param {{ serviceType: string, reportId?: string, viewOnly?: boolean, editPending?: boolean }} options
+ */
+export async function openServicoReportForm(servicoId, options = {}) {
+  const { serviceType, reportId, viewOnly = false } = options;
+  if (!servicoId || !serviceType) {
+    showToast('Serviço ou tipo de relatório em falta.', 'error');
+    return;
+  }
+
+  try {
+    try {
+      await ensureServicosLoadedSafe();
+      await ensureProductionCatalog();
+      await ensureReportsLoaded();
+    } catch (err) {
+      console.warn('[Form] Pré-carga antes do relatório de serviço:', err);
+    }
+
+    const servico = getServico(servicoId);
+    if (!servico) {
+      showToast('Serviço não encontrado. Sincronize os dados e tente novamente.', 'error', 7000);
+      return;
+    }
+
+    const service = getServiceType(serviceType);
+    if (!service) {
+      showToast('Tipo de relatório não reconhecido neste dispositivo.', 'error', 7000);
+      return;
+    }
+
+    const job = {
+      id: servico.id,
+      servicoId: servico.id,
+      clientId: servico.clientId,
+      date: servico.date,
+      time: servico.time || '',
+      technicianId: servico.technicianIds,
+      serviceType,
+      forkliftSerial: '',
+      status: 'scheduled',
+      rejectionNote: null,
+    };
+
+    let client = getClient(job.clientId);
+    if (!client && job.clientId) {
+      try {
+        await ensureProductionCatalog();
+      } catch (err) {
+        console.warn('[Form] Recarregar catálogo de clientes:', err);
+      }
+      client = getClient(job.clientId);
+    }
+    if (!client) {
+      client = { id: job.clientId || '', name: 'Cliente', Nome: 'Cliente' };
+    }
+
+    const session = getSession();
+    const tech =
+      getTechnician(session?.technicianId) || getPrimaryTechnicianForJob(job);
+
+    const serverReport =
+      (reportId ? getReport(reportId) : null) ||
+      getReportByServicoAndType(servicoId, serviceType);
+
+    const editPendingOpt =
+      options.editPending === true ||
+      (options.editPending !== false && serverReport?.status === 'pending_review');
+
+    const draftKey =
+      serverReport?.id || `svc:${servicoId}:${serviceType}`;
+    const conflictChoice = await resolveReportOpenConflict(draftKey, serverReport, {
+      editPending: editPendingOpt,
+      viewOnly,
+    });
+    if (conflictChoice === 'cancel') return;
+
+    let existingReport;
+    if (conflictChoice === 'server') {
+      await applyServerConflictChoice(draftKey);
+      existingReport = serverReport || null;
+    } else if (conflictChoice === 'local') {
+      const { getLocalReportDraft } = await import('./report-local-storage.js');
+      const local = await getLocalReportDraft(draftKey);
+      existingReport = local
+        ? { ...serverReport, ...local, status: local.status || serverReport?.status || 'draft' }
+        : serverReport || null;
+    } else {
+      existingReport = await resolveReportForServico(servicoId, serviceType, serverReport, {
+        editPending: editPendingOpt,
+      });
+    }
+
+    if (existingReport?.status === 'approved' && !viewOnly) {
+      showToast('Este relatório já foi aprovado pelo RH e não pode ser editado.', 'warning', 5000);
+      return;
+    }
+
+    if (viewOnly) {
+      if (existingReport?.status !== 'approved') {
+        showToast('Este relatório ainda não está concluído.', 'warning', 4500);
+        return;
+      }
+    }
+
+    const editPending =
+      options.editPending === true ||
+      (options.editPending !== false && existingReport?.status === 'pending_review');
+
+    clearEdicaoState();
+    if (editPending && existingReport?.status === 'pending_review') {
+      trabalhoIdEmEdicao = servicoId;
+      relatorioIdEmEdicao = existingReport.id || null;
+    }
+
+    resetFotoState(job, existingReport);
+
+    let equipamentos = [];
+    if (!viewOnly && job.clientId) {
+      try {
+        const { fetchClienteEquipamentos } = await import('./cliente-equipamentos-db.js');
+        equipamentos = await fetchClienteEquipamentos(job.clientId);
+      } catch (err) {
+        console.warn('[Form] Equipamentos do cliente:', err);
+      }
+    }
+
+    const overlay = document.createElement('div');
+    overlay.id = 'form-overlay';
+    overlay.className = 'form-overlay form-overlay--tech';
+    overlay.innerHTML = buildFormHTML(job, client, tech, service, existingReport, {
+      viewOnly,
+      equipamentos,
+    });
+    document.body.appendChild(overlay);
+    document.body.style.overflow = 'hidden';
+
+    requestAnimationFrame(() => overlay.classList.add('show'));
+    if (viewOnly) overlay.classList.add('form-overlay--readonly');
+
+    bindFormEvents(overlay, job, client, tech, service, existingReport, { viewOnly });
+    await bindFormFieldInteractions(overlay);
+
+    if (!viewOnly && equipamentos.length) {
+      bindEquipamentoFieldComboboxes(overlay, equipamentos, service);
+    }
+
+    if (trabalhoIdEmEdicao) {
+      showToast('Pode editar o relatório enquanto aguarda aprovação do RH.', 'info', 4000);
+    } else if (existingReport?.status === 'draft' || existingReport?._localSavedAt) {
+      showToast('Rascunho recuperado automaticamente da memória do tablet.', 'info', 4000);
+    }
+  } catch (err) {
+    captureError(err, { action: 'openServicoReportForm', servicoId, serviceType });
     showToast('Não foi possível abrir este relatório.', 'error', 7000);
     document.getElementById('form-overlay')?.remove();
     document.body.style.overflow = '';
@@ -633,10 +803,12 @@ function buildReportFromForm(overlay, job, existingReport, signaturePads, report
   const values = collectReportValues(overlay);
   Object.assign(values, normalizeVisitasForService(job.serviceType, values));
   accumulateVisitDates(values, existingReport);
-  const editingPending = isEdicaoPendenteAtiva(job.id);
+  const editingPending = isEdicaoPendenteAtiva(job.servicoId || job.id);
+  const servicoId = job.servicoId || existingReport?.servicoId || '';
   return {
     id: relatorioIdEmEdicao || reportId || existingReport?.id || null,
-    jobId: job.id,
+    jobId: servicoId ? existingReport?.jobId || '' : job.id,
+    servicoId: servicoId || job.id,
     technicianId:
       getSession()?.technicianId ||
       getPrimaryTechnicianForJob(job)?.id ||

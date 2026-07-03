@@ -291,6 +291,37 @@ export async function ensureRelatoriosForTrabalhos(jobIds = []) {
   return loaded;
 }
 
+/**
+ * Carrega relatórios ligados a serviços (servico_id) — merge no cache.
+ */
+export async function ensureRelatoriosForServicos(servicoIds = []) {
+  const ids = [...new Set(servicoIds.map((id) => String(id || '').trim()).filter(Boolean))];
+  if (!ids.length) return [];
+
+  const supabase = await getAuthenticatedSupabaseClient();
+  const loaded = [];
+
+  for (let offset = 0; offset < ids.length; offset += RELATORIOS_IN_BATCH_SIZE) {
+    const batch = ids.slice(offset, offset + RELATORIOS_IN_BATCH_SIZE);
+    const { data, error } = await supabase.from('relatorios').select('*').in('servico_id', batch);
+
+    if (error) {
+      console.error('[ManuSilva] Erro ao carregar relatórios dos serviços:', error);
+      throw new Error(formatRelatoriosError(error));
+    }
+
+    for (const row of data || []) {
+      const report = mapRowToReport(row);
+      if (report) {
+        upsertCacheEntry(report);
+        loaded.push(report);
+      }
+    }
+  }
+
+  return loaded;
+}
+
 async function loadReportsFromSupabase() {
   const supabase = await getAuthenticatedSupabaseClient();
   const { data, error } = await supabase
@@ -317,13 +348,23 @@ export function invalidateReportsCache() {
   invalidateReportsJobIndex();
 }
 
+function reportsShareSameSlot(a, b) {
+  if (!a || !b) return false;
+  if (a.servicoId && b.servicoId && sameEntityId(a.servicoId, b.servicoId)) {
+    return Boolean(a.serviceType && b.serviceType && a.serviceType === b.serviceType);
+  }
+  if (a.jobId && b.jobId && sameEntityId(a.jobId, b.jobId)) {
+    return !a.servicoId && !b.servicoId;
+  }
+  return false;
+}
+
 function upsertCacheEntry(report) {
   if (!report) return;
   if (!reportsCache) reportsCache = [];
-  // Um trabalho só pode ter um relatório canónico em cache — evita duplicados após aprovar.
   reportsCache = reportsCache.filter((r) => {
     if (sameEntityId(r.id, report.id)) return false;
-    if (report.jobId && r.jobId && sameEntityId(r.jobId, report.jobId)) return false;
+    if (reportsShareSameSlot(r, report)) return false;
     return true;
   });
   reportsCache.unshift(report);
@@ -364,8 +405,38 @@ export function removeReportsForJobFromCache(jobId) {
   invalidateReportsJobIndex();
 }
 
+/** Remove do cache todos os relatórios de um serviço. */
+export function removeReportsForServicoFromCache(servicoId) {
+  if (servicoId == null || !reportsCache) return;
+  const id = String(servicoId);
+  reportsCache = reportsCache.filter(
+    (r) => !sameEntityId(r.servicoId, id) && !sameEntityId(r.jobId, id),
+  );
+  invalidateReportsJobIndex();
+}
+
 async function findExistingReportId(report) {
   if (report.id && isUuid(report.id)) return report.id;
+
+  if (report.servicoId && report.serviceType) {
+    const byServico = reportsCache?.find(
+      (r) =>
+        sameEntityId(r.servicoId, report.servicoId) && r.serviceType === report.serviceType,
+    );
+    if (byServico?.id && isUuid(byServico.id)) return byServico.id;
+
+    const supabase = await getAuthenticatedSupabaseClient();
+    const { data, error } = await supabase
+      .from('relatorios')
+      .select('id')
+      .eq('servico_id', report.servicoId)
+      .eq('tipo_servico', report.serviceType)
+      .order('atualizado_em', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (!error && data?.id) return String(data.id);
+  }
+
   const byJob = reportsCache?.find((r) => report.jobId && sameEntityId(r.jobId, report.jobId));
   if (byJob?.id && isUuid(byJob.id)) return byJob.id;
 
@@ -389,6 +460,10 @@ async function findExistingReportId(report) {
  * @returns {{ report: object, job: object | null }}
  */
 async function ensureTrabalhoForReport(report) {
+  if (report.servicoId) {
+    return { report: { ...report, jobId: report.jobId || '' }, job: null };
+  }
+
   await ensureJobsLoaded();
   if (report.jobId) {
     const job = getJobsSnapshot().find((j) => j.id === report.jobId);

@@ -41,15 +41,18 @@ export function buildWazeUrl(address) {
   return `https://waze.com/ul?q=${encodeURIComponent(q)}&navigate=yes`;
 }
 
-export function filterJobsBySearch(jobs, query, { getClient, getService, getReport } = {}) {
+export function filterJobsBySearch(jobs, query, { getClient, getService, getReport, getSubtitle } = {}) {
   const q = String(query || '').trim().toLowerCase();
   if (!q) return jobs;
   return jobs.filter((job) => {
     const client = getClient?.(job?.clientId);
     const service = getService?.(job?.serviceType);
     const report = getReport?.(job?.id);
+    const subtitle = getSubtitle?.(job) || '';
     const clientName = String(client?.name || client?.Nome || '').toLowerCase();
-    const serviceLabel = String(service?.label || job?.serviceType || '').toLowerCase();
+    const serviceLabel = String(
+      subtitle || service?.label || job?.serviceType || '',
+    ).toLowerCase();
     const rejection = String(report?.rejectionNote || job?.rejectionNote || '').toLowerCase();
     return clientName.includes(q) || serviceLabel.includes(q) || rejection.includes(q);
   });
@@ -170,6 +173,7 @@ export const TECH_ACTION_LABELS = {
   view: 'Ver',
   continue: 'Continuar',
   start: 'Iniciar',
+  servico: 'Abrir visita',
   correct: 'Corrigir',
   edit: 'Editar',
 };

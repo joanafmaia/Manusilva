@@ -5,7 +5,6 @@
 import {
   requireAuth,
   getWeekDates,
-  getJobsForTechnician,
   getJobsSnapshot,
   getReportsSnapshot,
   getReportForJob,
@@ -39,8 +38,18 @@ import {
 import { initLogoutButton } from './auth.js';
 import { getLastClientIntervention } from './views/historico-cliente.js';
 import { ensureTrabalhosSemana } from './trabalhos-db.js';
-import { dedupeReportsForDisplay, ensureRelatoriosForTrabalhos } from './relatorios-db.js';
+import { ensureServicosSemana } from './servicos-db.js';
+import { dedupeReportsForDisplay, ensureRelatoriosForTrabalhos, ensureRelatoriosForServicos } from './relatorios-db.js';
 import { triggerTechDataSync } from './tech-sync.js';
+import {
+  filterCalendarItemsByTech,
+  getAdminCalendarItems,
+  getCalendarItemReport,
+  getCalendarItemSubtitle,
+  servicoToCalendarItem,
+} from './servicos-panel-utils.js';
+import { openTechServicoDetail } from './tech-servico-panel.js';
+import { getServico } from './servicos-db.js';
 import {
   filterJobsBySearch,
   filterRealizadosBySearch,
@@ -203,11 +212,26 @@ function sortJobsByDateTime(a, b) {
 function reportAssignedToTechnician(report, techId) {
   if (!report || !techId) return false;
   const tech = getTechnician(techId);
-  const job = report.jobId ? getJob(report.jobId) : null;
+  let job = report.jobId ? getJob(report.jobId) : null;
+  if (!job && report.servicoId) {
+    const servico = getServico(report.servicoId);
+    if (servico) job = servicoToCalendarItem(servico);
+  }
   return reportMatchesTechnicianTeam(report, job, {
     techId,
     techName: tech?.name,
   });
+}
+
+function getTechAgendadosItems(techId) {
+  return filterCalendarItemsByTech(getAdminCalendarItems(), techId);
+}
+
+function getAgendadosItemsForDate(techId, isoDate) {
+  const date = toPureDate(isoDate);
+  return filterAgendadosActiveJobs(
+    getTechAgendadosItems(techId).filter((item) => toPureDate(item.date) === date),
+  );
 }
 
 /** O calendário (Semana/Mês + dias) só é visível na aba Agendados. */
@@ -375,8 +399,8 @@ const AGENDADOS_STATE_ORDER = {
 };
 
 function sortAgendadosJobs(a, b) {
-  const reportA = getReportForJob(a.id);
-  const reportB = getReportForJob(b.id);
+  const reportA = getCalendarItemReport(a);
+  const reportB = getCalendarItemReport(b);
   const stateA = resolveCalendarEventState(a, reportA);
   const stateB = resolveCalendarEventState(b, reportB);
   const orderA = AGENDADOS_STATE_ORDER[stateA] ?? 9;
@@ -391,34 +415,30 @@ function jobMatchesTechOnDate(job, techId, isoDate) {
 }
 
 /** Concluídos (aprovados) só na aba Realizados — não na lista Agendados nem no calendário. */
-function isAgendadosActiveJob(job) {
-  const report = getReportForJob(job.id);
-  return resolveCalendarEventState(job, report) !== 'approved';
+function isAgendadosActiveJob(item) {
+  const report = getCalendarItemReport(item);
+  return resolveCalendarEventState(item, report) !== 'approved';
 }
 
 function filterAgendadosActiveJobs(jobs) {
   return jobs.filter(isAgendadosActiveJob);
 }
 
-/** Trabalhos do dia selecionado — exclui concluídos (aprovados pelo RH). */
+/** Visitas/trabalhos do dia selecionado — exclui concluídos (todos os relatórios aprovados). */
 function getAgendadosJobs(techId) {
-  const selected = toPureDate(selectedDate);
-  return filterAgendadosActiveJobs(
-    getJobsSnapshot().filter((job) => jobMatchesTechOnDate(job, techId, selected)),
-  ).sort(sortAgendadosJobs);
+  return getAgendadosItemsForDate(techId, selectedDate).sort(sortAgendadosJobs);
 }
 
-/** Trabalhos no resto da semana do dia selecionado (exclui o próprio dia). */
+/** Resto da semana do dia selecionado (exclui o próprio dia). */
 function getRestOfWeekScheduledJobs(techId) {
   const selected = toPureDate(selectedDate);
   const weekOfSelected = getWeekDates(new Date(`${selected}T12:00:00`));
   const dateSet = new Set(weekOfSelected);
 
   return filterAgendadosActiveJobs(
-    getJobsSnapshot().filter((job) => {
-      const jobDate = toPureDate(job.date);
-      if (!jobAssignedToTechnician(job, techId)) return false;
-      if (!dateSet.has(jobDate) || jobDate === selected) return false;
+    getTechAgendadosItems(techId).filter((item) => {
+      const itemDate = toPureDate(item.date);
+      if (!dateSet.has(itemDate) || itemDate === selected) return false;
       return true;
     }),
   ).sort(sortAgendadosJobs);
@@ -452,11 +472,11 @@ function renderTechJobsListHtml(jobs, rowRenderer) {
   return `<div class="tech-job-rows">${rows}</div>`;
 }
 
-function renderAgendadosRow(job, options = {}) {
-  const report = getReportForJob(job.id);
-  const state = resolveCalendarEventState(job, report);
-  const action = resolveAgendadosRowAction(state);
-  return renderTechJobRow(job, report, action, options);
+function renderAgendadosRow(item, options = {}) {
+  const report = getCalendarItemReport(item);
+  const state = resolveCalendarEventState(item, report);
+  const action = item.isServico ? 'servico' : resolveAgendadosRowAction(state);
+  return renderTechJobRow(item, report, action, options);
 }
 
 function renderAgendadosWeekPreview(techId) {
@@ -491,7 +511,9 @@ function getRealizadosItems(techId) {
   )
     .map((report) => ({
       report,
-      job: report.jobId ? getJob(report.jobId) : null,
+      job:
+        (report.jobId ? getJob(report.jobId) : null) ||
+        (report.servicoId ? servicoToCalendarItem(getServico(report.servicoId)) : null),
     }))
     .sort((a, b) => {
       const dateA = a.job?.date || a.report.approvedAt || a.report.submittedAt || '';
@@ -774,7 +796,11 @@ async function warmTechDashboardInitial(technicianId) {
   const { startDate, endDate } = getTechCalendarPeriodBounds();
   const catalogTask = isProductionCatalogReady() ? Promise.resolve() : ensureProductionCatalog();
 
-  await Promise.all([catalogTask, ensureTrabalhosSemana(technicianId, startDate, endDate)]);
+  await Promise.all([
+    catalogTask,
+    ensureTrabalhosSemana(technicianId, startDate, endDate),
+    ensureServicosSemana(technicianId, startDate, endDate),
+  ]);
 
   const periodJobIds = getJobsSnapshot()
     .filter((job) => jobAssignedToTechnician(job, technicianId))
@@ -784,7 +810,18 @@ async function warmTechDashboardInitial(technicianId) {
     })
     .map((job) => job.id);
 
-  await ensureRelatoriosForTrabalhos(periodJobIds);
+  const periodServicoIds = getTechAgendadosItems(technicianId)
+    .filter((item) => item.isServico)
+    .filter((item) => {
+      const date = String(item.date || '');
+      return date >= startDate && date <= endDate;
+    })
+    .map((item) => item.id);
+
+  await Promise.all([
+    ensureRelatoriosForTrabalhos(periodJobIds),
+    ensureRelatoriosForServicos(periodServicoIds),
+  ]);
 }
 
 function scheduleWarmTechDashboardFull() {
@@ -798,30 +835,25 @@ function scheduleWarmTechDashboardFull() {
 }
 
 function getRejectedJobsForTech(techId) {
-  return getJobsSnapshot()
-    .filter((job) => {
-      if (!jobAssignedToTechnician(job, techId)) return false;
-      const report = getReportForJob(job.id);
-      return resolveCalendarEventState(job, report) === 'rejected';
+  return getTechAgendadosItems(techId)
+    .filter((item) => {
+      const report = getCalendarItemReport(item);
+      return resolveCalendarEventState(item, report) === 'rejected';
     })
     .sort(sortJobsByDateTime);
 }
 
 function getTodayAgendadosCount(techId) {
   const today = getTodayIso();
-  return getJobsSnapshot().filter(
-    (job) => jobMatchesTechOnDate(job, techId, today) && isAgendadosActiveJob(job),
-  ).length;
+  return getAgendadosItemsForDate(techId, today).length;
 }
 
 function countJobsByStateForDate(techId, isoDate) {
   const counts = { draft: 0, pending: 0, scheduled: 0, rejected: 0 };
-  getJobsSnapshot()
-    .filter((job) => jobMatchesTechOnDate(job, techId, isoDate) && isAgendadosActiveJob(job))
-    .forEach((job) => {
-      const state = resolveCalendarEventState(job, getReportForJob(job.id));
-      if (counts[state] !== undefined) counts[state] += 1;
-    });
+  getAgendadosItemsForDate(techId, isoDate).forEach((item) => {
+    const state = resolveCalendarEventState(item, getCalendarItemReport(item));
+    if (counts[state] !== undefined) counts[state] += 1;
+  });
   return counts;
 }
 
@@ -910,7 +942,7 @@ function renderTechRejectedBanner() {
 
   const first = rejected[0];
   const client = getClient(first.clientId);
-  const report = getReportForJob(first.id);
+  const report = getCalendarItemReport(first);
   const note = report?.rejectionNote || first.rejectionNote || '';
   const more = rejected.length > 1 ? ` (+${rejected.length - 1} outro${rejected.length > 2 ? 's' : ''})` : '';
 
@@ -1146,7 +1178,18 @@ async function loadPeriodJobsFromSupabase() {
 
   if (periodJobsCacheKey === cacheKey) return;
 
-  await ensureTrabalhosSemana(session.technicianId, startDate, endDate);
+  await Promise.all([
+    ensureTrabalhosSemana(session.technicianId, startDate, endDate),
+    ensureServicosSemana(session.technicianId, startDate, endDate),
+  ]);
+
+  const servicoIds = getTechAgendadosItems(session.technicianId)
+    .filter((item) => item.isServico && item.date >= startDate && item.date <= endDate)
+    .map((item) => item.id);
+  if (servicoIds.length) {
+    await ensureRelatoriosForServicos(servicoIds);
+  }
+
   periodJobsCacheKey = cacheKey;
 }
 
@@ -1237,25 +1280,36 @@ function renderTechCalendar() {
   renderJobs();
 }
 
-function openJobFromCalendar(jobId) {
-  void openContinueJob(jobId);
+function openJobFromCalendar(itemId) {
+  const session = requireAuth('technician');
+  const techId = session?.technicianId;
+  const item = techId
+    ? getTechAgendadosItems(techId).find((i) => String(i.id) === String(itemId))
+    : null;
+  if (item?.isServico) {
+    void openTechServicoDetail(itemId);
+    return;
+  }
+  void openContinueJob(itemId);
 }
 
-function renderTechMonthJobBlock(job) {
-  const client = getClient(job.clientId);
-  const service = getServiceType(job.serviceType);
-  const report = getReportForJob(job.id);
-  const stateClass = getCalendarEventStateClass(job, report);
-  const label = `${client?.name || 'Cliente'} — ${service?.label || 'Serviço'}`;
+function renderTechMonthJobBlock(item) {
+  const client = getClient(item.clientId);
+  const report = getCalendarItemReport(item);
+  const subtitle = item.isServico
+    ? getCalendarItemSubtitle(item)
+    : getServiceType(item.serviceType)?.label || 'Serviço';
+  const stateClass = getCalendarEventStateClass(item, report);
+  const label = `${client?.name || 'Cliente'} — ${subtitle}`;
 
   return `
     <button type="button"
       class="cal-block cal-block-sm cal-block--interactive tech-month-job ${stateClass}"
-      data-tech-month-job="${job.id}"
+      data-tech-month-job="${item.id}"
       title="${escapeHtml(label)}"
       aria-label="${escapeHtml(label)}">
       <span class="cal-block-client">${escapeHtml(client?.name?.split(' ')[0] || 'Cliente')}</span>
-      ${renderWorkStateBadge(job, report)}
+      ${renderWorkStateBadge(item, report)}
     </button>
   `;
 }
@@ -1314,9 +1368,7 @@ function renderMonthCalendar() {
 
   cellsHtml += dates
     .map((date) => {
-      const dayJobs = techId
-        ? filterAgendadosActiveJobs(getJobsForTechnician(techId, date))
-        : [];
+      const dayJobs = techId ? getAgendadosItemsForDate(techId, date) : [];
       const isSelected = date === selectedDate;
       const classes = [
         'cal-cell',
@@ -1361,9 +1413,7 @@ function renderCalendarStrip() {
     .map((date) => {
       const isSelected = date === selectedDate;
       const today = isToday(date);
-      const dayJobs = techId
-        ? filterAgendadosActiveJobs(getJobsForTechnician(techId, date))
-        : [];
+      const dayJobs = techId ? getAgendadosItemsForDate(techId, date) : [];
       const hasJobs = dayJobs.length > 0;
       const classes = [
         'cal-day',
@@ -1376,8 +1426,8 @@ function renderCalendarStrip() {
 
       const statusDots = hasJobs
         ? `<span class="cal-job-dots" aria-hidden="true">${dayJobs
-            .map((job) => {
-              const state = resolveCalendarEventState(job, getReportForJob(job.id));
+            .map((item) => {
+              const state = resolveCalendarEventState(item, getCalendarItemReport(item));
               return `<span class="cal-status-dot cal-status-dot--${state}"></span>`;
             })
             .join('')}</span>`
@@ -1414,19 +1464,28 @@ const TECH_ROW_ACTIONS = {
   view: { icon: '👁️', title: 'Visualizar relatório' },
   continue: { icon: '✏️', title: 'Continuar relatório' },
   start: { icon: '▶', title: 'Iniciar relatório' },
+  servico: { icon: '📋', title: 'Abrir visita' },
 };
 
-function renderTechJobRow(job, report, actionType, { dateOverride, showDate = true } = {}) {
+function renderTechJobRow(job, report, actionType, { dateOverride, showDate = true, reportId = '' } = {}) {
   const state = resolveCalendarEventState(job, report);
   const client = getClient(job?.clientId || report?.clientId);
-  const service = getServiceType(job?.serviceType || report?.serviceType);
+  const isServico = Boolean(job?.isServico);
+  const subtitle = isServico
+    ? getCalendarItemSubtitle(job)
+    : getServiceType(job?.serviceType || report?.serviceType)?.label || job?.serviceType || 'Relatório';
   const action = TECH_ROW_ACTIONS[actionType] || TECH_ROW_ACTIONS.view;
   const actionLabel = resolveTechActionLabel(actionType, state);
-  const jobId = job?.id || report?.jobId || '';
+  const jobId = job?.id || report?.jobId || report?.servicoId || '';
   const clientId = job?.clientId || report?.clientId || '';
   const isoDate = dateOverride || job?.date || '';
-  const label = `${action.title}: ${client?.name || 'Cliente'} — ${service?.label || 'Relatório'}${isoDate ? ` — ${formatDateLong(isoDate)}` : ''}`;
-  const reportId = report?.id || '';
+  const label = `${action.title}: ${client?.name || 'Cliente'} — ${subtitle}${isoDate ? ` — ${formatDateLong(isoDate)}` : ''}`;
+  const resolvedReportId = reportId || report?.id || '';
+  const servicoAttr = isServico ? ' data-row-servico="1"' : '';
+  const directReportAttr =
+    !isServico && report?.servicoId && resolvedReportId
+      ? ` data-row-servico-report="1" data-row-service-type="${escapeHtml(report.serviceType || '')}"`
+      : '';
 
   const rejectionNote = report?.rejectionNote || job?.rejectionNote || '';
   const rejectionHtml =
@@ -1439,20 +1498,20 @@ function renderTechJobRow(job, report, actionType, { dateOverride, showDate = tr
       : '';
 
   const pdfBtn =
-    actionType === 'view' && reportId
-      ? `<button type="button" class="tech-job-card__pdf" data-row-pdf="${escapeHtml(reportId)}" data-row-pdf-job="${escapeHtml(jobId)}" aria-label="Ver PDF">PDF</button>`
+    actionType === 'view' && resolvedReportId
+      ? `<button type="button" class="tech-job-card__pdf" data-row-pdf="${escapeHtml(resolvedReportId)}" data-row-pdf-job="${escapeHtml(jobId)}" aria-label="Ver PDF">PDF</button>`
       : '';
 
   return `
     <div class="tech-job-card tech-job-card--${state}">
-      <button type="button" class="tech-job-card__main" data-row-job="${escapeHtml(jobId)}" data-row-action="${escapeHtml(actionType)}" aria-label="${escapeHtml(label)}">
+      <button type="button" class="tech-job-card__main" data-row-job="${escapeHtml(jobId)}" data-row-action="${escapeHtml(actionType)}"${servicoAttr}${directReportAttr} data-row-report-id="${escapeHtml(resolvedReportId)}" aria-label="${escapeHtml(label)}">
         <div class="tech-job-card__row tech-job-card__row--top">
           ${showDate ? `<span class="tech-job-card__date">${formatRealizadoRowDate(isoDate)}</span>` : ''}
           <span class="tech-job-card__client">${escapeHtml(client?.name || 'Cliente')}</span>
           ${renderWorkStateBadge(job, report)}
         </div>
         <div class="tech-job-card__row tech-job-card__row--bottom">
-          <span class="tech-job-card__service">${service?.icon || '🔧'} ${escapeHtml(service?.label || job?.serviceType || 'Relatório')}</span>
+          <span class="tech-job-card__service">${isServico ? '📋' : getServiceType(job?.serviceType || report?.serviceType)?.icon || '🔧'} ${escapeHtml(subtitle)}</span>
           <span class="tech-job-card__cta">${escapeHtml(actionLabel)}</span>
         </div>
         ${rejectionHtml}
@@ -1519,7 +1578,17 @@ function bindTechJobRowsEvents(scope) {
     row.setAttribute('aria-busy', 'true');
 
     try {
-      if (row.dataset.rowAction === 'view') {
+      if (row.dataset.rowServico === '1') {
+        await openTechServicoDetail(jobId);
+      } else if (row.dataset.rowServicoReport === '1') {
+        const { openServicoReportForm } = await loadFormsModule();
+        await openServicoReportForm(jobId, {
+          serviceType: row.dataset.rowServiceType,
+          reportId: row.dataset.rowReportId || undefined,
+          viewOnly: row.dataset.rowAction === 'view',
+          editPending: row.dataset.rowAction === 'continue',
+        });
+      } else if (row.dataset.rowAction === 'view') {
         await openJobFormLazy(jobId, { viewOnly: true });
       } else {
         await openContinueJob(jobId);
@@ -1585,7 +1654,28 @@ function filterRealizadosItems(items) {
 function renderRealizadoRow({ job, report }) {
   const isoDate = getRealizadoItemDate({ job, report });
   const action = report?.status === 'pending_review' ? 'continue' : 'view';
-  return renderTechJobRow(job, report, action, { dateOverride: isoDate });
+  let pseudoJob =
+    job ||
+    (report.servicoId
+      ? servicoToCalendarItem(getServico(report.servicoId))
+      : {
+          id: report.jobId || report.servicoId,
+          clientId: report.clientId,
+          serviceType: report.serviceType,
+          date: isoDate,
+        });
+  if (report.servicoId) {
+    pseudoJob = {
+      ...pseudoJob,
+      id: report.servicoId,
+      serviceType: report.serviceType,
+      isServico: false,
+    };
+  }
+  return renderTechJobRow(pseudoJob, report, action, {
+    dateOverride: isoDate,
+    reportId: report.id,
+  });
 }
 
 function renderRealizadosListHtml(allItems) {
@@ -1716,7 +1806,9 @@ function renderJobs() {
   const jobFilterOpts = {
     getClient,
     getService: getServiceType,
-    getReport: getReportForJob,
+    getReport: (id) => getCalendarItemReport({ id }),
+    getSubtitle: (item) =>
+      item?.isServico ? getCalendarItemSubtitle(item) : getServiceType(item?.serviceType)?.label || '',
   };
 
   if (techJobsTab === 'agendados') {

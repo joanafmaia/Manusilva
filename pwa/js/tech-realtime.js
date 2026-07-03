@@ -12,7 +12,9 @@ import {
   mergeReportFromRealtime,
   removeReportFromCache,
   removeReportsForJobFromCache,
+  removeReportsForServicoFromCache,
 } from './relatorios-db.js';
+import { mergeServicoFromRealtime, removeServicoFromCache } from './servicos-db.js';
 import { removeLocalReportDraft } from './report-local-storage.js';
 import {
   maybeNotifyTechJobScheduled,
@@ -20,6 +22,7 @@ import {
   maybeNotifyTechReportRejected,
 } from './tech-notifications.js';
 import { getJob, getTechnician } from './app.js';
+import { servicoToCalendarItem } from './servicos-panel-utils.js';
 import { getSession } from './session.js';
 
 let channel = null;
@@ -72,6 +75,22 @@ async function handleRelatorioDeleted(oldRow) {
   notifyChange();
 }
 
+async function handleServicoDeleted(oldRow) {
+  const servicoId = oldRow?.id != null ? String(oldRow.id) : '';
+  if (!servicoId) return;
+
+  removeServicoFromCache(servicoId);
+  removeReportsForServicoFromCache(servicoId);
+
+  try {
+    await removeLocalReportDraft(servicoId);
+  } catch {
+    /* melhor esforço */
+  }
+
+  notifyChange();
+}
+
 export async function initTechRealtime() {
   if (channel) return channel;
 
@@ -79,6 +98,31 @@ export async function initTechRealtime() {
 
   channel = supabase
     .channel('tech-dashboard-realtime')
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'servicos' },
+      (payload) => {
+        const servico = mergeServicoFromRealtime(payload.new);
+        const match = currentTechMatch();
+        if (servico && match) maybeNotifyTechJobScheduled(servicoToCalendarItem(servico), match);
+        notifyChange();
+      },
+    )
+    .on(
+      'postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'servicos' },
+      (payload) => {
+        mergeServicoFromRealtime(payload.new);
+        notifyChange();
+      },
+    )
+    .on(
+      'postgres_changes',
+      { event: 'DELETE', schema: 'public', table: 'servicos' },
+      (payload) => {
+        handleServicoDeleted(payload.old).catch(console.error);
+      },
+    )
     .on(
       'postgres_changes',
       { event: 'INSERT', schema: 'public', table: 'trabalhos' },
@@ -141,7 +185,7 @@ export async function initTechRealtime() {
     )
     .subscribe((status, err) => {
       if (status === 'SUBSCRIBED') {
-        console.info('[Técnico Realtime] Subscrição ativa (trabalhos + relatórios).');
+        console.info('[Técnico Realtime] Subscrição ativa (serviços, trabalhos + relatórios).');
       }
       if (status === 'CHANNEL_ERROR' || err) {
         console.error('[Técnico Realtime] Erro na subscrição:', err || status);

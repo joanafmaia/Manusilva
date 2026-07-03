@@ -98,6 +98,20 @@ export function getCalendarItemSubtitle(item) {
   return `${reports.length} relatório(s)`;
 }
 
-export function hasServicosSupport() {
-  return isServicosCacheLoaded();
+export function getReportByServicoAndType(servicoId, serviceType) {
+  if (!servicoId || !serviceType) return null;
+  return (
+    getReportsForServico(servicoId).find((r) => r.serviceType === serviceType) || null
+  );
+}
+
+export function getAvailableServiceTypesForServico(servicoId, allTypes = []) {
+  const reports = getReportsForServico(servicoId);
+  const taken = new Set(
+    reports
+      .filter((r) => r.status !== 'rejected')
+      .map((r) => r.serviceType)
+      .filter(Boolean),
+  );
+  return allTypes.filter((t) => t?.id && !taken.has(t.id));
 }

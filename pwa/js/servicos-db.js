@@ -142,6 +142,47 @@ export function removeServicoFromCache(servicoId) {
   servicosCache = servicosCache.filter((s) => String(s.id) !== id);
 }
 
+/**
+ * Carrega serviços do técnico num intervalo de datas (merge no cache).
+ * Espelha ensureTrabalhosSemana — necessário para visitas criadas pelo RH.
+ */
+export async function ensureServicosSemana(technicianId, startDate, endDate) {
+  if (!technicianId || !startDate || !endDate) return [];
+
+  const { getTechnician } = await import('./entity-lookups.js');
+  const tech = getTechnician(technicianId);
+  const techName = tech?.name || String(technicianId);
+
+  const supabase = await getAuthenticatedSupabaseClient();
+  const { data, error } = await supabase
+    .from('servicos')
+    .select('*')
+    .ilike('tecnico_ids', `%${techName}%`)
+    .gte('data', startDate)
+    .lte('data', endDate)
+    .order('data', { ascending: true })
+    .order('hora', { ascending: true });
+
+  if (error) {
+    const msg = formatServicosError(error);
+    if (/tabela "servicos" não encontrada|Could not find the table|relation.*servicos/i.test(msg)) {
+      console.warn('[ManuSilva] Tabela servicos ainda não existe — executar migração 020.');
+      return [];
+    }
+    console.error('[ManuSilva] Erro ao carregar semana de serviços:', error);
+    throw new Error(msg);
+  }
+
+  const weekServicos = (data || []).map(mapRowToServico).filter(Boolean);
+  if (!servicosCache) servicosCache = [];
+
+  weekServicos.forEach((servico) => {
+    mergeServicoInCache(servico);
+  });
+
+  return weekServicos;
+}
+
 async function loadServicosFromSupabase() {
   const supabase = await getAuthenticatedSupabaseClient();
   const { data, error } = await supabase
