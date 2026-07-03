@@ -83,6 +83,7 @@ import {
   syncJobFotosAntesDepois,
   ensureFotoUrlsOnTrabalho,
   attachOfflineFotosToReportData,
+  uploadPendingFotosFromReport,
   readFileAsDataUrl,
 } from './foto-trabalho-storage.js';
 import { compressImageFile } from './image-compress.js';
@@ -1007,6 +1008,27 @@ async function persistOptionalJobFotos(jobId, overlay = null) {
   }
 }
 
+/** Fotos da visita (serviço) — ficam no relatório, não na tabela trabalhos. */
+async function persistServicoVisitFotos(report, overlay = null) {
+  let data = await attachOfflineFotosToReportData(report.data || {}, {
+    antesFile: fotoAntesState.file,
+    depoisFile: fotoDepoisState.file,
+    fotoAntesUrl: fotoDisplayUrl(fotoAntesState),
+    fotoDepoisUrl: fotoDisplayUrl(fotoDepoisState),
+    clearAntes: fotoAntesState.cleared,
+    clearDepois: fotoDepoisState.cleared,
+  });
+  if (canReachServer()) {
+    const withFotos = await uploadPendingFotosFromReport({ ...report, data });
+    data = withFotos.data;
+  }
+  if (overlay) {
+    updateFotoPreview(overlay, 'antes');
+    updateFotoPreview(overlay, 'depois');
+  }
+  return data;
+}
+
 async function persistJobFotos(jobId) {
   const result = await syncJobFotosAntesDepois(jobId, {
     antesFile: fotoAntesState.file,
@@ -1275,10 +1297,14 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport, opt
         return;
       }
 
-      const fotoResult = await persistOptionalJobFotos(job.id, overlay);
-      report.data.fotoAntesUrl = fotoResult.fotoAntes || report.data.fotoAntesUrl || null;
-      report.data.fotoDepoisUrl = fotoResult.fotoDepois || report.data.fotoDepoisUrl || null;
-      await ensureFotoUrlsOnTrabalho(job.id, report.data.fotoAntesUrl, report.data.fotoDepoisUrl);
+      if (servicoVisitMode) {
+        report.data = await persistServicoVisitFotos(report, overlay);
+      } else {
+        const fotoResult = await persistOptionalJobFotos(job.id, overlay);
+        report.data.fotoAntesUrl = fotoResult.fotoAntes || report.data.fotoAntesUrl || null;
+        report.data.fotoDepoisUrl = fotoResult.fotoDepois || report.data.fotoDepoisUrl || null;
+        await ensureFotoUrlsOnTrabalho(job.id, report.data.fotoAntesUrl, report.data.fotoDepoisUrl);
+      }
       await saveReportDraft(report, { silent: servicoVisitMode });
       if (servicoVisitMode) {
         showToast('Rascunho guardado. Pode continuar mais tarde.', 'success', 5000);
@@ -1384,14 +1410,10 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport, opt
           return;
         }
 
-        const fotoResult = await persistOptionalJobFotos(job.id, overlay);
         report.data = {
-          ...report.data,
-          fotoAntesUrl: fotoResult.fotoAntes || report.data.fotoAntesUrl || null,
-          fotoDepoisUrl: fotoResult.fotoDepois || report.data.fotoDepoisUrl || null,
+          ...(await persistServicoVisitFotos(report, overlay)),
           technicianCompleted: true,
         };
-        await ensureFotoUrlsOnTrabalho(job.id, report.data.fotoAntesUrl, report.data.fotoDepoisUrl);
         formAutosave?.destroy();
         formAutosave = null;
         await saveReportDraft(report, { silent: true });

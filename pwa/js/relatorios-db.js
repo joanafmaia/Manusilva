@@ -155,6 +155,7 @@ export function mapRowToReport(row) {
       orcamentoDocxFilename: dados.orcamentoDocxFilename || null,
       orcamento: dados.orcamento && typeof dados.orcamento === 'object' ? dados.orcamento : null,
       orcamentoOrigem: dados.orcamentoOrigem || null,
+      technicianCompleted: dados.technicianCompleted === true,
     },
   };
 }
@@ -199,6 +200,7 @@ export function mapReportToRow(report) {
       orcamentoDocxFilename: data.orcamentoDocxFilename || null,
       orcamento: data.orcamento && typeof data.orcamento === 'object' ? data.orcamento : null,
       orcamentoOrigem: data.orcamentoOrigem || null,
+      technicianCompleted: data.technicianCompleted === true ? true : null,
     },
   };
 }

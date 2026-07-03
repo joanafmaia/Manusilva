@@ -263,6 +263,26 @@ function mergeLocalAndServerReport(local, serverReport, options = {}) {
 /** Estados do servidor que um rascunho local NUNCA pode sobrepor. */
 const LOCKED_SERVER_STATUSES = new Set(['approved', 'rejected']);
 
+function findServerReportForDraft(draft, serverReports) {
+  if (!draft) return null;
+  if (draft.id) {
+    const byId = serverReports.find((r) => sameEntityId(r.id, draft.id));
+    if (byId) return byId;
+  }
+  if (draft.servicoId && draft.serviceType) {
+    return (
+      serverReports.find(
+        (r) =>
+          sameEntityId(r.servicoId, draft.servicoId) && r.serviceType === draft.serviceType,
+      ) || null
+    );
+  }
+  if (draft.jobId) {
+    return serverReports.find((r) => sameEntityId(r.jobId, draft.jobId)) || null;
+  }
+  return null;
+}
+
 /**
  * Trabalho eliminado pelo RH: o id era do servidor (uuid da tabela trabalhos)
  * mas já não existe nem em trabalhos nem em relatorios. Ids locais/mock não contam.
@@ -287,7 +307,7 @@ export async function hydrateLocalReportsIntoCache() {
     : null;
 
   for (const draft of drafts) {
-    const server = serverReports.find((r) => sameEntityId(r.jobId, draft.jobId));
+    const server = findServerReportForDraft(draft, serverReports);
 
     if (server?.status === 'pending_review') {
       const localAt = String(draft._localSavedAt || '');
@@ -301,7 +321,7 @@ export async function hydrateLocalReportsIntoCache() {
     if (server && LOCKED_SERVER_STATUSES.has(server.status)) {
       // O servidor manda: rascunho local não pode mascarar reprovação ou aprovação.
       if (server.status === 'approved' || server.status === 'rejected') {
-        removeLocalReportDraft(draft.jobId).catch(() => {});
+        removeLocalReportDraft(reportDraftStorageKey(draft)).catch(() => {});
       }
       continue;
     }
@@ -309,7 +329,7 @@ export async function hydrateLocalReportsIntoCache() {
     // O RH eliminou o trabalho enquanto o tablet estava offline/fechado:
     // o rascunho órfão é removido e nunca entra na aba Em Curso / Pendentes.
     if (isDraftOfDeletedJob(draft, server, serverJobIds)) {
-      removeLocalReportDraft(draft.jobId).catch(() => {});
+      removeLocalReportDraft(reportDraftStorageKey(draft)).catch(() => {});
       continue;
     }
 

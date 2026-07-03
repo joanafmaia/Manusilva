@@ -67,10 +67,6 @@ export async function saveReportDraft(report, options = {}) {
   mergeReportInCache(draft);
   window.dispatchEvent(new CustomEvent('db-updated'));
 
-  if (silent) {
-    return draft;
-  }
-
   if (!canReachServer()) {
     if (!silent) {
       showToast('Relatório em aberto guardado neste dispositivo.', 'info', 3500);

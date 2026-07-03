@@ -128,8 +128,8 @@ export function initReportFormAutosave({ overlay, job, existingReport, buildRepo
       throw new Error('Não foi possível ler os dados do formulário.');
     }
 
-    if (!report?.jobId) {
-      throw new Error('Rascunho sem identificador do trabalho.');
+    if (!report?.jobId && !report?.servicoId) {
+      throw new Error('Rascunho sem identificador do trabalho ou da visita.');
     }
 
     report.id = reportId;

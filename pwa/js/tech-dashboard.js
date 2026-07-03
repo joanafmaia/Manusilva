@@ -808,7 +808,9 @@ async function warmTechDashboardInitial(technicianId) {
 
 function scheduleWarmTechDashboardFull() {
   void warmOperacoes()
-    .then(() => {
+    .then(async () => {
+      const { hydrateLocalReportsIntoCache } = await import('./report-local-storage.js');
+      await hydrateLocalReportsIntoCache();
       window.dispatchEvent(new CustomEvent('db-updated'));
     })
     .catch((err) => {
