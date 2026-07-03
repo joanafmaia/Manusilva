@@ -76,6 +76,7 @@ import { ensureServicosLoadedSafe, getServico } from './servicos-db.js';
 import {
   getReportByServicoAndType,
   getReportsForServico,
+  createServicoReportId,
 } from './servicos-panel-utils.js';
 import { getReport } from './entity-lookups.js';
 import { resolveReportForServico } from './report-local-storage.js';
@@ -328,10 +329,10 @@ export async function openJobForm(jobId, options = {}) {
 /**
  * Abre formulário de relatório dentro de um serviço (visita multi-relatório).
  * @param {string} servicoId
- * @param {{ serviceType: string, reportId?: string, viewOnly?: boolean, editPending?: boolean }} options
+ * @param {{ serviceType: string, reportId?: string, viewOnly?: boolean, editPending?: boolean, createNew?: boolean }} options
  */
 export async function openServicoReportForm(servicoId, options = {}) {
-  const { serviceType, reportId, viewOnly = false } = options;
+  const { serviceType, reportId, viewOnly = false, createNew = false } = options;
   if (!servicoId || !serviceType) {
     showToast('Serviço ou tipo de relatório em falta.', 'error');
     return;
@@ -388,9 +389,11 @@ export async function openServicoReportForm(servicoId, options = {}) {
     const tech =
       getTechnician(session?.technicianId) || getPrimaryTechnicianForJob(job);
 
-    const serverReport =
-      (reportId ? getReport(reportId) : null) ||
-      getReportByServicoAndType(servicoId, serviceType);
+    const serverReport = reportId
+      ? getReport(reportId)
+      : createNew
+        ? null
+        : getReportByServicoAndType(servicoId, serviceType);
 
     const editPendingOpt =
       options.editPending === true ||
@@ -398,8 +401,10 @@ export async function openServicoReportForm(servicoId, options = {}) {
 
     const servicoVisitMode = !viewOnly && !editPendingOpt;
 
-    const draftKey =
-      serverReport?.id || `svc:${servicoId}:${serviceType}`;
+    const resolvedReportId =
+      reportId || serverReport?.id || (createNew ? createServicoReportId() : null);
+
+    const draftKey = resolvedReportId || `svc:${servicoId}:${serviceType}`;
     const conflictChoice = await resolveReportOpenConflict(draftKey, serverReport, {
       editPending: editPendingOpt,
       viewOnly,
@@ -420,6 +425,21 @@ export async function openServicoReportForm(servicoId, options = {}) {
       existingReport = await resolveReportForServico(servicoId, serviceType, serverReport, {
         editPending: editPendingOpt,
       });
+    }
+
+    if (createNew && !existingReport) {
+      existingReport = {
+        id: resolvedReportId,
+        servicoId,
+        jobId: '',
+        serviceType,
+        clientId: servico.clientId,
+        technicianId: tech?.id || servico.technicianIds,
+        status: 'draft',
+        data: { values: {}, signatures: {} },
+      };
+    } else if (createNew && existingReport && resolvedReportId) {
+      existingReport = { ...existingReport, id: resolvedReportId };
     }
 
     if (existingReport?.status === 'approved' && !viewOnly) {

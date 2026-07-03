@@ -140,7 +140,7 @@ async function ensureMigrated() {
  */
 export function reportDraftStorageKey(report) {
   if (!report) return '';
-  if (report.id && isUuid(report.id)) return String(report.id);
+  if (report.id) return String(report.id);
   if (report.servicoId && report.serviceType) {
     return `svc:${report.servicoId}:${report.serviceType}`;
   }

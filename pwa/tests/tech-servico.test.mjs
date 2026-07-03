@@ -28,7 +28,7 @@ describe('servicos-panel-utils — técnico', () => {
     });
   });
 
-  it('getAvailableServiceTypesForServico — exclui tipos já iniciados', async () => {
+  it('getAvailableServiceTypesForServico — permite repetir o mesmo tipo na visita', async () => {
     const { getAvailableServiceTypesForServico } = await import('../js/servicos-panel-utils.js');
     const allTypes = [
       { id: 'manutencao', label: 'Manutenção' },
@@ -37,8 +37,24 @@ describe('servicos-panel-utils — técnico', () => {
     const available = getAvailableServiceTypesForServico('svc-1', allTypes);
     assert.deepEqual(
       available.map((t) => t.id),
-      ['grandes_baterias'],
+      ['manutencao', 'grandes_baterias'],
     );
+  });
+
+  it('getReportsByServicoAndType — vários relatórios do mesmo tipo', async () => {
+    const relatoriosDb = await import('../js/relatorios-db.js');
+    relatoriosDb.mergeReportInCache({
+      id: 'r2',
+      servicoId: 'svc-1',
+      jobId: '',
+      serviceType: 'manutencao',
+      status: 'draft',
+      clientId: '10',
+      data: {},
+    });
+    const { getReportsByServicoAndType } = await import('../js/servicos-panel-utils.js');
+    const reports = getReportsByServicoAndType('svc-1', 'manutencao');
+    assert.equal(reports.length, 2);
   });
 
   it('getReportByServicoAndType — encontra relatório por tipo', async () => {

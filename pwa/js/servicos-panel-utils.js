@@ -142,13 +142,22 @@ export function getReportByServicoAndType(servicoId, serviceType) {
   );
 }
 
+/** Todos os relatórios de um tipo na visita (pode haver vários da mesma máquina/tipo). */
+export function getReportsByServicoAndType(servicoId, serviceType) {
+  if (!servicoId || !serviceType) return [];
+  return getReportsForServico(servicoId).filter((r) => r.serviceType === serviceType);
+}
+
+/** Id único para novo relatório numa visita (vários do mesmo tipo). */
+export function createServicoReportId() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `local-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+}
+
+/** Tipos disponíveis para adicionar — o técnico pode repetir o mesmo tipo quantas vezes precisar. */
 export function getAvailableServiceTypesForServico(servicoId, allTypes = []) {
-  const reports = getReportsForServico(servicoId);
-  const taken = new Set(
-    reports
-      .filter((r) => r.status !== 'rejected')
-      .map((r) => r.serviceType)
-      .filter(Boolean),
-  );
-  return allTypes.filter((t) => t?.id && !taken.has(t.id));
+  void servicoId;
+  return allTypes.filter((t) => t?.id);
 }

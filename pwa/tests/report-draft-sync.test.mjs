@@ -42,14 +42,15 @@ describe('report-draft-sync', () => {
 });
 
 describe('trabalhos-offline pendingReportKey', () => {
-  it('chave única por visita e tipo', () => {
+  it('chave única por id de relatório', () => {
     assert.equal(
       pendingReportKey({
+        id: '550e8400-e29b-41d4-a716-446655440099',
         servicoId: 'svc-1',
         serviceType: 'manutencao_baterias_grandes',
         jobId: '',
       }),
-      'svc:svc-1:manutencao_baterias_grandes',
+      '550e8400-e29b-41d4-a716-446655440099',
     );
     assert.equal(pendingReportKey({ jobId: 'job-42' }), 'job-42');
   });

@@ -41,8 +41,18 @@ async function openServicoReportFormLazy(servicoId, options) {
   await openServicoReportForm(servicoId, options);
 }
 
-function buildReportRow(servico, report) {
+function formatReportTypeLabel(report, servicoReports) {
   const st = getServiceType(report.serviceType);
+  const base = st?.label || report.serviceType;
+  const sameType = servicoReports.filter((r) => r.serviceType === report.serviceType);
+  if (sameType.length <= 1) return base;
+  const idx = sameType.findIndex((r) => String(r.id) === String(report.id)) + 1;
+  return `${base} (${idx})`;
+}
+
+function buildReportRow(servico, report, servicoReports) {
+  const st = getServiceType(report.serviceType);
+  const typeLabel = formatReportTypeLabel(report, servicoReports);
   const pseudoJob = {
     id: servico.id,
     clientId: servico.clientId,
@@ -65,7 +75,7 @@ function buildReportRow(servico, report) {
     <div class="tech-servico-report-row">
       <div class="tech-servico-report-row__main">
         <div class="tech-servico-report-row__top">
-          <span>${st?.icon || '🔧'} ${escapeHtml(st?.label || report.serviceType)}</span>
+          <span>${st?.icon || '🔧'} ${escapeHtml(typeLabel)}</span>
           ${renderWorkStateBadge(pseudoJob, report)}
         </div>
         <p class="text-muted" style="margin:0.25rem 0 0;font-size:0.8125rem">${escapeHtml(reportStatusLabel(report))}</p>
@@ -86,7 +96,7 @@ function buildReportRow(servico, report) {
 function openAddReportPicker(servicoId, overlay) {
   const available = getAvailableServiceTypesForServico(servicoId, SERVICE_TYPES);
   if (!available.length) {
-    showToast('Já existem relatórios para todos os tipos nesta visita.', 'info', 5000);
+    showToast('Nenhum tipo de relatório disponível neste dispositivo.', 'warning', 5000);
     return;
   }
 
@@ -110,7 +120,7 @@ function openAddReportPicker(servicoId, overlay) {
       closeModal();
       closeModal();
       try {
-        await openServicoReportFormLazy(servicoId, { serviceType });
+        await openServicoReportFormLazy(servicoId, { serviceType, createNew: true });
       } catch (err) {
         console.error('[Tech] Novo relatório:', err);
         showToast('Não foi possível abrir o formulário.', 'error');
@@ -133,10 +143,10 @@ export async function openTechServicoDetail(servicoId) {
   const client = getClient(servico.clientId);
   const reports = getReportsForServico(servicoId);
   const reportsHtml = reports.length
-    ? reports.map((r) => buildReportRow(servico, r)).join('')
+    ? reports.map((r) => buildReportRow(servico, r, reports)).join('')
     : '<p class="text-muted">Ainda não há relatórios nesta visita. Adicione o primeiro abaixo.</p>';
 
-  const canAdd = getAvailableServiceTypesForServico(servicoId, SERVICE_TYPES).length > 0;
+  const canAdd = SERVICE_TYPES.length > 0;
   const visitState = getServicoVisitSubmitState(servicoId);
   const canConclude = visitState.canSubmit;
 

@@ -370,12 +370,12 @@ export function invalidateReportsCache() {
 
 function reportsShareSameSlot(a, b) {
   if (!a || !b) return false;
+  if (a.id && b.id && sameEntityId(a.id, b.id)) return true;
   if (a.servicoId && b.servicoId && sameEntityId(a.servicoId, b.servicoId)) {
-    return Boolean(a.serviceType && b.serviceType && a.serviceType === b.serviceType);
+    return false;
   }
   if (a.jobId && b.jobId && sameEntityId(a.jobId, b.jobId)) {
     if (a.servicoId || b.servicoId) return false;
-    // Visita multi-relatório: mesmo jobId/serviço com tipos diferentes são relatórios distintos.
     if (a.serviceType && b.serviceType && a.serviceType !== b.serviceType) return false;
     return true;
   }
@@ -441,24 +441,8 @@ export function removeReportsForServicoFromCache(servicoId) {
 async function findExistingReportId(report) {
   if (report.id && isUuid(report.id)) return report.id;
 
-  if (report.servicoId && report.serviceType) {
-    const byServico = reportsCache?.find(
-      (r) =>
-        sameEntityId(r.servicoId, report.servicoId) && r.serviceType === report.serviceType,
-    );
-    if (byServico?.id && isUuid(byServico.id)) return byServico.id;
-
-    const supabase = await getAuthenticatedSupabaseClient();
-    const { data, error } = await supabase
-      .from('relatorios')
-      .select('id')
-      .eq('servico_id', report.servicoId)
-      .eq('tipo_servico', report.serviceType)
-      .order('atualizado_em', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (!error && data?.id) return String(data.id);
-  }
+  const byId = reportsCache?.find((r) => report.id && sameEntityId(r.id, report.id));
+  if (byId?.id && isUuid(byId.id)) return byId.id;
 
   const byJob = reportsCache?.find((r) => report.jobId && sameEntityId(r.jobId, report.jobId));
   if (byJob?.id && isUuid(byJob.id)) return byJob.id;

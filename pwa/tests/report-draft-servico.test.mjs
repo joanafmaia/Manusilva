@@ -40,13 +40,14 @@ describe('rascunho na visita (serviço)', () => {
     assert.equal(row.dados.technicianCompleted, true);
   });
 
-  it('reportDraftStorageKey — visita sem trabalho legado', async () => {
+  it('reportDraftStorageKey — usa id do relatório (vários do mesmo tipo)', async () => {
     const { reportDraftStorageKey } = await import('../js/report-local-storage.js');
     const key = reportDraftStorageKey({
+      id: '550e8400-e29b-41d4-a716-446655440099',
       servicoId: 'svc-1',
       serviceType: 'manutencao_preventiva_empilhadores',
       jobId: '',
     });
-    assert.equal(key, 'svc:svc-1:manutencao_preventiva_empilhadores');
+    assert.equal(key, '550e8400-e29b-41d4-a716-446655440099');
   });
 });

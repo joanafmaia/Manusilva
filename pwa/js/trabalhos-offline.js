@@ -104,6 +104,7 @@ function notifyPendingChange() {
 
 export function pendingReportKey(report) {
   if (!report) return '';
+  if (report.id) return String(report.id);
   if (report.servicoId && report.serviceType) {
     return `svc:${report.servicoId}:${report.serviceType}`;
   }
