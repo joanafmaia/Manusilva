@@ -91,14 +91,7 @@ export function filterRhReports(reports, { techId, search }) {
   });
 }
 
-export function getNextPendingReportId(currentId, reports) {
-  const pending = (reports || []).filter((r) => r.status === 'pending_review');
-  if (!pending.length) return null;
-  const idx = pending.findIndex((r) => r.id === currentId);
-  if (idx >= 0 && idx < pending.length - 1) return pending[idx + 1].id;
-  if (idx > 0) return pending[0].id;
-  return pending.find((r) => r.id !== currentId)?.id || null;
-}
+export { getNextPendingReportId } from './servicos-rh-review.js';
 
 function weekDateSet() {
   const now = new Date();

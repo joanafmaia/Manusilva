@@ -41,6 +41,13 @@ import {
 import { reportHasPedidoOrcamento, reportOrcamentoPorPreparar } from './pedido-orcamento.js';
 import { dedupeReportsForDisplay } from './relatorios-db.js';
 import {
+  groupReportsForRhStack,
+  getFirstPendingReportIdForServico,
+  getServicoReviewMeta,
+  summarizeServicoReviewState,
+} from './servicos-rh-review.js';
+import { resolvePdfSignaturesForReport } from './report-pdf-signatures.js';
+import {
   computeReviewChecks,
   reviewHasBlockingIssues,
   renderReviewValidationPanel,
@@ -232,11 +239,110 @@ export function buildRhReviewListItem({ job, report, client, tech }) {
 }
 
 /**
- * Lista RH — um cartão por relatório (sem pastas de visita).
+ * Pasta de visita no painel RH — vários relatórios do mesmo serviço.
+ */
+export function buildRhVisitaFolder({ servicoId, reports, getJobFn = getJob }) {
+  const { title, dateLabel, state } = getServicoReviewMeta(servicoId);
+  const statusParts = [];
+  if (state.pending) statusParts.push(`${state.pending} pendente${state.pending === 1 ? '' : 's'}`);
+  if (state.approved) statusParts.push(`${state.approved} aprovado${state.approved === 1 ? '' : 's'}`);
+  if (state.rejected) statusParts.push(`${state.rejected} rejeitado${state.rejected === 1 ? '' : 's'}`);
+  if (state.draft) statusParts.push(`${state.draft} rascunho${state.draft === 1 ? '' : 's'}`);
+
+  const emailHint =
+    state.total > 1 && !state.allApproved
+      ? `<span class="rh-visita-folder__email-hint text-muted">E-mail único quando todos estiverem aprovados</span>`
+      : state.allApproved
+        ? `<span class="rh-visita-folder__email-hint text-muted">Visita concluída — todos aprovados</span>`
+        : '';
+
+  const reviewBtn = state.hasPending
+    ? `<button type="button" class="btn-primary btn-sm" data-servico-review="${escapeHtml(servicoId)}">Rever visita</button>`
+    : '';
+
+  const reportsHtml = reports
+    .map((report) => {
+      const item = buildRhReviewListItem({
+        job: report.jobId ? getJobFn(report.jobId) : null,
+        report,
+        client: getClient(report.clientId),
+        tech: getTechnician(report.technicianId),
+      });
+      const rowClass =
+        report.status === 'pending_review' ? ' rh-visita-folder__report-row--pending' : '';
+      return `<div class="rh-visita-folder__report-row${rowClass}"><div class="rh-visita-folder__report-item">${item}</div></div>`;
+    })
+    .join('');
+
+  return `
+    <article class="rh-visita-folder" data-servico-id="${escapeHtml(servicoId)}" role="listitem">
+      <header class="rh-visita-folder__header">
+        <div class="rh-visita-folder__heading">
+          <span class="rh-visita-folder__icon" aria-hidden="true">📋</span>
+          <div>
+            <h3 class="rh-visita-folder__title">${escapeHtml(title)}</h3>
+            <p class="rh-visita-folder__meta">${escapeHtml(dateLabel)} · ${state.total} relatório${state.total === 1 ? '' : 's'}${statusParts.length ? ` · ${escapeHtml(statusParts.join(', '))}` : ''}</p>
+          </div>
+        </div>
+        <div class="rh-visita-folder__actions">
+          ${emailHint}
+          ${reviewBtn}
+        </div>
+      </header>
+      <div class="rh-visita-folder__reports" role="list">${reportsHtml}</div>
+      ${
+        state.total > 1
+          ? `<p class="rh-visita-folder__hint text-muted">Assinaturas partilhadas no fim da visita — cada relatório é aprovado ou rejeitado individualmente.</p>`
+          : ''
+      }
+    </article>
+  `;
+}
+
+function buildRhVisitReviewBanner(servicoId, currentReportId) {
+  const { title, dateLabel, reports } = getServicoReviewMeta(servicoId);
+  const state = summarizeServicoReviewState(reports);
+  if (reports.length < 2) return '';
+
+  const rows = reports
+    .map((r) => {
+      const st = getServiceType(r.serviceType);
+      const isCurrent = r.id === currentReportId;
+      const label = st?.label || r.serviceType || 'Relatório';
+      const badge = renderReportWorkStateBadge(r, r.jobId ? getJob(r.jobId) : null);
+      return `<li class="rh-visita-review-context__item${isCurrent ? ' is-current' : ''}">
+        <button type="button" class="rh-visita-review-context__link" data-visit-report-open="${escapeHtml(r.id)}" ${isCurrent ? 'aria-current="true"' : ''}>
+          ${st?.icon || '🔧'} ${escapeHtml(label)} ${badge}
+        </button>
+      </li>`;
+    })
+    .join('');
+
+  return `
+    <section class="rh-visita-review-context" aria-label="Relatórios desta visita">
+      <p class="rh-visita-review-context__lead">
+        <strong>Visita:</strong> ${escapeHtml(title)} — ${escapeHtml(dateLabel)}
+        · ${state.pending} pendente${state.pending === 1 ? '' : 's'} de ${state.total}
+      </p>
+      <ul class="rh-visita-review-context__list">${rows}</ul>
+    </section>
+  `;
+}
+
+/**
+ * Lista RH — pastas de visita (serviço) + cartões soltos (legado / relatório único).
  */
 export function buildRhReviewGroupedStack(reports, { getJobFn = getJob } = {}) {
-  return dedupeReportsForDisplay(reports)
-    .map((report) => {
+  return groupReportsForRhStack(reports)
+    .map((item) => {
+      if (item.kind === 'servico') {
+        return buildRhVisitaFolder({
+          servicoId: item.servicoId,
+          reports: item.reports,
+          getJobFn,
+        });
+      }
+      const report = item.report;
       const job = report.jobId ? getJobFn(report.jobId) : null;
       return buildRhReviewListItem({
         job,
@@ -246,6 +352,16 @@ export function buildRhReviewGroupedStack(reports, { getJobFn = getJob } = {}) {
       });
     })
     .join('');
+}
+
+/** Abre revisão da visita — primeiro relatório pendente. */
+export async function openRhServicoReview(servicoId, callbacks = {}) {
+  const reportId = getFirstPendingReportIdForServico(servicoId);
+  if (!reportId) {
+    showToast('Nenhum relatório pendente nesta visita.', 'info', 5000);
+    return;
+  }
+  await openRhReviewModal(reportId, callbacks);
 }
 
 export function openRhRejectDialog(reportId, onRejected) {
@@ -307,6 +423,14 @@ export async function openRhReviewModal(reportId, callbacks = {}) {
   const showWorkflow = report.status === 'pending_review';
   const hasNext = Boolean(showWorkflow && callbacks.getNextReportId?.(reportId));
   const showBilling = Boolean(showWorkflow && callbacks.navigateToBilling);
+  const servicoId = report.servicoId ? String(report.servicoId) : '';
+  const visitBannerHtml = servicoId ? buildRhVisitReviewBanner(servicoId, reportId) : '';
+
+  if (servicoId) {
+    const { ensureServicosLoadedSafe } = await import('./servicos-db.js');
+    await ensureServicosLoadedSafe();
+  }
+  const signatures = resolvePdfSignaturesForReport(report);
 
   const statusLabel = getCalendarEventStateMeta(resolveWorkStateFromReport(report, job)).label;
 
@@ -321,6 +445,8 @@ export async function openRhReviewModal(reportId, callbacks = {}) {
     showWorkflow,
     showApproveNext: hasNext,
     showApproveBilling: showBilling,
+    signatures,
+    visitBannerHtml,
   });
 
   const overlay = openModal(
@@ -334,6 +460,15 @@ export async function openRhReviewModal(reportId, callbacks = {}) {
   bindReviewPdfButton(overlay, { job, report });
   bindReviewOrcamentoButton(overlay, { report });
   bindReviewTabs(overlay);
+
+  overlay.querySelectorAll('[data-visit-report-open]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const nextId = btn.getAttribute('data-visit-report-open');
+      if (!nextId || nextId === reportId) return;
+      closeModal();
+      await openRhReviewModal(nextId, callbacks);
+    });
+  });
 
   overlay.querySelector('#modal-close-review')?.addEventListener('click', closeModal);
 
@@ -449,8 +584,11 @@ export function buildRhReviewModalContent({
   showWorkflow = true,
   showApproveNext = false,
   showApproveBilling = false,
+  signatures = null,
+  visitBannerHtml = '',
 }) {
   const data = report?.data || {};
+  const resolvedSignatures = signatures || data.signatures || {};
   const submittedDate = report?.submittedAt
     ? String(report.submittedAt).split('T')[0]
     : job?.date || '';
@@ -474,12 +612,16 @@ export function buildRhReviewModalContent({
     ? `${service.icon || '📋'} ${service.label || report?.serviceType || '—'}`
     : '—';
   const queueAge = report?.submittedAt ? formatReportAge(report.submittedAt) : '';
+  const approveNextLabel =
+    report?.servicoId && visitBannerHtml
+      ? 'Aprovar e seguinte na visita'
+      : 'Aprovar e seguinte';
 
   const workflowHtml = showWorkflow
     ? `
         <button type="button" class="btn-danger btn-touch review-action-btn" id="modal-reject" title="Alt+R">Rejeitar</button>
         <button type="button" class="btn-success btn-touch review-action-btn" id="modal-approve" title="Alt+A">Aprovar</button>
-        ${showApproveNext ? '<button type="button" class="btn-primary btn-touch review-action-btn" id="modal-approve-next" title="Alt+Shift+A">Aprovar e seguinte</button>' : ''}
+        ${showApproveNext ? `<button type="button" class="btn-primary btn-touch review-action-btn" id="modal-approve-next" title="Alt+Shift+A">${escapeHtml(approveNextLabel)}</button>` : ''}
         ${showApproveBilling ? '<button type="button" class="btn-outline btn-touch review-action-btn" id="modal-approve-billing" title="Alt+F">Aprovar e faturar</button>' : ''}
       `
     : canResendEmail
@@ -491,6 +633,7 @@ export function buildRhReviewModalContent({
 
   return `
     <div class="review-shell${hasFotos ? ' review-shell--has-fotos' : ' review-shell--no-fotos'}">
+      ${visitBannerHtml}
       <header class="review-meta-card review-meta-card--enhanced">
         <div class="review-meta-card__top">
           <div class="review-ordem-block">
@@ -521,10 +664,10 @@ export function buildRhReviewModalContent({
           </section>
           ${fotosHtml}
           <section class="review-block review-block--compact">
-            <h4 class="review-section-title">Assinaturas</h4>
+            <h4 class="review-section-title">Assinaturas${report?.servicoId ? ' da visita' : ''}</h4>
             <p class="review-signatures">
-              Técnico: ${data.signatures?.technician ? '✓ Assinado' : '✗ Pendente'}
-              · Cliente: ${data.signatures?.client ? '✓ Assinado' : '✗ Pendente'}
+              Técnico: ${resolvedSignatures?.technicianData || resolvedSignatures?.technician ? '✓ Assinado' : '✗ Pendente'}
+              · Cliente: ${resolvedSignatures?.clientData || resolvedSignatures?.client ? '✓ Assinado' : '✗ Pendente'}
             </p>
           </section>
         </div>

@@ -6101,6 +6101,41 @@ body .admin-panel .rh-section, body .rh-section {
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 70%, transparent);
   }
 }
+.rh-visita-review-context {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--ms-border-sm);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--primary) 6%, var(--ms-card-bg));
+}
+.rh-visita-review-context__lead {
+  margin: 0 0 8px;
+  font-size: 0.8125rem;
+  color: var(--ms-text-muted);
+}
+.rh-visita-review-context__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.rh-visita-review-context__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--ms-border-md);
+  border-radius: 999px;
+  background: var(--ms-card-bg);
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+.rh-visita-review-context__item.is-current .rh-visita-review-context__link {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary) 35%, transparent);
+}
 .rh-list-item {
   background: var(--ms-card-bg);
   border: 1px solid var(--ms-border-md);

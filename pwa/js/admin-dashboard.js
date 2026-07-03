@@ -1234,6 +1234,13 @@ function bindRhReviewPanel() {
     if (openBtn?.dataset.panelOpen) {
       const { openRhReviewModal } = await import('./report-review-rh-modal.js');
       await openRhReviewModal(openBtn.dataset.panelOpen, rhReviewModalCallbacks());
+      return;
+    }
+
+    const servicoReviewBtn = e.target.closest('[data-servico-review]');
+    if (servicoReviewBtn?.dataset.servicoReview) {
+      const { openRhServicoReview } = await import('./report-review-rh-modal.js');
+      await openRhServicoReview(servicoReviewBtn.dataset.servicoReview, rhReviewModalCallbacks());
     }
   });
 }
@@ -1463,6 +1470,14 @@ function openJobDetailModal(jobId) {
   });
   overlay.querySelector('#job-detail-review')?.addEventListener('click', async () => {
     closeModal();
+    if (item.isServico && reports.filter((r) => r.status === 'pending_review').length) {
+      const { openRhServicoReview } = await import('./report-review-rh-modal.js');
+      rhReviewFilter = 'pending_review';
+      persistRhReviewFilters();
+      setAdminTab('relatorios');
+      await openRhServicoReview(item.id, rhReviewModalCallbacks());
+      return;
+    }
     if (report?.id) {
       rhReviewFilter = 'pending_review';
       persistRhReviewFilters();
