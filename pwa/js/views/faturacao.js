@@ -31,7 +31,6 @@ import { renderClientCombobox, bindClientComboboxes } from '../client-combobox.j
 import { formatOrdemLabel } from '../report-review-ui.js';
 import { getReportOrcamentoMeta } from '../orcamento-linhas.js';
 import { getReportOrcamentoPdfUrl } from '../pedido-orcamento.js';
-import { reportIsStandaloneOrcamento, standaloneOrcamentoLabel } from '../orcamento-standalone.js';
 import { resolveOrcamentoBillingTotal } from '../orcamento-billing-workflow.js';
 import { PAYMENT_CONDITION_OPTIONS } from './client-profile-drawer.js';
 import {
@@ -391,13 +390,6 @@ function estimateServicoValue(reports = []) {
   return reports.reduce((sum, report) => sum + estimateReportValue(report), 0);
 }
 
-function formatOrcamentoBillingLabel(report) {
-  const meta = getReportOrcamentoMeta(report);
-  if (meta?.numeroFormatado) return `nº ${meta.numeroFormatado}`;
-  if (reportIsStandaloneOrcamento(report)) return standaloneOrcamentoLabel();
-  return 'Proposta comercial';
-}
-
 function buildBillingRowsFromItems(items) {
   return items.map((item) => {
     if (item.kind === 'servico') {
@@ -416,29 +408,6 @@ function buildBillingRowsFromItems(items) {
         urgent: urgentReport ? isBillingUrgent(urgentReport, meta.client) : false,
         estimate: estimateServicoValue(reports),
         primaryReportId: reports[0]?.id || '',
-      };
-    }
-
-    if (item.kind === 'orcamento') {
-      const report = item.report;
-      const meta = resolveClientMeta(report.clientId);
-      const orcMeta = getReportOrcamentoMeta(report);
-      return {
-        kind: 'orcamento',
-        report,
-        ...meta,
-        ordem: formatOrcamentoBillingLabel(report),
-        detail: 'Proposta aceite pelo cliente',
-        approvedLabel: formatHistoryDate(
-          String(orcMeta?.respostaClienteEm || report.approvedAt || '').split('T')[0],
-        ),
-        urgent: isBillingUrgent(
-          { ...report, approvedAt: orcMeta?.respostaClienteEm || report.approvedAt },
-          meta.client,
-        ),
-        estimate: resolveOrcamentoBillingTotal(report),
-        hasPdf: Boolean(getReportOrcamentoPdfUrl(report)),
-        primaryReportId: report.id,
       };
     }
 
@@ -759,12 +728,11 @@ function renderBillingTable(rows) {
             ${rows
               .map((row) => {
                 const isServico = row.kind === 'servico';
-                const isOrcamento = row.kind === 'orcamento';
                 const rowIdAttr = isServico
                   ? `data-servico-id="${escapeHtml(row.servico.id)}"`
                   : `data-report-id="${escapeHtml(row.report.id)}"`;
                 const pdfId = row.primaryReportId;
-                const pdfTitle = isOrcamento ? 'Abrir PDF da proposta' : 'Abrir PDF do relatório técnico';
+                const pdfTitle = 'Abrir PDF do relatório técnico';
                 const registerAttr = isServico
                   ? `data-register-invoice-servico="${escapeHtml(row.servico.id)}"`
                   : `data-register-invoice="${escapeHtml(row.report.id)}"`;
