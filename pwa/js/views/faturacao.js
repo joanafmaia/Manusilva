@@ -1558,6 +1558,12 @@ function renderPanel() {
 export async function refreshFaturacaoPanel(options = {}) {
   if (!mountRoot) return;
 
+  if (!options.soft) {
+    const { ensureReportsLoaded } = await import('../relatorios-db.js');
+    const { ensureServicosLoadedSafe } = await import('../servicos-db.js');
+    await Promise.all([ensureReportsLoaded(true), ensureServicosLoadedSafe(true)]);
+  }
+
   const canSoftRefresh =
     options.soft === true && mountRoot.querySelector('#faturacao-chart-canvas');
 

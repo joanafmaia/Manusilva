@@ -73,17 +73,8 @@ ORDER BY r.estado, r.criado_em;
 
 BEGIN;
 
--- Reverter se o script antigo dispensou relatórios técnicos com pedido de orçamento
-UPDATE public.relatorios r
-SET
-  faturacao_status = 'pendente',
-  atualizado_em = now()
-WHERE r.estado = 'approved'
-  AND r.faturacao_status = 'dispensado'
-  AND r.tipo_servico IS DISTINCT FROM 'proposta_ms015_rh'
-  AND COALESCE(r.dados->>'orcamentoOrigem', '') IS DISTINCT FROM 'rh_standalone'
-  AND lower(COALESCE(r.dados->'values'->>'pedido_orcamento', '')) = 'sim'
-  AND r.servico_id IS NULL;
+-- (Removido: não repor pedido_orcamento=Sim para «pendente» — esses relatórios
+--  ficam em Orçamentos até aceite do cliente; ver billing-workflow.js)
 
 UPDATE public.relatorios r
 SET

@@ -54,7 +54,7 @@ describe('billing-workflow', () => {
     assert.equal(isPendingBilling(proposta), false);
   });
 
-  it('isPendingBilling — inclui relatório técnico com pedido de orçamento', () => {
+  it('isPendingBilling — exclui relatório técnico com pedido de orçamento sem aceite', () => {
     const relatorio = {
       id: 'r-pedido-39',
       status: 'approved',
@@ -67,7 +67,19 @@ describe('billing-workflow', () => {
         orcamento: { enviadoEm: '2026-06-29T12:00:00.000Z' },
       },
     };
-    assert.equal(isPendingBilling(relatorio), true);
+    assert.equal(isPendingBilling(relatorio), false);
+  });
+
+  it('isPendingBilling — exclui relatório com faturacaoStatus dispensado', () => {
+    const relatorio = {
+      id: 'r-disp',
+      status: 'approved',
+      serviceType: 'folha_intervencao_avarias',
+      clientId: '10',
+      faturacaoStatus: 'dispensado',
+      data: { values: { pedido_orcamento: 'Não' } },
+    };
+    assert.equal(isPendingBilling(relatorio), false);
   });
 
   it('isPendingBilling — exclui só proposta comercial standalone na mesma OP', async () => {
