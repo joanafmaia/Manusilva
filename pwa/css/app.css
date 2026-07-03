@@ -10611,6 +10611,12 @@ details[open] .expand-icon { transform: rotate(90deg); }
   pointer-events: auto;
 }
 .toast.show { transform: translateX(0); }
+/* Painel RH / orçamento — toasts no canto inferior (não tapam botões do cabeçalho) */
+body.admin-rh-page #toast-container {
+  top: auto;
+  bottom: 1.25rem;
+  flex-direction: column-reverse;
+}
 /* Notificações RH — canto inferior direito (estilo WhatsApp / Discord) */ .toast-container--bottom-end {
   top: auto;
   bottom: 1.25rem;
