@@ -5,7 +5,7 @@
 import { getAllJobs, getJob, getServiceType, jobAssignedToTechnician } from './entity-lookups.js';
 import { sameEntityId } from './entity-id.js';
 import { filterOutLocallyDeletedReports } from './report-deleted-local.js';
-import { dedupeReportsByNumeroOrdem, getReportsSnapshot } from './relatorios-db.js';
+import { getReportsSnapshot } from './relatorios-db.js';
 import { getServico, getServicosSnapshot, isServicosCacheLoaded } from './servicos-db.js';
 
 /** Id do serviço/visita a que o relatório pertence (servico_id ou trabalho legado com o mesmo id). */
@@ -23,17 +23,65 @@ export function resolveServicoIdForReport(report) {
   return '';
 }
 
-/** Relatório pertence a esta visita (servico_id, job legado ou trabalho.servico_id). */
+/** Relatório pertence a esta visita (servico_id, trabalho.servico_id ou id legado). */
 export function reportBelongsToServico(report, servicoId) {
   if (!report || servicoId == null || servicoId === '') return false;
-  const key = String(servicoId);
-  if (sameEntityId(report.servicoId, key)) return true;
-  if (sameEntityId(report.jobId, key)) return true;
+  return sameEntityId(resolveServicoIdForReport(report), String(servicoId));
+}
+
+function parseNumeroOrdemFromReportValues(report) {
+  const raw = report?.data?.values?.numero_ordem;
+  if (raw == null || raw === '') return null;
+  const digits = String(raw).replace(/\D/g, '');
+  if (!digits) return null;
+  const n = Number(digits);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** OP oficial do relatório (trabalho ou valor guardado no formulário). */
+export function getReportNumeroOrdem(report) {
+  if (!report) return null;
   if (report.jobId) {
     const job = getJob(report.jobId);
-    if (job?.servicoId && sameEntityId(job.servicoId, key)) return true;
+    const n = job?.numeroOrdem;
+    if (n != null && Number.isFinite(Number(n))) return Number(n);
   }
-  return false;
+  return parseNumeroOrdemFromReportValues(report);
+}
+
+/** Relatórios ligados à visita, incluindo fallback por OP + cliente (visita faturada). */
+function collectReportsLinkedToServico(servicoId) {
+  if (servicoId == null || servicoId === '') return [];
+  const key = String(servicoId);
+  const servico = getServico(key);
+  const seen = new Set();
+  const out = [];
+
+  const add = (report) => {
+    if (!report?.id) return;
+    const id = String(report.id);
+    if (seen.has(id)) return;
+    seen.add(id);
+    out.push(report);
+  };
+
+  for (const report of filterOutLocallyDeletedReports(getReportsSnapshot())) {
+    if (reportBelongsToServico(report, key)) add(report);
+  }
+
+  if (servico?.numeroOrdem != null && servico.clientId) {
+    const ordem = Number(servico.numeroOrdem);
+    for (const report of filterOutLocallyDeletedReports(getReportsSnapshot())) {
+      if (!sameEntityId(report.clientId, servico.clientId)) continue;
+      if (getReportNumeroOrdem(report) === ordem) add(report);
+    }
+  }
+
+  return out;
+}
+
+function normalizeServicoVisitReports(raw) {
+  return dropSupersededServicoDrafts(raw);
 }
 
 /** Remove rascunhos obsoletos quando já existe relatório aprovado (mesma OP ou mesmo tipo). */
@@ -67,25 +115,14 @@ export function dropSupersededServicoDrafts(reports = []) {
   });
 }
 
-function normalizeServicoVisitReports(raw) {
-  return dropSupersededServicoDrafts(dedupeReportsByNumeroOrdem(raw));
-}
-
 /** Relatórios ligados a um serviço (servico_id ou trabalho legado com o mesmo id). */
 export function getReportsForServico(servicoId) {
-  if (servicoId == null || servicoId === '') return [];
-  const key = String(servicoId);
-  const seen = new Set();
-  const raw = filterOutLocallyDeletedReports(
-    getReportsSnapshot().filter((r) => {
-      if (!reportBelongsToServico(r, key)) return false;
-      const id = String(r.id);
-      if (seen.has(id)) return false;
-      seen.add(id);
-      return true;
-    }),
-  );
-  return normalizeServicoVisitReports(raw);
+  return normalizeServicoVisitReports(collectReportsLinkedToServico(servicoId));
+}
+
+/** Relatórios aprovados da visita (para faturação, e-mail e detalhe). */
+export function getApprovedReportsForServico(servicoId) {
+  return getReportsForServico(servicoId).filter((r) => r.status === 'approved');
 }
 
 /** Rascunho que o técnico marcou como concluído (aguarda «Concluir visita»). */
@@ -106,14 +143,6 @@ export function getPrimaryReportForServico(servicoId) {
   if (!reports.length) return null;
   const priority = { rejected: 0, pending_review: 1, draft: 2, approved: 3 };
   return [...reports].sort((a, b) => (priority[a.status] ?? 9) - (priority[b.status] ?? 9))[0];
-}
-
-/** OP oficial do relatório (cada relatório da visita tem o seu trabalho/OP). */
-export function getReportNumeroOrdem(report) {
-  if (!report?.jobId) return null;
-  const job = getJob(report.jobId);
-  const n = job?.numeroOrdem;
-  return n != null && Number.isFinite(Number(n)) ? Number(n) : null;
 }
 
 /** Item no formato esperado pelo calendário admin (compatível com trabalhos legados). */

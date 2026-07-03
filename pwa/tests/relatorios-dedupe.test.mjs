@@ -73,4 +73,55 @@ describe('dedupeReportsForDisplay', () => {
     assert.equal(deduped.length, 1);
     assert.equal(deduped[0].id, 'rep-approved');
   });
+
+  it('prefere relatório técnico sobre proposta na mesma OP', async () => {
+    const { dedupeReportsForDisplay } = await import('../js/relatorios-db.js');
+    const { mergeJobFromRealtime, invalidateJobsCache } = await import('../js/trabalhos-db.js');
+    invalidateJobsCache();
+    mergeJobFromRealtime({
+      id: 'job-tech-43',
+      numero_ordem: 43,
+      cliente_id: 10,
+      tecnico_id: 'Hugo',
+      tipo_servico: 'manutencao_preventiva_empilhadores',
+      data: '2026-06-29',
+      estado: 'completed',
+    });
+    mergeJobFromRealtime({
+      id: 'job-orc-43',
+      numero_ordem: 43,
+      cliente_id: 10,
+      tecnico_id: 'Hugo',
+      tipo_servico: 'folha_intervencao_avarias',
+      data: '2026-06-29',
+      estado: 'completed',
+    });
+    const reports = [
+      {
+        id: 'rep-orc',
+        jobId: 'job-orc-43',
+        clientId: '10',
+        status: 'approved',
+        approvedAt: '2026-06-29T12:00:00.000Z',
+        serviceType: 'folha_intervencao_avarias',
+        data: {
+          values: { pedido_orcamento: 'Sim' },
+          urlPdfOrcamento: 'https://example.com/ms015.pdf',
+          orcamento: { enviadoEm: '2026-06-29T11:00:00.000Z' },
+        },
+      },
+      {
+        id: 'rep-tech',
+        jobId: 'job-tech-43',
+        clientId: '10',
+        status: 'approved',
+        approvedAt: '2026-06-29T10:00:00.000Z',
+        serviceType: 'manutencao_preventiva_empilhadores',
+        data: { values: {} },
+      },
+    ];
+    const deduped = dedupeReportsForDisplay(reports);
+    assert.equal(deduped.length, 1);
+    assert.equal(deduped[0].id, 'rep-tech');
+  });
 });

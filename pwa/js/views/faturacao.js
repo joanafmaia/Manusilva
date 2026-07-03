@@ -19,7 +19,7 @@ import {
 import { dedupeReportsForDisplay } from '../relatorios-db.js';
 import { getInvoicedServicos, getServico } from '../servicos-db.js';
 import { getServiceType } from '../entity-lookups.js';
-import { getReportsForServico } from '../servicos-panel-utils.js';
+import { getApprovedReportsForServico } from '../servicos-panel-utils.js';
 import {
   getPendingBillingItems,
   registerServicoInvoice,
@@ -1157,7 +1157,7 @@ function bindBillingRowActionButtons() {
       e.stopPropagation();
       const servicoId = btn.getAttribute('data-register-invoice-servico');
       if (!servicoId) return;
-      const reports = getReportsForServico(servicoId).filter((r) => r.status === 'approved');
+      const reports = getApprovedReportsForServico(servicoId);
       openRegisterServicoInvoiceModal(servicoId, reports);
     });
   });
@@ -1233,7 +1233,7 @@ function openServicoInvoiceHistoryDetailModal(servicoId) {
     return;
   }
 
-  const reports = getReportsForServico(servicoId).filter((r) => r.status === 'approved');
+  const reports = getApprovedReportsForServico(servicoId);
   const meta = resolveClientMeta(servico.clientId);
   const pago = servico.statusRecebimento === 'pago';
   const recebimentoRaw = servico.dataRecebimento ? String(servico.dataRecebimento).split('T')[0] : '';

@@ -10,6 +10,7 @@ import {
 } from './trabalhos-db.js';
 import { legacyPrazoToCondicao } from './billing-constants.js';
 import { sameEntityId } from './entity-id.js';
+import { reportHasOrcamentoSignals } from './pedido-orcamento.js';
 import { isReportLocallyDeleted, filterOutLocallyDeletedReports } from './report-deleted-local.js';
 
 let reportsCache = null;
@@ -39,11 +40,14 @@ function compareReportsForDisplayDedupe(a, b) {
   const pa = DISPLAY_REPORT_STATUS_PRIORITY[a?.status] || 0;
   const pb = DISPLAY_REPORT_STATUS_PRIORITY[b?.status] || 0;
   if (pa !== pb) return pa - pb;
+  const oaTech = reportHasOrcamentoSignals(a) ? 0 : 1;
+  const obTech = reportHasOrcamentoSignals(b) ? 0 : 1;
+  if (oaTech !== obTech) return oaTech - obTech;
   const ta = String(a?.submittedAt || a?.approvedAt || '');
   const tb = String(b?.submittedAt || b?.approvedAt || '');
   if (ta !== tb) return ta.localeCompare(tb);
-  const oa = String(a?.data?.values?.pedido_orcamento || '').toLowerCase() === 'sim' ? 1 : 0;
-  const ob = String(b?.data?.values?.pedido_orcamento || '').toLowerCase() === 'sim' ? 1 : 0;
+  const oa = String(a?.data?.values?.pedido_orcamento || '').toLowerCase() === 'sim' ? 0 : 1;
+  const ob = String(b?.data?.values?.pedido_orcamento || '').toLowerCase() === 'sim' ? 0 : 1;
   return oa - ob;
 }
 
