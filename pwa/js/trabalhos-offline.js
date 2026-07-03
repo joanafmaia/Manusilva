@@ -149,6 +149,19 @@ export async function removeTrabalhoPendente(id) {
   notifyPendingChange();
 }
 
+/** Remove da fila offline submissões/rascunhos do mesmo relatório. */
+export async function removePendingSubmissionsForReport(report) {
+  const key = pendingReportKey(report);
+  if (!key) return 0;
+
+  const list = await getTrabalhosPendentes();
+  const next = list.filter((item) => pendingReportKey(item.report) !== key);
+  if (next.length === list.length) return 0;
+
+  await setTrabalhosPendentes(next);
+  return list.length - next.length;
+}
+
 export async function hasTrabalhoPendente(id) {
   const item = await idbGet(STORE_PENDING_SUBMISSIONS, id);
   return Boolean(item);

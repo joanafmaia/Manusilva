@@ -161,3 +161,8 @@ export function getAvailableServiceTypesForServico(servicoId, allTypes = []) {
   void servicoId;
   return allTypes.filter((t) => t?.id);
 }
+
+/** Rascunhos ainda não submetidos à RH podem ser removidos pelo técnico. */
+export function canRemoveServicoReport(report) {
+  return report?.status === 'draft';
+}

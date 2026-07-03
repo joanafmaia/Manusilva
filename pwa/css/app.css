@@ -5024,6 +5024,39 @@ body.tech-dashboard-page .form-overlay .signature-canvas-wrap, body.tech-dashboa
   height: min(200px, 32vh);
   min-height: 160px;
 }
+.tech-servico-reports-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.tech-servico-report-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--border-subtle, rgba(0, 0, 0, 0.08));
+  border-radius: 0.5rem;
+  background: var(--surface-raised, rgba(255, 255, 255, 0.04));
+}
+.tech-servico-report-row__main {
+  flex: 1;
+  min-width: 0;
+}
+.tech-servico-report-row__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.tech-servico-report-row__actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
 .modal-overlay--signatures .signature-canvas-wrap {
   contain: layout paint style;
   isolation: isolate;

@@ -13,7 +13,12 @@ import {
   SERVICE_TYPES,
 } from './app.js';
 import { getServico } from './servicos-db.js';
-import { getAvailableServiceTypesForServico, getReportsForServico, isServicoReportTechnicianComplete } from './servicos-panel-utils.js';
+import {
+  canRemoveServicoReport,
+  getAvailableServiceTypesForServico,
+  getReportsForServico,
+  isServicoReportTechnicianComplete,
+} from './servicos-panel-utils.js';
 import { renderWorkStateBadge, resolveCalendarEventState } from './calendar-event-state.js';
 import { getServicoVisitSubmitState } from './servicos-submit-workflow.js';
 import { openServicoVisitSubmit } from './tech-servico-signatures.js';
@@ -71,6 +76,17 @@ function buildReportRow(servico, report, servicoReports) {
       ? `<p class="text-muted" style="margin:0.35rem 0 0;font-size:0.8125rem">↩ ${escapeHtml(report.rejectionNote)}</p>`
       : '';
 
+  const removeBtn = canRemoveServicoReport(report)
+    ? `<button
+        type="button"
+        class="btn-danger btn-sm tech-servico-report-remove"
+        data-servico-id="${escapeHtml(servico.id)}"
+        data-report-id="${escapeHtml(report.id || '')}"
+        title="Remover relatório"
+        aria-label="Remover relatório"
+      >Remover</button>`
+    : '';
+
   return `
     <div class="tech-servico-report-row">
       <div class="tech-servico-report-row__main">
@@ -81,14 +97,17 @@ function buildReportRow(servico, report, servicoReports) {
         <p class="text-muted" style="margin:0.25rem 0 0;font-size:0.8125rem">${escapeHtml(reportStatusLabel(report))}</p>
         ${rejection}
       </div>
-      <button
-        type="button"
-        class="btn-secondary btn-sm tech-servico-report-open"
-        data-servico-id="${escapeHtml(servico.id)}"
-        data-service-type="${escapeHtml(report.serviceType)}"
-        data-report-id="${escapeHtml(report.id || '')}"
-        data-action="${escapeHtml(action)}"
-      >${escapeHtml(btnLabel)}</button>
+      <div class="tech-servico-report-row__actions">
+        <button
+          type="button"
+          class="btn-secondary btn-sm tech-servico-report-open"
+          data-servico-id="${escapeHtml(servico.id)}"
+          data-service-type="${escapeHtml(report.serviceType)}"
+          data-report-id="${escapeHtml(report.id || '')}"
+          data-action="${escapeHtml(action)}"
+        >${escapeHtml(btnLabel)}</button>
+        ${removeBtn}
+      </div>
     </div>
   `;
 }
@@ -195,6 +214,25 @@ export async function openTechServicoDetail(servicoId) {
       } catch (err) {
         console.error('[Tech] Abrir relatório do serviço:', err);
         showToast('Não foi possível abrir o relatório.', 'error');
+      }
+    });
+  });
+
+  overlay.querySelectorAll('.tech-servico-report-remove').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const sid = btn.dataset.servicoId;
+      const rid = btn.dataset.reportId;
+      if (!sid || !rid) return;
+      try {
+        const { removeServicoReport } = await import('./servicos-report-workflow.js');
+        const removed = await removeServicoReport(sid, rid);
+        if (removed) {
+          closeModal();
+          await openTechServicoDetail(sid);
+        }
+      } catch (err) {
+        console.error('[Tech] Remover relatório do serviço:', err);
+        showToast('Não foi possível remover o relatório.', 'error');
       }
     });
   });

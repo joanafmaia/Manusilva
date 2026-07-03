@@ -62,4 +62,12 @@ describe('servicos-panel-utils — técnico', () => {
     const report = getReportByServicoAndType('svc-1', 'manutencao');
     assert.equal(report?.id, 'r1');
   });
+
+  it('canRemoveServicoReport — só rascunhos', async () => {
+    const { canRemoveServicoReport } = await import('../js/servicos-panel-utils.js');
+    assert.equal(canRemoveServicoReport({ status: 'draft' }), true);
+    assert.equal(canRemoveServicoReport({ status: 'pending_review' }), false);
+    assert.equal(canRemoveServicoReport({ status: 'approved' }), false);
+    assert.equal(canRemoveServicoReport({ status: 'rejected' }), false);
+  });
 });
