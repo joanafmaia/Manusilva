@@ -585,6 +585,11 @@ export async function initTechDashboard() {
   renderTechConnectivityBar();
   bindTechConnectivityActions();
   bindTechOfflineMenu();
+  import('./app-refresh-ui.js').then(({ bindAppRefreshButton }) => {
+    bindAppRefreshButton('btn-force-app-refresh', {
+      updateHint: 'Nova versão disponível — abra o menu ⋯ e toque em «Atualizar app».',
+    });
+  });
   bindTechJobsSearch();
   bindTechGoToday();
   bindTechCalendarCompact();
