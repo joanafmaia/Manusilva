@@ -774,10 +774,10 @@ function buildFormHTML(job, client, tech, service, existingReport, options = {})
           <div class="form-panel-footer-row">
             <button type="button" class="btn-primary btn-touch" id="btn-view-pdf-full">Ver PDF do relatório</button>
           </div>` : servicoVisitMode ? `
-          <p class="form-footer-hint text-muted">Guarde o relatório em rascunho. No ecrã da visita, use <strong>Concluir visita</strong> para assinar e enviar ao RH.</p>
+          <p class="form-footer-hint text-muted"><strong>Guardar rascunho</strong> — continua mais tarde. <strong>Concluir relatório</strong> — marca este tipo como pronto; assine e envie tudo em <strong>Concluir visita</strong>.</p>
           <div class="form-panel-footer-row">
-            <button type="button" class="btn-secondary btn-touch" id="btn-save-draft">Guardar e sair</button>
-            <button type="button" class="btn-primary btn-touch" id="btn-submit-report">Guardar relatório</button>
+            <button type="button" class="btn-secondary btn-touch" id="btn-save-draft">Guardar rascunho</button>
+            <button type="button" class="btn-primary btn-touch" id="btn-submit-report">Concluir relatório</button>
           </div>` : `
           <p class="form-footer-hint text-muted">Guardar e sair mantém o relatório <strong>em aberto</strong>. Concluir envia-o para aprovação do RH.</p>
           <div class="form-panel-footer-row">
@@ -1247,6 +1247,9 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport, opt
     try {
       let report = buildReportFromForm(overlay, job, existingReport, signaturePads, draftReportId);
       report.status = 'draft';
+      if (servicoVisitMode) {
+        report.data = { ...(report.data || {}), technicianCompleted: false };
+      }
       if (trabalhoIdEmEdicao) {
         clearEdicaoState();
       }
@@ -1260,7 +1263,10 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport, opt
           clearAntes: fotoAntesState.cleared,
           clearDepois: fotoDepoisState.cleared,
         });
-        await saveReportDraft(report);
+        await saveReportDraft(report, { silent: servicoVisitMode });
+        if (servicoVisitMode) {
+          showToast('Rascunho guardado neste dispositivo.', 'info', 4500);
+        }
         formAutosave?.destroy();
         formAutosave = null;
         closeForm(overlay);
@@ -1273,7 +1279,10 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport, opt
       report.data.fotoAntesUrl = fotoResult.fotoAntes || report.data.fotoAntesUrl || null;
       report.data.fotoDepoisUrl = fotoResult.fotoDepois || report.data.fotoDepoisUrl || null;
       await ensureFotoUrlsOnTrabalho(job.id, report.data.fotoAntesUrl, report.data.fotoDepoisUrl);
-      await saveReportDraft(report);
+      await saveReportDraft(report, { silent: servicoVisitMode });
+      if (servicoVisitMode) {
+        showToast('Rascunho guardado. Pode continuar mais tarde.', 'success', 5000);
+      }
       formAutosave?.destroy();
       formAutosave = null;
       closeForm(overlay);
@@ -1338,10 +1347,59 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport, opt
       else if (existingReport?.id) report.id = existingReport.id;
 
       if (servicoVisitMode) {
+        const warnings = collectSubmitWarnings({
+          report,
+          service,
+          signaturePads: {},
+          hasFotoAntes: Boolean(fotoDisplayUrl(fotoAntesState)),
+          hasFotoDepois: Boolean(fotoDisplayUrl(fotoDepoisState)),
+        });
+        if (!confirmSubmitWarnings(warnings)) {
+          if (submitBtn) submitBtn.disabled = false;
+          return;
+        }
+
+        if (!canReachServer()) {
+          report.data = {
+            ...(await attachOfflineFotosToReportData(report.data, {
+              antesFile: fotoAntesState.file,
+              depoisFile: fotoDepoisState.file,
+              fotoAntesUrl: fotoDisplayUrl(fotoAntesState),
+              fotoDepoisUrl: fotoDisplayUrl(fotoDepoisState),
+              clearAntes: fotoAntesState.cleared,
+              clearDepois: fotoDepoisState.cleared,
+            })),
+            technicianCompleted: true,
+          };
+          await saveReportDraft(report, { silent: true });
+          formAutosave?.destroy();
+          formAutosave = null;
+          showToast(
+            'Relatório concluído neste dispositivo. Conclua a visita para assinar e enviar ao RH.',
+            'success',
+            6000,
+          );
+          closeForm(overlay);
+          window.dispatchEvent(new CustomEvent('db-updated'));
+          return;
+        }
+
+        const fotoResult = await persistOptionalJobFotos(job.id, overlay);
+        report.data = {
+          ...report.data,
+          fotoAntesUrl: fotoResult.fotoAntes || report.data.fotoAntesUrl || null,
+          fotoDepoisUrl: fotoResult.fotoDepois || report.data.fotoDepoisUrl || null,
+          technicianCompleted: true,
+        };
+        await ensureFotoUrlsOnTrabalho(job.id, report.data.fotoAntesUrl, report.data.fotoDepoisUrl);
         formAutosave?.destroy();
         formAutosave = null;
-        await saveReportDraft(report);
-        showToast('Relatório guardado. Conclua a visita para assinar e enviar ao RH.', 'success', 5500);
+        await saveReportDraft(report, { silent: true });
+        showToast(
+          'Relatório concluído. Use «Concluir visita» para assinar e enviar ao RH.',
+          'success',
+          6000,
+        );
         closeForm(overlay);
         window.dispatchEvent(new CustomEvent('db-updated'));
         return;

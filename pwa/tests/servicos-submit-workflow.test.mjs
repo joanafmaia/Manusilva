@@ -25,7 +25,25 @@ describe('servicos-submit-workflow', () => {
     assert.match(state.reason, /pelo menos um relatório/i);
   });
 
-  it('getServicoVisitSubmitState — permite com rascunhos', async () => {
+  it('getServicoVisitSubmitState — permite com rascunhos concluídos pelo técnico', async () => {
+    const relatoriosDb = await import('../js/relatorios-db.js');
+    relatoriosDb.mergeReportInCache({
+      id: 'r1',
+      servicoId: 'svc-1',
+      serviceType: 'manutencao',
+      status: 'draft',
+      clientId: '10',
+      technicianId: 'Filipe',
+      data: { values: {}, signatures: {}, photos: [], technicianCompleted: true },
+    });
+
+    const { getServicoVisitSubmitState } = await import('../js/servicos-submit-workflow.js');
+    const state = getServicoVisitSubmitState('svc-1');
+    assert.equal(state.canSubmit, true);
+    assert.equal(state.readyDraftReports.length, 1);
+  });
+
+  it('getServicoVisitSubmitState — bloqueia rascunhos por concluir', async () => {
     const relatoriosDb = await import('../js/relatorios-db.js');
     relatoriosDb.mergeReportInCache({
       id: 'r1',
@@ -39,8 +57,9 @@ describe('servicos-submit-workflow', () => {
 
     const { getServicoVisitSubmitState } = await import('../js/servicos-submit-workflow.js');
     const state = getServicoVisitSubmitState('svc-1');
-    assert.equal(state.canSubmit, true);
-    assert.equal(state.draftReports.length, 1);
+    assert.equal(state.canSubmit, false);
+    assert.match(state.reason, /Conclua cada relatório/i);
+    assert.equal(state.incompleteDraftReports.length, 1);
   });
 
   it('getServicoVisitSubmitState — bloqueia com rejeitados', async () => {

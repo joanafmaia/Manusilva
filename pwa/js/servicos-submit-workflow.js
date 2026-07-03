@@ -5,7 +5,7 @@
 import { showToast } from './toast-modal.js';
 import { getServiceType } from './entity-lookups.js';
 import { formatServicosError, getServico, updateServico } from './servicos-db.js';
-import { getReportsForServico } from './servicos-panel-utils.js';
+import { getReportsForServico, getIncompleteServicoDraftReports, isServicoReportTechnicianComplete } from './servicos-panel-utils.js';
 import { reportDraftStorageKey } from './report-local-storage.js';
 
 /**
@@ -15,6 +15,8 @@ import { reportDraftStorageKey } from './report-local-storage.js';
 export function getServicoVisitSubmitState(servicoId) {
   const reports = getReportsForServico(servicoId);
   const draftReports = reports.filter((r) => r.status === 'draft');
+  const readyDraftReports = draftReports.filter(isServicoReportTechnicianComplete);
+  const incompleteDraftReports = getIncompleteServicoDraftReports(servicoId);
   const pendingReports = reports.filter((r) => r.status === 'pending_review');
   const rejectedReports = reports.filter((r) => r.status === 'rejected');
   const approvedReports = reports.filter((r) => r.status === 'approved');
@@ -26,11 +28,10 @@ export function getServicoVisitSubmitState(servicoId) {
     reason = 'Adicione pelo menos um relatório antes de concluir a visita.';
   } else if (rejectedReports.length) {
     reason = 'Corrija os relatórios rejeitados antes de concluir a visita.';
-  } else if (draftReports.length) {
+  } else if (incompleteDraftReports.length) {
+    reason = 'Conclua cada relatório em rascunho antes de terminar a visita.';
+  } else if (readyDraftReports.length || pendingReports.length) {
     canSubmit = true;
-  } else if (pendingReports.length && !draftReports.length) {
-    canSubmit = true;
-    reason = null;
   } else if (approvedReports.length === reports.length) {
     reason = 'Todos os relatórios desta visita já foram aprovados.';
   } else {
@@ -42,6 +43,8 @@ export function getServicoVisitSubmitState(servicoId) {
     reason,
     reports,
     draftReports,
+    readyDraftReports,
+    incompleteDraftReports,
     pendingReports,
     rejectedReports,
     approvedReports,
@@ -131,7 +134,7 @@ export async function submitServicoVisit(servicoId, signatures) {
 
     let submitted = 0;
 
-    for (const report of state.draftReports) {
+    for (const report of state.readyDraftReports) {
       const withSignatures = {
         ...report,
         servicoId: report.servicoId || servicoId,
@@ -155,7 +158,7 @@ export async function submitServicoVisit(servicoId, signatures) {
     window.dispatchEvent(new CustomEvent('db-updated'));
     window.dispatchEvent(new CustomEvent('jobs-updated'));
 
-    if (state.draftReports.length) {
+    if (state.readyDraftReports.length) {
       showToast(
         submitted
           ? `Visita concluída — ${submitted} relatório(s) enviado(s) para aprovação do RH.`
@@ -183,14 +186,15 @@ export function describeServicoVisitSubmitSummary(servicoId) {
   const lines = state.reports.map((r) => {
     const label = getServiceType(r.serviceType)?.label || r.serviceType || 'Relatório';
     let status = 'rascunho';
-    if (r.status === 'pending_review') status = 'já submetido';
+    if (r.status === 'pending_review') status = 'à espera do RH';
     else if (r.status === 'approved') status = 'aprovado';
     else if (r.status === 'rejected') status = 'rejeitado';
+    else if (isServicoReportTechnicianComplete(r)) status = 'concluído — aguarda visita';
     return `${label} (${status})`;
   });
 
-  if (state.draftReports.length) {
-    return `Serão enviados ${state.draftReports.length} relatório(s): ${lines.join(', ')}.`;
+  if (state.readyDraftReports.length) {
+    return `Serão enviados ${state.readyDraftReports.length} relatório(s): ${lines.join(', ')}.`;
   }
   return `Relatórios: ${lines.join(', ')}.`;
 }

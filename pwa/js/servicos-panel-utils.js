@@ -31,6 +31,18 @@ export function getReportsForServico(servicoId) {
   });
 }
 
+/** Rascunho que o técnico marcou como concluído (aguarda «Concluir visita»). */
+export function isServicoReportTechnicianComplete(report) {
+  return report?.status === 'draft' && report?.data?.technicianCompleted === true;
+}
+
+/** Rascunhos da visita ainda em edição (não concluídos pelo técnico). */
+export function getIncompleteServicoDraftReports(servicoId) {
+  return getReportsForServico(servicoId).filter(
+    (r) => r.status === 'draft' && !isServicoReportTechnicianComplete(r),
+  );
+}
+
 /** Relatório «principal» para badge de estado no calendário. */
 export function getPrimaryReportForServico(servicoId) {
   const reports = getReportsForServico(servicoId);

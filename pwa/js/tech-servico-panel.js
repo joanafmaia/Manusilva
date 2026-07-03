@@ -13,16 +13,16 @@ import {
   SERVICE_TYPES,
 } from './app.js';
 import { getServico } from './servicos-db.js';
-import {
-  getAvailableServiceTypesForServico,
-  getReportsForServico,
-} from './servicos-panel-utils.js';
+import { getAvailableServiceTypesForServico, getReportsForServico, isServicoReportTechnicianComplete } from './servicos-panel-utils.js';
 import { renderWorkStateBadge, resolveCalendarEventState } from './calendar-event-state.js';
 import { getServicoVisitSubmitState } from './servicos-submit-workflow.js';
 import { openServicoVisitSubmit } from './tech-servico-signatures.js';
 
 function reportStatusLabel(report) {
   if (!report) return 'Sem relatório';
+  if (report.status === 'draft' && isServicoReportTechnicianComplete(report)) {
+    return 'Concluído — aguarda visita';
+  }
   if (report.status === 'draft') return 'Rascunho';
   if (report.status === 'pending_review') return 'À espera de aprovação';
   if (report.status === 'approved') return 'Aprovado';
