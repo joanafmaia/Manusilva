@@ -10629,10 +10629,11 @@ details[open] .expand-icon { transform: rotate(90deg); }
   pointer-events: auto;
 }
 .toast.show { transform: translateX(0); }
-/* Painel RH / orçamento — toasts no canto inferior (não tapam botões do cabeçalho) */
-body.admin-rh-page #toast-container {
+/* Painel RH / tablet técnico — toasts no canto inferior (não tapam botões do cabeçalho) */
+body.admin-rh-page #toast-container,
+body.tech-dashboard-page #toast-container {
   top: auto;
-  bottom: 1.25rem;
+  bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px));
   flex-direction: column-reverse;
 }
 /* Notificações RH — canto inferior direito (estilo WhatsApp / Discord) */ .toast-container--bottom-end {

@@ -12,7 +12,10 @@ export function showToast(message, type = 'info', duration = 4000) {
     toastContainer = document.createElement('div');
     toastContainer.id = 'toast-container';
     toastContainer.className = 'toast-container';
-    if (document.body.classList.contains('admin-rh-page')) {
+    if (
+      document.body.classList.contains('admin-rh-page') ||
+      document.body.classList.contains('tech-dashboard-page')
+    ) {
       toastContainer.classList.add('toast-container--bottom-end');
     }
     document.body.appendChild(toastContainer);
