@@ -115,12 +115,14 @@ export function warmReports() {
 export async function warmOperacoes() {
   const { ensureSupabaseAuthSession } = await import('./supabase-client.js');
   const { ensureServicosLoadedSafe } = await import('./servicos-db.js');
+  const { ensureFaturasManuaisLoadedSafe } = await import('./faturas-manuais-db.js');
   await ensureSupabaseAuthSession();
   await Promise.all([
     ensureJobsLoaded(),
     ensureReportsLoaded(),
     ensureProductionCatalog(),
     ensureServicosLoadedSafe(),
+    ensureFaturasManuaisLoadedSafe(),
   ]);
 }
 

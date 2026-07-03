@@ -18,6 +18,13 @@ import {
 } from '../app.js';
 import { dedupeReportsForDisplay } from '../relatorios-db.js';
 import { getInvoicedServicos, getServico } from '../servicos-db.js';
+import {
+  confirmManualInvoicePayment,
+  ensureFaturasManuaisLoadedSafe,
+  getManualInvoice,
+  getManualInvoicesSnapshot,
+  registerManualInvoice,
+} from '../faturas-manuais-db.js';
 import { getServiceType } from '../entity-lookups.js';
 import { getApprovedReportsForServico } from '../servicos-panel-utils.js';
 import {
@@ -260,11 +267,12 @@ function getInvoicedReports() {
 function getAllInvoicedEntities() {
   const reports = getInvoicedReports().map((report) => ({ kind: 'report', entity: report }));
   const servicos = getInvoicedServicos().map((servico) => ({ kind: 'servico', entity: servico }));
-  return [...reports, ...servicos];
+  const manuais = getManualInvoicesSnapshot().map((invoice) => ({ kind: 'manual', entity: invoice }));
+  return [...reports, ...servicos, ...manuais];
 }
 
 function invoiceDateOfEntity(item) {
-  if (item.kind === 'servico') {
+  if (item.kind === 'servico' || item.kind === 'manual') {
     return String(item.entity.dataFatura || item.entity.approvedAt || '').split('T')[0];
   }
   return invoiceDateOf(item.entity);
@@ -545,6 +553,9 @@ function renderFiltersSection() {
         </div>
       </div>
       <div class="faturacao-filter-actions">
+        <button type="button" class="btn-primary btn-sm" id="faturacao-manual-invoice">
+          Registar fatura manual
+        </button>
         <button type="button" class="btn-outline btn-sm" id="faturacao-export-csv">
           Exportar CSV
         </button>
@@ -566,22 +577,32 @@ function renderInvoiceRow(row, acumulado, showAcum) {
   const { entity, nome, pago, numeroFatura, valorLabel, emissaoLabel, vencimentoLabel, vencimentoClass, vencimentoUrg, kind } =
     row;
   const urgentRow = !pago && vencimentoUrg === 'overdue';
-  const detailId = kind === 'servico' ? entity.id : entity.id;
+  const detailId = entity.id;
   const detailAttr =
     kind === 'servico'
       ? `data-history-detail-servico="${escapeHtml(detailId)}"`
-      : `data-history-detail="${escapeHtml(detailId)}"`;
+      : kind === 'manual'
+        ? `data-history-detail-manual="${escapeHtml(detailId)}"`
+        : `data-history-detail="${escapeHtml(detailId)}"`;
   const paymentAttr =
     kind === 'servico'
       ? `data-confirm-payment-servico="${escapeHtml(detailId)}"`
-      : `data-confirm-payment="${escapeHtml(detailId)}"`;
+      : kind === 'manual'
+        ? `data-confirm-payment-manual="${escapeHtml(detailId)}"`
+        : `data-confirm-payment="${escapeHtml(detailId)}"`;
+  const kindBadge =
+    kind === 'servico'
+      ? ' <span class="faturacao-visit-badge">Visita</span>'
+      : kind === 'manual'
+        ? ' <span class="faturacao-visit-badge faturacao-visit-badge--manual">Manual</span>'
+        : '';
 
   return `
     <tr class="rh-data-table-row faturacao-history-row faturacao-invoice-row${urgentRow ? ' faturacao-row--urgent' : ''}" data-invoice-kind="${kind}" data-invoice-id="${escapeHtml(detailId)}">
       <td class="rh-cell-date faturacao-cell-date">${escapeHtml(emissaoLabel)}</td>
       <td class="rh-cell-client faturacao-cell-client faturacao-cell-client--wrap">
         <button type="button" class="rh-cell-link-btn faturacao-history-client-btn faturacao-cell-client-name" ${detailAttr} title="Ver detalhe da fatura (NIF, condição de pagamento, datas)">
-          ${escapeHtml(nome)}${kind === 'servico' ? ' <span class="faturacao-visit-badge">Visita</span>' : ''}
+          ${escapeHtml(nome)}${kindBadge}
         </button>
         ${vencimentoUrg === 'soon' ? ' <span class="faturacao-urgent-badge faturacao-urgent-badge--soon">A vencer</span>' : ''}
       </td>
@@ -907,6 +928,10 @@ function bindFilterEvents() {
     exportFilteredInvoicesCsv();
   });
 
+  root.querySelector('#faturacao-manual-invoice')?.addEventListener('click', () => {
+    openRegisterManualInvoiceModal();
+  });
+
   root.querySelector('#faturacao-from')?.addEventListener('change', (e) => {
     billingFilters.from = e.target.value || '';
     applyBillingFilters().catch(console.error);
@@ -978,6 +1003,116 @@ function openRegisterServicoInvoiceModal(servicoId, reports = []) {
       : '',
     hint: 'Uma única fatura para todos os relatórios desta visita. O valor pode ficar em branco se agregar vários trabalhos do mesmo cliente.',
     onSave: (payload) => registerServicoInvoice(servicoId, payload),
+  });
+}
+
+function openRegisterManualInvoiceModal() {
+  const today = new Date().toISOString().split('T')[0];
+  const condicaoOptions = FATURA_CONDICAO_OPCOES.map(
+    (opt) => `<option value="${opt.value}">${escapeHtml(opt.label)}</option>`,
+  ).join('');
+  const statusOptions = STATUS_RECEBIMENTO_OPCOES.map(
+    (opt) =>
+      `<option value="${opt.value}"${opt.value === 'pendente' ? ' selected' : ''}>${escapeHtml(opt.label)}</option>`,
+  ).join('');
+
+  const content = `
+    <form id="register-manual-invoice-form" class="faturacao-invoice-form">
+      <p class="text-muted faturacao-invoice-hint">
+        Registe uma fatura emitida no programa externo que não está ligada a nenhum relatório ou visita na app.
+      </p>
+      ${renderClientCombobox({
+        fieldId: 'manual-invoice-client',
+        label: 'Cliente',
+        value: billingFilters.clientNome,
+        selectedId: billingFilters.clientId,
+      })}
+      <div class="form-group">
+        <label class="form-label" for="manual-invoice-numero">Número da Fatura</label>
+        <input type="text" class="form-input" id="manual-invoice-numero" required
+          placeholder="ex: FT 2026/123" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="manual-invoice-valor">Valor Total Faturado (€)</label>
+        <input type="number" class="form-input" id="manual-invoice-valor" min="0" step="0.01" placeholder="0,00">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="manual-invoice-data">Data de Emissão</label>
+        <input type="date" class="form-input" id="manual-invoice-data" required value="${today}">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="manual-invoice-condicao">Condição de Pagamento</label>
+        <select class="form-input" id="manual-invoice-condicao" required>${condicaoOptions}</select>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="manual-invoice-status">Estado de Recebimento</label>
+        <select class="form-input" id="manual-invoice-status" required>${statusOptions}</select>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="manual-invoice-descricao">Descrição <span class="text-muted">(opcional)</span></label>
+        <input type="text" class="form-input" id="manual-invoice-descricao" maxlength="240"
+          placeholder="ex: Material avulso, reparação antiga…" autocomplete="off">
+      </div>
+    </form>
+  `;
+
+  const actions = `
+    <button type="button" class="btn-outline" data-modal-cancel>Cancelar</button>
+    <button type="button" class="btn-primary" id="btn-save-manual-invoice">Registar fatura</button>
+  `;
+
+  const overlay = openModal('Registar Fatura Manual', content, actions);
+  bindClientComboboxes(overlay);
+
+  overlay.querySelector('[data-modal-cancel]')?.addEventListener('click', closeModal);
+
+  overlay.querySelector('#btn-save-manual-invoice')?.addEventListener('click', async () => {
+    const clientId =
+      overlay.querySelector('[data-client-combobox][data-field-id="manual-invoice-client"] .client-combobox-id')?.value?.trim() ||
+      '';
+    const numero = overlay.querySelector('#manual-invoice-numero')?.value?.trim();
+    const data = overlay.querySelector('#manual-invoice-data')?.value?.trim();
+    const valor = overlay.querySelector('#manual-invoice-valor')?.value?.trim() || '';
+    const condicao = overlay.querySelector('#manual-invoice-condicao')?.value;
+    const statusRecebimento = overlay.querySelector('#manual-invoice-status')?.value;
+    const descricao = overlay.querySelector('#manual-invoice-descricao')?.value?.trim() || '';
+    const btn = overlay.querySelector('#btn-save-manual-invoice');
+
+    if (!clientId) {
+      showToast('Selecione um cliente da lista.', 'warning');
+      return;
+    }
+    if (!numero || !data) {
+      showToast('Preencha o número e a data de emissão.', 'warning');
+      return;
+    }
+    if (valor) {
+      const valorNum = Number(valor.replace(',', '.'));
+      if (!Number.isFinite(valorNum) || valorNum < 0) {
+        showToast('Indique um valor total faturado válido.', 'warning');
+        return;
+      }
+    }
+
+    btn.disabled = true;
+    try {
+      await registerManualInvoice({
+        clientId,
+        numeroFatura: numero,
+        dataFatura: data,
+        valorFaturado: valor,
+        condicaoPagamento: condicao,
+        statusRecebimento,
+        descricao,
+      });
+      closeModal();
+      showToast('Fatura manual registada.', 'success');
+      await refreshFaturacaoPanel({ soft: true });
+    } catch (err) {
+      console.error('[Faturação] Fatura manual:', err);
+      showToast(err?.message || 'Erro ao registar fatura.', 'error');
+      btn.disabled = false;
+    }
   });
 }
 
@@ -1254,6 +1389,46 @@ function openServicoInvoiceHistoryDetailModal(servicoId) {
   document.querySelector('[data-modal-cancel]')?.addEventListener('click', closeModal);
 }
 
+function openManualInvoiceHistoryDetailModal(invoiceId) {
+  const invoice = getManualInvoice(invoiceId);
+  if (!invoice) {
+    showToast('Fatura não encontrada.', 'error');
+    return;
+  }
+
+  const meta = resolveClientMeta(invoice.clientId);
+  const pago = invoice.statusRecebimento === 'pago';
+  const recebimentoRaw = invoice.dataRecebimento ? String(invoice.dataRecebimento).split('T')[0] : '';
+  const recebimentoLabel = recebimentoRaw
+    ? formatHistoryDate(recebimentoRaw)
+    : pago
+      ? '—'
+      : 'Pendente';
+  const vencimentoLabel = pago
+    ? '—'
+    : formatHistoryDate(String(invoice.dataVencimento || '').split('T')[0]);
+
+  const content = `
+    <dl class="faturacao-detail-grid">
+      <div><dt>Cliente</dt><dd>${escapeHtml(meta.nome)}</dd></div>
+      <div><dt>NIF</dt><dd>${escapeHtml(meta.nif)}</dd></div>
+      <div><dt>Origem</dt><dd>Registo manual</dd></div>
+      <div><dt>Nº Fatura</dt><dd><code class="faturacao-ordem">${escapeHtml(invoice.numeroFatura || '—')}</code></dd></div>
+      ${invoice.descricao ? `<div><dt>Descrição</dt><dd>${escapeHtml(invoice.descricao)}</dd></div>` : ''}
+      <div><dt>Valor faturado</dt><dd>${escapeHtml(formatCurrencyEurNullable(invoice.valorFaturado))}</dd></div>
+      <div><dt>Condição de pagamento</dt><dd>${escapeHtml(labelFaturaCondicao(invoice.faturaCondicaoPagamento))}</dd></div>
+      <div><dt>Data da faturação</dt><dd>${escapeHtml(formatHistoryDate(String(invoice.dataFatura || '').split('T')[0]))}</dd></div>
+      <div><dt>Data de vencimento</dt><dd>${escapeHtml(vencimentoLabel)}</dd></div>
+      <div><dt>Data do recebimento</dt><dd>${escapeHtml(recebimentoLabel)}</dd></div>
+      <div><dt>Estado</dt><dd>${pago ? 'Pago' : 'Pendente'}</dd></div>
+    </dl>
+  `;
+
+  const actions = `<button type="button" class="btn-secondary" data-modal-cancel>Fechar</button>`;
+  openModal('Detalhe da fatura manual', content, actions);
+  document.querySelector('[data-modal-cancel]')?.addEventListener('click', closeModal);
+}
+
 function openConfirmPaymentModal(reportId) {
   const report = getReport(reportId);
   if (!report) {
@@ -1362,6 +1537,59 @@ function openConfirmServicoPaymentModal(servicoId) {
   });
 }
 
+function openConfirmManualPaymentModal(invoiceId) {
+  const invoice = getManualInvoice(invoiceId);
+  if (!invoice) {
+    showToast('Fatura não encontrada.', 'error');
+    return;
+  }
+
+  const meta = resolveClientMeta(invoice.clientId);
+  const today = new Date().toISOString().split('T')[0];
+
+  const content = `
+    <form id="confirm-payment-form" class="faturacao-invoice-form">
+      <p class="text-muted faturacao-invoice-hint">
+        Confirmar recebimento de <strong>${escapeHtml(meta.nome)}</strong>
+        — fatura <strong>${escapeHtml(invoice.numeroFatura || '—')}</strong>
+        (${escapeHtml(formatCurrencyEurNullable(invoice.valorFaturado))}).
+      </p>
+      <div class="form-group">
+        <label class="form-label" for="payment-data">Data de recebimento</label>
+        <input type="date" class="form-input" id="payment-data" name="data" required value="${today}">
+      </div>
+    </form>
+  `;
+
+  const actions = `
+    <button type="button" class="btn-outline" data-modal-cancel>Cancelar</button>
+    <button type="button" class="btn-success" id="btn-confirm-payment">Confirmar recebimento</button>
+  `;
+
+  openModal('Confirmar Recebimento', content, actions);
+  document.querySelector('[data-modal-cancel]')?.addEventListener('click', closeModal);
+
+  document.getElementById('btn-confirm-payment')?.addEventListener('click', async () => {
+    const data = document.getElementById('payment-data')?.value?.trim();
+    const btn = document.getElementById('btn-confirm-payment');
+    if (!data) {
+      showToast('Indique a data de recebimento.', 'warning');
+      return;
+    }
+    btn.disabled = true;
+    try {
+      await confirmManualInvoicePayment(invoiceId, { dataRecebimento: data });
+      closeModal();
+      showToast('Recebimento confirmado. Valor movido para caixa.', 'success');
+      await refreshFaturacaoPanel({ soft: true });
+    } catch (err) {
+      console.error('[Faturação] Confirmar recebimento manual:', err);
+      showToast(err?.message || 'Erro ao confirmar recebimento.', 'error');
+      btn.disabled = false;
+    }
+  });
+}
+
 function bindHistoryDetailActions() {
   mountRoot?.querySelectorAll('[data-history-detail]').forEach((btn) => {
     if (btn.dataset.boundHistory === '1') return;
@@ -1382,6 +1610,16 @@ function bindHistoryDetailActions() {
       if (servicoId) openServicoInvoiceHistoryDetailModal(servicoId);
     });
   });
+
+  mountRoot?.querySelectorAll('[data-history-detail-manual]').forEach((btn) => {
+    if (btn.dataset.boundHistory === '1') return;
+    btn.dataset.boundHistory = '1';
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const invoiceId = btn.getAttribute('data-history-detail-manual');
+      if (invoiceId) openManualInvoiceHistoryDetailModal(invoiceId);
+    });
+  });
 }
 
 function bindConfirmPaymentActions() {
@@ -1400,6 +1638,15 @@ function bindConfirmPaymentActions() {
     btn.addEventListener('click', () => {
       const servicoId = btn.getAttribute('data-confirm-payment-servico');
       if (servicoId) openConfirmServicoPaymentModal(servicoId);
+    });
+  });
+
+  mountRoot?.querySelectorAll('[data-confirm-payment-manual]').forEach((btn) => {
+    if (btn.dataset.boundPayment === '1') return;
+    btn.dataset.boundPayment = '1';
+    btn.addEventListener('click', () => {
+      const invoiceId = btn.getAttribute('data-confirm-payment-manual');
+      if (invoiceId) openConfirmManualPaymentModal(invoiceId);
     });
   });
 }
@@ -1443,7 +1690,9 @@ function exportFilteredInvoicesCsv() {
     const reportDate =
       item.kind === 'report'
         ? reportDateOf(entity)
-        : formatDateSafe(entity.date);
+        : item.kind === 'manual'
+          ? entity.descricao || '—'
+          : formatDateSafe(entity.date);
     const row = [
       invoiceDateOfEntity(item),
       meta.nome,
@@ -1545,7 +1794,11 @@ export async function refreshFaturacaoPanel(options = {}) {
   if (!options.soft) {
     const { ensureReportsLoaded } = await import('../relatorios-db.js');
     const { ensureServicosLoadedSafe } = await import('../servicos-db.js');
-    await Promise.all([ensureReportsLoaded(true), ensureServicosLoadedSafe(true)]);
+    await Promise.all([
+      ensureReportsLoaded(true),
+      ensureServicosLoadedSafe(true),
+      ensureFaturasManuaisLoadedSafe(true),
+    ]);
   }
 
   const canSoftRefresh =

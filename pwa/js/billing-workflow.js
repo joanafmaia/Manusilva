@@ -18,6 +18,7 @@ import {
   reportIsCommercialOrcamento,
 } from './pedido-orcamento.js';
 import { isPendingOrcamentoBilling } from './orcamento-billing-workflow.js';
+import { getInvoicedServicos } from './servicos-db.js';
 import { getJob } from './entity-lookups.js';
 
 function findReport(reportId) {
@@ -194,8 +195,8 @@ function accumulateInvoiceMetrics(entity, totals) {
   else if (entity.statusRecebimento === 'pendente') totals.totalDivida += valor;
 }
 
-/** Métricas de fluxo de caixa (faturas emitidas na app — relatórios legados + visitas). */
-export function getBillingFinancialMetrics() {
+/** Métricas de fluxo de caixa (faturas emitidas na app — relatórios, visitas e manuais). */
+export function getBillingFinancialMetrics(getManualInvoicesFn = () => []) {
   const invoicedReports = dedupeReportsForDisplay(
     getReportsSnapshot().filter((r) => r.faturacaoStatus === 'faturado' && !r.servicoId),
   );
@@ -203,6 +204,7 @@ export function getBillingFinancialMetrics() {
 
   invoicedReports.forEach((r) => accumulateInvoiceMetrics(r, totals));
   getInvoicedServicos().forEach((s) => accumulateInvoiceMetrics(s, totals));
+  getManualInvoicesFn().forEach((item) => accumulateInvoiceMetrics(item, totals));
 
   return totals;
 }
