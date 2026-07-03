@@ -53,4 +53,53 @@ describe('billing-workflow', () => {
     };
     assert.equal(isPendingBilling(proposta), false);
   });
+
+  it('isPendingBilling — exclui relatório técnico com PDF MS.015 na mesma OP', async () => {
+    const trabalhosDb = await import('../js/trabalhos-db.js');
+    const relatoriosDb = await import('../js/relatorios-db.js');
+    relatoriosDb.invalidateReportsCache();
+    trabalhosDb.invalidateJobsCache();
+    trabalhosDb.mergeJobFromRealtime({
+      id: 'job-39-orc',
+      cliente_id: 10,
+      data: '2026-06-29',
+      tecnico_id: 'Hugo',
+      tipo_servico: 'folha_intervencao_avarias',
+      estado: 'completed',
+      numero_ordem: 39,
+    });
+    trabalhosDb.mergeJobFromRealtime({
+      id: 'job-39-tech',
+      cliente_id: 10,
+      data: '2026-06-29',
+      tecnico_id: 'Hugo',
+      tipo_servico: 'folha_intervencao_avarias',
+      estado: 'completed',
+      numero_ordem: 39,
+    });
+    relatoriosDb.mergeReportInCache({
+      id: 'r-orc-39',
+      jobId: 'job-39-orc',
+      serviceType: 'folha_intervencao_avarias',
+      status: 'approved',
+      clientId: '10',
+      data: {
+        values: { pedido_orcamento: 'Sim' },
+        urlPdfOrcamento: 'https://example.com/op39.pdf',
+        orcamento: { enviadoEm: '2026-06-29T12:00:00.000Z' },
+      },
+    });
+    relatoriosDb.mergeReportInCache({
+      id: 'r-tech-39',
+      jobId: 'job-39-tech',
+      serviceType: 'folha_intervencao_avarias',
+      status: 'approved',
+      clientId: '10',
+      faturacaoStatus: 'pendente',
+      data: { values: { pedido_orcamento: 'Não' } },
+    });
+    const { isPendingBilling, getPendingBillingReports } = await import('../js/billing-workflow.js');
+    assert.equal(isPendingBilling(relatoriosDb.getReportsSnapshot().find((r) => r.id === 'r-tech-39')), false);
+    assert.equal(getPendingBillingReports().some((r) => r.id === 'r-tech-39'), false);
+  });
 });

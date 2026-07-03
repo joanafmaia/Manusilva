@@ -11,20 +11,39 @@ import {
 import { normalizeFaturaCondicao, normalizeStatusRecebimento } from './billing-constants.js';
 import { sameEntityId } from './entity-id.js';
 import { addDaysToIsoDate } from './date-utils.js';
-import { reportIsRhOrcamento } from './pedido-orcamento.js';
-import { reportIsStandaloneOrcamento } from './orcamento-standalone.js';
+import { reportHasOrcamentoSignals } from './pedido-orcamento.js';
 import { isPendingOrcamentoBilling } from './orcamento-billing-workflow.js';
+import { getJob } from './entity-lookups.js';
 
 function findReport(reportId) {
   return getReportsSnapshot().find((r) => sameEntityId(r.id, reportId)) || null;
 }
 
+function reportNumeroOrdem(report) {
+  if (!report?.jobId) return null;
+  const job = getJob(report.jobId);
+  const n = job?.numeroOrdem;
+  return n != null && Number.isFinite(Number(n)) ? Number(n) : null;
+}
+
+/** Outro relatório da mesma OP é proposta comercial — não faturar duplicado técnico. */
+function sharesNumeroOrdemWithOrcamento(report, allReports) {
+  const ordem = reportNumeroOrdem(report);
+  if (ordem == null) return false;
+  return allReports.some((other) => {
+    if (sameEntityId(other.id, report.id)) return false;
+    if (!reportHasOrcamentoSignals(other)) return false;
+    return reportNumeroOrdem(other) === ordem;
+  });
+}
+
 /** Relatório aprovado ainda por faturar (controlo interno; exclui visitas e propostas comerciais). */
-export function isPendingBilling(report) {
+export function isPendingBilling(report, allReports = null) {
   if (!report || report.status !== 'approved') return false;
   if (report.servicoId) return false;
-  if (reportIsRhOrcamento(report)) return false;
-  if (reportIsStandaloneOrcamento(report)) return false;
+  const snapshot = allReports || getReportsSnapshot();
+  if (reportHasOrcamentoSignals(report)) return false;
+  if (sharesNumeroOrdemWithOrcamento(report, snapshot)) return false;
   if (isPendingOrcamentoBilling(report)) return false;
   const fs = report.faturacaoStatus;
   if (fs === 'via_servico' || fs === 'dispensado' || fs === 'faturado') return false;
@@ -33,7 +52,8 @@ export function isPendingBilling(report) {
 }
 
 export function getPendingBillingReports() {
-  return dedupeReportsForDisplay(getReportsSnapshot().filter(isPendingBilling)).sort(
+  const snapshot = getReportsSnapshot();
+  return dedupeReportsForDisplay(snapshot.filter((r) => isPendingBilling(r, snapshot))).sort(
     (a, b) => String(a.approvedAt || '').localeCompare(String(b.approvedAt || '')),
   );
 }

@@ -415,12 +415,17 @@ function buildBillingRowsFromItems(items) {
     const meta = resolveClientMeta(report.clientId);
     const job = report.jobId ? getJob(report.jobId) : null;
     const pdfEntries = resolveBillingReportPdfEntries(report);
+    const ordem =
+      job?.numeroOrdem != null
+        ? String(job.numeroOrdem).padStart(4, '0')
+        : formatOrdemLabel(job);
+    const detail = getServiceType(report.serviceType)?.label || report.serviceType || 'Relatório';
     return {
       kind: 'report',
       report,
       ...meta,
-      ordem: formatOrdemLabel(job),
-      detail: formatOrdemLabel(job),
+      ordem,
+      detail,
       approvedLabel: formatHistoryDate(String(report.approvedAt || '').split('T')[0]),
       urgent: isBillingUrgent(report, meta.client),
       estimate: estimateReportValue(report),
