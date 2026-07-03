@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS public.faturas_manuais_eliminadas (
 );
 
 COMMENT ON TABLE public.faturas_manuais_eliminadas IS
-  'Histórico imutável — faturas manuais eliminadas do painel Faturação (quem e quando).';
+  'Auditoria interna — consultar apenas no Supabase (SQL Editor / Table Editor). A app regista INSERT mas não lê.';
 
 CREATE INDEX IF NOT EXISTS faturas_manuais_eliminadas_em_idx
   ON public.faturas_manuais_eliminadas (eliminado_em DESC);
@@ -28,12 +28,8 @@ CREATE INDEX IF NOT EXISTS faturas_manuais_eliminadas_cliente_idx
 
 ALTER TABLE public.faturas_manuais_eliminadas ENABLE ROW LEVEL SECURITY;
 
+-- Sem SELECT para authenticated — histórico só visível no dashboard Supabase (service role).
 DROP POLICY IF EXISTS "authenticated_read_faturas_manuais_eliminadas" ON public.faturas_manuais_eliminadas;
-CREATE POLICY "authenticated_read_faturas_manuais_eliminadas"
-  ON public.faturas_manuais_eliminadas
-  FOR SELECT
-  TO authenticated
-  USING (true);
 
 DROP POLICY IF EXISTS "authenticated_insert_faturas_manuais_eliminadas" ON public.faturas_manuais_eliminadas;
 CREATE POLICY "authenticated_insert_faturas_manuais_eliminadas"
