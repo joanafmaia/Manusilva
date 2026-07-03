@@ -12,7 +12,7 @@ import {
 } from './mock_data.js';
 import { getClientFromCatalog } from './clients-catalog.js';
 import { getJobsSnapshot } from './trabalhos-db.js';
-import { getReportsSnapshot, dedupeReportsForDisplay } from './relatorios-db.js';
+import { getReportsSnapshot, dedupeReportsForDisplay, getCanonicalReportForJob } from './relatorios-db.js';
 import { sameEntityId } from './entity-id.js';
 import { isDevMockEnabled } from './env.js';
 import {
@@ -129,6 +129,8 @@ export function getReport(id) {
 
 export function getReportForJob(jobId) {
   if (jobId == null || jobId === '') return null;
+  const canonical = getCanonicalReportForJob(jobId);
+  if (canonical) return canonical;
   const matches = getReportsSnapshot().filter((r) => sameEntityId(r.jobId, jobId));
   if (!matches.length) return null;
   if (matches.length === 1) return matches[0];

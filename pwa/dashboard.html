@@ -133,25 +133,13 @@
       if (await ensureFreshAppBuild()) {
         /* recarrega com build novo */
       } else {
-        const { initLocalDatabase, warmClientsCatalog, warmOperacoes, handleFatalDashboardError } =
-          await import(`./js/app.js?v=${v}`);
+        const { initLocalDatabase } = await import(`./js/app.js?v=${v}`);
         const { initTechDashboard } = await import(`./js/tech-dashboard.js?v=${v}`);
         const { initLogoutButton } = await import(`./js/auth.js?v=${v}`);
 
         initLogoutButton();
         initLocalDatabase();
-
-        let fatalSessionError = false;
-        try {
-          await warmClientsCatalog();
-          await warmOperacoes();
-        } catch (error) {
-          fatalSessionError = await handleFatalDashboardError(error);
-        }
-
-        if (!fatalSessionError) {
-          initTechDashboard();
-        }
+        void initTechDashboard();
 
         if ('serviceWorker' in navigator) {
           navigator.serviceWorker.register(`./sw.js?v=${v}`).catch(() => {});

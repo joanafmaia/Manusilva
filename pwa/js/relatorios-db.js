@@ -12,6 +12,8 @@ import { legacyPrazoToCondicao } from './billing-constants.js';
 import { sameEntityId } from './entity-id.js';
 
 let reportsCache = null;
+/** Índice lazy jobId → relatório canónico (deduplicado). */
+let reportsByJobIdIndex = null;
 /** true só depois de um SELECT completo à tabela relatorios (não rascunhos locais). */
 let reportsFullyLoaded = false;
 let reportsLoadPromise = null;
@@ -28,8 +30,8 @@ export function isUuid(value) {
 const DISPLAY_REPORT_STATUS_PRIORITY = {
   approved: 50,
   pending_review: 40,
+  rejected: 35,
   draft: 30,
-  rejected: 20,
 };
 
 function compareReportsForDisplayDedupe(a, b) {
@@ -214,6 +216,28 @@ export function formatRelatoriosError(err) {
   return msg || 'Erro ao aceder aos relatórios.';
 }
 
+function invalidateReportsJobIndex() {
+  reportsByJobIdIndex = null;
+}
+
+function rebuildReportsJobIndex() {
+  reportsByJobIdIndex = new Map();
+  if (!reportsCache?.length) return reportsByJobIdIndex;
+  for (const report of dedupeReportsForDisplay(reportsCache)) {
+    if (!report?.jobId) continue;
+    reportsByJobIdIndex.set(String(report.jobId), report);
+  }
+  return reportsByJobIdIndex;
+}
+
+/** Relatório canónico para um trabalho — O(1) após índice, sem copiar todo o cache. */
+export function getCanonicalReportForJob(jobId) {
+  if (jobId == null || jobId === '') return null;
+  const key = String(jobId);
+  if (!reportsByJobIdIndex) rebuildReportsJobIndex();
+  return reportsByJobIdIndex.get(key) || null;
+}
+
 export function getReportsSnapshot() {
   return reportsCache ? [...reportsCache] : [];
 }
@@ -231,6 +255,40 @@ export async function ensureReportsLoaded(force = false) {
   return reportsLoadPromise;
 }
 
+const RELATORIOS_IN_BATCH_SIZE = 80;
+
+/**
+ * Carrega relatórios só dos trabalhos indicados (merge no cache).
+ * Útil no arranque do técnico — evita descarregar todos os relatórios de imediato.
+ */
+export async function ensureRelatoriosForTrabalhos(jobIds = []) {
+  const ids = [...new Set(jobIds.map((id) => String(id || '').trim()).filter(Boolean))];
+  if (!ids.length) return [];
+
+  const supabase = await getAuthenticatedSupabaseClient();
+  const loaded = [];
+
+  for (let offset = 0; offset < ids.length; offset += RELATORIOS_IN_BATCH_SIZE) {
+    const batch = ids.slice(offset, offset + RELATORIOS_IN_BATCH_SIZE);
+    const { data, error } = await supabase.from('relatorios').select('*').in('trabalho_id', batch);
+
+    if (error) {
+      console.error('[ManuSilva] Erro ao carregar relatórios dos trabalhos:', error);
+      throw new Error(formatRelatoriosError(error));
+    }
+
+    for (const row of data || []) {
+      const report = mapRowToReport(row);
+      if (report) {
+        upsertCacheEntry(report);
+        loaded.push(report);
+      }
+    }
+  }
+
+  return loaded;
+}
+
 async function loadReportsFromSupabase() {
   const supabase = await getAuthenticatedSupabaseClient();
   const { data, error } = await supabase
@@ -245,6 +303,7 @@ async function loadReportsFromSupabase() {
 
   reportsCache = (data || []).map(mapRowToReport).filter(Boolean);
   reportsFullyLoaded = true;
+  invalidateReportsJobIndex();
   console.info(`[ManuSilva] ${reportsCache.length} relatório(s) carregados do Supabase.`);
   return reportsCache;
 }
@@ -253,6 +312,7 @@ export function invalidateReportsCache() {
   reportsCache = null;
   reportsLoadPromise = null;
   reportsFullyLoaded = false;
+  invalidateReportsJobIndex();
 }
 
 function upsertCacheEntry(report) {
@@ -265,6 +325,7 @@ function upsertCacheEntry(report) {
     return true;
   });
   reportsCache.unshift(report);
+  invalidateReportsJobIndex();
 }
 
 /** Atualiza cache em memória (ex.: rascunho local antes de sincronizar com Supabase). */
@@ -289,6 +350,7 @@ export function removeReportFromCache(reportId) {
   const id = String(reportId);
   const removed = reportsCache.find((r) => String(r.id) === id) || null;
   reportsCache = reportsCache.filter((r) => String(r.id) !== id);
+  invalidateReportsJobIndex();
   return removed;
 }
 
@@ -297,6 +359,7 @@ export function removeReportsForJobFromCache(jobId) {
   if (jobId == null || !reportsCache) return;
   const id = String(jobId);
   reportsCache = reportsCache.filter((r) => String(r.jobId ?? '') !== id);
+  invalidateReportsJobIndex();
 }
 
 async function findExistingReportId(report) {
@@ -402,6 +465,7 @@ export async function deleteRelatoriosByTrabalho(trabalhoId) {
   }
   if (reportsCache) {
     reportsCache = reportsCache.filter((r) => r.jobId !== trabalhoId);
+    invalidateReportsJobIndex();
   }
 }
 

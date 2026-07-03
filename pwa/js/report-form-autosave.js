@@ -5,7 +5,7 @@
 import { saveLocalReportDraft } from './report-local-storage.js';
 import { mergeReportInCache } from './relatorios-db.js';
 
-const DEBOUNCE_MS = 350;
+const DEBOUNCE_MS = 800;
 const PHOTO_WAIT_POLL_MS = 50;
 const SAVED_INDICATOR_MS = 12000;
 
@@ -19,8 +19,8 @@ function isBrowserOffline() {
 
 /** Estados em que o formulário pode ser auto-gravado */
 export function canAutosaveReport(existingReport, job) {
-  if (job?.status === 'completed') return false;
-  if (existingReport?.status === 'approved') return false;
+  if (job?.status === 'completed' || job?.status === 'rejected') return false;
+  if (existingReport?.status === 'approved' || existingReport?.status === 'rejected') return false;
   return true;
 }
 
@@ -213,7 +213,6 @@ export function initReportFormAutosave({ overlay, job, existingReport, buildRepo
 
   overlay.addEventListener('input', onActivity, true);
   overlay.addEventListener('change', onActivity, true);
-  overlay.addEventListener('click', onActivity, true);
   window.addEventListener('beforeunload', onBeforeUnload);
   document.addEventListener('visibilitychange', onVisibility);
 
@@ -244,7 +243,6 @@ export function initReportFormAutosave({ overlay, job, existingReport, buildRepo
       clearSavedHideTimer();
       overlay.removeEventListener('input', onActivity, true);
       overlay.removeEventListener('change', onActivity, true);
-      overlay.removeEventListener('click', onActivity, true);
       window.removeEventListener('beforeunload', onBeforeUnload);
       document.removeEventListener('visibilitychange', onVisibility);
       setStatus('idle');

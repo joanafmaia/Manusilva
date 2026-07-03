@@ -39,7 +39,7 @@ import {
 import { initLogoutButton } from './auth.js';
 import { getLastClientIntervention } from './views/historico-cliente.js';
 import { ensureTrabalhosSemana } from './trabalhos-db.js';
-import { dedupeReportsForDisplay } from './relatorios-db.js';
+import { dedupeReportsForDisplay, ensureRelatoriosForTrabalhos } from './relatorios-db.js';
 import { triggerTechDataSync } from './tech-sync.js';
 import {
   filterJobsBySearch,
@@ -71,6 +71,8 @@ const TECH_JOBS_TABS = {
 const TECH_CAL_COMPACT_KEY = 'tech_calendar_compact';
 let techCalendarCompact = localStorage.getItem(TECH_CAL_COMPACT_KEY) === '1';
 let techJobsSearchQuery = '';
+let techJobsSearchTimer = null;
+const TECH_JOBS_SEARCH_DEBOUNCE_MS = 150;
 
 /** Aba ativa no arranque: Agendados (vista semanal do calendário). */
 let techJobsTab = 'agendados';
@@ -423,7 +425,7 @@ function getRestOfWeekScheduledJobs(techId) {
 }
 
 function resolveAgendadosRowAction(state) {
-  if (state === 'rejected' || state === 'draft') return 'continue';
+  if (state === 'rejected' || state === 'draft' || state === 'pending') return 'continue';
   if (state === 'scheduled') return 'start';
   return 'view';
 }
@@ -475,7 +477,7 @@ function renderAgendadosWeekPreview(techId) {
 
 /**
  * Estados visíveis no Histórico de Realizados: Concluído (approved) e
- * Pendente RH (pending_review) — o técnico vê o que enviou, só em leitura.
+ * Pendente RH (pending_review) — aprovados só leitura; pendentes editáveis.
  */
 const REALIZADOS_VISIBLE_STATUSES = new Set(['approved', 'pending_review']);
 
@@ -573,17 +575,15 @@ export async function initTechDashboard() {
   bindNotificationPermissionOnGesture();
 
   try {
-    const { hydrateLocalReportsIntoCache } = await import('./report-local-storage.js');
-    await hydrateLocalReportsIntoCache();
-
     try {
-      await warmOperacoes();
+      await warmTechDashboardInitial(session.technicianId);
     } catch (err) {
       const { handleFatalDashboardError } = await import('./app.js');
       if (await handleFatalDashboardError(err)) return;
       console.error('[Técnico] Dados Supabase:', err);
     }
 
+    const { hydrateLocalReportsIntoCache } = await import('./report-local-storage.js');
     await hydrateLocalReportsIntoCache();
 
     const { initTrabalhosOfflineSync, migrateLegacyOfflineQueue, sincronizarTrabalhosOffline } =
@@ -603,6 +603,8 @@ export async function initTechDashboard() {
     } catch (err) {
       console.warn('[Técnico] Realtime indisponível (a dashboard continua a funcionar):', err);
     }
+
+    scheduleWarmTechDashboardFull();
   } catch (error) {
     const { handleFatalDashboardError } = await import('./app.js');
     if (await handleFatalDashboardError(error)) return;
@@ -739,9 +741,60 @@ function bindTechJobsSearch() {
   if (!input || input.dataset.bound === '1') return;
   input.dataset.bound = '1';
   input.addEventListener('input', () => {
-    techJobsSearchQuery = input.value || '';
-    renderJobs();
+    const value = input.value || '';
+    if (techJobsSearchTimer) clearTimeout(techJobsSearchTimer);
+    techJobsSearchTimer = setTimeout(() => {
+      techJobsSearchTimer = null;
+      techJobsSearchQuery = value;
+      renderJobs();
+    }, TECH_JOBS_SEARCH_DEBOUNCE_MS);
   });
+}
+
+/** Intervalo de datas do calendário visível (semana ou mês). */
+function getTechCalendarPeriodBounds() {
+  if (techCalendarView === 'month') {
+    const dates = getMonthDates(currentMonthDate);
+    return { startDate: dates[0], endDate: dates[dates.length - 1] };
+  }
+  const dates = getWeekDates(currentWeekDate);
+  return { startDate: dates[0], endDate: dates[dates.length - 1] };
+}
+
+/**
+ * Arranque rápido: catálogo + trabalhos do período visível + relatórios desses trabalhos.
+ * O carregamento completo corre em background para a aba Realizados e histórico.
+ */
+async function warmTechDashboardInitial(technicianId) {
+  const { ensureSupabaseAuthSession } = await import('./supabase-client.js');
+  const { ensureProductionCatalog, isProductionCatalogReady } = await import('./clients-catalog.js');
+
+  await ensureSupabaseAuthSession();
+
+  const { startDate, endDate } = getTechCalendarPeriodBounds();
+  const catalogTask = isProductionCatalogReady() ? Promise.resolve() : ensureProductionCatalog();
+
+  await Promise.all([catalogTask, ensureTrabalhosSemana(technicianId, startDate, endDate)]);
+
+  const periodJobIds = getJobsSnapshot()
+    .filter((job) => jobAssignedToTechnician(job, technicianId))
+    .filter((job) => {
+      const date = String(job.date || '');
+      return date >= startDate && date <= endDate;
+    })
+    .map((job) => job.id);
+
+  await ensureRelatoriosForTrabalhos(periodJobIds);
+}
+
+function scheduleWarmTechDashboardFull() {
+  void warmOperacoes()
+    .then(() => {
+      window.dispatchEvent(new CustomEvent('db-updated'));
+    })
+    .catch((err) => {
+      console.warn('[Técnico] Carregamento completo em background:', err);
+    });
 }
 
 function getRejectedJobsForTech(techId) {
@@ -1531,7 +1584,8 @@ function filterRealizadosItems(items) {
 
 function renderRealizadoRow({ job, report }) {
   const isoDate = getRealizadoItemDate({ job, report });
-  return renderTechJobRow(job, report, 'view', { dateOverride: isoDate });
+  const action = report?.status === 'pending_review' ? 'continue' : 'view';
+  return renderTechJobRow(job, report, action, { dateOverride: isoDate });
 }
 
 function renderRealizadosListHtml(allItems) {

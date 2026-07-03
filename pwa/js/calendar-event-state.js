@@ -57,8 +57,8 @@ export const CALENDAR_EVENT_STATES = {
  */
 export function resolveCalendarEventState(job, report) {
   const reportStatus = report?.status;
-  if (reportStatus === 'draft') return 'draft';
   if (reportStatus === 'rejected' || job?.status === 'rejected') return 'rejected';
+  if (reportStatus === 'draft') return 'draft';
   if (reportStatus === 'approved') return 'approved';
   if (reportStatus === 'pending_review') return 'pending';
 

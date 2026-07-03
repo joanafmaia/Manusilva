@@ -116,11 +116,14 @@ export async function initTechRealtime() {
       'postgres_changes',
       { event: 'UPDATE', schema: 'public', table: 'relatorios' },
       (payload) => {
-        const prevStatus = payload.old?.status;
+        const prevStatus = payload.old?.estado ?? payload.old?.status;
         const report = mergeReportFromRealtime(payload.new);
         const job = report?.jobId ? getJob(report.jobId) : null;
         const match = currentTechMatch();
-        if (report?.status === 'rejected' && prevStatus !== 'rejected') {
+        if (report?.status === 'rejected' && prevStatus !== 'rejected' && report.jobId) {
+          removeLocalReportDraft(report.jobId).catch((err) => {
+            console.warn('[Técnico Realtime] Limpar rascunho após reprovação:', err);
+          });
           maybeNotifyTechReportRejected(report, job);
         }
         if (report?.status === 'approved' && prevStatus !== 'approved' && match) {

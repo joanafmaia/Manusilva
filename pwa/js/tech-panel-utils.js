@@ -171,9 +171,11 @@ export const TECH_ACTION_LABELS = {
   continue: 'Continuar',
   start: 'Iniciar',
   correct: 'Corrigir',
+  edit: 'Editar',
 };
 
 export function resolveTechActionLabel(actionType, state) {
   if (state === 'rejected' && actionType === 'continue') return TECH_ACTION_LABELS.correct;
+  if (state === 'pending' && actionType === 'continue') return TECH_ACTION_LABELS.edit;
   return TECH_ACTION_LABELS[actionType] || TECH_ACTION_LABELS.view;
 }

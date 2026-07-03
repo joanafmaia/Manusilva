@@ -230,16 +230,14 @@ export async function resolveReportForJob(jobId, serverReport, options = {}) {
   }
 
   if (serverReport.status === 'pending_review') return serverReport;
-  if (serverReport.status === 'rejected') {
-    return localAt >= serverAt ? local : serverReport;
-  }
+  if (serverReport.status === 'rejected') return serverReport;
 
   if (localAt && (!serverAt || localAt > serverAt)) return local;
   return serverReport;
 }
 
 /** Estados do servidor que um rascunho local NUNCA pode sobrepor. */
-const LOCKED_SERVER_STATUSES = new Set(['approved', 'pending_review', 'rejected']);
+const LOCKED_SERVER_STATUSES = new Set(['approved', 'rejected']);
 
 /**
  * Trabalho eliminado pelo RH: o id era do servidor (uuid da tabela trabalhos)
@@ -267,9 +265,18 @@ export async function hydrateLocalReportsIntoCache() {
   for (const draft of drafts) {
     const server = serverReports.find((r) => sameEntityId(r.jobId, draft.jobId));
 
+    if (server?.status === 'pending_review') {
+      const localAt = String(draft._localSavedAt || '');
+      const serverAt = String(server.submittedAt || server.approvedAt || '');
+      if (localAt && (!serverAt || localAt >= serverAt)) {
+        mergeReportInCache({ ...server, ...draft, status: 'pending_review', id: server.id });
+      }
+      continue;
+    }
+
     if (server && LOCKED_SERVER_STATUSES.has(server.status)) {
-      // O servidor manda: não deixar o rascunho local "ressuscitar" como Em aberto.
-      if (server.status === 'approved') {
+      // O servidor manda: rascunho local não pode mascarar reprovação ou aprovação.
+      if (server.status === 'approved' || server.status === 'rejected') {
         removeLocalReportDraft(draft.jobId).catch(() => {});
       }
       continue;
