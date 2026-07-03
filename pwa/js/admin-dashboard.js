@@ -418,6 +418,20 @@ function bindAdminNavigation() {
   });
 }
 
+function bindAppRefreshControls() {
+  const refreshBtn = document.getElementById('btn-force-app-refresh');
+  refreshBtn?.addEventListener('click', async () => {
+    refreshBtn.disabled = true;
+    refreshBtn.textContent = 'A atualizar…';
+    const { forceAppRefresh } = await import('./app-version.js');
+    await forceAppRefresh();
+  });
+
+  window.addEventListener('manusilva-app-update-available', () => {
+    showToast('Nova versão disponível — clique em «Atualizar app» na barra lateral.', 'info', 12000);
+  });
+}
+
 export async function initAdminDashboard() {
   const session = requireAuth('admin');
   if (!session) return;
@@ -426,6 +440,7 @@ export async function initAdminDashboard() {
   document.getElementById('logout-btn')?.addEventListener('click', () => {
     void forceLogout();
   });
+  bindAppRefreshControls();
   bindAdminNavigation();
 
   try {

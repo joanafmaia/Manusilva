@@ -37,23 +37,21 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script type="module">
     try {
-      const { APP_BUILD_ID } = await import('./js/build-version.js');
-      const v = APP_BUILD_ID;
-      const { ensureFreshAppBuild, recoverFromModuleLoadFailure, clearModuleRecoveryFlag } =
-        await import(`./js/app-version.js?v=${v}`);
-      if (await ensureFreshAppBuild()) {
-        /* recarrega com build novo */
-      } else {
-        const { bootstrapApp } = await import(`./js/app.js?v=${v}`);
-        bootstrapApp('app');
-        clearModuleRecoveryFlag();
-      }
+      const { bootstrapManusilvaApp, handleBootstrapFailure } = await import(
+        `./js/bootstrap-entry.js?_=${Date.now()}`
+      );
+      await bootstrapManusilvaApp({
+        onReady: async (v) => {
+          const { bootstrapApp } = await import(`./js/app.js?v=${v}`);
+          bootstrapApp('app');
+        },
+      });
     } catch (err) {
-      console.error('[Manusilva] Falha ao carregar:', err);
-      const { recoverFromModuleLoadFailure } = await import('./js/app-version.js');
-      if (!(await recoverFromModuleLoadFailure())) {
+      const { handleBootstrapFailure } = await import(`./js/bootstrap-entry.js?_=${Date.now()}`);
+      const recovered = await handleBootstrapFailure(err);
+      if (!recovered) {
         document.getElementById('app').innerHTML =
-          '<p style="padding:1.5rem;font-family:Inter,sans-serif">Não foi possível carregar a aplicação. Limpa os dados do site no browser e recarrega.</p>';
+          '<p style="padding:1.5rem;font-family:Inter,sans-serif">Não foi possível carregar a aplicação. Usa «Atualizar app» ou limpa os dados do site no browser.</p>';
       }
     }
   </script>

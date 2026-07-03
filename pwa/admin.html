@@ -62,6 +62,9 @@
 
       <div class="sidebar-footer">
         <p class="sidebar-footer-greeting">Olá, <strong id="user-name"></strong></p>
+        <button type="button" class="btn-ghost btn-sm sidebar-refresh-btn" id="btn-force-app-refresh" title="Descarregar a versão mais recente da aplicação">
+          ↻ Atualizar app
+        </button>
         <button class="btn-outline btn-sm sidebar-logout-btn" id="logout-btn" type="button">
           <span class="sidebar-logout-icon" aria-hidden="true">⎋</span>
           <span class="sidebar-logout-label">Terminar Sessão</span>
@@ -172,24 +175,24 @@
   <script src="js/vendor/jspdf.plugin.autotable.min.js" data-jspdf-autotable defer></script>
   <script type="module">
     try {
-      const { APP_BUILD_ID } = await import('./js/build-version.js');
-      const v = APP_BUILD_ID;
-      const { ensureFreshAppBuild, recoverFromModuleLoadFailure, clearModuleRecoveryFlag } =
-        await import(`./js/app-version.js?v=${v}`);
-      if (await ensureFreshAppBuild()) {
-        /* recarrega com build novo */
-      } else {
-        const { initLocalDatabase } = await import(`./js/app.js?v=${v}`);
-        const { initAdminDashboard } = await import(`./js/admin-dashboard.js?v=${v}`);
-
-        initLocalDatabase();
-        await initAdminDashboard();
-        clearModuleRecoveryFlag();
-      }
+      const { bootstrapManusilvaApp, handleBootstrapFailure } = await import(
+        `./js/bootstrap-entry.js?_=${Date.now()}`
+      );
+      await bootstrapManusilvaApp({
+        registerServiceWorker: true,
+        onRemoteBuild: () => {
+          window.dispatchEvent(new CustomEvent('manusilva-app-update-available'));
+        },
+        onReady: async (v) => {
+          const { initLocalDatabase } = await import(`./js/app.js?v=${v}`);
+          const { initAdminDashboard } = await import(`./js/admin-dashboard.js?v=${v}`);
+          initLocalDatabase();
+          await initAdminDashboard();
+        },
+      });
     } catch (err) {
-      console.error('[Manusilva] Falha ao carregar:', err);
-      const { recoverFromModuleLoadFailure } = await import('./js/app-version.js');
-      await recoverFromModuleLoadFailure();
+      const { handleBootstrapFailure } = await import(`./js/bootstrap-entry.js?_=${Date.now()}`);
+      await handleBootstrapFailure(err);
     }
   </script>
 </body>

@@ -5359,6 +5359,16 @@ body.tech-dashboard-page .form-overlay .signature-canvas-wrap, body.tech-dashboa
   color: var(--text-primary);
 }
 .sidebar-footer { padding-top: 1rem; border-top: 1px solid var(--border-subtle); }
+.sidebar-refresh-btn {
+  width: 100%;
+  margin-bottom: 0.5rem;
+  justify-content: center;
+  font-size: 0.78rem;
+  color: var(--ms-text-muted);
+}
+.sidebar-refresh-btn:hover {
+  color: var(--ms-primary, #2563eb);
+}
 .admin-main {
   padding: 0;
   overflow-y: auto;
