@@ -115,7 +115,7 @@ async function migrateLegacyLocalStorageDrafts() {
 
     const entries = Object.values(map);
     for (const draft of entries) {
-      if (draft?.jobId) {
+      if (draft?.jobId || draft?.servicoId) {
         await saveLocalReportDraft(draft);
       }
     }
@@ -330,6 +330,15 @@ export async function hydrateLocalReportsIntoCache() {
     // o rascunho órfão é removido e nunca entra na aba Em Curso / Pendentes.
     if (isDraftOfDeletedJob(draft, server, serverJobIds)) {
       removeLocalReportDraft(reportDraftStorageKey(draft)).catch(() => {});
+      continue;
+    }
+
+    if (server) {
+      const merged = { ...server, ...draft, id: server.id || draft.id };
+      if (server.status === 'pending_review' && draft.status !== 'pending_review') {
+        merged.status = server.status;
+      }
+      mergeReportInCache(merged);
       continue;
     }
 

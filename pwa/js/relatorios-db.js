@@ -246,15 +246,33 @@ export function getReportsSnapshot() {
   return reportsCache ? [...reportsCache] : [];
 }
 
+async function hydrateLocalReportsIfBrowser() {
+  if (typeof window === 'undefined') return;
+  try {
+    const { hydrateLocalReportsIntoCache } = await import('./report-local-storage.js');
+    await hydrateLocalReportsIntoCache();
+  } catch (err) {
+    console.warn('[ManuSilva] Hidratar rascunhos locais:', err);
+  }
+}
+
 export async function ensureReportsLoaded(force = false) {
   // O cache pode existir só com rascunhos locais hidratados antes do arranque;
   // nesse caso o carregamento do servidor ainda tem de acontecer.
-  if (reportsFullyLoaded && reportsCache && !force) return reportsCache;
+  if (reportsFullyLoaded && reportsCache && !force) {
+    await hydrateLocalReportsIfBrowser();
+    return reportsCache;
+  }
   if (!reportsLoadPromise || force) {
-    reportsLoadPromise = loadReportsFromSupabase().catch((err) => {
-      reportsLoadPromise = null;
-      throw err;
-    });
+    reportsLoadPromise = loadReportsFromSupabase()
+      .then(async (cache) => {
+        await hydrateLocalReportsIfBrowser();
+        return cache;
+      })
+      .catch((err) => {
+        reportsLoadPromise = null;
+        throw err;
+      });
   }
   return reportsLoadPromise;
 }

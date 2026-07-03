@@ -15,7 +15,7 @@ import {
   removeReportsForServicoFromCache,
 } from './relatorios-db.js';
 import { mergeServicoFromRealtime, removeServicoFromCache } from './servicos-db.js';
-import { removeLocalReportDraft } from './report-local-storage.js';
+import { removeLocalReportDraft, reportDraftStorageKey } from './report-local-storage.js';
 import {
   maybeNotifyTechJobScheduled,
   maybeNotifyTechReportApproved,
@@ -64,9 +64,9 @@ async function handleRelatorioDeleted(oldRow) {
   if (!reportId) return;
 
   const removed = removeReportFromCache(reportId);
-  if (removed?.jobId) {
+  if (removed) {
     try {
-      await removeLocalReportDraft(removed.jobId);
+      await removeLocalReportDraft(reportDraftStorageKey(removed));
     } catch {
       /* melhor esforço — o filtro de render também ignora rascunhos órfãos */
     }
@@ -164,8 +164,8 @@ export async function initTechRealtime() {
         const report = mergeReportFromRealtime(payload.new);
         const job = report?.jobId ? getJob(report.jobId) : null;
         const match = currentTechMatch();
-        if (report?.status === 'rejected' && prevStatus !== 'rejected' && report.jobId) {
-          removeLocalReportDraft(report.jobId).catch((err) => {
+        if (report?.status === 'rejected' && prevStatus !== 'rejected') {
+          removeLocalReportDraft(reportDraftStorageKey(report)).catch((err) => {
             console.warn('[Técnico Realtime] Limpar rascunho após reprovação:', err);
           });
           maybeNotifyTechReportRejected(report, job);

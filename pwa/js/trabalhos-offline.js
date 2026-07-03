@@ -2,12 +2,11 @@
  * Contingência offline — fila IndexedDB `trabalhos_pendentes` e sincronização com Supabase
  */
 
-import { sameEntityId } from './entity-id.js';
 import { upsertRelatorio, ensureReportsLoaded, mergeReportInCache } from './relatorios-db.js';
 import { patchTrabalho, patchTrabalhoStatus } from './trabalhos-db.js';
 import { isValidFotoUrl } from './job-fotos.js';
 import { uploadPendingFotosFromReport } from './foto-trabalho-storage.js';
-import { removeLocalReportDraft } from './report-local-storage.js';
+import { removeLocalReportDraft, reportDraftStorageKey } from './report-local-storage.js';
 import {
   STORE_PENDING_SUBMISSIONS,
   idbDelete,
@@ -103,8 +102,15 @@ function notifyPendingChange() {
   window.dispatchEvent(new CustomEvent('trabalhos-pendentes-changed'));
 }
 
+export function pendingReportKey(report) {
+  if (!report) return '';
+  if (report.servicoId && report.serviceType) {
+    return `svc:${report.servicoId}:${report.serviceType}`;
+  }
+  return report.jobId ? String(report.jobId) : '';
+}
+
 /**
- * Guarda relatório (e opcionalmente PDF em base64) na fila local.
  * @param {{ report: object, tipo?: string, pdfBase64?: string, pdfFilename?: string, queuedAt?: string, id?: string }} entry
  */
 export async function addTrabalhoPendente(entry) {
@@ -113,8 +119,9 @@ export async function addTrabalhoPendente(entry) {
 
   const list = await getTrabalhosPendentes();
   const tipo = entry.tipo || 'submit';
+  const key = pendingReportKey(report);
   const existingIdx = list.findIndex(
-    (i) => i.tipo === tipo && i.report?.jobId && sameEntityId(i.report.jobId, report.jobId),
+    (i) => i.tipo === tipo && key && pendingReportKey(i.report) === key,
   );
 
   const item = {
@@ -173,8 +180,12 @@ async function syncOnePendingItem(item) {
   const saved = await upsertRelatorio(report);
   mergeReportInCache(saved || report);
 
-  if (saved?.jobId) {
-    await removeLocalReportDraft(saved.jobId);
+  const draftKey = reportDraftStorageKey(saved || report);
+  if (draftKey) {
+    await removeLocalReportDraft(draftKey);
+  }
+
+  if (saved?.jobId && !saved?.servicoId) {
     const fotoPatch = {};
     const data = report.data || {};
     if (isValidFotoUrl(data.fotoAntesUrl)) fotoPatch.fotoAntes = data.fotoAntesUrl;
@@ -185,7 +196,7 @@ async function syncOnePendingItem(item) {
   }
 
   if (item.tipo === 'submit' || report.status === 'pending_review') {
-    if (saved?.jobId) {
+    if (saved?.jobId && !saved?.servicoId) {
       await patchTrabalhoStatus(saved.jobId, {
         status: 'completed',
         rejectionNote: null,
@@ -193,7 +204,6 @@ async function syncOnePendingItem(item) {
     }
   }
 
-  const syncedReport = saved || report;
   return saved;
 }
 
@@ -233,6 +243,8 @@ export async function sincronizarTrabalhosOffline(options = {}) {
 
     if (synced > 0) {
       await ensureReportsLoaded(true);
+      const { syncLocalReportDraftsToServer } = await import('./report-draft-sync.js');
+      await syncLocalReportDraftsToServer({ notify: false });
       window.dispatchEvent(new CustomEvent('db-updated'));
       if (notify) {
         window.dispatchEvent(
@@ -305,5 +317,10 @@ export function initTrabalhosOfflineSync() {
     sincronizarTrabalhosOffline().catch((err) => {
       console.error('[ManuSilva] Sincronização ao recuperar rede:', err);
     });
+    import('./report-draft-sync.js')
+      .then((m) => m.syncLocalReportDraftsToServer({ notify: true }))
+      .catch((err) => {
+        console.error('[ManuSilva] Sync rascunhos ao recuperar rede:', err);
+      });
   });
 }

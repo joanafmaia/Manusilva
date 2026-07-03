@@ -17,6 +17,7 @@ import {
 } from './entity-lookups.js';
 import { syncClientEmailIfChanged } from './clients-admin.js';
 import { canReachServer } from './offline-mode.js';
+import { isDraftSafelySynced } from './report-draft-sync.js';
 import { sendOfficialReportEmail } from './report-email-api.js';
 import {
   buildReportEmailPdfPayload,
@@ -78,7 +79,14 @@ export async function saveReportDraft(report, options = {}) {
     const saved = await upsertRelatorio(draft);
     if (saved) mergeReportInCache(saved);
     const { removeLocalReportDraft, reportDraftStorageKey } = await import('./report-local-storage.js');
-    await removeLocalReportDraft(reportDraftStorageKey(draft));
+    if (saved && isDraftSafelySynced(draft, saved)) {
+      await removeLocalReportDraft(reportDraftStorageKey(draft));
+    } else if (saved) {
+      console.warn(
+        '[ManuSilva] Cópia local do rascunho mantida — confirmação incompleta do servidor.',
+        reportDraftStorageKey(draft),
+      );
+    }
     const { upsertClienteEquipamentosFromReport } = await import('./cliente-equipamentos-db.js');
     void upsertClienteEquipamentosFromReport(saved || draft);
     window.dispatchEvent(new CustomEvent('db-updated'));

@@ -31,6 +31,9 @@ export function setOfflineMode(value) {
     import('./trabalhos-offline.js')
       .then((m) => m.sincronizarTrabalhosOffline())
       .catch(console.error);
+    import('./report-draft-sync.js')
+      .then((m) => m.syncLocalReportDraftsToServer({ notify: true }))
+      .catch(console.error);
     syncOfflineQueue().catch(console.error);
   }
 }

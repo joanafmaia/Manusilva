@@ -10,7 +10,11 @@ export async function triggerTechDataSync() {
   await hydrateLocalReportsIntoCache();
 
   const { sincronizarTrabalhosOffline } = await import('./trabalhos-offline.js');
-  const syncResult = await sincronizarTrabalhosOffline();
+  const { syncLocalReportDraftsToServer } = await import('./report-draft-sync.js');
+  const [syncResult] = await Promise.all([
+    sincronizarTrabalhosOffline(),
+    syncLocalReportDraftsToServer({ notify: false }),
+  ]);
 
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('jobs-updated'));

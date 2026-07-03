@@ -810,7 +810,9 @@ function scheduleWarmTechDashboardFull() {
   void warmOperacoes()
     .then(async () => {
       const { hydrateLocalReportsIntoCache } = await import('./report-local-storage.js');
+      const { syncLocalReportDraftsToServer } = await import('./report-draft-sync.js');
       await hydrateLocalReportsIntoCache();
+      await syncLocalReportDraftsToServer({ notify: false });
       window.dispatchEvent(new CustomEvent('db-updated'));
     })
     .catch((err) => {
