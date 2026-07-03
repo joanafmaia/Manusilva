@@ -355,8 +355,6 @@ export async function approveReport(reportId, options = {}) {
         'success',
         6000,
       );
-    } else if (testClient) {
-      showToast('Relatório aprovado (cliente teste — sem e-mail ao cliente).', 'success', 6000);
     } else if (servicoId && deferVisitEmail) {
       const {
         isServicoVisitFullyApproved,

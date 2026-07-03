@@ -1266,7 +1266,7 @@ async function quickApproveRhReport(reportId) {
   const job = report.jobId ? getJob(report.jobId) : null;
   const ordem = formatOrdemLabel(job, client);
   const confirmMsg = isTestClient(client)
-    ? `Aprovar relatório de teste (${ordem})? Não será enviado e-mail ao cliente.`
+    ? `Aprovar relatório de teste (${ordem})? Sem número OP oficial; o e-mail segue normalmente se o cliente tiver endereço válido.`
     : `Aprovar ${ordem} e enviar para o cliente?`;
   const confirmed = window.confirm(confirmMsg);
   if (!confirmed) return;
