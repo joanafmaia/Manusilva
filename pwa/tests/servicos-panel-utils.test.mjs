@@ -76,6 +76,54 @@ describe('servicos-panel-utils', () => {
     assert.equal(items.find((i) => i.id === 'legacy-1')?.isServico, undefined);
   });
 
+  it('getAdminCalendarItems — oculta trabalhos dos relatórios de um serviço', async () => {
+    const trabalhosDb = await import('../js/trabalhos-db.js');
+    const relatoriosDb = await import('../js/relatorios-db.js');
+    trabalhosDb.mergeJobFromRealtime({
+      id: 'job-r1',
+      cliente_id: 10,
+      data: '2026-07-03',
+      tecnico_id: 'Adelton',
+      tipo_servico: 'manutencao',
+      estado: 'completed',
+    });
+    trabalhosDb.mergeJobFromRealtime({
+      id: 'job-r2',
+      cliente_id: 10,
+      data: '2026-07-03',
+      tecnico_id: 'Adelton',
+      tipo_servico: 'grandes_baterias',
+      estado: 'completed',
+    });
+    relatoriosDb.mergeReportInCache({
+      id: 'rx1',
+      servicoId: 'svc-1',
+      jobId: 'job-r1',
+      serviceType: 'manutencao',
+      status: 'approved',
+      clientId: '10',
+      technicianId: 'Adelton',
+      data: {},
+    });
+    relatoriosDb.mergeReportInCache({
+      id: 'rx2',
+      servicoId: 'svc-1',
+      jobId: 'job-r2',
+      serviceType: 'grandes_baterias',
+      status: 'approved',
+      clientId: '10',
+      technicianId: 'Adelton',
+      data: {},
+    });
+    const { getAdminCalendarItems } = await import('../js/servicos-panel-utils.js');
+    const items = getAdminCalendarItems();
+    const ids = items.map((i) => i.id);
+    assert.ok(ids.includes('svc-1'));
+    assert.ok(!ids.includes('job-r1'));
+    assert.ok(!ids.includes('job-r2'));
+    assert.equal(items.filter((i) => i.clientId === '10' && i.date === '2026-07-03').length, 1);
+  });
+
   it('getCalendarItemSubtitle — vários relatórios', async () => {
     const { getCalendarItemSubtitle, servicoToCalendarItem } = await import(
       '../js/servicos-panel-utils.js'

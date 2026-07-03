@@ -66,14 +66,26 @@ function mapServicoStatusForCalendar(servico) {
   return 'scheduled';
 }
 
+function collectJobIdsLinkedToServicos(servicoIds) {
+  const linked = new Set(servicoIds);
+  for (const report of getReportsSnapshot()) {
+    const servicoId = resolveServicoIdForReport(report);
+    if (!servicoId) continue;
+    linked.add(String(servicoId));
+    if (report.jobId) linked.add(String(report.jobId));
+  }
+  return linked;
+}
+
 /**
  * Lista para o calendário RH: serviços (novo modelo) + trabalhos legados sem serviço.
  */
 export function getAdminCalendarItems() {
   const servicos = getServicosSnapshot();
   const servicoIds = new Set(servicos.map((s) => String(s.id)));
+  const linkedJobIds = collectJobIdsLinkedToServicos(servicoIds);
   const fromServicos = servicos.map(servicoToCalendarItem);
-  const legacyJobs = getAllJobs().filter((j) => !servicoIds.has(String(j.id)));
+  const legacyJobs = getAllJobs().filter((j) => !linkedJobIds.has(String(j.id)));
   return [...fromServicos, ...legacyJobs];
 }
 
