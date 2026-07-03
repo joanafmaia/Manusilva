@@ -114,8 +114,14 @@ export function warmReports() {
 
 export async function warmOperacoes() {
   const { ensureSupabaseAuthSession } = await import('./supabase-client.js');
+  const { ensureServicosLoadedSafe } = await import('./servicos-db.js');
   await ensureSupabaseAuthSession();
-  await Promise.all([ensureJobsLoaded(), ensureReportsLoaded(), ensureProductionCatalog()]);
+  await Promise.all([
+    ensureJobsLoaded(),
+    ensureReportsLoaded(),
+    ensureProductionCatalog(),
+    ensureServicosLoadedSafe(),
+  ]);
 }
 
 export async function handleFatalDashboardError(error) {

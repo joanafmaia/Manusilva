@@ -100,6 +100,27 @@ export {
 } from './jobs-workflow.js';
 
 export {
+  assignServico,
+  rescheduleServico,
+  deleteServico,
+} from './servicos-workflow.js';
+
+export {
+  getServico,
+  getServicosSnapshot,
+  ensureServicosLoadedSafe,
+} from './servicos-db.js';
+
+export {
+  getAdminCalendarItems,
+  filterCalendarItemsByTech,
+  getCalendarItemReport,
+  getCalendarItemReports,
+  getCalendarItemSubtitle,
+  getReportsForServico,
+} from './servicos-panel-utils.js';
+
+export {
   sendOfficialReportEmail,
   sendOrcamentoProposalEmail,
 } from './report-email-api.js';

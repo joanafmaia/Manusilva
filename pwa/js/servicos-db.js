@@ -120,6 +120,28 @@ export async function ensureServicosLoaded(force = false) {
   return servicosLoadPromise;
 }
 
+/** Não falha o arranque se a migração 020 ainda não foi aplicada no Supabase. */
+export async function ensureServicosLoadedSafe(force = false) {
+  try {
+    return await ensureServicosLoaded(force);
+  } catch (err) {
+    const msg = formatServicosError(err);
+    if (/tabela "servicos" não encontrada|Could not find the table|relation.*servicos/i.test(msg)) {
+      console.warn('[ManuSilva] Tabela servicos ainda não existe — executar migração 020.');
+      servicosCache = [];
+      servicosFullyLoaded = true;
+      return [];
+    }
+    throw err;
+  }
+}
+
+export function removeServicoFromCache(servicoId) {
+  if (!servicosCache || servicoId == null) return;
+  const id = String(servicoId);
+  servicosCache = servicosCache.filter((s) => String(s.id) !== id);
+}
+
 async function loadServicosFromSupabase() {
   const supabase = await getAuthenticatedSupabaseClient();
   const { data, error } = await supabase

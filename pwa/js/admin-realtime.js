@@ -5,6 +5,7 @@
 import { getAuthenticatedSupabaseClient } from './supabase-client.js';
 import { mergeJobFromRealtime } from './trabalhos-db.js';
 import { mergeReportFromRealtime } from './relatorios-db.js';
+import { mergeServicoFromRealtime } from './servicos-db.js';
 
 let channel = null;
 const recentlyNotifiedReports = new Set();
@@ -48,7 +49,7 @@ function playNotificationBeep() {
 }
 
 /**
- * @param {{ onPendingReport?: (report: object) => void, onTrabalhoInserted?: (job: object) => void }} callbacks
+ * @param {{ onPendingReport?: (report: object) => void, onTrabalhoInserted?: (job: object) => void, onServicoChanged?: () => void }} callbacks
  */
 export async function initAdminRealtime(callbacks = {}) {
   if (channel) return channel;
@@ -57,6 +58,29 @@ export async function initAdminRealtime(callbacks = {}) {
 
   channel = supabase
     .channel('admin-painel-realtime')
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'servicos' },
+      (payload) => {
+        const servico = mergeServicoFromRealtime(payload.new);
+        if (servico) callbacks.onServicoChanged?.(servico, payload.new);
+      },
+    )
+    .on(
+      'postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'servicos' },
+      (payload) => {
+        const servico = mergeServicoFromRealtime(payload.new);
+        if (servico) callbacks.onServicoChanged?.(servico, payload.new);
+      },
+    )
+    .on(
+      'postgres_changes',
+      { event: 'DELETE', schema: 'public', table: 'servicos' },
+      () => {
+        callbacks.onServicoChanged?.();
+      },
+    )
     .on(
       'postgres_changes',
       { event: 'INSERT', schema: 'public', table: 'trabalhos' },
@@ -94,7 +118,7 @@ export async function initAdminRealtime(callbacks = {}) {
     )
     .subscribe((status, err) => {
       if (status === 'SUBSCRIBED') {
-        console.info('[Admin Realtime] Subscrição ativa (trabalhos + relatórios).');
+        console.info('[Admin Realtime] Subscrição ativa (serviços, trabalhos + relatórios).');
       }
       if (status === 'CHANNEL_ERROR' || err) {
         console.error('[Admin Realtime] Erro na subscrição:', err || status);

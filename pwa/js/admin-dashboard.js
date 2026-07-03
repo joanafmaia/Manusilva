@@ -5,7 +5,6 @@
 import {
   requireAuth,
   getWeekDates,
-  getAllJobs,
   getClient,
   getTechnician,
   getServiceType,
@@ -17,10 +16,13 @@ import {
   getReport,
   approveReport,
   rejectReport,
-  assignJob,
+  assignServico,
   deleteJob,
+  deleteServico,
   rescheduleJob,
+  rescheduleServico,
   getJob,
+  getServico,
   warmJobs,
   getReportForJob,
   statusBadge,
@@ -40,7 +42,6 @@ import {
   isToday,
   COMPANY,
   applyBrandLogo,
-  SERVICE_TYPES,
   showToast,
   showNotificationToast,
 } from './app.js';
@@ -73,6 +74,14 @@ import {
 } from './rh-panel-utils.js';
 import { computeDashboardMetrics } from './views/dashboard-metrics.js';
 import { LABEL_NUMERO_SERIE } from './field-labels.js';
+import {
+  filterCalendarItemsByTech,
+  getAdminCalendarItems,
+  getCalendarItemReport,
+  getCalendarItemReports,
+  getCalendarItemSubtitle,
+  servicoToCalendarItem,
+} from './servicos-panel-utils.js';
 
 /** Aba ativa do painel admin (controlada pela sidebar) */
 let currentTab = 'calendario';
@@ -472,6 +481,17 @@ export async function initAdminDashboard() {
         console.error('[Admin] Calendário após trabalho realtime:', e);
       }
     },
+    onServicoChanged: () => {
+      try {
+        if (isOpsTabActive()) {
+          renderCalendar();
+        } else {
+          adminTabDirty.ops = true;
+        }
+      } catch (e) {
+        console.error('[Admin] Calendário após serviço realtime:', e);
+      }
+    },
     onTrabalhoPendente: (job) => {
       const report = getReportForJob(job.id);
       if (report?.status === 'pending_review') {
@@ -787,9 +807,7 @@ function renderCalendar() {
   if (!grid) return;
 
   const dates = getCalendarDates();
-  const jobs = getAllJobs().filter(
-    (j) => filterTechId === 'all' || jobAssignedToTechnician(j, filterTechId),
-  );
+  const jobs = filterCalendarItemsByTech(getAdminCalendarItems(), filterTechId);
   const jobsInRange = jobs.filter((j) => dates.includes(j.date));
   const weekEmpty = jobsInRange.length === 0;
 
@@ -863,7 +881,7 @@ function renderCalendarEmptyState() {
       <p class="cal-empty-state-hint text-muted">Não há serviços agendados para a semana ou mês selecionado.</p>
       <div class="cal-empty-state-actions">
         <button type="button" class="btn-outline btn-sm" id="cal-empty-today">Ir para hoje</button>
-        <button type="button" class="btn-primary btn-sm" id="cal-empty-assign">+ Atribuir trabalho</button>
+        <button type="button" class="btn-primary btn-sm" id="cal-empty-assign">+ Criar Serviço</button>
       </div>
     </div>
   `;
@@ -883,13 +901,13 @@ function renderCalendarBlock(job, compact = false) {
   const tech = getPrimaryTechnicianForJob(job);
   const techLabel = getJobTechnicianLabel(job.technicianId);
   const client = getClient(job.clientId);
-  const service = getServiceType(job.serviceType);
-  const report = getReportForJob(job.id);
+  const report = getCalendarItemReport(job);
+  const subtitle = getCalendarItemSubtitle(job);
   const stateClass = getCalendarEventStateClass(job, report);
   const sizeClass = compact ? 'cal-block cal-block-sm' : 'cal-block';
   const testClass = isTestClient(client) ? ' cal-block--teste' : '';
   const cls = `${sizeClass} cal-block--interactive ${stateClass}${testClass}`;
-  const label = `${client?.name || 'Cliente'} — ${service?.label || 'Serviço'}`;
+  const label = `${client?.name || 'Cliente'} — ${subtitle}`;
   return `
     <button type="button" class="${cls}" data-job-id="${job.id}" style="--tech-color:${tech?.color || '#3b82f6'}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">
       <span class="cal-block-client">${escapeHtml(compact ? client?.name?.split(' ')[0] : client?.name)}</span>
@@ -931,10 +949,10 @@ function renderAgendaListItem(job) {
   const tech = getPrimaryTechnicianForJob(job);
   const techLabel = getJobTechnicianLabel(job.technicianId);
   const client = getClient(job.clientId);
-  const service = getServiceType(job.serviceType);
-  const report = getReportForJob(job.id);
+  const report = getCalendarItemReport(job);
+  const subtitle = getCalendarItemSubtitle(job);
   const stateClass = getCalendarEventStateClass(job, report);
-  const serial = job.forkliftSerial ? ` · ${job.forkliftSerial}` : '';
+  const serial = !job.isServico && job.forkliftSerial ? ` · ${job.forkliftSerial}` : '';
 
   return `
     <div class="agenda-swipe-row" data-job-id="${job.id}">
@@ -947,7 +965,7 @@ function renderAgendaListItem(job) {
             ${renderWorkStateBadge(job, report)}
           </div>
           <p class="agenda-list-client">${escapeHtml(client?.name || 'Cliente')}</p>
-          <p class="agenda-list-meta">${service?.icon || '🔧'} ${escapeHtml(service?.label || job.serviceType)} · ${escapeHtml(techLabel)}${escapeHtml(serial)}</p>
+          <p class="agenda-list-meta">${escapeHtml(subtitle)} · ${escapeHtml(techLabel)}${escapeHtml(serial)}</p>
         </button>
       </div>
     </div>
@@ -1329,17 +1347,27 @@ function bindAgendaSwipeRows(container) {
   });
 }
 
+function resolveCalendarItemById(id) {
+  const servico = getServico(id);
+  if (servico) return servicoToCalendarItem(servico);
+  return getJob(id);
+}
+
+function reportStatusLine(report) {
+  if (!report) return 'Sem relatório iniciado';
+  if (report.status === 'draft') return 'Rascunho guardado pelo técnico';
+  if (report.status === 'pending_review') return 'Aguarda aprovação (RH)';
+  if (report.status === 'approved') return 'Relatório aprovado';
+  if (report.status === 'rejected') return 'Rejeitado — correção pedida';
+  return `Relatório: ${report.status}`;
+}
+
 function buildJobDetailContent(job) {
   const techLabel = getJobTechnicianLabel(job.technicianId);
   const client = getClient(job.clientId);
   const service = getServiceType(job.serviceType);
   const report = getReportForJob(job.id);
-
-  let reportLine = 'Sem relatório iniciado';
-  if (report?.status === 'draft') reportLine = 'Rascunho guardado pelo técnico';
-  else if (report?.status === 'pending_review') reportLine = 'Aguarda aprovação (RH)';
-  else if (report?.status === 'approved') reportLine = 'Relatório aprovado';
-  else if (report) reportLine = `Relatório: ${report.status}`;
+  const reportLine = reportStatusLine(report);
 
   const rejectionBlock =
     job.status === 'rejected' && job.rejectionNote
@@ -1360,21 +1388,59 @@ function buildJobDetailContent(job) {
   `;
 }
 
+function buildCalendarItemDetailContent(item) {
+  if (!item?.isServico) return buildJobDetailContent(item);
+
+  const techLabel = getJobTechnicianLabel(item.technicianId);
+  const client = getClient(item.clientId);
+  const reports = getCalendarItemReports(item);
+  const reportsHtml = reports.length
+    ? `<ul class="job-detail-reports" style="margin:0;padding-left:1.1rem">${reports
+        .map((r) => {
+          const st = getServiceType(r.serviceType);
+          return `<li>${st?.icon || '🔧'} ${escapeHtml(st?.label || r.serviceType || 'Relatório')} — ${escapeHtml(reportStatusLine(r))}</li>`;
+        })
+        .join('')}</ul>`
+    : '<p class="text-muted" style="margin:0">Ainda sem relatórios — o técnico adiciona no tablet.</p>';
+
+  const rejectedNotes = reports
+    .filter((r) => r.status === 'rejected' && r.rejectionNote)
+    .map((r) => {
+      const st = getServiceType(r.serviceType);
+      return `<div class="job-detail-rejection"><strong>${escapeHtml(st?.label || 'Relatório')}</strong>${escapeHtml(r.rejectionNote)}</div>`;
+    })
+    .join('');
+
+  return `
+    <dl class="job-detail-grid">
+      <div><dt>Cliente</dt><dd>${escapeHtml(client?.name || '—')}</dd></div>
+      <div><dt>Técnicos</dt><dd>${escapeHtml(techLabel)}</dd></div>
+      <div><dt>Data</dt><dd>${escapeHtml(formatDateLong(item.date))}</dd></div>
+      <div><dt>Estado</dt><dd>${statusBadge(item.status)}</dd></div>
+      <div><dt>Relatórios</dt><dd>${reportsHtml}</dd></div>
+    </dl>
+    ${rejectedNotes}
+  `;
+}
+
 function openJobDetailModal(jobId) {
-  const job = getJob(jobId);
-  if (!job) {
+  const item = resolveCalendarItemById(jobId);
+  if (!item) {
     showToast('Serviço não encontrado.', 'error');
     return;
   }
 
-  const client = getClient(job.clientId);
-  const service = getServiceType(job.serviceType);
-  const report = getReportForJob(job.id);
-  const modalTitle = `${service?.icon || '🔧'} ${client?.name || 'Serviço'} — ${formatDateLong(job.date)}`;
+  const client = getClient(item.clientId);
+  const reports = getCalendarItemReports(item);
+  const pendingReport = reports.find((r) => r.status === 'pending_review');
+  const report = item.isServico ? pendingReport || getCalendarItemReport(item) : getReportForJob(item.id);
+  const modalTitle = item.isServico
+    ? `📋 ${client?.name || 'Serviço'} — ${formatDateLong(item.date)}`
+    : `${getServiceType(item.serviceType)?.icon || '🔧'} ${client?.name || 'Serviço'} — ${formatDateLong(item.date)}`;
 
   const reviewBtn =
     report?.status === 'pending_review'
-      ? `<button type="button" class="btn-primary" id="job-detail-review">Rever relatório</button>`
+      ? `<button type="button" class="btn-primary" id="job-detail-review">${reports.filter((r) => r.status === 'pending_review').length > 1 ? 'Rever relatórios' : 'Rever relatório'}</button>`
       : '';
 
   const actions = `
@@ -1384,7 +1450,7 @@ function openJobDetailModal(jobId) {
     ${reviewBtn}
   `;
 
-  const overlay = openModal(modalTitle, buildJobDetailContent(job), actions);
+  const overlay = openModal(modalTitle, buildCalendarItemDetailContent(item), actions);
 
   overlay.querySelector('#job-detail-close')?.addEventListener('click', closeModal);
   overlay.querySelector('#job-detail-reschedule')?.addEventListener('click', () => {
@@ -1408,24 +1474,25 @@ function openJobDetailModal(jobId) {
 }
 
 function openRescheduleJobModal(jobId) {
-  const job = getJob(jobId);
-  if (!job) {
-    showToast('Trabalho não encontrado.', 'error');
+  const item = resolveCalendarItemById(jobId);
+  if (!item) {
+    showToast('Serviço não encontrado.', 'error');
     return;
   }
 
-  const client = getClient(job.clientId);
-  const service = getServiceType(job.serviceType);
-  const label = `${client?.name || 'Cliente'} — ${service?.label || 'Serviço'}`;
+  const client = getClient(item.clientId);
+  const label = item.isServico
+    ? `${client?.name || 'Cliente'} — visita ao cliente`
+    : `${client?.name || 'Cliente'} — ${getServiceType(item.serviceType)?.label || 'Serviço'}`;
 
   const content = `
     <p class="text-muted" style="margin-bottom:1rem">${escapeHtml(label)}</p>
     <div class="form-group">
       <label class="form-label" for="reschedule-job-date">Nova data</label>
-      <input type="date" class="form-input" id="reschedule-job-date" value="${escapeHtml(job.date)}" required>
+      <input type="date" class="form-input" id="reschedule-job-date" value="${escapeHtml(item.date)}" required>
     </div>
     <p class="text-muted" style="margin-top:0.5rem;font-size:0.8125rem">
-      Data atual: <strong>${escapeHtml(formatDateLong(job.date))}</strong>. O técnico verá o trabalho no novo dia.
+      Data atual: <strong>${escapeHtml(formatDateLong(item.date))}</strong>. O técnico verá o serviço no novo dia.
     </p>
   `;
 
@@ -1434,7 +1501,7 @@ function openRescheduleJobModal(jobId) {
     <button type="button" class="btn-primary" id="confirm-reschedule-job">Guardar data</button>
   `;
 
-  const overlay = openModal('Alterar data do trabalho', content, actions);
+  const overlay = openModal('Alterar data do serviço', content, actions);
   const dateInput = overlay.querySelector('#reschedule-job-date');
 
   overlay.querySelector('#cancel-reschedule-job')?.addEventListener('click', closeModal);
@@ -1447,7 +1514,9 @@ function openRescheduleJobModal(jobId) {
     }
     btn.disabled = true;
     btn.textContent = 'A guardar…';
-    const ok = await rescheduleJob(jobId, newDate);
+    const ok = item.isServico
+      ? await rescheduleServico(jobId, newDate)
+      : await rescheduleJob(jobId, newDate);
     if (ok) {
       closeModal();
       renderCalendar();
@@ -1459,17 +1528,21 @@ function openRescheduleJobModal(jobId) {
 }
 
 function confirmDeleteJob(jobId) {
-  const job = getJob(jobId);
-  if (!job) return;
+  const item = resolveCalendarItemById(jobId);
+  if (!item) return;
 
-  const report = getReportForJob(jobId);
-  const client = getClient(job.clientId);
-  const extra = report
-    ? '<p class="text-muted" style="margin-top:0.5rem;font-size:0.8125rem">O relatório associado a este trabalho também será removido.</p>'
-    : '';
+  const reports = getCalendarItemReports(item);
+  const report = item.isServico ? getCalendarItemReport(item) : getReportForJob(jobId);
+  const client = getClient(item.clientId);
+  let extra = '';
+  if (item.isServico && reports.length) {
+    extra = `<p class="text-muted" style="margin-top:0.5rem;font-size:0.8125rem">Serão removidos ${reports.length} relatório(s) associado(s) a este serviço.</p>`;
+  } else if (report) {
+    extra = '<p class="text-muted" style="margin-top:0.5rem;font-size:0.8125rem">O relatório associado a este trabalho também será removido.</p>';
+  }
 
   const content = `
-    <p>Tem a certeza que deseja eliminar o serviço atribuído a <strong>${escapeHtml(client?.name || 'este cliente')}</strong> (${escapeHtml(formatDateLong(job.date))})?</p>
+    <p>Tem a certeza que deseja eliminar o serviço atribuído a <strong>${escapeHtml(client?.name || 'este cliente')}</strong> (${escapeHtml(formatDateLong(item.date))})?</p>
     ${extra}
   `;
 
@@ -1478,10 +1551,11 @@ function confirmDeleteJob(jobId) {
     <button type="button" class="btn-danger" id="confirm-delete-job">Eliminar</button>
   `;
 
-  const overlay = openModal('Eliminar trabalho', content, actions);
+  const overlay = openModal('Eliminar serviço', content, actions);
   overlay.querySelector('#cancel-delete-job')?.addEventListener('click', closeModal);
   overlay.querySelector('#confirm-delete-job')?.addEventListener('click', async () => {
-    if (await deleteJob(jobId)) {
+    const ok = item.isServico ? await deleteServico(jobId) : await deleteJob(jobId);
+    if (ok) {
       closeModal();
       renderCalendar();
     }
@@ -1568,8 +1642,8 @@ function bindAssignWork() {
   const btn = document.getElementById('btn-assign-work');
   btn?.addEventListener('click', () => {
     openAssignModal().catch((err) => {
-      console.error('[Admin] Atribuir trabalho:', err);
-      showToast('Erro ao abrir o formulário de atribuição.', 'error');
+      console.error('[Admin] Criar serviço:', err);
+      showToast('Erro ao abrir o formulário de criação de serviço.', 'error');
     });
   });
 }
@@ -1608,14 +1682,8 @@ async function openAssignModal() {
       </div>
       ${renderClientCombobox({ fieldId: 'assign-client', label: 'Cliente / Empresa' })}
       <p class="text-muted assign-test-hint" id="assign-test-hint" hidden>
-        Cliente de teste — o trabalho não recebe número OP oficial (só simulação).
+        Cliente de teste — o serviço não recebe número OP oficial (só simulação).
       </p>
-      <div class="form-group">
-        <label class="form-label">Tipo de Serviço</label>
-        <select class="form-select" id="assign-service" required>
-          ${SERVICE_TYPES.map((s) => `<option value="${s.id}">${s.icon} ${escapeHtml(s.label)}</option>`).join('')}
-        </select>
-      </div>
       <div class="form-group">
         <label class="form-label">Data do serviço</label>
         <input type="date" class="form-input form-input-date" id="assign-date" required autocomplete="off">
@@ -1625,10 +1693,10 @@ async function openAssignModal() {
 
   const actions = `
     <button type="button" class="btn-ghost" id="cancel-assign">Cancelar</button>
-    <button type="button" class="btn-primary" id="confirm-assign">Atribuir Trabalho</button>
+    <button type="button" class="btn-primary" id="confirm-assign">Criar Serviço</button>
   `;
 
-  const overlay = openModal('Atribuir Trabalho', content, actions);
+  const overlay = openModal('Criar Serviço', content, actions);
   await bindClientComboboxes(overlay);
 
   const testHint = overlay.querySelector('#assign-test-hint');
@@ -1672,7 +1740,6 @@ async function openAssignModal() {
     const clientId = overlay.querySelector(
       '[data-client-combobox][data-field-id="assign-client"] .client-combobox-id',
     )?.value;
-    const serviceType = overlay.querySelector('#assign-service').value;
     const date = overlay.querySelector('#assign-date').value;
 
     if (selectedTechs.length < 1) {
@@ -1689,12 +1756,9 @@ async function openAssignModal() {
       return;
     }
 
-    // Serviços são atribuídos ao dia — sem hora marcada.
-    const id = await assignJob({
+    const id = await assignServico({
       technicianId: selectedTechs.join(', '),
       clientId,
-      forkliftSerial: '',
-      serviceType,
       date,
       time: '',
     });
@@ -1706,8 +1770,8 @@ async function openAssignModal() {
   overlay.querySelector('#cancel-assign')?.addEventListener('click', closeModal);
   overlay.querySelector('#confirm-assign')?.addEventListener('click', () => {
     submitAssignForm().catch((err) => {
-      console.error('[Admin] Atribuir trabalho:', err);
-      showToast('Erro ao atribuir trabalho.', 'error');
+      console.error('[Admin] Criar serviço:', err);
+      showToast('Erro ao criar serviço.', 'error');
     });
   });
   assignForm?.addEventListener('submit', (e) => {

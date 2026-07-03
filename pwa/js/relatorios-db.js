@@ -116,6 +116,7 @@ export function mapRowToReport(row) {
   return {
     id: String(row.id),
     jobId: row.trabalho_id ? String(row.trabalho_id) : '',
+    servicoId: row.servico_id ? String(row.servico_id) : '',
     technicianId: row.tecnico_id,
     clientId: row.cliente_id != null ? String(row.cliente_id) : '',
     forkliftSerial: row.numero_serie || '',
@@ -162,6 +163,7 @@ export function mapReportToRow(report) {
   const data = report.data || {};
   return {
     trabalho_id: report.jobId || null,
+    servico_id: report.servicoId || report.jobId || null,
     tecnico_id: report.technicianId,
     cliente_id: parseClientId(report.clientId),
     numero_serie: report.forkliftSerial || null,
@@ -464,7 +466,27 @@ export async function deleteRelatoriosByTrabalho(trabalhoId) {
     throw new Error(formatRelatoriosError(error));
   }
   if (reportsCache) {
-    reportsCache = reportsCache.filter((r) => r.jobId !== trabalhoId);
+    reportsCache = reportsCache.filter((r) => !sameEntityId(r.jobId, trabalhoId));
+    invalidateReportsJobIndex();
+  }
+}
+
+export async function deleteRelatoriosByServico(servicoId) {
+  if (!servicoId) return;
+  const key = String(servicoId);
+  const supabase = await getAuthenticatedSupabaseClient();
+  const { error } = await supabase
+    .from('relatorios')
+    .delete()
+    .or(`servico_id.eq.${key},trabalho_id.eq.${key}`);
+  if (error) {
+    console.error('[ManuSilva] Erro ao eliminar relatórios do serviço:', error);
+    throw new Error(formatRelatoriosError(error));
+  }
+  if (reportsCache) {
+    reportsCache = reportsCache.filter(
+      (r) => !sameEntityId(r.servicoId, key) && !sameEntityId(r.jobId, key),
+    );
     invalidateReportsJobIndex();
   }
 }
