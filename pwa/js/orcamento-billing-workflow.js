@@ -7,7 +7,7 @@ import {
   getReportOrcamentoMeta,
 } from './orcamento-linhas.js';
 import { ORCAMENTO_RESPOSTA } from './orcamento-workflow.js';
-import { reportIsStandaloneOrcamento } from './pedido-orcamento.js';
+import { reportIsRhOrcamento, reportIsStandaloneOrcamento } from './pedido-orcamento.js';
 import {
   dedupeReportsForDisplay,
   formatRelatoriosError,
