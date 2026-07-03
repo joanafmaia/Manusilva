@@ -353,14 +353,12 @@ function formatServicoOrdemLabel(servico) {
 }
 
 function formatServicoReportsLabel(reports = []) {
-  const labels = [
-    ...new Set(
-      reports.map((r) => getServiceType(r.serviceType)?.label || r.serviceType).filter(Boolean),
-    ),
-  ];
-  if (labels.length === 1) return labels[0];
-  if (labels.length > 1) return `${labels.length} relatórios`;
-  return `${reports.length} relatório(s)`;
+  if (!reports.length) return 'Sem relatórios';
+  if (reports.length === 1) {
+    const r = reports[0];
+    return getServiceType(r.serviceType)?.label || r.serviceType || 'Relatório';
+  }
+  return `${reports.length} relatórios`;
 }
 
 function servicoLatestApproval(reports = []) {

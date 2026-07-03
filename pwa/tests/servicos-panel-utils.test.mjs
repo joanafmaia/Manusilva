@@ -124,6 +124,31 @@ describe('servicos-panel-utils', () => {
     assert.equal(items.filter((i) => i.clientId === '10' && i.date === '2026-07-03').length, 1);
   });
 
+  it('getCalendarItemSubtitle — vários relatórios do mesmo tipo', async () => {
+    const { getCalendarItemSubtitle, servicoToCalendarItem } = await import(
+      '../js/servicos-panel-utils.js'
+    );
+    const relatoriosDb = await import('../js/relatorios-db.js');
+    relatoriosDb.mergeReportInCache({
+      id: 'r-same',
+      servicoId: 'svc-1',
+      jobId: '',
+      serviceType: 'manutencao',
+      status: 'draft',
+      clientId: '10',
+      technicianId: 'Filipe',
+      data: { values: {}, signatures: {}, photos: [] },
+    });
+    const item = servicoToCalendarItem({
+      id: 'svc-1',
+      clientId: '10',
+      date: '2026-07-03',
+      technicianIds: 'Filipe',
+      status: 'scheduled',
+    });
+    assert.equal(getCalendarItemSubtitle(item), '3 relatórios');
+  });
+
   it('getCalendarItemSubtitle — vários relatórios', async () => {
     const { getCalendarItemSubtitle, servicoToCalendarItem } = await import(
       '../js/servicos-panel-utils.js'
