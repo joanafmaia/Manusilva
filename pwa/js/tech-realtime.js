@@ -15,15 +15,20 @@ import {
   removeReportsForServicoFromCache,
 } from './relatorios-db.js';
 import { mergeServicoFromRealtime, removeServicoFromCache } from './servicos-db.js';
-import { removeAllLocalDraftsForReport, removeLocalReportDraft, reportDraftStorageKey } from './report-local-storage.js';
-import { clearReportLocallyDeleted } from './report-deleted-local.js';
+import {
+  removeAllLocalDraftsForJob,
+  removeAllLocalDraftsForReport,
+  removeAllLocalDraftsForServico,
+} from './report-local-storage.js';
+import { clearReportLocallyDeleted, markReportLocallyDeleted } from './report-deleted-local.js';
+import { removePendingSubmissionsForServico } from './trabalhos-offline.js';
 import {
   maybeNotifyTechJobScheduled,
   maybeNotifyTechReportApproved,
   maybeNotifyTechReportRejected,
 } from './tech-notifications.js';
 import { getJob, getTechnician } from './app.js';
-import { servicoToCalendarItem } from './servicos-panel-utils.js';
+import { getReportsForServico, servicoToCalendarItem } from './servicos-panel-utils.js';
 import { getSession } from './session.js';
 
 let channel = null;
@@ -48,12 +53,10 @@ async function handleTrabalhoDeleted(oldRow) {
   removeJobFromCache(jobId);
   removeReportsForJobFromCache(jobId);
 
-  // O rascunho local no tablet ficou órfão — sem isto, o trabalho eliminado
-  // "ressuscitava" na aba Em Curso / Pendentes.
   try {
-    await removeLocalReportDraft(jobId);
+    await removeAllLocalDraftsForJob(jobId);
   } catch (err) {
-    console.warn('[Técnico Realtime] Rascunho local do trabalho eliminado:', err);
+    console.warn('[Técnico Realtime] Rascunhos do trabalho eliminado:', err);
   }
 
   notifyChange();
@@ -81,13 +84,22 @@ async function handleServicoDeleted(oldRow) {
   const servicoId = oldRow?.id != null ? String(oldRow.id) : '';
   if (!servicoId) return;
 
+  const reports = getReportsForServico(servicoId);
+
   removeServicoFromCache(servicoId);
   removeReportsForServicoFromCache(servicoId);
 
   try {
-    await removeLocalReportDraft(servicoId);
-  } catch {
-    /* melhor esforço */
+    for (const report of reports) {
+      if (report?.id) {
+        markReportLocallyDeleted(report);
+      }
+      await removeAllLocalDraftsForReport(report);
+    }
+    await removeAllLocalDraftsForServico(servicoId);
+    await removePendingSubmissionsForServico(servicoId);
+  } catch (err) {
+    console.warn('[Técnico Realtime] Rascunhos da visita eliminada:', err);
   }
 
   notifyChange();
@@ -167,7 +179,7 @@ export async function initTechRealtime() {
         const job = report?.jobId ? getJob(report.jobId) : null;
         const match = currentTechMatch();
         if (report?.status === 'rejected' && prevStatus !== 'rejected') {
-          removeLocalReportDraft(reportDraftStorageKey(report)).catch((err) => {
+          removeAllLocalDraftsForReport(report).catch((err) => {
             console.warn('[Técnico Realtime] Limpar rascunho após reprovação:', err);
           });
           maybeNotifyTechReportRejected(report, job);

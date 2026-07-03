@@ -962,8 +962,11 @@ async function renderTechConnectivityBar() {
 
   try {
     const { storage } = await loadTechOfflineDeps();
+    const session = requireAuth('technician');
     const pending = cachedPendingSyncCount;
-    const drafts = (await storage.getAllLocalReportDrafts()).length;
+    const drafts = session?.technicianId
+      ? await storage.countActiveLocalReportDrafts(session.technicianId)
+      : (await storage.getAllLocalReportDrafts()).length;
     const manualOffline = isOffline();
     const networkOffline = !isNetworkOnline();
     const online = canReachServer() && !manualOffline;

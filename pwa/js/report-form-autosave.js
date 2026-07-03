@@ -4,6 +4,7 @@
 
 import { saveLocalReportDraft } from './report-local-storage.js';
 import { mergeReportInCache } from './relatorios-db.js';
+import { isReportLocallyDeleted } from './report-deleted-local.js';
 
 const DEBOUNCE_MS = 800;
 const PHOTO_WAIT_POLL_MS = 50;
@@ -21,6 +22,7 @@ function isBrowserOffline() {
 export function canAutosaveReport(existingReport, job) {
   if (job?.status === 'completed' || job?.status === 'rejected') return false;
   if (existingReport?.status === 'approved' || existingReport?.status === 'rejected') return false;
+  if (existingReport?.id && isReportLocallyDeleted(existingReport.id)) return false;
   return true;
 }
 
@@ -135,6 +137,12 @@ export function initReportFormAutosave({ overlay, job, existingReport, buildRepo
     report.id = reportId;
     if (report.status !== 'pending_review') {
       report.status = 'draft';
+    }
+
+    if (isReportLocallyDeleted(reportId)) {
+      destroyed = true;
+      setStatus('idle');
+      return;
     }
 
     await saveLocalReportDraft(report);

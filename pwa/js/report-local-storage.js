@@ -5,6 +5,10 @@
 
 import { mergeReportInCache, getReportsSnapshot, isUuid } from './relatorios-db.js';
 import { getJobsSnapshot, isJobsCacheLoaded } from './trabalhos-db.js';
+import { getJob, jobAssignedToTechnician } from './entity-lookups.js';
+import { getServico, isServicosCacheLoaded } from './servicos-db.js';
+import { servicoToCalendarItem } from './servicos-panel-utils.js';
+import { isReportLocallyDeleted } from './report-deleted-local.js';
 import { sameEntityId } from './entity-id.js';
 import {
   STORE_REPORT_DRAFTS,
@@ -150,6 +154,10 @@ export function reportDraftStorageKey(report) {
 export async function saveLocalReportDraft(report) {
   await ensureMigrated();
 
+  if (isReportLocallyDeleted(report)) {
+    return null;
+  }
+
   const key = reportDraftStorageKey(report);
   if (!key) {
     throw new Error('Rascunho sem identificador (jobId ou servicoId+tipo).');
@@ -253,6 +261,101 @@ export async function removeAllLocalDraftsForReport(report) {
   return keys.size;
 }
 
+/** Remove todos os rascunhos IndexedDB de uma visita (serviço). */
+export async function removeAllLocalDraftsForServico(servicoId) {
+  await ensureMigrated();
+  if (!servicoId) return 0;
+
+  const key = String(servicoId);
+  const keys = new Set([key]);
+  const records = await idbGetAll(STORE_REPORT_DRAFTS);
+
+  for (const record of records) {
+    const storeKey = record?.jobId != null ? String(record.jobId) : '';
+    const draft = record?.report;
+    if (!storeKey) continue;
+
+    if (storeKey === key || storeKey.startsWith(`svc:${key}:`)) {
+      keys.add(storeKey);
+    }
+    if (draft?.servicoId && sameEntityId(draft.servicoId, key)) {
+      keys.add(storeKey);
+    }
+    if (draft?.jobId && sameEntityId(draft.jobId, key)) {
+      keys.add(storeKey);
+    }
+  }
+
+  for (const k of keys) {
+    await idbDelete(STORE_REPORT_DRAFTS, k);
+  }
+  return keys.size;
+}
+
+/** Remove todos os rascunhos IndexedDB de um trabalho legado. */
+export async function removeAllLocalDraftsForJob(jobId) {
+  await ensureMigrated();
+  if (!jobId) return 0;
+
+  const key = String(jobId);
+  const keys = new Set([key]);
+  const records = await idbGetAll(STORE_REPORT_DRAFTS);
+
+  for (const record of records) {
+    const storeKey = record?.jobId != null ? String(record.jobId) : '';
+    const draft = record?.report;
+    if (!storeKey) continue;
+
+    if (storeKey === key || (draft?.jobId && sameEntityId(draft.jobId, key))) {
+      keys.add(storeKey);
+    }
+  }
+
+  for (const k of keys) {
+    await idbDelete(STORE_REPORT_DRAFTS, k);
+  }
+  return keys.size;
+}
+
+function draftBelongsToActiveVisitOrJob(draft, technicianId) {
+  if (!draft || draft.status === 'approved') return false;
+
+  if (draft.servicoId) {
+    const servico = getServico(draft.servicoId);
+    if (!servico) return false;
+    if (technicianId && !jobAssignedToTechnician(servicoToCalendarItem(servico), technicianId)) {
+      return false;
+    }
+    return true;
+  }
+
+  if (draft.jobId) {
+    const job = getJob(draft.jobId);
+    if (!job) return false;
+    if (technicianId && !jobAssignedToTechnician(job, technicianId)) return false;
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Rascunhos locais que o técnico deve ver (visita/trabalho ainda existe, não eliminados).
+ * @param {object[]} drafts
+ * @param {string} [technicianId]
+ */
+export function filterActiveLocalReportDrafts(drafts, technicianId = '') {
+  return (drafts || []).filter((draft) => draftBelongsToActiveVisitOrJob(draft, technicianId));
+}
+
+/**
+ * @param {string} [technicianId]
+ */
+export async function countActiveLocalReportDrafts(technicianId = '') {
+  const drafts = await getAllLocalReportDrafts();
+  return filterActiveLocalReportDrafts(drafts, technicianId).length;
+}
+
 export async function getAllLocalReportDrafts() {
   await ensureMigrated();
   const { isReportLocallyDeleted } = await import('./report-deleted-local.js');
@@ -335,13 +438,21 @@ function findServerReportForDraft(draft, serverReports) {
 
 /**
  * Trabalho eliminado pelo RH: o id era do servidor (uuid da tabela trabalhos)
- * mas já não existe nem em trabalhos nem em relatorios. Ids locais/mock não contam.
+ * mas já não existe. Visitas (servico_id) não são confundidas com trabalhos.
  */
 function isDraftOfDeletedJob(draft, serverReport, serverJobIds) {
   if (!serverJobIds || serverReport) return false;
+  if (draft?.servicoId) return false;
+
   const jobId = String(draft?.jobId || '');
   if (!isUuid(jobId)) return false;
   return !serverJobIds.has(jobId);
+}
+
+/** Visita eliminada pelo RH — rascunho órfão no tablet. */
+function isDraftOfDeletedServico(draft) {
+  if (!draft?.servicoId || !isServicosCacheLoaded()) return false;
+  return !getServico(draft.servicoId);
 }
 
 /**
@@ -375,17 +486,20 @@ export async function hydrateLocalReportsIntoCache() {
     }
 
     if (server && LOCKED_SERVER_STATUSES.has(server.status)) {
-      // O servidor manda: rascunho local não pode mascarar reprovação ou aprovação.
       if (server.status === 'approved' || server.status === 'rejected') {
-        removeLocalReportDraft(reportDraftStorageKey(draft)).catch(() => {});
+        removeAllLocalDraftsForReport(draft).catch(() => {});
       }
       continue;
     }
 
+    if (isDraftOfDeletedServico(draft)) {
+      removeAllLocalDraftsForReport(draft).catch(() => {});
+      continue;
+    }
+
     // O RH eliminou o trabalho enquanto o tablet estava offline/fechado:
-    // o rascunho órfão é removido e nunca entra na aba Em Curso / Pendentes.
     if (isDraftOfDeletedJob(draft, server, serverJobIds)) {
-      removeLocalReportDraft(reportDraftStorageKey(draft)).catch(() => {});
+      removeAllLocalDraftsForReport(draft).catch(() => {});
       continue;
     }
 

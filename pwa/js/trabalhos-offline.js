@@ -7,6 +7,7 @@ import { patchTrabalho, patchTrabalhoStatus } from './trabalhos-db.js';
 import { isValidFotoUrl } from './job-fotos.js';
 import { uploadPendingFotosFromReport } from './foto-trabalho-storage.js';
 import { removeLocalReportDraft, reportDraftStorageKey } from './report-local-storage.js';
+import { sameEntityId } from './entity-id.js';
 import {
   STORE_PENDING_SUBMISSIONS,
   idbDelete,
@@ -156,6 +157,25 @@ export async function removePendingSubmissionsForReport(report) {
 
   const list = await getTrabalhosPendentes();
   const next = list.filter((item) => pendingReportKey(item.report) !== key);
+  if (next.length === list.length) return 0;
+
+  await setTrabalhosPendentes(next);
+  return list.length - next.length;
+}
+
+/** Remove da fila offline todas as submissões de uma visita. */
+export async function removePendingSubmissionsForServico(servicoId) {
+  const key = String(servicoId || '');
+  if (!key) return 0;
+
+  const list = await getTrabalhosPendentes();
+  const next = list.filter((item) => {
+    const report = item?.report;
+    if (!report) return true;
+    if (sameEntityId(report.servicoId, key)) return false;
+    if (sameEntityId(report.jobId, key)) return false;
+    return true;
+  });
   if (next.length === list.length) return 0;
 
   await setTrabalhosPendentes(next);
