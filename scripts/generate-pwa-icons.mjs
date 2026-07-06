@@ -1,25 +1,17 @@
 /**
- * Gera ícones PWA / favicon a partir de pwa/js/logo_data.js
+ * Gera ícones PWA / favicon com fundo clínico (#f7f6f3).
  */
-import { copyFileSync, mkdirSync, writeFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import MANUSILVA_LOGO from '../pwa/js/logo_data.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const outDir = join(root, 'pwa', 'assets', 'icons');
+const py = process.platform === 'win32' ? 'python' : 'python3';
+const result = spawnSync(py, [join(root, 'scripts', 'generate-pwa-icons.py')], {
+  stdio: 'inherit',
+  cwd: root,
+});
 
-const match = String(MANUSILVA_LOGO).match(/^data:image\/png;base64,(.+)$/i);
-if (!match) {
-  throw new Error('logo_data.js não contém PNG Base64 válido.');
+if (result.status !== 0) {
+  process.exit(result.status ?? 1);
 }
-
-const png = Buffer.from(match[1], 'base64');
-mkdirSync(outDir, { recursive: true });
-const source = join(outDir, 'manusilva-icon.png');
-writeFileSync(source, png);
-for (const name of ['icon-192.png', 'icon-512.png', 'favicon.png']) {
-  copyFileSync(source, join(outDir, name));
-}
-
-console.log(`Ícones gerados em ${outDir} (${png.length} bytes).`);
