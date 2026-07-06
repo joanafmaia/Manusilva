@@ -13,6 +13,7 @@ import {
   showToast,
   SERVICE_TYPES,
 } from './tech-app-core.js';
+import { msIconHtml, serviceIconHtml } from './ui-icons.js';
 import { getServico } from './servicos-db.js';
 import {
   canRemoveServicoReport,
@@ -99,7 +100,7 @@ function buildReportRow(servico, report, servicoReports) {
     <div class="tech-servico-report-row">
       <div class="tech-servico-report-row__main">
         <div class="tech-servico-report-row__top">
-          <span>${st?.icon || '🔧'} ${escapeHtml(typeLabel)}</span>
+          <span>${serviceIconHtml(st, 'ms-icon')} ${escapeHtml(typeLabel)}</span>
           ${opHtml}
           ${renderWorkStateBadge(pseudoJob, report)}
         </div>
@@ -132,7 +133,7 @@ function openAddReportPicker(servicoId, overlay) {
     .map(
       (t) =>
         `<button type="button" class="tech-servico-type-pick" data-service-type="${escapeHtml(t.id)}">
-          <span class="tech-servico-type-pick__icon" aria-hidden="true">${t.icon}</span>
+          ${msIconHtml(t.icon, 'tech-servico-type-pick__icon')}
           <span class="tech-servico-type-pick__label">${escapeHtml(t.label)}</span>
         </button>`,
     )
@@ -209,7 +210,7 @@ export async function openTechServicoDetail(servicoId) {
   `;
 
   const overlay = openModal(
-    `📋 ${client?.name || 'Visita'} — ${formatDateLong(servico.date)}`,
+    `${client?.name || 'Visita'} — ${formatDateLong(servico.date)}`,
     content,
     actions,
   );

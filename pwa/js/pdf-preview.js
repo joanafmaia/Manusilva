@@ -3,6 +3,7 @@
  */
 
 import { escapeHtml } from './html-utils.js';
+import { msIconHtml } from './ui-icons.js';
 
 let activePreview = null;
 
@@ -53,7 +54,7 @@ export function openPdfPreviewModal(payload) {
     <div class="pdf-preview-modal glass-card">
       <header class="pdf-preview-header">
         <div class="pdf-preview-title-wrap">
-          <span class="pdf-preview-icon" aria-hidden="true">👁️</span>
+          ${msIconHtml('eye', 'pdf-preview-icon')}
           <div>
             <h3 class="pdf-preview-title">Pré-visualização do Relatório</h3>
             <p class="pdf-preview-subtitle">${pageCount} página${pageCount !== 1 ? 's' : ''} · ${escapeHtml(filename)}</p>
@@ -229,7 +230,7 @@ export function openEmpilhadoresPdfPreviewModal(pdfs = []) {
     <div class="pdf-preview-modal glass-card pdf-preview-modal--multi">
       <header class="pdf-preview-header">
         <div class="pdf-preview-title-wrap">
-          <span class="pdf-preview-icon" aria-hidden="true">👁️</span>
+          ${msIconHtml('eye', 'pdf-preview-icon')}
           <div>
             <h3 class="pdf-preview-title">Pré-visualização — ${pdfs.length} máquinas</h3>
             <p class="pdf-preview-subtitle" data-pdf-active-meta>${active.pageCount || 1} página${active.pageCount !== 1 ? 's' : ''} · ${escapeHtml(active.filename)}</p>

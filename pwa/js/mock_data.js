@@ -57,7 +57,7 @@ export const FOLHA_INTERVENCAO_AVARIAS = {
   id: 'folha_intervencao_avarias',
   title: 'Folha de Intervenção de Avarias',
   label: 'Folha de Intervenção de Avarias',
-  icon: '🔧',
+  icon: 'wrench',
   companyName: 'ManuSilva Manutenção Industrial, Unipessoal, Lda',
   companyAddress: 'Rua São Mamede, Lote Nº1 - Fração D, 4760-725 Ribeirão VNF',
   fields: [
@@ -113,7 +113,7 @@ export const MANUTENCAO_BATERIAS_GRANDES = {
   id: 'manutencao_baterias_grandes',
   title: 'Formulário Manutenção Baterias Clientes Grandes',
   label: 'Formulário Manutenção Baterias Clientes Grandes',
-  icon: '🏭',
+  icon: 'factory',
   companyName: 'ManuSilva Manutenção Industrial, Unipessoal, Lda',
   companyAddress: 'Rua São Mamede, Lote Nº1 - Fração D, 4760-725 Ribeirão VNF',
   fields: [
@@ -150,7 +150,7 @@ export const MANUTENCAO_CORRETIVA_MAQUINAS = {
   id: 'manutencao_corretiva_maquinas',
   title: 'Folha Manutenção Corretiva de Máquinas',
   label: 'Folha Manutenção Corretiva de Máquinas',
-  icon: '⚙️',
+  icon: 'cog',
   companyName: 'ManuSilva Manutenção Industrial, Unipessoal, Lda',
   companyAddress: 'Rua São Mamede, Lote Nº1 - Fração D, 4760-725 Ribeirão VNF',
   fields: [
@@ -203,7 +203,7 @@ export const MANUTENCAO_PREVENTIVA_BATERIA = {
   id: 'manutencao_preventiva_bateria',
   title: 'Relatório de Manutenção Preventiva de Bateria',
   label: 'Relatório de Manutenção Preventiva de Bateria',
-  icon: '🔋',
+  icon: 'battery',
   companyName: 'ManuSilva Manutenção Industrial, Unipessoal, Lda',
   companyAddress: 'Rua São Mamede, Lote Nº1 - Fração D, 4760-725 Ribeirão VNF',
   fields: [
@@ -328,7 +328,7 @@ export const INSPECAO_DL50_2005 = {
   id: 'inspecao_dl50_2005',
   title: 'Inspeção da Máquina Decreto-Lei 50/2005',
   label: 'Inspeção da Máquina Decreto-Lei 50/2005',
-  icon: '📋',
+  icon: 'clipboard',
   companyName: 'ManuSilva Manutenção Industrial, Unipessoal, Lda',
   companyAddress: 'Rua São Mamede, Lote Nº1 - Fração D, 4760-725 Ribeirão VNF',
   fields: [
@@ -537,7 +537,7 @@ export const MANUTENCAO_PREVENTIVA_EMPILHADORES = {
   id: 'manutencao_preventiva_empilhadores',
   title: 'Relatório de Manutenção Preventiva de Empilhadores',
   label: 'Relatório de Manutenção Preventiva de Empilhadores',
-  icon: '🛡️',
+  icon: 'shield',
   companyName: 'ManuSilva Manutenção Industrial, Unipessoal, Lda',
   companyAddress: 'Rua São Mamede, Lote Nº1 - Fração D, 4760-725 Ribeirão VNF',
   fields: [
@@ -556,7 +556,7 @@ export const REPARACAO_CARREGADOR = {
   id: 'reparacao_carregador',
   title: 'Relatório Reparação Carregador',
   label: 'Relatório Reparação Carregador',
-  icon: '⚡',
+  icon: 'bolt',
   companyName: 'ManuSilva Manutenção Industrial, Unipessoal, Lda',
   companyAddress: 'Rua São Mamede, Lote Nº1 - Fração D, 4760-725 Ribeirão VNF',
   fields: [
@@ -612,7 +612,7 @@ export const REPARACAO_AVARIAS_BATERIA = {
   id: 'reparacao_avarias_bateria',
   title: 'Relatório Reparação Avarias Bateria',
   label: 'Relatório Reparação Avarias Bateria',
-  icon: '🔋',
+  icon: 'battery',
   companyName: 'ManuSilva Manutenção Industrial, Unipessoal, Lda',
   companyAddress: 'Rua São Mamede, Lote Nº1 - Fração D, 4760-725 Ribeirão VNF',
   fields: [

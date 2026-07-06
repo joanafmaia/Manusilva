@@ -3,6 +3,7 @@
  */
 
 import { escapeHtml } from './html-utils.js';
+import { msIconHtml } from './ui-icons.js';
 
 let toastContainer = null;
 let adminToastContainer = null;
@@ -62,7 +63,7 @@ export function showToast(message, type = 'info', duration = 4000, options = {})
  * Toast estilo notificação (canto inferior direito) — painel RH.
  */
 export function showNotificationToast(title, body, options = {}) {
-  const { icon = '🔔', duration = 8000, onClick, dedupeKey } = options;
+  const { icon = 'bell', duration = 8000, onClick, dedupeKey } = options;
 
   if (dedupeKey) {
     if (!showNotificationToast._recent) showNotificationToast._recent = new Set();
@@ -83,7 +84,7 @@ export function showNotificationToast(title, body, options = {}) {
   toast.type = onClick ? 'button' : undefined;
   toast.className = 'toast toast-notification toast-info';
   toast.innerHTML = `
-    <span class="toast-notification-icon" aria-hidden="true">${icon}</span>
+    ${msIconHtml(icon, 'toast-notification-icon')}
     <span class="toast-notification-content">
       <strong class="toast-notification-title">${escapeHtml(title)}</strong>
       <span class="toast-notification-body">${escapeHtml(body)}</span>
@@ -119,7 +120,7 @@ export function openModal(title, content, actions = '', options = {}) {
   overlay.innerHTML = `
     <div class="modal glass-card">
       <div class="modal-header">
-        <h3>${escapeHtml(title)}</h3>
+        <h3>${options.titleHtml || escapeHtml(title)}</h3>
         <button class="modal-close" aria-label="Fechar">&times;</button>
       </div>
       <div class="modal-body">${content}</div>

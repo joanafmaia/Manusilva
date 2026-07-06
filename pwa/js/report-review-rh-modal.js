@@ -17,6 +17,7 @@ import {
   rejectReport,
   resendApprovedReportEmail,
 } from './app.js';
+import { msIconHtml, serviceIconHtml } from './ui-icons.js';
 import {
   formatOrdemLabel,
   renderReviewFotosSection,
@@ -93,11 +94,11 @@ export function getReportStatusPanelMeta(status) {
 
 const RH_FILTER_TABS = [
   { id: 'all', label: 'Todos' },
-  { id: 'pending_review', label: 'Pendente RH', icon: '🟡' },
-  { id: 'orcamento_pendente', label: 'Orçamento', icon: '💶' },
-  { id: 'draft', label: 'Em aberto', icon: '⚪' },
-  { id: 'approved', label: 'Concluído', icon: '🟢' },
-  { id: 'rejected', label: 'Rejeitado', icon: '🔴' },
+  { id: 'pending_review', label: 'Pendente RH', icon: 'pending' },
+  { id: 'orcamento_pendente', label: 'Orçamento', icon: 'euro' },
+  { id: 'draft', label: 'Em aberto', icon: 'draft' },
+  { id: 'approved', label: 'Concluído', icon: 'approved' },
+  { id: 'rejected', label: 'Rejeitado', icon: 'rejected' },
 ];
 
 /** Barra de filtros rápidos no topo do painel RH */
@@ -107,7 +108,8 @@ export function buildRhReviewFilterBar(counts, activeFilter = 'pending_review', 
   const chips = RH_FILTER_TABS.map(({ id, label, icon }) => {
     const count = counts[id] ?? 0;
     const isActive = activeFilter === id;
-    const text = id === 'all' ? `${label} (${count})` : `${label} ${icon || ''} (${count})`.trim();
+    const text = `${label} (${count})`;
+    const iconHtml = id !== 'all' && icon ? msIconHtml(icon, 'rh-filter-chip__icon') : '';
     return `
       <button
         type="button"
@@ -115,7 +117,7 @@ export function buildRhReviewFilterBar(counts, activeFilter = 'pending_review', 
         data-rh-filter="${escapeHtml(id)}"
         role="tab"
         aria-selected="${isActive ? 'true' : 'false'}"
-      >${escapeHtml(text)}</button>`;
+      >${iconHtml}${escapeHtml(text)}</button>`;
   }).join('');
 
   const showBatch =
@@ -224,7 +226,7 @@ export function buildRhReviewListItem({ job, report, client, tech }) {
               <span class="rh-list-item__status">${renderReportWorkStateBadge(report, job)}</span>
             </div>
             <span class="rh-list-item__meta">
-              <span class="rh-list-item__service">${service?.icon || '🔧'} ${escapeHtml(serviceLabel)}</span>
+              <span class="rh-list-item__service">${serviceIconHtml(service, 'rh-list-item__service-icon')} ${escapeHtml(serviceLabel)}</span>
               <span class="rh-list-item__age">${escapeHtml(age)}</span>
             </span>
             <span class="rh-list-item__tech">${escapeHtml(techName)}</span>
@@ -280,7 +282,7 @@ export function buildRhVisitaFolder({ servicoId, reports, getJobFn = getJob }) {
     <article class="rh-visita-folder" data-servico-id="${escapeHtml(servicoId)}" role="listitem">
       <header class="rh-visita-folder__header">
         <div class="rh-visita-folder__heading">
-          <span class="rh-visita-folder__icon" aria-hidden="true">📋</span>
+          ${msIconHtml('clipboard', 'rh-visita-folder__icon')}
           <div>
             <h3 class="rh-visita-folder__title">${escapeHtml(title)}</h3>
             <p class="rh-visita-folder__meta">${escapeHtml(dateLabel)} · ${state.total} relatório${state.total === 1 ? '' : 's'}${statusParts.length ? ` · ${escapeHtml(statusParts.join(', '))}` : ''}</p>
@@ -314,7 +316,7 @@ function buildRhVisitReviewBanner(servicoId, currentReportId) {
       const badge = renderReportWorkStateBadge(r, r.jobId ? getJob(r.jobId) : null);
       return `<li class="rh-visita-review-context__item${isCurrent ? ' is-current' : ''}">
         <button type="button" class="rh-visita-review-context__link" data-visit-report-open="${escapeHtml(r.id)}" ${isCurrent ? 'aria-current="true"' : ''}>
-          ${st?.icon || '🔧'} ${escapeHtml(label)} ${badge}
+          ${serviceIconHtml(st, 'ms-icon')} ${escapeHtml(label)} ${badge}
         </button>
       </li>`;
     })
@@ -456,10 +458,14 @@ export async function openRhReviewModal(reportId, callbacks = {}) {
   });
 
   const overlay = openModal(
-    `${service?.icon || '📋'} ${escapeHtml(service?.label || 'Relatório')} — ${escapeHtml(statusLabel)}`,
+    '',
     content,
     '',
-    { review: true, reviewWide: true },
+    {
+      review: true,
+      reviewWide: true,
+      titleHtml: `${serviceIconHtml(service)} ${escapeHtml(service?.label || 'Relatório')} — ${escapeHtml(statusLabel)}`,
+    },
   );
 
   bindReviewFotoClicks(overlay);
@@ -630,7 +636,7 @@ export function buildRhReviewModalContent({
   );
   const fotosHtml = hasFotos ? renderReviewFotosSection(job, report) : '';
   const serviceLine = service
-    ? `${service.icon || '📋'} ${service.label || report?.serviceType || '—'}`
+    ? `${serviceIconHtml(service, 'ms-icon')} ${escapeHtml(service.label || report?.serviceType || '—')}`
     : '—';
   const queueAge = report?.submittedAt ? formatReportAge(report.submittedAt) : '';
 

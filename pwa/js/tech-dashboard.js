@@ -48,6 +48,7 @@ import {
   servicoToCalendarItem,
 } from './servicos-panel-utils.js';
 import { openTechServicoDetail } from './tech-servico-panel.js';
+import { msIconHtml, serviceIconHtml } from './ui-icons.js';
 import { getServico } from './servicos-db.js';
 import {
   filterJobsBySearch,
@@ -1518,10 +1519,10 @@ function renderCalendarStrip() {
 /* ─── Cartão de trabalho (2 linhas, toque amplo) ─── */
 
 const TECH_ROW_ACTIONS = {
-  view: { icon: '👁️', title: 'Visualizar relatório' },
-  continue: { icon: '✏️', title: 'Continuar relatório' },
-  start: { icon: '▶', title: 'Iniciar relatório' },
-  servico: { icon: '📋', title: 'Abrir visita' },
+  view: { icon: 'eye', title: 'Visualizar relatório' },
+  continue: { icon: 'pencil', title: 'Continuar relatório' },
+  start: { icon: 'play', title: 'Iniciar relatório' },
+  servico: { icon: 'clipboard', title: 'Abrir visita' },
 };
 
 function renderTechJobRow(job, report, actionType, { dateOverride, showDate = true, reportId = '' } = {}) {
@@ -1568,7 +1569,7 @@ function renderTechJobRow(job, report, actionType, { dateOverride, showDate = tr
           ${renderWorkStateBadge(job, report)}
         </div>
         <div class="tech-job-card__row tech-job-card__row--bottom">
-          <span class="tech-job-card__service">${isServico ? '📋' : getServiceType(job?.serviceType || report?.serviceType)?.icon || '🔧'} ${escapeHtml(subtitle)}</span>
+          <span class="tech-job-card__service">${isServico ? serviceIconHtml({ icon: 'clipboard' }, 'tech-job-card__service-icon') : serviceIconHtml(getServiceType(job?.serviceType || report?.serviceType), 'tech-job-card__service-icon')} ${escapeHtml(subtitle)}</span>
           <span class="tech-job-card__cta">${escapeHtml(actionLabel)}</span>
         </div>
         ${rejectionHtml}
@@ -1576,7 +1577,7 @@ function renderTechJobRow(job, report, actionType, { dateOverride, showDate = tr
       <div class="tech-job-card__aside">
         ${
           clientId
-            ? `<button type="button" class="tech-job-card__info" data-client-info="${escapeHtml(clientId)}" aria-label="Informação do cliente">ℹ️</button>`
+            ? `<button type="button" class="tech-job-card__info" data-client-info="${escapeHtml(clientId)}" aria-label="Informação do cliente">${msIconHtml('info', 'tech-job-card__info-icon')}</button>`
             : ''
         }
         ${pdfBtn}
@@ -1746,7 +1747,7 @@ function renderRealizadosListHtml(allItems) {
       ? '<p class="realizados-no-results text-muted">Nenhum resultado para esta pesquisa.</p>'
       : `
         <div class="empty-state glass-card">
-          <div class="empty-icon">✅</div>
+          <div class="empty-icon">${msIconHtml('check', 'empty-icon')}</div>
           <p>${TECH_TAB_EMPTY_MESSAGES.realizados}</p>
         </div>
       `;

@@ -1125,7 +1125,7 @@
   margin-left: auto;
   font-size: 12px;
   font-weight: 500;
-  color: #64748b;
+  color: var(--ms-text-500);
   white-space: nowrap;
 }
 .rh-card__client {
@@ -1139,7 +1139,7 @@
 .rh-card__meta {
   margin: 0 0 12px;
   font-size: 12px;
-  color: #64748b;
+  color: var(--ms-text-500);
   line-height: 1.45;
 }
 .rh-card__meta-sep {
@@ -1156,7 +1156,7 @@
   margin: 12px 0;
   font-size: 13px;
   line-height: 1.45;
-  color: #334155;
+  color: var(--ms-text-800);
 }
 .rh-card__fields .review-section {
   grid-column: 1 / -1;
@@ -1184,7 +1184,7 @@
   display: block;
   font-size: 11px;
   font-weight: 600;
-  color: #64748b;
+  color: var(--ms-text-500);
   margin-bottom: 2px;
 }
 .rh-card__fields .review-field p {
@@ -1233,13 +1233,13 @@
   max-height: 220px;
   object-fit: contain;
   border-radius: 8px;
-  background-color: #f8fafc;
+  background-color: var(--ms-page-bg);
 }
 .rh-card__foto-label {
   margin-top: 4px;
   font-size: 11px;
   font-weight: 600;
-  color: #64748b;
+  color: var(--ms-text-500);
   text-align: center;
 }
 .rh-card__signatures {
@@ -1328,7 +1328,7 @@
   min-height: 38px;
   padding: 0 10px;
   color: #475569;
-  background: #f8fafc;
+  background: var(--ms-page-bg);
   border: 1px solid #e2e8f0;
 }
 .rh-card__btn--pdf:hover:not(:disabled) {
@@ -1388,7 +1388,7 @@
   font-size: var(--ms-text-lg);
   font-weight: 600;
   margin: 0;
-  color: #334155;
+  color: var(--ms-text-800);
   line-height: 1.35;
 }
 .panel-controls {
@@ -2245,7 +2245,7 @@
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
   padding: 0.75rem 0.85rem;
-  background: var(--surface-muted, #f8fafc);
+  background: var(--surface-muted);
 }
 .review-battery-card__title {
   margin: 0 0 0.5rem;
@@ -2355,7 +2355,7 @@
 }
 .modal-overlay--stack {
   z-index: 350;
-  background: rgba(15, 23, 42, 0.55);
+  background: var(--modal-scrim);
 }
 .modal-overlay--orcamento .orcamento-modal {
   max-width: min(920px, 96vw);
@@ -2504,7 +2504,8 @@
   z-index: 5;
   margin-top: 1rem;
   padding: 0.85rem 0 0.25rem;
-  background: linear-gradient(180deg, rgba(248, 250, 252, 0) 0%, rgba(248, 250, 252, 0.92) 28%, #f8fafc 100%);
+  background: var(--ms-card-bg);
+  border-top: 1px solid var(--ms-border-md);
 }
 .review-orc-maquinas {
   margin: 0.85rem 0 1rem;
@@ -2534,7 +2535,7 @@
 .review-orc-maquina-campo-label-readonly {
   font-size: 0.82rem;
   font-weight: 600;
-  color: var(--text-muted, #64748b);
+  color: var(--ms-text-muted);
   padding: 0.35rem 0;
 }
 .review-orc-maquina-field__value {
@@ -2555,7 +2556,7 @@
   padding: 0.85rem;
   border: 1px solid rgba(15, 23, 42, 0.1);
   border-radius: 10px;
-  background: rgba(248, 250, 252, 0.7);
+  background: var(--surface-muted);
 }
 .review-orc-maquina__head {
   display: flex;
@@ -3356,7 +3357,7 @@
     padding: 0.55rem 1rem;
     border: 1px solid var(--border-subtle);
     border-radius: 0.65rem;
-    background: var(--surface-raised, #f8fafc);
+    background: var(--surface-raised, var(--ms-page-bg));
     color: var(--text-secondary);
     font-family: inherit;
     font-size: 0.875rem;
@@ -3514,7 +3515,7 @@ body .admin-rh-page .btn-primary, body .admin-rh-page .btn-secondary, body .admi
 .faturacao-kpi-sub {
   margin: 0.35rem 0 0;
   font-size: 0.78rem;
-  color: var(--ms-text-muted, #64748b);
+  color: var(--ms-text-muted, var(--ms-text-500));
 }
 .faturacao-chart-section {
   padding: 1.25rem 1.5rem;
@@ -3618,7 +3619,7 @@ body .admin-rh-page .btn-primary, body .admin-rh-page .btn-secondary, body .admi
 .admin-rh-page .rh-cell-muted,
 .admin-rh-page .faturacao-cell-muted {
   font-size: 0.78rem;
-  color: var(--ms-text-muted, #64748b);
+  color: var(--ms-text-muted, var(--ms-text-500));
   white-space: nowrap;
 }
 .admin-rh-page .rh-cell-valor,
@@ -3817,7 +3818,7 @@ body .admin-rh-page .btn-primary, body .admin-rh-page .btn-secondary, body .admi
   margin: 0;
   font-size: 0.82rem;
   font-weight: 600;
-  color: var(--ms-text-muted, #64748b);
+  color: var(--ms-text-muted, var(--ms-text-500));
 }
 .faturacao-detail-grid dd {
   margin: 0;
@@ -4082,5 +4083,48 @@ body .admin-rh-page .btn-primary, body .admin-rh-page .btn-secondary, body .admi
   50% {
     background: color-mix(in srgb, #ea580c 16%, transparent);
   }
+}
+
+/* ═══ Painel RH — interior (faturação, calendário, modais) ═══ */
+body.admin-rh-page .admin-panel,
+body.admin-rh-page .faturacao-panel,
+body.admin-rh-page .orcamentos-panel {
+  color: var(--ms-text-800);
+}
+body.admin-rh-page .panel-header h2,
+body.admin-rh-page .faturacao-section-title,
+body.admin-rh-page .dashboard-section-title {
+  font-family: var(--ms-font-display);
+  font-weight: 600;
+  color: var(--ms-text-800);
+}
+body.admin-rh-page .calendar-container,
+body.admin-rh-page .faturacao-table-wrap,
+body.admin-rh-page .rh-data-table-wrap {
+  border-color: var(--ms-border-md);
+}
+body.admin-rh-page .view-toggle button.is-active,
+body.admin-rh-page .admin-ops-mobile-toggle button.active {
+  background: var(--surface-accent);
+  color: var(--ms-primary);
+  border-color: color-mix(in srgb, var(--ms-primary) 22%, var(--ms-border-md));
+}
+body.admin-rh-page .rh-filter-chip.is-active {
+  background: var(--surface-accent);
+  color: var(--ms-primary);
+  border-color: color-mix(in srgb, var(--ms-primary) 22%, var(--ms-border-md));
+}
+body.admin-rh-page .rh-filter-chip .rh-filter-chip__icon {
+  margin-right: 0.3rem;
+  vertical-align: -0.15em;
+}
+body.admin-rh-page .review-orcamento-editor__actions,
+body.admin-rh-page .faturacao-sticky-actions {
+  background: var(--ms-card-bg);
+  border-top: 1px solid var(--ms-border-md);
+}
+body.admin-rh-page .modal-overlay {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 

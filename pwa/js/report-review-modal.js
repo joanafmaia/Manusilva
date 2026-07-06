@@ -13,6 +13,7 @@ import {
   closeModal,
   showToast,
 } from './app.js';
+import { serviceIconHtml } from './ui-icons.js';
 import {
   renderReviewFotosSection,
   renderReviewPdfSection,
@@ -89,9 +90,12 @@ export async function openReportReviewModal(reportId, options = {}) {
   const actions = buildReviewModalActions({ showWorkflow });
 
   const overlay = openModal(
-    `${service?.icon || '📋'} ${escapeHtml(service?.label || 'Relatório')} — Revisão`,
+    '',
     content,
     actions,
+    {
+      titleHtml: `${serviceIconHtml(service)} ${escapeHtml(service?.label || 'Relatório')} — Revisão`,
+    },
   );
 
   overlay.querySelector('#modal-close-review')?.addEventListener('click', closeModal);

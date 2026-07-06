@@ -1187,8 +1187,8 @@
   background: var(--ms-primary-hover);
 }
 .job-rejected .job-action-btn--primary {
-  background: linear-gradient(135deg, #ef4444, #dc2626);
-  box-shadow: 0 4px 16px rgba(239, 68, 68, 0.35);
+  background: var(--danger);
+  box-shadow: 0 2px 8px rgba(197, 48, 48, 0.22);
   color: #fff;
 }
 .edit-pending-banner {

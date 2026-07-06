@@ -227,7 +227,7 @@ body .glass-card-inner {
   width: 64px;
   height: 64px;
   border-radius: 16px;
-  background: linear-gradient(135deg, var(--primary), #6366f1);
+  background: var(--ms-primary);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -235,7 +235,7 @@ body .glass-card-inner {
   font-weight: 800;
   color: white;
   margin-bottom: 1rem;
-  box-shadow: 0 8px 32px var(--primary-glow);
+  box-shadow: var(--ms-shadow-sm);
 }
 .login-brand h1 {
   font-size: 1.75rem;
@@ -685,6 +685,51 @@ body .glass-card-inner {
     padding: 0;
     background: transparent;
   }
+}
+
+/* Ícones SVG inline (substituem emojis no UI) */
+.ms-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: -0.15em;
+  flex-shrink: 0;
+  color: inherit;
+}
+.ms-icon-svg {
+  width: 1.125em;
+  height: 1.125em;
+  display: block;
+}
+.report-form-tab-icon.ms-icon .ms-icon-svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+.tech-servico-type-pick__icon.ms-icon .ms-icon-svg {
+  width: 1.35rem;
+  height: 1.35rem;
+}
+.empty-icon.ms-icon .ms-icon-svg {
+  width: 2.5rem;
+  height: 2.5rem;
+  color: var(--success);
+}
+.rh-visita-folder__icon.ms-icon .ms-icon-svg {
+  width: 1.35rem;
+  height: 1.35rem;
+}
+
+.rh-visita-folder__icon.ms-icon .ms-icon-svg {
+  width: 1.35rem;
+  height: 1.35rem;
+}
+
+.form-report-title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
 .mb-4 { margin-bottom: 1rem; }

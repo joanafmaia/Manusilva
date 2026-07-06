@@ -20,6 +20,7 @@ import {
   isOffline,
 } from './tech-app-core.js';
 import { saveReportDraft, submitReport } from './report-workflow.js';
+import { serviceIconHtml, msIconHtml } from './ui-icons.js';
 import {
   diagnoseJobFormOpen,
   formatJobOpenDiagnosticMessage,
@@ -699,7 +700,7 @@ async function buildFormHTML(job, client, tech, service, existingReport, options
 
   const editPendingBanner = trabalhoIdEmEdicao ? `
     <div class="edit-pending-banner">
-      <span class="edit-pending-banner-icon" aria-hidden="true">✏️</span>
+      ${msIconHtml('pencil', 'edit-pending-banner-icon')}
       <div>
         <strong>Edição de relatório pendente</strong>
         <p>As alterações substituem a submissão anterior. As fotos existentes mantêm-se se não tirar novas.</p>
@@ -709,7 +710,7 @@ async function buildFormHTML(job, client, tech, service, existingReport, options
 
   const readonlyBanner = viewOnly ? `
     <div class="form-readonly-banner" role="status">
-      <span aria-hidden="true">👁️</span>
+      ${msIconHtml('eye', 'form-readonly-banner__icon')}
       <div>
         <strong>Modo visualização</strong>
         <p>Relatório concluído — apenas leitura. Use «Pré-visualizar Relatório» para ver o PDF.</p>
@@ -816,7 +817,7 @@ async function buildFormHTML(job, client, tech, service, existingReport, options
               <div class="form-section-card form-section-card--intro">
                 ${clientHeader}
                 ${lockedClientFields}
-                <h2 class="form-report-title">${service?.icon || '📋'} ${escapeHtml(formTitle)}</h2>
+                <h2 class="form-report-title">${serviceIconHtml(service, 'form-report-title__icon')} ${escapeHtml(formTitle)}</h2>
                 <div class="form-fixed-header glass-card-inner ${official ? 'form-fixed-header--compact' : ''}">
                   ${official ? '<p class="form-intro-block-label">Dados da Intervenção</p>' : ''}
                   <div class="header-grid ${official ? 'header-grid--intervention' : ''}">
@@ -846,7 +847,7 @@ async function buildFormHTML(job, client, tech, service, existingReport, options
 
         <div class="form-panel-footer form-panel-footer--stacked form-panel-footer--sticky">
           <button type="button" class="btn-preview" id="btn-preview-pdf">
-            <span class="btn-preview-icon" aria-hidden="true">👁️</span>
+            ${msIconHtml('eye', 'btn-preview-icon')}
             Pré-visualizar Relatório
           </button>
           ${viewOnly ? `

@@ -844,7 +844,7 @@ function renderBillingTable(rows) {
 function getChartThemeColors() {
   const styles = getComputedStyle(document.body);
   return {
-    primary: styles.getPropertyValue('--ms-accent').trim() || '#2563eb',
+    primary: styles.getPropertyValue('--ms-primary').trim() || '#1e4d72',
     success: styles.getPropertyValue('--ms-emerald-600').trim() || '#059669',
     warning: styles.getPropertyValue('--ms-amber-600').trim() || '#d97706',
     gridColor: styles.getPropertyValue('--ms-border').trim() || 'rgba(148,163,184,0.25)',

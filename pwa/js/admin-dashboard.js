@@ -45,7 +45,7 @@ import {
   showToast,
   showNotificationToast,
 } from './app.js';
-import { reportOrcamentoPorPreparar } from './pedido-orcamento.js';
+import { serviceIconHtml } from './ui-icons.js';
 import {
   getCalendarEventStateClass,
   renderWorkStateBadge,
@@ -1399,7 +1399,7 @@ function buildJobDetailContent(job) {
     <dl class="job-detail-grid">
       <div><dt>Cliente</dt><dd>${escapeHtml(client?.name || '—')}</dd></div>
       <div><dt>Técnico</dt><dd>${escapeHtml(techLabel)}</dd></div>
-      <div><dt>Serviço</dt><dd>${service?.icon || ''} ${escapeHtml(service?.label || job.serviceType)}</dd></div>
+      <div><dt>Serviço</dt><dd>${serviceIconHtml(service, 'ms-icon')} ${escapeHtml(service?.label || job.serviceType)}</dd></div>
       <div><dt>Data</dt><dd>${escapeHtml(formatDateLong(job.date))}</dd></div>
       <div><dt>${LABEL_NUMERO_SERIE}</dt><dd>${escapeHtml(job.forkliftSerial || '—')}</dd></div>
       <div><dt>Estado</dt><dd>${statusBadge(job.status)}</dd></div>
@@ -1424,7 +1424,7 @@ function buildCalendarItemDetailContent(item) {
             job?.numeroOrdem != null
               ? ` · OP-2026-${String(job.numeroOrdem).padStart(2, '0')}`
               : '';
-          return `<li>${st?.icon || '🔧'} ${escapeHtml(st?.label || r.serviceType || 'Relatório')}${escapeHtml(op)} — ${escapeHtml(reportStatusLine(r))}</li>`;
+          return `<li>${serviceIconHtml(st, 'ms-icon')} ${escapeHtml(st?.label || r.serviceType || 'Relatório')}${escapeHtml(op)} — ${escapeHtml(reportStatusLine(r))}</li>`;
         })
         .join('')}</ul>`
     : '<p class="text-muted" style="margin:0">Ainda sem relatórios — o técnico adiciona no tablet.</p>';
@@ -1461,8 +1461,8 @@ function openJobDetailModal(jobId) {
   const pendingReport = reports.find((r) => r.status === 'pending_review');
   const report = item.isServico ? pendingReport || getCalendarItemReport(item) : getReportForJob(item.id);
   const modalTitle = item.isServico
-    ? `📋 ${client?.name || 'Serviço'} — ${formatDateLong(item.date)}`
-    : `${getServiceType(item.serviceType)?.icon || '🔧'} ${client?.name || 'Serviço'} — ${formatDateLong(item.date)}`;
+    ? `${client?.name || 'Visita'} — ${formatDateLong(item.date)}`
+    : `${getServiceType(item.serviceType)?.label || 'Serviço'} — ${client?.name || 'Serviço'} — ${formatDateLong(item.date)}`;
 
   const reviewBtn =
     report?.status === 'pending_review'
@@ -1615,7 +1615,7 @@ function showPendingReportNotification(report) {
     'Novo Relatório Pendente!',
     `O técnico ${tech?.name || '—'} acabou de submeter o relatório da ${ordem}.`,
     {
-      icon: '🔔',
+      icon: 'bell',
       duration: 8000,
       dedupeKey: report.id || report.jobId,
       onClick: () => scrollToReportInPanel(report.id),

@@ -109,7 +109,7 @@ export function jobAssignedToTechnician(job, techId) {
 
 export function getServiceType(id) {
   if (id === 'proposta_ms015_rh') {
-    return { id, label: 'Proposta comercial', icon: '📋' };
+    return { id, label: 'Proposta comercial', icon: 'clipboard' };
   }
   return reportTemplates.find((s) => s.id === id) || SERVICE_TYPES.find((s) => s.id === id);
 }

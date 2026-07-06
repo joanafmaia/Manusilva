@@ -18,6 +18,7 @@ import {
   MATERIAL_FIELD_IDS,
 } from './material-table-field.js';
 import { EMPILHADORES_MATERIAL_SECTION, EMPILHADORES_PER_MACHINE_FIELD_DEFS } from './mock_data.js';
+import { msIconHtml } from './ui-icons.js';
 import {
   isDeslocacaoField,
   isDeslocacaoMetaField,
@@ -258,9 +259,9 @@ export function analyzeReportFormTabs(service) {
 export function renderReportFormTabsNav(service, activeTab = 'geral') {
   const tabs = analyzeReportFormTabs(service);
   const items = [
-    { id: 'geral', label: 'Geral', icon: '📋' },
-    { id: 'checklist', label: 'Checklist', icon: '🔧' },
-    { id: 'finalizacao', label: 'Finalização', icon: '📸' },
+    { id: 'geral', label: 'Geral', icon: 'clipboard' },
+    { id: 'checklist', label: 'Checklist', icon: 'wrench' },
+    { id: 'finalizacao', label: 'Finalização', icon: 'camera' },
   ].filter((item) => tabs[item.id]);
 
   return `
@@ -271,7 +272,7 @@ export function renderReportFormTabsNav(service, activeTab = 'geral') {
         <button type="button" class="report-form-tab${activeTab === item.id ? ' is-active' : ''}"
           role="tab" data-report-tab="${item.id}" aria-selected="${activeTab === item.id ? 'true' : 'false'}"
           id="report-tab-${item.id}" aria-controls="report-panel-${item.id}" tabindex="${activeTab === item.id ? '0' : '-1'}">
-          <span class="report-form-tab-icon" aria-hidden="true">${item.icon}</span>
+          ${msIconHtml(item.icon, 'report-form-tab-icon')}
           <span class="report-form-tab-label">${item.label}</span>
         </button>`,
         )

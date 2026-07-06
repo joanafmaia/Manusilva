@@ -10,6 +10,7 @@ import {
   getTechnician,
   openModal,
 } from '../app.js';
+import { serviceIconHtml } from '../ui-icons.js';
 import {
   countConcluidosForTechnician,
   getConcluidosForTechnician,
@@ -183,7 +184,7 @@ function renderTechnicianHistoryRows(items) {
                   <div class="tech-job-row tech-job-row--approved">
                     <span class="tech-job-row-date">${formatHistoryRowDate(date)}</span>
                     <span class="tech-job-row-client">${escapeHtml(client?.name || 'Cliente')}</span>
-                    <span class="tech-job-row-service">${service?.icon || '🔧'} ${escapeHtml(service?.label || report.serviceType || 'Relatório')}</span>
+                    <span class="tech-job-row-service">${serviceIconHtml(service, 'ms-icon')} ${escapeHtml(service?.label || report.serviceType || 'Relatório')}</span>
                   </div>
                 `;
               })
