@@ -3459,7 +3459,7 @@
 }
 .dl50-matrix-category-title {
   margin: 0;
-  font-size: 10pt;
+  font-size: 1rem;
   font-weight: 700;
   letter-spacing: 0.03em;
   text-transform: uppercase;
@@ -3486,16 +3486,16 @@
   width: 100%;
   border-collapse: collapse;
   table-layout: fixed;
-  font-size: 9pt;
+  font-size: 1rem;
 }
 .dl50-matrix-table thead th {
   background: var(--surface-muted);
   color: var(--ms-primary);
-  font-size: 9pt;
+  font-size: 0.875rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.03em;
-  padding: 3px 4px;
+  padding: 0.4rem 0.5rem;
   border-bottom: 1px solid var(--ms-border-md);
   text-align: left;
 }
@@ -3505,9 +3505,9 @@
 }
 .dl50-matrix-table tbody th, .dl50-matrix-table tbody td {
   border-bottom: 1px solid var(--ms-border-md);
-  padding: 3px 4px;
+  padding: 0.45rem 0.5rem;
   vertical-align: middle;
-  font-size: 9pt;
+  font-size: 1rem;
 }
 .dl50-matrix-table tbody tr:nth-child(even) th, .dl50-matrix-table tbody tr:nth-child(even) td {
   background: var(--ms-page-bg);
@@ -3524,11 +3524,15 @@
 .dl50-matrix-state .matrix-segmented {
   justify-content: center;
   flex-wrap: wrap;
-  gap: 0.15rem;
+  gap: 0.25rem;
+}
+.dl50-matrix-state .matrix-opt {
+  font-size: 0.9375rem;
+  min-height: 42px;
 }
 .dl50-matrix-legend {
   margin-bottom: 0.65rem;
-  font-size: 0.78rem;
+  font-size: 0.9375rem;
 }
 .dl50-closing-block {
   page-break-inside: avoid;
