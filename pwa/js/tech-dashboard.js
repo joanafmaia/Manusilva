@@ -92,6 +92,7 @@ let techTabDataCacheKey = null;
 let techDashboardRefreshTimer = null;
 let techDashboardListenersBound = false;
 let techDashboardRefreshInFlight = false;
+let techRemotePollTimer = null;
 let cachedPendingSyncCount = 0;
 let techOfflineDepsPromise = null;
 let techListCacheGeneration = 0;
@@ -145,12 +146,29 @@ async function refreshTechDashboardChrome() {
   updateTechJobsToolbarVisibility();
 }
 
+function startTechRemoteDataPoll() {
+  if (techRemotePollTimer) return;
+  const POLL_MS = 60_000;
+  techRemotePollTimer = setInterval(() => {
+    if (document.visibilityState !== 'visible' || !navigator.onLine) return;
+    scheduleTechDashboardRefresh();
+  }, POLL_MS);
+}
+
 function bindTechDashboardDataListeners() {
   if (techDashboardListenersBound) return;
   techDashboardListenersBound = true;
 
   window.addEventListener('jobs-updated', scheduleTechDashboardRefresh);
   window.addEventListener('db-updated', scheduleTechDashboardRefresh);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && navigator.onLine) {
+      scheduleTechDashboardRefresh();
+    }
+  });
+  window.addEventListener('focus', () => {
+    if (navigator.onLine) scheduleTechDashboardRefresh();
+  });
   window.addEventListener('trabalhos-pendentes-changed', () => {
     refreshTechDashboardChrome().catch(console.error);
   });
@@ -660,6 +678,7 @@ export async function initTechDashboard() {
   updateTechJobsToolbarVisibility();
   updateTechCalendarWrapVisibility();
   bindTechDashboardDataListeners();
+  startTechRemoteDataPoll();
   bindNotificationPermissionOnGesture();
 
   weekDates = getWeekDates(currentWeekDate);

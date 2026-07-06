@@ -27,6 +27,7 @@ import {
   maybeNotifyTechReportApproved,
   maybeNotifyTechReportRejected,
 } from './tech-notifications.js';
+import { jobMatchesTechnician } from './job-technician-utils.js';
 import { getJob, getTechnician } from './tech-app-core.js';
 import { getReportsForServico, servicoToCalendarItem } from './servicos-panel-utils.js';
 import { getSession } from './session.js';
@@ -38,6 +39,12 @@ function currentTechMatch() {
   if (!session?.technicianId) return null;
   const tech = getTechnician(session.technicianId);
   return { techId: session.technicianId, techName: tech?.name };
+}
+
+function servicoMatchesCurrentTech(servico) {
+  const match = currentTechMatch();
+  if (!servico || !match) return false;
+  return jobMatchesTechnician(servico.technicianIds, match);
 }
 
 /** Re-renderiza a aba ativa da dashboard (mesmo fluxo do evento db-updated). */
@@ -117,8 +124,9 @@ export async function initTechRealtime() {
       { event: 'INSERT', schema: 'public', table: 'servicos' },
       (payload) => {
         const servico = mergeServicoFromRealtime(payload.new);
+        if (!servicoMatchesCurrentTech(servico)) return;
         const match = currentTechMatch();
-        if (servico && match) maybeNotifyTechJobScheduled(servicoToCalendarItem(servico), match);
+        maybeNotifyTechJobScheduled(servicoToCalendarItem(servico), match);
         notifyChange();
       },
     )
@@ -126,7 +134,8 @@ export async function initTechRealtime() {
       'postgres_changes',
       { event: 'UPDATE', schema: 'public', table: 'servicos' },
       (payload) => {
-        mergeServicoFromRealtime(payload.new);
+        const servico = mergeServicoFromRealtime(payload.new);
+        if (!servicoMatchesCurrentTech(servico)) return;
         notifyChange();
       },
     )
