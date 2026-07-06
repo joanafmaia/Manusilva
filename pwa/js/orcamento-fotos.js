@@ -10,6 +10,15 @@ export const ORCAMENTO_FOTOS_POSICOES = [
 ];
 
 /** @param {unknown} meta */
+export function fotoSlotsFromMeta(meta) {
+  const list = Array.isArray(meta?.fotos) ? meta.fotos : [];
+  return Array.from({ length: MAX_ORCAMENTO_FOTOS }, (_, index) => {
+    const row = list[index];
+    return row?.dataUrl?.startsWith('data:image') ? row : null;
+  });
+}
+
+/** @param {unknown} meta */
 export function normalizeOrcamentoFotos(meta) {
   const rawPos = String(meta?.fotosPosicao || '').trim();
   const fotosPosicao =

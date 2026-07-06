@@ -43,6 +43,7 @@ import {
   normalizeOrcamentoFotos,
   ORCAMENTO_FOTOS_POSICOES,
   readOrcamentoFotosPosicaoFromDom,
+  fotoSlotsFromMeta,
 } from './orcamento-fotos.js';
 
 function defaultOrcamentoEmail(report, client) {
@@ -180,14 +181,6 @@ function refreshOrcamentoFotosGrid(root) {
   const grid = root.querySelector('.review-orc-fotos__grid');
   if (!grid || !root._orcamentoFotosState) return;
   grid.innerHTML = renderOrcamentoFotosSlots(fotoSlotsFromMeta(root._orcamentoFotosState));
-}
-
-function fotoSlotsFromMeta(meta) {
-  const list = Array.isArray(meta?.fotos) ? meta.fotos : [];
-  return Array.from({ length: MAX_ORCAMENTO_FOTOS }, (_, index) => {
-    const row = list[index];
-    return row?.dataUrl?.startsWith('data:image') ? row : null;
-  });
 }
 
 function bindOrcamentoFotosSection(root, report) {

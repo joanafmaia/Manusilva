@@ -5,7 +5,7 @@
 import { normalizeMaterialRows } from './material-table-field.js';
 import { getPedidoOrcamentoDetalhe } from './pedido-orcamento.js';
 import { readOrcamentoCabecalhoFromDom, resolveOrcamentoCabecalho, suggestOrcamentoMaquinas } from './orcamento-cabecalho.js';
-import { normalizeOrcamentoFotos, readOrcamentoFotosPosicaoFromDom } from './orcamento-fotos.js';
+import { normalizeOrcamentoFotos, readOrcamentoFotosPosicaoFromDom, fotoSlotsFromMeta, MAX_ORCAMENTO_FOTOS } from './orcamento-fotos.js';
 import {
   formatOrcamentoMaquinaShortLabel,
   hasOrcamentoMaquinaData,
@@ -303,12 +303,19 @@ export function readOrcamentoFormFromDom(root, report) {
   const totals = computeOrcamentoTotals(linhas, taxaSlots);
   const existing = getReportOrcamentoMeta(report) || {};
   const domMeta = getReportOrcamentoMetaFromDom(root);
-  const fotosState = root?._orcamentoFotosState
-    ? normalizeOrcamentoFotos({
-        ...root._orcamentoFotosState,
-        fotosPosicao: readOrcamentoFotosPosicaoFromDom(root),
-      })
-    : normalizeOrcamentoFotos(existing);
+  const stateSlots = root?._orcamentoFotosState ? fotoSlotsFromMeta(root._orcamentoFotosState) : null;
+  const existingSlots = fotoSlotsFromMeta(existing);
+  const mergedSlots = Array.from({ length: MAX_ORCAMENTO_FOTOS }, (_, index) => {
+    const fromState = stateSlots?.[index];
+    if (fromState?.dataUrl?.startsWith('data:image')) return fromState;
+    const fromExisting = existingSlots[index];
+    if (fromExisting?.dataUrl?.startsWith('data:image')) return fromExisting;
+    return null;
+  });
+  const fotosState = normalizeOrcamentoFotos({
+    fotos: mergedSlots,
+    fotosPosicao: readOrcamentoFotosPosicaoFromDom(root),
+  });
 
   return {
     ...existing,
