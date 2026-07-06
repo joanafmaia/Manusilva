@@ -3336,7 +3336,18 @@
 }
 .empilhadores-verify-state {
   text-align: center;
-  white-space: nowrap;
+  white-space: normal;
+}
+.empilhadores-verify-table .matrix-opt--na.selected,
+.dl50-matrix-table .matrix-opt--na.selected {
+  border-color: #64748b;
+  background: color-mix(in srgb, #64748b 22%, var(--ms-card-bg));
+  color: #1e293b;
+  font-weight: 700;
+}
+.empilhadores-verify-table tr.matrix-row--na th,
+.empilhadores-verify-table tr.matrix-row--na td {
+  background: color-mix(in srgb, #64748b 10%, var(--ms-card-bg));
 }
 .empilhadores-verify-row:last-child th, .empilhadores-verify-row:last-child td {
   border-bottom: none;

@@ -8,6 +8,8 @@ import {
   empilhadoresVerifyBadgeClass,
   empilhadoresMatrixOptionDisplay,
   empilhadoresMatrixOptionClass,
+  empilhadoresMatrixOptionDataValue,
+  empilhadoresMatrixOptionFromDataValue,
 } from '../js/preventiva-empilhadores-items.js';
 
 describe('preventiva empilhadores — estados do checklist', () => {
@@ -36,7 +38,13 @@ describe('preventiva empilhadores — estados do checklist', () => {
   it('empilhadoresMatrixOptionDisplay abrevia rótulos dos botões', () => {
     assert.equal(empilhadoresMatrixOptionDisplay('OK'), 'OK');
     assert.equal(empilhadoresMatrixOptionDisplay('Não OK'), 'NOK');
-    assert.equal(empilhadoresMatrixOptionDisplay('N/A'), 'NA');
+    assert.equal(empilhadoresMatrixOptionDisplay('N/A'), 'N/A');
+  });
+
+  it('empilhadoresMatrixOptionDataValue evita N/A no atributo data-value', () => {
+    assert.equal(empilhadoresMatrixOptionDataValue('N/A'), 'NA_OPTION');
+    assert.equal(empilhadoresMatrixOptionFromDataValue('NA_OPTION'), 'N/A');
+    assert.equal(empilhadoresMatrixOptionFromDataValue('NOK'), 'Não OK');
   });
 
   it('empilhadoresMatrixOptionClass mapeia cores da matriz', () => {

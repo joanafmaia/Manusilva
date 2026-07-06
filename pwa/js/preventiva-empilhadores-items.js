@@ -52,9 +52,23 @@ export const EMPILHADORES_VERIFY_STATES = ['', 'OK', 'Não OK', 'N/A'];
 /** Opções clicáveis na matriz (igual ao padrão DL50 — botões segmentados). */
 export const EMPILHADORES_MATRIX_OPTIONS = ['OK', 'Não OK', 'N/A'];
 
+/** Valor do atributo data-value (evita «N/A» no dataset, que falha em alguns browsers). */
+export function empilhadoresMatrixOptionDataValue(opt) {
+  if (opt === 'Não OK') return 'NOK';
+  if (opt === 'N/A') return 'NA_OPTION';
+  return String(opt || '');
+}
+
+/** Converte data-value do botão para o valor guardado no relatório. */
+export function empilhadoresMatrixOptionFromDataValue(raw) {
+  const value = String(raw ?? '').trim();
+  if (value === 'NOK') return 'Não OK';
+  if (value === 'NA_OPTION') return 'N/A';
+  return value;
+}
+
 export function empilhadoresMatrixOptionDisplay(opt) {
   if (opt === 'Não OK') return 'NOK';
-  if (opt === 'N/A') return 'NA';
   return opt;
 }
 

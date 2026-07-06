@@ -6,6 +6,7 @@
 import {
   VERIFICACOES_EXTERNAS_ITEMS,
   VERIFICACOES_INTERNAS_ITEMS,
+  empilhadoresMatrixOptionFromDataValue,
 } from '../preventiva-empilhadores-items.js';
 import { EMPILHADORES_PER_MACHINE_FIELD_DEFS } from '../mock_data.js';
 import { sanitizePdfFilenameSegment } from '../pdf-storage.js';
@@ -321,7 +322,9 @@ function collectChecklistFromPanel(overlay) {
     if (wrap.dataset.empilhadoresVerify === '1') {
       wrap.querySelectorAll('[data-verify-item]').forEach((row) => {
         const selected = row.querySelector('.matrix-opt.selected');
-        items[row.dataset.verifyItem] = selected?.dataset.value || '';
+        items[row.dataset.verifyItem] = selected
+          ? empilhadoresMatrixOptionFromDataValue(selected.getAttribute('data-value'))
+          : '';
       });
     } else {
       wrap.querySelectorAll("input[type='checkbox'][data-verify-item]").forEach((input) => {
@@ -400,10 +403,6 @@ function renderIdRow(row, rowIndex) {
     <tr class="empilhadores-maquinas-row dynamic-table-row" data-row-index="${rowIndex}">
       <td class="empilhadores-maquinas-idx empilhadores-maquinas-row-num">${rowIndex + 1}</td>
       ${cells}
-      <td class="dynamic-table-actions empilhadores-maquinas-actions">
-        <button type="button" class="btn-row-remove empilhadores-maquinas-remove"
-          title="Remover máquina" aria-label="Remover linha">&times;</button>
-      </td>
     </tr>`;
 }
 
@@ -427,8 +426,8 @@ export function renderEmpilhadoresMaquinasSection(field, value) {
         <span class="empilhadores-maquinas-count text-muted" data-empilhadores-maquinas-count>${rows.length} máquina(s)</span>
       </div>
       <p class="field-hint text-muted empilhadores-maquinas-hint">
-        Adicione uma linha por máquina intervencionada na mesma visita.
-        O checklist (verificações externas/internas, material, observações e estado) preenche-se na aba <strong>Checklist</strong> — uma máquina de cada vez.
+        Identifique a máquina intervencionada nesta visita.
+        O checklist (verificações, material e estado) preenche-se na aba <strong>Checklist</strong>.
       </p>
       <div class="dynamic-table-wrap empilhadores-maquinas-wrap">
         <div class="empilhadores-maquinas-table-wrap">
@@ -438,7 +437,6 @@ export function renderEmpilhadoresMaquinasSection(field, value) {
                 <tr>
                   <th class="empilhadores-maquinas-idx" scope="col">#</th>
                   ${header}
-                  <th class="dynamic-table-actions-th" scope="col"></th>
                 </tr>
               </thead>
               <tbody class="empilhadores-maquinas-body dynamic-table-body">
@@ -447,17 +445,13 @@ export function renderEmpilhadoresMaquinasSection(field, value) {
             </table>
           </div>
         </div>
-        <div class="empilhadores-maquinas-toolbar">
-          <button type="button" class="btn-outline dynamic-table-add empilhadores-maquinas-add">
-            <span aria-hidden="true">+</span> Adicionar máquina
-          </button>
-        </div>
       </div>
     </div>
   `;
 }
 
 export function renderEmpilhadoresMaquinaSelector(maquinas = [], activeIndex = 0) {
+  if (!Array.isArray(maquinas) || maquinas.length <= 1) return '';
   const tabs = maquinas.map((row, index) => {
     const active = index === activeIndex ? ' is-active' : '';
     return `
@@ -504,67 +498,19 @@ function buildIdRowElement(rowData = emptyEmpilhadoresMaquinaRow()) {
     ${EMPILHADORES_ID_COLUMNS.map(
       (col) =>
         `<td class="empilhadores-maquinas-col" data-col-label="${escapeHtml(col.label)}">${renderIdCell(col, rowData)}</td>`,
-    ).join('')}
-    <td class="dynamic-table-actions empilhadores-maquinas-actions">
-      <button type="button" class="btn-row-remove empilhadores-maquinas-remove"
-        title="Remover máquina" aria-label="Remover linha">&times;</button>
-    </td>`;
+    ).join('')}`;
   return tr;
-}
-
-function bindRemoveButton(btn, overlay, tbody, onRowChange) {
-  btn.addEventListener('click', (e) => {
-    e.preventDefault();
-    const rows = tbody.querySelectorAll('.empilhadores-maquinas-row');
-    if (rows.length <= 1) {
-      rows[0]?.querySelectorAll('.empilhadores-maquinas-cell').forEach((el) => {
-        el.value = '';
-      });
-      syncStoreRowCount(overlay);
-      onRowChange?.();
-      return;
-    }
-    btn.closest('tr')?.remove();
-    updateRowNumbers(tbody);
-    syncStoreRowCount(overlay);
-    onRowChange?.();
-  });
 }
 
 function bindIdTable(wrap, overlay, onRowChange) {
   const tbody = wrap.querySelector('.empilhadores-maquinas-body');
-  const addBtn = wrap.querySelector('.empilhadores-maquinas-add');
-  if (!tbody || !addBtn) return;
-
-  wrap.querySelectorAll('.empilhadores-maquinas-remove').forEach((btn) => {
-    bindRemoveButton(btn, overlay, tbody, onRowChange);
-  });
+  if (!tbody) return;
 
   wrap.querySelectorAll('.empilhadores-maquinas-cell').forEach((input) => {
     input.addEventListener('input', () => {
       syncStoreRowCount(overlay);
       onRowChange?.();
     });
-  });
-
-  addBtn.addEventListener('click', (e) => {
-    e.preventDefault();
-    const store = syncStoreRowCount(overlay);
-    const newRow = emptyEmpilhadoresMaquinaRow();
-    store.push(newRow);
-    writeStore(overlay, store);
-    const tr = buildIdRowElement(newRow);
-    tbody.appendChild(tr);
-    updateRowNumbers(tbody);
-    bindRemoveButton(tr.querySelector('.empilhadores-maquinas-remove'), overlay, tbody, onRowChange);
-    tr.querySelectorAll('.empilhadores-maquinas-cell').forEach((input) => {
-      input.addEventListener('input', () => {
-        syncStoreRowCount(overlay);
-        onRowChange?.();
-      });
-    });
-    updateCount(wrap);
-    onRowChange?.();
   });
 }
 

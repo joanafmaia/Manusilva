@@ -31,7 +31,9 @@ import { splitDl50MatrixCategories } from './inspecao-dl50-categories.js';
 import {
   EMPILHADORES_MATRIX_OPTIONS,
   empilhadoresMatrixOptionClass,
+  empilhadoresMatrixOptionDataValue,
   empilhadoresMatrixOptionDisplay,
+  empilhadoresMatrixOptionFromDataValue,
   empilhadoresVerifyBadgeClass,
   empilhadoresVerifyRowClass,
   formatEmpilhadoresVerifyState,
@@ -356,10 +358,11 @@ function renderEmpilhadoresVerificationTable(field, value) {
       const segments = EMPILHADORES_MATRIX_OPTIONS.map((opt) => {
         const optClass = empilhadoresMatrixOptionClass(opt);
         const isSelected = current === opt ? 'selected' : '';
+        const dataValue = empilhadoresMatrixOptionDataValue(opt);
         return `
           <button type="button"
             class="matrix-opt ${optClass} ${isSelected}"
-            data-value="${escapeHtml(opt)}"
+            data-value="${escapeHtml(dataValue)}"
             aria-label="${escapeHtml(spec.label)} — ${escapeHtml(opt)}"
             title="${escapeHtml(opt)}">
             ${escapeHtml(empilhadoresMatrixOptionDisplay(opt))}
@@ -1044,7 +1047,10 @@ export function collectReportValues(overlay) {
     const items = {};
     if (wrap.dataset.empilhadoresVerify === '1') {
       wrap.querySelectorAll('[data-verify-item]').forEach((row) => {
-        items[row.dataset.verifyItem] = readEmpilhadoresVerifyRowValue(row);
+        const selected = row.querySelector('.matrix-opt.selected');
+        items[row.dataset.verifyItem] = selected
+          ? empilhadoresMatrixOptionFromDataValue(selected.getAttribute('data-value'))
+          : '';
       });
     } else {
       wrap.querySelectorAll("input[type='checkbox'][data-verify-item]").forEach((input) => {
@@ -1708,7 +1714,9 @@ function countEmpilhadoresVerificationProgress(items, states) {
 }
 
 function readEmpilhadoresVerifyRowValue(row) {
-  return String(row?.querySelector('.matrix-opt.selected')?.dataset.value || '').trim();
+  const btn = row?.querySelector('.matrix-opt.selected');
+  if (!btn) return '';
+  return empilhadoresMatrixOptionFromDataValue(btn.getAttribute('data-value'));
 }
 
 function syncEmpilhadoresVerifyRow(row, wrap) {
@@ -1722,6 +1730,7 @@ function syncEmpilhadoresVerifyRow(row, wrap) {
   );
   row.classList.add(empilhadoresVerifyRowClass(value));
   if (value === 'Não OK') row.classList.add('matrix-row--defect');
+  else if (value === 'N/A') row.classList.add('matrix-row--na');
 }
 
 function updateEmpilhadoresVerificationProgress(wrap, items = []) {
