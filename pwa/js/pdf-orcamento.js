@@ -73,8 +73,34 @@ const ORC_TEXT_COL_W_WITH_FOTO = ORC_FOTO_X - MARGIN - ORC_FOTO_COL_GAP;
 const ORC_FOTO_SLOT_GAP = 3;
 const ORC_FOTO_SINGLE_H = 64;
 const ORC_FOTO_STACKED_H = 56;
+const ORC_TABLE_ROW_H = 6.5;
+const ORC_TABLE_GAP_ABOVE_FOOTER = 3;
 
 let legalTextCache = null;
+
+function canDrawTableLine(y, step = 5) {
+  return y + step <= FOOTER_TOP - 1;
+}
+
+function orcamentoTableDataRows(linhas, maquinas = []) {
+  const rows = normalizeOrcamentoLinhas(linhas, { machineCount: maquinas.length || 1 }).filter(
+    (r) => r.descricao || r.precoUnit || r.qtd !== '1',
+  );
+  return rows.length ? rows : [{ descricao: '—', qtd: '1', precoUnit: '', total: '' }];
+}
+
+export function computeOrcamentoTableLayout(linhas, maquinas = []) {
+  const dataRows = orcamentoTableDataRows(linhas, maquinas);
+  const rowCount = 1 + dataRows.length;
+  const blockH = rowCount * ORC_TABLE_ROW_H + 6;
+  const startY = FOOTER_TOP - blockH - ORC_TABLE_GAP_ABOVE_FOOTER;
+  return {
+    startY,
+    blockH,
+    dataRows,
+    multi: Array.isArray(maquinas) && maquinas.length > 1,
+  };
+}
 
 function canDrawContentLine(y, step = 5) {
   return y + step <= CONTENT_MAX_Y;
@@ -199,24 +225,22 @@ function stampMs015DocumentRefAllPages(doc) {
   }
 }
 
-function drawOrcamentoTable(doc, linhas, startY, { maquinas = [] } = {}) {
-  const multi = Array.isArray(maquinas) && maquinas.length > 1;
-  const rows = normalizeOrcamentoLinhas(linhas, { machineCount: maquinas.length || 1 }).filter(
-    (r) => r.descricao || r.precoUnit || r.qtd !== '1',
-  );
-  const dataRows = rows.length ? rows : [{ descricao: '—', qtd: '1', precoUnit: '', total: '' }];
+function drawOrcamentoTable(doc, linhas, startY, { maquinas = [], layout = null } = {}) {
+  const table = layout || computeOrcamentoTableLayout(linhas, maquinas);
+  const multi = table.multi;
+  const dataRows = table.dataRows;
+  const y0 = table.startY ?? startY;
 
   const colX = multi
     ? [MARGIN, MARGIN + 26, MARGIN + 94, MARGIN + 108, MARGIN + 144, MARGIN + CONTENT_W]
     : [MARGIN, MARGIN + 98, MARGIN + 112, MARGIN + 148, MARGIN + CONTENT_W];
-  const rowH = 6.5;
-  let y = startY;
+  let y = y0;
 
   const drawRow = (cells, { bold = false, fill = false, multiRow = multi } = {}) => {
-    if (!canDrawBodyLine(y, rowH + 2)) return y;
+    if (!canDrawTableLine(y, ORC_TABLE_ROW_H + 2)) return y;
     if (fill) {
       doc.setFillColor(241, 245, 249);
-      doc.rect(MARGIN, y - 4.2, CONTENT_W, rowH, 'F');
+      doc.rect(MARGIN, y - 4.2, CONTENT_W, ORC_TABLE_ROW_H, 'F');
     }
     pdfSetFont(doc, bold ? 'bold' : 'normal');
     doc.setFontSize(8.5);
@@ -235,7 +259,7 @@ function drawOrcamentoTable(doc, linhas, startY, { maquinas = [] } = {}) {
     }
     doc.setDrawColor(203, 213, 225);
     doc.line(MARGIN, y + 1.5, MARGIN + CONTENT_W, y + 1.5);
-    return y + rowH;
+    return y + ORC_TABLE_ROW_H;
   };
 
   if (multi) {
@@ -397,6 +421,9 @@ function drawLegalPage(doc, legalText) {
 function drawOrcamentoEquipamentoBlocks(doc, fill, startY, options = {}) {
   const fotos = Array.isArray(options.fotos) ? options.fotos : [];
   const fotosAoLado = options.fotosAoLado === true && fotos.length > 0;
+  const maxEndY = Number.isFinite(options.maxEndY) ? options.maxEndY : CONTENT_MAX_Y;
+  const canEquipLine = (y, step = 5) => y + step <= maxEndY;
+  const advanceEquipY = (y, step = 5) => (canEquipLine(y, step) ? y + step : y);
   const textColW = fotosAoLado ? ORC_TEXT_COL_W_WITH_FOTO : CONTENT_W;
   const fotoX = ORC_FOTO_X;
   const blockStartY = startY;
@@ -424,7 +451,7 @@ function drawOrcamentoEquipamentoBlocks(doc, fill, startY, options = {}) {
     if (!hasOrcamentoMaquinaData(machine, campos) && fill.maquina === '—') return;
 
     if (blocks.length > 1) {
-      if (!canDrawContentLine(y, 8)) return;
+      if (!canEquipLine(y, 8)) return;
       pdfSetFont(doc, 'bold');
       doc.setFontSize(PDF_FONT_BODY);
       doc.setTextColor(...PDF_COLOR_TEXT_DARK);
@@ -437,13 +464,13 @@ function drawOrcamentoEquipamentoBlocks(doc, fill, startY, options = {}) {
           if (lineIndex === 0) {
             doc.text(pdfSafeText(line), MARGIN + prefixW, y);
           } else {
-            y = advanceContentY(y, 5);
-            if (!canDrawContentLine(y)) return;
+            y = advanceEquipY(y, 5);
+            if (!canEquipLine(y)) return;
             doc.text(pdfSafeText(line), MARGIN, y);
           }
         },
       );
-      y = advanceContentY(y, 6);
+      y = advanceEquipY(y, 6);
       return;
     }
 
@@ -458,7 +485,7 @@ function drawOrcamentoEquipamentoBlocks(doc, fill, startY, options = {}) {
     }
 
     equipRows.forEach(([label, value]) => {
-      if (!canDrawBodyLine(y)) return;
+      if (!canEquipLine(y)) return;
       pdfSetFont(doc, 'bold');
       const prefix = `${label}: `;
       doc.text(prefix, MARGIN, y);
@@ -467,28 +494,29 @@ function drawOrcamentoEquipamentoBlocks(doc, fill, startY, options = {}) {
       const valueLines = pdfSplitText(doc, pdfSafeText(value || '—'), Math.max(12, textColW - prefixW));
       valueLines.forEach((line, lineIndex) => {
         if (lineIndex > 0) {
-          y = advanceBodyY(y, 5.5);
-          if (!canDrawBodyLine(y)) return;
+          y = advanceEquipY(y, 5.5);
+          if (!canEquipLine(y)) return;
         }
         doc.text(line, MARGIN + (lineIndex === 0 ? prefixW : 0), y);
       });
-      y = advanceBodyY(y, 5.5);
+      y = advanceEquipY(y, 5.5);
     });
 
-    if (index < blocks.length - 1) y = advanceBodyY(y, 2);
+    if (index < blocks.length - 1) y = advanceEquipY(y, 2);
   });
 
   if (fotosAoLado && blocks.length === 1) {
     const blockEndY = y;
-    const blockH = Math.max(ORC_FOTO_SINGLE_H, blockEndY - blockStartY);
+    const maxPhotoH = Math.max(34, Math.min(ORC_FOTO_SINGLE_H, maxEndY - blockStartY));
+    const blockH = Math.min(maxPhotoH, Math.max(34, blockEndY - blockStartY));
     return {
-      endY: advanceBodyY(blockEndY, 4),
+      endY: advanceEquipY(blockEndY, 4),
       fotoColumn: { fotos, x: fotoX, startY: blockStartY, blockH },
       textColW: ORC_TEXT_COL_W_WITH_FOTO,
     };
   }
 
-  return { endY: advanceBodyY(y, 4), fotoColumn: null, textColW: CONTENT_W };
+  return { endY: advanceEquipY(y, 4), fotoColumn: null, textColW: CONTENT_W };
 }
 
 function drawOrcamentoObservacoesCliente(doc, fill, startY, options = {}) {
@@ -497,29 +525,33 @@ function drawOrcamentoObservacoesCliente(doc, fill, startY, options = {}) {
   let y = startY;
   const textW = options.textWidth ?? CONTENT_W;
   const lineStep = options.lineStep ?? 4.2;
+  const maxEndY = Number.isFinite(options.maxEndY) ? options.maxEndY : CONTENT_MAX_Y;
+  const canObsLine = (rowY, step = lineStep) => rowY + step <= maxEndY;
   const labelH = 5;
   const minBlock = labelH + lineStep + 2;
-  if (!canDrawBodyLine(y, minBlock)) return y;
+  if (!canObsLine(y, minBlock)) return y;
 
   pdfSetFont(doc, 'bold');
   doc.setFontSize(PDF_FONT_BODY);
   doc.setTextColor(...PDF_COLOR_TEXT_DARK);
   doc.text('Observações:', MARGIN, y);
-  y = advanceBodyY(y, labelH);
+  y = canObsLine(y, labelH) ? y + labelH : y;
 
   pdfSetFont(doc, 'normal');
   const lines = pdfSplitText(doc, text, textW);
-  const maxLines = options.maxLines ?? lines.length;
+  const maxLines =
+    options.maxLines ??
+    Math.max(1, Math.floor((maxEndY - y - 2) / lineStep));
   lines.slice(0, maxLines).forEach((line) => {
-    if (!canDrawBodyLine(y, lineStep)) return;
+    if (!canObsLine(y, lineStep)) return;
     doc.text(line, MARGIN, y);
-    y = advanceBodyY(y, lineStep);
+    y = canObsLine(y, lineStep) ? y + lineStep : y;
   });
-  if (lines.length > maxLines && canDrawBodyLine(y, lineStep)) {
+  if (lines.length > maxLines && canObsLine(y, lineStep)) {
     doc.text('…', MARGIN, y);
-    y = advanceBodyY(y, lineStep);
+    y = canObsLine(y, lineStep) ? y + lineStep : y;
   }
-  return advanceBodyY(y, 2);
+  return y + 2;
 }
 
 async function drawOrcamentoFotosBesideColumn(doc, fotos, x, startY, blockH) {
@@ -677,13 +709,16 @@ export async function renderOrcamentoPDF(report) {
   const fotosAoLado =
     fill.fotos_posicao === 'ao_lado_equipamento' || fill.fotos_posicao === 'apos_equipamento';
   let observacoesTextW = CONTENT_W;
+  const tableLayout = computeOrcamentoTableLayout(fill.linhas, fill.maquinas);
+  const maxBodyY = tableLayout.startY - 5;
 
   if (canDrawBodyLine(y, 12)) {
     const equip = drawOrcamentoEquipamentoBlocks(doc, fill, y, {
       fotos,
       fotosAoLado,
+      maxEndY: maxBodyY,
     });
-    y = equip.endY;
+    y = Math.min(equip.endY, maxBodyY);
     if (equip.fotoColumn) {
       const photoBottom = await drawOrcamentoFotosBesideColumn(
         doc,
@@ -692,20 +727,24 @@ export async function renderOrcamentoPDF(report) {
         equip.fotoColumn.startY,
         equip.fotoColumn.blockH,
       );
-      y = Math.max(y, advanceBodyY(photoBottom, 4));
+      y = Math.min(maxBodyY, Math.max(y, advanceBodyY(photoBottom, 4)));
       observacoesTextW = equip.textColW || ORC_TEXT_COL_W_WITH_FOTO;
     }
   }
 
   if (fill.fotos_posicao === 'antes_tabela' && fotos.length) {
-    y = await drawOrcamentoFotosSection(doc, y, fotos);
+    y = Math.min(maxBodyY, await drawOrcamentoFotosSection(doc, y, fotos));
   }
-
-  y = drawOrcamentoTable(doc, fill.linhas, y, { maquinas: fill.maquinas });
 
   y = drawOrcamentoObservacoesCliente(doc, fill, y, {
     textWidth: observacoesTextW,
-    maxLines: Math.max(2, Math.floor((CONTENT_MAX_Y - y - 4) / 4.2)),
+    maxEndY: tableLayout.startY - 2,
+    maxLines: Math.max(1, Math.floor((tableLayout.startY - y - 6) / 4.2)),
+  });
+
+  y = drawOrcamentoTable(doc, fill.linhas, tableLayout.startY, {
+    maquinas: fill.maquinas,
+    layout: tableLayout,
   });
 
   drawOrcamentoFooter(doc, fill);
