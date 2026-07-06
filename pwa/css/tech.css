@@ -8180,11 +8180,19 @@ body.tech-dashboard-page .form-overlay .form-panel-footer--sticky {
   border-top: 1px solid var(--border-subtle);
 }
 body.tech-dashboard-page .form-overlay .foto-antes-depois-preview {
-  min-height: 140px;
+  aspect-ratio: 4 / 3;
+  min-height: 220px;
 }
 body.tech-dashboard-page .form-overlay .foto-antes-depois-img {
-  max-height: 200px;
+  width: 100%;
+  height: 100%;
+  max-height: none;
   object-fit: contain;
+}
+@media (min-width: 600px) {
+  body.tech-dashboard-page .form-overlay .foto-antes-depois-preview {
+    min-height: 280px;
+  }
 }
 body.tech-dashboard-page .tech-navbar__offline, body.tech-dashboard-page #tech-sync-status, body.tech-dashboard-page #offline-sync-bar {
   display: none !important;

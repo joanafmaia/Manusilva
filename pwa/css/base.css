@@ -416,7 +416,7 @@ body .glass-card-inner {
 
 .login-hero__logo.brand-logo-slot.has-brand-image {
   width: 100%;
-  max-width: 240px;
+  max-width: min(100%, 420px);
   height: auto;
   padding: 0;
   background: transparent;
@@ -642,8 +642,8 @@ body .glass-card-inner {
 .login-hero__logo .brand-logo-img,
 .login-hero__logo .brand-logo-img--lg {
   display: block;
-  max-width: min(100%, 220px);
-  max-height: 72px;
+  max-width: min(100%, 400px);
+  max-height: 140px;
   width: auto;
   height: auto;
   margin: 0 auto;
@@ -680,6 +680,12 @@ body .glass-card-inner {
     font-size: var(--ms-text-base);
     font-weight: 500;
   }
+
+  .login-hero__logo .brand-logo-img,
+  .login-hero__logo .brand-logo-img--lg {
+    max-width: min(100%, 440px);
+    max-height: 160px;
+  }
 }
 
 @media (min-width: 1100px) {
@@ -706,6 +712,12 @@ body .glass-card-inner {
   .login-hero__lead {
     margin-left: auto;
     margin-right: auto;
+  }
+
+  .login-hero__logo .brand-logo-img,
+  .login-hero__logo .brand-logo-img--lg {
+    max-width: min(100%, 320px);
+    max-height: 120px;
   }
 
   .login-panel {
