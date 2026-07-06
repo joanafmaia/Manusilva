@@ -29,7 +29,9 @@ import {
 } from './deslocacao-field.js';
 import { splitDl50MatrixCategories } from './inspecao-dl50-categories.js';
 import {
-  EMPILHADORES_VERIFY_STATES,
+  EMPILHADORES_MATRIX_OPTIONS,
+  empilhadoresMatrixOptionClass,
+  empilhadoresMatrixOptionDisplay,
   empilhadoresVerifyBadgeClass,
   empilhadoresVerifyRowClass,
   formatEmpilhadoresVerifyState,
@@ -345,31 +347,33 @@ function renderEmpilhadoresVerificationTable(field, value) {
   const title = field.pdfTitle || field.section || field.label;
   const { ok, fail, blank, total } = countEmpilhadoresVerificationProgress(items, states);
 
-  const stateOptions = EMPILHADORES_VERIFY_STATES.map((stateValue) => ({
-    value: stateValue,
-    label: formatEmpilhadoresVerifyState(stateValue),
-  }));
-
   const rows = items
     .map((item) => {
       const spec = normalizeVerifyItem(item);
       const current = states[spec.id] ?? '';
       const stateClass = empilhadoresVerifyRowClass(current);
-      const badgeClass = empilhadoresVerifyBadgeClass(current);
-      const badgeText = formatEmpilhadoresVerifyState(current);
-      const options = stateOptions
-        .map(
-          (opt) =>
-            `<option value="${escapeHtml(opt.value)}"${opt.value === current ? ' selected' : ''}>${escapeHtml(opt.label)}</option>`,
-        )
-        .join('');
+      const defectClass = current === 'Não OK' ? 'matrix-row--defect' : '';
+      const segments = EMPILHADORES_MATRIX_OPTIONS.map((opt) => {
+        const optClass = empilhadoresMatrixOptionClass(opt);
+        const isSelected = current === opt ? 'selected' : '';
+        return `
+          <button type="button"
+            class="matrix-opt ${optClass} ${isSelected}"
+            data-value="${escapeHtml(opt)}"
+            aria-label="${escapeHtml(spec.label)} — ${escapeHtml(opt)}"
+            title="${escapeHtml(opt)}">
+            ${escapeHtml(empilhadoresMatrixOptionDisplay(opt))}
+          </button>
+        `;
+      }).join('');
 
       return `
-        <tr class="checklist-inspection-row verification-card empilhadores-verify-row ${stateClass}" data-verify-card="${spec.id}">
-          <th scope="row" class="checklist-inspection-point empilhadores-verify-point verification-card-label">${escapeHtml(spec.label)}</th>
-          <td class="checklist-inspection-state empilhadores-verify-state verification-card-control">
-            <span class="verification-badge ${badgeClass}" data-verify-badge="${spec.id}">${escapeHtml(badgeText)}</span>
-            <select class="form-select form-select-sm empilhadores-verify-select" data-verify-item="${escapeHtml(spec.id)}" aria-label="Estado ${escapeHtml(spec.label)}">${options}</select>
+        <tr class="checklist-inspection-row matrix-row empilhadores-verify-row ${stateClass} ${defectClass}" data-verify-item="${escapeHtml(spec.id)}">
+          <th scope="row" class="checklist-inspection-point empilhadores-verify-point">${escapeHtml(spec.label)}</th>
+          <td class="checklist-inspection-state empilhadores-verify-state">
+            <div class="matrix-segmented" role="group" aria-label="Estado ${escapeHtml(spec.label)}">
+              ${segments}
+            </div>
           </td>
         </tr>
       `;
@@ -386,7 +390,7 @@ function renderEmpilhadoresVerificationTable(field, value) {
         </div>
       </div>
       <div class="checklist-inspection-table-wrap empilhadores-verify-table-wrap">
-        <table class="checklist-inspection-table checklist-inspection-table--verify empilhadores-verify-table">
+        <table class="checklist-inspection-table checklist-inspection-table--matrix empilhadores-verify-table">
           <thead>
             <tr>
               <th scope="col">Ponto</th>
@@ -1038,12 +1042,15 @@ export function collectReportValues(overlay) {
   overlay.querySelectorAll('[data-verification-field]').forEach((wrap) => {
     const fieldId = wrap.dataset.verificationField;
     const items = {};
-    wrap.querySelectorAll('select[data-verify-item]').forEach((select) => {
-      items[select.dataset.verifyItem] = select.value;
-    });
-    wrap.querySelectorAll("input[type='checkbox'][data-verify-item]").forEach((input) => {
-      items[input.dataset.verifyItem] = input.checked ? 'Não OK' : 'OK';
-    });
+    if (wrap.dataset.empilhadoresVerify === '1') {
+      wrap.querySelectorAll('[data-verify-item]').forEach((row) => {
+        items[row.dataset.verifyItem] = readEmpilhadoresVerifyRowValue(row);
+      });
+    } else {
+      wrap.querySelectorAll("input[type='checkbox'][data-verify-item]").forEach((input) => {
+        items[input.dataset.verifyItem] = input.checked ? 'Não OK' : 'OK';
+      });
+    }
     values[fieldId] = items;
   });
 
@@ -1700,29 +1707,21 @@ function countEmpilhadoresVerificationProgress(items, states) {
   return { ok, fail, blank, total: items.length };
 }
 
-function syncEmpilhadoresVerifySelect(select, wrap) {
-  const value = String(select?.value ?? '').trim();
-  const card = select.closest('.verification-card');
-  const badge = wrap.querySelector(`[data-verify-badge="${select.dataset.verifyItem}"]`);
-  if (card) {
-    card.classList.remove(
-      'verification-card--ok',
-      'verification-card--fail',
-      'verification-card--na',
-      'verification-card--blank',
-    );
-    card.classList.add(empilhadoresVerifyRowClass(value));
-  }
-  if (badge) {
-    badge.textContent = formatEmpilhadoresVerifyState(value);
-    badge.classList.remove(
-      'verification-badge--ok',
-      'verification-badge--fail',
-      'verification-badge--na',
-      'verification-badge--blank',
-    );
-    badge.classList.add(empilhadoresVerifyBadgeClass(value));
-  }
+function readEmpilhadoresVerifyRowValue(row) {
+  return String(row?.querySelector('.matrix-opt.selected')?.dataset.value || '').trim();
+}
+
+function syncEmpilhadoresVerifyRow(row, wrap) {
+  const value = readEmpilhadoresVerifyRowValue(row);
+  row.classList.remove(
+    'verification-card--ok',
+    'verification-card--fail',
+    'verification-card--na',
+    'verification-card--blank',
+    'matrix-row--defect',
+  );
+  row.classList.add(empilhadoresVerifyRowClass(value));
+  if (value === 'Não OK') row.classList.add('matrix-row--defect');
 }
 
 function updateEmpilhadoresVerificationProgress(wrap, items = []) {
@@ -1731,8 +1730,8 @@ function updateEmpilhadoresVerificationProgress(wrap, items = []) {
   if (!progressEl) return;
 
   const states = {};
-  wrap.querySelectorAll('select[data-verify-item]').forEach((select) => {
-    states[select.dataset.verifyItem] = select.value;
+  wrap.querySelectorAll('[data-verify-item]').forEach((row) => {
+    states[row.dataset.verifyItem] = readEmpilhadoresVerifyRowValue(row);
   });
   const counts = countEmpilhadoresVerificationProgress(items, states);
   progressEl.textContent = `${counts.ok}/${counts.total} OK${counts.blank > 0 ? ` · ${counts.blank} por preencher` : ''}`;
@@ -1745,16 +1744,18 @@ function updateEmpilhadoresVerificationProgress(wrap, items = []) {
 }
 
 function isEmpilhadoresVerificationFieldAllOk(wrap) {
-  const selects = wrap?.querySelectorAll('select[data-verify-item]');
-  if (!selects?.length) return false;
-  return Array.from(selects).every((select) => select.value === 'OK');
+  const rows = wrap?.querySelectorAll('[data-verify-item]');
+  if (!rows?.length) return false;
+  return Array.from(rows).every((row) => readEmpilhadoresVerifyRowValue(row) === 'OK');
 }
 
 function markEmpilhadoresVerificationAllOk(wrap) {
   if (!wrap) return;
-  wrap.querySelectorAll('select[data-verify-item]').forEach((select) => {
-    select.value = 'OK';
-    syncEmpilhadoresVerifySelect(select, wrap);
+  wrap.querySelectorAll('[data-verify-item]').forEach((row) => {
+    row.querySelectorAll('.matrix-opt').forEach((btn) => btn.classList.remove('selected'));
+    const okBtn = row.querySelector('.matrix-opt[data-value="OK"]');
+    okBtn?.classList.add('selected');
+    syncEmpilhadoresVerifyRow(row, wrap);
   });
   const fieldId = wrap.dataset.verificationField;
   const items =
@@ -2421,13 +2422,17 @@ export async function bindFormFieldInteractions(overlay) {
       const fieldId = wrap.dataset.verificationField;
       const fieldItems =
         EMPILHADORES_PER_MACHINE_FIELD_DEFS.find((field) => field.id === fieldId)?.items || [];
-      wrap.querySelectorAll('select[data-verify-item]').forEach((select) => {
-        const sync = () => {
-          syncEmpilhadoresVerifySelect(select, wrap);
-          updateEmpilhadoresVerificationProgress(wrap, fieldItems);
-        };
-        select.addEventListener('change', sync);
-        sync();
+      wrap.querySelectorAll('[data-verify-item]').forEach((row) => {
+        syncEmpilhadoresVerifyRow(row, wrap);
+        row.querySelectorAll('.matrix-opt').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            row.querySelectorAll('.matrix-opt').forEach((b) => b.classList.remove('selected'));
+            btn.classList.add('selected');
+            syncEmpilhadoresVerifyRow(row, wrap);
+            updateEmpilhadoresVerificationProgress(wrap, fieldItems);
+            wrap.dispatchEvent(new Event('input', { bubbles: true }));
+          });
+        });
       });
       updateEmpilhadoresVerificationProgress(wrap, fieldItems);
       updateVerificationBulkOkBtnState(wrap);

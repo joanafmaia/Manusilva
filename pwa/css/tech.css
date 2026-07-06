@@ -4046,15 +4046,16 @@
 .verification-card--blank {
   background: transparent;
 }
-.empilhadores-verify-select {
-  min-width: 5.5rem;
-  max-width: 7.5rem;
-  margin-left: 0.35rem;
-  padding: 0.2rem 0.35rem;
-  font-size: 0.78rem;
-}
 .empilhadores-verify-table thead th:last-child {
-  width: 6.5rem;
+  width: 7.5rem;
+}
+.empilhadores-verify-table .matrix-segmented {
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.25rem;
+}
+.empilhadores-verify-table .matrix-opt {
+  font-size: 0.9375rem;
+  min-height: 42px;
 }
 .empilhadores-verify-table tr.verification-card--na th,
 .empilhadores-verify-table tr.verification-card--na td {
@@ -4336,10 +4337,10 @@
     display: none;
   }
 
-  body.tech-dashboard-page .form-overlay .empilhadores-verify-table .empilhadores-verify-select {
-    min-width: 4.75rem;
-    max-width: 100%;
-    font-size: 0.8125rem;
+  body.tech-dashboard-page .form-overlay .empilhadores-verify-table .matrix-opt {
+    font-size: 0.875rem;
+    min-height: 40px;
+    padding: 0 0.15rem;
   }
 
   body.tech-dashboard-page .form-overlay .checklist-inspection-table--verify .verify-track,

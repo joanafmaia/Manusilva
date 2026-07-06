@@ -2,9 +2,12 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   EMPILHADORES_VERIFY_STATES,
+  EMPILHADORES_MATRIX_OPTIONS,
   formatEmpilhadoresVerifyState,
   empilhadoresVerifyRowClass,
   empilhadoresVerifyBadgeClass,
+  empilhadoresMatrixOptionDisplay,
+  empilhadoresMatrixOptionClass,
 } from '../js/preventiva-empilhadores-items.js';
 
 describe('preventiva empilhadores — estados do checklist', () => {
@@ -24,5 +27,21 @@ describe('preventiva empilhadores — estados do checklist', () => {
     assert.equal(empilhadoresVerifyRowClass('Não OK'), 'verification-card--fail');
     assert.equal(empilhadoresVerifyRowClass('N/A'), 'verification-card--na');
     assert.equal(empilhadoresVerifyBadgeClass('N/A'), 'verification-badge--na');
+  });
+
+  it('matriz com três botões (OK, Não OK, N/A)', () => {
+    assert.deepEqual(EMPILHADORES_MATRIX_OPTIONS, ['OK', 'Não OK', 'N/A']);
+  });
+
+  it('empilhadoresMatrixOptionDisplay abrevia rótulos dos botões', () => {
+    assert.equal(empilhadoresMatrixOptionDisplay('OK'), 'OK');
+    assert.equal(empilhadoresMatrixOptionDisplay('Não OK'), 'NOK');
+    assert.equal(empilhadoresMatrixOptionDisplay('N/A'), 'NA');
+  });
+
+  it('empilhadoresMatrixOptionClass mapeia cores da matriz', () => {
+    assert.equal(empilhadoresMatrixOptionClass('OK'), 'matrix-opt--b');
+    assert.equal(empilhadoresMatrixOptionClass('Não OK'), 'matrix-opt--d');
+    assert.equal(empilhadoresMatrixOptionClass('N/A'), 'matrix-opt--na');
   });
 });

@@ -318,12 +318,16 @@ function collectChecklistFromPanel(overlay) {
   panel.querySelectorAll('[data-verification-field]').forEach((wrap) => {
     const fieldId = wrap.dataset.verificationField;
     const items = {};
-    wrap.querySelectorAll('select[data-verify-item]').forEach((select) => {
-      items[select.dataset.verifyItem] = select.value;
-    });
-    wrap.querySelectorAll("input[type='checkbox'][data-verify-item]").forEach((input) => {
-      items[input.dataset.verifyItem] = input.checked ? 'Não OK' : 'OK';
-    });
+    if (wrap.dataset.empilhadoresVerify === '1') {
+      wrap.querySelectorAll('[data-verify-item]').forEach((row) => {
+        const selected = row.querySelector('.matrix-opt.selected');
+        items[row.dataset.verifyItem] = selected?.dataset.value || '';
+      });
+    } else {
+      wrap.querySelectorAll("input[type='checkbox'][data-verify-item]").forEach((input) => {
+        items[input.dataset.verifyItem] = input.checked ? 'Não OK' : 'OK';
+      });
+    }
     out[fieldId] = items;
   });
 

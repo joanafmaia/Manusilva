@@ -49,6 +49,22 @@ export const VERIFICACOES_INTERNAS_ITEMS = [
 /** Estados do checklist preventiva empilhadores (MS.061). */
 export const EMPILHADORES_VERIFY_STATES = ['', 'OK', 'Não OK', 'N/A'];
 
+/** Opções clicáveis na matriz (igual ao padrão DL50 — botões segmentados). */
+export const EMPILHADORES_MATRIX_OPTIONS = ['OK', 'Não OK', 'N/A'];
+
+export function empilhadoresMatrixOptionDisplay(opt) {
+  if (opt === 'Não OK') return 'NOK';
+  if (opt === 'N/A') return 'NA';
+  return opt;
+}
+
+export function empilhadoresMatrixOptionClass(opt) {
+  if (opt === 'OK') return 'matrix-opt--b';
+  if (opt === 'Não OK') return 'matrix-opt--d';
+  if (opt === 'N/A') return 'matrix-opt--na';
+  return '';
+}
+
 export function formatEmpilhadoresVerifyState(state) {
   const value = String(state ?? '').trim();
   if (!value) return '—';
