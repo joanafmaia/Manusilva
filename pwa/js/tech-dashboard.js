@@ -633,38 +633,9 @@ export async function openTechClientHistory(clientId, { returnTo = 'dashboard' }
   app.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-/** Marcador temporário — remover após validar «Atualizar app». */
-async function showTechUpdateTestMarker() {
-  let el = document.getElementById('tech-update-test-marker');
-  if (!el) {
-    el = document.createElement('p');
-    el.id = 'tech-update-test-marker';
-    el.className = 'tech-update-test-marker';
-    el.setAttribute('role', 'status');
-    const header = document.querySelector('.tech-header');
-    const anchor = document.getElementById('tech-connectivity-bar');
-    if (header && anchor) header.insertBefore(el, anchor);
-    else header?.append(el);
-  }
-  let build = '…';
-  try {
-    const res = await fetch(`./js/build-version.js?_=${Date.now()}`, { cache: 'no-store' });
-    if (res.ok) {
-      const text = await res.text();
-      const m = text.match(/APP_BUILD_ID\s*=\s*["']([^"']+)["']/);
-      if (m?.[1]) build = m[1].slice(0, 8);
-    }
-  } catch {
-    /* ignore */
-  }
-  el.textContent = `TESTE ATUALIZAR — versão CAQUI (JS) — build ${build}`;
-}
-
 export async function initTechDashboard() {
   const session = requireAuth('technician');
   if (!session) return;
-
-  void showTechUpdateTestMarker();
 
   // UI básica primeiro — navegação e botão Sair nunca ficam bloqueados
   // por falhas na recolha de dados do Supabase.

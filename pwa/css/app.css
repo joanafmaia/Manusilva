@@ -12099,18 +12099,6 @@ body .admin-rh-page .btn-primary, body .admin-rh-page .btn-secondary, body .admi
     max-width: none;
   }
 }
-/* Marcador temporário — remover após validar «Atualizar app» */ .tech-update-test-marker {
-  margin: 0.5rem 0 0;
-  padding: 0.5rem 0.75rem;
-  border-radius: 8px;
-  border: 2px dashed #ea580c;
-  background: #fff7ed;
-  color: #9a3412;
-  font-size: 0.9375rem;
-  font-weight: 800;
-  text-align: center;
-  letter-spacing: 0.02em;
-}
 /* ═══ Painel do técnico v2 ═══ */ .tech-connectivity-bar {
   display: flex;
   align-items: center;
