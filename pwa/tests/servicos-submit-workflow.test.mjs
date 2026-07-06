@@ -85,4 +85,23 @@ describe('servicos-submit-workflow', () => {
     const warnings = collectServicoSubmitWarnings({ technician: false, client: false });
     assert.equal(warnings.length, 2);
   });
+
+  it('canShowServicoVisitConcludeAction — mostra botão com rascunho por concluir', async () => {
+    const relatoriosDb = await import('../js/relatorios-db.js');
+    relatoriosDb.mergeReportInCache({
+      id: 'r-draft',
+      servicoId: 'svc-1',
+      serviceType: 'manutencao',
+      status: 'draft',
+      clientId: '10',
+      technicianId: 'Filipe',
+      data: { values: {}, signatures: {}, photos: [] },
+    });
+
+    const { canShowServicoVisitConcludeAction } = await import('../js/servicos-submit-workflow.js');
+    const ui = canShowServicoVisitConcludeAction('svc-1');
+    assert.equal(ui.show, true);
+    assert.match(ui.hint, /Falta concluir/i);
+    assert.equal(ui.state.canSubmit, false);
+  });
 });

@@ -4754,6 +4754,23 @@ body.tech-dashboard-page .form-overlay .signature-canvas-wrap, body.tech-dashboa
 .modal-overlay--signatures .modal.glass-card {
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
+  display: flex;
+  flex-direction: column;
+  max-height: min(92vh, 900px);
+  overflow: hidden;
+}
+.modal-overlay--signatures .modal-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+.modal-overlay--signatures .modal-actions {
+  flex-shrink: 0;
+}
+.tech-servico-visit-hint {
+  margin: 1rem 0 0;
+  font-size: 0.875rem;
+  line-height: 1.45;
 }
 .tech-servico-signatures-grid .signature-canvas-wrap,
 .tech-servico-signatures-grid .signature-canvas {

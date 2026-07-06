@@ -23,7 +23,7 @@ import {
 } from './servicos-panel-utils.js';
 import { formatOrdemLabel } from './report-review-ui.js';
 import { renderWorkStateBadge, resolveCalendarEventState } from './calendar-event-state.js';
-import { getServicoVisitSubmitState } from './servicos-submit-workflow.js';
+import { getServicoVisitSubmitState, canShowServicoVisitConcludeAction } from './servicos-submit-workflow.js';
 import { openServicoVisitSubmit } from './tech-servico-signatures.js';
 
 function reportStatusLabel(report) {
@@ -191,8 +191,7 @@ export async function openTechServicoDetail(servicoId) {
     : '<p class="text-muted">Ainda não há relatórios nesta visita. Adicione o primeiro abaixo.</p>';
 
   const canAdd = SERVICE_TYPES.length > 0;
-  const visitState = getServicoVisitSubmitState(servicoId);
-  const canConclude = visitState.canSubmit;
+  const concludeUi = canShowServicoVisitConcludeAction(servicoId);
 
   const content = `
     <dl class="job-detail-grid" style="margin-bottom:1rem">
@@ -201,11 +200,22 @@ export async function openTechServicoDetail(servicoId) {
     </dl>
     <h4 style="margin:0 0 0.5rem;font-size:0.9375rem">Relatórios desta visita</h4>
     <div class="tech-servico-reports-list">${reportsHtml}</div>
+    ${
+      concludeUi.show
+        ? `<p class="tech-servico-visit-hint text-muted" role="status">${escapeHtml(concludeUi.hint)}</p>`
+        : concludeUi.hint
+          ? `<p class="tech-servico-visit-hint text-muted">${escapeHtml(concludeUi.hint)}</p>`
+          : ''
+    }
   `;
 
   const actions = `
     <button type="button" class="btn-ghost" id="tech-servico-close">Fechar</button>
-    ${canConclude ? '<button type="button" class="btn-primary" id="tech-servico-conclude">Concluir visita</button>' : ''}
+    ${
+      concludeUi.show
+        ? `<button type="button" class="btn-primary" id="tech-servico-conclude">Assinar e concluir visita</button>`
+        : ''
+    }
     ${canAdd ? '<button type="button" class="btn-secondary" id="tech-servico-add">+ Adicionar relatório</button>' : ''}
   `;
 

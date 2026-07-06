@@ -6,7 +6,7 @@ import { closeModal, escapeHtml, formatDateLong, getClient, openModal, showToast
 import { getServico } from './servicos-db.js';
 import {
   createSignatureBlock,
-  initSignaturePads,
+  SignaturePad,
   padHasSignature,
   commitSignatureSnapshot,
   resolveReportSignatures,
@@ -16,6 +16,20 @@ import {
   getServicoVisitSubmitState,
   submitServicoVisit,
 } from './servicos-submit-workflow.js';
+
+function initSignaturePadsInContainer(container, ids) {
+  const pads = {};
+  if (!container) return pads;
+  ids.forEach((id) => {
+    const canvas = container.querySelector(`#sig-${id}`);
+    if (!canvas) return;
+    pads[id] = new SignaturePad(canvas);
+    container.querySelector(`[data-clear-sig="${id}"]`)?.addEventListener('click', () => {
+      pads[id].clear();
+    });
+  });
+  return pads;
+}
 
 function restoreSignaturePads(pads, stored = {}) {
   if (stored.technicianData && pads.technician) {
@@ -65,11 +79,15 @@ export async function openServicoVisitSubmit(servicoId) {
 
   let pads = null;
 
-  requestAnimationFrame(() => {
-    pads = initSignaturePads(['technician', 'client']);
+  const mountPads = () => {
+    pads = initSignaturePadsInContainer(overlay, ['technician', 'client']);
     restoreSignaturePads(pads, existingSigs);
     pads.technician?.resize?.();
     pads.client?.resize?.();
+  };
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(mountPads);
   });
 
   overlay.querySelector('#servico-visit-cancel')?.addEventListener('click', closeModal);

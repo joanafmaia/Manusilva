@@ -51,6 +51,37 @@ export function getServicoVisitSubmitState(servicoId) {
   };
 }
 
+/** Mostrar acção de assinar/concluir visita no painel do técnico. */
+export function canShowServicoVisitConcludeAction(servicoId) {
+  const state = getServicoVisitSubmitState(servicoId);
+  if (!state.reports.length) {
+    return { show: false, state, hint: 'Adicione pelo menos um relatório a esta visita.' };
+  }
+  if (state.approvedReports.length === state.reports.length) {
+    return { show: false, state, hint: state.reason };
+  }
+  if (state.rejectedReports.length) {
+    return {
+      show: true,
+      state,
+      hint: 'Corrija os relatórios rejeitados antes de assinar a visita.',
+    };
+  }
+  if (state.incompleteDraftReports.length) {
+    const n = state.incompleteDraftReports.length;
+    return {
+      show: true,
+      state,
+      hint: `Falta concluir ${n} relatório${n === 1 ? '' : 's'} — use «Concluir relatório» em cada um antes de assinar.`,
+    };
+  }
+  return {
+    show: true,
+    state,
+    hint: 'Assine a visita — a assinatura aplica-se a todos os relatórios deste serviço.',
+  };
+}
+
 export function collectServicoSubmitWarnings(signatures) {
   const warnings = [];
   if (!signatures?.technicianData) warnings.push('Sem assinatura do técnico.');
