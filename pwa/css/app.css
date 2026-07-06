@@ -5545,7 +5545,7 @@ body.tech-dashboard-page .form-overlay .signature-canvas-wrap, body.tech-dashboa
   padding: 0;
   margin-bottom: 1rem;
 }
-.admin-app.admin-sidebar--collapsed .sidebar-brand-text, .admin-app.admin-sidebar--collapsed .nav-item-label, .admin-app.admin-sidebar--collapsed .sidebar-footer-greeting, .admin-app.admin-sidebar--collapsed .sidebar-logout-label, .admin-app.admin-sidebar--collapsed .nav-badge {
+.admin-app.admin-sidebar--collapsed .sidebar-brand-text, .admin-app.admin-sidebar--collapsed .nav-item-label, .admin-app.admin-sidebar--collapsed .sidebar-footer-greeting, .admin-app.admin-sidebar--collapsed .sidebar-logout-label, .admin-app.admin-sidebar--collapsed .tech-refresh-label, .admin-app.admin-sidebar--collapsed .nav-badge {
   display: none;
 }
 .admin-app.admin-sidebar--collapsed .nav-item {
@@ -5557,6 +5557,12 @@ body.tech-dashboard-page .form-overlay .signature-canvas-wrap, body.tech-dashboa
   width: 2.5rem;
   height: 2.5rem;
   margin: 0 auto;
+  padding: 0;
+}
+.admin-app.admin-sidebar--collapsed .sidebar-footer .tech-refresh-btn.sidebar-refresh-btn {
+  width: 2.5rem;
+  min-width: 2.5rem;
+  margin: 0 auto 0.5rem;
   padding: 0;
 }
 .admin-app.admin-sidebar--collapsed .sidebar-logout-icon {
@@ -5594,6 +5600,11 @@ body.tech-dashboard-page .form-overlay .signature-canvas-wrap, body.tech-dashboa
   color: var(--text-primary);
 }
 .sidebar-footer { padding-top: 1rem; border-top: 1px solid var(--border-subtle); }
+.sidebar-footer .tech-refresh-btn.sidebar-refresh-btn {
+  width: 100%;
+  margin-bottom: 0.5rem;
+  min-height: 40px;
+}
 .sidebar-refresh-btn {
   width: 100%;
   margin-bottom: 0.5rem;
@@ -5717,17 +5728,6 @@ body .admin-panel .rh-section, body .rh-section {
 }
 .admin-header-lead {
   margin: 0.35rem 0 0;
-  max-width: 42rem;
-}
-/* Marcador temporário — remover após validar «Atualizar app» no RH */ .admin-update-test-marker {
-  margin: 0.65rem 0 0;
-  padding: 0.5rem 0.75rem;
-  border-radius: 8px;
-  border: 2px dashed #2563eb;
-  background: #eff6ff;
-  color: #1e40af;
-  font-size: 0.875rem;
-  font-weight: 800;
   max-width: 42rem;
 }
 .admin-header h1, .admin-header .ms-h1 {

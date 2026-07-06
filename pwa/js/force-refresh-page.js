@@ -48,6 +48,7 @@
     purgeStaleCaches();
     var btn = document.getElementById('btn-force-app-refresh');
     if (btn) {
+      btn.classList.remove('tech-refresh-btn--update-available');
       btn.disabled = true;
       var lab = btn.querySelector('.tech-refresh-label, .sidebar-refresh-label');
       if (lab) lab.textContent = 'A atualizar…';

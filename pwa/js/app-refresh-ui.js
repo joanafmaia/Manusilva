@@ -5,7 +5,7 @@
 /**
  * @param {string} [buttonId]
  * @param {{ updateHint?: string, notifyStyle?: 'toast' | 'button' }} [options]
- *   notifyStyle — tablet: 'button' (destaca o botão, sem toast); RH: 'toast' (predefinido)
+ *   notifyStyle — 'button' destaca o botão (técnico e RH); 'toast' mostra aviso
  */
 export function bindAppRefreshButton(buttonId = 'btn-force-app-refresh', options = {}) {
   const refreshBtn = document.getElementById(buttonId);

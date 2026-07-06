@@ -63,8 +63,9 @@
 
       <div class="sidebar-footer">
         <p class="sidebar-footer-greeting">Olá, <strong id="user-name"></strong></p>
-        <button type="button" class="btn-ghost btn-sm sidebar-refresh-btn" id="btn-force-app-refresh" title="Descarregar a versão mais recente da aplicação" onclick="return window.msForceAppRefresh(event)">
-          ↻ Atualizar app
+        <button type="button" class="tech-refresh-btn sidebar-refresh-btn" id="btn-force-app-refresh" title="Descarregar a versão mais recente da aplicação" aria-label="Atualizar app" onclick="return window.msForceAppRefresh(event)">
+          <span class="tech-refresh-icon" aria-hidden="true">↻</span>
+          <span class="tech-refresh-label">Atualizar</span>
         </button>
         <button class="btn-outline btn-sm sidebar-logout-btn" id="logout-btn" type="button">
           <span class="sidebar-logout-icon" aria-hidden="true">⎋</span>
@@ -79,9 +80,6 @@
           <div class="admin-header-text">
             <h1 class="ms-h1">Painel de Administração</h1>
             <p class="admin-header-lead ms-label">Calendário da equipa, revisão de relatórios, propostas comerciais, faturação e gestão de clientes.</p>
-            <p id="admin-update-test-marker" class="admin-update-test-marker" role="status">
-              TESTE ATUALIZAR RH — versão PERA
-            </p>
             <div class="admin-ops-summary" id="admin-ops-summary" hidden aria-live="polite"></div>
           </div>
           <div class="admin-header-actions">
