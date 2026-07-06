@@ -5,7 +5,6 @@
 import { normalizeMaterialRows } from './material-table-field.js';
 import { getPedidoOrcamentoDetalhe } from './pedido-orcamento.js';
 import { readOrcamentoCabecalhoFromDom, resolveOrcamentoCabecalho, suggestOrcamentoMaquinas } from './orcamento-cabecalho.js';
-import { normalizeOrcamentoFotos, readOrcamentoFotosPosicaoFromDom, fotoSlotsFromMeta, MAX_ORCAMENTO_FOTOS } from './orcamento-fotos.js';
 import {
   formatOrcamentoMaquinaShortLabel,
   hasOrcamentoMaquinaData,
@@ -254,7 +253,6 @@ export function buildOrcamentoMetaDraft(report, numeroReservado = null) {
   const prazoEntrega = existing?.prazoEntrega ?? '';
   const totals = computeOrcamentoTotals(linhas, existing || taxasSaida);
   const cabecalho = resolveOrcamentoCabecalho(report);
-  const { fotos, fotosPosicao } = normalizeOrcamentoFotos(existing);
 
   return {
     numeroSequencial: sequencial,
@@ -271,8 +269,6 @@ export function buildOrcamentoMetaDraft(report, numeroReservado = null) {
     subtotal: formatEuro(totals.subtotal),
     iva: formatEuro(totals.iva),
     total: formatEuro(totals.total),
-    fotos,
-    fotosPosicao,
   };
 }
 
@@ -303,19 +299,6 @@ export function readOrcamentoFormFromDom(root, report) {
   const totals = computeOrcamentoTotals(linhas, taxaSlots);
   const existing = getReportOrcamentoMeta(report) || {};
   const domMeta = getReportOrcamentoMetaFromDom(root);
-  const stateSlots = root?._orcamentoFotosState ? fotoSlotsFromMeta(root._orcamentoFotosState) : null;
-  const existingSlots = fotoSlotsFromMeta(existing);
-  const mergedSlots = Array.from({ length: MAX_ORCAMENTO_FOTOS }, (_, index) => {
-    const fromState = stateSlots?.[index];
-    if (fromState?.dataUrl?.startsWith('data:image')) return fromState;
-    const fromExisting = existingSlots[index];
-    if (fromExisting?.dataUrl?.startsWith('data:image')) return fromExisting;
-    return null;
-  });
-  const fotosState = normalizeOrcamentoFotos({
-    fotos: mergedSlots,
-    fotosPosicao: readOrcamentoFotosPosicaoFromDom(root),
-  });
 
   return {
     ...existing,
@@ -329,8 +312,6 @@ export function readOrcamentoFormFromDom(root, report) {
     subtotal: formatEuro(totals.subtotal),
     iva: formatEuro(totals.iva),
     total: formatEuro(totals.total),
-    fotos: fotosState.fotos,
-    fotosPosicao: fotosState.fotosPosicao,
     atualizadoEm: new Date().toISOString(),
   };
 }

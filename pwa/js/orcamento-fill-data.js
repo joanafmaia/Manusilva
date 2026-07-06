@@ -19,7 +19,6 @@ import {
   normalizeOrcamentoMaquinasList,
 } from './orcamento-maquinas.js';
 import { normalizeEquipamentoCampos, suggestEquipamentoCampos } from './orcamento-equipamento-campos.js';
-import { normalizeOrcamentoFotos } from './orcamento-fotos.js';
 
 const MESES_PT = [
   'Janeiro',
@@ -106,7 +105,6 @@ export function buildOrcamentoFillData(report, job = null) {
   const totals = computeOrcamentoTotals(linhas, orcamentoMeta);
 
   const dataExtenso = formatOrcamentoDateLong(resolveOrcamentoDocumentDate(report));
-  const { fotos, fotosPosicao } = normalizeOrcamentoFotos(orcamentoMeta);
 
   const display = (value) => {
     const text = String(value ?? '').trim();
@@ -149,8 +147,6 @@ export function buildOrcamentoFillData(report, job = null) {
     iva: formatEuro(totals.iva),
     total_geral: formatEuro(totals.total),
     linhas,
-    fotos,
-    fotos_posicao: fotosPosicao,
   };
 }
 
