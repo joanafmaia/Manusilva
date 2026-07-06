@@ -4064,6 +4064,8 @@
 .dl50-matrix-table .matrix-opt {
   font-size: 0.9375rem;
   min-height: 42px;
+  padding: 0 0.35rem;
+  white-space: nowrap;
 }
 .empilhadores-verify-table tr.verification-card--na th,
 .empilhadores-verify-table tr.verification-card--na td {

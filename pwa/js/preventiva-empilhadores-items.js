@@ -68,8 +68,7 @@ export function empilhadoresMatrixOptionFromDataValue(raw) {
 }
 
 export function empilhadoresMatrixOptionDisplay(opt) {
-  if (opt === 'Não OK') return 'NOK';
-  return opt;
+  return String(opt || '');
 }
 
 export function empilhadoresMatrixOptionClass(opt) {

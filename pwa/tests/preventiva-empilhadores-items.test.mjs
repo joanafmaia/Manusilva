@@ -35,9 +35,9 @@ describe('preventiva empilhadores — estados do checklist', () => {
     assert.deepEqual(EMPILHADORES_MATRIX_OPTIONS, ['OK', 'Não OK', 'N/A']);
   });
 
-  it('empilhadoresMatrixOptionDisplay abrevia rótulos dos botões', () => {
+  it('empilhadoresMatrixOptionDisplay mostra rótulos completos nos botões', () => {
     assert.equal(empilhadoresMatrixOptionDisplay('OK'), 'OK');
-    assert.equal(empilhadoresMatrixOptionDisplay('Não OK'), 'NOK');
+    assert.equal(empilhadoresMatrixOptionDisplay('Não OK'), 'Não OK');
     assert.equal(empilhadoresMatrixOptionDisplay('N/A'), 'N/A');
   });
 
