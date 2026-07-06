@@ -657,10 +657,13 @@ async function buildFormHTML(job, client, tech, service, existingReport, options
     values[GRANDES_BATTERY_FIELD_ID] = migrateLegacyBatteryRows(values);
   }
   if (service?.id === 'manutencao_preventiva_empilhadores') {
-    const { migrateLegacyEmpilhadoresMaquinas, EMPILHADORES_MAQUINAS_FIELD_ID } = await import(
-      './views/relatorio-empilhadores-maquinas.js',
-    );
+    const {
+      migrateLegacyEmpilhadoresMaquinas,
+      EMPILHADORES_MAQUINAS_FIELD_ID,
+      flattenEmpilhadoresValues,
+    } = await import('./views/relatorio-empilhadores-maquinas.js');
     values[EMPILHADORES_MAQUINAS_FIELD_ID] = migrateLegacyEmpilhadoresMaquinas(values);
+    values = flattenEmpilhadoresValues(values, 0);
   }
   const equipamentos = options.equipamentos || [];
   const equipmentPrefill = buildEquipmentFormPrefill(service, job, equipamentos, values);
@@ -795,6 +798,7 @@ async function buildFormHTML(job, client, tech, service, existingReport, options
 
   return `
     <div class="form-workspace form-workspace--report${isCarregadorForm ? ' form-workspace--carregador' : ''}${isCorretivaForm ? ' form-workspace--corretiva' : ''}${isGrandesForm ? ' form-workspace--grandes' : ''}${isRavBateriaForm ? ' form-workspace--rav-bateria' : ''}${isFolhaAvariasForm ? ' form-workspace--folha-avarias' : ''}${isEmpilhadoresForm ? ' form-workspace--empilhadores' : ''}">
+      ${isEmpilhadoresForm ? '<input type="hidden" data-empilhadores-maquinas-store data-field-id="maquinas" value="">' : ''}
       <div class="form-panel form-panel--premium glass-card">
         <div class="form-panel-header form-panel-header--minimal">
           <button type="button" class="btn-ghost" id="close-form">&larr; Voltar</button>
@@ -1327,9 +1331,12 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport, opt
   };
   if (service?.id === 'manutencao_preventiva_empilhadores') {
     void import('./views/relatorio-empilhadores-maquinas.js').then(
-      ({ migrateLegacyEmpilhadoresMaquinas, EMPILHADORES_MAQUINAS_FIELD_ID }) => {
-        overlay.__lazyFormState.values[EMPILHADORES_MAQUINAS_FIELD_ID] =
-          migrateLegacyEmpilhadoresMaquinas(overlay.__lazyFormState.values);
+      ({ migrateLegacyEmpilhadoresMaquinas, EMPILHADORES_MAQUINAS_FIELD_ID, flattenEmpilhadoresValues }) => {
+        const migrated = migrateLegacyEmpilhadoresMaquinas(overlay.__lazyFormState.values);
+        overlay.__lazyFormState.values = flattenEmpilhadoresValues(
+          { ...overlay.__lazyFormState.values, [EMPILHADORES_MAQUINAS_FIELD_ID]: migrated },
+          0,
+        );
       },
     );
   }

@@ -542,11 +542,18 @@ export const MANUTENCAO_PREVENTIVA_EMPILHADORES = {
   companyAddress: 'Rua São Mamede, Lote Nº1 - Fração D, 4760-725 Ribeirão VNF',
   fields: [
     { type: 'date', id: 'data_de_conclusao', label: 'Data de Conclusão' },
+    { type: 'text', id: 'marca', label: LABEL_MARCA, section: 'Informações da Máquina' },
+    { type: 'text', id: 'modelo', label: LABEL_MODELO, section: 'Informações da Máquina' },
+    { type: 'text', id: 'numero_de_serie', label: LABEL_NUMERO_SERIE, section: 'Informações da Máquina' },
+    { type: 'text', id: 'n_interno', label: LABEL_N_INTERNO, section: 'Informações da Máquina' },
     {
-      type: 'empilhadores_maquinas',
-      id: 'maquinas',
-      label: 'Máquinas da Visita',
-      section: 'Máquinas da Visita',
+      type: 'number',
+      id: 'horas',
+      label: LABEL_HORAS,
+      section: 'Informações da Máquina',
+      min: 0,
+      step: 1,
+      placeholder: '0',
     },
   ],
 };

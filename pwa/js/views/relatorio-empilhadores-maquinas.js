@@ -303,6 +303,22 @@ function collectIdRowsFromTable(overlay) {
   return rows;
 }
 
+/** Campos escalares na aba Geral (layout tipo DL50). */
+function collectMachineIdFromGeralFields(overlay) {
+  const geral = overlay.querySelector('.report-tab-panel[data-report-panel="geral"]');
+  if (!geral) return null;
+  const row = {};
+  let found = false;
+  EMPILHADORES_ID_COLUMNS.forEach((col) => {
+    const el = geral.querySelector(`[data-field-id="${col.key}"]`);
+    if (el) {
+      row[col.key] = el.value ?? '';
+      found = true;
+    }
+  });
+  return found ? row : null;
+}
+
 function collectChecklistFromPanel(overlay) {
   const panel = overlay.querySelector('[data-empilhadores-checklist]');
   if (!panel) return {};
@@ -348,10 +364,11 @@ export function flushEmpilhadoresChecklistToStore(overlay) {
 
 export function collectEmpilhadoresMaquinas(overlay) {
   const store = readStore(overlay);
-  const idRows = collectIdRowsFromTable(overlay);
+  const idFromTable = collectIdRowsFromTable(overlay);
   const hasIdTable = Boolean(overlay.querySelector('.empilhadores-maquinas-body'));
-  // A tabela em Geral é a fonte de verdade — o hidden store pode ficar desatualizado.
-  const count = hasIdTable ? Math.max(idRows.length, 1) : Math.max(store.length, 1);
+  const idFromGeral = !hasIdTable ? collectMachineIdFromGeralFields(overlay) : null;
+  const idRows = hasIdTable ? idFromTable : idFromGeral ? [idFromGeral] : [];
+  const count = hasIdTable ? Math.max(idRows.length, 1) : 1;
   while (store.length < count) store.push(emptyEmpilhadoresMaquinaRow());
   while (store.length > count) store.pop();
 
@@ -411,41 +428,14 @@ export function renderEmpilhadoresMaquinasSection(field, value) {
     [EMPILHADORES_MAQUINAS_FIELD_ID]: Array.isArray(value) ? value : undefined,
     ...(typeof value === 'object' && !Array.isArray(value) ? value : {}),
   });
-  const header = EMPILHADORES_ID_COLUMNS.map((c) => `<th>${escapeHtml(c.label)}</th>`).join('');
-  const body = rows.map((row, i) => renderIdRow(row, i)).join('');
   const initialStore = encodeURIComponent(JSON.stringify(rows));
 
   return `
-    <div class="form-group field-block empilhadores-maquinas-field dynamic-table-field"
+    <div class="form-group field-block empilhadores-maquinas-field"
       data-empilhadores-maquinas="${EMPILHADORES_MAQUINAS_FIELD_ID}"
       data-field-id="${EMPILHADORES_MAQUINAS_FIELD_ID}"
       data-initial-maquinas="${initialStore}">
       <input type="hidden" data-empilhadores-maquinas-store value="">
-      <div class="empilhadores-maquinas-section-bar">
-        <span class="empilhadores-maquinas-section-title">${escapeHtml(field.label || 'Máquinas da Visita')}</span>
-        <span class="empilhadores-maquinas-count text-muted" data-empilhadores-maquinas-count>${rows.length} máquina(s)</span>
-      </div>
-      <p class="field-hint text-muted empilhadores-maquinas-hint">
-        Identifique a máquina intervencionada nesta visita.
-        O checklist (verificações, material e estado) preenche-se na aba <strong>Checklist</strong>.
-      </p>
-      <div class="dynamic-table-wrap empilhadores-maquinas-wrap">
-        <div class="empilhadores-maquinas-table-wrap">
-          <div class="empilhadores-maquinas-scroll">
-            <table class="dynamic-table empilhadores-maquinas-table">
-              <thead>
-                <tr>
-                  <th class="empilhadores-maquinas-idx" scope="col">#</th>
-                  ${header}
-                </tr>
-              </thead>
-              <tbody class="empilhadores-maquinas-body dynamic-table-body">
-                ${body}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
     </div>
   `;
 }
@@ -526,6 +516,20 @@ function bindMaquinaSelector(overlay, options = {}) {
   });
 }
 
+function bindMachineIdFields(overlay, onRowChange) {
+  const geral = overlay.querySelector('.report-tab-panel[data-report-panel="geral"]');
+  if (!geral) return;
+  EMPILHADORES_ID_COLUMNS.forEach((col) => {
+    const el = geral.querySelector(`[data-field-id="${col.key}"]`);
+    if (!el || el.dataset.empilhadoresIdBound === '1') return;
+    el.dataset.empilhadoresIdBound = '1';
+    el.addEventListener('input', () => {
+      collectEmpilhadoresMaquinas(overlay);
+      onRowChange?.();
+    });
+  });
+}
+
 /**
  * @param {HTMLElement} overlay
  * @param {{ onRowChange?: Function, onMaquinaSelect?: Function }} options
@@ -536,6 +540,9 @@ export function initEmpilhadoresMaquinasForm(overlay, options = {}) {
     wrap.dataset.bound = '1';
     syncStoreRowCount(overlay);
     bindIdTable(wrap, overlay, options.onRowChange);
+  } else if (overlay.querySelector('[data-empilhadores-maquinas-store]')) {
+    collectEmpilhadoresMaquinas(overlay);
   }
+  bindMachineIdFields(overlay, options.onRowChange);
   bindMaquinaSelector(overlay, options);
 }

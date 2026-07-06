@@ -1091,7 +1091,7 @@ export function collectReportValues(overlay) {
     values[GRANDES_BATTERY_FIELD_ID] = collectGrandesBatteryRows(overlay);
   }
 
-  if (overlay.querySelector('[data-empilhadores-maquinas]') && empilhadoresModule) {
+  if (overlay.querySelector('[data-empilhadores-maquinas-store]') && empilhadoresModule) {
     const {
       collectEmpilhadoresMaquinas,
       EMPILHADORES_MAQUINAS_FIELD_ID,
