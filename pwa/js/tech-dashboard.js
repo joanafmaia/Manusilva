@@ -657,7 +657,7 @@ async function showTechUpdateTestMarker() {
   } catch {
     /* ignore */
   }
-  el.textContent = `TESTE ATUALIZAR — versão UVA (JS) — build ${build}`;
+  el.textContent = `TESTE ATUALIZAR — versão BANANA (JS) — build ${build}`;
 }
 
 export async function initTechDashboard() {
