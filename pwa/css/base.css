@@ -697,9 +697,15 @@ body .glass-card-inner {
 
   .login-panel {
     flex: 0 0 auto;
+    width: 100%;
     align-items: center;
-    justify-content: flex-start;
+    justify-content: center;
     padding: 0.75rem 1.25rem 2rem;
+  }
+
+  #login-card.login-card {
+    margin-left: auto;
+    margin-right: auto;
   }
 }
 
