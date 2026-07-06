@@ -6,7 +6,7 @@ export const MAX_ORCAMENTO_FOTOS = 2;
 
 export const ORCAMENTO_FOTOS_POSICOES = [
   { id: 'ao_lado_equipamento', label: 'Ao lado do equipamento (modelo antigo)' },
-  { id: 'antes_tabela', label: 'Antes da tabela de artigos' },
+  { id: 'antes_tabela', label: 'Centrada antes da tabela (equipamento + observações acima)' },
 ];
 
 /** @param {unknown} meta */

@@ -96,6 +96,17 @@ function plannedOrcamentoPhotoFloatHeight(fotos = []) {
   return ORC_FOTO_STACKED_H * rows.length + ORC_FOTO_SLOT_GAP * (rows.length - 1);
 }
 
+function buildOrcamentoPhotoFloatRect(fotos, blockStartY, tableStartY) {
+  const planned = plannedOrcamentoPhotoFloatHeight(fotos);
+  if (!planned) return null;
+  const maxH = Math.max(34, tableStartY - blockStartY - 10);
+  return {
+    x: ORC_FOTO_X,
+    y: blockStartY,
+    h: Math.min(planned, maxH),
+  };
+}
+
 /** Desenha parágrafo com reflow quando a largura muda (foto flutuante à direita). */
 function drawOrcamentoReflowText(doc, text, startY, options = {}) {
   const {
@@ -483,6 +494,7 @@ function drawLegalPage(doc, legalText) {
 function drawOrcamentoEquipamentoBlocks(doc, fill, startY, options = {}) {
   const fotos = Array.isArray(options.fotos) ? options.fotos : [];
   const fotosAoLado = options.fotosAoLado === true && fotos.length > 0;
+  const tableStartY = Number.isFinite(options.tableStartY) ? options.tableStartY : FOOTER_TOP;
   const maxEndY = Number.isFinite(options.maxEndY) ? options.maxEndY : CONTENT_MAX_Y;
   const canEquipLine = (y, step = 5) => y + step <= maxEndY;
   const advanceEquipY = (y, step = 5) => (canEquipLine(y, step) ? y + step : y);
@@ -508,11 +520,7 @@ function drawOrcamentoEquipamentoBlocks(doc, fill, startY, options = {}) {
 
   const floatRect =
     fotosAoLado && blocks.length === 1
-      ? {
-          x: ORC_FOTO_X,
-          y: blockStartY,
-          h: plannedOrcamentoPhotoFloatHeight(fotos),
-        }
+      ? buildOrcamentoPhotoFloatRect(fotos, blockStartY, tableStartY)
       : null;
 
   blocks.forEach((row, index) => {
@@ -635,23 +643,23 @@ async function drawOrcamentoFotosBesideColumn(doc, fotos, floatRect) {
   return bottom;
 }
 
-async function drawOrcamentoFotosSection(doc, startY, fotos = []) {
+async function drawOrcamentoFotosBeforeTable(doc, startY, fotos = [], maxEndY) {
   const rows = (Array.isArray(fotos) ? fotos : []).filter((row) =>
     String(row?.dataUrl || '').startsWith('data:image'),
   );
-  if (!rows.length) return startY;
+  if (!rows.length || startY + 20 > maxEndY) return startY;
 
   const gap = ORC_FOTO_COL_GAP;
   const cols = rows.length === 1 ? 1 : 2;
-  const colW = cols === 1 ? ORC_FOTO_COL_W : ORC_FOTO_COL_W;
+  const colW = cols === 1 ? Math.min(ORC_FOTO_COL_W * 1.4, CONTENT_W * 0.55) : (CONTENT_W - gap) / 2;
   const imgH = rows.length === 1 ? ORC_FOTO_SINGLE_H : ORC_FOTO_STACKED_H;
-  const blockH = imgH + 4;
-  if (!canDrawBodyLine(startY, blockH)) return startY;
+  const blockH = imgH + 6;
+  if (startY + blockH > maxEndY) return startY;
 
   const xStart =
     cols === 1
-      ? MARGIN + CONTENT_W - ORC_FOTO_COL_W
-      : MARGIN + CONTENT_W - ORC_FOTO_COL_W * 2 - gap;
+      ? MARGIN + (CONTENT_W - colW) / 2
+      : MARGIN + (CONTENT_W - (colW * 2 + gap)) / 2;
 
   let y = startY;
   for (let index = 0; index < rows.length; index++) {
@@ -665,9 +673,19 @@ async function drawOrcamentoFotosSection(doc, startY, fotos = []) {
       doc.setTextColor(...PDF_COLOR_TEXT_MUTED);
       doc.text('IMG', x + colW / 2, y + imgH / 2, { align: 'center' });
     }
+
+    const legenda = String(row.legenda || '').trim();
+    if (legenda) {
+      pdfSetFont(doc, 'normal');
+      doc.setFontSize(PDF_FONT_CAPTION);
+      doc.setTextColor(...PDF_COLOR_TEXT_MUTED);
+      pdfSplitText(doc, legenda, colW).forEach((line, lineIndex) => {
+        doc.text(line, x + colW / 2, y + imgH + 3 + lineIndex * 3.2, { align: 'center' });
+      });
+    }
   }
 
-  return y + imgH + 6;
+  return startY + blockH + 4;
 }
 
 function drawOrcamentoFooter(doc, fill) {
@@ -743,7 +761,9 @@ export async function renderOrcamentoPDF(report) {
 
   const fotos = fill.fotos || [];
   const fotosAoLado =
-    fill.fotos_posicao === 'ao_lado_equipamento' || fill.fotos_posicao === 'apos_equipamento';
+    fotos.length > 0 &&
+    fill.fotos_posicao !== 'antes_tabela' &&
+    (fill.fotos_posicao === 'ao_lado_equipamento' || fill.fotos_posicao === 'apos_equipamento');
   const tableLayout = computeOrcamentoTableLayout(fill.linhas, fill.maquinas);
   const maxBodyY = tableLayout.startY - 5;
   let photoFloatRect = null;
@@ -753,6 +773,7 @@ export async function renderOrcamentoPDF(report) {
       fotos,
       fotosAoLado,
       maxEndY: maxBodyY,
+      tableStartY: tableLayout.startY,
     });
     y = Math.min(equip.endY, maxBodyY);
     if (equip.floatRect) {
@@ -765,14 +786,17 @@ export async function renderOrcamentoPDF(report) {
     }
   }
 
-  if (fill.fotos_posicao === 'antes_tabela' && fotos.length) {
-    y = Math.min(maxBodyY, await drawOrcamentoFotosSection(doc, y, fotos));
-  }
-
   y = drawOrcamentoObservacoesCliente(doc, fill, y, {
     floatRect: photoFloatRect,
     maxEndY: tableLayout.startY - 2,
   });
+
+  if (fill.fotos_posicao === 'antes_tabela' && fotos.length) {
+    y = Math.min(
+      tableLayout.startY - 4,
+      await drawOrcamentoFotosBeforeTable(doc, y, fotos, tableLayout.startY - 2),
+    );
+  }
 
   y = drawOrcamentoTable(doc, fill.linhas, tableLayout.startY, {
     maquinas: fill.maquinas,
