@@ -850,6 +850,36 @@ body .glass-card-inner {
 }
 .tech-calendar-nav {
   margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+}
+.tech-calendar-nav__period {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+.tech-calendar-nav__period button {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition);
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 0;
+}
+.tech-calendar-nav__period button:hover {
+  border-color: var(--primary);
+  color: var(--primary);
 }
 .tech-calendar-nav #tech-calendar-title {
   flex: 1;
@@ -8608,27 +8638,26 @@ body.client-ficha-open {
 
   /* Calendário semanal — 7 colunas iguais em toda a largura */
   .tech-header .tech-calendar-nav {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    width: 100%;
     gap: 0.75rem;
     margin: 0.75rem 0 0.5rem;
   }
 
-  .tech-header .tech-calendar-nav button {
+  .tech-header .tech-calendar-nav__period button {
     width: 44px;
     height: 44px;
-    flex-shrink: 0;
     font-size: 1.2rem;
     border-radius: 0.65rem;
   }
 
+  .tech-header .tech-go-today-btn {
+    min-height: 44px;
+    padding: 0.45rem 0.9rem;
+    font-size: 0.875rem;
+    border-radius: 0.65rem;
+  }
+
   .tech-header .tech-calendar-nav #tech-calendar-title {
-    flex: 1;
-    min-width: 0;
     font-size: 0.95rem;
-    text-align: center;
   }
 
   .tech-header .calendar-strip {
@@ -12188,16 +12217,25 @@ body .admin-rh-page .btn-primary, body .admin-rh-page .btn-secondary, body .admi
   background: var(--text-muted);
 }
 .tech-go-today-btn {
-  padding: 0.25rem 0.55rem;
-  margin-right: 0.25rem;
+  flex-shrink: 0;
+  width: auto;
+  min-width: 3.25rem;
+  min-height: 32px;
+  height: auto;
+  padding: 0.35rem 0.75rem;
+  margin: 0;
   border: 1px solid var(--border-subtle);
   border-radius: 8px;
   background: var(--bg-card);
   font: inherit;
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   font-weight: 700;
   color: var(--primary);
   cursor: pointer;
+  white-space: nowrap;
+}
+.tech-go-today-btn:hover {
+  border-color: var(--primary);
 }
 .tech-calendar-compact-btn {
   flex-shrink: 0;

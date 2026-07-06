@@ -77,11 +77,13 @@
             <button type="button" class="tech-cal-view-btn is-active" data-tech-cal-view="week" role="tab" aria-selected="true">Semana</button>
             <button type="button" class="tech-cal-view-btn" data-tech-cal-view="month" role="tab" aria-selected="false">Mês</button>
           </div>
-          <div class="calendar-nav tech-calendar-nav">
+          <div class="tech-calendar-nav">
+            <div class="tech-calendar-nav__period">
+              <button type="button" id="tech-prev-period" aria-label="Período anterior">‹</button>
+              <span id="tech-calendar-title"></span>
+              <button type="button" id="tech-next-period" aria-label="Período seguinte">›</button>
+            </div>
             <button type="button" id="tech-go-today" class="tech-go-today-btn" title="Ir para hoje">Hoje</button>
-            <button type="button" id="tech-prev-period" aria-label="Período anterior">‹</button>
-            <span id="tech-calendar-title"></span>
-            <button type="button" id="tech-next-period" aria-label="Período seguinte">›</button>
           </div>
           <button type="button" id="tech-calendar-compact-btn" class="tech-calendar-compact-btn" aria-pressed="false" title="Calendário compacto">▾</button>
         </div>
