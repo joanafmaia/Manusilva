@@ -101,7 +101,7 @@ export async function navigateToFreshApp() {
 /** Atualiza query string de CSS estático para o build atual. */
 export function applyBuildAssetVersions(buildId) {
   if (!buildId) return;
-  document.querySelectorAll('link[rel="stylesheet"][href*="app.css"]').forEach((link) => {
+  document.querySelectorAll('link[rel="stylesheet"][href*="css/"]').forEach((link) => {
     const href = link.getAttribute('href') || '';
     const base = href.split('?')[0] || 'css/app.css';
     link.setAttribute('href', `${base}?v=${encodeURIComponent(buildId)}`);
