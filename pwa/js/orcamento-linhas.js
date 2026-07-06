@@ -5,6 +5,7 @@
 import { normalizeMaterialRows } from './material-table-field.js';
 import { getPedidoOrcamentoDetalhe } from './pedido-orcamento.js';
 import { readOrcamentoCabecalhoFromDom, resolveOrcamentoCabecalho, suggestOrcamentoMaquinas } from './orcamento-cabecalho.js';
+import { normalizeOrcamentoFotos, readOrcamentoFotosPosicaoFromDom } from './orcamento-fotos.js';
 import {
   formatOrcamentoMaquinaShortLabel,
   hasOrcamentoMaquinaData,
@@ -253,6 +254,7 @@ export function buildOrcamentoMetaDraft(report, numeroReservado = null) {
   const prazoEntrega = existing?.prazoEntrega ?? '';
   const totals = computeOrcamentoTotals(linhas, existing || taxasSaida);
   const cabecalho = resolveOrcamentoCabecalho(report);
+  const { fotos, fotosPosicao } = normalizeOrcamentoFotos(existing);
 
   return {
     numeroSequencial: sequencial,
@@ -269,6 +271,8 @@ export function buildOrcamentoMetaDraft(report, numeroReservado = null) {
     subtotal: formatEuro(totals.subtotal),
     iva: formatEuro(totals.iva),
     total: formatEuro(totals.total),
+    fotos,
+    fotosPosicao,
   };
 }
 
@@ -299,6 +303,12 @@ export function readOrcamentoFormFromDom(root, report) {
   const totals = computeOrcamentoTotals(linhas, taxaSlots);
   const existing = getReportOrcamentoMeta(report) || {};
   const domMeta = getReportOrcamentoMetaFromDom(root);
+  const fotosState = root?._orcamentoFotosState
+    ? normalizeOrcamentoFotos({
+        ...root._orcamentoFotosState,
+        fotosPosicao: readOrcamentoFotosPosicaoFromDom(root),
+      })
+    : normalizeOrcamentoFotos(existing);
 
   return {
     ...existing,
@@ -312,6 +322,8 @@ export function readOrcamentoFormFromDom(root, report) {
     subtotal: formatEuro(totals.subtotal),
     iva: formatEuro(totals.iva),
     total: formatEuro(totals.total),
+    fotos: fotosState.fotos,
+    fotosPosicao: fotosState.fotosPosicao,
     atualizadoEm: new Date().toISOString(),
   };
 }

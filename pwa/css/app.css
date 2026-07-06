@@ -10123,6 +10123,49 @@ details[open] .expand-icon { transform: rotate(90deg); }
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 0.55rem 0.75rem;
 }
+.review-orc-fotos {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(15, 23, 42, 0.08);
+}
+.review-orc-fotos__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.85rem;
+  margin-top: 0.5rem;
+}
+.review-orc-fotos__slot {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0.65rem;
+  border: 1px dashed rgba(15, 23, 42, 0.18);
+  border-radius: 10px;
+  background: rgba(248, 250, 252, 0.55);
+}
+.review-orc-fotos__preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 7rem;
+  border-radius: 8px;
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  overflow: hidden;
+}
+.review-orc-fotos__preview-img {
+  display: block;
+  max-width: 100%;
+  max-height: 9rem;
+  object-fit: contain;
+}
+.review-orc-fotos__placeholder {
+  font-size: 0.82rem;
+  color: var(--text-muted, #64748b);
+}
+.review-orc-fotos__upload {
+  width: fit-content;
+}
 .review-orc-table--multi-equip .review-orc-equip-th,
 .review-orc-table--multi-equip .review-orc-equip-cell {
   width: min(14rem, 22vw);

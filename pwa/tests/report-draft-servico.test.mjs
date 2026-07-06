@@ -40,6 +40,41 @@ describe('rascunho na visita (serviço)', () => {
     assert.equal(row.dados.technicianCompleted, true);
   });
 
+  it('mapReportToRow não usa trabalho_id como servico_id', async () => {
+    const trabalhosDb = await import('../js/trabalhos-db.js');
+    const { mapReportToRow } = await import('../js/relatorios-db.js');
+
+    trabalhosDb.invalidateJobsCache();
+    trabalhosDb.mergeJobFromRealtime({
+      id: 'job-uuid-1',
+      numero_ordem: 99,
+      servico_id: 'svc-linked',
+      tecnico_id: 'Filipe',
+      cliente_id: 10,
+      tipo_servico: 'manutencao',
+      data: '2026-07-01',
+      estado: 'scheduled',
+    });
+
+    const standalone = mapReportToRow({
+      jobId: 'job-uuid-1',
+      serviceType: 'proposta_ms015_rh',
+      status: 'approved',
+      data: { orcamentoOrigem: 'rh_standalone', values: {} },
+    });
+    assert.equal(standalone.servico_id, 'svc-linked');
+    assert.equal(standalone.trabalho_id, 'job-uuid-1');
+
+    const withoutServico = mapReportToRow({
+      jobId: 'job-uuid-standalone',
+      serviceType: 'proposta_ms015_rh',
+      status: 'approved',
+      data: { orcamentoOrigem: 'rh_standalone', values: {} },
+    });
+    assert.equal(withoutServico.servico_id, null);
+    assert.equal(withoutServico.trabalho_id, 'job-uuid-standalone');
+  });
+
   it('reportDraftStorageKey — usa id do relatório (vários do mesmo tipo)', async () => {
     const { reportDraftStorageKey } = await import('../js/report-local-storage.js');
     const key = reportDraftStorageKey({

@@ -165,11 +165,23 @@ export function mapRowToReport(row) {
   };
 }
 
+function resolveServicoIdForReport(report) {
+  const explicit = String(report?.servicoId || '').trim();
+  if (explicit) return explicit;
+
+  const jobId = String(report?.jobId || '').trim();
+  if (!jobId) return null;
+
+  const job = getJobsSnapshot().find((row) => sameEntityId(row.id, jobId));
+  const fromJob = String(job?.servicoId || '').trim();
+  return fromJob || null;
+}
+
 export function mapReportToRow(report) {
   const data = report.data || {};
   return {
     trabalho_id: report.jobId || null,
-    servico_id: report.servicoId || report.jobId || null,
+    servico_id: resolveServicoIdForReport(report),
     tecnico_id: report.technicianId,
     cliente_id: parseClientId(report.clientId),
     numero_serie: report.forkliftSerial || null,

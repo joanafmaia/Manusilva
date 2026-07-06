@@ -38,6 +38,12 @@ import {
   setOrcamentoRespostaCliente,
 } from './orcamento-workflow.js';
 import { formatInterventionDatePt } from './report-intervention-date.js';
+import {
+  MAX_ORCAMENTO_FOTOS,
+  normalizeOrcamentoFotos,
+  ORCAMENTO_FOTOS_POSICOES,
+  readOrcamentoFotosPosicaoFromDom,
+} from './orcamento-fotos.js';
 
 function defaultOrcamentoEmail(report, client) {
   const meta = getReportOrcamentoMeta(report);
@@ -119,6 +125,135 @@ function renderTaxasSaidaFields(meta) {
       </div>
       <span class="review-orc-field-hint text-muted">Até ${MAX_TAXAS_SAIDA} taxas; em branco ignora. A soma entra no subtotal.</span>
     </fieldset>`;
+}
+
+function renderOrcamentoFotosSlots(fotos = []) {
+  return Array.from({ length: MAX_ORCAMENTO_FOTOS }, (_, index) => {
+    const foto = fotos[index];
+    const preview = foto?.dataUrl
+      ? `<img src="${foto.dataUrl}" alt="" class="review-orc-fotos__preview-img" />`
+      : '<span class="review-orc-fotos__placeholder">Sem foto</span>';
+    const removeBtn = foto
+      ? `<button type="button" class="btn-outline btn-sm btn-touch review-orc-fotos__remove" data-orc-foto-remove="${index}">Remover</button>`
+      : '';
+    return `
+      <div class="review-orc-fotos__slot" data-orc-foto-slot="${index}">
+        <div class="review-orc-fotos__preview">${preview}</div>
+        <label class="review-orc-fotos__upload btn-outline btn-sm btn-touch">
+          ${foto ? 'Substituir foto' : 'Carregar foto'}
+          <input type="file" accept="image/*" class="review-orc-fotos__file" data-orc-foto-input="${index}" hidden />
+        </label>
+        <input
+          type="text"
+          class="review-orc-input review-orc-fotos__legenda"
+          data-orc-foto-legenda="${index}"
+          value="${escapeHtml(foto?.legenda || '')}"
+          placeholder="Legenda (opcional)"
+          ${foto ? '' : 'disabled'}
+        />
+        ${removeBtn}
+      </div>`;
+  }).join('');
+}
+
+function renderOrcamentoFotosSection(meta) {
+  const slots = fotoSlotsFromMeta(meta);
+  const fotosPosicao = normalizeOrcamentoFotos(meta).fotosPosicao;
+  const posOptions = ORCAMENTO_FOTOS_POSICOES.map(
+    (row) =>
+      `<option value="${row.id}"${fotosPosicao === row.id ? ' selected' : ''}>${escapeHtml(row.label)}</option>`,
+  ).join('');
+
+  return `
+    <section class="review-orc-fotos" aria-label="Fotos na proposta">
+      <h4 class="review-orc-cabecalho__title">Fotos no PDF</h4>
+      <p class="text-muted review-orc-field-hint">Opcional — até ${MAX_ORCAMENTO_FOTOS} fotografias na proposta comercial.</p>
+      <label class="review-orc-field">
+        <span>Posição no PDF</span>
+        <select class="review-orc-input" data-orc-field="fotosPosicao">${posOptions}</select>
+      </label>
+      <div class="review-orc-fotos__grid">${renderOrcamentoFotosSlots(slots)}</div>
+    </section>`;
+}
+
+function refreshOrcamentoFotosGrid(root) {
+  const grid = root.querySelector('.review-orc-fotos__grid');
+  if (!grid || !root._orcamentoFotosState) return;
+  grid.innerHTML = renderOrcamentoFotosSlots(fotoSlotsFromMeta(root._orcamentoFotosState));
+}
+
+function fotoSlotsFromMeta(meta) {
+  const list = Array.isArray(meta?.fotos) ? meta.fotos : [];
+  return Array.from({ length: MAX_ORCAMENTO_FOTOS }, (_, index) => {
+    const row = list[index];
+    return row?.dataUrl?.startsWith('data:image') ? row : null;
+  });
+}
+
+function bindOrcamentoFotosSection(root, report) {
+  const meta = getReportOrcamentoMeta(report) || {};
+  root._orcamentoFotosState = {
+    ...normalizeOrcamentoFotos(meta),
+    fotos: fotoSlotsFromMeta(meta),
+  };
+
+  const syncPosicao = () => {
+    root._orcamentoFotosState = {
+      ...root._orcamentoFotosState,
+      fotosPosicao: readOrcamentoFotosPosicaoFromDom(root),
+    };
+  };
+
+  root.querySelector('[data-orc-field="fotosPosicao"]')?.addEventListener('change', syncPosicao);
+
+  root.addEventListener('change', async (e) => {
+    const input = e.target.closest('[data-orc-foto-input]');
+    if (!input || !root.contains(input)) return;
+    const index = Number(input.dataset.orcFotoInput);
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file || !Number.isInteger(index) || index < 0 || index >= MAX_ORCAMENTO_FOTOS) return;
+
+    try {
+      const { compressImageFile } = await import('./image-compress.js');
+      const { dataUrl } = await compressImageFile(file);
+      const slots = fotoSlotsFromMeta(root._orcamentoFotosState);
+      slots[index] = { dataUrl, legenda: slots[index]?.legenda || '' };
+      root._orcamentoFotosState = {
+        ...root._orcamentoFotosState,
+        fotos: slots,
+      };
+      refreshOrcamentoFotosGrid(root);
+    } catch (err) {
+      console.error('[Orçamento] Carregar foto:', err);
+      const { showToast } = await import('./app.js');
+      showToast(err?.message || 'Não foi possível carregar a foto.', 'error');
+    }
+  });
+
+  root.addEventListener('input', (e) => {
+    const field = e.target.closest('[data-orc-foto-legenda]');
+    if (!field || !root.contains(field)) return;
+    const index = Number(field.dataset.orcFotoLegenda);
+    const slots = fotoSlotsFromMeta(root._orcamentoFotosState);
+    if (!slots[index]) return;
+    slots[index] = { ...slots[index], legenda: field.value.trim() };
+    root._orcamentoFotosState = { ...root._orcamentoFotosState, fotos: slots };
+  });
+
+  root.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-orc-foto-remove]');
+    if (!btn || !root.contains(btn)) return;
+    const index = Number(btn.dataset.orcFotoRemove);
+    const slots = fotoSlotsFromMeta(root._orcamentoFotosState);
+    if (!Number.isInteger(index) || index < 0 || index >= MAX_ORCAMENTO_FOTOS) return;
+    slots[index] = null;
+    root._orcamentoFotosState = {
+      ...root._orcamentoFotosState,
+      fotos: slots,
+    };
+    refreshOrcamentoFotosGrid(root);
+  });
 }
 
 function renderOrcamentoRespostaSection(report) {
@@ -239,6 +374,7 @@ export function renderOrcamentoEditor(report, { client } = {}) {
           <span class="review-orc-field-hint text-muted">Incluído no PDF da proposta enviado ao cliente.</span>
         </label>
         ${apoioOrcamentoField}
+        ${renderOrcamentoFotosSection(meta)}
       </section>
 
       <label class="review-orc-field review-orc-field--email">
@@ -474,6 +610,7 @@ export function bindOrcamentoEditor(container, { report, onUpdated, onSent } = {
 
   bindLinhaEvents(root, currentReport);
   bindOrcamentoMaquinasSection(root, { onChange: syncEquipColumn });
+  bindOrcamentoFotosSection(root, currentReport);
   syncEquipColumn();
   refreshLineTotals(root, currentReport);
 

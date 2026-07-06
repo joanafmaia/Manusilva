@@ -48,6 +48,7 @@ import {
   PDF_TABLE_LINE_WIDTH,
 } from './pdf-design-system.js';
 import { loadJsPDF } from './pdf-report.js';
+import { pdfAddImageContained } from './pdf-image-fit.js';
 import { stampOrcamentoCertificacaoSelosAllPages } from './pdf-orcamento-certificacao.js';
 
 const MARGIN = PDF_MARGIN;
@@ -480,6 +481,58 @@ function drawOrcamentoObservacoesCliente(doc, fill, startY) {
   return advanceBodyY(y, 3);
 }
 
+async function drawOrcamentoFotosSection(doc, startY, fotos = []) {
+  const rows = (Array.isArray(fotos) ? fotos : []).filter((row) =>
+    String(row?.dataUrl || '').startsWith('data:image'),
+  );
+  if (!rows.length) return startY;
+
+  const gap = 4;
+  const cols = rows.length === 1 ? 1 : 2;
+  const colW = cols === 1 ? CONTENT_W : (CONTENT_W - gap) / 2;
+  const imgH = rows.length === 1 ? 46 : 38;
+  const titleH = 5;
+  const legendaH = 4;
+  const blockH = titleH + imgH + legendaH + 4;
+  if (!canDrawBodyLine(startY, blockH)) return startY;
+
+  let y = startY;
+  pdfSetFont(doc, 'bold');
+  doc.setFontSize(PDF_FONT_BODY);
+  doc.setTextColor(...PDF_COLOR_TEXT_DARK);
+  doc.text('Fotografias', MARGIN, y);
+  y = advanceBodyY(y, titleH);
+
+  for (let index = 0; index < rows.length; index++) {
+    const row = rows[index];
+    const x = MARGIN + index * (colW + gap);
+    doc.setDrawColor(...PDF_TABLE_LINE);
+    doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
+    doc.roundedRect(x, y, colW, imgH, 1.2, 1.2, 'S');
+
+    try {
+      await pdfAddImageContained(doc, row.dataUrl, x, y, colW, imgH, { padding: 1 });
+    } catch {
+      pdfSetFont(doc, 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(...PDF_COLOR_TEXT_MUTED);
+      doc.text('IMG', x + colW / 2, y + imgH / 2, { align: 'center' });
+    }
+
+    const legenda = String(row.legenda || '').trim();
+    if (legenda) {
+      pdfSetFont(doc, 'normal');
+      doc.setFontSize(PDF_FONT_CAPTION);
+      doc.setTextColor(...PDF_COLOR_TEXT_MUTED);
+      pdfSplitText(doc, legenda, colW).forEach((line, lineIndex) => {
+        doc.text(line, x + colW / 2, y + imgH + 3.5 + lineIndex * 3.5, { align: 'center' });
+      });
+    }
+  }
+
+  return y + imgH + legendaH + 4;
+}
+
 function drawOrcamentoFooter(doc, fill) {
   let y = FOOTER_TOP + 4;
   pdfSetFont(doc, 'normal');
@@ -555,7 +608,15 @@ export async function renderOrcamentoPDF(report) {
     y = drawOrcamentoEquipamentoBlocks(doc, fill, y);
   }
 
+  if (fill.fotos_posicao === 'apos_equipamento' && fill.fotos?.length) {
+    y = await drawOrcamentoFotosSection(doc, y, fill.fotos);
+  }
+
   y = drawOrcamentoObservacoesCliente(doc, fill, y);
+
+  if (fill.fotos_posicao !== 'apos_equipamento' && fill.fotos?.length) {
+    y = await drawOrcamentoFotosSection(doc, y, fill.fotos);
+  }
 
   y = drawOrcamentoTable(doc, fill.linhas, y, { maquinas: fill.maquinas });
 
