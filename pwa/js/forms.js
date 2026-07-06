@@ -444,7 +444,7 @@ export async function openServicoReportForm(servicoId, options = {}) {
       options.editPending === true ||
       (options.editPending !== false && serverReport?.status === 'pending_review');
 
-    const servicoVisitMode = !viewOnly && !editPendingOpt;
+    const servicoVisitMode = !viewOnly;
 
     const resolvedReportId =
       reportId || serverReport?.id || (createNew ? createServicoReportId() : null);
@@ -703,7 +703,11 @@ async function buildFormHTML(job, client, tech, service, existingReport, options
       ${msIconHtml('pencil', 'edit-pending-banner-icon')}
       <div>
         <strong>Edição de relatório pendente</strong>
-        <p>As alterações substituem a submissão anterior. As fotos existentes mantêm-se se não tirar novas.</p>
+        <p>As alterações substituem a submissão anterior. As fotos existentes mantêm-se se não tirar novas.${
+          servicoVisitMode
+            ? ' As assinaturas mantêm-se da visita — use <strong>Concluir visita</strong> se precisar de as alterar.'
+            : ''
+        }</p>
       </div>
     </div>
   ` : '';
@@ -920,10 +924,9 @@ function buildReportFromForm(overlay, job, existingReport, signaturePads, report
     submittedAt: existingReport?.submittedAt || new Date().toISOString(),
     data: {
       values,
-      signatures:
-        job.servicoId && !editingPending
-          ? existingReport?.data?.signatures || {}
-          : resolveFormSignatures(existingReport),
+      signatures: servicoId
+        ? existingReport?.data?.signatures || {}
+        : resolveFormSignatures(existingReport),
       ...(() => {
         const antes = fotoPersistPayload(fotoAntesState);
         const depois = fotoPersistPayload(fotoDepoisState);
