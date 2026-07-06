@@ -12,7 +12,8 @@
     "lint": "eslint pwa/js pwa/api",
     "format": "prettier --write \"pwa/js/**/*.js\" \"pwa/api/**/*.js\" \"pwa/css/**/*.css\"",
     "format:check": "prettier --check \"pwa/js/**/*.js\" \"pwa/api/**/*.js\" \"pwa/css/**/*.css\"",
-    "css:split": "python scripts/split-app-css.py"
+    "css:split": "python scripts/split-app-css.py",
+    "css:move-tech": "python scripts/move-tech-css-from-admin.py"
   },
   "dependencies": {
     "jszip": "^3.10.1",
