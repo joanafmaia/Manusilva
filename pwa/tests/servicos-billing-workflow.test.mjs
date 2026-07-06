@@ -3,6 +3,21 @@ import assert from 'node:assert/strict';
 
 describe('servicos-billing-workflow', () => {
   beforeEach(async () => {
+    if (!globalThis.localStorage) {
+      globalThis.localStorage = {
+        store: {},
+        getItem(key) {
+          return this.store[key] ?? null;
+        },
+        setItem(key, value) {
+          this.store[key] = String(value);
+        },
+        removeItem(key) {
+          delete this.store[key];
+        },
+      };
+    }
+
     const servicosDb = await import('../js/servicos-db.js');
     const relatoriosDb = await import('../js/relatorios-db.js');
     servicosDb.invalidateServicosCache();
@@ -89,7 +104,19 @@ describe('servicos-billing-workflow', () => {
     assert.equal(isPendingBilling(getReport('rb1')), false);
   });
 
-  it('isServicoPendingBilling — visita com relatório técnico e pedido de orçamento', async () => {
+  it('isServicoPendingBilling — visita com relatório técnico e pedido de orçamento (cliente real)', async () => {
+    const localDb = await import('../js/local-db.js');
+    const db = localDb.getDB();
+    db.clients = db.clients || [];
+    const existing = db.clients.find((c) => String(c.id) === '10');
+    if (existing) {
+      existing.name = 'Cliente Real SA';
+      existing.ehTeste = false;
+      existing.eh_teste = false;
+    } else {
+      db.clients.push({ id: '10', name: 'Cliente Real SA', ehTeste: false });
+    }
+
     const relatoriosDb = await import('../js/relatorios-db.js');
     relatoriosDb.mergeReportInCache({
       id: 'r-orc-visita',
@@ -105,5 +132,40 @@ describe('servicos-billing-workflow', () => {
     const { isServicoPendingBilling } = await import('../js/servicos-billing-workflow.js');
     const { getServico } = await import('../js/servicos-db.js');
     assert.equal(isServicoPendingBilling(getServico('svc-bill')), true);
+  });
+
+  it('isServicoPendingBilling — cliente teste com pedido de orçamento não entra em Faturação', async () => {
+    const localDb = await import('../js/local-db.js');
+    const db = localDb.getDB();
+    db.clients = db.clients || [];
+    const existing = db.clients.find((c) => String(c.id) === '10');
+    if (existing) {
+      existing.name = 'Cliente Teste Demo';
+      existing.ehTeste = true;
+      existing.eh_teste = true;
+    } else {
+      db.clients.push({
+        id: '10',
+        name: 'Cliente Teste Demo',
+        ehTeste: true,
+        eh_teste: true,
+      });
+    }
+
+    const relatoriosDb = await import('../js/relatorios-db.js');
+    relatoriosDb.mergeReportInCache({
+      id: 'r-orc-teste',
+      servicoId: 'svc-bill',
+      serviceType: 'folha_intervencao_avarias',
+      status: 'approved',
+      approvedAt: '2026-07-02T09:00:00.000Z',
+      clientId: '10',
+      technicianId: 'Hugo',
+      data: { values: { pedido_orcamento: 'Sim' } },
+    });
+
+    const { isServicoPendingBilling } = await import('../js/servicos-billing-workflow.js');
+    const { getServico } = await import('../js/servicos-db.js');
+    assert.equal(isServicoPendingBilling(getServico('svc-bill')), false);
   });
 });

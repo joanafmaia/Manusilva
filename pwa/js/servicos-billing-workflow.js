@@ -11,16 +11,35 @@ import {
   resolveInvoiceBillingFields,
   getPendingBillingReports,
 } from './billing-workflow.js';
+import { getClient } from './entity-lookups.js';
 import { getServicoActiveReports, isServicoVisitFullyApproved } from './servicos-email-workflow.js';
 import { getPendingOrcamentoBillingReports } from './orcamento-billing-workflow.js';
 import { getReportOrcamentoMeta } from './orcamento-linhas.js';
-import { showToast } from './toast-modal.js';
+import { reportPedidoOrcamentoRoutesToOrcamentosTab } from './pedido-orcamento.js';
 
 /** Relatório com faturação delegada ao serviço (não aparece na fila por relatório). */
 export const REPORT_FATURACAO_VIA_SERVICO = 'via_servico';
 
+function safeGetClient(clientId) {
+  if (clientId == null || clientId === '') return null;
+  try {
+    return getClient(clientId);
+  } catch {
+    return null;
+  }
+}
+
+function servicoRoutesTestPedidoOrcamentoToOrcamentos(servico) {
+  if (!servico?.clientId) return false;
+  const client = safeGetClient(servico.clientId);
+  return getServicoActiveReports(servico.id).some((report) =>
+    reportPedidoOrcamentoRoutesToOrcamentosTab(report, client),
+  );
+}
+
 export function isServicoPendingBilling(servico) {
   if (!servico) return false;
+  if (servicoRoutesTestPedidoOrcamentoToOrcamentos(servico)) return false;
   const fs = servico.faturacaoStatus;
   if (fs && fs !== 'pendente') return false;
   const reports = getServicoActiveReports(servico.id);
@@ -86,6 +105,7 @@ export async function markServicoPendingBillingIfReady(servicoId) {
 
   const servico = getServico(servicoId);
   if (!servico) return false;
+  if (servicoRoutesTestPedidoOrcamentoToOrcamentos(servico)) return false;
 
   const fs = servico.faturacaoStatus;
   if (fs && fs !== 'pendente') return false;

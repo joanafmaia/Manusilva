@@ -2,6 +2,7 @@
  * Pedido de orçamento — deteção e URLs associados ao relatório.
  */
 
+import { isTestClient } from './client-test-utils.js';
 import {
   reportIsStandaloneOrcamento,
   STANDALONE_ORCAMENTO_ORIGEM,
@@ -17,6 +18,12 @@ export {
 export function reportHasPedidoOrcamento(report) {
   const values = report?.data?.values || {};
   return String(values.pedido_orcamento || '').trim().toLowerCase() === 'sim';
+}
+
+/** Cliente teste com pedido de orçamento — fila Orçamentos, não Faturação. */
+export function reportPedidoOrcamentoRoutesToOrcamentosTab(report, client) {
+  if (!reportHasPedidoOrcamento(report)) return false;
+  return isTestClient(client);
 }
 
 /** Relatório com pedido técnico ou proposta RH criada do zero. */

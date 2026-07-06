@@ -6,6 +6,7 @@ import {
   reportHasPedidoOrcamento,
   isRhOrcamentoQueueReport,
   reportOrcamentoPorPreparar,
+  reportPedidoOrcamentoRoutesToOrcamentosTab,
 } from '../js/pedido-orcamento.js';
 import {
   reportIsStandaloneOrcamento,
@@ -62,6 +63,20 @@ describe('orcamento standalone', () => {
     };
     assert.equal(reportHasPedidoOrcamento(report), true);
     assert.equal(reportIsStandaloneOrcamento(report), false);
+    assert.equal(isRhOrcamentoQueueReport(report), true);
+  });
+
+  it('cliente teste com pedido de orçamento vai para aba Orçamentos', () => {
+    const report = {
+      status: 'approved',
+      clientId: '99',
+      data: { values: { pedido_orcamento: 'Sim' } },
+    };
+    const testClient = { id: '99', name: 'Cliente Teste A', ehTeste: true };
+    const realClient = { id: '1', name: 'Sinflex', ehTeste: false };
+
+    assert.equal(reportPedidoOrcamentoRoutesToOrcamentosTab(report, testClient), true);
+    assert.equal(reportPedidoOrcamentoRoutesToOrcamentosTab(report, realClient), false);
     assert.equal(isRhOrcamentoQueueReport(report), true);
   });
 });

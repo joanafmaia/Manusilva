@@ -11,10 +11,12 @@ import {
 import { normalizeStatusRecebimento } from './billing-constants.js';
 import { sameEntityId } from './entity-id.js';
 import { getReportOrcamentoMeta } from './orcamento-linhas.js';
+import { getClient } from './entity-lookups.js';
 import {
   getReportOrcamentoPdfUrl,
   getReportTechnicalPdfUrl,
   reportIsCommercialOrcamento,
+  reportPedidoOrcamentoRoutesToOrcamentosTab,
 } from './pedido-orcamento.js';
 import { isPendingOrcamentoBilling } from './orcamento-billing-workflow.js';
 import { getInvoicedServicos } from './servicos-db.js';
@@ -22,6 +24,15 @@ import { getJob } from './entity-lookups.js';
 
 function findReport(reportId) {
   return getReportsSnapshot().find((r) => sameEntityId(r.id, reportId)) || null;
+}
+
+function safeGetClient(clientId) {
+  if (clientId == null || clientId === '') return null;
+  try {
+    return getClient(clientId);
+  } catch {
+    return null;
+  }
 }
 
 function reportNumeroOrdem(report) {
@@ -134,6 +145,9 @@ export function resolvePrimaryBillingReportId(reports = []) {
 /** Relatório aprovado ainda por faturar (controlo interno; exclui visitas e propostas comerciais). */
 export function isPendingBilling(report, allReports = null) {
   if (!report || report.status !== 'approved') return false;
+  if (reportPedidoOrcamentoRoutesToOrcamentosTab(report, safeGetClient(report.clientId))) {
+    return false;
+  }
   if (report.servicoId) return false;
   const snapshot = allReports || getReportsSnapshot();
   if (reportIsCommercialOrcamento(report)) return false;

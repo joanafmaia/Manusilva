@@ -52,6 +52,7 @@ import {
 } from './calendar-event-state.js';
 import { ensureProductionCatalog, formatClientsLoadError } from './clients-catalog.js';
 import { isTestClient } from './client-test-utils.js';
+import { reportPedidoOrcamentoRoutesToOrcamentosTab } from './pedido-orcamento.js';
 import { formatOrdemLabel } from './report-review-ui.js';
 import { renderClientCombobox, bindClientComboboxes } from './client-combobox.js';
 import { forceLogout, renderUserGreeting } from './auth.js';
@@ -1636,6 +1637,15 @@ async function handleNewPendingReport(report, opts = {}, beep) {
   } catch (err) {
     console.warn('[Admin] Trabalhos para notificação:', err);
   }
+
+  const client = getClient(report.clientId);
+  if (reportPedidoOrcamentoRoutesToOrcamentosTab(report, client)) {
+    showPendingReportNotification(report);
+    await navigateToOrcamentoReport(report.id);
+    if (opts.playSound && beep) beep();
+    return;
+  }
+
   rhReviewFilter = 'pending_review';
   setAdminTab('relatorios');
   renderCalendar();

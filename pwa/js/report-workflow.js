@@ -446,6 +446,23 @@ export async function approveReport(reportId, options = {}) {
 
     const approvedReport = getReport(reportId) || reportForPdf;
     if (
+      testClient &&
+      reportHasPedidoOrcamento(approvedReport) &&
+      reportOrcamentoPorPreparar(approvedReport)
+    ) {
+      try {
+        const { navigateToOrcamentoReport } = await import('./admin-dashboard.js');
+        await navigateToOrcamentoReport(reportId);
+      } catch {
+        window.setTimeout(() => {
+          showToast(
+            'Cliente teste com pedido de orçamento — abra a aba Orçamentos para preparar a proposta.',
+            'info',
+            9000,
+          );
+        }, 1200);
+      }
+    } else if (
       reportHasPedidoOrcamento(approvedReport) &&
       reportOrcamentoPorPreparar(approvedReport)
     ) {
