@@ -6,9 +6,9 @@
   min-height: 100dvh;
 }
 .admin-sidebar {
-  background: var(--bg-card);
-  border-right: 1px solid var(--border-color);
-  padding: 1.5rem 1rem;
+  background: #ffffff;
+  border-right: 1px solid var(--ms-border-md);
+  padding: 1.25rem 0.85rem;
   display: flex;
   flex-direction: column;
   position: sticky;
@@ -26,12 +26,26 @@
 .sidebar-brand .brand-logo-slot.has-brand-image {
   padding: 0.25rem 0;
 }
+.sidebar-brand-text strong {
+  font-family: var(--ms-font-display, Georgia, serif);
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--ms-text-800);
+}
 .sidebar-nav { flex: 1; }
 .nav-item-icon {
   flex-shrink: 0;
-  width: 1.25rem;
-  text-align: center;
-  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.35rem;
+  color: var(--ms-text-500);
+}
+.nav-item-icon-svg {
+  width: 1.125rem;
+  height: 1.125rem;
+  display: block;
 }
 .nav-item-label {
   flex: 1;
@@ -135,20 +149,34 @@
 .nav-item {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem 1rem;
-  border-radius: var(--radius-sm);
-  color: var(--text-secondary);
+  gap: 0.65rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: var(--ms-radius-lg);
+  color: var(--ms-text-600);
   font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;
-  transition: all var(--transition);
-  margin-bottom: 0.25rem;
+  transition: background var(--transition), color var(--transition), box-shadow var(--transition);
+  margin-bottom: 0.2rem;
   text-decoration: none;
+  border: 1px solid transparent;
 }
-.nav-item:hover, .nav-item.active {
-  background: var(--primary-glow);
-  color: var(--text-primary);
+.nav-item:hover {
+  background: var(--surface-1);
+  color: var(--ms-text-800);
+}
+.nav-item:hover .nav-item-icon {
+  color: var(--ms-primary);
+}
+.nav-item.active {
+  background: var(--surface-accent);
+  color: var(--ms-primary);
+  font-weight: 600;
+  border-color: color-mix(in srgb, var(--ms-primary) 12%, var(--ms-border-md));
+  box-shadow: inset 3px 0 0 var(--ms-primary);
+}
+.nav-item.active .nav-item-icon {
+  color: var(--ms-primary);
 }
 .sidebar-footer { padding-top: 1rem; border-top: 1px solid var(--border-subtle); }
 .sidebar-footer .tech-refresh-btn.sidebar-refresh-btn {
@@ -164,7 +192,7 @@
   color: var(--ms-text-muted);
 }
 .sidebar-refresh-btn:hover {
-  color: var(--ms-primary, #2563eb);
+  color: var(--ms-primary);
 }
 .admin-main {
   padding: 0;
@@ -266,10 +294,12 @@
   max-width: 42rem;
 }
 .admin-header h1, .admin-header .ms-h1 {
-  font-size: 1.5rem;
+  font-family: var(--ms-font-display, Georgia, serif);
+  font-size: 1.625rem;
   margin: 0;
   font-weight: 700;
-  color: #1e293b;
+  color: var(--ms-text-800);
+  letter-spacing: -0.02em;
 }
 .admin-header-actions {
   display: flex;
@@ -287,11 +317,11 @@
   align-items: center;
   justify-content: center;
   padding: 0.75rem 1.25rem;
-  background: linear-gradient(90deg, #1e40af, #3b82f6);
+  background: var(--ms-primary);
   color: #fff;
   font-weight: 600;
   font-size: 0.9375rem;
-  box-shadow: 0 4px 20px rgba(30, 64, 175, 0.35);
+  box-shadow: 0 4px 16px rgba(30, 77, 114, 0.22);
   transform: translateY(-100%);
   opacity: 0;
   transition: transform 0.35s ease, opacity 0.35s ease;
@@ -301,10 +331,6 @@
   transform: translateY(0);
   opacity: 1;
   pointer-events: auto;
-}
-  0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.55); }
-  70% { box-shadow: 0 0 0 8px rgba(59, 130, 246, 0); }
-  100% { box-shadow: none; }
 }
 /* Split-screen: calendário (70%) + revisão RH (30%) */ .admin-split-layout {
   display: grid;
@@ -1197,7 +1223,7 @@
   transform: scale(1.02);
 }
 .rh-card__foto-btn:focus-visible {
-  outline: 2px solid #3b82f6;
+  outline: 2px solid var(--ms-primary);
   outline-offset: 2px;
 }
 .rh-card__foto-img {
@@ -3411,41 +3437,41 @@
     margin-bottom: 0;
   }
 }
-/* ═══ Painel RH / Administração — guia Tailwind slate ═══ */ body.admin-rh-page .admin-main, body .admin-rh-page .admin-page {
-  background-color: #f8fafc;
+/* ═══ Painel RH — clínica B2B (alinhado a base.css) ═══ */ body.admin-rh-page .admin-main, body .admin-rh-page .admin-page {
+  background-color: var(--ms-page-bg);
 }
 body .admin-rh-page .bg-mesh {
-  background: #f8fafc;
+  background: var(--ms-page-bg);
 }
 body .admin-rh-page .admin-panel.glass-card, body .admin-rh-page .admin-review-panel.glass-card, body .admin-rh-page .rh-section, body .admin-rh-page .dashboard-metric-card, body .admin-rh-page .employee-card, body .admin-rh-page .clients-list-card {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 0.75rem;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+  background: var(--ms-card-bg);
+  border: 1px solid var(--ms-border-md);
+  border-radius: var(--ms-radius-xl);
+  box-shadow: var(--ms-shadow-sm);
 }
 body .admin-rh-page .rh-section {
-  border-color: #f1f5f9;
+  border-color: var(--ms-border);
 }
 body .admin-rh-page .admin-sidebar {
   background: #ffffff;
-  border-right-color: #e2e8f0;
+  border-right-color: var(--ms-border-md);
 }
 body .admin-rh-page .rh-data-table th {
-  background: #f8fafc;
-  color: #64748b;
-  border-bottom-color: #e2e8f0;
+  background: var(--ms-table-head-bg);
+  color: var(--ms-text-500);
+  border-bottom-color: var(--ms-border-md);
 }
 body .admin-rh-page .rh-data-table td {
-  border-bottom-color: #f1f5f9;
-  color: #334155;
+  border-bottom-color: var(--ms-border);
+  color: var(--ms-text-700);
 }
 body .admin-rh-page .form-input, body .admin-rh-page .form-select, body .admin-rh-page .client-combobox-input {
-  border-radius: 0.5rem;
-  border-color: #e2e8f0;
+  border-radius: var(--ms-radius-lg);
+  border-color: var(--ms-border-md);
   background: #ffffff;
 }
 body .admin-rh-page .btn-primary, body .admin-rh-page .btn-secondary, body .admin-rh-page .btn-ghost {
-  border-radius: 0.5rem;
+  border-radius: var(--ms-radius-lg);
 }
 /* ─── Painel de Faturação ─── */ #admin-tab-faturacao .admin-panel {
   max-width: none;
@@ -3630,7 +3656,7 @@ body .admin-rh-page .btn-primary, body .admin-rh-page .btn-secondary, body .admi
   background: none;
   font: inherit;
   font-weight: 600;
-  color: var(--ms-primary, #2563eb);
+  color: var(--ms-primary);
   cursor: pointer;
   text-align: left;
   max-width: 100%;
@@ -3767,14 +3793,14 @@ body .admin-rh-page .btn-primary, body .admin-rh-page .btn-secondary, body .admi
   border: none;
   background: none;
   font: inherit;
-  color: var(--ms-accent, #2563eb);
+  color: var(--ms-accent);
   text-align: left;
   text-decoration: underline;
   text-underline-offset: 2px;
   cursor: pointer;
 }
 .faturacao-history-client-btn:hover {
-  color: color-mix(in srgb, var(--ms-accent, #2563eb) 75%, #000);
+  color: color-mix(in srgb, var(--ms-accent) 75%, #000);
 }
 .faturacao-detail-grid {
   display: grid;
@@ -3866,7 +3892,7 @@ body .admin-rh-page .btn-primary, body .admin-rh-page .btn-secondary, body .admi
 }
 .faturacao-row--highlight {
   animation: faturacao-row-flash 1.2s ease-in-out 3;
-  outline: 2px solid var(--ms-accent, #2563eb);
+  outline: 2px solid var(--ms-accent);
   outline-offset: -2px;
 }
 @keyframes faturacao-row-flash {
@@ -3875,7 +3901,7 @@ body .admin-rh-page .btn-primary, body .admin-rh-page .btn-secondary, body .admi
     background: transparent;
   }
   50% {
-    background: color-mix(in srgb, var(--ms-accent, #2563eb) 18%, transparent);
+    background: color-mix(in srgb, var(--ms-accent) 18%, transparent);
   }
 }
 /* ─── Painel Orçamentos MS.015 ─── */ .orcamentos-panel {
@@ -3928,8 +3954,8 @@ body .admin-rh-page .btn-primary, body .admin-rh-page .btn-secondary, body .admi
   text-align: left;
 }
 .orcamentos-kpi.is-active {
-  border-color: color-mix(in srgb, var(--ms-accent, #2563eb) 55%, transparent);
-  background: color-mix(in srgb, var(--ms-accent, #2563eb) 10%, transparent);
+  border-color: color-mix(in srgb, var(--ms-accent) 55%, transparent);
+  background: color-mix(in srgb, var(--ms-accent) 10%, transparent);
 }
 .orcamentos-kpi__value {
   font-size: 1.35rem;
@@ -3994,7 +4020,7 @@ body .admin-rh-page .btn-primary, body .admin-rh-page .btn-secondary, body .admi
   color: #c2410c;
 }
 .orcamentos-status--saved {
-  color: #1d4ed8;
+  color: var(--ms-primary-hover);
 }
 .orcamentos-status--ok {
   color: var(--success, #059669);
@@ -4035,12 +4061,12 @@ body .admin-rh-page .btn-primary, body .admin-rh-page .btn-secondary, body .admi
   background: none;
   padding: 0;
   font: inherit;
-  color: var(--ms-accent, #2563eb);
+  color: var(--ms-accent);
   text-decoration: underline;
   cursor: pointer;
 }
 .orcamentos-filter-hint__link:hover {
-  color: color-mix(in srgb, var(--ms-accent, #2563eb) 80%, #000);
+  color: color-mix(in srgb, var(--ms-accent) 80%, #000);
 }
 .orcamentos-filter-hint__sep {
   opacity: 0.45;
