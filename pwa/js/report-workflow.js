@@ -117,7 +117,23 @@ export async function saveReportDraft(report, options = {}) {
  * @param {{ isCorrection?: boolean }} [options]
  */
 export async function submitReport(report, options = {}) {
-  const { isCorrection = false, skipDuplicateToast = false, silent = false } = options;
+  const { isCorrection = false, skipDuplicateToast = false, silent = false, fromServicoVisitSubmit = false } = options;
+  const servicoId = report.servicoId || resolveServicoIdForReport(report);
+  if (servicoId && !fromServicoVisitSubmit) {
+    return saveReportDraft(
+      {
+        ...report,
+        servicoId,
+        status: 'draft',
+        data: {
+          ...(report.data || {}),
+          technicianCompleted: true,
+        },
+      },
+      { silent },
+    );
+  }
+
   const {
     addTrabalhoPendente,
     sincronizarTrabalhosOffline,

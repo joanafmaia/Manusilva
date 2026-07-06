@@ -147,6 +147,7 @@ export async function submitServicoVisit(servicoId, signatures) {
         isCorrection: false,
         skipDuplicateToast: true,
         silent: true,
+        fromServicoVisitSubmit: true,
       });
       if (result && !result.queued) {
         submitted += 1;

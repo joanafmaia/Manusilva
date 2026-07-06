@@ -6,7 +6,7 @@ import { formatDateLong } from './date-utils.js';
 import { getClient } from './entity-lookups.js';
 import { dedupeReportsForDisplay } from './relatorios-db.js';
 import { getServico } from './servicos-db.js';
-import { getReportsForServico } from './servicos-panel-utils.js';
+import { getReportsForServico, shouldDeferRhReviewForServicoReport } from './servicos-panel-utils.js';
 
 function reportSortKey(report) {
   return String(report?.submittedAt || report?.approvedAt || '');
@@ -92,7 +92,11 @@ export function groupReportsForRhStack(filteredReports) {
 /** Primeiro relatório pendente da visita (para «Rever visita»). */
 export function getFirstPendingReportIdForServico(servicoId) {
   const reports = getReportsForServico(servicoId);
-  const pending = sortReportsChronologically(reports.filter((r) => r.status === 'pending_review'));
+  const pending = sortReportsChronologically(
+    reports.filter(
+      (r) => r.status === 'pending_review' && !shouldDeferRhReviewForServicoReport(r),
+    ),
+  );
   return pending[0]?.id || null;
 }
 

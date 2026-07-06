@@ -441,8 +441,7 @@ export async function openServicoReportForm(servicoId, options = {}) {
         : getReportByServicoAndType(servicoId, serviceType);
 
     const editPendingOpt =
-      options.editPending === true ||
-      (options.editPending !== false && serverReport?.status === 'pending_review');
+      options.editPending !== false && serverReport?.status === 'pending_review';
 
     const servicoVisitMode = !viewOnly;
 

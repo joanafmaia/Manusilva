@@ -382,4 +382,24 @@ describe('servicos-panel-utils', () => {
     const { getReportsForServico } = await import('../js/servicos-panel-utils.js');
     assert.equal(getReportsForServico('svc-1').length, 2);
   });
+
+  it('shouldDeferRhReviewForServicoReport — oculta pendente com rascunhos irmãos na visita', async () => {
+    const { shouldDeferRhReviewForServicoReport } = await import('../js/servicos-panel-utils.js');
+    const relatoriosDb = await import('../js/relatorios-db.js');
+    const pendingEarly = relatoriosDb.getReportsSnapshot().find((r) => r.id === 'r2');
+    assert.equal(shouldDeferRhReviewForServicoReport(pendingEarly), true);
+
+    relatoriosDb.mergeReportInCache({
+      id: 'r1',
+      servicoId: 'svc-1',
+      jobId: '',
+      serviceType: 'manutencao',
+      status: 'pending_review',
+      clientId: '10',
+      technicianId: 'Filipe',
+      data: { values: {}, signatures: {}, photos: [] },
+    });
+    const allPending = relatoriosDb.getReportsSnapshot().filter((r) => r.servicoId === 'svc-1');
+    assert.equal(allPending.every((r) => !shouldDeferRhReviewForServicoReport(r)), true);
+  });
 });

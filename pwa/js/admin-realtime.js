@@ -6,6 +6,7 @@ import { getAuthenticatedSupabaseClient } from './supabase-client.js';
 import { mergeJobFromRealtime } from './trabalhos-db.js';
 import { mergeReportFromRealtime } from './relatorios-db.js';
 import { mergeServicoFromRealtime } from './servicos-db.js';
+import { shouldDeferRhReviewForServicoReport } from './servicos-panel-utils.js';
 
 let channel = null;
 const recentlyNotifiedReports = new Set();
@@ -17,6 +18,7 @@ function isPendingReviewEstado(estado) {
 
 function shouldNotifyNewPendingReport(report, oldRow) {
   if (!report || !isPendingReviewEstado(report.status)) return false;
+  if (shouldDeferRhReviewForServicoReport(report)) return false;
   if (oldRow && isPendingReviewEstado(oldRow.estado)) return false;
 
   const key = report.id || `${report.jobId || 'job'}-${report.submittedAt || Date.now()}`;

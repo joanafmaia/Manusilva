@@ -4,6 +4,7 @@
 
 import { dedupeReportsForDisplay, getReportsSnapshot } from './relatorios-db.js';
 import { isRhOrcamentoQueueReport } from './pedido-orcamento.js';
+import { shouldDeferRhReviewForServicoReport } from './servicos-panel-utils.js';
 
 /** Estados de relatório exibidos no painel RH (histórico completo) */
 export const RH_PANEL_REPORT_STATUSES = new Set([
@@ -18,7 +19,9 @@ function getRhPanelReportsRaw() {
 }
 
 function getPendingReviewReportsSnapshot() {
-  return getRhPanelReportsRaw().filter((r) => r.status === 'pending_review');
+  return getRhPanelReportsRaw().filter(
+    (r) => r.status === 'pending_review' && !shouldDeferRhReviewForServicoReport(r),
+  );
 }
 
 function getRhPanelReports() {

@@ -1660,11 +1660,15 @@ function bindTechJobRowsEvents(scope) {
         await openTechServicoDetail(jobId);
       } else if (row.dataset.rowServicoReport === '1') {
         const { openServicoReportForm } = await loadFormsModule();
+        const reportId = row.dataset.rowReportId || '';
+        const report = reportId
+          ? getReportsSnapshot().find((r) => String(r.id) === String(reportId))
+          : null;
         await openServicoReportForm(jobId, {
           serviceType: row.dataset.rowServiceType,
-          reportId: row.dataset.rowReportId || undefined,
+          reportId: reportId || undefined,
           viewOnly: row.dataset.rowAction === 'view',
-          editPending: row.dataset.rowAction === 'continue',
+          editPending: report?.status === 'pending_review',
         });
       } else if (row.dataset.rowAction === 'view') {
         await openJobFormLazy(jobId, { viewOnly: true });

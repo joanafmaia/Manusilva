@@ -495,6 +495,14 @@ async function findExistingReportId(report) {
  * @returns {{ report: object, job: object | null }}
  */
 async function ensureTrabalhoForReport(report) {
+  const servicoId = resolveServicoIdForReport(report);
+  if (servicoId) {
+    return {
+      report: { ...report, servicoId, jobId: report.jobId || null },
+      job: null,
+    };
+  }
+
   await ensureJobsLoaded();
 
   if (report.jobId) {

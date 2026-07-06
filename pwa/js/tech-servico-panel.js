@@ -227,11 +227,12 @@ export async function openTechServicoDetail(servicoId) {
   overlay.querySelectorAll('.tech-servico-report-open').forEach((btn) => {
     btn.addEventListener('click', async () => {
       const action = btn.dataset.action;
+      const report = reports.find((r) => String(r.id) === String(btn.dataset.reportId || ''));
       const opts = {
         serviceType: btn.dataset.serviceType,
         reportId: btn.dataset.reportId || undefined,
         viewOnly: action === 'view',
-        editPending: action === 'continue',
+        editPending: report?.status === 'pending_review',
       };
       closeModal();
       try {

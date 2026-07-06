@@ -130,6 +130,18 @@ export function isServicoReportTechnicianComplete(report) {
   return report?.status === 'draft' && report?.data?.technicianCompleted === true;
 }
 
+/**
+ * Relatório de visita enviado ao RH antes da conclusão da visita
+ * (ex.: ainda há rascunhos irmãos — o RH só deve rever após «Concluir visita»).
+ */
+export function shouldDeferRhReviewForServicoReport(report) {
+  const servicoId = resolveServicoIdForReport(report);
+  if (!servicoId || report?.status !== 'pending_review') return false;
+  return getReportsForServico(servicoId).some(
+    (r) => r.id !== report.id && r.status === 'draft',
+  );
+}
+
 /** Rascunhos da visita ainda em edição (não concluídos pelo técnico). */
 export function getIncompleteServicoDraftReports(servicoId) {
   return getReportsForServico(servicoId).filter(
