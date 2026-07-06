@@ -646,7 +646,7 @@ function showTechUpdateTestMarker() {
     if (header && anchor) header.insertBefore(el, anchor);
     else header?.append(el);
   }
-  el.textContent = 'TESTE ATUALIZAR — versão KIWI (JS)';
+  el.textContent = 'TESTE ATUALIZAR — versão ANANAS (JS)';
 }
 
 export async function initTechDashboard() {
