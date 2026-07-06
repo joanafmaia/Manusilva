@@ -52,4 +52,14 @@ describe('form-submit-checks', () => {
     });
     assert.ok(!warnings.some((w) => w.includes('observações')));
   });
+
+  it('não avisa assinaturas em falta quando skipSignatureWarnings (visita)', () => {
+    const warnings = collectSubmitWarnings({
+      report: { data: { values: {}, signatures: {} } },
+      hasFotoAntes: true,
+      hasFotoDepois: true,
+      skipSignatureWarnings: true,
+    });
+    assert.ok(!warnings.some((w) => w.includes('assinatura')));
+  });
 });

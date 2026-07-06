@@ -1491,6 +1491,7 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport, opt
           signaturePads: {},
           hasFotoAntes: Boolean(fotoDisplayUrl(fotoAntesState)),
           hasFotoDepois: Boolean(fotoDisplayUrl(fotoDepoisState)),
+          skipSignatureWarnings: true,
         });
         if (!confirmSubmitWarnings(warnings)) {
           if (submitBtn) submitBtn.disabled = false;

@@ -20,6 +20,7 @@ export function resolveObservationsFieldId(service) {
  * @param {object} [params.signaturePads]
  * @param {boolean} [params.hasFotoAntes]
  * @param {boolean} [params.hasFotoDepois]
+ * @param {boolean} [params.skipSignatureWarnings] — visita: assinaturas em «Concluir visita»
  * @returns {string[]}
  */
 export function collectSubmitWarnings({
@@ -28,6 +29,7 @@ export function collectSubmitWarnings({
   signaturePads = {},
   hasFotoAntes = false,
   hasFotoDepois = false,
+  skipSignatureWarnings = false,
 }) {
   const warnings = [];
   const data = report?.data || {};
@@ -41,8 +43,10 @@ export function collectSubmitWarnings({
 
   const techSig = data.signatures?.technician || signaturePads?.technician?.toDataURL?.();
   const clientSig = data.signatures?.client || signaturePads?.client?.toDataURL?.();
-  if (!techSig) warnings.push('Sem assinatura do técnico.');
-  if (!clientSig) warnings.push('Sem assinatura do cliente.');
+  if (!skipSignatureWarnings) {
+    if (!techSig) warnings.push('Sem assinatura do técnico.');
+    if (!clientSig) warnings.push('Sem assinatura do cliente.');
+  }
 
   const obsFieldId = resolveObservationsFieldId(service);
   if (obsFieldId) {
