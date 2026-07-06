@@ -63,6 +63,63 @@ function columnKey(label) {
     .replace(/^_|_$/g, '');
 }
 
+function parseEmpilhadoresNestedValue(raw) {
+  if (typeof raw !== 'string') return raw;
+  const trimmed = raw.trim();
+  if (!trimmed || (trimmed[0] !== '{' && trimmed[0] !== '[')) return raw;
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return raw;
+  }
+}
+
+function hasVerificationAnswers(map = {}) {
+  if (!map || typeof map !== 'object') return false;
+  return Object.values(map).some((value) => String(value ?? '').trim() !== '');
+}
+
+function legacyRowFromValues(values = {}) {
+  return normalizeEmpilhadoresMaquinaRow({
+    marca: values.marca,
+    modelo: values.modelo,
+    numero_de_serie: values.numero_de_serie,
+    n_interno: values.n_interno,
+    horas: values.horas,
+    componentes_externos: values.componentes_externos,
+    componentes_internos: values.componentes_internos,
+    litros_oleo_diferencial: values.litros_oleo_diferencial,
+    litros_oleo_torque: values.litros_oleo_torque,
+    litros_oleo_hidraulico: values.litros_oleo_hidraulico,
+    litros_oleo_travoes: values.litros_oleo_travoes,
+    litros_oleo_motor: values.litros_oleo_motor,
+    qtd_filtro_oleo_motor: values.qtd_filtro_oleo_motor,
+    qtd_filtro_ar: values.qtd_filtro_ar,
+    qtd_filtro_combustivel: values.qtd_filtro_combustivel,
+    qtd_kit_gaseificador: values.qtd_kit_gaseificador,
+    qtd_limpeza_lubrificante: values.qtd_limpeza_lubrificante,
+    observacoes: values.observacoes,
+    estado_maquina: values.estado_maquina,
+  });
+}
+
+function mergeLegacyIntoMaquinaRow(row, values = {}) {
+  const legacy = legacyRowFromValues(values);
+  const merged = { ...row };
+  LEGACY_OBJECT_KEYS.forEach((key) => {
+    if (!hasVerificationAnswers(merged[key]) && hasVerificationAnswers(legacy[key])) {
+      merged[key] = { ...merged[key], ...legacy[key] };
+    }
+  });
+  LEGACY_SCALAR_KEYS.forEach((key) => {
+    if (LEGACY_OBJECT_KEYS.includes(key)) return;
+    if (!String(merged[key] ?? '').trim() && String(legacy[key] ?? '').trim()) {
+      merged[key] = legacy[key];
+    }
+  });
+  return normalizeEmpilhadoresMaquinaRow(merged);
+}
+
 function defaultVerificationMap(items = []) {
   const out = {};
   items.forEach((item) => {
@@ -104,8 +161,9 @@ export function normalizeEmpilhadoresMaquinaRow(raw = {}) {
   });
 
   LEGACY_OBJECT_KEYS.forEach((key) => {
-    if (raw[key] && typeof raw[key] === 'object') {
-      base[key] = { ...base[key], ...raw[key] };
+    const nested = parseEmpilhadoresNestedValue(raw[key]);
+    if (nested && typeof nested === 'object') {
+      base[key] = { ...base[key], ...nested };
     }
   });
 
@@ -130,37 +188,27 @@ export function migrateLegacyEmpilhadoresMaquinas(values = {}) {
     }
   }
   if (Array.isArray(existing) && existing.length) {
-    return existing.map(normalizeEmpilhadoresMaquinaRow);
+    const rows = existing.map(normalizeEmpilhadoresMaquinaRow);
+    if (rows.length === 1) {
+      return [mergeLegacyIntoMaquinaRow(rows[0], values)];
+    }
+    return rows;
   }
 
   const hasLegacy = [...EMPILHADORES_ID_COLUMNS.map((c) => c.key), ...LEGACY_SCALAR_KEYS].some(
     (k) => String(values[k] ?? '').trim() !== '',
-  ) || LEGACY_OBJECT_KEYS.some((k) => values[k] && typeof values[k] === 'object');
+  ) || LEGACY_OBJECT_KEYS.some((k) => hasVerificationAnswers(parseEmpilhadoresNestedValue(values[k])));
 
   if (!hasLegacy) return [emptyEmpilhadoresMaquinaRow()];
 
-  const row = normalizeEmpilhadoresMaquinaRow({
-    marca: values.marca,
-    modelo: values.modelo,
-    numero_de_serie: values.numero_de_serie,
-    n_interno: values.n_interno,
-    horas: values.horas,
-    componentes_externos: values.componentes_externos,
-    componentes_internos: values.componentes_internos,
-    litros_oleo_diferencial: values.litros_oleo_diferencial,
-    litros_oleo_torque: values.litros_oleo_torque,
-    litros_oleo_hidraulico: values.litros_oleo_hidraulico,
-    litros_oleo_travoes: values.litros_oleo_travoes,
-    litros_oleo_motor: values.litros_oleo_motor,
-    qtd_filtro_oleo_motor: values.qtd_filtro_oleo_motor,
-    qtd_filtro_ar: values.qtd_filtro_ar,
-    qtd_filtro_combustivel: values.qtd_filtro_combustivel,
-    qtd_kit_gaseificador: values.qtd_kit_gaseificador,
-    qtd_limpeza_lubrificante: values.qtd_limpeza_lubrificante,
-    observacoes: values.observacoes,
-    estado_maquina: values.estado_maquina,
-  });
-  return [row];
+  return [legacyRowFromValues(values)];
+}
+
+/** Inicializa o store oculto a partir dos valores guardados (checklist + máquina). */
+export function seedEmpilhadoresStoreFromValues(overlay, values = {}) {
+  const maquinas = migrateLegacyEmpilhadoresMaquinas(values);
+  writeStore(overlay, maquinas);
+  return maquinas;
 }
 
 /** Achata uma linha de máquina para o formato legado (PDF / compat). */

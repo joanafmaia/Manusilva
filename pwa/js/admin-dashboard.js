@@ -85,6 +85,9 @@ import {
   getCalendarItemReport,
   getCalendarItemReports,
   getCalendarItemSubtitle,
+  getServicoActiveReports,
+  isServicoMultiReportVisit,
+  resolveServicoIdForReport,
   servicoToCalendarItem,
 } from './servicos-panel-utils.js';
 
@@ -1281,7 +1284,6 @@ async function quickApproveRhReport(reportId) {
 
   const ok = await approveReport(reportId, { clientEmail });
   if (ok) {
-    showToast('Relatório aprovado.', 'success');
     await rhReviewModalCallbacks().onApproved?.();
     await renderRhReviewStack();
   }
@@ -1611,14 +1613,19 @@ function showPendingReportNotification(report) {
   const client = getClient(report.clientId);
   const ordem = formatOrdemOp2026(job?.numeroOrdem, client);
   const clientName = client?.name || client?.Nome || '';
+  const servicoId = resolveServicoIdForReport(report);
+  const multi = servicoId && isServicoMultiReportVisit(servicoId);
+  const reportCount = multi ? getServicoActiveReports(servicoId).length : 0;
 
   showNotificationToast(
-    'Novo Relatório Pendente!',
-    `O técnico ${tech?.name || '—'} acabou de submeter o relatório da ${ordem}.`,
+    multi ? 'Nova Visita Pendente!' : 'Novo Relatório Pendente!',
+    multi
+      ? `O técnico ${tech?.name || '—'} concluiu a visita com ${reportCount} relatórios (${ordem}).`
+      : `O técnico ${tech?.name || '—'} acabou de submeter o relatório da ${ordem}.`,
     {
       icon: 'bell',
       duration: 8000,
-      dedupeKey: report.id || report.jobId,
+      dedupeKey: multi ? `servico-pending-${servicoId}` : report.id || report.jobId,
       onClick: () => scrollToReportInPanel(report.id),
     },
   );

@@ -406,13 +406,16 @@ export async function approveReport(reportId, options = {}) {
           });
         }
       } else if (!isServicoVisitFullyApproved(servicoId)) {
-        showToast(
-          'Relatório aprovado. O e-mail ao cliente será enviado quando todos os relatórios da visita estiverem aprovados.',
-          'success',
-          7000,
-        );
+        /* Aprovação intermédia na visita — sem toast repetitivo. */
       } else {
-        showToast('Relatório aprovado.', 'success', 5000);
+        const count = getServicoActiveReports(servicoId).length;
+        showToast(
+          count > 1
+            ? `Visita concluída — ${count} relatórios aprovados.`
+            : 'Relatório aprovado.',
+          'success',
+          5000,
+        );
       }
     } else if (recipientEmail && !skipClientEmail) {
       const pdfCount = pdfEntries.length;

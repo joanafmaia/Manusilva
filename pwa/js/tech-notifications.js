@@ -4,6 +4,12 @@
 
 import { getClient } from './tech-app-core.js';
 import { jobMatchesTechnician, reportMatchesTechnicianTeam } from './job-technician-utils.js';
+import {
+  getServicoActiveReports,
+  isServicoMultiReportVisit,
+  resolveServicoIdForReport,
+  shouldNotifyTechApprovalForReport,
+} from './servicos-panel-utils.js';
 
 const TECH_NOTIF_ASKED_KEY = 'tech_notif_permission_asked';
 const TECH_NOTIF_SEEN_KEY = 'tech_notif_seen_v1';
@@ -86,8 +92,21 @@ export function maybeNotifyTechReportRejected(report, job) {
 export function maybeNotifyTechReportApproved(report, job, techMatch) {
   if (!report || report.status !== 'approved' || !techMatch) return;
   if (!reportMatchesTechnicianTeam(report, job, techMatch)) return;
+  if (!shouldNotifyTechApprovalForReport(report)) return;
 
+  const servicoId = resolveServicoIdForReport(report);
   const name = clientLabel(report, job);
+
+  if (servicoId && isServicoMultiReportVisit(servicoId)) {
+    const count = getServicoActiveReports(servicoId).length;
+    postTechNotification(
+      'Visita aprovada — Manusilva',
+      `Os ${count} relatórios de ${name} foram aprovados pelo RH.`,
+      `visit-approved-${servicoId}`,
+    );
+    return;
+  }
+
   postTechNotification(
     'Relatório aprovado — Manusilva',
     `O relatório de ${name} foi aprovado pelo RH.`,

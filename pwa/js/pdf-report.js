@@ -987,6 +987,20 @@ function normalizeReportValues(data) {
   if (values.num_serie && !values.numero_de_serie) values.numero_de_serie = values.num_serie;
   if (values.numero_de_serie && !values.num_serie) values.num_serie = values.numero_de_serie;
 
+  const structuredKeys = ['pontos_inspecao', 'componentes_externos', 'componentes_internos'];
+  structuredKeys.forEach((key) => {
+    if (values[key] !== undefined) {
+      values[key] = parseJsonIfString(values[key]);
+    }
+  });
+
+  if (values.maquinas !== undefined) {
+    let maquinas = parseJsonIfString(values.maquinas);
+    if (Array.isArray(maquinas)) {
+      values.maquinas = maquinas;
+    }
+  }
+
   return values;
 }
 
@@ -1416,7 +1430,8 @@ function isPdfEmptyValue(field, value) {
     return !Object.values(value).some((cat) => cat && Object.keys(cat).length);
   }
   if (field.type === 'verification_toggles') {
-    return !value || typeof value !== 'object' || !Object.keys(value).length;
+    if (!value || typeof value !== 'object') return true;
+    return !Object.values(value).some((entry) => String(entry ?? '').trim());
   }
   return cleanPdfText(value) === '';
 }

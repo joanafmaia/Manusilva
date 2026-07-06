@@ -3,6 +3,13 @@
  * Requer o separador admin aberto (ou PWA instalada); não substitui push com browser fechado.
  */
 
+import {
+  getServicoActiveReports,
+  isServicoMultiReportVisit,
+  resolveServicoIdForReport,
+  shouldNotifyRhPendingForServicoReport,
+} from './servicos-panel-utils.js';
+
 const RH_NOTIF_ASKED_KEY = 'rh_notif_permission_asked';
 const RH_NOTIF_SEEN_KEY = 'rh_notif_seen_v1';
 
@@ -77,14 +84,22 @@ export function bindRhNotificationPermissionOnGesture() {
  */
 export function maybeNotifyRhPendingReport(report, meta = {}) {
   if (!report || report.status !== 'pending_review') return;
+  if (!shouldNotifyRhPendingForServicoReport(report)) return;
 
   const tech = meta.techName || 'Técnico';
   const ordem = meta.ordem || 'relatório';
   const client = meta.clientName ? ` (${meta.clientName})` : '';
+  const servicoId = resolveServicoIdForReport(report);
+  const multi = servicoId && isServicoMultiReportVisit(servicoId);
+  const reportCount = multi ? getServicoActiveReports(servicoId).length : 0;
 
-  postRhNotification(
-    'Novo relatório pendente — Manusilva',
-    `${tech} submeteu ${ordem}${client}.`,
-    `rh-pending-${report.id || report.jobId || report.servicoId}`,
-  );
+  const title = multi ? 'Nova visita pendente — Manusilva' : 'Novo relatório pendente — Manusilva';
+  const body = multi
+    ? `${tech} concluiu a visita com ${reportCount} relatório${reportCount === 1 ? '' : 's'}${client}.`
+    : `${tech} submeteu ${ordem}${client}.`;
+  const tag = multi
+    ? `rh-pending-servico-${servicoId}`
+    : `rh-pending-${report.id || report.jobId || report.servicoId}`;
+
+  postRhNotification(title, body, tag);
 }

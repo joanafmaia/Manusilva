@@ -286,6 +286,19 @@ export function renderReportFormTabsNav(service, activeTab = 'geral') {
   `;
 }
 
+/** Repõe scroll ao mudar de aba (evita abrir Finalização no fim da página). */
+export function resetReportFormScroll(overlay) {
+  if (!overlay) return;
+  const roots = [
+    overlay,
+    overlay.querySelector('.form-panel'),
+    overlay.querySelector('.form-panel-body'),
+  ];
+  roots.forEach((el) => {
+    if (el) el.scrollTop = 0;
+  });
+}
+
 export function bindReportFormTabs(overlay, options = {}) {
   const tabButtons = overlay.querySelectorAll('[data-report-tab]');
   const panels = overlay.querySelectorAll('[data-report-panel]');
@@ -303,8 +316,13 @@ export function bindReportFormTabs(overlay, options = {}) {
       panel.classList.toggle('is-active', active);
       panel.hidden = !active;
     });
+    resetReportFormScroll(overlay);
     if (tabId) {
-      requestAnimationFrame(() => options.onTabActivate?.(tabId));
+      requestAnimationFrame(() => {
+        resetReportFormScroll(overlay);
+        options.onTabActivate?.(tabId);
+        requestAnimationFrame(() => resetReportFormScroll(overlay));
+      });
     }
   };
 
@@ -1093,10 +1111,15 @@ export function collectReportValues(overlay) {
 
   if (overlay.querySelector('[data-empilhadores-maquinas-store]') && empilhadoresModule) {
     const {
+      seedEmpilhadoresStoreFromValues,
+      flushEmpilhadoresChecklistToStore,
       collectEmpilhadoresMaquinas,
       EMPILHADORES_MAQUINAS_FIELD_ID,
       EMPILHADORES_LEGACY_ROOT_KEYS,
     } = empilhadoresModule;
+    const lazyValues = overlay.__lazyFormState?.values || {};
+    seedEmpilhadoresStoreFromValues(overlay, { ...lazyValues, ...values });
+    flushEmpilhadoresChecklistToStore(overlay);
     values[EMPILHADORES_MAQUINAS_FIELD_ID] = collectEmpilhadoresMaquinas(overlay);
     EMPILHADORES_LEGACY_ROOT_KEYS.forEach((key) => {
       delete values[key];
@@ -1129,6 +1152,17 @@ export function collectReportValues(overlay) {
   });
 
   collectClientComboboxValues(overlay, values);
+
+  const lazy = overlay.__lazyFormState;
+  if (lazy?.service?.fields) {
+    lazy.service.fields.forEach((field) => {
+      if (field.type !== 'matrix_4options') return;
+      if (values[field.id] !== undefined) return;
+      if (lazy.values?.[field.id] !== undefined) {
+        values[field.id] = lazy.values[field.id];
+      }
+    });
+  }
 
   return values;
 }

@@ -35,6 +35,7 @@ import {
   renderReportFields,
   renderReportFormTabsNav,
   bindReportFormTabs,
+  resetReportFormScroll,
   collectReportValues,
   bindFormFieldInteractions,
   renderJobClientHeader,
@@ -1231,11 +1232,13 @@ async function onReportTabActivatedAsync(tabId, overlay) {
       const values = { ...lazyContext.values };
       if (lazyContext.service?.id === 'manutencao_preventiva_empilhadores') {
         const {
+          seedEmpilhadoresStoreFromValues,
           flushEmpilhadoresChecklistToStore,
           collectEmpilhadoresMaquinas,
           getActiveMaquinaIndex,
           EMPILHADORES_MAQUINAS_FIELD_ID,
         } = await import('./views/relatorio-empilhadores-maquinas.js');
+        seedEmpilhadoresStoreFromValues(overlay, values);
         flushEmpilhadoresChecklistToStore(overlay);
         values[EMPILHADORES_MAQUINAS_FIELD_ID] = collectEmpilhadoresMaquinas(overlay);
         lazyContext.values = values;
@@ -1254,6 +1257,7 @@ async function onReportTabActivatedAsync(tabId, overlay) {
         void bindFormFieldInteractions(overlay);
         await bindEmpilhadoresMaquinasInteractions(overlay);
         panel.dataset.lazyLoaded = 'true';
+        resetReportFormScroll(overlay);
         return;
       }
       if (!panel.dataset.lazyLoaded) {
@@ -1265,11 +1269,13 @@ async function onReportTabActivatedAsync(tabId, overlay) {
           { tab: 'checklist' },
         );
         void bindFormFieldInteractions(overlay);
+        resetReportFormScroll(overlay);
       }
     }
   }
   if (tabId === 'finalizacao' && overlay?.dataset?.servicoVisitMode !== '1') {
     ensureSignaturePadsInitialized();
+    resetReportFormScroll(overlay);
   }
 }
 
@@ -1381,7 +1387,12 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport, opt
   }
 
   if (!viewOnly && service?.id === 'manutencao_preventiva_empilhadores') {
-    void bindEmpilhadoresMaquinasInteractions(overlay);
+    void import('./views/relatorio-empilhadores-maquinas.js').then(
+      async ({ seedEmpilhadoresStoreFromValues }) => {
+        await bindEmpilhadoresMaquinasInteractions(overlay);
+        seedEmpilhadoresStoreFromValues(overlay, overlay.__lazyFormState?.values || {});
+      },
+    );
   }
 
   if (!viewOnly) overlay.querySelector('#btn-save-draft')?.addEventListener('click', async () => {

@@ -3,13 +3,13 @@
  */
 
 import { getServico } from './servicos-db.js';
-import { getReportsForServico, resolveServicoIdForReport } from './servicos-panel-utils.js';
+import {
+  getServicoActiveReports,
+  isServicoVisitFullyApproved,
+  resolveServicoIdForReport,
+} from './servicos-panel-utils.js';
 
-/** Relatórios da visita que contam para conclusão (exclui rejeitados). */
-export function getServicoActiveReports(servicoId) {
-  if (!servicoId) return [];
-  return getReportsForServico(servicoId).filter((r) => r.status !== 'rejected');
-}
+export { getServicoActiveReports, isServicoVisitFullyApproved };
 
 /** Visita com mais do que um relatório → adia e-mail individual até todos aprovados. */
 export function shouldDeferServicoVisitEmail(report) {
@@ -21,13 +21,6 @@ export function shouldDeferServicoVisitEmail(report) {
 /** Id da visita para fluxo de e-mail agrupado. */
 export function resolveServicoIdForVisitEmail(report) {
   return resolveServicoIdForReport(report);
-}
-
-/** Todos os relatórios ativos da visita estão aprovados. */
-export function isServicoVisitFullyApproved(servicoId) {
-  const reports = getServicoActiveReports(servicoId);
-  if (!reports.length) return false;
-  return reports.every((r) => r.status === 'approved');
 }
 
 export function wasServicoVisitEmailSent(servicoId) {

@@ -3,6 +3,7 @@
  */
 
 import { EMPILHADORES_MATERIAL_SECTION } from './mock_data.js';
+import { columnKey } from './material-table-field.js';
 import { formatEmpilhadoresVerifyState } from './preventiva-empilhadores-items.js';
 import { pdfAutoTableFont, pdfSafeText } from './pdf-font.js';
 import {
@@ -138,17 +139,9 @@ export function isEmpilhadoresMaterialField(service, field) {
 
 function normalizeVerifyItem(item) {
   if (typeof item === 'string') {
-    return {
-      id: item
-        .toLowerCase()
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .replace(/[^\w]+/g, '_')
-        .replace(/^_|_$/g, ''),
-      label: item,
-    };
+    return { id: columnKey(item), label: item };
   }
-  return { id: item.id, label: item.label };
+  return { id: item.id || columnKey(item.label), label: item.label };
 }
 
 function buildVerificationTableBody(items, states) {

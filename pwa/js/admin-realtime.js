@@ -6,7 +6,7 @@ import { getAuthenticatedSupabaseClient } from './supabase-client.js';
 import { mergeJobFromRealtime } from './trabalhos-db.js';
 import { mergeReportFromRealtime } from './relatorios-db.js';
 import { mergeServicoFromRealtime } from './servicos-db.js';
-import { shouldDeferRhReviewForServicoReport } from './servicos-panel-utils.js';
+import { shouldNotifyRhPendingForServicoReport } from './servicos-panel-utils.js';
 
 let channel = null;
 const recentlyNotifiedReports = new Set();
@@ -17,11 +17,15 @@ function isPendingReviewEstado(estado) {
 }
 
 function shouldNotifyNewPendingReport(report, oldRow) {
-  if (!report || !isPendingReviewEstado(report.status)) return false;
-  if (shouldDeferRhReviewForServicoReport(report)) return false;
+  if (!report) return false;
   if (oldRow && isPendingReviewEstado(oldRow.estado)) return false;
+  if (!shouldNotifyRhPendingForServicoReport(report)) return false;
 
-  const key = report.id || `${report.jobId || 'job'}-${report.submittedAt || Date.now()}`;
+  const servicoId = report.servicoId ? String(report.servicoId) : '';
+  const key =
+    servicoId && report.status === 'pending_review'
+      ? `servico-pending-${servicoId}`
+      : report.id || `${report.jobId || 'job'}-${report.submittedAt || Date.now()}`;
   if (recentlyNotifiedReports.has(key)) return false;
   recentlyNotifiedReports.add(key);
   setTimeout(() => recentlyNotifiedReports.delete(key), 5000);

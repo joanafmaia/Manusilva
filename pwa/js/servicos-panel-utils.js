@@ -142,6 +142,48 @@ export function shouldDeferRhReviewForServicoReport(report) {
   );
 }
 
+/** Relatórios da visita que contam para conclusão (exclui rejeitados). */
+export function getServicoActiveReports(servicoId) {
+  if (!servicoId) return [];
+  return getReportsForServico(servicoId).filter((r) => r.status !== 'rejected');
+}
+
+/** Todos os relatórios ativos da visita estão aprovados. */
+export function isServicoVisitFullyApproved(servicoId) {
+  const reports = getServicoActiveReports(servicoId);
+  if (!reports.length) return false;
+  return reports.every((r) => r.status === 'approved');
+}
+
+/** Visita com todos os relatórios ativos submetidos ao RH (sem rascunhos). */
+export function isServicoVisitReadyForRhReview(servicoId) {
+  const reports = getServicoActiveReports(servicoId);
+  if (!reports.length) return false;
+  if (reports.some((r) => r.status === 'draft')) return false;
+  return reports.every((r) => r.status === 'pending_review');
+}
+
+export function isServicoMultiReportVisit(servicoId) {
+  return getServicoActiveReports(servicoId).length > 1;
+}
+
+/** Notificar RH de pendente — uma vez por visita multi-relatório quando está completa. */
+export function shouldNotifyRhPendingForServicoReport(report) {
+  if (!report || report.status !== 'pending_review') return false;
+  if (shouldDeferRhReviewForServicoReport(report)) return false;
+  const servicoId = resolveServicoIdForReport(report);
+  if (!servicoId || !isServicoMultiReportVisit(servicoId)) return true;
+  return isServicoVisitReadyForRhReview(servicoId);
+}
+
+/** Notificar técnico de aprovação — uma vez quando a visita multi-relatório está toda aprovada. */
+export function shouldNotifyTechApprovalForReport(report) {
+  if (!report || report.status !== 'approved') return false;
+  const servicoId = resolveServicoIdForReport(report);
+  if (!servicoId || !isServicoMultiReportVisit(servicoId)) return true;
+  return isServicoVisitFullyApproved(servicoId);
+}
+
 /** Rascunhos da visita ainda em edição (não concluídos pelo técnico). */
 export function getIncompleteServicoDraftReports(servicoId) {
   return getReportsForServico(servicoId).filter(
