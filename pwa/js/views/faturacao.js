@@ -379,8 +379,6 @@ function buildBillingRowsFromItems(items) {
       };
     }
 
-    }
-
     if (item.kind === 'orcamento') {
       const report = item.report;
       const meta = resolveClientMeta(report.clientId);
