@@ -167,7 +167,7 @@ function renderOrcamentoFotosSection(meta) {
   return `
     <section class="review-orc-fotos" aria-label="Fotos na proposta">
       <h4 class="review-orc-cabecalho__title">Fotos no PDF</h4>
-      <p class="text-muted review-orc-field-hint">Opcional — até ${MAX_ORCAMENTO_FOTOS} fotografias na proposta comercial.</p>
+      <p class="text-muted review-orc-field-hint">Opcional — até ${MAX_ORCAMENTO_FOTOS} fotografias, ao lado das especificações do equipamento (como o modelo antigo).</p>
       <label class="review-orc-field">
         <span>Posição no PDF</span>
         <select class="review-orc-input" data-orc-field="fotosPosicao">${posOptions}</select>

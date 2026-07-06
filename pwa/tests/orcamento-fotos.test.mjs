@@ -18,11 +18,12 @@ describe('orcamento-fotos', () => {
     assert.equal(result.fotosPosicao, 'antes_tabela');
   });
 
-  it('posição inválida usa antes_tabela', () => {
-    assert.equal(normalizeOrcamentoFotos({ fotosPosicao: 'x' }).fotosPosicao, 'antes_tabela');
+  it('posição predefinida e legado ao lado do equipamento', () => {
+    assert.equal(normalizeOrcamentoFotos({}).fotosPosicao, 'ao_lado_equipamento');
+    assert.equal(normalizeOrcamentoFotos({ fotosPosicao: 'x' }).fotosPosicao, 'ao_lado_equipamento');
     assert.equal(
       normalizeOrcamentoFotos({ fotosPosicao: 'apos_equipamento' }).fotosPosicao,
-      'apos_equipamento',
+      'ao_lado_equipamento',
     );
   });
 });
