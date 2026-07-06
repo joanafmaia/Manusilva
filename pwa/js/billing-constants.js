@@ -1,5 +1,7 @@
 /**
  * Constantes de faturação / contas a receber (relatórios faturados).
+ * Condição de pagamento: removida da UI — novas faturas usam sempre pronto_pagamento.
+ * Mantém-se leitura de valores legados na base de dados.
  */
 
 export const FATURA_CONDICAO_OPCOES = [

@@ -8,9 +8,8 @@ import {
   getReportsSnapshot,
   updateRelatorio,
 } from './relatorios-db.js';
-import { normalizeFaturaCondicao, normalizeStatusRecebimento } from './billing-constants.js';
+import { normalizeStatusRecebimento } from './billing-constants.js';
 import { sameEntityId } from './entity-id.js';
-import { addDaysToIsoDate } from './date-utils.js';
 import { getReportOrcamentoMeta } from './orcamento-linhas.js';
 import {
   getReportOrcamentoPdfUrl,
@@ -154,23 +153,19 @@ export function getPendingBillingReports() {
 }
 
 /**
- * Calcula data_vencimento a partir da condição de pagamento e data de emissão.
+ * Campos financeiros da fatura — pronto-pagamento fixo; vencimento = data de emissão.
  */
-export function resolveInvoiceDueDate(condicaoPagamento, dataEmissao) {
-  const condicao = normalizeFaturaCondicao(condicaoPagamento);
-  if (condicao === '30_dias') return addDaysToIsoDate(dataEmissao, 30);
-  if (condicao === '60_dias') return addDaysToIsoDate(dataEmissao, 60);
+export function resolveInvoiceDueDate(_condicaoPagamento, dataEmissao) {
   return dataEmissao;
 }
 
-/** Campos financeiros da fatura (condição + recebimento independentes). */
-export function resolveInvoiceBillingFields(condicaoPagamento, statusRecebimento, dataEmissao) {
-  const faturaCondicaoPagamento = normalizeFaturaCondicao(condicaoPagamento);
+/** Estado de recebimento + vencimento (condição de pagamento removida da UI — sempre pronto-pagamento). */
+export function resolveInvoiceBillingFields(statusRecebimento, dataEmissao) {
   const status = normalizeStatusRecebimento(statusRecebimento);
   return {
-    faturaCondicaoPagamento,
+    faturaCondicaoPagamento: 'pronto_pagamento',
     statusRecebimento: status,
-    dataVencimento: resolveInvoiceDueDate(faturaCondicaoPagamento, dataEmissao),
+    dataVencimento: resolveInvoiceDueDate('pronto_pagamento', dataEmissao),
   };
 }
 
@@ -223,7 +218,7 @@ export function normalizeInvoiceAmountInput(valorFaturado) {
 /** Regista fatura emitida externamente — contas a receber */
 export async function registerReportInvoice(
   reportId,
-  { numeroFatura, dataFatura, valorFaturado, condicaoPagamento, statusRecebimento },
+  { numeroFatura, dataFatura, valorFaturado, statusRecebimento },
 ) {
   const report = findReport(reportId);
   if (!report) throw new Error('Relatório não encontrado.');
@@ -237,7 +232,7 @@ export async function registerReportInvoice(
   if (!numero) throw new Error('Indique o número da fatura.');
   if (!data) throw new Error('Indique a data de emissão da fatura.');
 
-  const billing = resolveInvoiceBillingFields(condicaoPagamento, statusRecebimento, data);
+  const billing = resolveInvoiceBillingFields(statusRecebimento, data);
 
   await updateRelatorio(reportId, {
     faturacaoStatus: 'faturado',

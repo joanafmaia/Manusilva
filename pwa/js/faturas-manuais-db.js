@@ -204,7 +204,6 @@ export async function registerManualInvoice({
   numeroFatura,
   dataFatura,
   valorFaturado,
-  condicaoPagamento,
   statusRecebimento,
   descricao,
 }) {
@@ -217,7 +216,7 @@ export async function registerManualInvoice({
   if (!numero) throw new Error('Indique o número da fatura.');
   if (!data) throw new Error('Indique a data de emissão da fatura.');
 
-  const billing = resolveInvoiceBillingFields(condicaoPagamento, statusRecebimento, data);
+  const billing = resolveInvoiceBillingFields(statusRecebimento, data);
   const descricaoTrim = String(descricao ?? '').trim();
   if (!descricaoTrim) throw new Error('Indique do que é a fatura (Visita / Relatório).');
 

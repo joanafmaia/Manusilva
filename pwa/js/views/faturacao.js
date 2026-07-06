@@ -49,16 +49,8 @@ import { renderClientCombobox, bindClientComboboxes } from '../client-combobox.j
 import { formatOrdemLabel, formatOpLabel } from '../report-review-ui.js';
 import { reportIsStandaloneOrcamento } from '../orcamento-standalone.js';
 import { resolveOrcamentoBillingTotal } from '../orcamento-billing-workflow.js';
-import { PAYMENT_CONDITION_OPTIONS } from './client-profile-drawer.js';
-import {
-  FATURA_CONDICAO_OPCOES,
-  STATUS_RECEBIMENTO_OPCOES,
-  labelFaturaCondicao,
-  labelStatusRecebimento,
-  condicaoFromClientCatalog,
-} from '../billing-constants.js';
+import { STATUS_RECEBIMENTO_OPCOES, labelStatusRecebimento } from '../billing-constants.js';
 
-const URGENT_PAYMENT_TERMS = new Set(['pronto pagamento', 'semanal']);
 const URGENT_DAYS = 3;
 const DEFAULT_ESTIMATE_EUR = 120;
 
@@ -139,19 +131,6 @@ function loadChartJs() {
   return chartJsPromise;
 }
 
-function normalizePaymentTerm(value) {
-  const raw = String(value ?? '').trim();
-  if (!raw) return 'Não definida';
-  const match = PAYMENT_CONDITION_OPTIONS.find(
-    (opt) => opt.toLowerCase() === raw.toLowerCase(),
-  );
-  return match || raw;
-}
-
-function isUrgentPaymentTerm(condicao) {
-  return URGENT_PAYMENT_TERMS.has(String(condicao ?? '').trim().toLowerCase());
-}
-
 function daysSince(isoDate) {
   if (!isoDate) return 0;
   const start = new Date(isoDate);
@@ -183,14 +162,8 @@ function vencimentoCellClass(urgency) {
   return '';
 }
 
-export function isBillingUrgent(report, client) {
+export function isBillingUrgent(report) {
   if (!report?.approvedAt) return false;
-  const condicao =
-    client?.condicao_pagamento ||
-    client?.condicaoPagamento ||
-    client?.['Condição de pagamento'] ||
-    '';
-  if (!isUrgentPaymentTerm(condicao)) return false;
   return daysSince(report.approvedAt) > URGENT_DAYS;
 }
 
@@ -330,13 +303,7 @@ function resolveClientMeta(clientId) {
   const client = getClient(clientId);
   const nome = client?.name || client?.Nome || client?.nome || '—';
   const nif = client?.NIF || client?.nif || '—';
-  const condicao = normalizePaymentTerm(
-    client?.condicao_pagamento ||
-      client?.condicaoPagamento ||
-      client?.['Condição de pagamento'] ||
-      '',
-  );
-  return { client, nome, nif, condicao };
+  return { client, nome, nif };
 }
 
 function formatOrcamentoOrdemLabel(report) {
@@ -397,7 +364,7 @@ function buildBillingRowsFromItems(items) {
       const meta = resolveClientMeta(servico.clientId);
       const latestApproval = servicoLatestApproval(billingReports);
       const urgentReport =
-        billingReports.find((r) => isBillingUrgent(r, meta.client)) || billingReports[0];
+        billingReports.find((r) => isBillingUrgent(r)) || billingReports[0];
       return {
         kind: 'servico',
         servico,
@@ -406,7 +373,7 @@ function buildBillingRowsFromItems(items) {
         ordem: formatServicoOrdemLabel(servico, billingReports),
         detail: formatServicoReportsLabel(billingReports),
         approvedLabel: formatHistoryDate(latestApproval),
-        urgent: urgentReport ? isBillingUrgent(urgentReport, meta.client) : false,
+        urgent: urgentReport ? isBillingUrgent(urgentReport) : false,
         estimate: estimateServicoValue(billingReports),
         primaryReportId: resolvePrimaryBillingReportId(billingReports),
       };
@@ -426,7 +393,7 @@ function buildBillingRowsFromItems(items) {
         ordem: formatOrcamentoOrdemLabel(report),
         detail: 'Proposta comercial MS.015',
         approvedLabel: formatHistoryDate(String(aceiteEm).split('T')[0]),
-        urgent: isBillingUrgent(report, meta.client),
+        urgent: isBillingUrgent(report),
         estimate: resolveOrcamentoBillingTotal(report),
         pdfEntries: resolveBillingReportPdfEntries(report),
         hasPdf: Boolean(getReportOrcamentoPdfUrl(report)),
@@ -448,7 +415,7 @@ function buildBillingRowsFromItems(items) {
       ordem,
       detail,
       approvedLabel: formatHistoryDate(String(report.approvedAt || '').split('T')[0]),
-      urgent: isBillingUrgent(report, meta.client),
+      urgent: isBillingUrgent(report),
       estimate: estimateReportValue(report),
       pdfEntries,
       hasPdf: pdfEntries.length > 0,
@@ -485,7 +452,6 @@ function buildInvoiceRows(items) {
       valor,
       valorLabel: formatCurrencyEurNullable(valor),
       emissaoLabel: formatHistoryDate(String(entity.dataFatura || '').split('T')[0]),
-      condicaoLabel: labelFaturaCondicao(entity.faturaCondicaoPagamento),
       statusLabel: labelStatusRecebimento(entity.statusRecebimento),
       vencimentoLabel: pago
         ? '—'
@@ -1084,7 +1050,7 @@ function openRegisterInvoiceModal(reportId) {
     client: report?.clientId ? getClient(report.clientId) : null,
     hint: isOrcamento
       ? 'Proposta comercial aceite pelo cliente. O valor sugerido é o total da MS.015 (com IVA). A fatura legal é emitida no programa externo.'
-      : 'A fatura legal é emitida no programa externo. Se este relatório for faturado em conjunto com outros do mesmo cliente, pode deixar o valor em branco. «30 Dias» / «60 Dias» calculam a data de vencimento automaticamente.',
+      : 'A fatura legal é emitida no programa externo. Se este relatório for faturado em conjunto com outros do mesmo cliente, pode deixar o valor em branco.',
     onSave: (payload) => registerReportInvoice(reportId, payload),
   });
 }
@@ -1111,9 +1077,6 @@ function openRegisterServicoInvoiceModal(servicoId, reports = []) {
 
 function openRegisterManualInvoiceModal() {
   const today = new Date().toISOString().split('T')[0];
-  const condicaoOptions = FATURA_CONDICAO_OPCOES.map(
-    (opt) => `<option value="${opt.value}">${escapeHtml(opt.label)}</option>`,
-  ).join('');
   const statusOptions = STATUS_RECEBIMENTO_OPCOES.map(
     (opt) =>
       `<option value="${opt.value}"${opt.value === 'pendente' ? ' selected' : ''}>${escapeHtml(opt.label)}</option>`,
@@ -1142,10 +1105,6 @@ function openRegisterManualInvoiceModal() {
       <div class="form-group">
         <label class="form-label" for="manual-invoice-data">Data de Emissão</label>
         <input type="date" class="form-input" id="manual-invoice-data" required value="${today}">
-      </div>
-      <div class="form-group">
-        <label class="form-label" for="manual-invoice-condicao">Condição de Pagamento</label>
-        <select class="form-input" id="manual-invoice-condicao" required>${condicaoOptions}</select>
       </div>
       <div class="form-group">
         <label class="form-label" for="manual-invoice-status">Estado de Recebimento</label>
@@ -1177,7 +1136,6 @@ function openRegisterManualInvoiceModal() {
     const numero = overlay.querySelector('#manual-invoice-numero')?.value?.trim();
     const data = overlay.querySelector('#manual-invoice-data')?.value?.trim();
     const valor = overlay.querySelector('#manual-invoice-valor')?.value?.trim() || '';
-    const condicao = overlay.querySelector('#manual-invoice-condicao')?.value;
     const statusRecebimento = overlay.querySelector('#manual-invoice-status')?.value;
     const descricao = overlay.querySelector('#manual-invoice-trabalho')?.value?.trim() || '';
     const btn = overlay.querySelector('#btn-save-manual-invoice');
@@ -1209,7 +1167,6 @@ function openRegisterManualInvoiceModal() {
         numeroFatura: numero,
         dataFatura: data,
         valorFaturado: valor,
-        condicaoPagamento: condicao,
         statusRecebimento,
         descricao,
       });
@@ -1233,16 +1190,6 @@ function openRegisterInvoiceModalCore({
   onSave,
 }) {
   const today = new Date().toISOString().split('T')[0];
-  const defaultCondicao = condicaoFromClientCatalog(
-    client?.condicao_pagamento ||
-      client?.condicaoPagamento ||
-      client?.['Condição de pagamento'],
-  );
-
-  const condicaoOptions = FATURA_CONDICAO_OPCOES.map(
-    (opt) =>
-      `<option value="${opt.value}"${opt.value === defaultCondicao ? ' selected' : ''}>${escapeHtml(opt.label)}</option>`,
-  ).join('');
 
   const statusOptions = STATUS_RECEBIMENTO_OPCOES.map(
     (opt) =>
@@ -1267,12 +1214,6 @@ function openRegisterInvoiceModalCore({
         <input type="date" class="form-input" id="invoice-data" name="data" required value="${today}">
       </div>
       <div class="form-group">
-        <label class="form-label" for="invoice-condicao">Condição de Pagamento</label>
-        <select class="form-input" id="invoice-condicao" name="condicao" required>
-          ${condicaoOptions}
-        </select>
-      </div>
-      <div class="form-group">
         <label class="form-label" for="invoice-status">Estado de Recebimento</label>
         <select class="form-input" id="invoice-status" name="status" required>
           ${statusOptions}
@@ -1295,7 +1236,6 @@ function openRegisterInvoiceModalCore({
     const numero = document.getElementById('invoice-numero')?.value?.trim();
     const data = document.getElementById('invoice-data')?.value?.trim();
     const valor = document.getElementById('invoice-valor')?.value?.trim() || '';
-    const condicao = document.getElementById('invoice-condicao')?.value;
     const statusRecebimento = document.getElementById('invoice-status')?.value;
     const btn = document.getElementById('btn-save-invoice');
 
@@ -1317,7 +1257,6 @@ function openRegisterInvoiceModalCore({
         numeroFatura: numero,
         dataFatura: data,
         valorFaturado: valor,
-        condicaoPagamento: condicao,
         statusRecebimento,
       });
       closeModal();
@@ -1439,7 +1378,6 @@ function openInvoiceHistoryDetailModal(reportId) {
       <div><dt>Nº Fatura</dt><dd><code class="faturacao-ordem">${escapeHtml(report.numeroFatura || '—')}</code></dd></div>
       ${job ? `<div><dt>Ordem de produção</dt><dd>${escapeHtml(formatOrdemLabel(job))}</dd></div>` : ''}
       <div><dt>Valor faturado</dt><dd>${escapeHtml(formatCurrencyEurNullable(report.valorFaturado))}</dd></div>
-      <div><dt>Condição de pagamento</dt><dd>${escapeHtml(labelFaturaCondicao(report.faturaCondicaoPagamento))}</dd></div>
       <div><dt>Data do relatório</dt><dd>${escapeHtml(formatHistoryDate(reportDateOf(report)))}</dd></div>
       <div><dt>Data da faturação</dt><dd>${escapeHtml(formatHistoryDate(invoiceDateOf(report)))}</dd></div>
       <div><dt>Data de vencimento</dt><dd>${escapeHtml(vencimentoLabel)}</dd></div>
@@ -1492,7 +1430,6 @@ function openServicoInvoiceHistoryDetailModal(servicoId) {
       <div><dt>Nº Fatura</dt><dd><code class="faturacao-ordem">${escapeHtml(servico.numeroFatura || '—')}</code></dd></div>
       <div><dt>Relatórios</dt><dd><ul class="faturacao-invoice-report-list">${reportList || '<li>—</li>'}</ul></dd></div>
       <div><dt>Valor faturado</dt><dd>${escapeHtml(formatCurrencyEurNullable(servico.valorFaturado))}</dd></div>
-      <div><dt>Condição de pagamento</dt><dd>${escapeHtml(labelFaturaCondicao(servico.faturaCondicaoPagamento))}</dd></div>
       <div><dt>Data da faturação</dt><dd>${escapeHtml(formatHistoryDate(String(servico.dataFatura || '').split('T')[0]))}</dd></div>
       <div><dt>Data de vencimento</dt><dd>${escapeHtml(vencimentoLabel)}</dd></div>
       <div><dt>Data do recebimento</dt><dd>${escapeHtml(recebimentoLabel)}</dd></div>
@@ -1539,7 +1476,6 @@ function openManualInvoiceHistoryDetailModal(invoiceId) {
       <div><dt>Visita / Relatório</dt><dd>${escapeHtml(invoice.descricao || '—')}</dd></div>
       <div><dt>Nº Fatura</dt><dd><code class="faturacao-ordem">${escapeHtml(invoice.numeroFatura || '—')}</code></dd></div>
       <div><dt>Valor faturado</dt><dd>${escapeHtml(formatCurrencyEurNullable(invoice.valorFaturado))}</dd></div>
-      <div><dt>Condição de pagamento</dt><dd>${escapeHtml(labelFaturaCondicao(invoice.faturaCondicaoPagamento))}</dd></div>
       <div><dt>Data da faturação</dt><dd>${escapeHtml(formatHistoryDate(String(invoice.dataFatura || '').split('T')[0]))}</dd></div>
       <div><dt>Data de vencimento</dt><dd>${escapeHtml(vencimentoLabel)}</dd></div>
       <div><dt>Data do recebimento</dt><dd>${escapeHtml(recebimentoLabel)}</dd></div>
@@ -1895,7 +1831,6 @@ function exportFilteredInvoicesCsv() {
     'Nº Fatura',
     'Valor (EUR)',
     'Estado',
-    'Condição',
     'Data recebimento',
   ];
   const lines = [header.join(';')];
@@ -1915,7 +1850,6 @@ function exportFilteredInvoicesCsv() {
       entity.numeroFatura || '',
       Number.isFinite(Number(entity.valorFaturado)) ? Number(entity.valorFaturado) : '',
       labelStatusRecebimento(entity.statusRecebimento),
-      labelFaturaCondicao(entity.faturaCondicaoPagamento),
       recebimento,
     ].map(csvEscape);
     lines.push(row.join(';'));

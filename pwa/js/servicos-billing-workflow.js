@@ -110,7 +110,7 @@ export async function markServicoPendingBillingIfReady(servicoId) {
 /** Regista fatura emitida externamente — ao nível da visita. */
 export async function registerServicoInvoice(
   servicoId,
-  { numeroFatura, dataFatura, valorFaturado, condicaoPagamento, statusRecebimento },
+  { numeroFatura, dataFatura, valorFaturado, statusRecebimento },
 ) {
   const servico = getServico(servicoId);
   if (!servico) throw new Error('Visita não encontrada.');
@@ -124,7 +124,7 @@ export async function registerServicoInvoice(
   if (!numero) throw new Error('Indique o número da fatura.');
   if (!data) throw new Error('Indique a data de emissão da fatura.');
 
-  const billing = resolveInvoiceBillingFields(condicaoPagamento, statusRecebimento, data);
+  const billing = resolveInvoiceBillingFields(statusRecebimento, data);
 
   await updateServico(servicoId, {
     faturacao_status: 'faturado',

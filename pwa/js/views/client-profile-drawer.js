@@ -11,15 +11,6 @@ import { getClient, escapeHtml, showToast } from '../app.js';
 import { putClient } from '../clients-api.js';
 import { mapClientToLegacy, DEMO_CLIENT_FORKLIFTS } from '../mock_data.js';
 
-export const PAYMENT_CONDITION_OPTIONS = [
-  'Pronto Pagamento',
-  'Semanal',
-  'Mensal',
-  '30 dias',
-  '60 dias',
-  '90 dias',
-];
-
 const COPY_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>`;
 
 let activeDrawer = null;
@@ -55,11 +46,6 @@ function enrichLegacyClient(clientId, catalogRecord) {
     catalogRecord?.telemovel ||
     '';
 
-  const condicaoRaw =
-    legacy?.condicao_pagamento ||
-    catalogRecord?.condicao_pagamento ||
-    '';
-
   const plusCode =
     legacy?.plusCode || legacy?.plus_code || catalogRecord?.plusCode || catalogRecord?.plus_code || '';
   const zonaRota =
@@ -77,8 +63,6 @@ function enrichLegacyClient(clientId, catalogRecord) {
     localidadeRaw: localidade || '',
     emailRaw: email,
     phoneRaw: phone,
-    condicaoPagamento: condicaoRaw || '—',
-    condicaoPagamentoRaw: condicaoRaw || '',
     plusCode: plusCode || '—',
     plusCodeRaw: plusCode || '',
     zonaRota: zonaRota || '—',
@@ -168,23 +152,6 @@ function renderEditableField(label, inputId, value, inputType = 'text') {
   `;
 }
 
-function renderPaymentSelect(value) {
-  const options = PAYMENT_CONDITION_OPTIONS.map(
-    (opt) =>
-      `<option value="${escapeAttr(opt)}"${opt === value ? ' selected' : ''}>${escapeHtml(opt)}</option>`,
-  ).join('');
-
-  return `
-    <section class="client-ficha-block">
-      <label class="client-ficha-label ms-label" for="client-ficha-pagamento">Condição de pagamento</label>
-      <select class="form-select client-profile-edit-input" id="client-ficha-pagamento">
-        <option value="">— Selecionar —</option>
-        ${options}
-      </select>
-    </section>
-  `;
-}
-
 function renderAddressEditBlock(profile) {
   return `
     ${renderEditableField('Morada', 'client-ficha-morada', profile.moradaRaw, 'text')}
@@ -244,10 +211,6 @@ export function renderClientProfilePanel(profile, { editing = false } = {}) {
           : '—',
       );
 
-  const paymentBlock = editing
-    ? renderPaymentSelect(profile.condicaoPagamentoRaw)
-    : renderViewField('Condição de pagamento', escapeHtml(profile.condicaoPagamento));
-
   const footer = editing
     ? `
         <button type="button" class="btn-ghost client-ficha-cancel-btn" data-client-ficha-cancel>Cancelar</button>
@@ -285,7 +248,6 @@ export function renderClientProfilePanel(profile, { editing = false } = {}) {
         ${moradaBlock}
         ${emailBlock}
         ${phoneBlock}
-        ${paymentBlock}
 
         <section class="client-ficha-block client-ficha-block--machines">
           <h3 class="client-ficha-label ms-label">Máquinas associadas</h3>
@@ -325,7 +287,6 @@ function readEditForm(shell) {
     zona_rota: shell.querySelector('#client-ficha-zona-rota')?.value?.trim() ?? '',
     email: shell.querySelector('#client-ficha-email')?.value?.trim() ?? '',
     telemovel: shell.querySelector('#client-ficha-phone')?.value?.trim() ?? '',
-    condicao_pagamento: shell.querySelector('#client-ficha-pagamento')?.value?.trim() ?? '',
   };
 }
 
@@ -351,7 +312,6 @@ function bindClientProfilePanel(shell, profile, options = {}) {
     zona_rota: p.zonaRotaRaw || '',
     email: p.emailRaw || '',
     telemovel: p.phoneRaw || '',
-    condicao_pagamento: p.condicaoPagamentoRaw || '',
   });
 
   const repaint = async (editing) => {
