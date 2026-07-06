@@ -48,6 +48,12 @@ export const LoginView = {
         </aside>
 
         <div class="login-panel">
+          <div class="login-stack">
+            <div class="login-brand-block login-brand-block--stacked" aria-label="Manusilva">
+              <div class="brand-logo-slot login-brand-logo" data-brand-logo-lg aria-label="Manusilva"></div>
+              <p class="login-brand-tagline">Gestão de empilhadores, manutenção e baterias</p>
+            </div>
+
           <div id="login-card" class="login-card">
             <header class="login-panel__header">
               <h2 class="login-portal-title">Entrar</h2>
@@ -99,6 +105,7 @@ export const LoginView = {
               <span id="btn-text">Entrar</span>
             </button>
           </form>
+          </div>
           </div>
         </div>
       </div>
