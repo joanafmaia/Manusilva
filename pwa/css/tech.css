@@ -2302,6 +2302,15 @@
   flex-shrink: 0;
   transition: background 0.2s, box-shadow 0.2s;
 }
+.status-pill--green:not(.selected) .status-pill-dot {
+  background: color-mix(in srgb, var(--success) 50%, var(--text-muted));
+}
+.status-pill--amber:not(.selected) .status-pill-dot {
+  background: color-mix(in srgb, var(--warning) 55%, var(--text-muted));
+}
+.status-pill--red:not(.selected) .status-pill-dot {
+  background: color-mix(in srgb, var(--danger) 50%, var(--text-muted));
+}
 .status-pill:hover {
   border-color: var(--border-hover-strong);
   color: var(--text-primary);

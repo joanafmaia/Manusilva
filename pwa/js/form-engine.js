@@ -116,6 +116,7 @@ const STATUS_PILL_CLASS = {
   Anual: 'status-pill--green',
   Outra: 'status-pill--amber',
   Operacional: 'status-pill--green',
+  'Necessita Atenção': 'status-pill--amber',
   'Inoperacional por Segurança': 'status-pill--red',
   'Aguardar Peças': 'status-pill--amber',
   'Reparação Concluída': 'status-pill--green',
@@ -138,9 +139,9 @@ const MATRIX_OPTION_CLASS = {
 
 function getStatusPillClass(opt) {
   if (STATUS_PILL_CLASS[opt]) return STATUS_PILL_CLASS[opt];
-  if (/normal|correto|operacional/i.test(opt)) return 'status-pill--green';
-  if (/baixo|irregular|alto|aviso/i.test(opt)) return 'status-pill--amber';
-  if (/danific|rejeit|urgent/i.test(opt)) return 'status-pill--red';
+  if (/normal|correto|^operacional$/i.test(opt)) return 'status-pill--green';
+  if (/baixo|irregular|alto|aviso|necessita|aten[cç][aã]o|aguardar/i.test(opt)) return 'status-pill--amber';
+  if (/inoperacional|danific|rejeit|urgent/i.test(opt)) return 'status-pill--red';
   return '';
 }
 
