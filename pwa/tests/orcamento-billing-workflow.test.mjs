@@ -74,7 +74,7 @@ describe('orcamento-billing-workflow', () => {
     assert.equal(isPendingBilling(propostaAceite()), false);
   });
 
-  it('getPendingBillingItems — não inclui propostas comerciais (só relatórios)', async () => {
+  it('getPendingBillingItems — inclui propostas standalone aceites', async () => {
     const relatoriosDb = await import('../js/relatorios-db.js');
     relatoriosDb.mergeReportInCache(propostaAceite());
     relatoriosDb.mergeReportInCache(
@@ -91,7 +91,8 @@ describe('orcamento-billing-workflow', () => {
 
     const { getPendingBillingItems } = await import('../js/servicos-billing-workflow.js');
     const items = getPendingBillingItems();
-    assert.equal(items.filter((i) => i.kind === 'orcamento').length, 0);
+    assert.equal(items.filter((i) => i.kind === 'orcamento').length, 1);
+    assert.equal(items.filter((i) => i.kind === 'orcamento')[0].report.id, 'orc-aceite');
     assert.ok(getPendingOrcamentoBillingReports().length >= 1);
   });
 

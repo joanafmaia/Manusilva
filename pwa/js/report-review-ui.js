@@ -59,10 +59,15 @@ export async function validateReviewClientEmail(root, inputId = 'review-client-e
   return null;
 }
 
+export function formatOpLabel(numeroOrdem) {
+  if (numeroOrdem == null || !Number.isFinite(Number(numeroOrdem))) return null;
+  const year = new Date().getFullYear();
+  return `OP-${year}-${String(numeroOrdem).padStart(2, '0')}`;
+}
+
 export function formatOrdemLabel(job, clientHint = null) {
-  if (job?.numeroOrdem != null) {
-    return `OP-2026-${String(job.numeroOrdem).padStart(2, '0')}`;
-  }
+  const op = formatOpLabel(job?.numeroOrdem);
+  if (op) return op;
   const client = clientHint || (job?.clientId ? getClient(job.clientId) : null);
   if (isTestClient(client)) return TEST_JOB_ORDEM_LABEL;
   return '—';

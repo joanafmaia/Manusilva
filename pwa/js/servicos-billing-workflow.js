@@ -12,6 +12,8 @@ import {
   getPendingBillingReports,
 } from './billing-workflow.js';
 import { getServicoActiveReports, isServicoVisitFullyApproved } from './servicos-email-workflow.js';
+import { getPendingOrcamentoBillingReports } from './orcamento-billing-workflow.js';
+import { getReportOrcamentoMeta } from './orcamento-linhas.js';
 import { showToast } from './toast-modal.js';
 
 /** Relatório com faturação delegada ao serviço (não aparece na fila por relatório). */
@@ -42,7 +44,7 @@ function servicoBillingSortKey(servico) {
   return dates[dates.length - 1] || String(servico.approvedAt || servico.date || '');
 }
 
-/** Fila «por faturar»: visitas (serviços) + relatórios técnicos legados (sem propostas comerciais). */
+/** Fila «por faturar»: visitas + relatórios legados + propostas standalone aceites. */
 export function getPendingBillingItems() {
   const servicos = getPendingBillingServicos().map((servico) => ({
     kind: 'servico',
@@ -55,13 +57,22 @@ export function getPendingBillingItems() {
     id: String(report.id),
     report,
   }));
-  return [...servicos, ...reports].sort((a, b) =>
+  const orcamentos = getPendingOrcamentoBillingReports().map((report) => ({
+    kind: 'orcamento',
+    id: String(report.id),
+    report,
+  }));
+  return [...servicos, ...reports, ...orcamentos].sort((a, b) =>
     billingItemSortKey(a).localeCompare(billingItemSortKey(b)),
   );
 }
 
 function billingItemSortKey(item) {
   if (item.kind === 'servico') return servicoBillingSortKey(item.servico);
+  if (item.kind === 'orcamento') {
+    const meta = getReportOrcamentoMeta(item.report);
+    return String(meta?.respostaClienteEm || item.report?.approvedAt || '').split('T')[0];
+  }
   return String(item.report?.approvedAt || '').split('T')[0];
 }
 

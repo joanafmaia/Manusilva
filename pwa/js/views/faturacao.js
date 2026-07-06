@@ -43,8 +43,11 @@ import {
   revertReportInvoice,
 } from '../billing-workflow.js';
 import { isPendingOrcamentoBilling } from '../orcamento-billing-workflow.js';
+import { getReportOrcamentoMeta } from '../orcamento-linhas.js';
+import { getReportOrcamentoPdfUrl } from '../pedido-orcamento.js';
 import { renderClientCombobox, bindClientComboboxes } from '../client-combobox.js';
-import { formatOrdemLabel } from '../report-review-ui.js';
+import { formatOrdemLabel, formatOpLabel } from '../report-review-ui.js';
+import { reportIsStandaloneOrcamento } from '../orcamento-standalone.js';
 import { resolveOrcamentoBillingTotal } from '../orcamento-billing-workflow.js';
 import { PAYMENT_CONDITION_OPTIONS } from './client-profile-drawer.js';
 import {
@@ -336,6 +339,11 @@ function resolveClientMeta(clientId) {
   return { client, nome, nif, condicao };
 }
 
+function formatOrcamentoOrdemLabel(report) {
+  const meta = getReportOrcamentoMeta(report);
+  return meta?.numeroFormatado ? `Proposta nº ${meta.numeroFormatado}` : 'Proposta MS.015';
+}
+
 function formatServicoOrdemLabel(servico, reports = []) {
   const ops = [
     ...new Set(
@@ -348,16 +356,14 @@ function formatServicoOrdemLabel(servico, reports = []) {
         .filter((n) => n != null),
     ),
   ];
-  if (ops.length === 1) return String(ops[0]).padStart(4, '0');
-  if (ops.length > 1) {
-    return ops
-      .sort((a, b) => a - b)
-      .map((n) => String(n).padStart(4, '0'))
-      .join(', ');
-  }
-  if (servico?.numeroOrdem != null) {
-    return String(servico.numeroOrdem).padStart(4, '0');
-  }
+  const labels = ops
+    .sort((a, b) => a - b)
+    .map((n) => formatOpLabel(n))
+    .filter(Boolean);
+  if (labels.length === 1) return labels[0];
+  if (labels.length > 1) return labels.join(', ');
+  const servicoOp = formatOpLabel(servico?.numeroOrdem);
+  if (servicoOp) return servicoOp;
   return formatDateSafe(servico?.date);
 }
 
@@ -406,14 +412,34 @@ function buildBillingRowsFromItems(items) {
       };
     }
 
+    }
+
+    if (item.kind === 'orcamento') {
+      const report = item.report;
+      const meta = resolveClientMeta(report.clientId);
+      const orcamentoMeta = getReportOrcamentoMeta(report);
+      const aceiteEm = orcamentoMeta?.respostaClienteEm || report.approvedAt || '';
+      return {
+        kind: 'orcamento',
+        report,
+        ...meta,
+        ordem: formatOrcamentoOrdemLabel(report),
+        detail: 'Proposta comercial MS.015',
+        approvedLabel: formatHistoryDate(String(aceiteEm).split('T')[0]),
+        urgent: isBillingUrgent(report, meta.client),
+        estimate: resolveOrcamentoBillingTotal(report),
+        pdfEntries: resolveBillingReportPdfEntries(report),
+        hasPdf: Boolean(getReportOrcamentoPdfUrl(report)),
+        primaryReportId: String(report.id),
+        pdfTitle: 'Abrir PDF da proposta MS.015',
+      };
+    }
+
     const report = item.report;
     const meta = resolveClientMeta(report.clientId);
     const job = report.jobId ? getJob(report.jobId) : null;
     const pdfEntries = resolveBillingReportPdfEntries(report);
-    const ordem =
-      job?.numeroOrdem != null
-        ? String(job.numeroOrdem).padStart(4, '0')
-        : formatOrdemLabel(job);
+    const ordem = formatOrdemLabel(job);
     const detail = getServiceType(report.serviceType)?.label || report.serviceType || 'Relatório';
     return {
       kind: 'report',
@@ -427,6 +453,7 @@ function buildBillingRowsFromItems(items) {
       pdfEntries,
       hasPdf: pdfEntries.length > 0,
       primaryReportId: report.id,
+      pdfTitle: 'Abrir PDF do relatório técnico',
     };
   });
 }
@@ -486,13 +513,24 @@ function resolveInvoiceTrabalhoLabel(item) {
       detail: formatServicoReportsLabel(reports),
     };
   }
+  if (item.kind === 'report' && reportIsStandaloneOrcamento(entity)) {
+    return {
+      ordem: formatOrcamentoOrdemLabel(entity),
+      detail: 'Proposta comercial MS.015',
+    };
+  }
   const job = entity.jobId ? getJob(entity.jobId) : null;
-  const ordem =
-    job?.numeroOrdem != null
-      ? String(job.numeroOrdem).padStart(4, '0')
-      : formatOrdemLabel(job);
+  const ordem = formatOrdemLabel(job);
   const detail = getServiceType(entity.serviceType)?.label || entity.serviceType || 'Relatório';
   return { ordem, detail };
+}
+
+function resolveInvoiceTipoLabel(item) {
+  if (item.kind === 'manual') return 'Manual';
+  if (item.kind === 'servico') return 'Visita';
+  if (item.kind === 'report' && reportIsStandaloneOrcamento(item.entity)) return 'Proposta';
+  if (item.kind === 'report') return 'Relatório';
+  return '—';
 }
 
 /** Pendentes primeiro (vencimento mais antigo); recebidas por data de emissão. */
@@ -797,20 +835,25 @@ function renderBillingTable(rows) {
             ${rows
               .map((row) => {
                 const isServico = row.kind === 'servico';
+                const reportId = isServico ? '' : String(row.report?.id || row.primaryReportId || '');
                 const rowIdAttr = isServico
                   ? `data-servico-id="${escapeHtml(row.servico.id)}"`
-                  : `data-report-id="${escapeHtml(row.report.id)}"`;
+                  : `data-report-id="${escapeHtml(reportId)}"`;
                 const pdfId = row.primaryReportId;
-                const pdfTitle = 'Abrir PDF do relatório técnico';
+                const pdfTitle = row.pdfTitle || 'Abrir PDF do relatório técnico';
                 const registerAttr = isServico
                   ? `data-register-invoice-servico="${escapeHtml(row.servico.id)}"`
-                  : `data-register-invoice="${escapeHtml(row.report.id)}"`;
+                  : `data-register-invoice="${escapeHtml(reportId)}"`;
                 const dismissAttr = isServico
                   ? `data-billing-dismiss-servico="${escapeHtml(row.servico.id)}"`
-                  : `data-billing-dismiss="${escapeHtml(row.report.id)}"`;
+                  : `data-billing-dismiss="${escapeHtml(reportId)}"`;
+                const kindBadge =
+                  row.kind === 'orcamento'
+                    ? ' <span class="faturacao-visit-badge">Proposta</span>'
+                    : '';
                 return `
               <tr class="rh-data-table-row${row.urgent ? ' faturacao-row--urgent' : ''}" ${rowIdAttr}>
-                <td class="faturacao-cell-client" title="${escapeHtml(row.nome)}">${escapeHtml(row.nome)}${row.urgent ? ' <span class="faturacao-urgent-badge">Urgente</span>' : ''}</td>
+                <td class="faturacao-cell-client" title="${escapeHtml(row.nome)}">${escapeHtml(row.nome)}${kindBadge}${row.urgent ? ' <span class="faturacao-urgent-badge">Urgente</span>' : ''}</td>
                 <td class="faturacao-cell-ordem">
                   <code class="faturacao-ordem">${escapeHtml(row.ordem)}</code>
                   <span class="faturacao-cell-detail">${escapeHtml(row.detail)}</span>
@@ -941,7 +984,8 @@ async function softRefreshFaturacaoPanel() {
   let billingItems = getPendingBillingItems();
   if (billingFilters.clientId) {
     billingItems = billingItems.filter((item) => {
-      const clientId = item.kind === 'servico' ? item.servico.clientId : item.report.clientId;
+      const clientId =
+        item.kind === 'servico' ? item.servico.clientId : item.report?.clientId;
       return String(clientId) === String(billingFilters.clientId);
     });
   }
@@ -1318,7 +1362,7 @@ function bindBillingRowActionButtons() {
       const report = getReport(reportId);
       const client = report ? getClient(report.clientId) : null;
       const job = report?.jobId ? getJob(report.jobId) : null;
-      const isOrcamento = report && Boolean(getReportOrcamentoPdfUrl(report));
+      const isOrcamento = report && isPendingOrcamentoBilling(report);
       const label = client?.name || client?.Nome || formatOrdemLabel(job) || (isOrcamento ? 'esta proposta' : 'este relatório');
       const ok = window.confirm(
         isOrcamento
@@ -1844,6 +1888,7 @@ function exportFilteredInvoicesCsv() {
 
   const header = [
     'Data faturação',
+    'Tipo',
     'Cliente',
     'NIF',
     'Visita / Relatório',
@@ -1863,6 +1908,7 @@ function exportFilteredInvoicesCsv() {
     const trabalhoLabel = [trabalho.ordem, trabalho.detail].filter(Boolean).join(' — ');
     const row = [
       invoiceDateOfEntity(item),
+      resolveInvoiceTipoLabel(item),
       meta.nome,
       meta.nif,
       trabalhoLabel,
@@ -1930,7 +1976,8 @@ function renderPanel() {
   let billingItems = getPendingBillingItems();
   if (billingFilters.clientId) {
     billingItems = billingItems.filter((item) => {
-      const clientId = item.kind === 'servico' ? item.servico.clientId : item.report.clientId;
+      const clientId =
+        item.kind === 'servico' ? item.servico.clientId : item.report?.clientId;
       return String(clientId) === String(billingFilters.clientId);
     });
   }
