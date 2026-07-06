@@ -182,9 +182,10 @@
         onRemoteBuild: () => {
           window.dispatchEvent(new CustomEvent('manusilva-app-update-available'));
         },
-        onReady: async (v) => {
-          const { initLocalDatabase } = await import(`./js/app.js?v=${v}`);
-          const { initAdminDashboard } = await import(`./js/admin-dashboard.js?v=${v}`);
+        onReady: async (v, moduleQ) => {
+          const q = moduleQ || `?v=${v}`;
+          const { initLocalDatabase } = await import(`./js/app.js${q}`);
+          const { initAdminDashboard } = await import(`./js/admin-dashboard.js${q}`);
           initLocalDatabase();
           await initAdminDashboard();
         },

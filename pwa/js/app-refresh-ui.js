@@ -28,7 +28,17 @@ export function bindAppRefreshButton(buttonId = 'btn-force-app-refresh', options
       if (textLabel) textLabel.textContent = 'A atualizar…';
       else refreshBtn.textContent = 'A atualizar…';
     } else refreshBtn.textContent = 'A atualizar…';
-    await forceAppRefresh();
+    try {
+      await forceAppRefresh();
+    } catch (err) {
+      console.error('[Manusilva] forceAppRefresh:', err);
+      const { markForceModuleBust, purgeBrowserCaches, navigateToFreshApp } = await import(
+        './app-version.js'
+      );
+      markForceModuleBust();
+      await purgeBrowserCaches();
+      navigateToFreshApp();
+    }
   });
 
   const hint =

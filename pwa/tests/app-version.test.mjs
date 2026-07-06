@@ -10,4 +10,9 @@ describe('app-version', () => {
     );
     assert.equal(parseBuildIdFromSource(''), '');
   });
+
+  it('consumeModuleCacheBustQuery usa buildId', async () => {
+    const { consumeModuleCacheBustQuery } = await import('../js/app-version.js');
+    assert.equal(consumeModuleCacheBustQuery('6790799'), '?v=6790799');
+  });
 });

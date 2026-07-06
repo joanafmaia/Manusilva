@@ -41,8 +41,9 @@
         `./js/bootstrap-entry.js?_=${Date.now()}`
       );
       await bootstrapManusilvaApp({
-        onReady: async (v) => {
-          const { bootstrapApp } = await import(`./js/app.js?v=${v}`);
+        onReady: async (v, moduleQ) => {
+          const q = moduleQ || `?v=${v}`;
+          const { bootstrapApp } = await import(`./js/app.js${q}`);
           bootstrapApp('app');
         },
       });

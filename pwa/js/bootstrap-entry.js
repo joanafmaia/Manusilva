@@ -5,6 +5,7 @@
 import {
   applyBuildAssetVersions,
   clearModuleRecoveryFlag,
+  consumeModuleCacheBustQuery,
   ensureFreshAppBuild,
   fetchAppBuildId,
   recoverFromModuleLoadFailure,
@@ -26,7 +27,8 @@ export async function bootstrapManusilvaApp({ onReady, registerServiceWorker = f
 
   if (registerServiceWorker) await registerAppServiceWorker(v);
 
-  await onReady(v);
+  const moduleQ = consumeModuleCacheBustQuery(v);
+  await onReady(v, moduleQ);
   clearModuleRecoveryFlag();
 
   if (onRemoteBuild) startBuildIdWatch(onRemoteBuild);

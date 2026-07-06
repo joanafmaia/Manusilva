@@ -128,10 +128,11 @@
         onRemoteBuild: () => {
           window.dispatchEvent(new CustomEvent('manusilva-app-update-available'));
         },
-        onReady: async (v) => {
-          const { initLocalDatabase } = await import(`./js/tech-app-core.js?v=${v}`);
-          const { initTechDashboard } = await import(`./js/tech-dashboard.js?v=${v}`);
-          const { initLogoutButton } = await import(`./js/auth.js?v=${v}`);
+        onReady: async (v, moduleQ) => {
+          const q = moduleQ || `?v=${v}`;
+          const { initLocalDatabase } = await import(`./js/tech-app-core.js${q}`);
+          const { initTechDashboard } = await import(`./js/tech-dashboard.js${q}`);
+          const { initLogoutButton } = await import(`./js/auth.js${q}`);
           initLogoutButton();
           initLocalDatabase();
           void initTechDashboard();

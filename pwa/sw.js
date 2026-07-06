@@ -39,6 +39,12 @@ self.addEventListener('fetch', (event) => {
   if (!isSameOrigin(url)) return;
 
   const path = new URL(url).pathname;
+
+  if (request.mode === 'navigate') {
+    event.respondWith(fetch(request, { cache: 'no-store' }));
+    return;
+  }
+
   if (path.startsWith('/js/') || path.endsWith('.html') || path === '/sw.js') {
     event.respondWith(fetch(request, { cache: 'no-store' }));
   }

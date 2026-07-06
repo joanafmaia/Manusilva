@@ -4,6 +4,7 @@
 
 const STORAGE_KEY = 'manusilva_app_build_id';
 const RECOVERY_KEY = 'manusilva_module_recovery';
+const FORCE_BUST_KEY = 'manusilva_force_bust';
 
 /** Extrai APP_BUILD_ID do ficheiro gerado no deploy. */
 export function parseBuildIdFromSource(source) {
@@ -45,10 +46,36 @@ export async function purgeBrowserCaches() {
   }
 }
 
+/** Query string para import() de módulos — bust forçado após «Atualizar app». */
+export function consumeModuleCacheBustQuery(buildId) {
+  try {
+    const force = sessionStorage.getItem(FORCE_BUST_KEY);
+    if (force) {
+      sessionStorage.removeItem(FORCE_BUST_KEY);
+      return `?_=${encodeURIComponent(force)}`;
+    }
+  } catch {
+    /* ignore */
+  }
+  if (buildId && buildId !== 'dev') {
+    return `?v=${encodeURIComponent(buildId)}`;
+  }
+  return `?_=${Date.now()}`;
+}
+
+export function markForceModuleBust() {
+  try {
+    sessionStorage.setItem(FORCE_BUST_KEY, String(Date.now()));
+  } catch {
+    /* ignore */
+  }
+}
+
 /** Navegação que evita bfcache e cache de HTML (reload simples não basta). */
 export function navigateToFreshApp() {
   const url = new URL(location.href);
   url.searchParams.set('_ms', String(Date.now()));
+  url.hash = '';
   location.replace(url.toString());
 }
 
@@ -87,30 +114,20 @@ export async function ensureFreshAppBuild(buildId) {
   return false;
 }
 
-/** Força atualização manual (botão no painel RH). */
+/** Força atualização manual (botão «Atualizar app»). */
 export async function forceAppRefresh() {
   const remote = await fetchAppBuildId();
+  markForceModuleBust();
   try {
     if (remote) {
       localStorage.setItem(STORAGE_KEY, remote);
-    } else {
-      localStorage.removeItem(STORAGE_KEY);
     }
     sessionStorage.removeItem(RECOVERY_KEY);
   } catch {
     /* ignore */
   }
 
-  await clearCacheStorage();
-
-  try {
-    if ('serviceWorker' in navigator) {
-      const regs = await navigator.serviceWorker.getRegistrations();
-      await Promise.all(regs.map((r) => r.update()));
-    }
-  } catch {
-    /* ignore */
-  }
+  await purgeBrowserCaches();
 
   navigateToFreshApp();
 }
