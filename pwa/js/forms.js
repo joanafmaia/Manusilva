@@ -1207,7 +1207,10 @@ function applyFormReadOnly(overlay) {
 function bindFormEvents(overlay, job, client, tech, service, existingReport, options = {}) {
   const viewOnly = options.viewOnly === true;
   const servicoVisitMode = options.servicoVisitMode === true;
-  if (servicoVisitMode) overlay.dataset.servicoVisitMode = '1';
+  if (servicoVisitMode) {
+    overlay.dataset.servicoVisitMode = '1';
+    overlay.dataset.servicoReturnId = job.servicoId || job.id || '';
+  }
   const draftReportId = existingReport?.id || null;
   existingReportRef = existingReport;
   signaturesRestoredFromReport = false;
@@ -1498,6 +1501,7 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport, opt
 }
 
 function closeForm(overlay) {
+  const servicoReturnId = overlay?.dataset?.servicoReturnId || '';
   overlay?.__offlineCleanup?.();
   clearEdicaoState();
   existingReportRef = null;
@@ -1511,4 +1515,11 @@ function closeForm(overlay) {
   overlay.classList.remove('show');
   document.body.style.overflow = '';
   setTimeout(() => overlay.remove(), 300);
+  if (servicoReturnId) {
+    setTimeout(() => {
+      import('./tech-servico-panel.js')
+        .then(({ openTechServicoDetail }) => openTechServicoDetail(servicoReturnId))
+        .catch((err) => console.warn('[Form] Voltar à visita:', err));
+    }, 320);
+  }
 }
