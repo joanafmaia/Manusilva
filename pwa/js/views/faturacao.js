@@ -9,7 +9,6 @@ import {
   getJob,
   registerReportInvoice,
   confirmInvoicePayment,
-  dismissPendingBillingReport,
   openModal,
   closeModal,
   escapeHtml,
@@ -31,7 +30,6 @@ import { getApprovedReportsForServico } from '../servicos-panel-utils.js';
 import {
   getPendingBillingItems,
   registerServicoInvoice,
-  dismissPendingBillingServico,
   confirmServicoInvoicePayment,
   revertServicoInvoice,
   resolveBillingFocusTarget,
@@ -808,9 +806,6 @@ function renderBillingTable(rows) {
                 const registerAttr = isServico
                   ? `data-register-invoice-servico="${escapeHtml(row.servico.id)}"`
                   : `data-register-invoice="${escapeHtml(reportId)}"`;
-                const dismissAttr = isServico
-                  ? `data-billing-dismiss-servico="${escapeHtml(row.servico.id)}"`
-                  : `data-billing-dismiss="${escapeHtml(reportId)}"`;
                 const kindBadge =
                   row.kind === 'orcamento'
                     ? ' <span class="faturacao-visit-badge">Proposta</span>'
@@ -827,7 +822,6 @@ function renderBillingTable(rows) {
                   <div class="faturacao-billing-actions">
                     ${pdfId ? `<button type="button" class="btn-outline btn-sm faturacao-btn-compact" data-billing-pdf="${escapeHtml(pdfId)}" title="${escapeHtml(pdfTitle)}">PDF</button>` : ''}
                     <button type="button" class="btn-primary btn-sm faturacao-btn-compact" ${registerAttr} title="Marcar como faturado">Faturar</button>
-                    <button type="button" class="btn-danger btn-sm faturacao-btn-compact" ${dismissAttr} title="Retirar da lista por faturar">Eliminar</button>
                   </div>
                 </td>
               </tr>
@@ -1289,31 +1283,6 @@ function bindBillingRowActionButtons() {
     });
   });
 
-  mountRoot?.querySelectorAll('[data-billing-dismiss]').forEach((btn) => {
-    if (btn.dataset.boundBilling === '1') return;
-    btn.dataset.boundBilling = '1';
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const reportId = btn.getAttribute('data-billing-dismiss');
-      if (!reportId) return;
-      const report = getReport(reportId);
-      const client = report ? getClient(report.clientId) : null;
-      const job = report?.jobId ? getJob(report.jobId) : null;
-      const isOrcamento = report && isPendingOrcamentoBilling(report);
-      const label = client?.name || client?.Nome || formatOrdemLabel(job) || (isOrcamento ? 'esta proposta' : 'este relatório');
-      const ok = window.confirm(
-        isOrcamento
-          ? `Retirar ${label} da lista por faturar?\n\nA proposta aceite mantém-se — apenas deixa de aparecer nesta fila.`
-          : `Retirar ${label} da lista por faturar?\n\nO relatório técnico aprovado mantém-se — apenas deixa de aparecer nesta fila.`,
-      );
-      if (!ok) return;
-      void dismissPendingBillingReport(reportId).then((done) => {
-        if (!done) return;
-        refreshFaturacaoPanel({ soft: true }).catch(console.error);
-      });
-    });
-  });
-
   mountRoot?.querySelectorAll('[data-register-invoice-servico]').forEach((btn) => {
     if (btn.dataset.boundBillingServico === '1') return;
     btn.dataset.boundBillingServico = '1';
@@ -1323,27 +1292,6 @@ function bindBillingRowActionButtons() {
       if (!servicoId) return;
       const reports = getApprovedReportsForServico(servicoId);
       openRegisterServicoInvoiceModal(servicoId, reports);
-    });
-  });
-
-  mountRoot?.querySelectorAll('[data-billing-dismiss-servico]').forEach((btn) => {
-    if (btn.dataset.boundBillingServico === '1') return;
-    btn.dataset.boundBillingServico = '1';
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const servicoId = btn.getAttribute('data-billing-dismiss-servico');
-      if (!servicoId) return;
-      const servico = getServico(servicoId);
-      const client = servico ? getClient(servico.clientId) : null;
-      const label = client?.name || client?.Nome || 'esta visita';
-      const ok = window.confirm(
-        `Retirar ${label} da lista por faturar?\n\nOs relatórios técnicos aprovados mantêm-se — apenas deixa de aparecer nesta fila.`,
-      );
-      if (!ok) return;
-      void dismissPendingBillingServico(servicoId).then((done) => {
-        if (!done) return;
-        refreshFaturacaoPanel({ soft: true }).catch(console.error);
-      });
     });
   });
 }
