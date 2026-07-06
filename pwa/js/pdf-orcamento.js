@@ -69,7 +69,6 @@ const CONTENT_MAX_Y = FOOTER_TOP - 6;
 const ORC_FOTO_COL_W = 43;
 const ORC_FOTO_COL_GAP = 5;
 const ORC_FOTO_X = 114.3;
-const ORC_TEXT_COL_W_WITH_FOTO = ORC_FOTO_X - MARGIN - ORC_FOTO_COL_GAP;
 const ORC_FOTO_SLOT_GAP = 3;
 const ORC_FOTO_SINGLE_H = 64;
 const ORC_FOTO_STACKED_H = 56;
@@ -77,6 +76,69 @@ const ORC_TABLE_ROW_H = 6.5;
 const ORC_TABLE_GAP_ABOVE_FOOTER = 3;
 
 let legalTextCache = null;
+
+/** Largura do texto: estreita ao lado da foto, largura total abaixo dela. */
+export function orcamentoTextWidthAtY(y, floatRect) {
+  if (!floatRect) return CONTENT_W;
+  const bandBottom = floatRect.y + floatRect.h;
+  if (y >= floatRect.y - 0.5 && y < bandBottom) {
+    return Math.max(40, floatRect.x - MARGIN - ORC_FOTO_COL_GAP);
+  }
+  return CONTENT_W;
+}
+
+function plannedOrcamentoPhotoFloatHeight(fotos = []) {
+  const rows = (Array.isArray(fotos) ? fotos : []).filter((row) =>
+    String(row?.dataUrl || '').startsWith('data:image'),
+  );
+  if (!rows.length) return 0;
+  if (rows.length === 1) return ORC_FOTO_SINGLE_H;
+  return ORC_FOTO_STACKED_H * rows.length + ORC_FOTO_SLOT_GAP * (rows.length - 1);
+}
+
+/** Desenha parágrafo com reflow quando a largura muda (foto flutuante à direita). */
+function drawOrcamentoReflowText(doc, text, startY, options = {}) {
+  const {
+    floatRect = null,
+    maxEndY = CONTENT_MAX_Y,
+    lineStep = 5.5,
+    x = MARGIN,
+    firstLinePrefix = '',
+    prefixBold = true,
+  } = options;
+  let y = startY;
+  let rest = String(text || '').trim();
+  if (!rest) return y;
+
+  let isFirstLine = true;
+  while (rest && y + lineStep <= maxEndY + 0.5) {
+    const baseW = orcamentoTextWidthAtY(y, floatRect);
+    let lineX = x;
+    let lineW = baseW;
+
+    if (isFirstLine && firstLinePrefix) {
+      pdfSetFont(doc, prefixBold ? 'bold' : 'normal');
+      doc.setFontSize(PDF_FONT_BODY);
+      doc.setTextColor(...PDF_COLOR_TEXT_DARK);
+      doc.text(firstLinePrefix, x, y);
+      lineX = x + doc.getTextWidth(firstLinePrefix);
+      lineW = Math.max(12, baseW - (lineX - x));
+      isFirstLine = false;
+    } else {
+      isFirstLine = false;
+    }
+
+    pdfSetFont(doc, 'normal');
+    doc.setFontSize(PDF_FONT_BODY);
+    doc.setTextColor(...PDF_COLOR_TEXT_DARK);
+    const lines = pdfSplitText(doc, rest, lineW);
+    if (!lines[0]) break;
+    doc.text(lines[0], lineX, y);
+    rest = lines.length > 1 ? lines.slice(1).join(' ') : '';
+    y += lineStep;
+  }
+  return y;
+}
 
 function canDrawTableLine(y, step = 5) {
   return y + step <= FOOTER_TOP - 1;
@@ -424,8 +486,6 @@ function drawOrcamentoEquipamentoBlocks(doc, fill, startY, options = {}) {
   const maxEndY = Number.isFinite(options.maxEndY) ? options.maxEndY : CONTENT_MAX_Y;
   const canEquipLine = (y, step = 5) => y + step <= maxEndY;
   const advanceEquipY = (y, step = 5) => (canEquipLine(y, step) ? y + step : y);
-  const textColW = fotosAoLado ? ORC_TEXT_COL_W_WITH_FOTO : CONTENT_W;
-  const fotoX = ORC_FOTO_X;
   const blockStartY = startY;
   let y = startY;
   const campos = normalizeEquipamentoCampos(fill.equipamento_campos);
@@ -446,31 +506,29 @@ function drawOrcamentoEquipamentoBlocks(doc, fill, startY, options = {}) {
         ),
       ];
 
+  const floatRect =
+    fotosAoLado && blocks.length === 1
+      ? {
+          x: ORC_FOTO_X,
+          y: blockStartY,
+          h: plannedOrcamentoPhotoFloatHeight(fotos),
+        }
+      : null;
+
   blocks.forEach((row, index) => {
     const machine = normalizeOrcamentoMaquina(row, campos);
     if (!hasOrcamentoMaquinaData(machine, campos) && fill.maquina === '—') return;
 
     if (blocks.length > 1) {
       if (!canEquipLine(y, 8)) return;
-      pdfSetFont(doc, 'bold');
-      doc.setFontSize(PDF_FONT_BODY);
-      doc.setTextColor(...PDF_COLOR_TEXT_DARK);
-      const prefix = `Equipamento ${index + 1}: `;
-      doc.text(prefix, MARGIN, y);
-      const prefixW = doc.getTextWidth(prefix);
-      pdfSetFont(doc, 'normal');
-      pdfSplitText(doc, formatOrcamentoMaquinaCompactLine(machine, index, campos), textColW - prefixW).forEach(
-        (line, lineIndex) => {
-          if (lineIndex === 0) {
-            doc.text(pdfSafeText(line), MARGIN + prefixW, y);
-          } else {
-            y = advanceEquipY(y, 5);
-            if (!canEquipLine(y)) return;
-            doc.text(pdfSafeText(line), MARGIN, y);
-          }
-        },
-      );
-      y = advanceEquipY(y, 6);
+      const compact = formatOrcamentoMaquinaCompactLine(machine, index, campos);
+      y = drawOrcamentoReflowText(doc, compact, y, {
+        floatRect,
+        maxEndY,
+        firstLinePrefix: `Equipamento ${index + 1}: `,
+        lineStep: 5,
+      });
+      y = advanceEquipY(y, 2);
       return;
     }
 
@@ -486,85 +544,63 @@ function drawOrcamentoEquipamentoBlocks(doc, fill, startY, options = {}) {
 
     equipRows.forEach(([label, value]) => {
       if (!canEquipLine(y)) return;
-      pdfSetFont(doc, 'bold');
-      const prefix = `${label}: `;
-      doc.text(prefix, MARGIN, y);
-      const prefixW = doc.getTextWidth(prefix);
-      pdfSetFont(doc, 'normal');
-      const valueLines = pdfSplitText(doc, pdfSafeText(value || '—'), Math.max(12, textColW - prefixW));
-      valueLines.forEach((line, lineIndex) => {
-        if (lineIndex > 0) {
-          y = advanceEquipY(y, 5.5);
-          if (!canEquipLine(y)) return;
-        }
-        doc.text(line, MARGIN + (lineIndex === 0 ? prefixW : 0), y);
+      y = drawOrcamentoReflowText(doc, pdfSafeText(value || '—'), y, {
+        floatRect,
+        maxEndY,
+        firstLinePrefix: `${label}: `,
+        lineStep: 5.5,
       });
-      y = advanceEquipY(y, 5.5);
     });
 
     if (index < blocks.length - 1) y = advanceEquipY(y, 2);
   });
 
-  if (fotosAoLado && blocks.length === 1) {
-    const blockEndY = y;
-    const maxPhotoH = Math.max(34, Math.min(ORC_FOTO_SINGLE_H, maxEndY - blockStartY));
-    const blockH = Math.min(maxPhotoH, Math.max(34, blockEndY - blockStartY));
+  if (floatRect) {
     return {
-      endY: advanceEquipY(blockEndY, 4),
-      fotoColumn: { fotos, x: fotoX, startY: blockStartY, blockH },
-      textColW: ORC_TEXT_COL_W_WITH_FOTO,
+      endY: advanceEquipY(y, 4),
+      floatRect,
+      fotos,
     };
   }
 
-  return { endY: advanceEquipY(y, 4), fotoColumn: null, textColW: CONTENT_W };
+  return { endY: advanceEquipY(y, 4), floatRect: null, fotos: [] };
 }
 
 function drawOrcamentoObservacoesCliente(doc, fill, startY, options = {}) {
   const text = String(fill.observacoes_cliente || '').trim();
   if (!text || text === '—') return startY;
-  let y = startY;
-  const textW = options.textWidth ?? CONTENT_W;
-  const lineStep = options.lineStep ?? 4.2;
   const maxEndY = Number.isFinite(options.maxEndY) ? options.maxEndY : CONTENT_MAX_Y;
-  const canObsLine = (rowY, step = lineStep) => rowY + step <= maxEndY;
-  const labelH = 5;
-  const minBlock = labelH + lineStep + 2;
-  if (!canObsLine(y, minBlock)) return y;
+  const floatRect = options.floatRect || null;
+  const lineStep = options.lineStep ?? 4.2;
+  if (startY + 5 > maxEndY) return startY;
 
   pdfSetFont(doc, 'bold');
   doc.setFontSize(PDF_FONT_BODY);
   doc.setTextColor(...PDF_COLOR_TEXT_DARK);
-  doc.text('Observações:', MARGIN, y);
-  y = canObsLine(y, labelH) ? y + labelH : y;
+  doc.text('Observações:', MARGIN, startY);
 
-  pdfSetFont(doc, 'normal');
-  const lines = pdfSplitText(doc, text, textW);
-  const maxLines =
-    options.maxLines ??
-    Math.max(1, Math.floor((maxEndY - y - 2) / lineStep));
-  lines.slice(0, maxLines).forEach((line) => {
-    if (!canObsLine(y, lineStep)) return;
-    doc.text(line, MARGIN, y);
-    y = canObsLine(y, lineStep) ? y + lineStep : y;
-  });
-  if (lines.length > maxLines && canObsLine(y, lineStep)) {
-    doc.text('…', MARGIN, y);
-    y = canObsLine(y, lineStep) ? y + lineStep : y;
-  }
-  return y + 2;
+  return (
+    drawOrcamentoReflowText(doc, text, startY + 5, {
+      floatRect,
+      maxEndY,
+      lineStep,
+    }) + 2
+  );
 }
 
-async function drawOrcamentoFotosBesideColumn(doc, fotos, x, startY, blockH) {
+async function drawOrcamentoFotosBesideColumn(doc, fotos, floatRect) {
   const rows = (Array.isArray(fotos) ? fotos : []).filter((row) =>
     String(row?.dataUrl || '').startsWith('data:image'),
   );
-  if (!rows.length) return startY;
+  if (!rows.length || !floatRect) return floatRect?.y ?? 0;
 
+  const x = floatRect.x;
+  const startY = floatRect.y;
   const count = rows.length;
   const gapTotal = ORC_FOTO_SLOT_GAP * Math.max(0, count - 1);
   const slotH = Math.min(
     count === 1 ? ORC_FOTO_SINGLE_H : ORC_FOTO_STACKED_H,
-    Math.max(34, (blockH - gapTotal) / count),
+    Math.max(34, (floatRect.h - gapTotal) / count),
   );
 
   let y = startY;
@@ -708,9 +744,9 @@ export async function renderOrcamentoPDF(report) {
   const fotos = fill.fotos || [];
   const fotosAoLado =
     fill.fotos_posicao === 'ao_lado_equipamento' || fill.fotos_posicao === 'apos_equipamento';
-  let observacoesTextW = CONTENT_W;
   const tableLayout = computeOrcamentoTableLayout(fill.linhas, fill.maquinas);
   const maxBodyY = tableLayout.startY - 5;
+  let photoFloatRect = null;
 
   if (canDrawBodyLine(y, 12)) {
     const equip = drawOrcamentoEquipamentoBlocks(doc, fill, y, {
@@ -719,16 +755,13 @@ export async function renderOrcamentoPDF(report) {
       maxEndY: maxBodyY,
     });
     y = Math.min(equip.endY, maxBodyY);
-    if (equip.fotoColumn) {
-      const photoBottom = await drawOrcamentoFotosBesideColumn(
-        doc,
-        equip.fotoColumn.fotos,
-        equip.fotoColumn.x,
-        equip.fotoColumn.startY,
-        equip.fotoColumn.blockH,
-      );
-      y = Math.min(maxBodyY, Math.max(y, advanceBodyY(photoBottom, 4)));
-      observacoesTextW = equip.textColW || ORC_TEXT_COL_W_WITH_FOTO;
+    if (equip.floatRect) {
+      photoFloatRect = equip.floatRect;
+      const photoBottom = await drawOrcamentoFotosBesideColumn(doc, equip.fotos, photoFloatRect);
+      photoFloatRect = {
+        ...photoFloatRect,
+        h: Math.max(photoFloatRect.h, photoBottom - photoFloatRect.y),
+      };
     }
   }
 
@@ -737,9 +770,8 @@ export async function renderOrcamentoPDF(report) {
   }
 
   y = drawOrcamentoObservacoesCliente(doc, fill, y, {
-    textWidth: observacoesTextW,
+    floatRect: photoFloatRect,
     maxEndY: tableLayout.startY - 2,
-    maxLines: Math.max(1, Math.floor((tableLayout.startY - y - 6) / 4.2)),
   });
 
   y = drawOrcamentoTable(doc, fill.linhas, tableLayout.startY, {
