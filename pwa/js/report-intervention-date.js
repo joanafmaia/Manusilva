@@ -48,10 +48,11 @@ export function getReportFormValues(report) {
  */
 export function resolveReportInterventionDatePt(report, job = null) {
   const values = getReportFormValues(report);
-  return pickFirstFormatted([
-    values.data_de_conclusao,
-    values.data_1,
-    job?.date,
-    values.concluido_testado_em,
-  ]);
+  const isFolhaAvarias = report?.serviceType === 'folha_intervencao_avarias';
+
+  return pickFirstFormatted(
+    isFolhaAvarias
+      ? [values.data_2, values.data_de_conclusao, values.data_1, job?.date, values.concluido_testado_em]
+      : [values.data_de_conclusao, values.data_1, job?.date, values.concluido_testado_em],
+  );
 }

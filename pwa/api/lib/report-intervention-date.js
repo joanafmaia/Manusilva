@@ -33,7 +33,11 @@ function getReportFormValues(reportRow) {
 
 function resolveReportInterventionDatePt(reportRow, jobDate) {
   const values = getReportFormValues(reportRow);
-  const candidates = [values.data_de_conclusao, values.data_1, jobDate, values.concluido_testado_em];
+  const tipo = reportRow?.tipo_servico || reportRow?.serviceType || '';
+  const isFolhaAvarias = tipo === 'folha_intervencao_avarias';
+  const candidates = isFolhaAvarias
+    ? [values.data_2, values.data_de_conclusao, values.data_1, jobDate, values.concluido_testado_em]
+    : [values.data_de_conclusao, values.data_1, jobDate, values.concluido_testado_em];
   for (const raw of candidates) {
     const formatted = formatInterventionDatePt(raw);
     if (formatted) return formatted;

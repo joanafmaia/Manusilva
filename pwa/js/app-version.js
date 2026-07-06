@@ -22,12 +22,20 @@ export async function fetchAppBuildId() {
   }
 }
 
-export async function purgeBrowserCaches() {
+export async function clearCacheStorage() {
   try {
     if ('caches' in window) {
       const keys = await caches.keys();
       await Promise.all(keys.map((k) => caches.delete(k)));
     }
+  } catch {
+    /* ignore */
+  }
+}
+
+export async function purgeBrowserCaches() {
+  await clearCacheStorage();
+  try {
     if ('serviceWorker' in navigator) {
       const regs = await navigator.serviceWorker.getRegistrations();
       await Promise.all(regs.map((r) => r.unregister()));
@@ -35,6 +43,13 @@ export async function purgeBrowserCaches() {
   } catch {
     /* ignore */
   }
+}
+
+/** Navegação que evita bfcache e cache de HTML (reload simples não basta). */
+export function navigateToFreshApp() {
+  const url = new URL(location.href);
+  url.searchParams.set('_ms', String(Date.now()));
+  location.replace(url.toString());
 }
 
 /** Atualiza query string de CSS estático para o build atual. */
@@ -60,7 +75,7 @@ export async function ensureFreshAppBuild(buildId) {
     if (previous && previous !== current) {
       localStorage.setItem(STORAGE_KEY, current);
       await purgeBrowserCaches();
-      location.reload();
+      navigateToFreshApp();
       return true;
     }
     if (!previous) {
@@ -74,13 +89,30 @@ export async function ensureFreshAppBuild(buildId) {
 
 /** Força atualização manual (botão no painel RH). */
 export async function forceAppRefresh() {
+  const remote = await fetchAppBuildId();
   try {
-    localStorage.removeItem(STORAGE_KEY);
+    if (remote) {
+      localStorage.setItem(STORAGE_KEY, remote);
+    } else {
+      localStorage.removeItem(STORAGE_KEY);
+    }
+    sessionStorage.removeItem(RECOVERY_KEY);
   } catch {
     /* ignore */
   }
-  await purgeBrowserCaches();
-  location.reload();
+
+  await clearCacheStorage();
+
+  try {
+    if ('serviceWorker' in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map((r) => r.update()));
+    }
+  } catch {
+    /* ignore */
+  }
+
+  navigateToFreshApp();
 }
 
 /** Uma tentativa de recuperação após SyntaxError / módulo em cache antigo */
@@ -93,13 +125,14 @@ export async function recoverFromModuleLoadFailure() {
     /* ignore */
   }
   await purgeBrowserCaches();
-  location.reload();
+  navigateToFreshApp();
   return true;
 }
 
 export function clearModuleRecoveryFlag() {
   try {
     sessionStorage.removeItem(RECOVERY_KEY);
+    sessionStorage.removeItem('manusilva_bfcache_bust');
   } catch {
     /* ignore */
   }
@@ -107,6 +140,24 @@ export function clearModuleRecoveryFlag() {
 
 let buildWatchStarted = false;
 let buildUpdateNotified = false;
+let bfcacheGuardBound = false;
+
+function bindBfcacheGuard() {
+  if (bfcacheGuardBound || typeof window === 'undefined') return;
+  bfcacheGuardBound = true;
+  window.addEventListener('pageshow', (event) => {
+    if (!event.persisted) return;
+    try {
+      if (sessionStorage.getItem('manusilva_bfcache_bust')) return;
+      sessionStorage.setItem('manusilva_bfcache_bust', '1');
+    } catch {
+      return;
+    }
+    navigateToFreshApp();
+  });
+}
+
+bindBfcacheGuard();
 
 /**
  * Avisa quando há deploy novo com a app aberta (sessões longas).
@@ -131,7 +182,12 @@ export function startBuildIdWatch(onUpdate) {
   });
 }
 
-export function registerAppServiceWorker(buildId) {
+export async function registerAppServiceWorker(buildId) {
   if (!buildId || !('serviceWorker' in navigator)) return;
-  navigator.serviceWorker.register(`./sw.js?v=${encodeURIComponent(buildId)}`).catch(() => {});
+  try {
+    await navigator.serviceWorker.register(`./sw.js?v=${encodeURIComponent(buildId)}`);
+    await navigator.serviceWorker.ready;
+  } catch {
+    /* ignore */
+  }
 }

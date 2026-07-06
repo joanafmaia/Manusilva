@@ -24,10 +24,11 @@ export async function bootstrapManusilvaApp({ onReady, registerServiceWorker = f
 
   if (await ensureFreshAppBuild(v)) return;
 
+  if (registerServiceWorker) await registerAppServiceWorker(v);
+
   await onReady(v);
   clearModuleRecoveryFlag();
 
-  if (registerServiceWorker) registerAppServiceWorker(v);
   if (onRemoteBuild) startBuildIdWatch(onRemoteBuild);
 }
 

@@ -137,6 +137,24 @@ export function formatPdfConclusionDate(values = {}) {
   return formatted === '—' ? '' : formatted;
 }
 
+/** Folha de Avarias: Data 2 = conclusão quando preenchida. */
+export function resolveFolhaAvariasConclusionDate(values = {}) {
+  const raw = values.data_2 || values.data_de_conclusao || values.data_1 || '';
+  const formatted = formatFolhaInterventionDate(raw);
+  return formatted === '—' ? '' : formatted;
+}
+
+/** Folha de Avarias: com 2 visitas, Data do Serviço = Data 1 (primeira intervenção). */
+export function resolveFolhaAvariasServiceDate(values = {}, job = null, report = null) {
+  const raw =
+    values.data_2 && values.data_1
+      ? values.data_1
+      : job?.date || values.data_1 || report?.submittedAt?.split('T')[0] || '';
+  if (!raw) return '';
+  const formatted = formatFolhaInterventionDate(raw);
+  return formatted === '—' ? '' : formatted;
+}
+
 export function formatPdfJobDateOnly(job, report) {
   const raw = job?.date || report?.submittedAt?.split('T')[0];
   if (!raw) return '';

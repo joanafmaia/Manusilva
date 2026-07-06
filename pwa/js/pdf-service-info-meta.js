@@ -7,6 +7,8 @@ import {
   formatPdfJobDateOnly,
   formatPdfServiceDateOnly,
   formatPdfNumeroVisitas,
+  resolveFolhaAvariasConclusionDate,
+  resolveFolhaAvariasServiceDate,
 } from './pdf-format-utils.js';
 import { PDF_SECTION_GAP_MM } from './pdf-design-system.js';
 
@@ -73,12 +75,26 @@ export function buildEmpilhadoresServiceInfoMeta(report, job, values, visitCount
 
 export function buildFolhaAvariasServiceInfoMeta(report, job, values) {
   const visitCount = formatPdfNumeroVisitas(values);
-  const meta = buildConclusionAwareServiceInfoMeta(
-    report,
-    job,
-    { ...values, data_de_conclusao: values.data_de_conclusao || values.data_1 || '' },
-    FOLHA_AVARIAS_SECTION_GAP_MM,
-  );
-  meta.numeroVisitas = visitCount;
+  const conclusionDate = resolveFolhaAvariasConclusionDate(values);
+  const serviceDate = resolveFolhaAvariasServiceDate(values, job, report);
+
+  const meta = {
+    numeroVisitas: visitCount,
+    deslocacao: null,
+    technician: null,
+    metaBottomGapMm: FOLHA_AVARIAS_SECTION_GAP_MM,
+  };
+
+  if (conclusionDate) {
+    meta.serviceDateLabel = 'Data de Conclusão';
+    meta.serviceDate = conclusionDate;
+    if (serviceDate && serviceDate !== conclusionDate) {
+      meta.scheduledDateLabel = 'Data do Serviço';
+      meta.scheduledDate = serviceDate;
+    }
+  } else {
+    meta.serviceDate = formatPdfServiceDateOnly(report, job, values);
+  }
+
   return meta;
 }
