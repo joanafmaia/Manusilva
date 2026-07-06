@@ -8,6 +8,7 @@ import {
   searchClients,
 } from '../clients-catalog.js';
 import { escapeHtml } from '../app.js';
+import { msIconHtml } from '../ui-icons.js';
 import { openClientProfilePanel } from './client-profile-drawer.js';
 
 const LIST_PAGE_SIZE = 25;
@@ -68,8 +69,8 @@ function renderClientCard(c) {
         <div><dt>E-mail</dt><dd>${escapeHtml(c['E-mail'] || '—')}</dd></div>
       </dl>
       <div class="clients-list-card-actions">
-        <button type="button" class="btn-ghost btn-sm" data-client-profile="${escapeAttr(c.id)}">✏️ Editar Ficha</button>
-        <button type="button" class="btn-primary btn-sm" data-client-history="${escapeAttr(c.id)}">🗂 Ver Histórico</button>
+        <button type="button" class="btn-ghost btn-sm" data-client-profile="${escapeAttr(c.id)}">${msIconHtml('pencil', 'btn-inline-icon')} Editar Ficha</button>
+        <button type="button" class="btn-primary btn-sm" data-client-history="${escapeAttr(c.id)}">${msIconHtml('folder', 'btn-inline-icon')} Ver Histórico</button>
       </div>
     </article>
   `;

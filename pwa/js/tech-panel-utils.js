@@ -3,6 +3,7 @@
  */
 
 import { escapeHtml } from './tech-app-core.js';
+import { msIconHtml } from './ui-icons.js';
 
 export function buildClientAddress(client) {
   if (!client) return '';
@@ -103,7 +104,7 @@ export function renderTechClientInfoSheet(client, { onHistory, onLastPdf, lastIn
     <div class="tech-client-sheet__panel">
       <header class="tech-client-sheet__header">
         <h3>${escapeHtml(name)}</h3>
-        <button type="button" class="btn-ghost btn-sm" data-close-client-sheet aria-label="Fechar">✕</button>
+        <button type="button" class="btn-ghost btn-sm" data-close-client-sheet aria-label="Fechar">${msIconHtml('close', 'btn-inline-icon')}</button>
       </header>
       <div class="tech-client-sheet__body">
         ${lastHtml}

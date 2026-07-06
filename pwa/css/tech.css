@@ -1777,7 +1777,8 @@
 }
 .rejection-banner strong { color: var(--danger); }
 .rejection-banner p { margin: 0.25rem 0 0; font-size: 0.875rem; color: var(--text-secondary); }
-.rejection-icon { font-size: 1.5rem; }
+.rejection-icon { flex-shrink: 0; color: var(--danger); }
+.rejection-icon .ms-icon-svg { width: 1.5rem; height: 1.5rem; }
 .header-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -2038,15 +2039,18 @@
   border-color: var(--success);
 }
 .checklist-input:checked + .toggle-switch::after {
-  content: '✓';
+  content: '';
   position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-size: 0.75rem;
-  font-weight: 700;
+  left: 50%;
+  top: 45%;
+  width: 5px;
+  height: 9px;
+  margin-left: -3px;
+  margin-top: -5px;
+  border: solid #fff;
+  border-width: 0 0 2px 2px;
+  transform: rotate(-45deg);
+  display: block;
 }
 .checklist-label { font-size: 0.875rem; flex: 1; }
 /* Report field engine — choice, toggle, grid */ .report-fields-section .report-fields {

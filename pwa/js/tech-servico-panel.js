@@ -82,7 +82,7 @@ function buildReportRow(servico, report, servicoReports) {
 
   const rejection =
     report.status === 'rejected' && report.rejectionNote
-      ? `<p class="text-muted" style="margin:0.35rem 0 0;font-size:0.8125rem">↩ ${escapeHtml(report.rejectionNote)}</p>`
+      ? `<p class="text-muted" style="margin:0.35rem 0 0;font-size:0.8125rem"><strong>Rejeitado:</strong> ${escapeHtml(report.rejectionNote)}</p>`
       : '';
 
   const removeBtn = canRemoveServicoReport(report)

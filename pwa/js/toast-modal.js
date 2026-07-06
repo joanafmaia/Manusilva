@@ -43,11 +43,11 @@ export function showToast(message, type = 'info', duration = 4000, options = {})
     document.body.appendChild(toastContainer);
   }
 
-  const icons = { success: '✓', error: '✕', warning: '⚠', info: 'ℹ' };
+  const toastIcons = { success: 'check', error: 'rejected', warning: 'warning', info: 'info' };
   const toast = document.createElement('div');
   toast.className = `toast toast-${type}`;
   toast.innerHTML = `
-    <span class="toast-icon">${icons[type] || icons.info}</span>
+    ${msIconHtml(toastIcons[type] || toastIcons.info, 'toast-icon')}
     <span class="toast-msg">${escapeHtml(message)}</span>
   `;
   toastContainer.appendChild(toast);

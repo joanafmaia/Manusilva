@@ -724,6 +724,24 @@ body .glass-card-inner {
   height: 1.35rem;
 }
 
+.toast-icon.ms-icon .ms-icon-svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.btn-inline-icon {
+  display: inline-flex;
+  vertical-align: middle;
+  margin-right: 0.35rem;
+}
+.btn-inline-icon:only-child {
+  margin-right: 0;
+}
+.btn-inline-icon .ms-icon-svg {
+  width: 1rem;
+  height: 1rem;
+}
+
 .form-report-title {
   display: flex;
   align-items: center;

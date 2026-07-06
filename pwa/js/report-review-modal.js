@@ -83,7 +83,7 @@ export async function openReportReviewModal(reportId, options = {}) {
       ${renderReviewFotosSection(job, report)}
       ${renderReviewPdfSection(job)}
       <h4 class="review-section-title">Assinaturas</h4>
-      <p>Técnico: ${data.signatures?.technician ? '✓ Assinado' : '✗ Pendente'} · Cliente: ${data.signatures?.client ? '✓ Assinado' : '✗ Pendente'}</p>
+      <p>Técnico: ${data.signatures?.technician ? 'Assinado' : 'Pendente'} · Cliente: ${data.signatures?.client ? 'Assinado' : 'Pendente'}</p>
     </div>
   `;
 

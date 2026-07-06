@@ -6,3 +6,5 @@
 pwa/js/mapbox-config.js
 node_modules/
 .tmp-bcrypt/
+.tmp-docx-ms015/
+.tmp-ms015.zip

@@ -91,7 +91,7 @@ export function initReportFormAutosave({ overlay, job, existingReport, buildRepo
     if (state === 'saved') {
       const offlineHint = isBrowserOffline() ? ' · só no tablet' : '';
       statusEl.textContent =
-        customMessage || `✓ Gravado às ${formatAutosaveTime()}${offlineHint}`;
+        customMessage || `Gravado às ${formatAutosaveTime()}${offlineHint}`;
       statusEl.classList.add('form-autosave-status--pulse');
       savedHideTimer = setTimeout(() => {
         if (!destroyed && statusEl.dataset.state === 'saved') {

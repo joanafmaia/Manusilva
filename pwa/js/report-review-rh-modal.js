@@ -201,8 +201,8 @@ export function buildRhReviewListItem({ job, report, client, tech }) {
     report?.status === 'pending_review'
       ? `
       <div class="rh-list-item__quick-actions" role="group" aria-label="Ações rápidas">
-        <button type="button" class="rh-quick-btn rh-quick-btn--approve" data-quick-approve="${escapeHtml(report.id)}" title="Aprovar" aria-label="Aprovar relatório">✓</button>
-        <button type="button" class="rh-quick-btn rh-quick-btn--reject" data-quick-reject="${escapeHtml(report.id)}" title="Rejeitar" aria-label="Rejeitar relatório">✕</button>
+        <button type="button" class="rh-quick-btn rh-quick-btn--approve" data-quick-approve="${escapeHtml(report.id)}" title="Aprovar" aria-label="Aprovar relatório">${msIconHtml('check', 'rh-quick-btn__icon')}</button>
+        <button type="button" class="rh-quick-btn rh-quick-btn--reject" data-quick-reject="${escapeHtml(report.id)}" title="Rejeitar" aria-label="Rejeitar relatório">${msIconHtml('close', 'rh-quick-btn__icon')}</button>
       </div>`
       : '';
 
@@ -689,8 +689,8 @@ export function buildRhReviewModalContent({
           <section class="review-block review-block--compact">
             <h4 class="review-section-title">Assinaturas${report?.servicoId ? ' da visita' : ''}</h4>
             <p class="review-signatures">
-              Técnico: ${resolvedSignatures?.technicianData || resolvedSignatures?.technician ? '✓ Assinado' : '✗ Pendente'}
-              · Cliente: ${resolvedSignatures?.clientData || resolvedSignatures?.client ? '✓ Assinado' : '✗ Pendente'}
+              Técnico: ${resolvedSignatures?.technicianData || resolvedSignatures?.technician ? 'Assinado' : 'Pendente'}
+              · Cliente: ${resolvedSignatures?.clientData || resolvedSignatures?.client ? 'Assinado' : 'Pendente'}
             </p>
           </section>
         </div>

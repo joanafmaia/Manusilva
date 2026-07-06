@@ -3,6 +3,7 @@
  */
 
 import { escapeHtml } from './app.js';
+import { msIconHtml } from './ui-icons.js';
 import { resolveJobFotos } from './job-fotos.js';
 import { resolvePdfSignaturesForReport } from './report-pdf-signatures.js';
 import { formatReportAge } from './rh-panel-utils.js';
@@ -100,11 +101,11 @@ export function renderReviewValidationPanel(checks) {
 
   const items = checks
     .map((c) => {
-      const icon = c.ok ? '✓' : c.level === 'error' ? '✗' : '⚠';
+      const iconKey = c.ok ? 'check' : c.level === 'error' ? 'rejected' : 'warning';
       const cls = c.ok ? 'ok' : c.level === 'error' ? 'error' : 'warn';
       return `
         <li class="review-check-item review-check-item--${cls}">
-          <span class="review-check-item__icon" aria-hidden="true">${icon}</span>
+          ${msIconHtml(iconKey, 'review-check-item__icon')}
           <span>${escapeHtml(c.label)}</span>
         </li>`;
     })

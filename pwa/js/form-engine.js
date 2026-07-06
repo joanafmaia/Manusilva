@@ -1856,7 +1856,7 @@ function updateVerificationBulkOkBtnState(wrap) {
 
 function matrixBulkGoodBtnHtml(title = '', options = {}) {
   const scope = title ? ` de ${title}` : '';
-  const label = options.compact ? '✓ B' : '✓ Tudo Bom';
+  const label = options.compact ? 'B' : 'Tudo Bom';
   return `
     <button type="button" class="matrix-bulk-good-btn" data-matrix-bulk-good
       aria-pressed="false"
@@ -1866,7 +1866,7 @@ function matrixBulkGoodBtnHtml(title = '', options = {}) {
 
 function verificationBulkOkBtnHtml(title = '', options = {}) {
   const scope = title ? ` de ${title}` : '';
-  const label = options.compact ? '✓ OK' : '✓ Tudo OK';
+  const label = options.compact ? 'OK' : 'Tudo OK';
   return `
     <button type="button" class="matrix-bulk-good-btn" data-verification-bulk-ok
       aria-pressed="false"
@@ -2281,7 +2281,7 @@ function renderMatrix4OptionsField(field, value, service = null) {
               <span class="matrix-cat-progress" data-matrix-progress>${filled}/${cat.items.length}</span>
               <button type="button" class="matrix-bulk-good-btn" data-matrix-bulk-good
                 aria-pressed="false"
-                aria-label="Marcar ou limpar todos os pontos de ${escapeHtml(cat.name)} como Bom">✓ Tudo Bom</button>
+                aria-label="Marcar ou limpar todos os pontos de ${escapeHtml(cat.name)} como Bom">Tudo Bom</button>
               <span class="matrix-chevron" aria-hidden="true"></span>
             </div>
           </div>
@@ -2299,7 +2299,7 @@ function renderMatrix4OptionsField(field, value, service = null) {
   return `
     <div class="form-group field-block matrix-inspection-field" data-matrix-field="${field.id}">
       <label class="form-label">${escapeHtml(field.label)}</label>
-      <p class="field-hint">Toque na barra da categoria para expandir. «✓ Tudo Bom» marca todos como B; volte a clicar para limpar.</p>
+      <p class="field-hint">Toque na barra da categoria para expandir. «Tudo Bom» marca todos como B; volte a clicar para limpar.</p>
       <div class="matrix-accordion">${accordion}</div>
     </div>
   `;

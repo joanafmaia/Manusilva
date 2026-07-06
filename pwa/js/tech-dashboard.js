@@ -1003,7 +1003,7 @@ function renderTechRejectedBanner() {
   banner.hidden = false;
   banner.innerHTML = `
     <div class="tech-rejected-banner__content">
-      <span class="tech-rejected-banner__icon" aria-hidden="true">↩</span>
+      ${msIconHtml('rejected', 'tech-rejected-banner__icon')}
       <div class="tech-rejected-banner__text">
         <strong>Relatório rejeitado — ${escapeHtml(client?.name || 'Cliente')}${more}</strong>
         ${note ? `<span class="tech-rejected-banner__note">${escapeHtml(note.length > 120 ? `${note.slice(0, 120)}…` : note)}</span>` : ''}
@@ -1548,7 +1548,7 @@ function renderTechJobRow(job, report, actionType, { dateOverride, showDate = tr
   const rejectionNote = report?.rejectionNote || job?.rejectionNote || '';
   const rejectionHtml =
     state === 'rejected'
-      ? `<p class="tech-job-card__rejection">↩ ${
+      ? `<p class="tech-job-card__rejection"><strong>Rejeitado:</strong> ${
           rejectionNote
             ? escapeHtml(rejectionNote.length > 100 ? `${rejectionNote.slice(0, 100)}…` : rejectionNote)
             : 'Rejeitado — corrija e reenvie'

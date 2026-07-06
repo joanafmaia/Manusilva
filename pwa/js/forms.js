@@ -682,7 +682,7 @@ async function buildFormHTML(job, client, tech, service, existingReport, options
 
   const rejectionBanner = isRejected && rejectionNote ? `
     <div class="rejection-banner rejection-banner--prominent">
-      <div class="rejection-icon">⚠</div>
+      ${msIconHtml('warning', 'rejection-icon')}
       <div>
         <strong>Relatório rejeitado pelo RH — corrija e volte a submeter</strong>
         <p class="rejection-banner-note">${escapeHtml(rejectionNote)}</p>
@@ -690,7 +690,7 @@ async function buildFormHTML(job, client, tech, service, existingReport, options
     </div>
   ` : isRejected ? `
     <div class="rejection-banner rejection-banner--prominent">
-      <div class="rejection-icon">⚠</div>
+      ${msIconHtml('warning', 'rejection-icon')}
       <div>
         <strong>Relatório rejeitado pelo RH</strong>
         <p class="rejection-banner-note">Corrija os dados e volte a submeter. Contacte o escritório se precisar de detalhe.</p>
@@ -1009,7 +1009,7 @@ function bindFotoInputs(overlay) {
         state.base64 = compressed.dataUrl;
         state.previewUrl = URL.createObjectURL(compressed.file);
         updateFotoPreview(overlay, which);
-        showToast(`Foto ${which === 'antes' ? 'Antes' : 'Depois'} guardada ✓`, 'success', 2500);
+        showToast(`Foto ${which === 'antes' ? 'Antes' : 'Depois'} guardada`, 'success', 2500);
       } catch (err) {
         console.error('[Form] Foto compressão:', err);
         try {
@@ -1018,7 +1018,7 @@ function bindFotoInputs(overlay) {
           state.base64 = fallback;
           state.previewUrl = URL.createObjectURL(file);
           updateFotoPreview(overlay, which);
-          showToast(`Foto ${which === 'antes' ? 'Antes' : 'Depois'} guardada ✓`, 'success', 2500);
+          showToast(`Foto ${which === 'antes' ? 'Antes' : 'Depois'} guardada`, 'success', 2500);
         } catch (fallbackErr) {
           console.error('[Form] Foto base64:', fallbackErr);
           state.file = null;
