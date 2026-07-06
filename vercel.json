@@ -43,6 +43,15 @@
       ]
     },
     {
+      "source": "/js/force-refresh-page.js",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
+        }
+      ]
+    },
+    {
       "source": "/js/build-version.js",
       "headers": [
         {

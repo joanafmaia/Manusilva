@@ -15,4 +15,15 @@ describe('app-version', () => {
     const { consumeModuleCacheBustQuery } = await import('../js/app-version.js');
     assert.equal(consumeModuleCacheBustQuery('6790799'), '?v=6790799');
   });
+
+  it('consumeModuleCacheBustQuery prioriza _bust na URL', async () => {
+    const { consumeModuleCacheBustQuery } = await import('../js/app-version.js');
+    const prev = globalThis.location;
+    globalThis.location = { search: '?_bust=abc123' };
+    try {
+      assert.equal(consumeModuleCacheBustQuery('6790799'), '?_=abc123');
+    } finally {
+      globalThis.location = prev;
+    }
+  });
 });

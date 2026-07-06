@@ -634,7 +634,7 @@ export async function openTechClientHistory(clientId, { returnTo = 'dashboard' }
 }
 
 /** Marcador temporário — remover após validar «Atualizar app». */
-function showTechUpdateTestMarker() {
+async function showTechUpdateTestMarker() {
   let el = document.getElementById('tech-update-test-marker');
   if (!el) {
     el = document.createElement('p');
@@ -646,14 +646,25 @@ function showTechUpdateTestMarker() {
     if (header && anchor) header.insertBefore(el, anchor);
     else header?.append(el);
   }
-  el.textContent = 'TESTE ATUALIZAR — versão ANANAS (JS)';
+  let build = '…';
+  try {
+    const res = await fetch(`./js/build-version.js?_=${Date.now()}`, { cache: 'no-store' });
+    if (res.ok) {
+      const text = await res.text();
+      const m = text.match(/APP_BUILD_ID\s*=\s*["']([^"']+)["']/);
+      if (m?.[1]) build = m[1].slice(0, 8);
+    }
+  } catch {
+    /* ignore */
+  }
+  el.textContent = `TESTE ATUALIZAR — versão UVA (JS) — build ${build}`;
 }
 
 export async function initTechDashboard() {
   const session = requireAuth('technician');
   if (!session) return;
 
-  showTechUpdateTestMarker();
+  void showTechUpdateTestMarker();
 
   // UI básica primeiro — navegação e botão Sair nunca ficam bloqueados
   // por falhas na recolha de dados do Supabase.

@@ -15,7 +15,11 @@ export function bindAppRefreshButton(buttonId = 'btn-force-app-refresh', options
   const notifyStyle = options.notifyStyle === 'button' ? 'button' : 'toast';
   let updateHintShown = false;
 
-  refreshBtn.addEventListener('click', async () => {
+  refreshBtn.addEventListener('click', async (event) => {
+    if (typeof globalThis.msForceAppRefresh === 'function') {
+      globalThis.msForceAppRefresh(event);
+      return;
+    }
     refreshBtn.classList.remove('tech-refresh-btn--update-available');
     refreshBtn.disabled = true;
     const label = refreshBtn.querySelector('.sidebar-refresh-label, .tech-refresh-label');

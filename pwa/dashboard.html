@@ -10,24 +10,7 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <title>Manusilva — Técnico</title>
-  <script>
-    (function () {
-      try {
-        var needsPurge = /[?&]_ms=/.test(location.search) || sessionStorage.getItem('manusilva_force_bust');
-        if (!needsPurge) return;
-        if ('serviceWorker' in navigator) {
-          navigator.serviceWorker.getRegistrations().then(function (regs) {
-            regs.forEach(function (r) { r.unregister(); });
-          });
-        }
-        if ('caches' in window) {
-          caches.keys().then(function (keys) {
-            keys.forEach(function (k) { caches.delete(k); });
-          });
-        }
-      } catch (e) { /* ignore */ }
-    })();
-  </script>
+  <script src="js/force-refresh-page.js"></script>
   <link rel="manifest" href="manifest.json">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -52,7 +35,7 @@
             <span class="connection-badge__dot" aria-hidden="true"></span>
             <span class="connection-badge__label" id="connection-badge-label">Online</span>
           </span>
-          <button type="button" class="tech-refresh-btn" id="btn-force-app-refresh" title="Descarregar a versão mais recente da aplicação" aria-label="Atualizar app">
+          <button type="button" class="tech-refresh-btn" id="btn-force-app-refresh" title="Descarregar a versão mais recente da aplicação" aria-label="Atualizar app" onclick="return window.msForceAppRefresh(event)">
             <span class="tech-refresh-icon" aria-hidden="true">↻</span>
             <span class="tech-refresh-label">Atualizar</span>
           </button>
@@ -68,7 +51,7 @@
       </div>
 
       <p id="tech-update-test-marker" class="tech-update-test-marker" role="status">
-        TESTE ATUALIZAR — versão ANANAS
+        TESTE ATUALIZAR — versão UVA
       </p>
 
       <div id="tech-connectivity-bar" class="tech-connectivity-bar tech-connectivity-bar--ok" role="status" aria-live="polite">

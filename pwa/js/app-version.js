@@ -49,6 +49,11 @@ export async function purgeBrowserCaches() {
 /** Query string para import() de módulos — bust forçado após «Atualizar app». */
 export function consumeModuleCacheBustQuery(buildId) {
   try {
+    const params = new URLSearchParams(location.search);
+    const urlBust = params.get('_bust') || params.get('_ms');
+    if (urlBust) {
+      return `?_=${encodeURIComponent(urlBust)}`;
+    }
     const force = sessionStorage.getItem(FORCE_BUST_KEY);
     if (force) {
       sessionStorage.removeItem(FORCE_BUST_KEY);
@@ -76,6 +81,7 @@ export async function navigateToFreshApp() {
   const bust = String(Date.now());
   const url = new URL(location.href);
   url.searchParams.set('_ms', bust);
+  url.searchParams.set('_bust', bust);
   url.hash = '';
 
   try {

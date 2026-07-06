@@ -8,24 +8,7 @@
   <meta http-equiv="Expires" content="0">
   <meta name="theme-color" content="#f8fafc">
   <title>Manusilva — Administração</title>
-  <script>
-    (function () {
-      try {
-        var needsPurge = /[?&]_ms=/.test(location.search) || sessionStorage.getItem('manusilva_force_bust');
-        if (!needsPurge) return;
-        if ('serviceWorker' in navigator) {
-          navigator.serviceWorker.getRegistrations().then(function (regs) {
-            regs.forEach(function (r) { r.unregister(); });
-          });
-        }
-        if ('caches' in window) {
-          caches.keys().then(function (keys) {
-            keys.forEach(function (k) { caches.delete(k); });
-          });
-        }
-      } catch (e) { /* ignore */ }
-    })();
-  </script>
+  <script src="js/force-refresh-page.js"></script>
   <link rel="manifest" href="manifest.json">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -80,7 +63,7 @@
 
       <div class="sidebar-footer">
         <p class="sidebar-footer-greeting">Olá, <strong id="user-name"></strong></p>
-        <button type="button" class="btn-ghost btn-sm sidebar-refresh-btn" id="btn-force-app-refresh" title="Descarregar a versão mais recente da aplicação">
+        <button type="button" class="btn-ghost btn-sm sidebar-refresh-btn" id="btn-force-app-refresh" title="Descarregar a versão mais recente da aplicação" onclick="return window.msForceAppRefresh(event)">
           ↻ Atualizar app
         </button>
         <button class="btn-outline btn-sm sidebar-logout-btn" id="logout-btn" type="button">
