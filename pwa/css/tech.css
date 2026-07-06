@@ -3278,7 +3278,7 @@
 }
 .empilhadores-verify-column-title {
   margin: 0;
-  font-size: 0.78rem;
+  font-size: 1rem;
   font-weight: 700;
   letter-spacing: 0.03em;
   text-transform: uppercase;
@@ -3305,27 +3305,28 @@
   width: 100%;
   border-collapse: collapse;
   table-layout: fixed;
-  font-size: 0.82rem;
+  font-size: 1rem;
 }
 .empilhadores-verify-table thead th {
   background: var(--surface-muted);
   color: var(--ms-primary);
-  font-size: 0.72rem;
+  font-size: 0.875rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.03em;
-  padding: 0.35rem 0.45rem;
+  padding: 0.4rem 0.5rem;
   border-bottom: 1px solid var(--ms-border-md);
   text-align: left;
 }
 .empilhadores-verify-table thead th:last-child {
-  width: 4.25rem;
+  width: 7.5rem;
   text-align: center;
 }
 .empilhadores-verify-table tbody th, .empilhadores-verify-table tbody td {
   border-bottom: 1px solid var(--ms-border-md);
-  padding: 0.3rem 0.45rem;
+  padding: 0.45rem 0.5rem;
   vertical-align: middle;
+  font-size: 1rem;
 }
 .empilhadores-verify-point {
   font-weight: 500;
@@ -3525,10 +3526,6 @@
   justify-content: center;
   flex-wrap: wrap;
   gap: 0.25rem;
-}
-.dl50-matrix-state .matrix-opt {
-  font-size: 0.9375rem;
-  min-height: 42px;
 }
 .dl50-matrix-legend {
   margin-bottom: 0.65rem;
@@ -4046,14 +4043,14 @@
 .verification-card--blank {
   background: transparent;
 }
-.empilhadores-verify-table thead th:last-child {
-  width: 7.5rem;
-}
 .empilhadores-verify-table .matrix-segmented {
   grid-template-columns: repeat(3, 1fr);
   gap: 0.25rem;
+  justify-content: center;
+  flex-wrap: wrap;
 }
-.empilhadores-verify-table .matrix-opt {
+.empilhadores-verify-table .matrix-opt,
+.dl50-matrix-table .matrix-opt {
   font-size: 0.9375rem;
   min-height: 42px;
 }
@@ -4316,11 +4313,38 @@
     padding: 0.3rem 0.45rem;
   }
 
-  body.tech-dashboard-page .form-overlay .checklist-inspection-table,
-  body.tech-dashboard-page .form-overlay .empilhadores-verify-table,
-  body.tech-dashboard-page .form-overlay .dl50-matrix-table,
+  body.tech-dashboard-page .form-overlay .checklist-inspection-table:not(.empilhadores-verify-table):not(.dl50-matrix-table),
   body.tech-dashboard-page .form-overlay .corretiva-verify-table {
     font-size: 0.8125rem;
+  }
+
+  body.tech-dashboard-page .form-overlay .empilhadores-verify-column-title,
+  body.tech-dashboard-page .form-overlay .dl50-matrix-category-title {
+    font-size: 1rem;
+  }
+
+  body.tech-dashboard-page .form-overlay .empilhadores-verify-table,
+  body.tech-dashboard-page .form-overlay .dl50-matrix-table {
+    font-size: 1rem;
+  }
+
+  body.tech-dashboard-page .form-overlay .empilhadores-verify-table thead th,
+  body.tech-dashboard-page .form-overlay .dl50-matrix-table thead th {
+    font-size: 0.875rem;
+  }
+
+  body.tech-dashboard-page .form-overlay .empilhadores-verify-table tbody th,
+  body.tech-dashboard-page .form-overlay .empilhadores-verify-table tbody td,
+  body.tech-dashboard-page .form-overlay .dl50-matrix-table tbody th,
+  body.tech-dashboard-page .form-overlay .dl50-matrix-table tbody td {
+    font-size: 1rem;
+    padding: 0.45rem 0.5rem;
+  }
+
+  body.tech-dashboard-page .form-overlay .empilhadores-verify-point,
+  body.tech-dashboard-page .form-overlay .dl50-matrix-point {
+    font-size: 1rem;
+    line-height: 1.35;
   }
 
   body.tech-dashboard-page .form-overlay .checklist-inspection-table--verify .verification-card-label,
@@ -4337,9 +4361,10 @@
     display: none;
   }
 
-  body.tech-dashboard-page .form-overlay .empilhadores-verify-table .matrix-opt {
-    font-size: 0.875rem;
-    min-height: 40px;
+  body.tech-dashboard-page .form-overlay .empilhadores-verify-table .matrix-opt,
+  body.tech-dashboard-page .form-overlay .dl50-matrix-table .matrix-opt {
+    font-size: 0.9375rem;
+    min-height: 42px;
     padding: 0 0.15rem;
   }
 
