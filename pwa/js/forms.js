@@ -69,8 +69,8 @@ import {
 } from './signatures.js';
 import { initReportFormAutosave } from './report-form-autosave.js';
 import { VISITAS_FIELD_ID, VISIT_DATES_FIELD_ID, normalizeVisitasForService } from './deslocacao-field.js';
-import { ensureProductionCatalog } from './clients-catalog.js';
-import { ensureReportsLoaded } from './relatorios-db.js';
+import { ensureProductionCatalog, isProductionCatalogReady } from './clients-catalog.js';
+import { ensureRelatoriosForServicos } from './relatorios-db.js';
 import { ensureJobsLoaded } from './trabalhos-db.js';
 import { ensureServicosLoadedSafe, getServico } from './servicos-db.js';
 import {
@@ -95,6 +95,43 @@ import {
 } from './tech-data-conflict.js';
 import { triggerTechDataSync } from './tech-sync.js';
 import { isBatteryService } from './service-constants.js';
+
+let formLoadingOverlayEl = null;
+
+function showFormLoadingOverlay(message = 'A abrir relatório…') {
+  hideFormLoadingOverlay();
+  formLoadingOverlayEl = document.createElement('div');
+  formLoadingOverlayEl.id = 'form-loading-overlay';
+  formLoadingOverlayEl.className = 'form-loading-overlay';
+  formLoadingOverlayEl.setAttribute('role', 'status');
+  formLoadingOverlayEl.setAttribute('aria-live', 'polite');
+  formLoadingOverlayEl.innerHTML = `<div class="form-loading-overlay__card"><span class="form-loading-overlay__spinner" aria-hidden="true"></span><p>${escapeHtml(message)}</p></div>`;
+  document.body.appendChild(formLoadingOverlayEl);
+  requestAnimationFrame(() => formLoadingOverlayEl?.classList.add('show'));
+  document.body.style.overflow = 'hidden';
+}
+
+function hideFormLoadingOverlay() {
+  if (!formLoadingOverlayEl) return;
+  formLoadingOverlayEl.classList.remove('show');
+  const el = formLoadingOverlayEl;
+  formLoadingOverlayEl = null;
+  setTimeout(() => el.remove(), 200);
+  if (!document.getElementById('form-overlay')) {
+    document.body.style.overflow = '';
+  }
+}
+
+async function preloadServicoReportContext(servicoId) {
+  const tasks = [ensureRelatoriosForServicos([servicoId])];
+  if (!getServico(servicoId)) {
+    tasks.push(ensureServicosLoadedSafe());
+  }
+  if (!isProductionCatalogReady()) {
+    tasks.push(ensureProductionCatalog());
+  }
+  await Promise.all(tasks);
+}
 
 let signaturePads = {};
 let signaturePadsReady = false;
@@ -174,12 +211,22 @@ export async function openJobForm(jobId, options = {}) {
     return;
   }
 
+  showFormLoadingOverlay();
   try {
-    try {
-      await ensureJobsLoaded();
-      await ensureProductionCatalog();
-    } catch (err) {
-      console.warn('[Form] Pré-carga Supabase antes do relatório:', err);
+    const jobHint = getJob(jobId) || resolveJobForForm(jobId);
+    if (!jobHint) {
+      try {
+        await ensureJobsLoaded();
+      } catch (err) {
+        console.warn('[Form] Pré-carga Supabase antes do relatório:', err);
+      }
+    }
+    if (!jobHint?.clientId || !getClient(jobHint.clientId)) {
+      try {
+        if (!isProductionCatalogReady()) await ensureProductionCatalog();
+      } catch (err) {
+        console.warn('[Form] Catálogo de clientes:', err);
+      }
     }
 
     const diagnostic = diagnoseJobFormOpen(jobId);
@@ -187,6 +234,7 @@ export async function openJobForm(jobId, options = {}) {
     if (!job || !diagnostic.ok) {
       const message = formatJobOpenDiagnosticMessage(diagnostic);
       if (diagnosticNeedsSync(diagnostic)) {
+        hideFormLoadingOverlay();
         const retry = window.confirm(
           `${message}\n\nDeseja sincronizar os dados agora e tentar outra vez?`,
         );
@@ -201,6 +249,7 @@ export async function openJobForm(jobId, options = {}) {
           }
         }
       }
+      hideFormLoadingOverlay();
       showToast(message, 'error', 7000);
       return;
     }
@@ -224,6 +273,7 @@ export async function openJobForm(jobId, options = {}) {
 
     const service = getServiceType(job.serviceType);
     if (!service) {
+      hideFormLoadingOverlay();
       showToast('Tipo de relatório não reconhecido neste dispositivo.', 'error', 7000);
       return;
     }
@@ -240,7 +290,10 @@ export async function openJobForm(jobId, options = {}) {
       editPending: editPendingOpt,
       viewOnly,
     });
-    if (conflictChoice === 'cancel') return;
+    if (conflictChoice === 'cancel') {
+      hideFormLoadingOverlay();
+      return;
+    }
 
     let existingReport;
     if (conflictChoice === 'server') {
@@ -259,12 +312,14 @@ export async function openJobForm(jobId, options = {}) {
     }
 
     if (existingReport?.status === 'approved' && !viewOnly) {
+      hideFormLoadingOverlay();
       showToast('Este relatório já foi aprovado pelo RH e não pode ser editado.', 'warning', 5000);
       return;
     }
 
     if (viewOnly) {
       if (existingReport?.status !== 'approved') {
+        hideFormLoadingOverlay();
         showToast('Este relatório ainda não está concluído.', 'warning', 4500);
         return;
       }
@@ -299,6 +354,7 @@ export async function openJobForm(jobId, options = {}) {
       viewOnly,
       equipamentos,
     });
+    hideFormLoadingOverlay();
     document.body.appendChild(overlay);
     document.body.style.overflow = 'hidden';
 
@@ -319,6 +375,7 @@ export async function openJobForm(jobId, options = {}) {
       showToast('Rascunho recuperado automaticamente da memória do tablet.', 'info', 4000);
     }
   } catch (err) {
+    hideFormLoadingOverlay();
     captureError(err, { action: 'openJobForm', jobId });
     showToast('Não foi possível abrir este relatório.', 'error', 7000);
     document.getElementById('form-overlay')?.remove();
@@ -338,23 +395,24 @@ export async function openServicoReportForm(servicoId, options = {}) {
     return;
   }
 
+  showFormLoadingOverlay();
   try {
     try {
-      await ensureServicosLoadedSafe();
-      await ensureProductionCatalog();
-      await ensureReportsLoaded();
+      await preloadServicoReportContext(servicoId);
     } catch (err) {
       console.warn('[Form] Pré-carga antes do relatório de serviço:', err);
     }
 
     const servico = getServico(servicoId);
     if (!servico) {
+      hideFormLoadingOverlay();
       showToast('Serviço não encontrado. Sincronize os dados e tente novamente.', 'error', 7000);
       return;
     }
 
     const service = getServiceType(serviceType);
     if (!service) {
+      hideFormLoadingOverlay();
       showToast('Tipo de relatório não reconhecido neste dispositivo.', 'error', 7000);
       return;
     }
@@ -409,7 +467,10 @@ export async function openServicoReportForm(servicoId, options = {}) {
       editPending: editPendingOpt,
       viewOnly,
     });
-    if (conflictChoice === 'cancel') return;
+    if (conflictChoice === 'cancel') {
+      hideFormLoadingOverlay();
+      return;
+    }
 
     let existingReport;
     if (conflictChoice === 'server') {
@@ -443,12 +504,14 @@ export async function openServicoReportForm(servicoId, options = {}) {
     }
 
     if (existingReport?.status === 'approved' && !viewOnly) {
+      hideFormLoadingOverlay();
       showToast('Este relatório já foi aprovado pelo RH e não pode ser editado.', 'warning', 5000);
       return;
     }
 
     if (viewOnly) {
       if (existingReport?.status !== 'approved') {
+        hideFormLoadingOverlay();
         showToast('Este relatório ainda não está concluído.', 'warning', 4500);
         return;
       }
@@ -484,6 +547,7 @@ export async function openServicoReportForm(servicoId, options = {}) {
       equipamentos,
       servicoVisitMode,
     });
+    hideFormLoadingOverlay();
     document.body.appendChild(overlay);
     document.body.style.overflow = 'hidden';
 
@@ -506,6 +570,7 @@ export async function openServicoReportForm(servicoId, options = {}) {
       showToast('Rascunho recuperado automaticamente da memória do tablet.', 'info', 4000);
     }
   } catch (err) {
+    hideFormLoadingOverlay();
     captureError(err, { action: 'openServicoReportForm', servicoId, serviceType });
     showToast('Não foi possível abrir este relatório.', 'error', 7000);
     document.getElementById('form-overlay')?.remove();

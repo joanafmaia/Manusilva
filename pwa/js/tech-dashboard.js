@@ -36,7 +36,6 @@ import {
   resolveCalendarEventState,
 } from './calendar-event-state.js';
 import { initLogoutButton } from './auth.js';
-import { getLastClientIntervention } from './views/historico-cliente.js';
 import { ensureTrabalhosSemana } from './trabalhos-db.js';
 import { ensureServicosSemana } from './servicos-db.js';
 import { dedupeReportsForDisplay, ensureRelatoriosForTrabalhos, ensureRelatoriosForServicos } from './relatorios-db.js';
@@ -168,6 +167,43 @@ function loadFormsModule() {
     formsModulePromise = import('./forms.js');
   }
   return formsModulePromise;
+}
+
+function scheduleWarmFormsModule() {
+  const run = () => {
+    void loadFormsModule().catch(() => {});
+  };
+  if (typeof requestIdleCallback === 'function') {
+    requestIdleCallback(run, { timeout: 4000 });
+  } else {
+    setTimeout(run, 1500);
+  }
+}
+
+function setTechDashboardDataLoading(loading) {
+  document.getElementById('tech-calendar-wrap')?.classList.toggle('tech-calendar-wrap--loading', loading);
+  const container = document.getElementById('jobs-list');
+  container?.classList.toggle('jobs-list--loading', loading);
+  if (loading && techJobsTab === 'agendados' && container && !container.querySelector('.tech-job-card, .tech-jobs-loading')) {
+    container.innerHTML = `
+      <div class="tech-jobs-loading" role="status">
+        <span class="tech-jobs-loading__spinner" aria-hidden="true"></span>
+        <p>A carregar trabalhos…</p>
+      </div>`;
+  }
+}
+
+function renderTechCalendarUiOnly() {
+  weekDates = getWeekDates(currentWeekDate);
+  renderCalendarTitle();
+  updateTechCalendarVisibility();
+  if (techCalendarView === 'month') {
+    renderMonthCalendar();
+  } else {
+    renderCalendarStrip();
+  }
+  renderJobs();
+  updateTechTabBadges();
 }
 
 async function openJobFormLazy(jobId, options = {}) {
@@ -601,29 +637,35 @@ export async function initTechDashboard() {
   bindTechDashboardDataListeners();
   bindNotificationPermissionOnGesture();
 
+  weekDates = getWeekDates(currentWeekDate);
+  setTechDashboardDataLoading(true);
+  renderTechCalendarUiOnly();
+
   try {
-    try {
-      await warmTechDashboardInitial(session.technicianId);
-    } catch (err) {
-      const { handleFatalDashboardError } = await import('./app.js');
-      if (await handleFatalDashboardError(err)) return;
-      console.error('[Técnico] Dados Supabase:', err);
-    }
-
     const { hydrateLocalReportsIntoCache } = await import('./report-local-storage.js');
-    await hydrateLocalReportsIntoCache();
-
     const { initTrabalhosOfflineSync, migrateLegacyOfflineQueue, sincronizarTrabalhosOffline } =
       await import('./trabalhos-offline.js');
     const { getDB, updateDB } = await import('./app.js');
 
+    // Offline primeiro — migração, fila e sync imediato (sem atrasar).
     await migrateLegacyOfflineQueue(getDB, updateDB);
     initTrabalhosOfflineSync();
     sincronizarTrabalhosOffline().catch(console.error);
-    await refreshTechCalendar();
 
-    // Realtime: quando o RH cria/altera/elimina trabalhos ou relatórios,
-    // a lista atualiza-se logo, sem o técnico fazer refresh manual.
+    const warmPromise = warmTechDashboardInitial(session.technicianId).catch(async (err) => {
+      const { handleFatalDashboardError } = await import('./app.js');
+      if (await handleFatalDashboardError(err)) throw err;
+      console.error('[Técnico] Dados Supabase:', err);
+    });
+    const hydratePromise = hydrateLocalReportsIntoCache().catch((err) => {
+      console.warn('[Técnico] Rascunhos locais:', err);
+    });
+
+    await Promise.all([warmPromise, hydratePromise]);
+    await refreshTechCalendar();
+    setTechDashboardDataLoading(false);
+    scheduleWarmFormsModule();
+
     try {
       const { initTechRealtime } = await import('./tech-realtime.js');
       await initTechRealtime();
@@ -633,6 +675,7 @@ export async function initTechDashboard() {
 
     scheduleWarmTechDashboardFull();
   } catch (error) {
+    setTechDashboardDataLoading(false);
     const { handleFatalDashboardError } = await import('./app.js');
     if (await handleFatalDashboardError(error)) return;
 
@@ -1535,7 +1578,7 @@ async function openReportPdfQuick(reportId, jobId) {
   }
 }
 
-function openTechClientInfo(clientId) {
+async function openTechClientInfo(clientId) {
   const client = getClient(clientId);
   if (!client) {
     showToast('Cliente não encontrado no catálogo.', 'warning', 5000);
@@ -1543,6 +1586,7 @@ function openTechClientInfo(clientId) {
   }
   const existing = document.querySelector('.tech-client-sheet');
   existing?.remove();
+  const { getLastClientIntervention } = await import('./views/historico-cliente.js');
   const lastIntervention = getLastClientIntervention(clientId);
   const sheet = renderTechClientInfoSheet(client, {
     lastIntervention,
