@@ -10,6 +10,24 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <title>Manusilva — Técnico</title>
+  <script>
+    (function () {
+      try {
+        var needsPurge = /[?&]_ms=/.test(location.search) || sessionStorage.getItem('manusilva_force_bust');
+        if (!needsPurge) return;
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.getRegistrations().then(function (regs) {
+            regs.forEach(function (r) { r.unregister(); });
+          });
+        }
+        if ('caches' in window) {
+          caches.keys().then(function (keys) {
+            keys.forEach(function (k) { caches.delete(k); });
+          });
+        }
+      } catch (e) { /* ignore */ }
+    })();
+  </script>
   <link rel="manifest" href="manifest.json">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -50,7 +68,7 @@
       </div>
 
       <p id="tech-update-test-marker" class="tech-update-test-marker" role="status">
-        TESTE ATUALIZAR — versão MORANGO
+        TESTE ATUALIZAR — versão KIWI
       </p>
 
       <div id="tech-connectivity-bar" class="tech-connectivity-bar tech-connectivity-bar--ok" role="status" aria-live="polite">
@@ -124,22 +142,14 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script type="module">
     try {
-      const { bootstrapManusilvaApp, handleBootstrapFailure } = await import(
-        `./js/bootstrap-entry.js?_=${Date.now()}`
+      const bust = Date.now();
+      const { runManusilvaEntry, handleBootstrapFailure } = await import(
+        `./js/bootstrap-entry.js?_=${bust}`
       );
-      await bootstrapManusilvaApp({
+      await runManusilvaEntry('tech', {
         registerServiceWorker: true,
         onRemoteBuild: () => {
           window.dispatchEvent(new CustomEvent('manusilva-app-update-available'));
-        },
-        onReady: async (v, moduleQ) => {
-          const q = moduleQ || `?v=${v}`;
-          const { initLocalDatabase } = await import(`./js/tech-app-core.js${q}`);
-          const { initTechDashboard } = await import(`./js/tech-dashboard.js${q}`);
-          const { initLogoutButton } = await import(`./js/auth.js${q}`);
-          initLogoutButton();
-          initLocalDatabase();
-          void initTechDashboard();
         },
       });
     } catch (err) {

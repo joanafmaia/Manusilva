@@ -423,7 +423,7 @@ function bindAdminNavigation() {
 }
 
 function bindAppRefreshControls() {
-  import('./app-refresh-ui.js').then(({ bindAppRefreshButton }) => {
+  import(`./app-refresh-ui.js${globalThis.__MS_MODULE_Q || `?_=${Date.now()}`}`).then(({ bindAppRefreshButton }) => {
     bindAppRefreshButton('btn-force-app-refresh', {
       updateHint: 'Nova versão disponível — clique em «Atualizar app» na barra lateral.',
     });

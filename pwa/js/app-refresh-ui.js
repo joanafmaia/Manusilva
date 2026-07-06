@@ -2,9 +2,6 @@
  * Botão e aviso de nova versão — partilhado entre painel RH e tablet.
  */
 
-import { showToast } from './toast-modal.js';
-import { forceAppRefresh } from './app-version.js';
-
 /**
  * @param {string} [buttonId]
  * @param {{ updateHint?: string, notifyStyle?: 'toast' | 'button' }} [options]
@@ -28,16 +25,19 @@ export function bindAppRefreshButton(buttonId = 'btn-force-app-refresh', options
       if (textLabel) textLabel.textContent = 'A atualizar…';
       else refreshBtn.textContent = 'A atualizar…';
     } else refreshBtn.textContent = 'A atualizar…';
+
+    const bust = `?_=${Date.now()}`;
     try {
+      const { forceAppRefresh } = await import(`./app-version.js${bust}`);
       await forceAppRefresh();
     } catch (err) {
       console.error('[Manusilva] forceAppRefresh:', err);
       const { markForceModuleBust, purgeBrowserCaches, navigateToFreshApp } = await import(
-        './app-version.js'
+        `./app-version.js${bust}`,
       );
       markForceModuleBust();
       await purgeBrowserCaches();
-      navigateToFreshApp();
+      await navigateToFreshApp();
     }
   });
 
@@ -56,7 +56,9 @@ export function bindAppRefreshButton(buttonId = 'btn-force-app-refresh', options
       return;
     }
 
-    showToast(hint, 'info', 12000);
+    void import(`./toast-modal.js?_=${Date.now()}`).then(({ showToast }) => {
+      showToast(hint, 'info', 12000);
+    });
   };
 
   window.addEventListener('manusilva-app-update-available', onUpdateAvailable);

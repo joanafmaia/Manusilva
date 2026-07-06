@@ -37,16 +37,11 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script type="module">
     try {
-      const { bootstrapManusilvaApp, handleBootstrapFailure } = await import(
-        `./js/bootstrap-entry.js?_=${Date.now()}`
+      const bust = Date.now();
+      const { runManusilvaEntry, handleBootstrapFailure } = await import(
+        `./js/bootstrap-entry.js?_=${bust}`
       );
-      await bootstrapManusilvaApp({
-        onReady: async (v, moduleQ) => {
-          const q = moduleQ || `?v=${v}`;
-          const { bootstrapApp } = await import(`./js/app.js${q}`);
-          bootstrapApp('app');
-        },
-      });
+      await runManusilvaEntry('login');
     } catch (err) {
       const { handleBootstrapFailure } = await import(`./js/bootstrap-entry.js?_=${Date.now()}`);
       const recovered = await handleBootstrapFailure(err);

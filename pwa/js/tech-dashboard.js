@@ -633,9 +633,27 @@ export async function openTechClientHistory(clientId, { returnTo = 'dashboard' }
   app.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
+/** Marcador temporário — remover após validar «Atualizar app». */
+function showTechUpdateTestMarker() {
+  let el = document.getElementById('tech-update-test-marker');
+  if (!el) {
+    el = document.createElement('p');
+    el.id = 'tech-update-test-marker';
+    el.className = 'tech-update-test-marker';
+    el.setAttribute('role', 'status');
+    const header = document.querySelector('.tech-header');
+    const anchor = document.getElementById('tech-connectivity-bar');
+    if (header && anchor) header.insertBefore(el, anchor);
+    else header?.append(el);
+  }
+  el.textContent = 'TESTE ATUALIZAR — versão KIWI (JS)';
+}
+
 export async function initTechDashboard() {
   const session = requireAuth('technician');
   if (!session) return;
+
+  showTechUpdateTestMarker();
 
   // UI básica primeiro — navegação e botão Sair nunca ficam bloqueados
   // por falhas na recolha de dados do Supabase.
@@ -644,7 +662,7 @@ export async function initTechDashboard() {
   renderOfflineToggle();
   renderTechConnectivityBar();
   bindTechConnectivityActions();
-  import('./app-refresh-ui.js').then(({ bindAppRefreshButton }) => {
+  import(`./app-refresh-ui.js${globalThis.__MS_MODULE_Q || `?_=${Date.now()}`}`).then(({ bindAppRefreshButton }) => {
     bindAppRefreshButton('btn-force-app-refresh', {
       notifyStyle: 'button',
       updateHint: 'Nova versão disponível — toque em Atualizar.',

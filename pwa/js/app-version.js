@@ -72,11 +72,24 @@ export function markForceModuleBust() {
 }
 
 /** Navegação que evita bfcache e cache de HTML (reload simples não basta). */
-export function navigateToFreshApp() {
+export async function navigateToFreshApp() {
+  const bust = String(Date.now());
   const url = new URL(location.href);
-  url.searchParams.set('_ms', String(Date.now()));
+  url.searchParams.set('_ms', bust);
   url.hash = '';
-  location.replace(url.toString());
+
+  try {
+    await fetch(url.toString(), {
+      method: 'GET',
+      cache: 'no-store',
+      credentials: 'same-origin',
+      headers: { Pragma: 'no-cache', 'Cache-Control': 'no-cache' },
+    });
+  } catch {
+    /* ignore */
+  }
+
+  window.location.assign(url.toString());
 }
 
 /** Atualiza query string de CSS estático para o build atual. */
@@ -102,7 +115,7 @@ export async function ensureFreshAppBuild(buildId) {
     if (previous && previous !== current) {
       localStorage.setItem(STORAGE_KEY, current);
       await purgeBrowserCaches();
-      navigateToFreshApp();
+      await navigateToFreshApp();
       return true;
     }
     if (!previous) {
@@ -129,7 +142,7 @@ export async function forceAppRefresh() {
 
   await purgeBrowserCaches();
 
-  navigateToFreshApp();
+  await navigateToFreshApp();
 }
 
 /** Uma tentativa de recuperação após SyntaxError / módulo em cache antigo */
@@ -142,7 +155,7 @@ export async function recoverFromModuleLoadFailure() {
     /* ignore */
   }
   await purgeBrowserCaches();
-  navigateToFreshApp();
+  await navigateToFreshApp();
   return true;
 }
 
@@ -170,7 +183,7 @@ function bindBfcacheGuard() {
     } catch {
       return;
     }
-    navigateToFreshApp();
+    void navigateToFreshApp();
   });
 }
 

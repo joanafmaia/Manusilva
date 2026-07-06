@@ -13,9 +13,55 @@ import {
   startBuildIdWatch,
 } from './app-version.js';
 
+async function bootEntry(entry, moduleQ) {
+  if (entry === 'tech') {
+    const { initLocalDatabase } = await import(`./tech-app-core.js${moduleQ}`);
+    const { initTechDashboard } = await import(`./tech-dashboard.js${moduleQ}`);
+    const { initLogoutButton } = await import(`./auth.js${moduleQ}`);
+    initLogoutButton();
+    initLocalDatabase();
+    await initTechDashboard();
+    return;
+  }
+  if (entry === 'admin') {
+    const { initLocalDatabase } = await import(`./app.js${moduleQ}`);
+    const { initAdminDashboard } = await import(`./admin-dashboard.js${moduleQ}`);
+    initLocalDatabase();
+    await initAdminDashboard();
+    return;
+  }
+  if (entry === 'login') {
+    const { bootstrapApp } = await import(`./app.js${moduleQ}`);
+    bootstrapApp('app');
+  }
+}
+
+/**
+ * @param {'tech'|'admin'|'login'} entry
+ * @param {object} [options]
+ * @param {boolean} [options.registerServiceWorker]
+ * @param {(remoteBuildId: string) => void} [options.onRemoteBuild]
+ */
+export async function runManusilvaEntry(entry, options = {}) {
+  const v = (await fetchAppBuildId()) || 'dev';
+  applyBuildAssetVersions(v);
+
+  if (await ensureFreshAppBuild(v)) return;
+
+  if (options.registerServiceWorker) await registerAppServiceWorker(v);
+
+  const moduleQ = consumeModuleCacheBustQuery(v);
+  globalThis.__MS_MODULE_Q = moduleQ;
+
+  await bootEntry(entry, moduleQ);
+  clearModuleRecoveryFlag();
+
+  if (options.onRemoteBuild) startBuildIdWatch(options.onRemoteBuild);
+}
+
 /**
  * @param {object} options
- * @param {(buildId: string) => Promise<void>} options.onReady
+ * @param {(buildId: string, moduleQ: string) => Promise<void>} options.onReady
  * @param {boolean} [options.registerServiceWorker]
  * @param {(remoteBuildId: string) => void} [options.onRemoteBuild]
  */
@@ -28,6 +74,7 @@ export async function bootstrapManusilvaApp({ onReady, registerServiceWorker = f
   if (registerServiceWorker) await registerAppServiceWorker(v);
 
   const moduleQ = consumeModuleCacheBustQuery(v);
+  globalThis.__MS_MODULE_Q = moduleQ;
   await onReady(v, moduleQ);
   clearModuleRecoveryFlag();
 
