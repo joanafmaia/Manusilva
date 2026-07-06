@@ -665,7 +665,7 @@ export function buildRhReviewModalContent({
           </div>
           ${queueAge ? `<span class="review-queue-badge">${escapeHtml(queueAge)}</span>` : ''}
         </div>
-        <p class="review-meta-row"><strong>Serviço:</strong> ${escapeHtml(serviceLine)}</p>
+        <p class="review-meta-row"><strong>Serviço:</strong> ${serviceLine}</p>
         <p class="review-meta-row"><strong>Cliente:</strong> ${escapeHtml(client?.name || client?.Nome || '—')}</p>
         <p class="review-meta-row"><strong>Técnico:</strong> ${escapeHtml(tech?.name || '—')}</p>
         ${contactField}
