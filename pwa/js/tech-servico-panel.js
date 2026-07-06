@@ -131,13 +131,17 @@ function openAddReportPicker(servicoId, overlay) {
   const options = available
     .map(
       (t) =>
-        `<button type="button" class="btn-ghost tech-servico-type-pick" data-service-type="${escapeHtml(t.id)}" style="justify-content:flex-start;width:100%;margin-bottom:0.35rem">${t.icon} ${escapeHtml(t.label)}</button>`,
+        `<button type="button" class="tech-servico-type-pick" data-service-type="${escapeHtml(t.id)}">
+          <span class="tech-servico-type-pick__icon" aria-hidden="true">${t.icon}</span>
+          <span class="tech-servico-type-pick__label">${escapeHtml(t.label)}</span>
+        </button>`,
     )
     .join('');
 
   const picker = openModal(
     'Adicionar relatório',
-    `<p class="text-muted" style="margin-bottom:0.75rem">Escolha o tipo de relatório para esta visita:</p>${options}`,
+    `<p class="text-muted tech-servico-type-pick-intro">Escolha o tipo de relatório para esta visita:</p>
+     <div class="tech-servico-type-pick-list" role="listbox" aria-label="Tipos de relatório">${options}</div>`,
     '<button type="button" class="btn-ghost" id="cancel-add-report">Cancelar</button>',
   );
 
