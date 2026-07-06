@@ -190,7 +190,7 @@
   border: 1px solid rgba(30, 77, 114, 0.2);
   border-left: 3px solid var(--ms-primary);
   background: var(--surface-accent);
-  box-shadow: var(--ms-shadow-sm, 0 1px 2px rgba(15, 23, 42, 0.05));
+  box-shadow: var(--ms-shadow-sm);
 }
 .offline-sync-banner__icon {
   display: flex;
@@ -1253,7 +1253,7 @@
   background: var(--ms-card-bg, var(--bg-card));
   border: 1px solid var(--ms-border-md, var(--border-subtle));
   border-radius: var(--ms-radius-lg, 0.5rem);
-  box-shadow: var(--ms-shadow-sm, 0 1px 2px rgba(15, 23, 42, 0.05));
+  box-shadow: var(--ms-shadow-sm);
 }
 .form-section-card:last-child {
   margin-bottom: 0;
@@ -1267,7 +1267,6 @@
   padding: 0.75rem 1.25rem;
   margin-bottom: 0;
   background: var(--surface-sticky);
-  backdrop-filter: blur(16px);
   border-bottom: 1px solid var(--border-subtle);
   position: sticky;
   top: 52px;
@@ -1304,10 +1303,10 @@
   line-height: 1;
 }
 .report-form-tab.is-active {
-  background: #ffffff;
-  border-color: var(--primary);
-  color: var(--primary);
-  box-shadow: 0 1px 3px rgba(30, 64, 115, 0.12);
+  background: var(--surface-accent);
+  border-color: color-mix(in srgb, var(--ms-primary) 22%, var(--ms-border-md));
+  color: var(--ms-primary);
+  box-shadow: none;
 }
 .report-tab-panel {
   display: none;
@@ -1345,7 +1344,7 @@
   align-items: center;
   justify-content: center;
   padding: 1.5rem;
-  background: rgba(15, 23, 42, 0.45);
+  background: var(--modal-scrim);
   opacity: 0;
   transition: opacity 0.2s ease;
 }
@@ -1359,7 +1358,7 @@
   padding: 1.25rem 1.5rem;
   border-radius: 0.75rem;
   background: var(--surface-raised, #fff);
-  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.18);
+  box-shadow: var(--ms-shadow-sm);
   text-align: center;
 }
 .form-loading-overlay__card p {
@@ -1419,7 +1418,6 @@
   z-index: 10;
   padding: 1rem 1.25rem;
   background: var(--surface-sticky);
-  backdrop-filter: blur(16px);
   border-bottom: 1px solid var(--border-subtle);
   display: flex;
   align-items: center;
@@ -1462,7 +1460,7 @@
   flex: 1;
 }
 /* Sub-cartões dentro de secções — evitar bordas duplas coladas */ .form-overlay .form-section-card .glass-card-inner {
-  background: var(--surface-muted, #f1f5f9);
+  background: var(--surface-muted);
   border: 1px solid var(--ms-border, var(--border-subtle));
   border-radius: var(--ms-radius-lg, 0.5rem);
   box-shadow: none;
@@ -1477,7 +1475,7 @@
 .form-overlay .form-section-card--intro .form-fixed-header {
   margin-top: 0.75rem;
   padding: 1rem;
-  background: var(--surface-muted, #f1f5f9);
+  background: var(--surface-muted);
   border: 1px solid var(--ms-border, var(--border-subtle));
   border-radius: var(--ms-radius-lg, 0.5rem);
 }
@@ -1497,7 +1495,6 @@
   bottom: 0;
   padding: 1rem 1.25rem;
   background: var(--surface-sticky-footer);
-  backdrop-filter: blur(16px);
   border-top: 1px solid var(--border-subtle);
   display: flex;
   gap: 0.75rem;
@@ -1533,19 +1530,19 @@
   padding: 14px 1rem;
   font-size: 1rem;
   font-weight: 800;
-  color: #172554;
-  background: #eff6ff;
+  color: var(--ms-primary);
+  background: var(--surface-accent);
   border: 1.5px solid var(--ms-primary);
   border-radius: var(--radius-sm);
   cursor: pointer;
-  box-shadow: 0 2px 10px rgba(30, 77, 114, 0.12);
+  box-shadow: none;
   transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, background 0.15s ease;
 }
 .btn-preview:hover:not(:disabled) {
   transform: translateY(-1px);
-  color: #172554;
-  background: #dbeafe;
-  box-shadow: 0 4px 16px rgba(30, 77, 114, 0.22);
+  color: var(--ms-primary-hover);
+  background: color-mix(in srgb, var(--ms-primary) 12%, var(--surface-accent));
+  box-shadow: var(--ms-shadow-sm);
 }
 .btn-preview:disabled {
   opacity: 0.55;
@@ -1571,9 +1568,7 @@
 .pdf-preview-backdrop {
   position: absolute;
   inset: 0;
-  background: var(--backdrop-scrim);
-  backdrop-filter: blur(12px) saturate(1.2);
-  -webkit-backdrop-filter: blur(12px) saturate(1.2);
+  background: var(--modal-scrim);
 }
 .pdf-preview-modal {
   position: relative;
@@ -1726,8 +1721,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--backdrop-scrim-light);
-  backdrop-filter: blur(8px);
+  background: var(--modal-scrim);
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.2s ease;
@@ -1756,8 +1750,8 @@
   width: 2.5rem;
   height: 2.5rem;
   margin: 0 auto;
-  border: 3px solid rgba(96, 165, 250, 0.25);
-  border-top-color: #60a5fa;
+  border: 3px solid rgba(30, 77, 114, 0.2);
+  border-top-color: var(--ms-primary);
   border-radius: 50%;
   animation: pdf-preview-spin 0.75s linear infinite;
 }
@@ -2896,13 +2890,13 @@
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--ms-text-600, var(--text-secondary));
-  background: var(--ms-table-head-bg, #f1f5f9);
+  background: var(--ms-table-head-bg, var(--surface-muted));
   border-bottom: 1px solid var(--ms-border-md, var(--border-subtle));
 }
 .dynamic-table td {
   padding: 0.75rem 1rem;
   vertical-align: middle;
-  border-bottom: 1px solid var(--ms-border, #f1f5f9);
+  border-bottom: 1px solid var(--ms-border, var(--surface-muted));
 }
 .dynamic-table-actions-th {
   width: 40px;
@@ -4795,7 +4789,7 @@ body.tech-dashboard-page .form-overlay .signature-canvas-wrap, body.tech-dashboa
   outline: none;
 }
 .tech-servico-type-pick:active {
-  background: var(--btn-ghost-accent-bg, #eff6ff);
+  background: var(--surface-accent);
 }
 .tech-servico-type-pick__icon {
   font-size: 1.3rem;
@@ -4914,9 +4908,9 @@ body.tech-dashboard-page .form-overlay .signature-canvas-wrap, body.tech-dashboa
   font-family: inherit;
   cursor: pointer;
   color: #fff;
-  background: linear-gradient(135deg, var(--primary), var(--ms-primary));
+  background: var(--ms-primary);
   border: none;
-  box-shadow: 0 4px 14px var(--primary-glow);
+  box-shadow: 0 2px 8px rgba(30, 77, 114, 0.22);
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 .btn-foto:active {
@@ -5012,7 +5006,7 @@ body.tech-dashboard-page .form-overlay .signature-canvas-wrap, body.tech-dashboa
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, rgba(30, 77, 114, 0.15), rgba(168, 85, 247, 0.15));
+  background: var(--surface-accent);
   font-size: 1.5rem;
   font-weight: 700;
   color: var(--primary);
@@ -5098,26 +5092,26 @@ body .admin-panel .rh-section, body .rh-section {
   font-size: var(--ms-text-2xl);
   font-weight: 700;
   line-height: 1.3;
-  color: #1e293b;
+  color: var(--ms-text-800);
 }
 .ms-h2 {
   margin: 0;
   font-size: var(--ms-text-lg);
   font-weight: 600;
   line-height: 1.35;
-  color: #334155;
+  color: var(--ms-text-700, var(--ms-text-800));
 }
 .ms-label {
   font-size: var(--ms-text-sm);
   font-weight: 500;
   line-height: 1.45;
-  color: #64748b;
+  color: var(--ms-text-500);
 }
 .dashboard-section-title {
   margin: 0 0 0.85rem;
   font-size: var(--ms-text-lg);
   font-weight: 600;
-  color: #334155;
+  color: var(--ms-text-800);
   line-height: 1.35;
 }
 .dashboard-metrics {
@@ -5422,9 +5416,7 @@ body .admin-panel .rh-section, body .rh-section {
 .client-ficha-backdrop {
   position: absolute;
   inset: 0;
-  background: var(--modal-scrim, rgba(15, 23, 42, 0.4));
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
+  background: var(--modal-scrim);
 }
 .client-ficha-panel {
   position: relative;
@@ -5490,7 +5482,7 @@ body .admin-panel .rh-section, body .rh-section {
 }
 .client-ficha-block {
   padding: 0.85rem 1rem;
-  border: 1px solid #f1f5f9;
+  border: 1px solid var(--surface-muted);
   border-radius: 0.75rem;
   background: #ffffff;
 }
@@ -5569,7 +5561,7 @@ body .admin-panel .rh-section, body .rh-section {
   padding: 0.5rem 0.65rem;
   border-radius: var(--ms-radius-lg, 0.5rem);
   background: var(--ms-card-bg, #fff);
-  border: 1px solid var(--ms-border, #f1f5f9);
+  border: 1px solid var(--ms-border, var(--surface-muted));
 }
 .client-ficha-machine-serial {
   font-weight: 600;
@@ -5676,9 +5668,9 @@ body.client-ficha-open {
   border-radius: var(--ms-radius-lg, 0.5rem);
   background: linear-gradient(
     90deg,
-    var(--ms-border, #f1f5f9) 25%,
+    var(--ms-border, var(--surface-muted)) 25%,
     var(--ms-page-bg, var(--ms-page-bg)) 50%,
-    var(--ms-border, #f1f5f9) 75%
+    var(--ms-border, var(--surface-muted)) 75%
   );
   background-size: 200% 100%;
   animation: client-ficha-shimmer 1.2s ease-in-out infinite;
@@ -5953,7 +5945,7 @@ body.client-ficha-open {
 }
 .client-history-card-footer {
   padding: 0.75rem 1.25rem 1rem;
-  border-top: 1px solid var(--ms-border, #f1f5f9);
+  border-top: 1px solid var(--ms-border, var(--surface-muted));
 }
 .client-history-pdf-btn--card {
   width: 100%;
@@ -5979,8 +5971,8 @@ body.client-ficha-open {
   background: #fef3c7;
 }
 .client-history-status--draft {
-  color: #1d4ed8;
-  background: #dbeafe;
+  color: var(--ms-primary);
+  background: var(--surface-accent);
 }
 .client-history-status--rejected {
   color: #b91c1c;
@@ -7135,14 +7127,14 @@ body.client-ficha-open {
   letter-spacing: 0.04em;
   text-align: left;
   color: var(--ms-text-600, #475569);
-  background: var(--ms-table-head-bg, #f1f5f9);
+  background: var(--ms-table-head-bg, var(--surface-muted));
   border-bottom: 1px solid var(--ms-border-md);
   white-space: nowrap;
 }
 .rh-data-table td {
   padding: 0.875rem 1rem;
   vertical-align: middle;
-  border-bottom: 1px solid var(--ms-border, #f1f5f9);
+  border-bottom: 1px solid var(--ms-border, var(--surface-muted));
   color: var(--ms-text-700, var(--text-primary));
 }
 .rh-table-tech-cell {
@@ -7188,7 +7180,6 @@ details[open] .expand-icon { transform: rotate(90deg); }
   inset: 0;
   z-index: 200;
   background: var(--modal-scrim);
-  backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -7198,9 +7189,7 @@ details[open] .expand-icon { transform: rotate(90deg); }
 }
 .modal-overlay.show { opacity: 1; }
 .modal-overlay--review {
-  background-color: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(5px);
-  -webkit-backdrop-filter: blur(5px);
+  background: var(--modal-scrim);
   padding: 1rem;
 }
 .modal-overlay--review .modal {
@@ -7266,15 +7255,14 @@ details[open] .expand-icon { transform: rotate(90deg); }
   align-items: flex-start;
   gap: 0.75rem;
   padding: 0.875rem 1.125rem;
-  background: var(--glass-bg);
+  background: var(--ms-card-bg);
   color: var(--text-main);
-  backdrop-filter: blur(16px);
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--ms-border-md);
   border-radius: var(--radius-sm);
   font-size: 0.875rem;
   transform: translateX(120%);
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+  box-shadow: var(--ms-shadow-sm);
   pointer-events: auto;
 }
 .toast.show { transform: translateX(0); }
@@ -7344,8 +7332,7 @@ button.toast-notification:hover {
 
 @media (min-width: 481px) {
   .form-overlay {
-    background: var(--backdrop-scrim);
-    backdrop-filter: blur(4px);
+    background: var(--modal-scrim);
     display: flex;
     align-items: flex-start;
     justify-content: center;
@@ -8173,7 +8160,7 @@ body.tech-dashboard-page .form-overlay .form-progress__fill {
   height: 100%;
   width: 33%;
   border-radius: inherit;
-  background: linear-gradient(90deg, var(--primary), #6366f1);
+  background: linear-gradient(90deg, var(--ms-primary), var(--ms-primary-hover));
   transition: width 0.25s ease;
 }
 body.tech-dashboard-page .form-overlay .form-panel-footer--sticky {
@@ -8182,7 +8169,7 @@ body.tech-dashboard-page .form-overlay .form-panel-footer--sticky {
   z-index: 5;
   margin-top: auto;
   padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
-  background: linear-gradient(to top, var(--bg-card) 85%, transparent);
+  background: var(--ms-card-bg);
   border-top: 1px solid var(--border-subtle);
 }
 body.tech-dashboard-page .form-overlay .foto-antes-depois-preview {
@@ -8280,4 +8267,43 @@ body.tech-dashboard-page .connection-badge.online {
   background: var(--surface-success, #ecfdf5);
   color: var(--surface-success-text, #047857);
   border-color: color-mix(in srgb, #047857 20%, transparent);
+}
+
+/* ═══ Formulários de relatório — clínica B2B ═══ */
+body.tech-dashboard-page .form-overlay {
+  background: var(--ms-page-bg);
+}
+body.tech-dashboard-page .form-panel--premium {
+  background: var(--ms-page-bg);
+}
+body.tech-dashboard-page .form-panel-header h2,
+body.tech-dashboard-page .form-overlay .form-report-title {
+  font-family: var(--ms-font-display);
+  font-weight: 700;
+  color: var(--ms-text-800);
+  letter-spacing: -0.02em;
+}
+body.tech-dashboard-page .form-overlay .section-title {
+  color: var(--ms-text-500);
+  letter-spacing: 0.06em;
+}
+body.tech-dashboard-page .form-overlay .form-section-card--intro .job-client-header {
+  border-left-color: var(--ms-primary);
+}
+body.tech-dashboard-page .form-overlay .glass-card-inner,
+body.tech-dashboard-page .form-overlay .form-section-card--intro .form-fixed-header {
+  background: var(--surface-muted);
+  border-color: var(--ms-border-md);
+}
+body.tech-dashboard-page .modal-overlay,
+body.tech-dashboard-page .pdf-preview-backdrop,
+body.tech-dashboard-page .form-loading-overlay {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+body.tech-dashboard-page .form-panel-header,
+body.tech-dashboard-page .form-panel-footer,
+body.tech-dashboard-page .report-form-tabs {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
