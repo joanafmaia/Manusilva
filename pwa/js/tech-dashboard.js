@@ -93,6 +93,15 @@ let techDashboardListenersBound = false;
 let techDashboardRefreshInFlight = false;
 let cachedPendingSyncCount = 0;
 let techOfflineDepsPromise = null;
+let techListCacheGeneration = 0;
+let techAgendadosCache = { techId: '', generation: -1, items: [] };
+const realizadosItemsCache = new Map();
+
+function invalidateTechListCaches() {
+  techListCacheGeneration += 1;
+  techAgendadosCache = { techId: '', generation: -1, items: [] };
+  realizadosItemsCache.clear();
+}
 
 async function loadTechOfflineDeps() {
   if (!techOfflineDepsPromise) {
@@ -120,6 +129,7 @@ function scheduleTechDashboardRefresh() {
     techDashboardRefreshTimer = null;
     periodJobsCacheKey = null;
     techTabDataCacheKey = null;
+    invalidateTechListCaches();
     refreshTechCalendar().catch(console.error);
   }, 280);
 }
@@ -260,7 +270,15 @@ function reportAssignedToTechnician(report, techId) {
 }
 
 function getTechAgendadosItems(techId) {
-  return filterCalendarItemsByTech(getAdminCalendarItems(), techId);
+  if (
+    techAgendadosCache.generation === techListCacheGeneration &&
+    techAgendadosCache.techId === techId
+  ) {
+    return techAgendadosCache.items;
+  }
+  const items = filterCalendarItemsByTech(getAdminCalendarItems(), techId);
+  techAgendadosCache = { techId, generation: techListCacheGeneration, items };
+  return items;
 }
 
 function getAgendadosItemsForDate(techId, isoDate) {
@@ -538,7 +556,11 @@ function renderAgendadosWeekPreview(techId) {
 const REALIZADOS_VISIBLE_STATUSES = new Set(['approved', 'pending_review']);
 
 function getRealizadosItems(techId) {
-  return dedupeReportsForDisplay(
+  const cached = realizadosItemsCache.get(techId);
+  if (cached && cached.generation === techListCacheGeneration) {
+    return cached.items;
+  }
+  const items = dedupeReportsForDisplay(
     getReportsSnapshot().filter(
       (report) =>
         REALIZADOS_VISIBLE_STATUSES.has(report.status) &&
@@ -556,6 +578,8 @@ function getRealizadosItems(techId) {
       const dateB = b.job?.date || b.report.approvedAt || b.report.submittedAt || '';
       return String(dateB).localeCompare(String(dateA));
     });
+  realizadosItemsCache.set(techId, { generation: techListCacheGeneration, items });
+  return items;
 }
 
 const TECH_JOBS_SHELL_HTML = `
@@ -1658,6 +1682,8 @@ function bindTechJobRowsEvents(scope) {
 /* ─── Histórico de Realizados — lista compacta com pesquisa e grupos por mês ─── */
 
 let realizadosSearchQuery = '';
+let realizadosSearchTimer = null;
+const REALIZADOS_SEARCH_DEBOUNCE_MS = 150;
 
 function getRealizadoItemDate(item) {
   return item.job?.date || String(item.report.approvedAt || item.report.submittedAt || '').split('T')[0] || '';
@@ -1779,9 +1805,12 @@ function renderRealizadosPanel(container, techId) {
   const searchInput = container.querySelector('#realizados-search');
   searchInput?.addEventListener('input', () => {
     realizadosSearchQuery = searchInput.value || '';
-    // Re-renderiza só a lista — o input mantém o foco enquanto escreve
-    listEl.innerHTML = renderRealizadosListHtml(getRealizadosItems(techId));
-    bindRealizadosListEvents(listEl);
+    if (realizadosSearchTimer) clearTimeout(realizadosSearchTimer);
+    realizadosSearchTimer = setTimeout(() => {
+      realizadosSearchTimer = null;
+      listEl.innerHTML = renderRealizadosListHtml(getRealizadosItems(techId));
+      bindRealizadosListEvents(listEl);
+    }, REALIZADOS_SEARCH_DEBOUNCE_MS);
   });
 }
 

@@ -5,7 +5,7 @@
 import { getAllJobs, getJob, getServiceType, jobAssignedToTechnician } from './entity-lookups.js';
 import { sameEntityId } from './entity-id.js';
 import { filterOutLocallyDeletedReports } from './report-deleted-local.js';
-import { getReportsSnapshot } from './relatorios-db.js';
+import { getReportsSnapshot, getCanonicalReportForJob } from './relatorios-db.js';
 import { getServico, getServicosSnapshot, isServicosCacheLoaded } from './servicos-db.js';
 
 /** Id do serviço/visita a que o relatório pertence (servico_id ou trabalho legado com o mesmo id). */
@@ -222,7 +222,7 @@ export function getAdminCalendarItems() {
 export function getCalendarItemReport(item) {
   if (!item) return null;
   if (item.isServico) return getPrimaryReportForServico(item.id);
-  return getReportsSnapshot().find((r) => sameEntityId(r.jobId, item.id)) || null;
+  return getCanonicalReportForJob(item.id);
 }
 
 export function getCalendarItemReports(item) {

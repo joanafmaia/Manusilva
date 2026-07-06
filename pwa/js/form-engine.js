@@ -19,25 +19,6 @@ import {
 } from './material-table-field.js';
 import { EMPILHADORES_MATERIAL_SECTION, EMPILHADORES_PER_MACHINE_FIELD_DEFS } from './mock_data.js';
 import {
-  renderGrandesBatterySection,
-  collect as collectGrandesBatteryRows,
-  GRANDES_BATTERY_FIELD_ID,
-  GRANDES_BATTERY_COLUMNS,
-  getColumnLabels,
-  getColumnKeys,
-  refreshGrandesMachineSelectsInOverlay,
-} from './views/relatorio-grandes.js';
-import {
-  collectEmpilhadoresMaquinas,
-  EMPILHADORES_LEGACY_ROOT_KEYS,
-  EMPILHADORES_MAQUINAS_FIELD_ID,
-  emptyEmpilhadoresMaquinaRow,
-  maquinaRowToFlatValues,
-  migrateLegacyEmpilhadoresMaquinas,
-  renderEmpilhadoresMaquinaSelector,
-  renderEmpilhadoresMaquinasSection,
-} from './views/relatorio-empilhadores-maquinas.js';
-import {
   isDeslocacaoField,
   isDeslocacaoMetaField,
   isVisitasField,
@@ -77,6 +58,31 @@ import {
   buildFormPrefill,
   mergeFormValues,
 } from './form-prefill.js';
+
+let grandesModule = null;
+let empilhadoresModule = null;
+
+/** Pré-carrega extensões pesadas só para tipos de relatório que as usam. */
+export async function preloadFormFieldModules(service) {
+  if (!service) return;
+  const types = new Set((service.fields || []).map((field) => field.type));
+  const tasks = [];
+  if (types.has('grandes_identificacao_baterias') || service.id === 'manutencao_baterias_grandes') {
+    tasks.push(
+      import('./views/relatorio-grandes.js').then((module) => {
+        grandesModule = module;
+      }),
+    );
+  }
+  if (types.has('empilhadores_maquinas') || service.id === 'manutencao_preventiva_empilhadores') {
+    tasks.push(
+      import('./views/relatorio-empilhadores-maquinas.js').then((module) => {
+        empilhadoresModule = module;
+      }),
+    );
+  }
+  await Promise.all(tasks);
+}
 
 export {
   toHtmlDateValue,
@@ -478,6 +484,15 @@ export function renderReportFields(service, values = {}, context = {}, options =
   const tabFilter = options.tab || null;
 
   if (service?.id === EMPILHADORES_SERVICE_ID && tabFilter === 'checklist') {
+    if (!empilhadoresModule) {
+      return '<p class="text-muted" role="status">A carregar checklist…</p>';
+    }
+    const {
+      migrateLegacyEmpilhadoresMaquinas,
+      maquinaRowToFlatValues,
+      emptyEmpilhadoresMaquinaRow,
+      renderEmpilhadoresMaquinaSelector,
+    } = empilhadoresModule;
     const maquinas = migrateLegacyEmpilhadoresMaquinas(values);
     const activeIndex = Number(context.activeMaquinaIndex) || 0;
     const safeIndex = Math.max(0, Math.min(activeIndex, maquinas.length - 1));
@@ -951,10 +966,14 @@ function renderField(field, value = '', context = {}) {
       html = renderDynamicTableField(field, value, context);
       break;
     case 'grandes_identificacao_baterias':
-      html = renderGrandesBatterySection(field, value);
+      html = grandesModule
+        ? grandesModule.renderGrandesBatterySection(field, value)
+        : '<p class="text-muted" role="status">A carregar secção…</p>';
       break;
     case 'empilhadores_maquinas':
-      html = renderEmpilhadoresMaquinasSection(field, value);
+      html = empilhadoresModule
+        ? empilhadoresModule.renderEmpilhadoresMaquinasSection(field, value)
+        : '<p class="text-muted" role="status">A carregar secção…</p>';
       break;
     case 'verification_toggles':
       html = renderVerificationTogglesField(field, value, context.service);
@@ -1052,11 +1071,17 @@ export function collectReportValues(overlay) {
     values[fieldId] = MATERIAL_FIELD_IDS.has(fieldId) ? normalizeMaterialRows(rows) : rows;
   });
 
-  if (overlay.querySelector('[data-grandes-baterias]')) {
+  if (overlay.querySelector('[data-grandes-baterias]') && grandesModule) {
+    const { collect: collectGrandesBatteryRows, GRANDES_BATTERY_FIELD_ID } = grandesModule;
     values[GRANDES_BATTERY_FIELD_ID] = collectGrandesBatteryRows(overlay);
   }
 
-  if (overlay.querySelector('[data-empilhadores-maquinas]')) {
+  if (overlay.querySelector('[data-empilhadores-maquinas]') && empilhadoresModule) {
+    const {
+      collectEmpilhadoresMaquinas,
+      EMPILHADORES_MAQUINAS_FIELD_ID,
+      EMPILHADORES_LEGACY_ROOT_KEYS,
+    } = empilhadoresModule;
     values[EMPILHADORES_MAQUINAS_FIELD_ID] = collectEmpilhadoresMaquinas(overlay);
     EMPILHADORES_LEGACY_ROOT_KEYS.forEach((key) => {
       delete values[key];
@@ -1166,13 +1191,14 @@ function renderGrandesBatteryReviewCards(rows) {
   if (!Array.isArray(rows) || !rows.length) {
     return '<p class="text-muted">Sem baterias registadas.</p>';
   }
+  const columns = grandesModule?.GRANDES_BATTERY_COLUMNS || [];
 
   return `<div class="review-battery-cards">${rows
     .map((row, index) => {
       const title = row.maquina
         ? `Bateria ${index + 1} — ${row.maquina}`
         : `Bateria ${index + 1}`;
-      const cells = GRANDES_BATTERY_COLUMNS.map((col) => {
+      const cells = columns.map((col) => {
         const val = row[col.key];
         const display = val == null || String(val).trim() === '' ? '—' : String(val);
         const alert = reviewGrandesCellAlert(col.key, display);
@@ -2508,7 +2534,7 @@ export async function bindFormFieldInteractions(overlay) {
         ? emptyMaterialRowForField(fieldDef)
         : { ...defaultRow };
       tbody.appendChild(buildRow(seed));
-      if (wrap.dataset.machineSource) refreshGrandesMachineSelectsInOverlay(overlay);
+      if (wrap.dataset.machineSource) grandesModule?.refreshGrandesMachineSelectsInOverlay(overlay);
     };
 
     wrap.querySelector('.dynamic-table-add')?.addEventListener('click', (e) => {
@@ -2526,7 +2552,7 @@ export async function bindFormFieldInteractions(overlay) {
   });
 
   if (overlay.querySelector('[data-machine-source]')) {
-    refreshGrandesMachineSelectsInOverlay(overlay);
+    grandesModule?.refreshGrandesMachineSelectsInOverlay(overlay);
   }
 
   overlay.querySelectorAll('[data-multi-checkbox]').forEach((group) => {

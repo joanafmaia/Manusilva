@@ -43,21 +43,8 @@ import {
   isOfficialTemplate,
   renderDeslocacaoIntroBlock,
   analyzeReportFormTabs,
+  preloadFormFieldModules,
 } from './form-engine.js';
-import {
-  migrateLegacyBatteryRows,
-  GRANDES_BATTERY_FIELD_ID,
-  init as initGrandesBatteryTable,
-  refreshGrandesMachineSelectsInOverlay,
-} from './views/relatorio-grandes.js';
-import {
-  EMPILHADORES_MAQUINAS_FIELD_ID,
-  collectEmpilhadoresMaquinas,
-  flushEmpilhadoresChecklistToStore,
-  getActiveMaquinaIndex,
-  initEmpilhadoresMaquinasForm,
-  migrateLegacyEmpilhadoresMaquinas,
-} from './views/relatorio-empilhadores-maquinas.js';
 import {
   createSignatureBlock,
   initSignaturePads,
@@ -349,7 +336,7 @@ export async function openJobForm(jobId, options = {}) {
     const overlay = document.createElement('div');
     overlay.id = 'form-overlay';
     overlay.className = 'form-overlay form-overlay--tech';
-    overlay.innerHTML = buildFormHTML(job, client, tech, service, existingReport, {
+    overlay.innerHTML = await buildFormHTML(job, client, tech, service, existingReport, {
       viewOnly,
       equipamentos,
     });
@@ -541,7 +528,7 @@ export async function openServicoReportForm(servicoId, options = {}) {
     const overlay = document.createElement('div');
     overlay.id = 'form-overlay';
     overlay.className = 'form-overlay form-overlay--tech';
-    overlay.innerHTML = buildFormHTML(job, client, tech, service, existingReport, {
+    overlay.innerHTML = await buildFormHTML(job, client, tech, service, existingReport, {
       viewOnly,
       equipamentos,
       servicoVisitMode,
@@ -648,7 +635,8 @@ function refreshInterventionFotografiasPreview(overlay) {
   section.innerHTML = preview;
 }
 
-function buildFormHTML(job, client, tech, service, existingReport, options = {}) {
+async function buildFormHTML(job, client, tech, service, existingReport, options = {}) {
+  await preloadFormFieldModules(service);
   const viewOnly = options.viewOnly === true;
   const servicoVisitMode = options.servicoVisitMode === true;
   const saved = getFormValues(existingReport);
@@ -663,9 +651,15 @@ function buildFormHTML(job, client, tech, service, existingReport, options = {})
   const prefill = buildFormPrefill(service, job, null, formContext);
   let values = mergeFormValues(saved, prefill, service);
   if (service?.id === 'manutencao_baterias_grandes') {
+    const { migrateLegacyBatteryRows, GRANDES_BATTERY_FIELD_ID } = await import(
+      './views/relatorio-grandes.js',
+    );
     values[GRANDES_BATTERY_FIELD_ID] = migrateLegacyBatteryRows(values);
   }
   if (service?.id === 'manutencao_preventiva_empilhadores') {
+    const { migrateLegacyEmpilhadoresMaquinas, EMPILHADORES_MAQUINAS_FIELD_ID } = await import(
+      './views/relatorio-empilhadores-maquinas.js',
+    );
     values[EMPILHADORES_MAQUINAS_FIELD_ID] = migrateLegacyEmpilhadoresMaquinas(values);
   }
   const equipamentos = options.equipamentos || [];
@@ -1164,10 +1158,16 @@ function ensureSignaturePadsInitialized() {
   restoreSignaturesFromReport(existingReportRef);
 }
 
-function rerenderEmpilhadoresChecklist(overlay, machineIndex) {
+async function rerenderEmpilhadoresChecklist(overlay, machineIndex) {
   const lazyContext = overlay.__lazyFormState;
   const panel = overlay.querySelector('[data-lazy-checklist="true"]');
   if (!panel || !lazyContext?.service) return;
+
+  const {
+    flushEmpilhadoresChecklistToStore,
+    migrateLegacyEmpilhadoresMaquinas,
+    EMPILHADORES_MAQUINAS_FIELD_ID,
+  } = await import('./views/relatorio-empilhadores-maquinas.js');
 
   flushEmpilhadoresChecklistToStore(overlay);
   const values = {
@@ -1185,32 +1185,50 @@ function rerenderEmpilhadoresChecklist(overlay, machineIndex) {
     { tab: 'checklist' },
   );
   void bindFormFieldInteractions(overlay);
-  bindEmpilhadoresMaquinasInteractions(overlay);
+  await bindEmpilhadoresMaquinasInteractions(overlay);
 }
 
-function handleEmpilhadoresRowChange(overlay) {
+async function handleEmpilhadoresRowChange(overlay) {
   formAutosave?.markDirty();
   const panel = overlay.querySelector('[data-lazy-checklist="true"]');
   if (panel?.dataset.lazyLoaded !== 'true') return;
+  const { collectEmpilhadoresMaquinas, getActiveMaquinaIndex } = await import(
+    './views/relatorio-empilhadores-maquinas.js',
+  );
   const maquinas = collectEmpilhadoresMaquinas(overlay);
   const idx = Math.min(getActiveMaquinaIndex(overlay), Math.max(0, maquinas.length - 1));
-  rerenderEmpilhadoresChecklist(overlay, idx);
+  await rerenderEmpilhadoresChecklist(overlay, idx);
 }
 
-function bindEmpilhadoresMaquinasInteractions(overlay) {
+async function bindEmpilhadoresMaquinasInteractions(overlay) {
+  const { initEmpilhadoresMaquinasForm } = await import('./views/relatorio-empilhadores-maquinas.js');
   initEmpilhadoresMaquinasForm(overlay, {
-    onRowChange: () => handleEmpilhadoresRowChange(overlay),
-    onMaquinaSelect: (index) => rerenderEmpilhadoresChecklist(overlay, index),
+    onRowChange: () => {
+      void handleEmpilhadoresRowChange(overlay);
+    },
+    onMaquinaSelect: (index) => {
+      void rerenderEmpilhadoresChecklist(overlay, index);
+    },
   });
 }
 
 function onReportTabActivated(tabId, overlay) {
+  void onReportTabActivatedAsync(tabId, overlay);
+}
+
+async function onReportTabActivatedAsync(tabId, overlay) {
   if (tabId === 'checklist' && overlay) {
     const lazyContext = overlay.__lazyFormState;
     const panel = overlay.querySelector('[data-lazy-checklist="true"]');
     if (panel && lazyContext) {
       const values = { ...lazyContext.values };
       if (lazyContext.service?.id === 'manutencao_preventiva_empilhadores') {
+        const {
+          flushEmpilhadoresChecklistToStore,
+          collectEmpilhadoresMaquinas,
+          getActiveMaquinaIndex,
+          EMPILHADORES_MAQUINAS_FIELD_ID,
+        } = await import('./views/relatorio-empilhadores-maquinas.js');
         flushEmpilhadoresChecklistToStore(overlay);
         values[EMPILHADORES_MAQUINAS_FIELD_ID] = collectEmpilhadoresMaquinas(overlay);
         lazyContext.values = values;
@@ -1227,7 +1245,7 @@ function onReportTabActivated(tabId, overlay) {
           { tab: 'checklist' },
         );
         void bindFormFieldInteractions(overlay);
-        bindEmpilhadoresMaquinasInteractions(overlay);
+        await bindEmpilhadoresMaquinasInteractions(overlay);
         panel.dataset.lazyLoaded = 'true';
         return;
       }
@@ -1305,8 +1323,11 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport, opt
     formContext,
   };
   if (service?.id === 'manutencao_preventiva_empilhadores') {
-    overlay.__lazyFormState.values[EMPILHADORES_MAQUINAS_FIELD_ID] = migrateLegacyEmpilhadoresMaquinas(
-      overlay.__lazyFormState.values,
+    void import('./views/relatorio-empilhadores-maquinas.js').then(
+      ({ migrateLegacyEmpilhadoresMaquinas, EMPILHADORES_MAQUINAS_FIELD_ID }) => {
+        overlay.__lazyFormState.values[EMPILHADORES_MAQUINAS_FIELD_ID] =
+          migrateLegacyEmpilhadoresMaquinas(overlay.__lazyFormState.values);
+      },
     );
   }
 
@@ -1336,17 +1357,21 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport, opt
   }
 
   if (!viewOnly && service?.id === 'manutencao_baterias_grandes') {
-    initGrandesBatteryTable(overlay, {
-      onRowChange: () => {
-        formAutosave?.markDirty();
+    void import('./views/relatorio-grandes.js').then(
+      ({ init: initGrandesBatteryTable, refreshGrandesMachineSelectsInOverlay }) => {
+        initGrandesBatteryTable(overlay, {
+          onRowChange: () => {
+            formAutosave?.markDirty();
+            refreshGrandesMachineSelectsInOverlay(overlay);
+          },
+        });
         refreshGrandesMachineSelectsInOverlay(overlay);
       },
-    });
-    refreshGrandesMachineSelectsInOverlay(overlay);
+    );
   }
 
   if (!viewOnly && service?.id === 'manutencao_preventiva_empilhadores') {
-    bindEmpilhadoresMaquinasInteractions(overlay);
+    void bindEmpilhadoresMaquinasInteractions(overlay);
   }
 
   if (!viewOnly) overlay.querySelector('#btn-save-draft')?.addEventListener('click', async () => {
@@ -1408,6 +1433,9 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport, opt
     let previewModule;
     try {
       if (service?.id === 'manutencao_preventiva_empilhadores') {
+        const { flushEmpilhadoresChecklistToStore } = await import(
+          './views/relatorio-empilhadores-maquinas.js',
+        );
         flushEmpilhadoresChecklistToStore(overlay);
       }
       const report =
