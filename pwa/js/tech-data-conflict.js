@@ -3,7 +3,7 @@
  */
 
 import { getLocalReportDraft, removeLocalReportDraft } from './report-local-storage.js';
-import { openModal, closeModal, escapeHtml, formatDate } from './app.js';
+import { openModal, closeModal, escapeHtml, formatDate } from './tech-app-core.js';
 
 function parseTs(iso) {
   if (!iso) return 0;

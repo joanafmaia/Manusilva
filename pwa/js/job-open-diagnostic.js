@@ -2,7 +2,7 @@
  * Diagnóstico quando um relatório não abre no tablet do técnico.
  */
 
-import { getClient, getJob, getReportForJob, getServiceType, resolveJobForForm } from './app.js';
+import { getClient, getJob, getReportForJob, getServiceType, resolveJobForForm } from './tech-app-core.js';
 import { normalizeEntityId } from './entity-id.js';
 
 /**

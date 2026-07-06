@@ -2,7 +2,7 @@
  * Ecrã de assinaturas e conclusão da visita (serviço multi-relatório).
  */
 
-import { closeModal, escapeHtml, formatDateLong, getClient, openModal, showToast } from './app.js';
+import { closeModal, escapeHtml, formatDateLong, getClient, openModal, showToast } from './tech-app-core.js';
 import { getServico } from './servicos-db.js';
 import {
   createSignatureBlock,

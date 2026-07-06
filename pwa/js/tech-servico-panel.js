@@ -12,7 +12,7 @@ import {
   closeModal,
   showToast,
   SERVICE_TYPES,
-} from './app.js';
+} from './tech-app-core.js';
 import { getServico } from './servicos-db.js';
 import {
   canRemoveServicoReport,

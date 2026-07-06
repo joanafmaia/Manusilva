@@ -11,8 +11,6 @@ import {
   getJob,
   getReportForJob,
   resolveJobForForm,
-  submitReport,
-  saveReportDraft,
   closeModal,
   escapeHtml,
   formatDateLong,
@@ -20,7 +18,8 @@ import {
   captureError,
   canReachServer,
   isOffline,
-} from './app.js';
+} from './tech-app-core.js';
+import { saveReportDraft, submitReport } from './report-workflow.js';
 import {
   diagnoseJobFormOpen,
   formatJobOpenDiagnosticMessage,

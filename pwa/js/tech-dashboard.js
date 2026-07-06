@@ -28,7 +28,7 @@ import {
   escapeHtml,
   applyBrandLogo,
   showToast,
-} from './app.js';
+} from './tech-app-core.js';
 import { reportMatchesTechnicianTeam } from './job-technician-utils.js';
 import {
   getCalendarEventStateClass,
@@ -645,7 +645,7 @@ export async function initTechDashboard() {
     const { hydrateLocalReportsIntoCache } = await import('./report-local-storage.js');
     const { initTrabalhosOfflineSync, migrateLegacyOfflineQueue, sincronizarTrabalhosOffline } =
       await import('./trabalhos-offline.js');
-    const { getDB, updateDB } = await import('./app.js');
+    const { getDB, updateDB } = await import('./tech-app-core.js');
 
     // Offline primeiro — migração, fila e sync imediato (sem atrasar).
     await migrateLegacyOfflineQueue(getDB, updateDB);
@@ -653,7 +653,7 @@ export async function initTechDashboard() {
     sincronizarTrabalhosOffline().catch(console.error);
 
     const warmPromise = warmTechDashboardInitial(session.technicianId).catch(async (err) => {
-      const { handleFatalDashboardError } = await import('./app.js');
+      const { handleFatalDashboardError } = await import('./tech-app-core.js');
       if (await handleFatalDashboardError(err)) throw err;
       console.error('[Técnico] Dados Supabase:', err);
     });
@@ -676,12 +676,12 @@ export async function initTechDashboard() {
     scheduleWarmTechDashboardFull();
   } catch (error) {
     setTechDashboardDataLoading(false);
-    const { handleFatalDashboardError } = await import('./app.js');
+    const { handleFatalDashboardError } = await import('./tech-app-core.js');
     if (await handleFatalDashboardError(error)) return;
 
     console.error('[Técnico] Erro ao carregar dados da dashboard:', error);
     try {
-      const { showToast } = await import('./app.js');
+      const { showToast } = await import('./tech-app-core.js');
       showToast(
         'Erro ao carregar dados. Pode tentar novamente ou terminar sessão pelo botão Sair.',
         'error',

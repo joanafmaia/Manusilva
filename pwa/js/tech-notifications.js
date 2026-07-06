@@ -2,7 +2,7 @@
  * Notificações do painel do técnico (rejeição, aprovação, novo trabalho).
  */
 
-import { getClient } from './app.js';
+import { getClient } from './tech-app-core.js';
 import { jobMatchesTechnician, reportMatchesTechnicianTeam } from './job-technician-utils.js';
 
 const TECH_NOTIF_ASKED_KEY = 'tech_notif_permission_asked';

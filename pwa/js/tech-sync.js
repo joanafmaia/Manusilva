@@ -2,7 +2,7 @@
  * Sincronização manual de dados no tablet do técnico.
  */
 
-import { warmOperacoes } from './app.js';
+import { warmOperacoes } from './tech-app-core.js';
 import { hydrateLocalReportsIntoCache } from './report-local-storage.js';
 
 export async function triggerTechDataSync() {

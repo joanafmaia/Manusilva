@@ -2,7 +2,7 @@
  * Utilitários UI — painel do técnico
  */
 
-import { escapeHtml } from './app.js';
+import { escapeHtml } from './tech-app-core.js';
 
 export function buildClientAddress(client) {
   if (!client) return '';

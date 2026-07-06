@@ -27,7 +27,7 @@ import {
   maybeNotifyTechReportApproved,
   maybeNotifyTechReportRejected,
 } from './tech-notifications.js';
-import { getJob, getTechnician } from './app.js';
+import { getJob, getTechnician } from './tech-app-core.js';
 import { getReportsForServico, servicoToCalendarItem } from './servicos-panel-utils.js';
 import { getSession } from './session.js';
 

@@ -116,9 +116,6 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/vendor/jspdf.umd.min.js" data-jspdf defer></script>
-  <script src="js/vendor/jszip.min.js" data-jszip defer></script>
-  <script src="js/vendor/jspdf.plugin.autotable.min.js" data-jspdf-autotable defer></script>
   <script type="module">
     try {
       const { bootstrapManusilvaApp, handleBootstrapFailure } = await import(
@@ -130,7 +127,7 @@
           window.dispatchEvent(new CustomEvent('manusilva-app-update-available'));
         },
         onReady: async (v) => {
-          const { initLocalDatabase } = await import(`./js/app.js?v=${v}`);
+          const { initLocalDatabase } = await import(`./js/tech-app-core.js?v=${v}`);
           const { initTechDashboard } = await import(`./js/tech-dashboard.js?v=${v}`);
           const { initLogoutButton } = await import(`./js/auth.js?v=${v}`);
           initLogoutButton();
