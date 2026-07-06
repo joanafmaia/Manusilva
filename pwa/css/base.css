@@ -407,7 +407,21 @@ body .glass-card-inner {
 }
 
 .login-hero__logo {
-  margin-bottom: 1.5rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 0 auto 1.5rem;
+  width: 100%;
+}
+
+.login-hero__logo.brand-logo-slot.has-brand-image {
+  width: 100%;
+  max-width: 240px;
+  height: auto;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
 }
 
 .login-wordmark {
@@ -629,21 +643,33 @@ body .glass-card-inner {
 .login-hero__logo .brand-logo-img--lg {
   display: block;
   max-width: min(100%, 220px);
+  max-height: 72px;
+  width: auto;
   height: auto;
+  margin: 0 auto;
+  object-fit: contain;
+  object-position: center;
 }
 
-@media (max-width: 899px) {
+@media (max-width: 1099px) {
   .login-hero {
-    display: block;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
     text-align: center;
+    width: 100%;
     padding: 2rem 1.25rem 0.5rem;
     border: none;
     background: transparent;
   }
 
   .login-hero__inner {
-    max-width: none;
+    max-width: 28rem;
+    width: 100%;
     margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
   }
 
   .login-hero__lead {
@@ -656,7 +682,7 @@ body .glass-card-inner {
   }
 }
 
-@media (min-width: 900px) {
+@media (min-width: 1100px) {
   .login-shell {
     flex-direction: row;
     align-items: stretch;
@@ -670,6 +696,16 @@ body .glass-card-inner {
     border-bottom: none;
     border-right: 1px solid var(--ms-border-md);
     padding: 3rem clamp(2rem, 5vw, 4rem);
+  }
+
+  .login-hero__inner {
+    max-width: 26rem;
+    text-align: center;
+  }
+
+  .login-hero__lead {
+    margin-left: auto;
+    margin-right: auto;
   }
 
   .login-panel {
