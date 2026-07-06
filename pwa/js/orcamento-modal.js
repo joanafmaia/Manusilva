@@ -19,6 +19,16 @@ export function rememberOrcamentoReturnUrl(url) {
   }
 }
 
+export function peekOrcamentoReturnUrl() {
+  try {
+    const fromQuery = new URLSearchParams(window.location.search).get('return');
+    if (fromQuery) return fromQuery;
+    return sessionStorage.getItem(RETURN_KEY) || 'admin.html#orcamentos';
+  } catch {
+    return 'admin.html#orcamentos';
+  }
+}
+
 export function consumeOrcamentoReturnUrl() {
   try {
     const fromQuery = new URLSearchParams(window.location.search).get('return');
@@ -31,6 +41,31 @@ export function consumeOrcamentoReturnUrl() {
   }
 }
 
+export function isOrcamentoDedicatedPage() {
+  return /orcamento\.html$/i.test(String(window.location.pathname || ''));
+}
+
+/** Sai da página da proposta após envio — volta ao painel RH ou fecha separador. */
+export function exitOrcamentoPageAfterSend({ returnUrl } = {}) {
+  const target = returnUrl || window.__orcamentoReturnUrl || peekOrcamentoReturnUrl();
+
+  if (window.opener && !window.opener.closed) {
+    try {
+      window.opener.focus();
+      const openerPath = String(window.opener.location.pathname || '');
+      if (openerPath.includes('admin.html')) {
+        window.opener.location.hash = 'orcamentos';
+      }
+      window.close();
+      return;
+    } catch {
+      /* navegação no separador atual */
+    }
+  }
+
+  window.location.replace(target);
+}
+
 /**
  * @param {object} report
  * @param {{ onUpdated?: (report: object) => void, returnTo?: string }} [options]
@@ -41,7 +76,7 @@ export function openOrcamentoPage(report, { returnTo } = {}) {
     returnTo ||
     `${window.location.pathname.split('/').pop() || 'admin.html'}${window.location.hash || '#orcamentos'}`;
   rememberOrcamentoReturnUrl(back);
-  window.location.href = buildOrcamentoPageUrl(report.id);
+  window.location.href = buildOrcamentoPageUrl(report.id, { returnTo: back });
 }
 
 /** @deprecated Abre a página dedicada (substitui o modal estreito). */

@@ -37,6 +37,7 @@ export async function initOrcamentoPage() {
 
   const backBtn = document.getElementById('orcamento-page-back');
   const returnUrl = consumeOrcamentoReturnUrl();
+  window.__orcamentoReturnUrl = returnUrl;
   if (backBtn) backBtn.href = returnUrl;
 
   document.getElementById('orcamento-page-logout')?.addEventListener('click', () => {
@@ -82,11 +83,6 @@ export async function initOrcamentoPage() {
         titleNum.textContent = num;
         titleNum.hidden = !num;
       }
-    },
-    onSent: () => {
-      window.setTimeout(() => {
-        window.location.href = returnUrl || 'admin.html#orcamentos';
-      }, 900);
     },
   });
 }

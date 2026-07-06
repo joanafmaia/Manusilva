@@ -28,6 +28,10 @@ import {
   getReportOrcamentoPdfUrl,
   openOrcamentoStorageUrl,
 } from './pedido-orcamento.js';
+import {
+  exitOrcamentoPageAfterSend,
+  isOrcamentoDedicatedPage,
+} from './orcamento-modal.js';
 import { bindOrcamentoCatalogoComboboxes } from './orcamento-catalogo-combobox.js';
 import { escapeHtml } from './html-utils.js';
 import { reportIsStandaloneOrcamento } from './orcamento-standalone.js';
@@ -595,8 +599,12 @@ export function bindOrcamentoEditor(container, { report, onUpdated, onSent } = {
       });
 
       mergeReportInCache(saved);
-      showToast(`Proposta enviada para ${recipients.join(', ')}.`, 'success', 4000);
-      onSent?.(saved);
+      showToast(`Proposta enviada para ${recipients.join(', ')}.`, 'success', 2500);
+      if (isOrcamentoDedicatedPage()) {
+        exitOrcamentoPageAfterSend();
+      } else {
+        onSent?.(saved);
+      }
     } catch (err) {
       console.error('[Orçamento] Envio e-mail:', err);
       const { showToast } = await import('./app.js');
