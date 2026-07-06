@@ -38,14 +38,23 @@ export const LoginView = {
   render() {
     return `
       <div id="login-container" class="login-shell">
-        <div id="login-card" class="login-card">
-          <div class="login-brand-block">
-            <div class="brand-logo-slot login-brand-logo" data-brand-logo-lg aria-label="ManuSilva">MS</div>
-            <h2 class="login-portal-title">Portal Interno</h2>
-            <p class="login-portal-subtitle">Introduza os seus dados para aceder</p>
+        <aside class="login-hero" aria-label="Manusilva">
+          <div class="login-hero__inner">
+            <div class="brand-logo-slot login-hero__logo" data-brand-logo-lg aria-label="Manusilva"></div>
+            <h1 class="login-wordmark" data-hide-if-logo>Manusilva</h1>
+            <p class="login-hero__tagline">Gestão de empilhadores, manutenção e baterias</p>
+            <p class="login-hero__lead">Portal interno para equipa técnica e administração.</p>
           </div>
+        </aside>
 
-          <p class="login-role-label">Entrar como</p>
+        <div class="login-panel">
+          <div id="login-card" class="login-card">
+            <header class="login-panel__header">
+              <h2 class="login-portal-title">Entrar</h2>
+              <p class="login-portal-subtitle">Introduza os seus dados de acesso</p>
+            </header>
+
+          <p class="login-role-label">Perfil</p>
           <div id="role-selector" class="role-selector">
             <button type="button" class="role-pick is-selected" data-role="technician" aria-pressed="true">
               <strong class="role-pick-title">Técnico</strong>
@@ -87,9 +96,10 @@ export const LoginView = {
             <div id="login-info" class="login-message login-message--info" role="status"></div>
 
             <button type="submit" id="btn-submit" class="login-submit-btn">
-              <span id="btn-text">Entrar no Sistema</span>
+              <span id="btn-text">Entrar</span>
             </button>
           </form>
+          </div>
         </div>
       </div>
     `;
@@ -125,7 +135,7 @@ export const LoginView = {
       if (message) {
         btnText.textContent = message;
       } else if (!locked) {
-        btnText.textContent = 'Entrar no Sistema';
+        btnText.textContent = 'Entrar';
       }
     }
 

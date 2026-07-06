@@ -4,8 +4,8 @@
   "description": "Gestão de empilhadores, manutenção e baterias",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#f1f5f9",
-  "theme_color": "#f8fafc",
+  "background_color": "#f7f6f3",
+  "theme_color": "#f7f6f3",
   "orientation": "any",
   "lang": "pt-PT",
   "icons": [
