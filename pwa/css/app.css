@@ -12027,31 +12027,6 @@ body .admin-rh-page .btn-primary, body .admin-rh-page .btn-secondary, body .admi
 .faturacao-history-client-btn:hover {
   color: color-mix(in srgb, var(--ms-accent, #2563eb) 75%, #000);
 }
-.faturacao-trabalho-link {
-  display: block;
-  width: 100%;
-  padding: 0;
-  border: none;
-  background: none;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-  color: inherit;
-}
-.faturacao-trabalho-link:hover .faturacao-ordem,
-.faturacao-trabalho-link:hover .faturacao-cell-detail {
-  color: var(--ms-accent, #2563eb);
-}
-.faturacao-invoice-number-btn {
-  padding: 0;
-  border: none;
-  background: none;
-  font: inherit;
-  cursor: pointer;
-}
-.faturacao-invoice-number-btn:hover .faturacao-ordem {
-  color: var(--ms-accent, #2563eb);
-}
 .faturacao-detail-grid {
   display: grid;
   gap: 0.65rem 1rem;

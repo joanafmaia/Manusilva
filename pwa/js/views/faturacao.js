@@ -621,13 +621,16 @@ function renderInvoiceRow(row, acumulado, showAcum) {
   } = row;
   const urgentRow = !pago && vencimentoUrg === 'overdue';
   const detailId = entity.id;
-  const docOpenAttr =
+  const detailAttr =
     kind === 'servico'
-      ? `data-history-open-servico="${escapeHtml(detailId)}"`
+      ? `data-history-detail-servico="${escapeHtml(detailId)}"`
       : kind === 'manual'
-        ? `data-history-open-manual="${escapeHtml(detailId)}"`
-        : `data-history-open-report="${escapeHtml(detailId)}"`;
-  const invoiceDetailAttr = `data-invoice-detail`;
+        ? `data-history-detail-manual="${escapeHtml(detailId)}"`
+        : `data-history-detail="${escapeHtml(detailId)}"`;
+  const pdfReportId = resolveHistoryPdfReportId(kind, detailId);
+  const pdfBtn = pdfReportId
+    ? `<button type="button" class="btn-outline btn-sm faturacao-btn-compact" data-history-pdf="${escapeHtml(pdfReportId)}" title="Abrir PDF do relatório ou proposta">PDF</button>`
+    : '';
   const paymentAttr =
     kind === 'servico'
       ? `data-confirm-payment-servico="${escapeHtml(detailId)}"`
@@ -640,27 +643,16 @@ function renderInvoiceRow(row, acumulado, showAcum) {
     <tr class="rh-data-table-row faturacao-history-row faturacao-invoice-row${urgentRow ? ' faturacao-row--urgent' : ''}" data-invoice-kind="${kind}" data-invoice-id="${escapeHtml(detailId)}">
       <td class="rh-cell-date faturacao-cell-date">${escapeHtml(emissaoLabel)}</td>
       <td class="rh-cell-client faturacao-cell-client faturacao-cell-client--wrap">
-        <button type="button" class="rh-cell-link-btn faturacao-history-client-btn faturacao-cell-client-name" ${docOpenAttr} title="${kind === 'manual' ? 'Ver detalhe da fatura manual' : 'Ver relatório ou proposta'}">
+        <button type="button" class="rh-cell-link-btn faturacao-history-client-btn faturacao-cell-client-name" ${detailAttr} title="Ver detalhe da fatura (NIF, condição de pagamento, datas)">
           ${escapeHtml(nome)}${kindBadge}
         </button>
         ${vencimentoUrg === 'soon' ? ' <span class="faturacao-urgent-badge faturacao-urgent-badge--soon">A vencer</span>' : ''}
       </td>
       <td class="faturacao-cell-ordem">
-        ${
-          kind === 'manual'
-            ? `<code class="faturacao-ordem">${escapeHtml(ordem)}</code>
-        <span class="faturacao-cell-detail">${escapeHtml(detail)}</span>`
-            : `<button type="button" class="rh-cell-link-btn faturacao-trabalho-link" ${docOpenAttr} title="Ver relatório ou proposta">
-          <code class="faturacao-ordem">${escapeHtml(ordem)}</code>
-          <span class="faturacao-cell-detail">${escapeHtml(detail)}</span>
-        </button>`
-        }
+        <code class="faturacao-ordem">${escapeHtml(ordem)}</code>
+        <span class="faturacao-cell-detail">${escapeHtml(detail)}</span>
       </td>
-      <td class="rh-cell-ordem faturacao-cell-ordem">
-        <button type="button" class="rh-cell-link-btn faturacao-invoice-number-btn" ${invoiceDetailAttr} title="Ver detalhe da fatura (NIF, datas, valor)">
-          <code class="rh-ordem-badge faturacao-ordem">${escapeHtml(numeroFatura)}</code>
-        </button>
-      </td>
+      <td class="rh-cell-ordem faturacao-cell-ordem"><code class="rh-ordem-badge faturacao-ordem">${escapeHtml(numeroFatura)}</code></td>
       <td class="rh-cell-valor faturacao-col-valor">${escapeHtml(valorLabel)}</td>
       <td class="faturacao-cell-date ${escapeHtml(vencimentoClass)}">${escapeHtml(vencimentoLabel)}</td>
       ${
@@ -675,6 +667,7 @@ function renderInvoiceRow(row, acumulado, showAcum) {
         ${
           kind === 'manual'
             ? `<div class="faturacao-billing-actions">
+                ${pdfBtn}
                 ${
                   pago
                     ? ''
@@ -683,8 +676,9 @@ function renderInvoiceRow(row, acumulado, showAcum) {
                 <button type="button" class="btn-danger btn-sm faturacao-btn-compact" data-delete-manual-invoice="${escapeHtml(detailId)}" title="Eliminar registo da fatura">Eliminar</button>
               </div>`
             : pago
-              ? '<span class="text-muted">—</span>'
+              ? `<div class="faturacao-billing-actions">${pdfBtn || '<span class="text-muted">—</span>'}</div>`
               : `<div class="faturacao-billing-actions">
+                  ${pdfBtn}
                   <button type="button" class="btn-success btn-sm faturacao-btn-compact" ${paymentAttr} title="Confirmar recebimento">Recebido</button>
                   ${
                     kind === 'servico'
@@ -1653,85 +1647,54 @@ function runRevertReportInvoice(reportId) {
     });
 }
 
-function faturacaoRhReviewCallbacks() {
-  return {
-    onApproved: () => refreshFaturacaoPanel({ soft: true }).catch(console.error),
-    onRejected: () => refreshFaturacaoPanel({ soft: true }).catch(console.error),
-  };
-}
-
-async function openInvoiceLinkedDocument(kind, entityId) {
-  if (kind === 'manual') {
-    openManualInvoiceHistoryDetailModal(entityId);
-    return;
-  }
+/** Id do relatório cujo PDF abrir no histórico de faturas emitidas. */
+function resolveHistoryPdfReportId(kind, entityId) {
+  if (kind === 'report') return entityId;
   if (kind === 'servico') {
     const reports = getApprovedReportsForServico(entityId);
-    const reportId = reports[0]?.id;
-    if (!reportId) {
-      showToast('Nenhum relatório aprovado nesta visita.', 'warning');
-      return;
-    }
-    const { openRhReviewModal } = await import('../report-review-rh-modal.js');
-    await openRhReviewModal(reportId, faturacaoRhReviewCallbacks());
-    return;
+    return reports[0]?.id || '';
   }
-  const report = getReport(entityId);
-  if (!report) {
-    showToast('Relatório não encontrado.', 'error');
-    return;
-  }
-  const { openRhReviewModal } = await import('../report-review-rh-modal.js');
-  await openRhReviewModal(entityId, faturacaoRhReviewCallbacks());
-}
-
-function openInvoiceDetailFromRow(rowEl) {
-  if (!rowEl) return;
-  const kind = rowEl.getAttribute('data-invoice-kind');
-  const id = rowEl.getAttribute('data-invoice-id');
-  if (!kind || !id) return;
-  if (kind === 'servico') openServicoInvoiceHistoryDetailModal(id);
-  else if (kind === 'manual') openManualInvoiceHistoryDetailModal(id);
-  else openInvoiceHistoryDetailModal(id);
+  return '';
 }
 
 function bindHistoryDetailActions() {
-  mountRoot?.querySelectorAll('[data-history-open-report]').forEach((btn) => {
-    if (btn.dataset.boundHistoryOpen === '1') return;
-    btn.dataset.boundHistoryOpen = '1';
+  mountRoot?.querySelectorAll('[data-history-detail]').forEach((btn) => {
+    if (btn.dataset.boundHistory === '1') return;
+    btn.dataset.boundHistory = '1';
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
-      const reportId = btn.getAttribute('data-history-open-report');
-      if (reportId) void openInvoiceLinkedDocument('report', reportId);
+      const reportId = btn.getAttribute('data-history-detail');
+      if (reportId) openInvoiceHistoryDetailModal(reportId);
     });
   });
 
-  mountRoot?.querySelectorAll('[data-history-open-servico]').forEach((btn) => {
-    if (btn.dataset.boundHistoryOpen === '1') return;
-    btn.dataset.boundHistoryOpen = '1';
+  mountRoot?.querySelectorAll('[data-history-detail-servico]').forEach((btn) => {
+    if (btn.dataset.boundHistory === '1') return;
+    btn.dataset.boundHistory = '1';
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
-      const servicoId = btn.getAttribute('data-history-open-servico');
-      if (servicoId) void openInvoiceLinkedDocument('servico', servicoId);
+      const servicoId = btn.getAttribute('data-history-detail-servico');
+      if (servicoId) openServicoInvoiceHistoryDetailModal(servicoId);
     });
   });
 
-  mountRoot?.querySelectorAll('[data-history-open-manual]').forEach((btn) => {
-    if (btn.dataset.boundHistoryOpen === '1') return;
-    btn.dataset.boundHistoryOpen = '1';
+  mountRoot?.querySelectorAll('[data-history-detail-manual]').forEach((btn) => {
+    if (btn.dataset.boundHistory === '1') return;
+    btn.dataset.boundHistory = '1';
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
-      const invoiceId = btn.getAttribute('data-history-open-manual');
-      if (invoiceId) void openInvoiceLinkedDocument('manual', invoiceId);
+      const invoiceId = btn.getAttribute('data-history-detail-manual');
+      if (invoiceId) openManualInvoiceHistoryDetailModal(invoiceId);
     });
   });
 
-  mountRoot?.querySelectorAll('[data-invoice-detail]').forEach((btn) => {
-    if (btn.dataset.boundInvoiceDetail === '1') return;
-    btn.dataset.boundInvoiceDetail = '1';
+  mountRoot?.querySelectorAll('[data-history-pdf]').forEach((btn) => {
+    if (btn.dataset.boundHistoryPdf === '1') return;
+    btn.dataset.boundHistoryPdf = '1';
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
-      openInvoiceDetailFromRow(btn.closest('[data-invoice-kind]'));
+      const reportId = btn.getAttribute('data-history-pdf');
+      if (reportId) void openBillingReportPdf(reportId);
     });
   });
 }
