@@ -8,6 +8,7 @@
     "import:catalogo": "python scripts/import-listagem-produtos.py",
     "sync:rh-config": "node pwa/scripts/sync-rh-admin-config.mjs",
     "sync:api-config": "node pwa/scripts/write-api-runtime-config.mjs",
+    "icons": "node scripts/generate-pwa-icons.mjs",
     "lint": "eslint pwa/js pwa/api",
     "format": "prettier --write \"pwa/js/**/*.js\" \"pwa/api/**/*.js\"",
     "format:check": "prettier --check \"pwa/js/**/*.js\" \"pwa/api/**/*.js\""
