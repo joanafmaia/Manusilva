@@ -419,7 +419,7 @@ body .glass-card-inner {
   height: auto;
   min-width: 0;
   min-height: 0;
-  max-width: min(100%, 280px);
+  max-width: min(100%, 320px);
   padding: 0;
   background: transparent;
   box-shadow: none;
@@ -513,7 +513,7 @@ body .glass-card-inner {
 .login-brand-block .brand-logo-img--lg {
   display: block;
   width: 200px;
-  max-width: min(100%, 280px);
+  max-width: min(100%, 320px);
   max-height: 72px;
   height: auto;
   margin: 0 auto;
@@ -709,7 +709,7 @@ body .glass-card-inner {
 .login-hero__logo .brand-logo-img--lg {
   display: block;
   width: 200px;
-  max-width: min(100%, 280px);
+  max-width: min(100%, 320px);
   max-height: 72px;
   height: auto;
   margin: 0 auto;
