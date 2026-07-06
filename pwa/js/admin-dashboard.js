@@ -430,10 +430,35 @@ function bindAppRefreshControls() {
   });
 }
 
+/** Marcador temporário — remover após validar «Atualizar app» no painel RH. */
+async function showAdminUpdateTestMarker() {
+  let el = document.getElementById('admin-update-test-marker');
+  if (!el) {
+    el = document.createElement('p');
+    el.id = 'admin-update-test-marker';
+    el.className = 'admin-update-test-marker';
+    el.setAttribute('role', 'status');
+    document.querySelector('.admin-header-text')?.append(el);
+  }
+  let build = '…';
+  try {
+    const res = await fetch(`./js/build-version.js?_=${Date.now()}`, { cache: 'no-store' });
+    if (res.ok) {
+      const text = await res.text();
+      const m = text.match(/APP_BUILD_ID\s*=\s*["']([^"']+)["']/);
+      if (m?.[1]) build = m[1].slice(0, 8);
+    }
+  } catch {
+    /* ignore */
+  }
+  el.textContent = `TESTE ATUALIZAR RH — versão PERA (JS) — build ${build}`;
+}
+
 export async function initAdminDashboard() {
   const session = requireAuth('admin');
   if (!session) return;
 
+  void showAdminUpdateTestMarker();
   renderUserGreeting('user-name');
   document.getElementById('logout-btn')?.addEventListener('click', () => {
     void forceLogout();

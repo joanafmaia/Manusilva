@@ -5719,6 +5719,17 @@ body .admin-panel .rh-section, body .rh-section {
   margin: 0.35rem 0 0;
   max-width: 42rem;
 }
+/* Marcador temporário — remover após validar «Atualizar app» no RH */ .admin-update-test-marker {
+  margin: 0.65rem 0 0;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  border: 2px dashed #2563eb;
+  background: #eff6ff;
+  color: #1e40af;
+  font-size: 0.875rem;
+  font-weight: 800;
+  max-width: 42rem;
+}
 .admin-header h1, .admin-header .ms-h1 {
   font-size: 1.5rem;
   margin: 0;
