@@ -21,9 +21,10 @@ import {
   canDeleteFolhaObra,
   validateFolhaObraPayload,
 } from '../folhas-obra-db.js';
-import { registerFolhaObraEntrada, submitFolhaObraForBilling } from '../folhas-obra-workflow.js';
+import { registerFolhaObraEntrada, submitFolhaObraDiagnosticoForOrcamento, submitFolhaObraForBilling } from '../folhas-obra-workflow.js';
 import {
   formatFolhaResponsabilidadeLabel,
+  isFolhaObraDiagnosticoEditable,
   isFolhaObraRepairEditable,
   isFolhaObraVisibleToArmazem,
   normalizeFolhaResponsabilidade,
@@ -38,6 +39,7 @@ const TIPO_OPCOES = ['Empilhador', 'Bateria', 'Carregador', 'Outro equipamento']
 const ESTADO_FILTER_OPTIONS = [
   { value: 'all', label: 'Todos os estados' },
   { value: 'rascunho', label: 'Entrada em Armazém' },
+  { value: 'em_diagnostico', label: 'Diagnóstico técnico' },
   { value: 'aguarda_orcamento', label: 'Aguarda orçamento RH' },
   { value: 'em_reparacao', label: 'Reparação' },
   { value: 'finalizado', label: 'Finalizado' },
@@ -48,7 +50,7 @@ function isFolhaReparacaoAtiva(folha) {
 }
 
 function estadoClass(estado) {
-  if (estado === 'em_reparacao') return 'folha-obra-estado--active';
+  if (estado === 'em_reparacao' || estado === 'em_diagnostico') return 'folha-obra-estado--active';
   if (estado === 'aguarda_orcamento' || estado === 'orcamento_enviado') return 'folha-obra-estado--pending';
   if (isFolhaObraFinalizada(estado)) return 'folha-obra-estado--done';
   return 'folha-obra-estado--draft';
@@ -157,6 +159,7 @@ function collectFolhaFromForm(form, technicianId, session = null) {
   const responsavel = responsavelSelect?.value?.trim() || '';
   const technicianFromForm = responsavelSelect?.selectedOptions?.[0]?.dataset?.techId || '';
   const observacoes = form.querySelector('[name="observacoes"]')?.value?.trim() || '';
+  const diagnosticoTecnico = form.querySelector('[name="diagnostico_tecnico"]')?.value?.trim() || '';
   const estado = form.querySelector('[name="estado"]')?.value || 'rascunho';
   const responsabilidade =
     form.querySelector('[name="responsabilidade"]:checked')?.value ||
@@ -175,6 +178,7 @@ function collectFolhaFromForm(form, technicianId, session = null) {
     responsavel,
     responsabilidade: normalizeFolhaResponsabilidade(responsabilidade),
     observacoes,
+    diagnosticoTecnico,
     estado,
   };
 }
@@ -213,6 +217,7 @@ function renderFolhaObraFormHtml(folha, session) {
   const estado = folha?.estado || 'rascunho';
   const isLocked = estado === 'pendente_faturacao' || estado === 'faturado';
   const aguardaOrcamento = estado === 'aguarda_orcamento' || estado === 'orcamento_enviado';
+  const emDiagnostico = isFolhaObraDiagnosticoEditable(folha);
   const entradaLocked = isLocked || estado !== 'rascunho';
   const podeReparar = isFolhaObraRepairEditable(folha);
   const etqValue = folha?.etq || '';
@@ -238,7 +243,7 @@ function renderFolhaObraFormHtml(folha, session) {
 
       <section class="folha-obra-section folha-obra-section--header">
         <h3 class="folha-obra-section-title">Entrada do equipamento</h3>
-        <p class="folha-obra-section-hint">Registe a chegada do equipamento à oficina. M.S segue direto para reparação; R.C aguarda orçamento RH.</p>
+        <p class="folha-obra-section-hint">Registe a chegada do equipamento à oficina. M.S segue para reparação; R.C passa por diagnóstico técnico antes do orçamento RH.</p>
         <div class="form-group">
           <span class="form-label">Responsabilidade</span>
           ${renderResponsabilidadeField(folha, { disabled: entradaLocked })}
@@ -279,11 +284,36 @@ function renderFolhaObraFormHtml(folha, session) {
       </section>
 
       ${
+        emDiagnostico
+          ? `
+      <section class="folha-obra-section folha-obra-section--diagnostico">
+        <h3 class="folha-obra-section-title">Diagnóstico técnico</h3>
+        <p class="folha-obra-section-hint">Descreva a avaria e o trabalho necessário. Só depois envie ao RH para orçamentar.</p>
+        <div class="form-group">
+          <label class="form-label" for="folha-diagnostico">Diagnóstico</label>
+          <textarea class="form-input" id="folha-diagnostico" name="diagnostico_tecnico" rows="5" required placeholder="Avaria identificada, peças/serviços previstos, observações para o RH…">${escapeHtml(folha?.diagnosticoTecnico || '')}</textarea>
+        </div>
+      </section>
+      `
+          : ''
+      }
+
+      ${
         aguardaOrcamento
           ? `
       <p class="folha-obra-phase-hint glass-card folha-obra-phase-hint--wait">
-        Equipamento <strong>R.C</strong> registado. Aguarda orçamento RH e aceite do cliente — a reparação no Armazém só começa depois.
+        Equipamento <strong>R.C</strong> enviado ao RH. Aguarda orçamento e aceite do cliente — a reparação no Armazém só começa depois.
       </p>
+      ${
+        folha?.diagnosticoTecnico
+          ? `
+      <section class="folha-obra-section folha-obra-section--diagnostico-readonly">
+        <h3 class="folha-obra-section-title">Diagnóstico técnico</h3>
+        <p class="folha-obra-diagnostico-readonly">${escapeHtml(folha.diagnosticoTecnico)}</p>
+      </section>
+      `
+          : ''
+      }
       `
           : ''
       }
@@ -331,7 +361,7 @@ function renderFolhaObraFormHtml(folha, session) {
       `
           : estado === 'rascunho'
             ? `
-      <p class="folha-obra-phase-hint glass-card">Após <strong>Dar entrada</strong>, imprima a etiqueta. M.S passa a reparação; R.C aguarda orçamento RH.</p>
+      <p class="folha-obra-phase-hint glass-card">Após <strong>Dar entrada</strong>, imprima a etiqueta de identificação. M.S passa a reparação; R.C preenche o diagnóstico técnico e só depois envia ao RH.</p>
       `
             : ''
       }
@@ -392,6 +422,7 @@ function bindFolhaObraForm(form, { getFolhaId, session }) {
 function renderFolhaObraFooterHtml(folha, { isLocked } = {}) {
   const estado = folha?.estado || 'rascunho';
   const aguardaEntrada = estado === 'rascunho' && !isLocked;
+  const emDiagnostico = isFolhaObraDiagnosticoEditable(folha);
   const aguardaOrcamento = estado === 'aguarda_orcamento' || estado === 'orcamento_enviado';
   const emReparacaoAtiva = isFolhaReparacaoAtiva(folha);
   const canDelete = Boolean(folha?.id) && canDeleteFolhaObra(folha) && !isLocked;
@@ -418,6 +449,12 @@ function renderFolhaObraFooterHtml(folha, { isLocked } = {}) {
         <button type="button" class="btn-outline" id="folha-obra-save">Guardar rascunho</button>
         <button type="button" class="btn-primary" id="folha-obra-entrada">Dar entrada e imprimir etiqueta</button>
       `
+        : emDiagnostico
+          ? `
+        <button type="button" class="btn-outline" id="folha-obra-etiqueta">Imprimir etiqueta</button>
+        <button type="button" class="btn-outline" id="folha-obra-save">Guardar diagnóstico</button>
+        <button type="button" class="btn-primary" id="folha-obra-enviar-rh">Enviar para RH orçamentar</button>
+      `
         : aguardaOrcamento
           ? `
         <button type="button" class="btn-outline" id="folha-obra-etiqueta">Imprimir etiqueta</button>
@@ -443,6 +480,7 @@ function mergeFolhaPayload(form, session, baseFolha, folhaId) {
     numeroOrdem: cached?.numeroOrdem ?? baseFolha?.numeroOrdem ?? null,
     etq: cached?.etq || baseFolha?.etq || '',
     responsabilidade: cached?.responsabilidade || draft.responsabilidade || baseFolha?.responsabilidade || 'RC',
+    diagnosticoTecnico: cached?.diagnosticoTecnico || draft.diagnosticoTecnico || baseFolha?.diagnosticoTecnico || '',
     estado: cached?.estado || draft.estado || baseFolha?.estado || 'rascunho',
   };
 }
@@ -465,6 +503,7 @@ function setFolhaObraEditorBusy(overlay, busy, label = 'A processar…') {
       if (!btn.dataset.busyLabel) btn.dataset.busyLabel = btn.textContent || '';
       btn.disabled = true;
       if (btn.id === 'folha-obra-entrada') btn.textContent = label;
+      if (btn.id === 'folha-obra-enviar-rh') btn.textContent = label;
     } else {
       btn.disabled = false;
       if (btn.dataset.busyLabel) {
@@ -567,21 +606,47 @@ export function openFolhaObraEditor(folhaId, session, { onClose } = {}) {
             const isMs = normalizeFolhaResponsabilidade(saved.responsabilidade) === 'MS';
             const entradaMsg = isMs
               ? 'Entrada registada (M.S). Equipamento em reparação.'
-              : 'Entrada registada (R.C). Aguarda orçamento RH.';
+              : 'Entrada registada (R.C). Preencha o diagnóstico técnico.';
             try {
               await printFolhaObraEtiqueta(saved);
               showToast(`${entradaMsg} Etiqueta enviada para impressão.`, 'success', 6000, { force: true });
-              ctx.close();
+              if (isMs) {
+                ctx.close();
+              } else {
+                ctx.repaint();
+                afterClose?.();
+              }
             } catch {
-              ctx.close();
               openFolhaObraEtiquetaPreview(saved);
               showToast(
-                `Entrada registada (${saved.etq || 'ETQ'}). Confirme a impressão na janela da etiqueta.`,
+                `Entrada registada (${saved.etq || 'ETQ'}). Confirme a impressão da etiqueta e preencha o diagnóstico.`,
                 'info',
                 7000,
                 { force: true },
               );
+              if (isMs) {
+                ctx.close();
+              } else {
+                ctx.repaint();
+                afterClose?.();
+              }
             }
+          } finally {
+            setFolhaObraEditorBusy(overlay, false);
+          }
+          return;
+        }
+
+        if (btn.id === 'folha-obra-enviar-rh') {
+          setFolhaObraEditorStatus(overlay, '');
+          setFolhaObraEditorBusy(overlay, true, 'A enviar ao RH…');
+          try {
+            const payload = collectFolhaFromForm(form, sess?.technicianId || '', sess);
+            const saved = await submitFolhaObraDiagnosticoForOrcamento(state.id, payload);
+            state.folha = saved;
+            showToast('Diagnóstico enviado ao RH para orçamentar.', 'success', 5000, { force: true });
+            ctx.repaint();
+            afterClose?.();
           } finally {
             setFolhaObraEditorBusy(overlay, false);
           }
@@ -626,13 +691,14 @@ export function openFolhaObraEditor(folhaId, session, { onClose } = {}) {
           'folha-obra-etiqueta': 'Não foi possível imprimir a etiqueta.',
           'folha-obra-save': 'Erro ao guardar.',
           'folha-obra-entrada': 'Erro ao registar entrada.',
+          'folha-obra-enviar-rh': 'Erro ao enviar ao RH.',
           'folha-obra-submit': 'Erro ao concluir.',
           'folha-obra-delete': 'Erro ao eliminar.',
         };
         const message = err?.message || messages[btn.id] || 'Operação falhou.';
         setFolhaObraEditorStatus(overlay, message, 'error');
         showToast(message, 'error', 8000, { force: true });
-        if (btn.id === 'folha-obra-entrada') setFolhaObraEditorBusy(overlay, false);
+        if (btn.id === 'folha-obra-entrada' || btn.id === 'folha-obra-enviar-rh') setFolhaObraEditorBusy(overlay, false);
       }
     });
   }
@@ -809,6 +875,7 @@ export async function mountFolhasObraTab(
         if (estado === 'all') return true;
         if (estado === 'finalizado') return isFolhaObraFinalizada(folha);
         if (estado === 'aguarda_orcamento') return isFolhaObraAguardaOrcamentoEstado(folha);
+        if (estado === 'em_diagnostico') return folha.estado === 'em_diagnostico';
         return folha.estado === estado;
       })
       .filter((folha) => (!dataMin ? true : String(folha.dataRececao || '') >= dataMin))
@@ -818,6 +885,7 @@ export async function mountFolhasObraTab(
       );
 
     const entradaArmazem = filtered.filter((f) => f.estado === 'rascunho');
+    const emDiagnostico = filtered.filter((f) => f.estado === 'em_diagnostico');
     const aguardaOrcamento = filtered.filter((f) => isFolhaObraAguardaOrcamentoEstado(f));
     const emReparacao = filtered.filter((f) => f.estado === 'em_reparacao');
     const finalizado = filtered.filter((f) => isFolhaObraFinalizada(f));
@@ -852,6 +920,7 @@ export async function mountFolhasObraTab(
           }
         </div>
         ${renderFolhasSection('Entrada em Armazém', entradaArmazem, 'Nenhum equipamento aguarda entrada.', layout)}
+        ${renderFolhasSection('Diagnóstico técnico (R.C)', emDiagnostico, 'Nenhum equipamento R.C em diagnóstico.', layout)}
         ${renderFolhasSection('Aguarda orçamento (R.C)', aguardaOrcamento, 'Nenhum equipamento R.C à espera de orçamento ou aceite.', layout)}
         ${renderFolhasSection('Reparação', emReparacao, 'Nenhum equipamento em reparação.', layout)}
         ${renderFolhasSection('Finalizado', finalizado, 'Ainda sem folhas concluídas.', layout)}

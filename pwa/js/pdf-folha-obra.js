@@ -219,6 +219,22 @@ export async function generateFolhaObraPDFBlob(folha) {
     ...tableStylePack(doc),
   });
 
+  const diagnostico = pdfDisplayValue(folha.diagnosticoTecnico);
+  if (diagnostico && diagnostico !== '—') {
+    y = await drawPdfSectionTitleBar(doc, y, 'Diagnóstico técnico', {
+      bandH: 6,
+      gapAfter: 1.2,
+      fontSize: HEAD_FONT,
+    });
+    pdfSetFont(doc, 'normal');
+    doc.setFontSize(PDF_FONT_BODY);
+    doc.setTextColor(...TEXT_DARK);
+    const diagLines = doc.splitTextToSize(pdfSafeText(diagnostico), CONTENT_W - 4);
+    doc.text(diagLines, MARGIN + 2, y + 4);
+    touchPdfContentPage(doc);
+    y += diagLines.length * 4 + SECTION_GAP;
+  }
+
   const intervencoes = Array.isArray(folha.intervencoes) ? folha.intervencoes : [];
   const interBody =
     intervencoes.length > 0

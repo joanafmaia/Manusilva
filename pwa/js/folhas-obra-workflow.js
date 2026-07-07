@@ -42,7 +42,27 @@ export function estimateFolhaObraValue(folha) {
 export function resolveFolhaObraEstadoAfterEntrada(responsabilidade) {
   return normalizeFolhaResponsabilidade(responsabilidade) === FOLHA_RESPONSABILIDADE.MS
     ? 'em_reparacao'
-    : 'aguarda_orcamento';
+    : 'em_diagnostico';
+}
+
+export async function submitFolhaObraDiagnosticoForOrcamento(folhaId, payload = null) {
+  const existing = getFolhaObra(folhaId);
+  if (!existing) throw new Error('Folha de obra não encontrada.');
+  if (normalizeFolhaResponsabilidade(existing.responsabilidade) !== FOLHA_RESPONSABILIDADE.RC) {
+    throw new Error('Só equipamentos R.C seguem para orçamento RH.');
+  }
+  if (existing.estado !== 'em_diagnostico') {
+    throw new Error('Esta folha já não está em diagnóstico técnico.');
+  }
+
+  const merged = payload ? { ...existing, ...payload, id: existing.id } : existing;
+  validateFolhaObraPayload(merged, 'enviar_rh');
+
+  return updateFolhaObra(folhaId, {
+    diagnosticoTecnico: String(merged.diagnosticoTecnico || '').trim(),
+    observacoes: merged.observacoes ?? existing.observacoes ?? '',
+    estado: 'aguarda_orcamento',
+  });
 }
 
 export async function registerFolhaObraEntrada(folhaId, payload = null) {

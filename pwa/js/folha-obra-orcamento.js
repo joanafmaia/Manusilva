@@ -47,9 +47,17 @@ export function isFolhaObraVisibleToArmazem(folha) {
   const estado = folha?.estado || 'rascunho';
   return (
     estado === 'rascunho' ||
+    estado === 'em_diagnostico' ||
     estado === 'aguarda_orcamento' ||
     estado === 'orcamento_enviado' ||
     estado === 'em_reparacao'
+  );
+}
+
+export function isFolhaObraDiagnosticoEditable(folha) {
+  return (
+    (folha?.estado || 'rascunho') === 'em_diagnostico' &&
+    normalizeFolhaResponsabilidade(folha?.responsabilidade) === FOLHA_RESPONSABILIDADE.RC
   );
 }
 
@@ -98,7 +106,14 @@ function buildFolhaObraOrcamentoDraft(folha) {
         marca_modelo: folha.marcaModelo || '',
         numero_serie: folha.numeroSerie || '',
         folha_obra_etq: folha.etq || '',
-        observacoes_orcamento: `Orçamento oficina — ${folha.etq || 'ETQ'} (${folha.tipo || 'equipamento'})`,
+        observacoes_orcamento: [
+          `Orçamento oficina — ${folha.etq || 'ETQ'} (${folha.tipo || 'equipamento'})`,
+          String(folha.diagnosticoTecnico || '').trim()
+            ? `Diagnóstico técnico:\n${String(folha.diagnosticoTecnico).trim()}`
+            : '',
+        ]
+          .filter(Boolean)
+          .join('\n\n'),
       },
       orcamentoOrigem: FOLHA_OBRA_ORCAMENTO_ORIGEM,
       folhaObraId: folha.id,

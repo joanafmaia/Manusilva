@@ -81,9 +81,10 @@ describe('folhas-obra-workflow', () => {
 });
 
 describe('folhas-obra-db delete', () => {
-  it('canDeleteFolhaObra — só rascunho e reparação', async () => {
+  it('canDeleteFolhaObra — só rascunho, diagnóstico e reparação', async () => {
     const { canDeleteFolhaObra } = await import('../js/folhas-obra-db.js');
     assert.equal(canDeleteFolhaObra({ estado: 'rascunho' }), true);
+    assert.equal(canDeleteFolhaObra({ estado: 'em_diagnostico' }), true);
     assert.equal(canDeleteFolhaObra({ estado: 'em_reparacao' }), true);
     assert.equal(canDeleteFolhaObra({ estado: 'pendente_faturacao' }), false);
     assert.equal(canDeleteFolhaObra({ estado: 'faturado' }), false);
@@ -128,6 +129,7 @@ describe('folhas-obra-db validate', () => {
   it('formatFolhaObraEstadoLabel — fases no armazém e orçamento', async () => {
     const { formatFolhaObraEstadoLabel, isFolhaObraFinalizada } = await import('../js/folhas-obra-db.js');
     assert.equal(formatFolhaObraEstadoLabel('rascunho'), 'Entrada em Armazém');
+    assert.equal(formatFolhaObraEstadoLabel('em_diagnostico'), 'Diagnóstico técnico');
     assert.equal(formatFolhaObraEstadoLabel('aguarda_orcamento'), 'Aguarda orçamento');
     assert.equal(formatFolhaObraEstadoLabel('em_reparacao'), 'Reparação');
     assert.equal(formatFolhaObraEstadoLabel('pendente_faturacao'), 'Finalizado');
@@ -136,22 +138,41 @@ describe('folhas-obra-db validate', () => {
 });
 
 describe('folha-obra-orcamento', () => {
-  it('M.S visível no armazém após entrada; R.C aguarda orçamento', async () => {
-    const { resolveFolhaObraEstadoAfterEntrada } = await import('../js/folhas-obra-workflow.js');
+  it('M.S em reparação; R.C passa por diagnóstico antes do RH', async () => {
+    const {
+      resolveFolhaObraEstadoAfterEntrada,
+      submitFolhaObraDiagnosticoForOrcamento,
+    } = await import('../js/folhas-obra-workflow.js');
     const {
       isFolhaObraVisibleToArmazem,
+      isFolhaObraDiagnosticoEditable,
       normalizeFolhaResponsabilidade,
       formatFolhaResponsabilidadeLabel,
     } = await import('../js/folha-obra-orcamento.js');
+    const { validateFolhaObraPayload } = await import('../js/folhas-obra-db.js');
 
     assert.equal(resolveFolhaObraEstadoAfterEntrada('MS'), 'em_reparacao');
-    assert.equal(resolveFolhaObraEstadoAfterEntrada('RC'), 'aguarda_orcamento');
+    assert.equal(resolveFolhaObraEstadoAfterEntrada('RC'), 'em_diagnostico');
+    assert.equal(isFolhaObraVisibleToArmazem({ estado: 'em_diagnostico' }), true);
     assert.equal(isFolhaObraVisibleToArmazem({ estado: 'em_reparacao' }), true);
     assert.equal(isFolhaObraVisibleToArmazem({ estado: 'aguarda_orcamento' }), true);
     assert.equal(isFolhaObraVisibleToArmazem({ estado: 'orcamento_enviado' }), true);
     assert.equal(isFolhaObraVisibleToArmazem({ estado: 'pendente_faturacao' }), false);
+    assert.equal(
+      isFolhaObraDiagnosticoEditable({ estado: 'em_diagnostico', responsabilidade: 'RC' }),
+      true,
+    );
+    assert.equal(
+      isFolhaObraDiagnosticoEditable({ estado: 'em_diagnostico', responsabilidade: 'MS' }),
+      false,
+    );
     assert.equal(normalizeFolhaResponsabilidade('ms'), 'MS');
     assert.equal(formatFolhaResponsabilidadeLabel('RC'), 'R.C');
+    assert.throws(
+      () => validateFolhaObraPayload({ clientId: '1', diagnosticoTecnico: '' }, 'enviar_rh'),
+      /diagnóstico/i,
+    );
+    assert.equal(typeof submitFolhaObraDiagnosticoForOrcamento, 'function');
   });
 });
 

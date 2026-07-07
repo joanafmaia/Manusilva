@@ -68,6 +68,7 @@ export function mapRowToFolhaObra(row) {
     dataVencimento: formatDateOnly(row.data_vencimento) || null,
     dataRecebimento: formatDateOnly(row.data_recebimento) || null,
     observacoes: row.observacoes || '',
+    diagnosticoTecnico: row.diagnostico_tecnico || '',
     createdAt: row.criado_em || null,
     updatedAt: row.atualizado_em || null,
   };
@@ -101,6 +102,7 @@ export function mapFolhaObraToRow(folha, overrides = {}) {
     data_vencimento: data.dataVencimento ? formatDateOnly(data.dataVencimento) : null,
     data_recebimento: data.dataRecebimento ? formatDateOnly(data.dataRecebimento) : null,
     observacoes: data.observacoes ?? null,
+    diagnostico_tecnico: data.diagnosticoTecnico ?? '',
     atualizado_em: new Date().toISOString(),
   };
 }
@@ -239,7 +241,7 @@ export async function updateFolhaObra(id, updates) {
 export function canDeleteFolhaObra(folha) {
   if (!folha) return false;
   const estado = folha.estado || 'rascunho';
-  return estado === 'rascunho' || estado === 'em_reparacao';
+  return estado === 'rascunho' || estado === 'em_diagnostico' || estado === 'em_reparacao';
 }
 
 export async function deleteFolhaObra(id) {
@@ -289,6 +291,7 @@ export function formatFolhaObraOrdemLabel(folha) {
 /** Rótulos para o painel Armazém / oficina (fases operacionais). */
 export const FOLHA_OBRA_ESTADO_ARM_LABELS = {
   rascunho: 'Entrada em Armazém',
+  em_diagnostico: 'Diagnóstico técnico',
   aguarda_orcamento: 'Aguarda orçamento',
   orcamento_enviado: 'Orçamento enviado',
   em_reparacao: 'Reparação',
@@ -307,6 +310,7 @@ export function formatFolhaObraEstadoLabel(estado, { rh = false } = {}) {
   if (rh) {
     const rhLabels = {
       rascunho: 'Entrada em Armazém',
+      em_diagnostico: 'Diagnóstico técnico',
       aguarda_orcamento: 'Aguarda orçamento RH',
       orcamento_enviado: 'Orçamento enviado ao cliente',
       em_reparacao: 'Reparação',
@@ -348,12 +352,19 @@ export function parseFolhaClientId(clientId) {
 
 /**
  * @param {object} payload
- * @param {'draft'|'entrada'|'concluir'} mode
+ * @param {'draft'|'entrada'|'concluir'|'enviar_rh'} mode
  */
 export function validateFolhaObraPayload(payload, mode = 'draft') {
   parseFolhaClientId(payload?.clientId);
 
   if (mode === 'draft') return;
+
+  if (mode === 'enviar_rh') {
+    if (!String(payload?.diagnosticoTecnico || '').trim()) {
+      throw new Error('Preencha o diagnóstico técnico antes de enviar ao RH.');
+    }
+    return;
+  }
 
   const responsabilidade = String(payload?.responsabilidade || 'RC').trim().toUpperCase();
   if (!['MS', 'RC'].includes(responsabilidade)) {
