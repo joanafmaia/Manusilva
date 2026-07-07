@@ -203,6 +203,11 @@ body.warehouse-page.folha-obra-open .bg-mesh {
   display: none;
 }
 
+body.warehouse-page.folha-obra-open #toast-container,
+body.warehouse-page.folha-obra-open #admin-toast-container {
+  z-index: 13000;
+}
+
 body.warehouse-page .folha-obra-overlay {
   display: flex;
   align-items: flex-start;

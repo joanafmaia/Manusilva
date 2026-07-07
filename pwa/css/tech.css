@@ -8504,6 +8504,28 @@ body.tech-dashboard-page .form-overlay .legal-verdict-card {
   margin: 0;
   padding: 0.5rem 0;
 }
+body.folha-obra-open #toast-container,
+body.folha-obra-open #admin-toast-container {
+  z-index: 13000;
+}
+.folha-obra-editor-status {
+  flex: 1 1 100%;
+  margin: 0 0 0.65rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  line-height: 1.35;
+}
+.folha-obra-editor-status--error {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+.folha-obra-editor-status--info {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
 .folha-obra-overlay {
   position: fixed;
   inset: 0;

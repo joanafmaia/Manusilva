@@ -33,7 +33,7 @@ export async function registerFolhaObraEntrada(folhaId, payload = null) {
   const merged = payload ? { ...existing, ...payload, id: existing.id } : existing;
   validateFolhaObraPayload(merged, 'entrada');
 
-  const etq = assignFolhaObraEtq(existing);
+  const etq = assignFolhaObraEtq(merged);
   if (!etq) {
     throw new Error('Não foi possível gerar o número da etiqueta. Guarde a folha e tente novamente.');
   }

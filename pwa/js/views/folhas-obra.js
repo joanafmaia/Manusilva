@@ -365,6 +365,34 @@ function mergeFolhaPayload(form, session, baseFolha, folhaId) {
   };
 }
 
+function setFolhaObraEditorStatus(overlay, message, type = 'error') {
+  const footer = overlay?.querySelector('.folha-obra-panel__footer');
+  if (!footer) return;
+  footer.querySelector('.folha-obra-editor-status')?.remove();
+  if (!message) return;
+  const el = document.createElement('p');
+  el.className = `folha-obra-editor-status folha-obra-editor-status--${type}`;
+  el.setAttribute('role', type === 'error' ? 'alert' : 'status');
+  el.textContent = message;
+  footer.prepend(el);
+}
+
+function setFolhaObraEditorBusy(overlay, busy, label = 'A processar…') {
+  overlay?.querySelectorAll('.folha-obra-panel__footer button').forEach((btn) => {
+    if (busy) {
+      if (!btn.dataset.busyLabel) btn.dataset.busyLabel = btn.textContent || '';
+      btn.disabled = true;
+      if (btn.id === 'folha-obra-entrada') btn.textContent = label;
+    } else {
+      btn.disabled = false;
+      if (btn.dataset.busyLabel) {
+        btn.textContent = btn.dataset.busyLabel;
+        delete btn.dataset.busyLabel;
+      }
+    }
+  });
+}
+
 export function openFolhaObraEditor(folhaId, session, { onClose } = {}) {
   const editorState = { id: folhaId || null, folha: folhaId ? getFolhaObra(folhaId) : null };
   const runtime = { formActions: null };
@@ -433,18 +461,36 @@ export function openFolhaObraEditor(folhaId, session, { onClose } = {}) {
         }
 
         if (btn.id === 'folha-obra-entrada') {
-          const payload = collectFolhaFromForm(form, sess?.technicianId || '');
-          validateFolhaObraPayload(payload, 'entrada');
-          if (!state.id) {
-            const inserted = await insertFolhaObra(payload);
-            state.id = inserted.id;
+          setFolhaObraEditorStatus(overlay, '');
+          setFolhaObraEditorBusy(overlay, true, 'A registar entrada…');
+          try {
+            const payload = collectFolhaFromForm(form, sess?.technicianId || '');
+            validateFolhaObraPayload(payload, 'entrada');
+            if (!state.id) {
+              const inserted = await insertFolhaObra(payload);
+              state.id = inserted.id;
+              state.folha = inserted;
+            } else {
+              const updated = await updateFolhaObra(state.id, payload);
+              state.folha = updated;
+            }
+            const saved = await registerFolhaObraEntrada(state.id, payload);
+            state.folha = saved;
+            try {
+              printFolhaObraEtiqueta(saved);
+              showToast('Entrada registada. Etiqueta enviada para impressão.', 'success', 5000, { force: true });
+            } catch (printErr) {
+              showToast(
+                `${printErr?.message || 'Não foi possível abrir a impressão.'} A entrada ficou registada (${saved.etq || 'ETQ'}).`,
+                'warning',
+                8000,
+                { force: true },
+              );
+            }
+            ctx.close();
+          } finally {
+            setFolhaObraEditorBusy(overlay, false);
           }
-          const saved = await registerFolhaObraEntrada(state.id, payload);
-          state.folha = saved;
-          printFolhaObraEtiqueta(saved);
-          showToast('Entrada registada. Etiqueta enviada para impressão.', 'success', 5000, { force: true });
-          ctx.repaint();
-          afterClose?.();
           return;
         }
 
@@ -465,7 +511,10 @@ export function openFolhaObraEditor(folhaId, session, { onClose } = {}) {
           'folha-obra-entrada': 'Erro ao registar entrada.',
           'folha-obra-submit': 'Erro ao concluir.',
         };
-        showToast(err?.message || messages[btn.id] || 'Operação falhou.', 'error', 6000, { force: true });
+        const message = err?.message || messages[btn.id] || 'Operação falhou.';
+        setFolhaObraEditorStatus(overlay, message, 'error');
+        showToast(message, 'error', 8000, { force: true });
+        if (btn.id === 'folha-obra-entrada') setFolhaObraEditorBusy(overlay, false);
       }
     });
   }
