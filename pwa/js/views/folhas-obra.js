@@ -102,7 +102,7 @@ function collectIntervencoesFromForm(form) {
   return rows;
 }
 
-function collectFolhaFromForm(form, technicianId) {
+function collectFolhaFromForm(form, technicianId, session = null) {
   const combo = form.querySelector('[data-client-combobox]');
   const clientId = combo?.querySelector('.client-combobox-id')?.value?.trim() || '';
   const tipo = form.querySelector('[name="tipo"]')?.value?.trim() || '';
@@ -110,7 +110,11 @@ function collectFolhaFromForm(form, technicianId) {
   const numeroSerie = form.querySelector('[name="numero_serie"]')?.value?.trim() || '';
   const dataRececao = form.querySelector('[name="data_rececao"]')?.value?.trim() || '';
   const maquinaConcluidaEm = form.querySelector('[name="maquina_concluida_em"]')?.value?.trim() || '';
-  const responsavel = form.querySelector('[name="responsavel"]')?.value?.trim() || '';
+  const responsavel =
+    form.querySelector('[name="responsavel"]')?.value?.trim() ||
+    session?.name ||
+    session?.username ||
+    '';
   const observacoes = form.querySelector('[name="observacoes"]')?.value?.trim() || '';
   const estado = form.querySelector('[name="estado"]')?.value || 'rascunho';
 
@@ -215,6 +219,10 @@ function renderFolhaObraFormHtml(folha, session) {
             <label class="form-label" for="folha-rececao">Data de entrada</label>
             <input type="date" class="form-input" id="folha-rececao" name="data_rececao" value="${escapeHtml(folha?.dataRececao || today)}" required ${isLocked ? 'readonly' : ''}>
           </div>
+          <div class="form-group">
+            <label class="form-label" for="folha-responsavel">Responsável</label>
+            <input type="text" class="form-input" id="folha-responsavel" name="responsavel" value="${escapeHtml(folha?.responsavel || technicianName)}" required ${isLocked ? 'readonly' : ''}>
+          </div>
         </div>
       </section>
 
@@ -251,10 +259,6 @@ function renderFolhaObraFormHtml(folha, session) {
           <div class="form-group">
             <label class="form-label" for="folha-concluida">Máquina concluída a</label>
             <input type="date" class="form-input" id="folha-concluida" name="maquina_concluida_em" value="${escapeHtml(folha?.maquinaConcluidaEm || '')}" ${isLocked ? 'readonly' : ''}>
-          </div>
-          <div class="form-group">
-            <label class="form-label" for="folha-responsavel">Responsável</label>
-            <input type="text" class="form-input" id="folha-responsavel" name="responsavel" value="${escapeHtml(folha?.responsavel || technicianName)}" ${isLocked ? 'readonly' : ''}>
           </div>
         </div>
         <div class="form-group">
@@ -311,7 +315,7 @@ function bindFolhaObraForm(form, { getFolhaId, session }) {
   bindRemoveButtons(form);
 
   async function persist(mode = 'draft') {
-    const payload = collectFolhaFromForm(form, session?.technicianId || '');
+    const payload = collectFolhaFromForm(form, session?.technicianId || '', session);
     validateFolhaObraPayload(payload, mode);
     const folhaId = getFolhaId();
     if (folhaId) return updateFolhaObra(folhaId, payload);
@@ -353,7 +357,7 @@ function renderFolhaObraFooterHtml(folha, { isLocked } = {}) {
 }
 
 function mergeFolhaPayload(form, session, baseFolha, folhaId) {
-  const draft = collectFolhaFromForm(form, session?.technicianId || '');
+  const draft = collectFolhaFromForm(form, session?.technicianId || '', session);
   const cached = folhaId ? getFolhaObra(folhaId) : null;
   return {
     ...(baseFolha || cached || {}),
@@ -470,7 +474,7 @@ export function openFolhaObraEditor(folhaId, session, { onClose } = {}) {
           setFolhaObraEditorStatus(overlay, '');
           setFolhaObraEditorBusy(overlay, true, 'A registar entrada…');
           try {
-            const payload = collectFolhaFromForm(form, sess?.technicianId || '');
+            const payload = collectFolhaFromForm(form, sess?.technicianId || '', sess);
             validateFolhaObraPayload(payload, 'entrada');
             if (!state.id) {
               const inserted = await insertFolhaObra(payload);

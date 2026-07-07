@@ -8592,6 +8592,12 @@ body.folha-obra-open {
   color: var(--ms-text-muted);
   font-size: 0.9rem;
 }
+.folha-etiqueta-preview-note {
+  margin: 7rem 0 0;
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--ms-text-muted, #64748b);
+}
 .folha-obra-field-hint {
   margin: 0.35rem 0 0;
   font-size: 0.82rem;

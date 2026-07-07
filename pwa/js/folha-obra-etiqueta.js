@@ -1,6 +1,7 @@
 /**
  * Etiqueta de entrada — equipamento recebido na oficina.
  * Impressão via iframe oculto (sem pop-ups).
+ * Formato: fita 50 mm (largura máx.) — compatível com impressoras de etiquetas.
  */
 
 import { escapeHtml } from './html-utils.js';
@@ -12,64 +13,85 @@ import { closeModal, openModal, showToast } from './toast-modal.js';
 
 const PRINT_FRAME_ID = 'folha-obra-etiqueta-print-frame';
 
+/** Largura máxima da fita (mm). */
+export const ETIQUETA_PRINT_WIDTH_MM = 50;
+/** Comprimento da etiqueta (mm) — bem abaixo do máximo da impressora (431,8 mm). */
+export const ETIQUETA_PRINT_HEIGHT_MM = 54;
+
 const ETIQUETA_STYLES = `
-  @page { size: 100mm 50mm; margin: 0; }
-  * { box-sizing: border-box; }
-  body {
+  @page {
+    size: ${ETIQUETA_PRINT_WIDTH_MM}mm ${ETIQUETA_PRINT_HEIGHT_MM}mm;
     margin: 0;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: ${ETIQUETA_PRINT_WIDTH_MM}mm;
+    height: ${ETIQUETA_PRINT_HEIGHT_MM}mm;
     font-family: "Segoe UI", Arial, sans-serif;
     background: #fff;
     color: #111;
   }
   .folha-etiqueta {
-    width: 100mm;
-    height: 50mm;
-    padding: 4mm 5mm;
-    border: 0.4mm solid #1e293b;
+    width: ${ETIQUETA_PRINT_WIDTH_MM}mm;
+    height: ${ETIQUETA_PRINT_HEIGHT_MM}mm;
+    padding: 1.8mm 2mm;
     display: flex;
     flex-direction: column;
-    gap: 1.2mm;
-  }
-  .folha-etiqueta__brand {
-    font-size: 9pt;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: #2b6cb0;
-  }
-  .folha-etiqueta__etq {
-    font-size: 13pt;
-    font-weight: 700;
-    line-height: 1.1;
-  }
-  .folha-etiqueta__cliente {
-    font-size: 10pt;
-    font-weight: 600;
-    line-height: 1.2;
-    max-height: 12mm;
+    gap: 0.6mm;
     overflow: hidden;
   }
-  .folha-etiqueta__grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.5mm 3mm;
-    font-size: 8pt;
-    line-height: 1.25;
+  .folha-etiqueta__brand {
+    font-size: 6pt;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: #2b6cb0;
+    line-height: 1.1;
   }
-  .folha-etiqueta__grid strong {
+  .folha-etiqueta__etq {
+    font-size: 11pt;
+    font-weight: 700;
+    line-height: 1.05;
+    margin-bottom: 0.4mm;
+  }
+  .folha-etiqueta__cliente {
+    font-size: 7pt;
+    font-weight: 600;
+    line-height: 1.15;
+    max-height: 8mm;
+    overflow: hidden;
+    word-break: break-word;
+  }
+  .folha-etiqueta__line {
+    font-size: 6.5pt;
+    line-height: 1.2;
+    display: flex;
+    gap: 1mm;
+    word-break: break-word;
+  }
+  .folha-etiqueta__line span {
+    flex: 0 0 auto;
+    min-width: 11mm;
     font-weight: 600;
     color: #475569;
   }
-  .folha-etiqueta__entrada {
-    margin-top: auto;
-    font-size: 8.5pt;
-    font-weight: 600;
+  @media print {
+    html, body {
+      width: ${ETIQUETA_PRINT_WIDTH_MM}mm;
+      height: ${ETIQUETA_PRINT_HEIGHT_MM}mm;
+    }
   }
 `;
 
 function resolveClientName(folha) {
   const client = folha?.clientId ? getClient(folha.clientId) : null;
   return client?.Nome || client?.name || '—';
+}
+
+function resolveResponsavelName(folha) {
+  return String(folha?.responsavel || '').trim() || '—';
 }
 
 function resolveEtqLabel(folha) {
@@ -86,6 +108,7 @@ export function validateFolhaObraEtiqueta(folha) {
 function buildFolhaObraEtiquetaBody(folha) {
   const cliente = resolveClientName(folha);
   const entrada = folha?.dataRececao ? formatDate(folha.dataRececao) : '—';
+  const responsavel = resolveResponsavelName(folha);
   const etq = resolveEtqLabel(folha);
 
   return `
@@ -93,12 +116,11 @@ function buildFolhaObraEtiquetaBody(folha) {
       <div class="folha-etiqueta__brand">${escapeHtml(COMPANY.name || 'Manusilva')}</div>
       <div class="folha-etiqueta__etq">${escapeHtml(etq)}</div>
       <div class="folha-etiqueta__cliente">${escapeHtml(cliente)}</div>
-      <div class="folha-etiqueta__grid">
-        <div><strong>Tipo</strong> ${escapeHtml(folha?.tipo || '—')}</div>
-        <div><strong>Série</strong> ${escapeHtml(folha?.numeroSerie || '—')}</div>
-        <div style="grid-column: 1 / -1;"><strong>Marca / Modelo</strong> ${escapeHtml(folha?.marcaModelo || '—')}</div>
-      </div>
-      <div class="folha-etiqueta__entrada">Entrada: ${escapeHtml(entrada)}</div>
+      <div class="folha-etiqueta__line"><span>Tipo</span> ${escapeHtml(folha?.tipo || '—')}</div>
+      <div class="folha-etiqueta__line"><span>Marca</span> ${escapeHtml(folha?.marcaModelo || '—')}</div>
+      <div class="folha-etiqueta__line"><span>Série</span> ${escapeHtml(folha?.numeroSerie || '—')}</div>
+      <div class="folha-etiqueta__line"><span>Entrada</span> ${escapeHtml(entrada)}</div>
+      <div class="folha-etiqueta__line"><span>Resp.</span> ${escapeHtml(responsavel)}</div>
     </div>
   `;
 }
@@ -129,12 +151,14 @@ export function buildFolhaObraEtiquetaPreviewHtml(folha) {
         }
         .folha-etiqueta-preview-wrap .folha-etiqueta {
           transform-origin: top center;
-          transform: scale(1.35);
+          transform: scale(2.2);
           box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+          border: 0.4mm solid #1e293b;
         }
         ${ETIQUETA_STYLES}
       </style>
       ${buildFolhaObraEtiquetaBody(folha)}
+      <p class="folha-etiqueta-preview-note">Formato de impressão: ${ETIQUETA_PRINT_WIDTH_MM} × ${ETIQUETA_PRINT_HEIGHT_MM} mm (fita 50 mm)</p>
     </div>
   `;
 }

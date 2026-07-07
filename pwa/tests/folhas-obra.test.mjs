@@ -130,7 +130,7 @@ describe('folha-obra-etiqueta', () => {
       };
     }
 
-    const { buildFolhaObraEtiquetaHtml } = await import('../js/folha-obra-etiqueta.js');
+    const { buildFolhaObraEtiquetaHtml, ETIQUETA_PRINT_WIDTH_MM, ETIQUETA_PRINT_HEIGHT_MM } = await import('../js/folha-obra-etiqueta.js');
     const html = buildFolhaObraEtiquetaHtml({
       clientId: '5',
       tipo: 'Empilhador',
@@ -139,11 +139,16 @@ describe('folha-obra-etiqueta', () => {
       etq: 'ETQ-2',
       dataRececao: '2026-07-07',
       numeroOrdem: 2,
+      responsavel: 'Hugo',
     });
-    assert.match(html, /Entrada:/);
+    assert.match(html, />Entrada</);
     assert.match(html, /Empilhador/);
     assert.match(html, /Toyota/);
     assert.match(html, /ETQ-2/);
+    assert.match(html, /Resp\./);
+    assert.match(html, /Hugo/);
+    assert.equal(ETIQUETA_PRINT_WIDTH_MM, 50);
+    assert.equal(ETIQUETA_PRINT_HEIGHT_MM, 54);
   });
 });
 
