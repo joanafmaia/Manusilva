@@ -9,6 +9,7 @@ import { renderClientCombobox, bindClientComboboxes } from '../client-combobox.j
 import { getClient } from '../entity-lookups.js';
 import {
   emptyIntervencaoRow,
+  emptyConsumivelRow,
   ensureFolhasObraLoadedSafe,
   formatFolhaObraOrdemLabel,
   formatFolhaObraEstadoLabel,
@@ -22,6 +23,12 @@ import {
   validateFolhaObraPayload,
 } from '../folhas-obra-db.js';
 import { registerFolhaObraEntrada, submitFolhaObraForBilling } from '../folhas-obra-workflow.js';
+import {
+  formatFolhaResponsabilidadeLabel,
+  isFolhaObraRepairEditable,
+  isFolhaObraVisibleToArmazem,
+  normalizeFolhaResponsabilidade,
+} from '../folha-obra-orcamento.js';
 import { openFolhaObraEtiquetaPreview, prepareFolhaObraEtiquetaPrint, printFolhaObraEtiqueta } from '../folha-obra-etiqueta.js';
 import { renderClientFormSection, mountClientForm } from './rh-client-form.js';
 import { TECHNICIANS } from '../mock_data.js';
@@ -31,21 +38,18 @@ const TIPO_OPCOES = ['Empilhador', 'Bateria', 'Carregador', 'Outro equipamento']
 const ESTADO_FILTER_OPTIONS = [
   { value: 'all', label: 'Todos os estados' },
   { value: 'rascunho', label: 'Entrada em Armazém' },
+  { value: 'aguarda_orcamento', label: 'Aguarda orçamento' },
   { value: 'em_reparacao', label: 'Reparação' },
   { value: 'finalizado', label: 'Finalizado' },
 ];
 
-function isFolhaEmReparacao(folha) {
-  const estado = folha?.estado || 'rascunho';
-  return estado !== 'rascunho';
-}
-
 function isFolhaReparacaoAtiva(folha) {
-  return (folha?.estado || 'rascunho') === 'em_reparacao';
+  return isFolhaObraRepairEditable(folha);
 }
 
 function estadoClass(estado) {
   if (estado === 'em_reparacao') return 'folha-obra-estado--active';
+  if (estado === 'aguarda_orcamento' || estado === 'orcamento_enviado') return 'folha-obra-estado--pending';
   if (isFolhaObraFinalizada(estado)) return 'folha-obra-estado--done';
   return 'folha-obra-estado--draft';
 }
@@ -65,6 +69,7 @@ function matchesFolhaSearch(folha, query) {
     folha.numeroSerie,
     folha.etq,
     folha.responsavel,
+    formatFolhaResponsabilidadeLabel(folha.responsabilidade),
     formatFolhaObraOrdemLabel(folha),
   ]
     .join(' ')
@@ -90,6 +95,55 @@ function renderIntervencaoRows(rows, technicianName) {
   `,
     )
     .join('');
+}
+
+function renderConsumivelRows(rows) {
+  const list = rows?.length ? rows : [emptyConsumivelRow()];
+  return list
+    .map(
+      (row, index) => `
+    <tr data-consumivel-row="${index}">
+      <td><input type="text" class="form-input form-input--sm" data-field="artigo" value="${escapeHtml(row.artigo || '')}" placeholder="Artigo / descrição"></td>
+      <td><input type="text" class="form-input form-input--sm" data-field="qtd" value="${escapeHtml(row.qtd || '')}" placeholder="Qtd."></td>
+      <td class="folha-obra-intervencao-actions">
+        <button type="button" class="btn-icon btn-icon--danger" data-remove-consumivel="${index}" title="Remover linha" aria-label="Remover linha">×</button>
+      </td>
+    </tr>
+  `,
+    )
+    .join('');
+}
+
+function collectConsumiveisFromForm(form) {
+  const rows = [];
+  form.querySelectorAll('[data-consumivel-row]').forEach((tr) => {
+    const row = {};
+    tr.querySelectorAll('[data-field]').forEach((input) => {
+      row[input.dataset.field] = input.value?.trim() || '';
+    });
+    const hasContent = Object.values(row).some((v) => String(v).trim());
+    if (hasContent) rows.push(row);
+  });
+  return rows;
+}
+
+function renderResponsabilidadeField(folha, { disabled = false } = {}) {
+  const value = normalizeFolhaResponsabilidade(folha?.responsabilidade);
+  if (disabled) {
+    return `<p class="folha-obra-resp-readonly"><strong>${escapeHtml(formatFolhaResponsabilidadeLabel(value))}</strong></p>`;
+  }
+  return `
+    <div class="folha-obra-resp-toggle" role="radiogroup" aria-label="Responsabilidade da máquina">
+      <label class="folha-obra-resp-option">
+        <input type="radio" name="responsabilidade" value="MS"${value === 'MS' ? ' checked' : ''}>
+        <span><strong>M.S</strong> — máquina Manusilva</span>
+      </label>
+      <label class="folha-obra-resp-option">
+        <input type="radio" name="responsabilidade" value="RC"${value === 'RC' ? ' checked' : ''}>
+        <span><strong>R.C</strong> — responsabilidade do cliente</span>
+      </label>
+    </div>
+  `;
 }
 
 function collectIntervencoesFromForm(form) {
@@ -134,6 +188,10 @@ function collectFolhaFromForm(form, technicianId, session = null) {
   const technicianFromForm = responsavelSelect?.selectedOptions?.[0]?.dataset?.techId || '';
   const observacoes = form.querySelector('[name="observacoes"]')?.value?.trim() || '';
   const estado = form.querySelector('[name="estado"]')?.value || 'rascunho';
+  const responsabilidade =
+    form.querySelector('[name="responsabilidade"]:checked')?.value ||
+    form.querySelector('[name="responsabilidade"]')?.value ||
+    'RC';
 
   return {
     clientId,
@@ -143,8 +201,10 @@ function collectFolhaFromForm(form, technicianId, session = null) {
     numeroSerie,
     dataRececao,
     intervencoes: collectIntervencoesFromForm(form),
+    consumiveis: collectConsumiveisFromForm(form),
     maquinaConcluidaEm,
     responsavel,
+    responsabilidade: normalizeFolhaResponsabilidade(responsabilidade),
     observacoes,
     estado,
   };
@@ -181,9 +241,11 @@ function renderFolhaObraFormHtml(folha, session) {
   const technicianName = session?.name || session?.username || '';
   const client = folha?.clientId ? getClient(folha.clientId) : null;
   const today = new Date().toISOString().split('T')[0];
-  const isLocked = folha?.estado === 'pendente_faturacao' || folha?.estado === 'faturado';
-  const emReparacao = isFolhaEmReparacao(folha);
   const estado = folha?.estado || 'rascunho';
+  const isLocked = estado === 'pendente_faturacao' || estado === 'faturado';
+  const aguardaOrcamento = estado === 'aguarda_orcamento' || estado === 'orcamento_enviado';
+  const entradaLocked = isLocked || estado !== 'rascunho';
+  const podeReparar = isFolhaObraRepairEditable(folha);
   const etqValue = folha?.etq || '';
   const etqPlaceholder = etqValue ? '' : 'Gerado ao dar entrada (ex.: ETQ-12)';
 
@@ -193,7 +255,7 @@ function renderFolhaObraFormHtml(folha, session) {
       <section class="folha-obra-section">
         <div class="folha-obra-section-head">
           <h3 class="folha-obra-section-title">Cliente</h3>
-          ${isLocked ? '' : '<button type="button" class="btn-outline btn-sm" id="folha-create-client">+ Novo cliente</button>'}
+          ${entradaLocked ? '' : '<button type="button" class="btn-outline btn-sm" id="folha-create-client">+ Novo cliente</button>'}
         </div>
         ${renderClientCombobox({
           fieldId: 'folha-obra-cliente',
@@ -201,17 +263,21 @@ function renderFolhaObraFormHtml(folha, session) {
           value: client?.Nome || client?.name || '',
           selectedId: folha?.clientId || '',
           required: true,
-          disabled: isLocked,
+          disabled: entradaLocked,
         })}
       </section>
 
       <section class="folha-obra-section folha-obra-section--header">
         <h3 class="folha-obra-section-title">Entrada do equipamento</h3>
-        <p class="folha-obra-section-hint">Registe a chegada do equipamento à oficina. Depois pode imprimir a etiqueta e registar intervenções.</p>
+        <p class="folha-obra-section-hint">Registe a chegada do equipamento à oficina. M.S segue direto para reparação; R.C aguarda orçamento RH.</p>
+        <div class="form-group">
+          <span class="form-label">Responsabilidade</span>
+          ${renderResponsabilidadeField(folha, { disabled: entradaLocked })}
+        </div>
         <div class="folha-obra-header-grid">
           <div class="form-group">
             <label class="form-label" for="folha-tipo">Tipo</label>
-            <select class="form-select" id="folha-tipo" name="tipo" required ${isLocked ? 'disabled' : ''}>
+            <select class="form-select" id="folha-tipo" name="tipo" required ${entradaLocked ? 'disabled' : ''}>
               <option value="">— Selecionar —</option>
               ${TIPO_OPCOES.map(
                 (opt) =>
@@ -221,11 +287,11 @@ function renderFolhaObraFormHtml(folha, session) {
           </div>
           <div class="form-group">
             <label class="form-label" for="folha-marca">Marca / Modelo</label>
-            <input type="text" class="form-input" id="folha-marca" name="marca_modelo" value="${escapeHtml(folha?.marcaModelo || '')}" required ${isLocked ? 'readonly' : ''}>
+            <input type="text" class="form-input" id="folha-marca" name="marca_modelo" value="${escapeHtml(folha?.marcaModelo || '')}" required ${entradaLocked ? 'readonly' : ''}>
           </div>
           <div class="form-group">
             <label class="form-label" for="folha-serie">N.º Série</label>
-            <input type="text" class="form-input" id="folha-serie" name="numero_serie" value="${escapeHtml(folha?.numeroSerie || '')}" ${isLocked ? 'readonly' : ''}>
+            <input type="text" class="form-input" id="folha-serie" name="numero_serie" value="${escapeHtml(folha?.numeroSerie || '')}" ${entradaLocked ? 'readonly' : ''}>
           </div>
           <div class="form-group">
             <label class="form-label" for="folha-etq">N.º etiqueta (ETQ)</label>
@@ -234,17 +300,27 @@ function renderFolhaObraFormHtml(folha, session) {
           </div>
           <div class="form-group">
             <label class="form-label" for="folha-rececao">Data de entrada</label>
-            <input type="date" class="form-input" id="folha-rececao" name="data_rececao" value="${escapeHtml(folha?.dataRececao || today)}" required ${isLocked ? 'readonly' : ''}>
+            <input type="date" class="form-input" id="folha-rececao" name="data_rececao" value="${escapeHtml(folha?.dataRececao || today)}" required ${entradaLocked ? 'readonly' : ''}>
           </div>
           <div class="form-group">
             <label class="form-label" for="folha-responsavel">Responsável</label>
-            ${renderResponsavelSelect(folha, session, { disabled: isLocked })}
+            ${renderResponsavelSelect(folha, session, { disabled: entradaLocked })}
           </div>
         </div>
       </section>
 
       ${
-        emReparacao
+        aguardaOrcamento
+          ? `
+      <p class="folha-obra-phase-hint glass-card folha-obra-phase-hint--wait">
+        Equipamento <strong>R.C</strong> registado. Aguarda orçamento RH e aceite do cliente — a reparação no Armazém só começa depois.
+      </p>
+      `
+          : ''
+      }
+
+      ${
+        podeReparar
           ? `
       <section class="folha-obra-section">
         <div class="folha-obra-section-head">
@@ -270,6 +346,27 @@ function renderFolhaObraFormHtml(folha, session) {
         </div>
       </section>
 
+      <section class="folha-obra-section">
+        <div class="folha-obra-section-head">
+          <h3 class="folha-obra-section-title">Consumíveis</h3>
+          ${isLocked ? '' : '<button type="button" class="btn-outline btn-sm" id="folha-add-consumivel">+ Linha</button>'}
+        </div>
+        <div class="folha-obra-table-wrap">
+          <table class="folha-obra-intervencoes-table">
+            <thead>
+              <tr>
+                <th>Artigo / Descrição</th>
+                <th>Quantidade</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="folha-consumiveis-body">
+              ${renderConsumivelRows(folha?.consumiveis)}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
       <section class="folha-obra-section folha-obra-section--closing">
         <h3 class="folha-obra-section-title">Conclusão do serviço</h3>
         <div class="folha-obra-closing-grid">
@@ -284,9 +381,11 @@ function renderFolhaObraFormHtml(folha, session) {
         </div>
       </section>
       `
-          : `
-      <p class="folha-obra-phase-hint glass-card">Após <strong>Dar entrada</strong>, o equipamento passa a «Reparação» e pode registar intervenções e concluir o serviço.</p>
+          : estado === 'rascunho'
+            ? `
+      <p class="folha-obra-phase-hint glass-card">Após <strong>Dar entrada</strong>, imprima a etiqueta. M.S passa a reparação; R.C aguarda orçamento RH.</p>
       `
+            : ''
       }
     </form>
   `;
@@ -331,6 +430,39 @@ function bindFolhaObraForm(form, { getFolhaId, session }) {
   }
   bindRemoveButtons(form);
 
+  const consumBody = form.querySelector('#folha-consumiveis-body');
+  form.querySelector('#folha-add-consumivel')?.addEventListener('click', () => {
+    if (!consumBody) return;
+    const index = consumBody.querySelectorAll('[data-consumivel-row]').length;
+    const wrapper = document.createElement('tbody');
+    wrapper.innerHTML = renderConsumivelRows([emptyConsumivelRow()]);
+    const tr = wrapper.querySelector('tr');
+    if (!tr) return;
+    tr.dataset.consumivelRow = String(index);
+    tr.querySelector('[data-remove-consumivel]')?.setAttribute('data-remove-consumivel', String(index));
+    consumBody.appendChild(tr);
+    bindRemoveConsumivelButtons(form);
+  });
+
+  function bindRemoveConsumivelButtons(root) {
+    if (!consumBody) return;
+    root.querySelectorAll('[data-remove-consumivel]').forEach((btn) => {
+      if (btn.dataset.bound) return;
+      btn.dataset.bound = '1';
+      btn.addEventListener('click', () => {
+        const rows = consumBody.querySelectorAll('[data-consumivel-row]');
+        if (rows.length <= 1) {
+          btn.closest('tr')?.querySelectorAll('[data-field]').forEach((input) => {
+            input.value = '';
+          });
+          return;
+        }
+        btn.closest('tr')?.remove();
+      });
+    });
+  }
+  bindRemoveConsumivelButtons(form);
+
   async function persist(mode = 'draft') {
     const payload = collectFolhaFromForm(form, session?.technicianId || '', session);
     validateFolhaObraPayload(payload, mode);
@@ -343,7 +475,9 @@ function bindFolhaObraForm(form, { getFolhaId, session }) {
 }
 
 function renderFolhaObraFooterHtml(folha, { isLocked } = {}) {
-  const aguardaEntrada = (folha?.estado || 'rascunho') === 'rascunho' && !isLocked;
+  const estado = folha?.estado || 'rascunho';
+  const aguardaEntrada = estado === 'rascunho' && !isLocked;
+  const aguardaOrcamento = estado === 'aguarda_orcamento' || estado === 'orcamento_enviado';
   const emReparacaoAtiva = isFolhaReparacaoAtiva(folha);
   const canDelete = Boolean(folha?.id) && canDeleteFolhaObra(folha) && !isLocked;
   const deleteBtn = canDelete
@@ -369,7 +503,12 @@ function renderFolhaObraFooterHtml(folha, { isLocked } = {}) {
         <button type="button" class="btn-outline" id="folha-obra-save">Guardar rascunho</button>
         <button type="button" class="btn-primary" id="folha-obra-entrada">Dar entrada e imprimir etiqueta</button>
       `
-        : emReparacaoAtiva
+        : aguardaOrcamento
+          ? `
+        <button type="button" class="btn-outline" id="folha-obra-etiqueta">Imprimir etiqueta</button>
+        <p class="folha-obra-locked-hint">Aguarda orçamento RH — reparação bloqueada.</p>
+      `
+          : emReparacaoAtiva
           ? `
         <button type="button" class="btn-outline" id="folha-obra-save">Guardar</button>
         <button type="button" class="btn-primary" id="folha-obra-submit">Concluir e enviar para faturação</button>
@@ -388,6 +527,8 @@ function mergeFolhaPayload(form, session, baseFolha, folhaId) {
     id: cached?.id || baseFolha?.id || folhaId || 'draft',
     numeroOrdem: cached?.numeroOrdem ?? baseFolha?.numeroOrdem ?? null,
     etq: cached?.etq || baseFolha?.etq || '',
+    responsabilidade: cached?.responsabilidade || draft.responsabilidade || baseFolha?.responsabilidade || 'RC',
+    consumiveis: draft.consumiveis || cached?.consumiveis || baseFolha?.consumiveis || [],
     estado: cached?.estado || draft.estado || baseFolha?.estado || 'rascunho',
   };
 }
@@ -509,9 +650,13 @@ export function openFolhaObraEditor(folhaId, session, { onClose } = {}) {
             }
             const saved = await registerFolhaObraEntrada(state.id, payload);
             state.folha = saved;
+            const isMs = normalizeFolhaResponsabilidade(saved.responsabilidade) === 'MS';
+            const entradaMsg = isMs
+              ? 'Entrada registada (M.S). Equipamento em reparação.'
+              : 'Entrada registada (R.C). Aguarda orçamento RH.';
             try {
               await printFolhaObraEtiqueta(saved);
-              showToast('Entrada registada. Etiqueta enviada para impressão.', 'success', 5000, { force: true });
+              showToast(`${entradaMsg} Etiqueta enviada para impressão.`, 'success', 6000, { force: true });
               ctx.close();
             } catch {
               ctx.close();
@@ -638,7 +783,7 @@ function renderFolhaCard(folha) {
           <span class="folha-obra-estado ${estadoClass(folha.estado)}">${escapeHtml(estadoLabel)}</span>
         </div>
         <h3 class="tech-job-card__client">${escapeHtml(clientName)}</h3>
-        <p class="tech-job-card__service">${escapeHtml(folha.tipo || 'Equipamento')} · ${escapeHtml(folha.marcaModelo || '—')}</p>
+        <p class="tech-job-card__service">${escapeHtml(formatFolhaResponsabilidadeLabel(folha.responsabilidade))} · ${escapeHtml(folha.tipo || 'Equipamento')} · ${escapeHtml(folha.marcaModelo || '—')}</p>
         <p class="tech-job-card__meta">
           ${folha.numeroSerie ? `Série ${escapeHtml(folha.numeroSerie)}` : ''}
           ${folha.etq ? ` · ETQ ${escapeHtml(folha.etq)}` : ''}
@@ -657,6 +802,7 @@ function renderFolhaTableRow(folha) {
     <tr data-folha-id="${escapeHtml(folha.id)}" tabindex="0" role="button">
       <td><code class="folha-obra-ordem">${escapeHtml(formatFolhaObraOrdemLabel(folha))}</code></td>
       <td>${escapeHtml(clientName)}</td>
+      <td>${escapeHtml(formatFolhaResponsabilidadeLabel(folha.responsabilidade))}</td>
       <td>${escapeHtml(folha.tipo || '—')}</td>
       <td>${escapeHtml(folha.marcaModelo || '—')}</td>
       <td>${escapeHtml(folha.numeroSerie || '—')}</td>
@@ -683,6 +829,7 @@ function renderFolhasSection(title, folhas, emptyText, layout = 'cards') {
                 <tr>
                   <th>Ordem</th>
                   <th>Cliente</th>
+                  <th>M.S/R.C</th>
                   <th>Tipo</th>
                   <th>Marca / Modelo</th>
                   <th>N.º Série</th>
@@ -717,7 +864,14 @@ function renderFolhasSection(title, folhas, emptyText, layout = 'cards') {
 
 export async function mountFolhasObraTab(
   mount,
-  { session, onRefresh, showCreateButton = true, onCreateRequest = null, layout = 'cards' } = {},
+  {
+    session,
+    onRefresh,
+    showCreateButton = true,
+    onCreateRequest = null,
+    layout = 'cards',
+    audience = 'all',
+  } = {},
 ) {
   if (!mount) return;
 
@@ -726,7 +880,10 @@ export async function mountFolhasObraTab(
   const defaultCreate = () => openFolhaObraEditor(null, session, { onClose: () => onRefresh?.() });
 
   function render(filters = {}) {
-    const folhas = getFolhasObraSnapshot();
+    let folhas = getFolhasObraSnapshot();
+    if (audience === 'warehouse') {
+      folhas = folhas.filter(isFolhaObraVisibleToArmazem);
+    }
     const query = filters.query || '';
     const estado = filters.estado || 'all';
     const dataMin = filters.dataMin || '';

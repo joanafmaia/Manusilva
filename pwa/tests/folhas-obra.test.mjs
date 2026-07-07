@@ -125,14 +125,38 @@ describe('folhas-obra-db validate', () => {
     assert.equal(assignFolhaObraEtq({ numeroOrdem: 7, etq: '' }), 'ETQ-7');
   });
 
-  it('formatFolhaObraEstadoLabel — três fases no armazém', async () => {
+  it('formatFolhaObraEstadoLabel — fases no armazém e orçamento', async () => {
     const { formatFolhaObraEstadoLabel, isFolhaObraFinalizada } = await import('../js/folhas-obra-db.js');
     assert.equal(formatFolhaObraEstadoLabel('rascunho'), 'Entrada em Armazém');
+    assert.equal(formatFolhaObraEstadoLabel('aguarda_orcamento'), 'Aguarda orçamento');
     assert.equal(formatFolhaObraEstadoLabel('em_reparacao'), 'Reparação');
     assert.equal(formatFolhaObraEstadoLabel('pendente_faturacao'), 'Finalizado');
-    assert.equal(formatFolhaObraEstadoLabel('faturado'), 'Finalizado');
-    assert.equal(isFolhaObraFinalizada('em_reparacao'), false);
-    assert.equal(isFolhaObraFinalizada({ estado: 'faturado' }), true);
+    assert.equal(isFolhaObraFinalizada('aguarda_orcamento'), false);
+  });
+});
+
+describe('folha-obra-orcamento', () => {
+  it('M.S visível no armazém após entrada; R.C aguarda orçamento', async () => {
+    const { resolveFolhaObraEstadoAfterEntrada } = await import('../js/folhas-obra-workflow.js');
+    const {
+      isFolhaObraVisibleToArmazem,
+      normalizeFolhaResponsabilidade,
+      formatFolhaResponsabilidadeLabel,
+    } = await import('../js/folha-obra-orcamento.js');
+
+    assert.equal(resolveFolhaObraEstadoAfterEntrada('MS'), 'em_reparacao');
+    assert.equal(resolveFolhaObraEstadoAfterEntrada('RC'), 'aguarda_orcamento');
+    assert.equal(isFolhaObraVisibleToArmazem({ estado: 'em_reparacao' }), true);
+    assert.equal(isFolhaObraVisibleToArmazem({ estado: 'aguarda_orcamento' }), false);
+    assert.equal(normalizeFolhaResponsabilidade('ms'), 'MS');
+    assert.equal(formatFolhaResponsabilidadeLabel('RC'), 'R.C');
+  });
+
+  it('normalizeConsumiveis aceita linhas de consumíveis', async () => {
+    const { normalizeConsumiveis } = await import('../js/folhas-obra-db.js');
+    const rows = normalizeConsumiveis([{ artigo: 'Óleo 15W40', qtd: '2' }]);
+    assert.equal(rows[0].artigo, 'Óleo 15W40');
+    assert.equal(rows[0].qtd, '2');
   });
 });
 

@@ -9,21 +9,40 @@ import {
   assignFolhaObraEtq,
   validateFolhaObraPayload,
 } from './folhas-obra-db.js';
+import { FOLHA_RESPONSABILIDADE, normalizeFolhaResponsabilidade } from './folha-obra-orcamento.js';
 import {
   normalizeInvoiceAmountInput,
   resolveInvoiceBillingFields,
 } from './billing-workflow.js';
+import { getReportOrcamentoMeta, computeOrcamentoTotals } from './orcamento-linhas.js';
+import { getReport } from './app.js';
 
 const DEFAULT_ESTIMATE_EUR = 150;
 
 export function estimateFolhaObraValue(folha) {
   if (!folha) return DEFAULT_ESTIMATE_EUR;
+
+  if (folha.orcamentoReportId) {
+    const report = getReport(folha.orcamentoReportId);
+    const meta = getReportOrcamentoMeta(report);
+    if (meta?.linhas?.length) {
+      const totals = computeOrcamentoTotals(meta.linhas, meta);
+      if (totals.total > 0) return totals.total;
+    }
+  }
+
   const horas = (folha.intervencoes || []).reduce((sum, row) => {
     const h = Number(String(row.horas || '').replace(',', '.'));
     return sum + (Number.isFinite(h) ? h : 0);
   }, 0);
   if (horas > 0) return Math.max(80, Math.round(horas * 45));
   return DEFAULT_ESTIMATE_EUR;
+}
+
+export function resolveFolhaObraEstadoAfterEntrada(responsabilidade) {
+  return normalizeFolhaResponsabilidade(responsabilidade) === FOLHA_RESPONSABILIDADE.MS
+    ? 'em_reparacao'
+    : 'aguarda_orcamento';
 }
 
 export async function registerFolhaObraEntrada(folhaId, payload = null) {
@@ -38,6 +57,9 @@ export async function registerFolhaObraEntrada(folhaId, payload = null) {
     throw new Error('Não foi possível gerar o número da etiqueta. Guarde a folha e tente novamente.');
   }
 
+  const responsabilidade = normalizeFolhaResponsabilidade(merged.responsabilidade);
+  const nextEstado = resolveFolhaObraEstadoAfterEntrada(responsabilidade);
+
   const saved = await updateFolhaObra(folhaId, {
     clientId: merged.clientId,
     technicianId: merged.technicianId,
@@ -48,7 +70,8 @@ export async function registerFolhaObraEntrada(folhaId, payload = null) {
     intervencoes: merged.intervencoes || [],
     observacoes: merged.observacoes || '',
     responsavel: merged.responsavel || existing.responsavel || '',
-    estado: 'em_reparacao',
+    responsabilidade,
+    estado: nextEstado,
     etq,
   });
 
@@ -66,6 +89,9 @@ export async function submitFolhaObraForBilling(folhaId) {
   }
   if (folha.estado === 'rascunho') {
     throw new Error('Registe primeiro a entrada do equipamento.');
+  }
+  if (folha.estado !== 'em_reparacao') {
+    throw new Error('A folha só pode ser concluída durante a reparação.');
   }
   validateFolhaObraPayload(folha, 'concluir');
 

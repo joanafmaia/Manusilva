@@ -92,7 +92,14 @@ export async function setOrcamentoRespostaCliente(reportId, resposta) {
   if (saved) mergeReportInCache(saved);
 
   if (valid === ORCAMENTO_RESPOSTA.ACEITE) {
-    await markOrcamentoAceitePendingBilling(reportId);
+    const { reportIsFolhaObraOrcamento, handleOrcamentoRespostaForFolhaObra } = await import(
+      './folha-obra-orcamento.js',
+    );
+    if (reportIsFolhaObraOrcamento(saved)) {
+      await handleOrcamentoRespostaForFolhaObra(saved);
+    } else {
+      await markOrcamentoAceitePendingBilling(reportId);
+    }
   } else if (valid === ORCAMENTO_RESPOSTA.RECUSADA || !valid) {
     await clearOrcamentoBillingOnClienteRecusa(reportId);
   }

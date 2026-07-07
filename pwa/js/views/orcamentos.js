@@ -37,6 +37,13 @@ import {
   resolveOrcamentoWorkflowStatus,
   setOrcamentoRespostaCliente,
 } from '../orcamento-workflow.js';
+import { ensureFolhasObraLoadedSafe } from '../folhas-obra-db.js';
+import {
+  bindFolhaObraRhSection,
+  renderFolhaObraRhSection,
+} from './folha-obra-rh.js';
+import { reportIsFolhaObraOrcamento } from '../folha-obra-orcamento.js';
+import { getSession } from '../session.js';
 
 const PANEL_STATUSES = new Set(['pending_review', 'approved']);
 
@@ -255,6 +262,7 @@ function renderPanel() {
 
   return `
     <div class="orcamentos-panel rh-admin-panel">
+      ${renderFolhaObraRhSection()}
       <header class="orcamentos-header">
         <div class="orcamentos-header__top">
           <h2 class="orcamentos-title">Orçamentos / Propostas comerciais</h2>
@@ -329,7 +337,11 @@ function bindPanelEvents() {
         return;
       }
       openOrcamentoModal(report, {
-        onUpdated: () => refreshOrcamentosPanel().catch(console.error),
+        onUpdated: async (updated) => {
+          const { syncFolhaObraFromOrcamentoReport } = await import('../folha-obra-orcamento.js');
+          await syncFolhaObraFromOrcamentoReport(updated);
+          refreshOrcamentosPanel().catch(console.error);
+        },
       });
       return;
     }
@@ -397,7 +409,10 @@ function bindPanelEvents() {
       void setOrcamentoRespostaCliente(reportId, 'aceite')
         .then((saved) => {
           if (saved) {
-            showToast('Proposta marcada como aceite. Adicionada à Faturação.', 'success');
+            const msg = reportIsFolhaObraOrcamento(saved)
+              ? 'Proposta aceite. Equipamento libertado para o Armazém.'
+              : 'Proposta marcada como aceite. Adicionada à Faturação.';
+            showToast(msg, 'success');
             refreshOrcamentosPanel().catch(console.error);
           }
         })
@@ -459,9 +474,14 @@ export function queueOrcamentoReportFocus(reportId) {
   highlightReportId = reportId || null;
 }
 
-export function initOrcamentosPanel(root) {
+export async function initOrcamentosPanel(root) {
   mountRoot = root;
   bindPanelEvents();
+  await ensureFolhasObraLoadedSafe(true);
+  bindFolhaObraRhSection(root, {
+    session: getSession(),
+    onRefresh: () => refreshOrcamentosPanel().catch(console.error),
+  });
   return refreshOrcamentosPanel();
 }
 

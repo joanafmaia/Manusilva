@@ -8500,6 +8500,29 @@ body.tech-dashboard-page .form-overlay .legal-verdict-card {
 .folha-obra-estado--active { background: #dbeafe; color: #1d4ed8; }
 .folha-obra-estado--pending { background: #fef3c7; color: #b45309; }
 .folha-obra-estado--done { background: #d1fae5; color: #047857; }
+.folha-obra-resp-toggle {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.folha-obra-resp-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  font-size: 0.92rem;
+}
+.folha-obra-phase-hint--wait {
+  border-left: 3px solid #f59e0b;
+}
+.folha-obra-rh-section {
+  margin-bottom: 1rem;
+}
+.folha-obra-rh-lead {
+  margin: 0 0 0.75rem;
+}
+.folha-obra-etq-badge {
+  font-weight: 700;
+}
 .folha-obra-empty {
   margin: 0;
   padding: 0.5rem 0;

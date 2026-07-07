@@ -14,6 +14,7 @@ async function renderWarehouseHome(session) {
   await mountFolhasObraTab(mount, {
     session,
     layout: 'desktop',
+    audience: 'warehouse',
     showCreateButton: false,
     onCreateRequest: () =>
       openFolhaObraEditor(null, session, { onClose: () => renderWarehouseHome(session).catch(console.error) }),

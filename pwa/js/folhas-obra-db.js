@@ -25,6 +25,20 @@ export function emptyIntervencaoRow(technicianName = '') {
   };
 }
 
+export function emptyConsumivelRow() {
+  return { artigo: '', qtd: '' };
+}
+
+export function normalizeConsumiveis(rows) {
+  if (!Array.isArray(rows)) return [];
+  return rows
+    .map((row) => ({
+      artigo: String(row?.artigo || row?.material || row?.descricao || '').trim(),
+      qtd: String(row?.qtd ?? row?.quantidade ?? '').trim(),
+    }))
+    .filter((row) => row.artigo || row.qtd);
+}
+
 export function normalizeIntervencoes(rows) {
   if (!Array.isArray(rows)) return [];
   return rows.map((row) => ({
@@ -51,6 +65,10 @@ export function mapRowToFolhaObra(row) {
     intervencoes: normalizeIntervencoes(row.intervencoes),
     maquinaConcluidaEm: formatDateOnly(row.maquina_concluida_em),
     responsavel: row.responsavel || '',
+    responsabilidade: row.responsabilidade || 'RC',
+    orcamentoReportId: row.orcamento_report_id ? String(row.orcamento_report_id) : '',
+    orcamentoAceiteEm: row.orcamento_aceite_em || null,
+    consumiveis: normalizeConsumiveis(row.consumiveis),
     estado: row.estado || 'rascunho',
     submittedAt: row.submetido_em || null,
     faturacaoStatus: row.faturacao_status || null,
@@ -84,6 +102,10 @@ export function mapFolhaObraToRow(folha, overrides = {}) {
     intervencoes: normalizeIntervencoes(data.intervencoes),
     maquina_concluida_em: formatDateOnly(data.maquinaConcluidaEm) || null,
     responsavel: data.responsavel ?? '',
+    responsabilidade: data.responsabilidade ?? 'RC',
+    orcamento_report_id: data.orcamentoReportId || overrides.orcamento_report_id || null,
+    orcamento_aceite_em: data.orcamentoAceiteEm ?? overrides.orcamento_aceite_em ?? null,
+    consumiveis: normalizeConsumiveis(data.consumiveis),
     estado: data.estado ?? 'rascunho',
     submetido_em: data.submittedAt ?? overrides.submetido_em ?? null,
     faturacao_status: data.faturacaoStatus ?? overrides.faturacao_status ?? null,
@@ -182,6 +204,12 @@ async function loadFolhasObraFromSupabase() {
   folhasObraCache = (data || []).map(mapRowToFolhaObra).filter(Boolean);
   folhasObraFullyLoaded = true;
   console.info(`[ManuSilva] ${folhasObraCache.length} folha(s) de obra carregadas.`);
+  try {
+    const { syncAllFolhasObraOrcamentoStates } = await import('./folha-obra-orcamento.js');
+    await syncAllFolhasObraOrcamentoStates();
+  } catch (err) {
+    console.warn('[ManuSilva] Sync folhas/orçamento:', err);
+  }
   return folhasObraCache;
 }
 
@@ -274,9 +302,11 @@ export function formatFolhaObraOrdemLabel(folha) {
   return 'Folha de obra';
 }
 
-/** Rótulos para o painel Armazém / oficina (3 fases operacionais). */
+/** Rótulos para o painel Armazém / oficina (fases operacionais). */
 export const FOLHA_OBRA_ESTADO_ARM_LABELS = {
   rascunho: 'Entrada em Armazém',
+  aguarda_orcamento: 'Aguarda orçamento',
+  orcamento_enviado: 'Orçamento enviado',
   em_reparacao: 'Reparação',
   pendente_faturacao: 'Finalizado',
   faturado: 'Finalizado',
@@ -293,6 +323,8 @@ export function formatFolhaObraEstadoLabel(estado, { rh = false } = {}) {
   if (rh) {
     const rhLabels = {
       rascunho: 'Entrada em Armazém',
+      aguarda_orcamento: 'Aguarda orçamento RH',
+      orcamento_enviado: 'Orçamento enviado ao cliente',
       em_reparacao: 'Reparação',
       pendente_faturacao: 'Aguarda faturação',
       faturado: 'Faturado',
@@ -338,6 +370,11 @@ export function validateFolhaObraPayload(payload, mode = 'draft') {
   parseFolhaClientId(payload?.clientId);
 
   if (mode === 'draft') return;
+
+  const responsabilidade = String(payload?.responsabilidade || 'RC').trim().toUpperCase();
+  if (!['MS', 'RC'].includes(responsabilidade)) {
+    throw new Error('Indique se a máquina é M.S ou R.C.');
+  }
 
   if (!String(payload?.tipo || '').trim()) {
     throw new Error('Indique o tipo de equipamento.');

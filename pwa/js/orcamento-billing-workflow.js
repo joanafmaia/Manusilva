@@ -8,6 +8,7 @@ import {
 } from './orcamento-linhas.js';
 import { ORCAMENTO_RESPOSTA } from './orcamento-workflow.js';
 import { reportIsRhOrcamento, reportIsStandaloneOrcamento } from './pedido-orcamento.js';
+import { reportIsFolhaObraOrcamento } from './folha-obra-orcamento.js';
 import {
   dedupeReportsForDisplay,
   formatRelatoriosError,
@@ -38,6 +39,7 @@ export function isOrcamentoClienteAceite(report) {
 
 /** Proposta comercial aceite pelo cliente (só standalone — não relatório técnico com pedido de orçamento). */
 export function isPendingOrcamentoBilling(report) {
+  if (reportIsFolhaObraOrcamento(report)) return false;
   if (!reportIsStandaloneOrcamento(report)) return false;
   if (!isOrcamentoClienteAceite(report)) return false;
 
