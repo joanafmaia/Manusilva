@@ -1,0 +1,43 @@
+/**
+ * Dashboard Armazém — layout desktop para PC na oficina.
+ */
+
+import { requireAuth, warmOperacoes, applyBrandLogo, showToast } from './tech-app-core.js';
+import { initLogoutButton, renderUserGreeting } from './auth.js';
+import { openFolhaObraEditor, mountFolhasObraTab } from './views/folhas-obra.js';
+
+async function renderWarehouseHome(session) {
+  const mount = document.getElementById('warehouse-app-mount');
+  if (!mount) return;
+
+  await mountFolhasObraTab(mount, {
+    session,
+    layout: 'desktop',
+    showCreateButton: false,
+    onCreateRequest: () =>
+      openFolhaObraEditor(null, session, { onClose: () => renderWarehouseHome(session).catch(console.error) }),
+    onRefresh: () => renderWarehouseHome(session).catch(console.error),
+  });
+}
+
+export async function initWarehouseDashboard() {
+  const session = requireAuth('warehouse');
+  if (!session) return;
+
+  applyBrandLogo();
+  initLogoutButton();
+  renderUserGreeting('user-name');
+
+  document.getElementById('warehouse-create-folha-btn')?.addEventListener('click', () => {
+    openFolhaObraEditor(null, session, { onClose: () => renderWarehouseHome(session).catch(console.error) });
+  });
+
+  try {
+    await warmOperacoes();
+  } catch (err) {
+    console.warn('[Armazém] Warm inicial:', err);
+    showToast('Alguns dados podem não estar atualizados.', 'warning', 5000, { force: true });
+  }
+
+  await renderWarehouseHome(session);
+}

@@ -4,9 +4,10 @@
  */
 
 export const OFFLINE_DB_NAME = 'manusilva_offline';
-export const OFFLINE_DB_VERSION = 1;
+export const OFFLINE_DB_VERSION = 2;
 export const STORE_REPORT_DRAFTS = 'report_drafts';
 export const STORE_PENDING_SUBMISSIONS = 'trabalhos_pendentes';
+export const STORE_OPS_SNAPSHOT = 'ops_snapshot';
 
 let dbPromise = null;
 
@@ -30,6 +31,9 @@ export function openOfflineDb() {
         }
         if (!db.objectStoreNames.contains(STORE_PENDING_SUBMISSIONS)) {
           db.createObjectStore(STORE_PENDING_SUBMISSIONS, { keyPath: 'id' });
+        }
+        if (!db.objectStoreNames.contains(STORE_OPS_SNAPSHOT)) {
+          db.createObjectStore(STORE_OPS_SNAPSHOT, { keyPath: 'id' });
         }
       };
 

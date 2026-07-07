@@ -37,6 +37,9 @@ function normalizeDbRole(role) {
   if (raw === 'Tecnico' || raw.toLowerCase() === 'tecnico' || raw === 'technician') {
     return 'Tecnico';
   }
+  if (raw === 'Armazem' || raw.toLowerCase() === 'armazem' || raw === 'warehouse') {
+    return 'Armazem';
+  }
   return raw;
 }
 

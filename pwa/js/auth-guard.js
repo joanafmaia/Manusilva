@@ -10,6 +10,13 @@ function normalizeRequiredRole(role) {
   return role;
 }
 
+function dashboardUrlForSession(session) {
+  if (!session) return 'index.html';
+  if (session.role === 'admin') return 'admin.html';
+  if (session.role === 'warehouse') return 'warehouse.html';
+  return 'dashboard.html';
+}
+
 export function requireAuth(role) {
   const session = getSession();
   if (!session) {
@@ -22,11 +29,15 @@ export function requireAuth(role) {
     return null;
   }
   if (required === 'technician' && session.role !== 'technician') {
-    window.location.href = session.role === 'admin' ? 'admin.html' : 'index.html';
+    window.location.href = dashboardUrlForSession(session);
+    return null;
+  }
+  if (required === 'warehouse' && session.role !== 'warehouse') {
+    window.location.href = dashboardUrlForSession(session);
     return null;
   }
   if (required && session.role !== required) {
-    window.location.href = session.role === 'admin' ? 'admin.html' : 'dashboard.html';
+    window.location.href = dashboardUrlForSession(session);
     return null;
   }
   return session;

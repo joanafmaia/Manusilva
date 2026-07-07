@@ -26,8 +26,10 @@ describe('login-prefs', () => {
 
   it('mantém identificadores separados por função', () => {
     saveLoginPrefs({ role: 'technician', identifier: 'Hugo' });
+    saveLoginPrefs({ role: 'warehouse', identifier: 'Hugo' });
     saveLoginPrefs({ role: 'admin', identifier: 'joanamaia97@gmail.com' });
     assert.equal(getSavedLoginIdentifier('technician'), 'Hugo');
+    assert.equal(getSavedLoginIdentifier('warehouse'), 'Hugo');
     assert.equal(getSavedLoginIdentifier('admin'), 'joanamaia97@gmail.com');
   });
 });

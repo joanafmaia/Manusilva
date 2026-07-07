@@ -3,6 +3,7 @@
  */
 
 import { clearAuthStorage, clearSession, getRawSession, setRawSession } from './session.js';
+import { isBrowserOffline } from './network-status.js';
 
 const SUPABASE_URL = 'https://zhfbezrevosmbmcbyskw.supabase.co';
 /** Chave anon (public) — Supabase → Settings → API. Não uses a secret key aqui. */
@@ -121,8 +122,17 @@ export async function getSupabaseClient() {
   return supabaseClient;
 }
 
+function hasUsableLocalAppSession() {
+  const appSession = getRawSession();
+  return Boolean(appSession?.token && appSession?.refreshToken);
+}
+
 async function validateSupabaseSession(supabase, session) {
   if (!session?.access_token) return session;
+
+  if (isBrowserOffline()) {
+    return session;
+  }
 
   const { error: userError } = await supabase.auth.getUser();
   if (userError && isFatalAuthSessionError(userError)) {
@@ -137,6 +147,32 @@ async function validateSupabaseSession(supabase, session) {
 
 /** Garante que o JWT da sessão local está ativo no cliente Supabase (RLS authenticated). */
 export async function ensureSupabaseAuthSession() {
+  if (isBrowserOffline() && hasUsableLocalAppSession()) {
+    const appSession = getRawSession();
+    try {
+      const supabase = await getSupabaseClient();
+      const { data: existing } = await supabase.auth.getSession();
+      if (existing?.session?.access_token) {
+        return existing.session;
+      }
+      if (appSession?.token && appSession?.refreshToken) {
+        const { data, error } = await supabase.auth.setSession({
+          access_token: appSession.token,
+          refresh_token: appSession.refreshToken,
+        });
+        if (!error && data?.session?.access_token) {
+          return data.session;
+        }
+      }
+    } catch {
+      /* SDK indisponível offline — sessão local basta para a UI */
+    }
+    return {
+      access_token: appSession.token,
+      refresh_token: appSession.refreshToken,
+    };
+  }
+
   const supabase = await getSupabaseClient();
 
   const { data: existing, error: getError } = await supabase.auth.getSession();
@@ -190,6 +226,10 @@ export async function getFreshAccessToken() {
  * Cliente Supabase com sessão authenticated ativa (obrigatório após lockdown RLS anon).
  */
 export async function getAuthenticatedSupabaseClient() {
+  if (isBrowserOffline() && hasUsableLocalAppSession()) {
+    return getSupabaseClient();
+  }
+
   const session = await ensureSupabaseAuthSession();
   const supabase = await getSupabaseClient();
 

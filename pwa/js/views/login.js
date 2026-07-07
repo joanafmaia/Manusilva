@@ -66,6 +66,10 @@ export const LoginView = {
               <strong class="role-pick-title">Técnico</strong>
               <span class="role-pick-hint">Campo · Mobile</span>
             </button>
+            <button type="button" class="role-pick" data-role="warehouse" aria-pressed="false">
+              <strong class="role-pick-title">Armazém</strong>
+              <span class="role-pick-hint">Oficina · Instalações</span>
+            </button>
             <button type="button" class="role-pick" data-role="admin" aria-pressed="false">
               <strong class="role-pick-title">Recursos Humanos</strong>
               <span class="role-pick-hint">Admin · Desktop</span>

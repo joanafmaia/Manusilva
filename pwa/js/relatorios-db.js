@@ -263,6 +263,21 @@ export function getReportsSnapshot() {
   return reportsCache ? [...reportsCache] : [];
 }
 
+export function replaceReportsCache(reports = []) {
+  reportsCache = Array.isArray(reports)
+    ? filterOutLocallyDeletedReports(reports.map((report) => ({ ...report })))
+    : [];
+  reportsFullyLoaded = reportsCache.length > 0;
+  invalidateReportsJobIndex();
+}
+
+async function tryHydrateReportsFromOfflineSnapshot() {
+  const { isEffectivelyOffline } = await import('./network-status.js');
+  if (!isEffectivelyOffline()) return false;
+  const { hydrateOpsSnapshot } = await import('./ops-snapshot.js');
+  return hydrateOpsSnapshot();
+}
+
 async function hydrateLocalReportsIfBrowser() {
   if (typeof window === 'undefined') return;
   try {
@@ -280,14 +295,35 @@ export async function ensureReportsLoaded(force = false) {
     await hydrateLocalReportsIfBrowser();
     return reportsCache;
   }
+
+  const { isEffectivelyOffline } = await import('./network-status.js');
+  if (isEffectivelyOffline() && !force) {
+    if (reportsCache?.length) {
+      await hydrateLocalReportsIfBrowser();
+      return reportsCache;
+    }
+    const hydrated = await tryHydrateReportsFromOfflineSnapshot();
+    if (hydrated && reportsCache?.length) {
+      await hydrateLocalReportsIfBrowser();
+      return reportsCache;
+    }
+    await hydrateLocalReportsIfBrowser();
+    return reportsCache || [];
+  }
+
   if (!reportsLoadPromise || force) {
     reportsLoadPromise = loadReportsFromSupabase()
       .then(async (cache) => {
         await hydrateLocalReportsIfBrowser();
         return cache;
       })
-      .catch((err) => {
+      .catch(async (err) => {
         reportsLoadPromise = null;
+        const hydrated = await tryHydrateReportsFromOfflineSnapshot();
+        if (hydrated && reportsCache?.length) {
+          await hydrateLocalReportsIfBrowser();
+          return reportsCache;
+        }
         throw err;
       });
   }
@@ -303,6 +339,13 @@ const RELATORIOS_IN_BATCH_SIZE = 80;
 export async function ensureRelatoriosForTrabalhos(jobIds = []) {
   const ids = [...new Set(jobIds.map((id) => String(id || '').trim()).filter(Boolean))];
   if (!ids.length) return [];
+
+  const { isEffectivelyOffline } = await import('./network-status.js');
+  if (isEffectivelyOffline()) {
+    await ensureReportsLoaded();
+    const idSet = new Set(ids);
+    return getReportsSnapshot().filter((report) => idSet.has(String(report.jobId || '')));
+  }
 
   const supabase = await getAuthenticatedSupabaseClient();
   const loaded = [];
@@ -334,6 +377,13 @@ export async function ensureRelatoriosForTrabalhos(jobIds = []) {
 export async function ensureRelatoriosForServicos(servicoIds = []) {
   const ids = [...new Set(servicoIds.map((id) => String(id || '').trim()).filter(Boolean))];
   if (!ids.length) return [];
+
+  const { isEffectivelyOffline } = await import('./network-status.js');
+  if (isEffectivelyOffline()) {
+    await ensureReportsLoaded();
+    const idSet = new Set(ids);
+    return getReportsSnapshot().filter((report) => idSet.has(String(report.servicoId || '')));
+  }
 
   const supabase = await getAuthenticatedSupabaseClient();
   const loaded = [];

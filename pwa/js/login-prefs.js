@@ -9,13 +9,17 @@ function emptyPrefs() {
   return { role: 'technician', identifiers: {} };
 }
 
+function normalizeUiRole(role) {
+  return role === 'admin' || role === 'warehouse' ? role : 'technician';
+}
+
 export function loadLoginPrefs() {
   try {
     const raw = localStorage.getItem(LOGIN_PREFS_KEY);
     if (!raw) return emptyPrefs();
     const parsed = JSON.parse(raw);
     return {
-      role: parsed.role === 'admin' ? 'admin' : 'technician',
+      role: normalizeUiRole(parsed.role),
       identifiers:
         parsed.identifiers && typeof parsed.identifiers === 'object'
           ? { ...parsed.identifiers }
@@ -26,20 +30,20 @@ export function loadLoginPrefs() {
   }
 }
 
-/** @param {'technician'|'admin'} role */
+/** @param {'technician'|'warehouse'|'admin'} role */
 export function getSavedLoginIdentifier(role) {
   const id = loadLoginPrefs().identifiers[role];
   return id && String(id).trim() ? String(id).trim() : '';
 }
 
 /**
- * @param {{ role: 'technician'|'admin', identifier: string }} prefs
+ * @param {{ role: 'technician'|'warehouse'|'admin', identifier: string }} prefs
  */
 export function saveLoginPrefs({ role, identifier }) {
   const current = loadLoginPrefs();
   const trimmed = String(identifier || '').trim();
   const next = {
-    role: role === 'admin' ? 'admin' : 'technician',
+    role: normalizeUiRole(role),
     identifiers: { ...current.identifiers },
   };
   if (trimmed) next.identifiers[next.role] = trimmed;

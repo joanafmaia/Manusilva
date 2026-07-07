@@ -12,14 +12,29 @@ import {
   registerAppServiceWorker,
   startBuildIdWatch,
 } from './app-version.js';
+import { getSession } from './session.js';
 
 async function bootEntry(entry, moduleQ) {
-  if (entry === 'tech') {
+  if (entry === 'warehouse') {
     const { initLocalDatabase } = await import(`./tech-app-core.js${moduleQ}`);
-    const { initTechDashboard } = await import(`./tech-dashboard.js${moduleQ}`);
     const { initLogoutButton } = await import(`./auth.js${moduleQ}`);
     initLogoutButton();
     initLocalDatabase();
+    const { initWarehouseDashboard } = await import(`./warehouse-dashboard.js${moduleQ}`);
+    await initWarehouseDashboard();
+    return;
+  }
+  if (entry === 'tech') {
+    const { initLocalDatabase } = await import(`./tech-app-core.js${moduleQ}`);
+    const { initLogoutButton } = await import(`./auth.js${moduleQ}`);
+    const session = getSession();
+    initLogoutButton();
+    initLocalDatabase();
+    if (session?.role === 'warehouse') {
+      window.location.replace('warehouse.html');
+      return;
+    }
+    const { initTechDashboard } = await import(`./tech-dashboard.js${moduleQ}`);
     await initTechDashboard();
     return;
   }
@@ -37,7 +52,7 @@ async function bootEntry(entry, moduleQ) {
 }
 
 /**
- * @param {'tech'|'admin'|'login'} entry
+ * @param {'tech'|'warehouse'|'admin'|'login'} entry
  * @param {object} [options]
  * @param {boolean} [options.registerServiceWorker]
  * @param {(remoteBuildId: string) => void} [options.onRemoteBuild]

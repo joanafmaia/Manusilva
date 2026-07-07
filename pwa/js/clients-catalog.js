@@ -246,12 +246,36 @@ export async function loadClientsDataModule() {
   return ensureProductionCatalog();
 }
 
+function hydrateProductionCatalogFromLocalStorage() {
+  try {
+    const db = JSON.parse(localStorage.getItem('manusilva_db') || '{}');
+    const clients = Array.isArray(db.clients) ? db.clients : [];
+    if (!clients.length) return false;
+    productionCatalog = clients
+      .map((row, index) => normalizeClientRecord(row, index))
+      .filter((r) => r?.Nome);
+    buildCatalogIndexes();
+    return productionCatalog.length > 0;
+  } catch {
+    return false;
+  }
+}
+
 /** Carrega clientes do Supabase e constrói o catálogo em memória */
 export async function ensureProductionCatalog() {
   if (productionCatalog) return productionCatalog;
+
+  const { isEffectivelyOffline } = await import('./network-status.js');
+  if (isEffectivelyOffline() && hydrateProductionCatalogFromLocalStorage()) {
+    return productionCatalog;
+  }
+
   if (!catalogLoadPromise) {
     catalogLoadPromise = loadCatalogFromSupabase().catch((err) => {
       catalogLoadPromise = null;
+      if (hydrateProductionCatalogFromLocalStorage()) {
+        return productionCatalog;
+      }
       throw err;
     });
   }

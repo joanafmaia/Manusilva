@@ -105,15 +105,38 @@ export function getServicosSnapshot() {
   return servicosCache ? [...servicosCache] : [];
 }
 
+export function replaceServicosCache(servicos = []) {
+  servicosCache = Array.isArray(servicos) ? servicos.map((s) => ({ ...s })) : [];
+  servicosFullyLoaded = servicosCache.length > 0;
+}
+
+async function tryHydrateServicosFromOfflineSnapshot() {
+  const { isEffectivelyOffline } = await import('./network-status.js');
+  if (!isEffectivelyOffline()) return false;
+  const { hydrateOpsSnapshot } = await import('./ops-snapshot.js');
+  return hydrateOpsSnapshot();
+}
+
 export function isServicosCacheLoaded() {
   return servicosFullyLoaded && servicosCache !== null;
 }
 
 export async function ensureServicosLoaded(force = false) {
   if (servicosFullyLoaded && servicosCache && !force) return servicosCache;
+
+  const { isEffectivelyOffline } = await import('./network-status.js');
+  if (isEffectivelyOffline() && !force) {
+    if (servicosCache?.length) return servicosCache;
+    const hydrated = await tryHydrateServicosFromOfflineSnapshot();
+    if (hydrated && servicosCache?.length) return servicosCache;
+    return servicosCache || [];
+  }
+
   if (!servicosLoadPromise || force) {
-    servicosLoadPromise = loadServicosFromSupabase().catch((err) => {
+    servicosLoadPromise = loadServicosFromSupabase().catch(async (err) => {
       servicosLoadPromise = null;
+      const hydrated = await tryHydrateServicosFromOfflineSnapshot();
+      if (hydrated && servicosCache?.length) return servicosCache;
       throw err;
     });
   }
@@ -151,7 +174,18 @@ export async function ensureServicosSemana(technicianId, startDate, endDate) {
 
   const { getTechnician } = await import('./entity-lookups.js');
   const tech = getTechnician(technicianId);
-  const techName = tech?.name || String(technicianId);
+  const techName = String(tech?.name || technicianId).toLowerCase();
+
+  const { isEffectivelyOffline } = await import('./network-status.js');
+  if (isEffectivelyOffline()) {
+    await ensureServicosLoaded();
+    return getServicosSnapshot().filter((servico) => {
+      const date = String(servico.date || '');
+      if (!date || date < startDate || date > endDate) return false;
+      const assigned = String(servico.technicianIds || servico.tecnicoIds || '').toLowerCase();
+      return assigned.includes(techName) || assigned.includes(String(technicianId).toLowerCase());
+    });
+  }
 
   const supabase = await getAuthenticatedSupabaseClient();
   const { data, error } = await supabase

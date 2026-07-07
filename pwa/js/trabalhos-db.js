@@ -84,13 +84,36 @@ export function getJobsSnapshot() {
   return jobsCache ? [...jobsCache] : [];
 }
 
+export function replaceJobsCache(jobs = []) {
+  jobsCache = Array.isArray(jobs) ? jobs.map((job) => ({ ...job })) : [];
+  jobsFullyLoaded = jobsCache.length > 0;
+}
+
+async function tryHydrateJobsFromOfflineSnapshot() {
+  const { isEffectivelyOffline } = await import('./network-status.js');
+  if (!isEffectivelyOffline()) return false;
+  const { hydrateOpsSnapshot } = await import('./ops-snapshot.js');
+  return hydrateOpsSnapshot();
+}
+
 export async function ensureJobsLoaded(force = false) {
   // O cache pode existir só com dados parciais (semana visível, realtime);
   // nesse caso o carregamento completo ainda tem de acontecer.
   if (jobsFullyLoaded && jobsCache && !force) return jobsCache;
+
+  const { isEffectivelyOffline } = await import('./network-status.js');
+  if (isEffectivelyOffline() && !force) {
+    if (jobsCache?.length) return jobsCache;
+    const hydrated = await tryHydrateJobsFromOfflineSnapshot();
+    if (hydrated && jobsCache?.length) return jobsCache;
+    return jobsCache || [];
+  }
+
   if (!jobsLoadPromise || force) {
-    jobsLoadPromise = loadJobsFromSupabase().catch((err) => {
+    jobsLoadPromise = loadJobsFromSupabase().catch(async (err) => {
       jobsLoadPromise = null;
+      const hydrated = await tryHydrateJobsFromOfflineSnapshot();
+      if (hydrated && jobsCache?.length) return jobsCache;
       throw err;
     });
   }
@@ -157,7 +180,20 @@ export function removeJobFromCache(jobId) {
 export async function ensureTrabalhosSemana(technicianId, startDate, endDate) {
   if (!technicianId || !startDate || !endDate) return [];
 
-  const { getTechnician } = await import('./app.js');
+  const { isEffectivelyOffline } = await import('./network-status.js');
+  if (isEffectivelyOffline()) {
+    await ensureJobsLoaded();
+    const { getTechnician } = await import('./entity-lookups.js');
+    const tech = getTechnician(technicianId);
+    const techName = String(tech?.name || technicianId).toLowerCase();
+    return getJobsSnapshot().filter((job) => {
+      if (!job.date || job.date < startDate || job.date > endDate) return false;
+      const assigned = String(job.technicianId || '').toLowerCase();
+      return assigned.includes(techName) || assigned === String(technicianId).toLowerCase();
+    });
+  }
+
+  const { getTechnician } = await import('./entity-lookups.js');
   const tech = getTechnician(technicianId);
   const techName = tech?.name || String(technicianId);
 

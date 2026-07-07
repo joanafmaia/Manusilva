@@ -1,0 +1,248 @@
+/**
+ * Folhas de obra — equipamentos em reparação na oficina.
+ * Migração: pwa/supabase/migrations/025_folhas_obra.sql
+ */
+
+import { getAuthenticatedSupabaseClient } from './supabase-client.js';
+
+let folhasObraCache = null;
+let folhasObraLoadPromise = null;
+let folhasObraFullyLoaded = false;
+
+function formatDateOnly(value) {
+  if (!value) return '';
+  const s = String(value);
+  return s.includes('T') ? s.split('T')[0] : s.slice(0, 10);
+}
+
+export function emptyIntervencaoRow(technicianName = '') {
+  return {
+    data_intervencao: new Date().toISOString().split('T')[0],
+    material_servico: '',
+    quantidade: '',
+    horas: '',
+    realizado_por: technicianName || '',
+  };
+}
+
+export function normalizeIntervencoes(rows) {
+  if (!Array.isArray(rows)) return [];
+  return rows.map((row) => ({
+    data_intervencao: formatDateOnly(row?.data_intervencao || row?.data || ''),
+    material_servico: String(row?.material_servico || row?.material || '').trim(),
+    quantidade: String(row?.quantidade ?? row?.qtd ?? '').trim(),
+    horas: String(row?.horas ?? '').trim(),
+    realizado_por: String(row?.realizado_por || row?.tecnico || '').trim(),
+  }));
+}
+
+export function mapRowToFolhaObra(row) {
+  if (!row) return null;
+  return {
+    id: String(row.id),
+    numeroOrdem: row.numero_ordem != null ? Number(row.numero_ordem) : null,
+    clientId: row.cliente_id != null ? String(row.cliente_id) : '',
+    technicianId: row.tecnico_id || '',
+    tipo: row.tipo || '',
+    marcaModelo: row.marca_modelo || '',
+    numeroSerie: row.numero_serie || '',
+    etq: row.etq || '',
+    dataRececao: formatDateOnly(row.data_rececao),
+    intervencoes: normalizeIntervencoes(row.intervencoes),
+    maquinaConcluidaEm: formatDateOnly(row.maquina_concluida_em),
+    responsavel: row.responsavel || '',
+    estado: row.estado || 'rascunho',
+    submittedAt: row.submetido_em || null,
+    faturacaoStatus: row.faturacao_status || null,
+    numeroFatura: row.numero_fatura || '',
+    dataFatura: formatDateOnly(row.data_fatura),
+    valorFaturado:
+      row.valor_faturado != null && row.valor_faturado !== ''
+        ? Number(row.valor_faturado)
+        : null,
+    faturaCondicaoPagamento: row.condicao_pagamento || null,
+    statusRecebimento: row.status_recebimento || 'pendente',
+    dataVencimento: formatDateOnly(row.data_vencimento) || null,
+    dataRecebimento: formatDateOnly(row.data_recebimento) || null,
+    observacoes: row.observacoes || '',
+    createdAt: row.criado_em || null,
+    updatedAt: row.atualizado_em || null,
+  };
+}
+
+export function mapFolhaObraToRow(folha, overrides = {}) {
+  const data = { ...folha, ...overrides };
+  return {
+    cliente_id:
+      data.clientId != null && data.clientId !== '' ? Number(data.clientId) : null,
+    tecnico_id: data.technicianId || overrides.tecnico_id || '',
+    tipo: data.tipo ?? '',
+    marca_modelo: data.marcaModelo ?? '',
+    numero_serie: data.numeroSerie ?? '',
+    etq: data.etq ?? '',
+    data_rececao: formatDateOnly(data.dataRececao) || null,
+    intervencoes: normalizeIntervencoes(data.intervencoes),
+    maquina_concluida_em: formatDateOnly(data.maquinaConcluidaEm) || null,
+    responsavel: data.responsavel ?? '',
+    estado: data.estado ?? 'rascunho',
+    submetido_em: data.submittedAt ?? overrides.submetido_em ?? null,
+    faturacao_status: data.faturacaoStatus ?? overrides.faturacao_status ?? null,
+    numero_fatura: data.numeroFatura ?? overrides.numero_fatura ?? null,
+    data_fatura: formatDateOnly(data.dataFatura) || null,
+    valor_faturado: data.valorFaturado ?? overrides.valor_faturado ?? null,
+    condicao_pagamento: data.faturaCondicaoPagamento ?? overrides.condicao_pagamento ?? null,
+    status_recebimento: data.statusRecebimento ?? overrides.status_recebimento ?? null,
+    data_vencimento: data.dataVencimento ? formatDateOnly(data.dataVencimento) : null,
+    data_recebimento: data.dataRecebimento ? formatDateOnly(data.dataRecebimento) : null,
+    observacoes: data.observacoes ?? null,
+    atualizado_em: new Date().toISOString(),
+  };
+}
+
+export function formatFolhasObraError(err) {
+  if (!err) return 'Erro ao aceder às folhas de obra.';
+  const msg = String(err.message || err.details || err.hint || '').trim();
+  const code = err.code || '';
+
+  if (code === 'PGRST205' || /Could not find the table|relation.*folhas_obra/i.test(msg)) {
+    return 'Tabela "folhas_obra" não encontrada. Executa pwa/supabase/migrations/025_folhas_obra.sql no Supabase.';
+  }
+  if (code === '42501' || /permission denied|row-level security/i.test(msg)) {
+    return 'Sem permissão na tabela folhas_obra (RLS).';
+  }
+
+  return msg || 'Erro ao aceder às folhas de obra.';
+}
+
+export function getFolhasObraSnapshot() {
+  return folhasObraCache ? [...folhasObraCache] : [];
+}
+
+export function getFolhaObra(id) {
+  if (id == null) return null;
+  const key = String(id);
+  return getFolhasObraSnapshot().find((item) => String(item.id) === key) || null;
+}
+
+export function isFolhasObraCacheLoaded() {
+  return folhasObraFullyLoaded && folhasObraCache !== null;
+}
+
+export function replaceFolhasObraCache(folhas = []) {
+  folhasObraCache = Array.isArray(folhas) ? folhas.map((f) => ({ ...f })) : [];
+  folhasObraFullyLoaded = folhasObraCache.length > 0;
+}
+
+function upsertCacheEntry(folha) {
+  if (!folha) return;
+  if (!folhasObraCache) folhasObraCache = [];
+  const idx = folhasObraCache.findIndex((f) => String(f.id) === String(folha.id));
+  if (idx >= 0) folhasObraCache[idx] = folha;
+  else folhasObraCache.push(folha);
+}
+
+export async function ensureFolhasObraLoaded(force = false) {
+  if (folhasObraFullyLoaded && folhasObraCache && !force) return folhasObraCache;
+  if (!folhasObraLoadPromise || force) {
+    folhasObraLoadPromise = loadFolhasObraFromSupabase().catch((err) => {
+      folhasObraLoadPromise = null;
+      throw err;
+    });
+  }
+  return folhasObraLoadPromise;
+}
+
+export async function ensureFolhasObraLoadedSafe(force = false) {
+  try {
+    return await ensureFolhasObraLoaded(force);
+  } catch (err) {
+    const msg = formatFolhasObraError(err);
+    if (/tabela "folhas_obra" não encontrada|Could not find the table|relation.*folhas_obra/i.test(msg)) {
+      console.warn('[ManuSilva] Tabela folhas_obra ainda não existe — executar migração 025.');
+      folhasObraCache = [];
+      folhasObraFullyLoaded = true;
+      return [];
+    }
+    throw err;
+  }
+}
+
+async function loadFolhasObraFromSupabase() {
+  const supabase = await getAuthenticatedSupabaseClient();
+  const { data, error } = await supabase
+    .from('folhas_obra')
+    .select('*')
+    .order('criado_em', { ascending: false });
+
+  if (error) {
+    console.error('[ManuSilva] Erro ao carregar folhas de obra:', error);
+    throw new Error(formatFolhasObraError(error));
+  }
+
+  folhasObraCache = (data || []).map(mapRowToFolhaObra).filter(Boolean);
+  folhasObraFullyLoaded = true;
+  console.info(`[ManuSilva] ${folhasObraCache.length} folha(s) de obra carregadas.`);
+  return folhasObraCache;
+}
+
+export async function insertFolhaObra(payload) {
+  const supabase = await getAuthenticatedSupabaseClient();
+  const row = mapFolhaObraToRow(payload);
+  delete row.atualizado_em;
+
+  const { data, error } = await supabase.from('folhas_obra').insert(row).select('*').single();
+  if (error) throw new Error(formatFolhasObraError(error));
+
+  const folha = mapRowToFolhaObra(data);
+  upsertCacheEntry(folha);
+  return folha;
+}
+
+export async function updateFolhaObra(id, updates) {
+  const existing = getFolhaObra(id);
+  if (!existing) throw new Error('Folha de obra não encontrada.');
+
+  const supabase = await getAuthenticatedSupabaseClient();
+  const merged = { ...existing, ...updates };
+  const row = mapFolhaObraToRow(merged);
+
+  const { data, error } = await supabase
+    .from('folhas_obra')
+    .update(row)
+    .eq('id', id)
+    .select('*')
+    .single();
+
+  if (error) throw new Error(formatFolhasObraError(error));
+
+  const folha = mapRowToFolhaObra(data);
+  upsertCacheEntry(folha);
+  return folha;
+}
+
+export function getInvoicedFolhasObra() {
+  return getFolhasObraSnapshot().filter((f) => f.faturacaoStatus === 'faturado');
+}
+
+export function isFolhaObraPendingBilling(folha) {
+  if (!folha) return false;
+  if (folha.estado !== 'pendente_faturacao') return false;
+  const fs = folha.faturacaoStatus;
+  return !fs || fs === 'pendente';
+}
+
+export function getPendingBillingFolhasObra() {
+  return getFolhasObraSnapshot()
+    .filter(isFolhaObraPendingBilling)
+    .sort((a, b) =>
+      String(b.submittedAt || b.maquinaConcluidaEm || '').localeCompare(
+        String(a.submittedAt || a.maquinaConcluidaEm || ''),
+      ),
+    );
+}
+
+export function formatFolhaObraOrdemLabel(folha) {
+  if (!folha) return '—';
+  if (folha.numeroOrdem != null) return `FO-${folha.numeroOrdem}`;
+  return 'Folha de obra';
+}

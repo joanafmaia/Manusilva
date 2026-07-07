@@ -679,7 +679,7 @@ export const FILIPA_AUTH_EMAIL = 'filipa@sistema.com';
 /** E-mail legado (contas criadas antes da migração para @sistema.com). */
 export const FILIPA_LEGACY_AUTH_EMAIL = 'filipa@rh.manusilva.internal';
 
-/** Tabela `utilizadores` — roles: `Tecnico` | `RH` */
+/** Tabela `utilizadores` — roles base: `Tecnico` | `RH` */
 export const UTILIZADORES = [
   { nome: 'Hugo', nif: '236465767', telemovel: '917715182', email: 'filipasilvahugo2013@gmail.com', role: 'Tecnico', technicianId: 'tech-1' },
   { nome: 'Filipe', nif: '231912250', telemovel: '910858928', email: 'filipeg409@gmail.com', role: 'Tecnico', technicianId: 'tech-2' },
@@ -695,8 +695,8 @@ export const UTILIZADORES = [
   },
 ];
 
-export const ROLE_UI_TO_DB = { technician: 'Tecnico', admin: 'RH' };
-export const ROLE_DB_TO_UI = { Tecnico: 'technician', RH: 'admin' };
+export const ROLE_UI_TO_DB = { technician: 'Tecnico', warehouse: 'Armazem', admin: 'RH' };
+export const ROLE_DB_TO_UI = { Tecnico: 'technician', Armazem: 'warehouse', RH: 'admin' };
 
 const TECHNICIAN_COLORS = ['#3b82f6', '#8b5cf6', '#06b6d4'];
 

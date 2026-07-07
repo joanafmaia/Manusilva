@@ -113,17 +113,44 @@ export function warmReports() {
 }
 
 export async function warmOperacoes() {
+  const { isEffectivelyOffline } = await import('./network-status.js');
   const { ensureSupabaseAuthSession } = await import('./supabase-client.js');
   const { ensureServicosLoadedSafe } = await import('./servicos-db.js');
   const { ensureFaturasManuaisLoadedSafe } = await import('./faturas-manuais-db.js');
+  const { ensureFolhasObraLoadedSafe } = await import('./folhas-obra-db.js');
+  const { persistOpsSnapshot } = await import('./ops-snapshot.js');
+  const { ensureFullClientsInStorage } = await import('./clients-catalog-storage.js');
+  const { getRawSession } = await import('./session.js');
+
   await ensureSupabaseAuthSession();
+
+  if (isEffectivelyOffline()) {
+    await Promise.all([
+      ensureJobsLoaded(),
+      ensureReportsLoaded(),
+      ensureProductionCatalog(),
+      ensureServicosLoadedSafe(),
+      ensureFolhasObraLoadedSafe(),
+    ]);
+    return;
+  }
+
   await Promise.all([
     ensureJobsLoaded(),
     ensureReportsLoaded(),
     ensureProductionCatalog(),
     ensureServicosLoadedSafe(),
     ensureFaturasManuaisLoadedSafe(),
+    ensureFolhasObraLoadedSafe(),
   ]);
+
+  try {
+    await ensureFullClientsInStorage();
+    const session = getRawSession();
+    await persistOpsSnapshot(session?.technicianId || '');
+  } catch (err) {
+    console.warn('[ManuSilva] Snapshot offline:', err);
+  }
 }
 
 export async function handleFatalDashboardError(error) {
@@ -139,6 +166,12 @@ export async function handleFatalDashboardError(error) {
     msg.includes('jwt');
 
   if (!isSessionError) return false;
+
+  const { isEffectivelyOffline } = await import('./network-status.js');
+  if (isEffectivelyOffline()) {
+    console.warn('[ManuSilva] Erro de sessão em modo offline — a manter dashboard local.');
+    return false;
+  }
 
   console.warn('Sessão expirada totalmente. A redirecionar para o login...');
   const { handleFatalAuthSessionError } = await import('./supabase-client.js');

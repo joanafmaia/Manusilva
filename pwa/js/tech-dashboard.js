@@ -75,6 +75,7 @@ const TECH_JOBS_TABS = {
   agendados: { id: 'agendados', label: 'Agendados', subtitle: 'Dia selecionado' },
   realizados: { id: 'realizados', label: 'Realizados', subtitle: 'Concluídos' },
   clientes: { id: 'clientes', label: 'Clientes', subtitle: 'Histórico por empresa' },
+  folhas_obra: { id: 'folhas_obra', label: 'Folha de Obra', subtitle: 'Oficina / armazém' },
 };
 
 const TECH_CAL_COMPACT_KEY = 'tech_calendar_compact';
@@ -349,6 +350,34 @@ async function renderTechClientsTab() {
   app.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
+async function renderTechFolhasObraTab() {
+  const session = requireAuth('technician');
+  if (!session) return;
+
+  const app = document.getElementById('app');
+  if (!app) return;
+
+  app.innerHTML = `
+    <section class="folhas-obra-section jobs-section" data-folhas-obra-section>
+      <div class="section-header">
+        <h2 id="tech-jobs-section-title">${TECH_JOBS_TABS.folhas_obra.label}</h2>
+        <span class="date-label" id="selected-date-label">${TECH_JOBS_TABS.folhas_obra.subtitle}</span>
+      </div>
+      <div data-folhas-obra-mount></div>
+    </section>
+  `;
+
+  const mount = app.querySelector('[data-folhas-obra-mount]');
+  if (!mount) return;
+
+  const { mountFolhasObraTab } = await import('./views/folhas-obra.js');
+  await mountFolhasObraTab(mount, {
+    session,
+    onRefresh: () => renderTechFolhasObraTab().catch(console.error),
+  });
+  app.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
 function restoreTechClientsTab() {
   techJobsTab = 'clientes';
   document.querySelectorAll('[data-tech-jobs-tab]').forEach((btn) => {
@@ -403,6 +432,11 @@ function setTechJobsTab(tabId) {
     return;
   }
 
+  if (tabId === 'folhas_obra') {
+    renderTechFolhasObraTab().catch(console.error);
+    return;
+  }
+
   ensureTechJobsShell();
   loadTechTabData()
     .then(() => renderJobs())
@@ -413,7 +447,7 @@ function updateTechJobsToolbarVisibility() {
   const toolbar = document.getElementById('tech-jobs-toolbar');
   const search = document.getElementById('tech-jobs-search');
   if (!toolbar || !search) return;
-  const showSearch = techJobsTab !== 'realizados' && techJobsTab !== 'clientes';
+  const showSearch = techJobsTab !== 'realizados' && techJobsTab !== 'clientes' && techJobsTab !== 'folhas_obra';
   toolbar.hidden = !showSearch;
   search.hidden = !showSearch;
 }
@@ -854,8 +888,24 @@ function getTechCalendarPeriodBounds() {
 async function warmTechDashboardInitial(technicianId) {
   const { ensureSupabaseAuthSession } = await import('./supabase-client.js');
   const { ensureProductionCatalog, isProductionCatalogReady } = await import('./clients-catalog.js');
+  const { isEffectivelyOffline } = await import('./network-status.js');
+  const { hydrateOpsSnapshot } = await import('./ops-snapshot.js');
 
   await ensureSupabaseAuthSession();
+
+  if (isEffectivelyOffline()) {
+    const { ensureJobsLoaded } = await import('./trabalhos-db.js');
+    const { ensureServicosLoadedSafe } = await import('./servicos-db.js');
+    const { ensureReportsLoaded } = await import('./relatorios-db.js');
+    await Promise.all([
+      hydrateOpsSnapshot(),
+      isProductionCatalogReady() ? Promise.resolve() : ensureProductionCatalog(),
+      ensureJobsLoaded(),
+      ensureReportsLoaded(),
+      ensureServicosLoadedSafe(),
+    ]);
+    return;
+  }
 
   const { startDate, endDate } = getTechCalendarPeriodBounds();
   const catalogTask = isProductionCatalogReady() ? Promise.resolve() : ensureProductionCatalog();

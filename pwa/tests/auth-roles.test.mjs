@@ -5,6 +5,8 @@ import {
   isRhOrAdminEmail,
   isRhOrAdminAuthUser,
   isRhOrAdminSession,
+  isWarehouseSession,
+  normalizeDbRole,
 } from '../js/auth-roles-core.js';
 
 describe('auth-roles', () => {
@@ -13,6 +15,7 @@ describe('auth-roles', () => {
     assert.equal(isRhOrAdminRole('admin'), true);
     assert.equal(isRhOrAdminRole('Admin'), true);
     assert.equal(isRhOrAdminRole('Tecnico'), false);
+    assert.equal(normalizeDbRole('Armazem'), 'Armazem');
   });
 
   it('reconhece e-mails RH (Joana e identificadores da Filipa)', () => {
@@ -40,5 +43,6 @@ describe('auth-roles', () => {
   it('valida sessão UI admin', () => {
     assert.equal(isRhOrAdminSession({ role: 'admin', username: 'joanamaia97@gmail.com' }), true);
     assert.equal(isRhOrAdminSession({ role: 'technician' }), false);
+    assert.equal(isWarehouseSession({ role: 'warehouse' }), true);
   });
 });

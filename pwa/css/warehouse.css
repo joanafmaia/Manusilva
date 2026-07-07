@@ -1,0 +1,285 @@
+/* Manusilva — painel Armazém (desktop / PC) */
+
+body.warehouse-page {
+  min-height: 100vh;
+  background: var(--ms-bg, #f7f6f3);
+}
+
+.warehouse-app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.warehouse-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding: 0.85rem 1.5rem;
+  background: #fff;
+  border-bottom: 1px solid var(--ms-border-md, #e2e8f0);
+  position: sticky;
+  top: 0;
+  z-index: 40;
+}
+
+.warehouse-topbar__brand {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  min-width: 0;
+}
+
+.warehouse-topbar__brand-text strong {
+  display: block;
+  font-family: var(--ms-font-display, Georgia, serif);
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--ms-text-800, #1e293b);
+}
+
+.warehouse-topbar__tagline {
+  margin: 0.1rem 0 0;
+  font-size: 0.8rem;
+  color: var(--ms-text-muted, #64748b);
+}
+
+.warehouse-topbar__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.warehouse-topbar__greeting {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--ms-text-muted, #64748b);
+  white-space: nowrap;
+}
+
+.warehouse-create-btn {
+  white-space: nowrap;
+}
+
+.warehouse-logout-btn {
+  white-space: nowrap;
+}
+
+.warehouse-main {
+  flex: 1;
+  overflow: auto;
+  padding: 1.5rem;
+}
+
+.warehouse-content {
+  width: 100%;
+  max-width: 1440px;
+  margin: 0 auto;
+}
+
+.warehouse-content__head {
+  margin-bottom: 1.25rem;
+}
+
+.warehouse-content__title {
+  margin: 0;
+  font-family: var(--ms-font-display, Georgia, serif);
+  font-size: 1.65rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--ms-text-800, #1e293b);
+}
+
+.warehouse-content__subtitle {
+  margin: 0.35rem 0 0;
+  font-size: 0.95rem;
+  color: var(--ms-text-muted, #64748b);
+}
+
+.warehouse-mount {
+  min-width: 0;
+}
+
+/* Lista — tabela desktop */
+body.warehouse-page .folha-obra-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+body.warehouse-page .folha-obra-filter-bar {
+  padding: 1rem 1.15rem;
+  margin-bottom: 0;
+}
+
+body.warehouse-page .folha-obra-filter-grid {
+  grid-template-columns: minmax(220px, 2fr) minmax(160px, 1fr) minmax(150px, 1fr) minmax(150px, 1fr);
+  align-items: end;
+}
+
+body.warehouse-page .folha-obra-list-section {
+  margin-bottom: 0;
+}
+
+body.warehouse-page .folha-obra-list-title {
+  font-size: 1rem;
+  margin-bottom: 0.65rem;
+}
+
+body.warehouse-page .folha-obra-desktop-table-wrap {
+  overflow: auto;
+  border: 1px solid var(--ms-border, #e2e8f0);
+  border-radius: var(--ms-radius-lg, 10px);
+  background: #fff;
+}
+
+body.warehouse-page .folha-obra-data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+body.warehouse-page .folha-obra-data-table th,
+body.warehouse-page .folha-obra-data-table td {
+  padding: 0.65rem 0.85rem;
+  border-bottom: 1px solid var(--ms-border, #e2e8f0);
+  text-align: left;
+  vertical-align: middle;
+}
+
+body.warehouse-page .folha-obra-data-table th {
+  background: #f8fafc;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--ms-text-muted, #64748b);
+  white-space: nowrap;
+}
+
+body.warehouse-page .folha-obra-data-table tbody tr[data-folha-id] {
+  cursor: pointer;
+}
+
+body.warehouse-page .folha-obra-data-table tbody tr[data-folha-id]:hover {
+  background: #f8fafc;
+}
+
+body.warehouse-page .folha-obra-data-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+body.warehouse-page .folha-obra-data-table .folha-obra-ordem {
+  font-size: 0.8rem;
+  color: var(--ms-text-muted, #64748b);
+}
+
+body.warehouse-page .folha-obra-empty {
+  padding: 1rem 1.15rem;
+  background: #fff;
+  border: 1px dashed var(--ms-border, #e2e8f0);
+  border-radius: var(--ms-radius-lg, 10px);
+}
+
+/* Editor — modal centrado em ecrã grande */
+body.warehouse-page .folha-obra-overlay {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 2rem 1.5rem;
+  background: rgba(15, 23, 42, 0.42);
+  backdrop-filter: blur(2px);
+}
+
+body.warehouse-page .folha-obra-panel {
+  width: min(1120px, 100%);
+  max-height: calc(100vh - 4rem);
+  min-height: auto;
+  margin: 0;
+  border-radius: 14px;
+  border: 1px solid var(--ms-border, #e2e8f0);
+  box-shadow: 0 24px 48px rgba(15, 23, 42, 0.18);
+  overflow: hidden;
+}
+
+body.warehouse-page .folha-obra-panel__header {
+  padding: 1rem 1.25rem;
+}
+
+body.warehouse-page .folha-obra-panel__title {
+  font-size: 1.15rem;
+}
+
+body.warehouse-page .folha-obra-panel__body {
+  padding: 1.15rem 1.25rem 1.5rem;
+  overflow-y: auto;
+}
+
+body.warehouse-page .folha-obra-panel__footer {
+  padding: 0.9rem 1.25rem;
+}
+
+body.warehouse-page .folha-obra-header-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+body.warehouse-page .folha-obra-closing-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+body.warehouse-page .folha-obra-intervencoes-table th,
+body.warehouse-page .folha-obra-intervencoes-table td {
+  padding: 0.55rem 0.65rem;
+}
+
+body.warehouse-page .form-input--sm {
+  min-width: 0;
+}
+
+@media (max-width: 1100px) {
+  body.warehouse-page .folha-obra-filter-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  body.warehouse-page .folha-obra-header-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .warehouse-topbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .warehouse-topbar__actions {
+    justify-content: flex-start;
+  }
+
+  .warehouse-main {
+    padding: 1rem;
+  }
+
+  body.warehouse-page .folha-obra-filter-grid,
+  body.warehouse-page .folha-obra-header-grid,
+  body.warehouse-page .folha-obra-closing-grid {
+    grid-template-columns: 1fr;
+  }
+
+  body.warehouse-page .folha-obra-overlay {
+    padding: 0;
+    background: var(--ms-bg, #f7f6f3);
+    backdrop-filter: none;
+  }
+
+  body.warehouse-page .folha-obra-panel {
+    max-height: none;
+    border-radius: 0;
+    border: none;
+    box-shadow: none;
+  }
+}

@@ -14,6 +14,7 @@ const TECHNICIAN_IDS = {
 
 function mapRoleToUi(role) {
   if (role === 'Tecnico' || role === 'technician') return 'technician';
+  if (role === 'Armazem' || role === 'armazem' || role === 'warehouse') return 'warehouse';
   if (
     role === 'RH' ||
     role === 'rh' ||
@@ -37,8 +38,10 @@ export function normalizeSession(sessao) {
     name: sessao.nome,
     role,
     technicianId:
-      sessao.technicianId ?? (role === 'technician' ? TECHNICIAN_IDS[email] || null : null),
+      sessao.technicianId ??
+      (role === 'technician' || role === 'warehouse' ? TECHNICIAN_IDS[email] || null : null),
     token: sessao.token,
+    refreshToken: sessao.refreshToken,
     loginAt: sessao.loginAt,
   };
 }

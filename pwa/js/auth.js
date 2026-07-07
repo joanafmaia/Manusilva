@@ -30,7 +30,7 @@ const TECHNICIAN_IDS = {
 };
 
 function technicianIdFor(user) {
-  if (user.role !== 'Tecnico') return null;
+  if (user.role !== 'Tecnico' && user.role !== 'Armazem') return null;
   if (user.technicianId) return user.technicianId;
   return TECHNICIAN_IDS[String(user.email || '').toLowerCase()] || null;
 }
@@ -153,9 +153,14 @@ export function resolveDisplayNameForHint(identifier, roleFiltro = null) {
 function profileFromAuthUser(user, roleFiltro) {
   const meta = user.user_metadata || {};
   const email = (user.email || '').toLowerCase();
-  const fromPool = buildLoginPool().find((u) => u.email.toLowerCase() === email);
+  const normalizedFilter = normalizeDbRole(roleFiltro);
+  const fromPool = buildLoginPool().find(
+    (u) =>
+      u.email.toLowerCase() === email &&
+      (!normalizedFilter || normalizeDbRole(u.role) === normalizedFilter),
+  );
   const normalizedMetaRole = normalizeDbRole(meta.role);
-  const role = isRhOrAdminRole(meta.role)
+  const baseRole = isRhOrAdminRole(meta.role)
     ? 'RH'
     : isRhOrAdminEmail(email) || isRhOrAdminName(meta.nome || meta.name)
       ? 'RH'
@@ -164,17 +169,25 @@ function profileFromAuthUser(user, roleFiltro) {
         : technicianIdFor({ email, role: 'Tecnico' })
           ? 'Tecnico'
           : null;
+  let role = baseRole;
+  if (normalizedFilter === 'Armazem' && baseRole === 'Tecnico') {
+    role = 'Armazem';
+  }
   const nome = meta.nome || meta.name || fromPool?.nome || email;
   const technicianId = meta.technician_id || meta.technicianId || null;
 
-  if (roleFiltro === 'RH' && role === 'RH') {
+  if (normalizedFilter === 'RH' && role === 'RH') {
     /* RH/Admin — OK */
-  } else if (roleFiltro && role && role !== roleFiltro) {
+  } else if (normalizedFilter === 'Armazem' && role === 'Armazem') {
+    /* Armazém usa as mesmas contas técnicas */
+  } else if (normalizedFilter && role && role !== normalizedFilter) {
     return {
       error:
-        roleFiltro === 'RH'
+        normalizedFilter === 'RH'
           ? 'Esta conta não tem acesso de Recursos Humanos.'
-          : 'Esta conta não tem acesso de Técnico.',
+          : normalizedFilter === 'Armazem'
+            ? 'Esta conta não tem acesso de Armazém.'
+            : 'Esta conta não tem acesso de Técnico.',
     };
   }
 

@@ -45,6 +45,9 @@ export function normalizeDbRole(role) {
   if (raw === 'Tecnico' || raw.toLowerCase() === 'tecnico' || raw === 'technician') {
     return 'Tecnico';
   }
+  if (raw === 'Armazem' || raw.toLowerCase() === 'armazem' || raw === 'warehouse') {
+    return 'Armazem';
+  }
   return raw;
 }
 
@@ -78,6 +81,10 @@ export function isRhOrAdminSession(session) {
   if (isRhOrAdminRole(session.role)) return true;
   if (isRhOrAdminName(session.name)) return true;
   return isRhOrAdminEmail(session.username || session.email);
+}
+
+export function isWarehouseSession(session) {
+  return Boolean(session && session.role === 'warehouse');
 }
 
 /** Exposto para testes de sincronização com a API */

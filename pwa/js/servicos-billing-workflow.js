@@ -14,6 +14,7 @@ import {
 import { getClient } from './entity-lookups.js';
 import { getServicoActiveReports, isServicoVisitFullyApproved } from './servicos-email-workflow.js';
 import { getPendingOrcamentoBillingReports } from './orcamento-billing-workflow.js';
+import { getPendingBillingFolhasObra } from './folhas-obra-db.js';
 import { getReportOrcamentoMeta } from './orcamento-linhas.js';
 import { reportPedidoOrcamentoRoutesToOrcamentosTab } from './pedido-orcamento.js';
 
@@ -81,7 +82,12 @@ export function getPendingBillingItems() {
     id: String(report.id),
     report,
   }));
-  return [...servicos, ...reports, ...orcamentos].sort((a, b) =>
+  const folhasObra = getPendingBillingFolhasObra().map((folha) => ({
+    kind: 'folha_obra',
+    id: String(folha.id),
+    folha,
+  }));
+  return [...servicos, ...reports, ...orcamentos, ...folhasObra].sort((a, b) =>
     billingItemSortKey(a).localeCompare(billingItemSortKey(b)),
   );
 }
@@ -91,6 +97,9 @@ function billingItemSortKey(item) {
   if (item.kind === 'orcamento') {
     const meta = getReportOrcamentoMeta(item.report);
     return String(meta?.respostaClienteEm || item.report?.approvedAt || '').split('T')[0];
+  }
+  if (item.kind === 'folha_obra') {
+    return String(item.folha?.submittedAt || item.folha?.maquinaConcluidaEm || '').split('T')[0];
   }
   return String(item.report?.approvedAt || '').split('T')[0];
 }

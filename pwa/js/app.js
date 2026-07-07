@@ -216,7 +216,13 @@ export function bootstrapApp(containerId = 'app') {
   const session = sessao ? normalizeSession(sessao) : null;
 
   if (session?.role) {
-    window.location.replace(session.role === 'admin' ? 'admin.html' : 'dashboard.html');
+    const panelUrl =
+      session.role === 'admin'
+        ? 'admin.html'
+        : session.role === 'warehouse'
+          ? 'warehouse.html'
+          : 'dashboard.html';
+    window.location.replace(panelUrl);
     return;
   }
 

@@ -2,6 +2,8 @@
  * Deteta novo deploy e força recarregamento limpo (SW + cache do browser).
  */
 
+import { isBrowserOffline } from './network-status.js';
+
 const STORAGE_KEY = 'manusilva_app_build_id';
 const RECOVERY_KEY = 'manusilva_module_recovery';
 const FORCE_BUST_KEY = 'manusilva_force_bust';
@@ -120,6 +122,7 @@ export async function ensureFreshAppBuild(buildId) {
     const previous = localStorage.getItem(STORAGE_KEY);
     if (previous && previous !== current) {
       localStorage.setItem(STORAGE_KEY, current);
+      if (isBrowserOffline()) return false;
       await purgeBrowserCaches();
       await navigateToFreshApp();
       return true;
@@ -183,6 +186,7 @@ function bindBfcacheGuard() {
   bfcacheGuardBound = true;
   window.addEventListener('pageshow', (event) => {
     if (!event.persisted) return;
+    if (isBrowserOffline()) return;
     try {
       if (sessionStorage.getItem('manusilva_bfcache_bust')) return;
       sessionStorage.setItem('manusilva_bfcache_bust', '1');

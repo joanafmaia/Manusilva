@@ -48,6 +48,17 @@ import { formatOrdemLabel, formatOpLabel } from '../report-review-ui.js';
 import { reportIsStandaloneOrcamento } from '../orcamento-standalone.js';
 import { resolveOrcamentoBillingTotal } from '../orcamento-billing-workflow.js';
 import { STATUS_RECEBIMENTO_OPCOES, labelStatusRecebimento } from '../billing-constants.js';
+import {
+  formatFolhaObraOrdemLabel,
+  getFolhaObra,
+  getInvoicedFolhasObra,
+} from '../folhas-obra-db.js';
+import {
+  confirmFolhaObraInvoicePayment,
+  estimateFolhaObraValue,
+  registerFolhaObraInvoice,
+  revertFolhaObraInvoice,
+} from '../folhas-obra-workflow.js';
 
 const URGENT_DAYS = 3;
 const DEFAULT_ESTIMATE_EUR = 120;
@@ -245,12 +256,13 @@ function getAllInvoicedEntities() {
   const reports = getInvoicedReports().map((report) => ({ kind: 'report', entity: report }));
   const servicos = getInvoicedServicos().map((servico) => ({ kind: 'servico', entity: servico }));
   const manuais = getManualInvoicesSnapshot().map((invoice) => ({ kind: 'manual', entity: invoice }));
-  return [...reports, ...servicos, ...manuais];
+  const folhasObra = getInvoicedFolhasObra().map((folha) => ({ kind: 'folha_obra', entity: folha }));
+  return [...reports, ...servicos, ...manuais, ...folhasObra];
 }
 
 function invoiceDateOfEntity(item) {
-  if (item.kind === 'servico' || item.kind === 'manual') {
-    return String(item.entity.dataFatura || item.entity.approvedAt || '').split('T')[0];
+  if (item.kind === 'servico' || item.kind === 'manual' || item.kind === 'folha_obra') {
+    return String(item.entity.dataFatura || item.entity.approvedAt || item.entity.submittedAt || '').split('T')[0];
   }
   return invoiceDateOf(item.entity);
 }
@@ -398,6 +410,22 @@ function buildBillingRowsFromItems(items) {
       };
     }
 
+    if (item.kind === 'folha_obra') {
+      const folha = item.folha;
+      const meta = resolveClientMeta(folha.clientId);
+      return {
+        kind: 'folha_obra',
+        folha,
+        ...meta,
+        ordem: formatFolhaObraOrdemLabel(folha),
+        detail: `${folha.tipo || 'Equipamento'} · ${folha.marcaModelo || '—'}`,
+        approvedLabel: formatHistoryDate(String(folha.submittedAt || folha.maquinaConcluidaEm || '').split('T')[0]),
+        urgent: false,
+        estimate: estimateFolhaObraValue(folha),
+        primaryReportId: '',
+      };
+    }
+
     const report = item.report;
     const meta = resolveClientMeta(report.clientId);
     const job = report.jobId ? getJob(report.jobId) : null;
@@ -475,6 +503,12 @@ function resolveInvoiceTrabalhoLabel(item) {
       detail: formatServicoReportsLabel(reports),
     };
   }
+  if (item.kind === 'folha_obra') {
+    return {
+      ordem: formatFolhaObraOrdemLabel(entity),
+      detail: `${entity.tipo || 'Equipamento'} · ${entity.marcaModelo || '—'}`,
+    };
+  }
   if (item.kind === 'report' && reportIsStandaloneOrcamento(entity)) {
     return {
       ordem: formatOrcamentoOrdemLabel(entity),
@@ -490,6 +524,7 @@ function resolveInvoiceTrabalhoLabel(item) {
 function resolveInvoiceTipoLabel(item) {
   if (item.kind === 'manual') return 'Manual';
   if (item.kind === 'servico') return 'Visita';
+  if (item.kind === 'folha_obra') return 'Folha de obra';
   if (item.kind === 'report' && reportIsStandaloneOrcamento(item.entity)) return 'Proposta';
   if (item.kind === 'report') return 'Relatório';
   return '—';
@@ -626,7 +661,9 @@ function renderInvoiceRow(row, acumulado, showAcum) {
       ? `data-history-detail-servico="${escapeHtml(detailId)}"`
       : kind === 'manual'
         ? `data-history-detail-manual="${escapeHtml(detailId)}"`
-        : `data-history-detail="${escapeHtml(detailId)}"`;
+        : kind === 'folha_obra'
+          ? `data-history-detail-folha-obra="${escapeHtml(detailId)}"`
+          : `data-history-detail="${escapeHtml(detailId)}"`;
   const pdfReportId = resolveHistoryPdfReportId(kind, detailId);
   const pdfBtn = pdfReportId
     ? `<button type="button" class="btn-outline btn-sm faturacao-btn-compact" data-history-pdf="${escapeHtml(pdfReportId)}" title="Abrir PDF do relatório ou proposta">PDF</button>`
@@ -636,7 +673,9 @@ function renderInvoiceRow(row, acumulado, showAcum) {
       ? `data-confirm-payment-servico="${escapeHtml(detailId)}"`
       : kind === 'manual'
         ? `data-confirm-payment-manual="${escapeHtml(detailId)}"`
-        : `data-confirm-payment="${escapeHtml(detailId)}"`;
+        : kind === 'folha_obra'
+          ? `data-confirm-payment-folha-obra="${escapeHtml(detailId)}"`
+          : `data-confirm-payment="${escapeHtml(detailId)}"`;
   const kindBadge = kind === 'servico' ? ' <span class="faturacao-visit-badge">Visita</span>' : '';
 
   return `
@@ -683,7 +722,9 @@ function renderInvoiceRow(row, acumulado, showAcum) {
                   ${
                     kind === 'servico'
                       ? `<button type="button" class="btn-secondary btn-sm faturacao-btn-compact" data-revert-invoice-servico="${escapeHtml(detailId)}" title="Voltar à lista por faturar para corrigir">Corrigir</button>`
-                      : `<button type="button" class="btn-secondary btn-sm faturacao-btn-compact" data-revert-invoice-report="${escapeHtml(detailId)}" title="Voltar à lista por faturar para corrigir">Corrigir</button>`
+                      : kind === 'folha_obra'
+                        ? `<button type="button" class="btn-secondary btn-sm faturacao-btn-compact" data-revert-invoice-folha-obra="${escapeHtml(detailId)}" title="Voltar à lista por faturar para corrigir">Corrigir</button>`
+                        : `<button type="button" class="btn-secondary btn-sm faturacao-btn-compact" data-revert-invoice-report="${escapeHtml(detailId)}" title="Voltar à lista por faturar para corrigir">Corrigir</button>`
                   }
                 </div>`
         }
@@ -781,7 +822,7 @@ function renderBillingTable(rows) {
     return `
       <section class="faturacao-table-section faturacao-table-section--billing rh-section glass-card">
         <h3 class="ms-h2 faturacao-section-title">Por faturar</h3>
-        <p class="text-muted faturacao-empty">Nenhuma visita ou relatório aprovado aguarda faturação.</p>
+        <p class="text-muted faturacao-empty">Nenhuma visita, relatório ou folha de obra aguarda faturação.</p>
       </section>
     `;
   }
@@ -803,19 +844,26 @@ function renderBillingTable(rows) {
             ${rows
               .map((row) => {
                 const isServico = row.kind === 'servico';
-                const reportId = isServico ? '' : String(row.report?.id || row.primaryReportId || '');
+                const isFolhaObra = row.kind === 'folha_obra';
+                const reportId = isServico || isFolhaObra ? '' : String(row.report?.id || row.primaryReportId || '');
                 const rowIdAttr = isServico
                   ? `data-servico-id="${escapeHtml(row.servico.id)}"`
-                  : `data-report-id="${escapeHtml(reportId)}"`;
+                  : isFolhaObra
+                    ? `data-folha-obra-id="${escapeHtml(row.folha.id)}"`
+                    : `data-report-id="${escapeHtml(reportId)}"`;
                 const pdfId = row.primaryReportId;
                 const pdfTitle = row.pdfTitle || 'Abrir PDF do relatório técnico';
                 const registerAttr = isServico
                   ? `data-register-invoice-servico="${escapeHtml(row.servico.id)}"`
-                  : `data-register-invoice="${escapeHtml(reportId)}"`;
+                  : isFolhaObra
+                    ? `data-register-invoice-folha-obra="${escapeHtml(row.folha.id)}"`
+                    : `data-register-invoice="${escapeHtml(reportId)}"`;
                 const kindBadge =
                   row.kind === 'orcamento'
                     ? ' <span class="faturacao-visit-badge">Proposta</span>'
-                    : '';
+                    : row.kind === 'folha_obra'
+                      ? ' <span class="faturacao-visit-badge">Folha de obra</span>'
+                      : '';
                 return `
               <tr class="rh-data-table-row${row.urgent ? ' faturacao-row--urgent' : ''}" ${rowIdAttr}>
                 <td class="faturacao-cell-client" title="${escapeHtml(row.nome)}">${escapeHtml(row.nome)}${kindBadge}${row.urgent ? ' <span class="faturacao-urgent-badge">Urgente</span>' : ''}</td>
@@ -949,7 +997,11 @@ async function softRefreshFaturacaoPanel() {
   if (billingFilters.clientId) {
     billingItems = billingItems.filter((item) => {
       const clientId =
-        item.kind === 'servico' ? item.servico.clientId : item.report?.clientId;
+        item.kind === 'servico'
+          ? item.servico.clientId
+          : item.kind === 'folha_obra'
+            ? item.folha.clientId
+            : item.report?.clientId;
       return String(clientId) === String(billingFilters.clientId);
     });
   }
@@ -1070,6 +1122,22 @@ function openRegisterServicoInvoiceModal(servicoId, reports = []) {
       : '',
     hint: 'Uma única fatura para todos os relatórios desta visita. O valor pode ficar em branco se agregar vários trabalhos do mesmo cliente.',
     onSave: (payload) => registerServicoInvoice(servicoId, payload),
+  });
+}
+
+function openRegisterFolhaObraInvoiceModal(folhaId) {
+  const folha = getFolhaObra(folhaId);
+  const client = folha?.clientId ? getClient(folha.clientId) : null;
+  const intervencoes = (folha?.intervencoes || []).length;
+  openRegisterInvoiceModalCore({
+    title: 'Registar Fatura — Folha de Obra',
+    defaultValor: estimateFolhaObraValue(folha),
+    client,
+    extraHtml: folha
+      ? `<p class="text-muted faturacao-invoice-hint"><strong>${escapeHtml(folha.tipo || 'Equipamento')}</strong> — ${escapeHtml(folha.marcaModelo || '')}${intervencoes ? ` · ${intervencoes} intervenção(ões)` : ''}</p>`
+      : '',
+    hint: 'Reparação em oficina/armazém. A fatura legal é emitida no programa externo.',
+    onSave: (payload) => registerFolhaObraInvoice(folhaId, payload),
   });
 }
 
@@ -1300,6 +1368,16 @@ function bindBillingRowActionButtons() {
       openRegisterServicoInvoiceModal(servicoId, reports);
     });
   });
+
+  mountRoot?.querySelectorAll('[data-register-invoice-folha-obra]').forEach((btn) => {
+    if (btn.dataset.boundBillingFolha === '1') return;
+    btn.dataset.boundBillingFolha = '1';
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const folhaId = btn.getAttribute('data-register-invoice-folha-obra');
+      if (folhaId) openRegisterFolhaObraInvoiceModal(folhaId);
+    });
+  });
 }
 
 function openInvoiceHistoryDetailModal(reportId) {
@@ -1438,6 +1516,54 @@ function openManualInvoiceHistoryDetailModal(invoiceId) {
   const actions = `<button type="button" class="btn-secondary" data-modal-cancel>Fechar</button>`;
   openModal('Detalhe da fatura manual', content, actions);
   document.querySelector('[data-modal-cancel]')?.addEventListener('click', closeModal);
+}
+
+function openFolhaObraInvoiceHistoryDetailModal(folhaId) {
+  const folha = getFolhaObra(folhaId);
+  if (!folha) {
+    showToast('Folha de obra não encontrada.', 'error');
+    return;
+  }
+
+  const meta = resolveClientMeta(folha.clientId);
+  const pago = folha.statusRecebimento === 'pago';
+  const recebimentoRaw = folha.dataRecebimento ? String(folha.dataRecebimento).split('T')[0] : '';
+  const recebimentoLabel = recebimentoRaw
+    ? formatHistoryDate(recebimentoRaw)
+    : pago
+      ? '—'
+      : 'Pendente';
+  const vencimentoLabel = pago
+    ? '—'
+    : formatHistoryDate(String(folha.dataVencimento || '').split('T')[0]);
+
+  const content = `
+    <dl class="faturacao-detail-grid">
+      <div><dt>Cliente</dt><dd>${escapeHtml(meta.nome)}</dd></div>
+      <div><dt>NIF</dt><dd>${escapeHtml(meta.nif)}</dd></div>
+      <div><dt>Referência</dt><dd>${escapeHtml(formatFolhaObraOrdemLabel(folha))}</dd></div>
+      <div><dt>Equipamento</dt><dd>${escapeHtml(folha.tipo || '—')} · ${escapeHtml(folha.marcaModelo || '—')}</dd></div>
+      <div><dt>Nº Fatura</dt><dd><code class="faturacao-ordem">${escapeHtml(folha.numeroFatura || '—')}</code></dd></div>
+      <div><dt>Valor faturado</dt><dd>${escapeHtml(formatCurrencyEurNullable(folha.valorFaturado))}</dd></div>
+      <div><dt>Data da faturação</dt><dd>${escapeHtml(formatHistoryDate(String(folha.dataFatura || '').split('T')[0]))}</dd></div>
+      <div><dt>Conclusão reparação</dt><dd>${escapeHtml(formatHistoryDate(folha.maquinaConcluidaEm))}</dd></div>
+      <div><dt>Data de vencimento</dt><dd>${escapeHtml(vencimentoLabel)}</dd></div>
+      <div><dt>Data do recebimento</dt><dd>${escapeHtml(recebimentoLabel)}</dd></div>
+      <div><dt>Estado</dt><dd>${pago ? 'Pago' : 'Pendente'}</dd></div>
+    </dl>
+  `;
+
+  const canRevert = !pago;
+  const actions = `
+    ${canRevert ? `<button type="button" class="btn-warning btn-sm" data-revert-invoice-folha-obra-modal="${escapeHtml(folhaId)}">Voltar a por faturar</button>` : ''}
+    <button type="button" class="btn-secondary" data-modal-cancel>Fechar</button>
+  `;
+  openModal('Detalhe — Folha de Obra', content, actions);
+  document.querySelector('[data-modal-cancel]')?.addEventListener('click', closeModal);
+  document.querySelector('[data-revert-invoice-folha-obra-modal]')?.addEventListener('click', () => {
+    closeModal();
+    runRevertFolhaObraInvoice(folhaId);
+  });
 }
 
 function openConfirmPaymentModal(reportId) {
@@ -1601,6 +1727,59 @@ function openConfirmManualPaymentModal(invoiceId) {
   });
 }
 
+function openConfirmFolhaObraPaymentModal(folhaId) {
+  const folha = getFolhaObra(folhaId);
+  if (!folha) {
+    showToast('Folha de obra não encontrada.', 'error');
+    return;
+  }
+
+  const meta = resolveClientMeta(folha.clientId);
+  const today = new Date().toISOString().split('T')[0];
+
+  const content = `
+    <form id="confirm-payment-form" class="faturacao-invoice-form">
+      <p class="text-muted faturacao-invoice-hint">
+        Confirmar recebimento de <strong>${escapeHtml(meta.nome)}</strong>
+        — fatura <strong>${escapeHtml(folha.numeroFatura || '—')}</strong>
+        (${escapeHtml(formatCurrencyEurNullable(folha.valorFaturado))}).
+      </p>
+      <div class="form-group">
+        <label class="form-label" for="payment-data">Data de recebimento</label>
+        <input type="date" class="form-input" id="payment-data" name="data" required value="${today}">
+      </div>
+    </form>
+  `;
+
+  const actions = `
+    <button type="button" class="btn-outline" data-modal-cancel>Cancelar</button>
+    <button type="button" class="btn-success" id="btn-confirm-payment">Confirmar recebimento</button>
+  `;
+
+  openModal('Confirmar Recebimento', content, actions);
+  document.querySelector('[data-modal-cancel]')?.addEventListener('click', closeModal);
+
+  document.getElementById('btn-confirm-payment')?.addEventListener('click', async () => {
+    const data = document.getElementById('payment-data')?.value?.trim();
+    const btn = document.getElementById('btn-confirm-payment');
+    if (!data) {
+      showToast('Indique a data de recebimento.', 'warning');
+      return;
+    }
+    btn.disabled = true;
+    try {
+      await confirmFolhaObraInvoicePayment(folhaId, data);
+      closeModal();
+      showToast('Recebimento confirmado. Valor movido para caixa.', 'success');
+      await refreshFaturacaoPanel({ soft: true });
+    } catch (err) {
+      console.error('[Faturação] Confirmar recebimento folha de obra:', err);
+      showToast(err?.message || 'Erro ao confirmar recebimento.', 'error');
+      btn.disabled = false;
+    }
+  });
+}
+
 function runRevertServicoInvoice(servicoId) {
   const servico = getServico(servicoId);
   if (!servico) {
@@ -1647,6 +1826,28 @@ function runRevertReportInvoice(reportId) {
     });
 }
 
+function runRevertFolhaObraInvoice(folhaId) {
+  const folha = getFolhaObra(folhaId);
+  if (!folha) {
+    showToast('Folha de obra não encontrada.', 'error');
+    return;
+  }
+  const meta = resolveClientMeta(folha.clientId);
+  const ok = window.confirm(
+    `Voltar a folha ${formatFolhaObraOrdemLabel(folha)} (${meta.nome}) à lista por faturar?\n\nA fatura ${folha.numeroFatura || ''} deixa de constar como emitida — poderá registar de novo com o valor correcto.`,
+  );
+  if (!ok) return;
+  void revertFolhaObraInvoice(folhaId)
+    .then(() => {
+      showToast('Folha de obra devolvida à lista por faturar.', 'success');
+      refreshFaturacaoPanel({ soft: true }).catch(console.error);
+    })
+    .catch((err) => {
+      console.error('[Faturação] Reverter fatura folha de obra:', err);
+      showToast(err?.message || 'Erro ao reverter a fatura.', 'error');
+    });
+}
+
 /** Id do relatório cujo PDF abrir no histórico de faturas emitidas. */
 function resolveHistoryPdfReportId(kind, entityId) {
   if (kind === 'report') return entityId;
@@ -1688,6 +1889,16 @@ function bindHistoryDetailActions() {
     });
   });
 
+  mountRoot?.querySelectorAll('[data-history-detail-folha-obra]').forEach((btn) => {
+    if (btn.dataset.boundHistory === '1') return;
+    btn.dataset.boundHistory = '1';
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const folhaId = btn.getAttribute('data-history-detail-folha-obra');
+      if (folhaId) openFolhaObraInvoiceHistoryDetailModal(folhaId);
+    });
+  });
+
   mountRoot?.querySelectorAll('[data-history-pdf]').forEach((btn) => {
     if (btn.dataset.boundHistoryPdf === '1') return;
     btn.dataset.boundHistoryPdf = '1';
@@ -1724,6 +1935,15 @@ function bindConfirmPaymentActions() {
     btn.addEventListener('click', () => {
       const invoiceId = btn.getAttribute('data-confirm-payment-manual');
       if (invoiceId) openConfirmManualPaymentModal(invoiceId);
+    });
+  });
+
+  mountRoot?.querySelectorAll('[data-confirm-payment-folha-obra]').forEach((btn) => {
+    if (btn.dataset.boundPayment === '1') return;
+    btn.dataset.boundPayment = '1';
+    btn.addEventListener('click', () => {
+      const folhaId = btn.getAttribute('data-confirm-payment-folha-obra');
+      if (folhaId) openConfirmFolhaObraPaymentModal(folhaId);
     });
   });
 
@@ -1771,6 +1991,15 @@ function bindConfirmPaymentActions() {
     btn.addEventListener('click', () => {
       const reportId = btn.getAttribute('data-revert-invoice-report');
       if (reportId) runRevertReportInvoice(reportId);
+    });
+  });
+
+  mountRoot?.querySelectorAll('[data-revert-invoice-folha-obra]').forEach((btn) => {
+    if (btn.dataset.boundRevertFolha === '1') return;
+    btn.dataset.boundRevertFolha = '1';
+    btn.addEventListener('click', () => {
+      const folhaId = btn.getAttribute('data-revert-invoice-folha-obra');
+      if (folhaId) runRevertFolhaObraInvoice(folhaId);
     });
   });
 }
@@ -1883,7 +2112,11 @@ function renderPanel() {
   if (billingFilters.clientId) {
     billingItems = billingItems.filter((item) => {
       const clientId =
-        item.kind === 'servico' ? item.servico.clientId : item.report?.clientId;
+        item.kind === 'servico'
+          ? item.servico.clientId
+          : item.kind === 'folha_obra'
+            ? item.folha.clientId
+            : item.report?.clientId;
       return String(clientId) === String(billingFilters.clientId);
     });
   }

@@ -8456,3 +8456,177 @@ body.tech-dashboard-page .form-overlay .component-toggle-btn,
 body.tech-dashboard-page .form-overlay .legal-verdict-card {
   background: var(--ms-card-bg);
 }
+
+/* ═══ Folha de obra (oficina) ═══ */
+.folha-obra-tab__actions {
+  margin-bottom: 1rem;
+}
+.folha-obra-filter-bar {
+  padding: 0.9rem;
+  margin-bottom: 1rem;
+}
+.folha-obra-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+}
+.folha-obra-list-section {
+  margin-bottom: 1.5rem;
+}
+.folha-obra-list-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin: 0 0 0.75rem;
+  color: var(--ms-text);
+}
+.folha-obra-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+.folha-obra-card .folha-obra-ordem {
+  font-size: 0.75rem;
+  color: var(--ms-text-muted);
+}
+.folha-obra-estado {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+.folha-obra-estado--draft { background: #f1f5f9; color: #475569; }
+.folha-obra-estado--active { background: #dbeafe; color: #1d4ed8; }
+.folha-obra-estado--pending { background: #fef3c7; color: #b45309; }
+.folha-obra-estado--done { background: #d1fae5; color: #047857; }
+.folha-obra-empty {
+  margin: 0;
+  padding: 0.5rem 0;
+}
+.folha-obra-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  background: var(--ms-bg, #f7f6f3);
+  overflow: auto;
+}
+.folha-obra-overlay[hidden] {
+  display: none !important;
+}
+body.folha-obra-open {
+  overflow: hidden;
+}
+.folha-obra-panel {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  max-width: 960px;
+  margin: 0 auto;
+}
+.folha-obra-panel__header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--ms-border);
+  background: var(--ms-card-bg, #fff);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+.folha-obra-panel__back {
+  border: none;
+  background: transparent;
+  font-size: 1.25rem;
+  line-height: 1;
+  padding: 0.35rem 0.5rem;
+  cursor: pointer;
+}
+.folha-obra-panel__title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+.folha-obra-panel__body {
+  flex: 1;
+  padding: 1rem;
+}
+.folha-obra-panel__footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  padding: 0.85rem 1rem;
+  border-top: 1px solid var(--ms-border);
+  background: var(--ms-card-bg, #fff);
+  position: sticky;
+  bottom: 0;
+}
+.folha-obra-section {
+  margin-bottom: 1.25rem;
+}
+.folha-obra-section-title {
+  margin: 0 0 0.75rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--ms-primary);
+}
+.folha-obra-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+.folha-obra-header-grid,
+.folha-obra-closing-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.75rem;
+}
+.folha-obra-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--ms-border);
+  border-radius: var(--ms-radius-lg, 10px);
+}
+.folha-obra-intervencoes-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+.folha-obra-intervencoes-table th,
+.folha-obra-intervencoes-table td {
+  padding: 0.45rem 0.5rem;
+  border-bottom: 1px solid var(--ms-border);
+  vertical-align: middle;
+}
+.folha-obra-intervencoes-table th {
+  background: #f8fafc;
+  text-align: left;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.folha-obra-intervencao-actions {
+  width: 2.5rem;
+  text-align: center;
+}
+.form-input--sm {
+  padding: 0.35rem 0.45rem;
+  font-size: 0.85rem;
+}
+.folha-obra-locked-hint {
+  margin: 0;
+  color: var(--ms-text-muted);
+  font-size: 0.9rem;
+}
+.warehouse-dashboard-page .tech-jobs-tabs,
+.warehouse-dashboard-page #tech-calendar-wrap {
+  display: none !important;
+}
+.warehouse-create-btn {
+  white-space: nowrap;
+}
+.warehouse-home__header {
+  margin-bottom: 0.75rem;
+}
