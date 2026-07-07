@@ -645,8 +645,7 @@ export function openFolhaObraEditor(folhaId, session, { onClose } = {}) {
             const saved = await submitFolhaObraDiagnosticoForOrcamento(state.id, payload);
             state.folha = saved;
             showToast('Diagnóstico enviado ao RH para orçamentar.', 'success', 5000, { force: true });
-            ctx.repaint();
-            afterClose?.();
+            close();
           } finally {
             setFolhaObraEditorBusy(overlay, false);
           }
