@@ -2,7 +2,7 @@
  * Dashboard Armazém — layout desktop para PC na oficina.
  */
 
-import { requireAuth, warmOperacoes, applyBrandLogo, showToast } from './tech-app-core.js';
+import { requireAuth, warmOperacoes, showToast } from './tech-app-core.js';
 import { initLogoutButton, renderUserGreeting } from './auth.js';
 import { bindAppRefreshButton } from './app-refresh-ui.js';
 import { openFolhaObraEditor, mountFolhasObraTab } from './views/folhas-obra.js';
@@ -26,7 +26,6 @@ export async function initWarehouseDashboard() {
   const session = requireAuth('warehouse');
   if (!session) return;
 
-  applyBrandLogo();
   initLogoutButton();
   renderUserGreeting('user-name');
   bindAppRefreshButton('btn-force-app-refresh', {

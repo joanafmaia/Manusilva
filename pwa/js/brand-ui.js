@@ -17,14 +17,6 @@ export function getPdfLogoFormat(dataUri = MANUSILVA_LOGO) {
   return 'PNG';
 }
 
-function finishBrandLogoBoot() {
-  try {
-    document.documentElement.classList.remove('ms-booting');
-  } catch {
-    /* ignore */
-  }
-}
-
 function markLogoSlotReady(slot, img) {
   img.classList.add('brand-logo-img--ready');
   slot.classList.add('brand-logo-slot--ready');
@@ -61,22 +53,10 @@ function bindLogoReveal(slot, img, onSettled) {
  * @returns {boolean} true se o logo Base64 estiver configurado
  */
 export function applyBrandLogo(root = document) {
-  if (!isLogoConfigured()) {
-    finishBrandLogoBoot();
-    return false;
-  }
+  if (!isLogoConfigured()) return false;
 
   const slots = root.querySelectorAll('[data-brand-logo], [data-brand-logo-lg]');
-  if (!slots.length) {
-    finishBrandLogoBoot();
-    return false;
-  }
-
-  let pending = 0;
-  const settleOne = () => {
-    pending -= 1;
-    if (pending <= 0) finishBrandLogoBoot();
-  };
+  if (!slots.length) return false;
 
   slots.forEach((slot) => {
     const isLarge = slot.hasAttribute('data-brand-logo-lg');
@@ -94,8 +74,7 @@ export function applyBrandLogo(root = document) {
       slot.appendChild(img);
     }
 
-    pending += 1;
-    bindLogoReveal(slot, img, settleOne);
+    bindLogoReveal(slot, img, () => {});
     slot.removeAttribute('aria-hidden');
   });
 
@@ -103,8 +82,6 @@ export function applyBrandLogo(root = document) {
     el.hidden = true;
     el.setAttribute('aria-hidden', 'true');
   });
-
-  if (pending <= 0) finishBrandLogoBoot();
 
   return true;
 }

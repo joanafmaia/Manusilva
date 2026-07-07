@@ -14,6 +14,16 @@ import {
 } from './app-version.js';
 import { getSession } from './session.js';
 
+/** Revela a shell da app só depois do primeiro ecrã estar montado (evita flash de ícones). */
+export function finishAppBoot() {
+  try {
+    document.documentElement.classList.add('ms-app-ready');
+    document.documentElement.classList.remove('ms-booting');
+  } catch {
+    /* ignore */
+  }
+}
+
 async function bootEntry(entry, moduleQ) {
   const { applyBrandLogo } = await import(`./brand-ui.js${moduleQ}`);
   applyBrandLogo();
@@ -72,6 +82,7 @@ export async function runManusilvaEntry(entry, options = {}) {
   globalThis.__MS_MODULE_Q = moduleQ;
 
   await bootEntry(entry, moduleQ);
+  finishAppBoot();
   clearModuleRecoveryFlag();
 
   if (options.onRemoteBuild) startBuildIdWatch(options.onRemoteBuild);

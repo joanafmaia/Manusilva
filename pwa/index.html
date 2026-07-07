@@ -45,9 +45,10 @@
       );
       await runManusilvaEntry('login');
     } catch (err) {
-      const { handleBootstrapFailure } = await import(`./js/bootstrap-entry.js?_=${Date.now()}`);
+      const { handleBootstrapFailure, finishAppBoot } = await import(`./js/bootstrap-entry.js?_=${Date.now()}`);
       const recovered = await handleBootstrapFailure(err);
       if (!recovered) {
+        finishAppBoot();
         document.getElementById('app').innerHTML =
           '<p style="padding:1.5rem;font-family:Source Sans 3,system-ui,sans-serif">Não foi possível carregar a aplicação. Usa «Atualizar app» ou limpa os dados do site no browser.</p>';
       }
