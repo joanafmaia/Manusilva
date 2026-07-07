@@ -166,7 +166,7 @@ describe('folha-obra-etiqueta', () => {
     assert.match(html, /Resp\./);
     assert.match(html, /Hugo/);
     assert.equal(ETIQUETA_PRINT_WIDTH_MM, 50);
-    assert.equal(ETIQUETA_PRINT_HEIGHT_MM, 54);
+    assert.equal(ETIQUETA_PRINT_HEIGHT_MM, 68);
   });
 });
 

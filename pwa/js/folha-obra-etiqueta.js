@@ -16,7 +16,7 @@ const PRINT_FRAME_ID = 'folha-obra-etiqueta-print-frame';
 /** Largura máxima da fita (mm). */
 export const ETIQUETA_PRINT_WIDTH_MM = 50;
 /** Comprimento da etiqueta (mm) — bem abaixo do máximo da impressora (431,8 mm). */
-export const ETIQUETA_PRINT_HEIGHT_MM = 54;
+export const ETIQUETA_PRINT_HEIGHT_MM = 68;
 
 const ETIQUETA_STYLES = `
   @page {
@@ -36,14 +36,14 @@ const ETIQUETA_STYLES = `
   .folha-etiqueta {
     width: ${ETIQUETA_PRINT_WIDTH_MM}mm;
     height: ${ETIQUETA_PRINT_HEIGHT_MM}mm;
-    padding: 1.8mm 2mm;
+    padding: 2mm 2.2mm;
     display: flex;
     flex-direction: column;
-    gap: 0.6mm;
+    gap: 0.8mm;
     overflow: hidden;
   }
   .folha-etiqueta__brand {
-    font-size: 6pt;
+    font-size: 7pt;
     font-weight: 700;
     letter-spacing: 0.05em;
     text-transform: uppercase;
@@ -51,29 +51,29 @@ const ETIQUETA_STYLES = `
     line-height: 1.1;
   }
   .folha-etiqueta__etq {
-    font-size: 11pt;
+    font-size: 14pt;
     font-weight: 700;
     line-height: 1.05;
-    margin-bottom: 0.4mm;
+    margin-bottom: 0.5mm;
   }
   .folha-etiqueta__cliente {
-    font-size: 7pt;
+    font-size: 9pt;
     font-weight: 600;
     line-height: 1.15;
-    max-height: 8mm;
+    max-height: 11mm;
     overflow: hidden;
     word-break: break-word;
   }
   .folha-etiqueta__line {
-    font-size: 6.5pt;
-    line-height: 1.2;
+    font-size: 8pt;
+    line-height: 1.25;
     display: flex;
     gap: 1mm;
     word-break: break-word;
   }
   .folha-etiqueta__line span {
     flex: 0 0 auto;
-    min-width: 11mm;
+    min-width: 12mm;
     font-weight: 600;
     color: #475569;
   }
