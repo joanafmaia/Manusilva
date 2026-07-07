@@ -177,7 +177,7 @@ describe('folha-obra-orcamento', () => {
 });
 
 describe('folha-obra-etiqueta', () => {
-  it('buildFolhaObraEtiquetaHtml inclui equipamento e data de entrada', async () => {
+  it('buildFolhaObraEtiquetaHtml inclui equipamento, M.S/R.C e pessoas', async () => {
     if (typeof globalThis.localStorage === 'undefined') {
       const store = new Map();
       globalThis.localStorage = {
@@ -188,8 +188,15 @@ describe('folha-obra-etiqueta', () => {
       };
     }
 
-    const { buildFolhaObraEtiquetaHtml, ETIQUETA_PRINT_WIDTH_MM, ETIQUETA_PRINT_HEIGHT_MM } = await import('../js/folha-obra-etiqueta.js');
-    const html = buildFolhaObraEtiquetaHtml({
+    const {
+      buildFolhaObraEtiquetaHtml,
+      buildEtiquetaPeopleLines,
+      resolveTecnicoReparacaoEtiqueta,
+      ETIQUETA_PRINT_WIDTH_MM,
+      ETIQUETA_PRINT_HEIGHT_MM,
+    } = await import('../js/folha-obra-etiqueta.js');
+
+    const msHtml = buildFolhaObraEtiquetaHtml({
       clientId: '5',
       tipo: 'Empilhador',
       marcaModelo: 'Toyota',
@@ -197,14 +204,51 @@ describe('folha-obra-etiqueta', () => {
       etq: 'ETQ-2',
       dataRececao: '2026-07-07',
       numeroOrdem: 2,
-      responsavel: 'Hugo',
+      responsabilidade: 'MS',
+      tecnicoReparacao: 'Hugo',
     });
-    assert.match(html, />Ent:</);
-    assert.match(html, /Empilhador/);
-    assert.match(html, /Toyota/);
-    assert.match(html, /ETQ-2/);
-    assert.match(html, />R:</);
-    assert.match(html, /Hugo/);
+    assert.match(msHtml, /M\.S/);
+    assert.match(msHtml, /Empilhador/);
+    assert.match(msHtml, /ETQ-2/);
+    assert.match(msHtml, /Arranjou/);
+    assert.match(msHtml, /Hugo/);
+    assert.doesNotMatch(msHtml, /Trouxe/);
+
+    const rcHtml = buildFolhaObraEtiquetaHtml({
+      clientId: '5',
+      tipo: 'Bateria',
+      marcaModelo: 'Hoppecke',
+      numeroSerie: 'SN-9',
+      etq: 'ETQ-9',
+      dataRececao: '2026-07-07',
+      numeroOrdem: 9,
+      responsabilidade: 'RC',
+      entreguePor: 'João Silva',
+      tecnicoReparacao: 'Ana',
+    });
+    assert.match(rcHtml, /R\.C/);
+    assert.match(rcHtml, /Trouxe/);
+    assert.match(rcHtml, /João Silva/);
+    assert.match(rcHtml, /Arranjou/);
+    assert.match(rcHtml, /Ana/);
+
+    assert.deepEqual(
+      buildEtiquetaPeopleLines({
+        responsabilidade: 'RC',
+        entreguePor: 'Cliente X',
+        tecnicoReparacao: 'Pedro',
+      }),
+      [
+        { label: 'Trouxe', value: 'Cliente X' },
+        { label: 'Arranjou', value: 'Pedro' },
+      ],
+    );
+    assert.equal(
+      resolveTecnicoReparacaoEtiqueta({
+        intervencoes: [{ realizado_por: 'Luís' }],
+      }),
+      'Luís',
+    );
     assert.equal(ETIQUETA_PRINT_WIDTH_MM, 25);
     assert.equal(ETIQUETA_PRINT_HEIGHT_MM, 92);
   });

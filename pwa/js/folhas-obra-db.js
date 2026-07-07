@@ -51,6 +51,8 @@ export function mapRowToFolhaObra(row) {
     intervencoes: normalizeIntervencoes(row.intervencoes),
     maquinaConcluidaEm: formatDateOnly(row.maquina_concluida_em),
     responsavel: row.responsavel || '',
+    entreguePor: row.entregue_por || '',
+    tecnicoReparacao: row.tecnico_reparacao || '',
     responsabilidade: row.responsabilidade || 'RC',
     orcamentoReportId: row.orcamento_report_id ? String(row.orcamento_report_id) : '',
     orcamentoAceiteEm: row.orcamento_aceite_em || null,
@@ -88,6 +90,8 @@ export function mapFolhaObraToRow(folha, overrides = {}) {
     intervencoes: normalizeIntervencoes(data.intervencoes),
     maquina_concluida_em: formatDateOnly(data.maquinaConcluidaEm) || null,
     responsavel: data.responsavel ?? '',
+    entregue_por: data.entreguePor ?? '',
+    tecnico_reparacao: data.tecnicoReparacao ?? '',
     responsabilidade: data.responsabilidade ?? 'RC',
     orcamento_report_id: data.orcamentoReportId || overrides.orcamento_report_id || null,
     orcamento_aceite_em: data.orcamentoAceiteEm ?? overrides.orcamento_aceite_em ?? null,
@@ -381,7 +385,11 @@ export function validateFolhaObraPayload(payload, mode = 'draft') {
     throw new Error('Indique a data de entrada.');
   }
   if ((mode === 'entrada' || mode === 'concluir') && !String(payload?.responsavel || '').trim()) {
-    throw new Error('Selecione o técnico responsável.');
+    throw new Error('Selecione o técnico de entrada.');
+  }
+
+  if (mode === 'entrada' && responsabilidade === 'RC' && !String(payload?.entreguePor || '').trim()) {
+    throw new Error('Indique quem trouxe o equipamento (R.C).');
   }
 
   if (mode === 'concluir') {
@@ -389,7 +397,10 @@ export function validateFolhaObraPayload(payload, mode = 'draft') {
       throw new Error('Indique a data em que a máquina foi concluída.');
     }
     if (!String(payload?.responsavel || '').trim()) {
-      throw new Error('Indique o responsável.');
+      throw new Error('Indique o técnico de entrada.');
+    }
+    if (!String(payload?.tecnicoReparacao || '').trim()) {
+      throw new Error('Indique o técnico que arranjou o equipamento.');
     }
   }
 }

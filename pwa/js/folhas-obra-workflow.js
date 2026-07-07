@@ -90,6 +90,8 @@ export async function registerFolhaObraEntrada(folhaId, payload = null) {
     intervencoes: merged.intervencoes || [],
     observacoes: merged.observacoes || '',
     responsavel: merged.responsavel || existing.responsavel || '',
+    entreguePor: merged.entreguePor ?? existing.entreguePor ?? '',
+    tecnicoReparacao: merged.tecnicoReparacao ?? existing.tecnicoReparacao ?? '',
     responsabilidade,
     estado: nextEstado,
     etq,

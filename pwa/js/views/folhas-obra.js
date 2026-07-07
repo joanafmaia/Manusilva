@@ -131,17 +131,40 @@ function collectIntervencoesFromForm(form) {
   return rows;
 }
 
-function renderResponsavelSelect(folha, session, { disabled = false } = {}) {
+function resolveDefaultTecnicoReparacao(folha) {
+  if (folha?.tecnicoReparacao?.trim()) return folha.tecnicoReparacao.trim();
+  const rows = Array.isArray(folha?.intervencoes) ? folha.intervencoes : [];
+  for (let i = rows.length - 1; i >= 0; i -= 1) {
+    const nome = String(rows[i]?.realizado_por || '').trim();
+    if (nome) return nome;
+  }
+  return folha?.responsavel?.trim() || '';
+}
+
+function renderResponsavelSelect(folha, session, { disabled = false, name = 'responsavel', id = 'folha-responsavel' } = {}) {
   const selectedName =
     folha?.responsavel ||
     TECHNICIANS.find((t) => t.id === session?.technicianId)?.name ||
     '';
   return `
-    <select class="form-select" id="folha-responsavel" name="responsavel" required ${disabled ? 'disabled' : ''}>
+    <select class="form-select" id="${id}" name="${name}" required ${disabled ? 'disabled' : ''}>
       <option value="">— Selecionar técnico —</option>
       ${TECHNICIANS.map(
         (tech) =>
           `<option value="${escapeHtml(tech.name)}" data-tech-id="${escapeHtml(tech.id)}"${selectedName === tech.name ? ' selected' : ''}>${escapeHtml(tech.name)}</option>`,
+      ).join('')}
+    </select>
+  `;
+}
+
+function renderTecnicoReparacaoSelect(folha, session, { disabled = false } = {}) {
+  const selectedName = resolveDefaultTecnicoReparacao(folha);
+  return `
+    <select class="form-select" id="folha-tecnico-reparacao" name="tecnico_reparacao" required ${disabled ? 'disabled' : ''}>
+      <option value="">— Selecionar técnico —</option>
+      ${TECHNICIANS.map(
+        (tech) =>
+          `<option value="${escapeHtml(tech.name)}"${selectedName === tech.name ? ' selected' : ''}>${escapeHtml(tech.name)}</option>`,
       ).join('')}
     </select>
   `;
@@ -158,6 +181,8 @@ function collectFolhaFromForm(form, technicianId, session = null) {
   const responsavelSelect = form.querySelector('[name="responsavel"]');
   const responsavel = responsavelSelect?.value?.trim() || '';
   const technicianFromForm = responsavelSelect?.selectedOptions?.[0]?.dataset?.techId || '';
+  const entreguePor = form.querySelector('[name="entregue_por"]')?.value?.trim() || '';
+  const tecnicoReparacao = form.querySelector('[name="tecnico_reparacao"]')?.value?.trim() || '';
   const observacoes = form.querySelector('[name="observacoes"]')?.value?.trim() || '';
   const diagnosticoTecnico = form.querySelector('[name="diagnostico_tecnico"]')?.value?.trim() || '';
   const estado = form.querySelector('[name="estado"]')?.value || 'rascunho';
@@ -176,6 +201,8 @@ function collectFolhaFromForm(form, technicianId, session = null) {
     intervencoes: collectIntervencoesFromForm(form),
     maquinaConcluidaEm,
     responsavel,
+    entreguePor,
+    tecnicoReparacao,
     responsabilidade: normalizeFolhaResponsabilidade(responsabilidade),
     observacoes,
     diagnosticoTecnico,
@@ -218,6 +245,7 @@ function renderFolhaObraFormHtml(folha, session) {
   const isLocked = estado === 'pendente_faturacao' || estado === 'faturado';
   const aguardaOrcamento = estado === 'aguarda_orcamento' || estado === 'orcamento_enviado';
   const emDiagnostico = isFolhaObraDiagnosticoEditable(folha);
+  const isRc = normalizeFolhaResponsabilidade(folha?.responsabilidade) === 'RC';
   const entradaLocked = isLocked || estado !== 'rascunho';
   const podeReparar = isFolhaObraRepairEditable(folha);
   const etqValue = folha?.etq || '';
@@ -277,9 +305,21 @@ function renderFolhaObraFormHtml(folha, session) {
             <input type="date" class="form-input" id="folha-rececao" name="data_rececao" value="${escapeHtml(folha?.dataRececao || today)}" required ${entradaLocked ? 'readonly' : ''}>
           </div>
           <div class="form-group">
-            <label class="form-label" for="folha-responsavel">Responsável</label>
+            <label class="form-label" for="folha-responsavel">Técnico de entrada</label>
             ${renderResponsavelSelect(folha, session, { disabled: entradaLocked })}
+            <p class="folha-obra-field-hint">Quem registou a entrada no Armazém.</p>
           </div>
+          ${
+            isRc
+              ? `
+          <div class="form-group folha-obra-field--entregue">
+            <label class="form-label" for="folha-entregue-por">Quem trouxe o equipamento</label>
+            <input type="text" class="form-input" id="folha-entregue-por" name="entregue_por" value="${escapeHtml(folha?.entreguePor || '')}" placeholder="Nome de quem entregou na oficina" ${entradaLocked ? 'readonly' : ''}${!entradaLocked ? ' required' : ''}>
+            <p class="folha-obra-field-hint">Obrigatório em R.C — aparece na etiqueta.</p>
+          </div>
+          `
+              : ''
+          }
         </div>
       </section>
 
@@ -351,6 +391,11 @@ function renderFolhaObraFormHtml(folha, session) {
           <div class="form-group">
             <label class="form-label" for="folha-concluida">Máquina concluída a</label>
             <input type="date" class="form-input" id="folha-concluida" name="maquina_concluida_em" value="${escapeHtml(folha?.maquinaConcluidaEm || '')}" ${isLocked ? 'readonly' : ''}>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="folha-tecnico-reparacao">Técnico que arranjou</label>
+            ${renderTecnicoReparacaoSelect(folha, session, { disabled: isLocked })}
+            <p class="folha-obra-field-hint">Aparece na etiqueta de identificação.</p>
           </div>
         </div>
         <div class="form-group">
@@ -481,6 +526,8 @@ function mergeFolhaPayload(form, session, baseFolha, folhaId) {
     etq: cached?.etq || baseFolha?.etq || '',
     responsabilidade: cached?.responsabilidade || draft.responsabilidade || baseFolha?.responsabilidade || 'RC',
     diagnosticoTecnico: cached?.diagnosticoTecnico || draft.diagnosticoTecnico || baseFolha?.diagnosticoTecnico || '',
+    entreguePor: cached?.entreguePor || draft.entreguePor || baseFolha?.entreguePor || '',
+    tecnicoReparacao: cached?.tecnicoReparacao || draft.tecnicoReparacao || baseFolha?.tecnicoReparacao || '',
     estado: cached?.estado || draft.estado || baseFolha?.estado || 'rascunho',
   };
 }

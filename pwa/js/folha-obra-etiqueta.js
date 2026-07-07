@@ -8,6 +8,11 @@ import { escapeHtml } from './html-utils.js';
 import { formatDate } from './date-utils.js';
 import { getClient } from './entity-lookups.js';
 import { formatFolhaObraOrdemLabel, assignFolhaObraEtq } from './folhas-obra-db.js';
+import {
+  FOLHA_RESPONSABILIDADE,
+  formatFolhaResponsabilidadeLabel,
+  normalizeFolhaResponsabilidade,
+} from './folha-obra-orcamento.js';
 import { COMPANY } from './mock_data.js';
 import { closeModal, openModal, showToast } from './toast-modal.js';
 
@@ -31,48 +36,128 @@ const ETIQUETA_STYLES = `
     height: ${ETIQUETA_PRINT_HEIGHT_MM}mm;
     font-family: "Segoe UI", Arial, sans-serif;
     background: #fff;
-    color: #111;
+    color: #0f172a;
   }
   .folha-etiqueta {
     width: ${ETIQUETA_PRINT_WIDTH_MM}mm;
     height: ${ETIQUETA_PRINT_HEIGHT_MM}mm;
-    padding: 1.5mm 1.4mm;
+    padding: 1.2mm 1.3mm 1mm;
     display: flex;
     flex-direction: column;
-    gap: 0.6mm;
+    gap: 0.45mm;
     overflow: hidden;
+    border-top: 0.55mm solid #2b6cb0;
+  }
+  .folha-etiqueta__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5mm;
+    min-height: 3.2mm;
   }
   .folha-etiqueta__brand {
-    font-size: 5.5pt;
+    font-size: 4.8pt;
     font-weight: 700;
-    letter-spacing: 0.03em;
+    letter-spacing: 0.04em;
     text-transform: uppercase;
     color: #2b6cb0;
-    line-height: 1.1;
+    line-height: 1;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .folha-etiqueta__badge {
+    flex-shrink: 0;
+    font-size: 5.2pt;
+    font-weight: 800;
+    line-height: 1;
+    padding: 0.35mm 0.7mm;
+    border-radius: 0.5mm;
+    letter-spacing: 0.02em;
+  }
+  .folha-etiqueta__badge--ms {
+    color: #1e3a5f;
+    background: #dbeafe;
+    border: 0.12mm solid #93c5fd;
+  }
+  .folha-etiqueta__badge--rc {
+    color: #7c2d12;
+    background: #ffedd5;
+    border: 0.12mm solid #fdba74;
+  }
+  .folha-etiqueta__etq-wrap {
+    padding: 0.45mm 0.55mm;
+    border: 0.18mm solid #cbd5e1;
+    border-radius: 0.6mm;
+    background: #f8fafc;
+    text-align: center;
   }
   .folha-etiqueta__etq {
-    font-size: 11pt;
-    font-weight: 700;
+    font-size: 10.5pt;
+    font-weight: 800;
     line-height: 1.05;
-    margin-bottom: 0.3mm;
+    letter-spacing: 0.02em;
+  }
+  .folha-etiqueta__fo {
+    font-size: 5pt;
+    color: #64748b;
+    line-height: 1.1;
+    margin-top: 0.15mm;
   }
   .folha-etiqueta__cliente {
-    font-size: 7pt;
-    font-weight: 600;
-    line-height: 1.15;
-    max-height: 14mm;
+    font-size: 6.8pt;
+    font-weight: 700;
+    line-height: 1.12;
+    max-height: 8.5mm;
     overflow: hidden;
     word-break: break-word;
+    padding: 0.1mm 0;
   }
-  .folha-etiqueta__line {
-    font-size: 6.5pt;
-    line-height: 1.2;
-    display: block;
+  .folha-etiqueta__equip {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2mm;
+    padding: 0.35mm 0;
+    border-top: 0.12mm solid #e2e8f0;
+    border-bottom: 0.12mm solid #e2e8f0;
+  }
+  .folha-etiqueta__row {
+    font-size: 5.8pt;
+    line-height: 1.15;
+    display: flex;
+    gap: 0.5mm;
     word-break: break-word;
   }
-  .folha-etiqueta__line span {
-    font-weight: 600;
+  .folha-etiqueta__row-label {
+    flex-shrink: 0;
+    width: 5.5mm;
+    font-weight: 700;
     color: #475569;
+    text-transform: uppercase;
+    font-size: 5pt;
+  }
+  .folha-etiqueta__row-value {
+    flex: 1;
+    min-width: 0;
+    font-weight: 600;
+  }
+  .folha-etiqueta__people {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25mm;
+    margin-top: auto;
+    padding-top: 0.2mm;
+  }
+  .folha-etiqueta__person {
+    font-size: 5.6pt;
+    line-height: 1.15;
+    word-break: break-word;
+  }
+  .folha-etiqueta__person-label {
+    font-weight: 700;
+    color: #334155;
   }
   @media print {
     html, body {
@@ -87,12 +172,40 @@ function resolveClientName(folha) {
   return client?.Nome || client?.name || '—';
 }
 
-function resolveResponsavelName(folha) {
-  return String(folha?.responsavel || '').trim() || '—';
-}
-
 function resolveEtqLabel(folha) {
   return assignFolhaObraEtq(folha) || formatFolhaObraOrdemLabel(folha);
+}
+
+/** Técnico que arranjou — campo explícito ou última intervenção. */
+export function resolveTecnicoReparacaoEtiqueta(folha) {
+  const explicit = String(folha?.tecnicoReparacao || '').trim();
+  if (explicit) return explicit;
+  const rows = Array.isArray(folha?.intervencoes) ? folha.intervencoes : [];
+  for (let i = rows.length - 1; i >= 0; i -= 1) {
+    const nome = String(rows[i]?.realizado_por || '').trim();
+    if (nome) return nome;
+  }
+  return '';
+}
+
+/** Linhas de pessoas para a etiqueta (M.S / R.C). */
+export function buildEtiquetaPeopleLines(folha) {
+  const isRc = normalizeFolhaResponsabilidade(folha?.responsabilidade) === FOLHA_RESPONSABILIDADE.RC;
+  const tecnico = resolveTecnicoReparacaoEtiqueta(folha);
+  const lines = [];
+
+  if (isRc) {
+    const entregue = String(folha?.entreguePor || '').trim();
+    if (entregue) {
+      lines.push({ label: 'Trouxe', value: entregue });
+    }
+  }
+
+  if (tecnico) {
+    lines.push({ label: 'Arranjou', value: tecnico });
+  }
+
+  return lines;
 }
 
 export function validateFolhaObraEtiqueta(folha) {
@@ -100,24 +213,63 @@ export function validateFolhaObraEtiqueta(folha) {
   if (!folha?.tipo?.trim()) throw new Error('Indique o tipo de equipamento.');
   if (!folha?.marcaModelo?.trim()) throw new Error('Indique a marca/modelo.');
   if (!folha?.dataRececao) throw new Error('Indique a data de entrada.');
+
+  const isRc = normalizeFolhaResponsabilidade(folha?.responsabilidade) === FOLHA_RESPONSABILIDADE.RC;
+  if (isRc && !String(folha?.entreguePor || '').trim()) {
+    throw new Error('Indique quem trouxe o equipamento (R.C) antes de imprimir.');
+  }
+}
+
+function renderEquipRow(label, value) {
+  return `
+    <div class="folha-etiqueta__row">
+      <span class="folha-etiqueta__row-label">${escapeHtml(label)}</span>
+      <span class="folha-etiqueta__row-value">${escapeHtml(value || '—')}</span>
+    </div>
+  `;
 }
 
 function buildFolhaObraEtiquetaBody(folha) {
   const cliente = resolveClientName(folha);
   const entrada = folha?.dataRececao ? formatDate(folha.dataRececao) : '—';
-  const responsavel = resolveResponsavelName(folha);
   const etq = resolveEtqLabel(folha);
+  const fo = formatFolhaObraOrdemLabel(folha);
+  const msRc = formatFolhaResponsabilidadeLabel(folha?.responsabilidade);
+  const badgeClass =
+    normalizeFolhaResponsabilidade(folha?.responsabilidade) === FOLHA_RESPONSABILIDADE.MS
+      ? 'folha-etiqueta__badge--ms'
+      : 'folha-etiqueta__badge--rc';
+  const people = buildEtiquetaPeopleLines(folha);
 
   return `
     <div class="folha-etiqueta">
-      <div class="folha-etiqueta__brand">${escapeHtml(COMPANY.name || 'Manusilva')}</div>
-      <div class="folha-etiqueta__etq">${escapeHtml(etq)}</div>
+      <div class="folha-etiqueta__head">
+        <div class="folha-etiqueta__brand">${escapeHtml(COMPANY.name || 'Manusilva')}</div>
+        <span class="folha-etiqueta__badge ${badgeClass}">${escapeHtml(msRc)}</span>
+      </div>
+      <div class="folha-etiqueta__etq-wrap">
+        <div class="folha-etiqueta__etq">${escapeHtml(etq)}</div>
+        ${fo && fo !== '—' && fo !== etq ? `<div class="folha-etiqueta__fo">${escapeHtml(fo)}</div>` : ''}
+      </div>
       <div class="folha-etiqueta__cliente">${escapeHtml(cliente)}</div>
-      <div class="folha-etiqueta__line"><span>T:</span> ${escapeHtml(folha?.tipo || '—')}</div>
-      <div class="folha-etiqueta__line"><span>M:</span> ${escapeHtml(folha?.marcaModelo || '—')}</div>
-      <div class="folha-etiqueta__line"><span>S:</span> ${escapeHtml(folha?.numeroSerie || '—')}</div>
-      <div class="folha-etiqueta__line"><span>Ent:</span> ${escapeHtml(entrada)}</div>
-      <div class="folha-etiqueta__line"><span>R:</span> ${escapeHtml(responsavel)}</div>
+      <div class="folha-etiqueta__equip">
+        ${renderEquipRow('Tipo', folha?.tipo)}
+        ${renderEquipRow('Mod', folha?.marcaModelo)}
+        ${renderEquipRow('Sér', folha?.numeroSerie)}
+        ${renderEquipRow('Ent', entrada)}
+      </div>
+      ${
+        people.length
+          ? `<div class="folha-etiqueta__people">
+        ${people
+          .map(
+            (p) =>
+              `<div class="folha-etiqueta__person"><span class="folha-etiqueta__person-label">${escapeHtml(p.label)}:</span> ${escapeHtml(p.value)}</div>`,
+          )
+          .join('')}
+      </div>`
+          : ''
+      }
     </div>
   `;
 }
@@ -143,14 +295,16 @@ export function buildFolhaObraEtiquetaPreviewHtml(folha) {
       <style>
         .folha-etiqueta-preview-wrap {
           display: flex;
-          justify-content: center;
+          flex-direction: column;
+          align-items: center;
           padding: 0.5rem 0 1rem;
         }
         .folha-etiqueta-preview-wrap .folha-etiqueta {
           transform-origin: top center;
-          transform: scale(2.2);
-          box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
-          border: 0.4mm solid #1e293b;
+          transform: scale(2.4);
+          box-shadow: 0 10px 28px rgba(15, 23, 42, 0.14);
+          border: 0.35mm solid #94a3b8;
+          border-radius: 1mm;
         }
         ${ETIQUETA_STYLES}
       </style>
