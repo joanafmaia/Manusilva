@@ -147,16 +147,11 @@ describe('folha-obra-orcamento', () => {
     assert.equal(resolveFolhaObraEstadoAfterEntrada('MS'), 'em_reparacao');
     assert.equal(resolveFolhaObraEstadoAfterEntrada('RC'), 'aguarda_orcamento');
     assert.equal(isFolhaObraVisibleToArmazem({ estado: 'em_reparacao' }), true);
-    assert.equal(isFolhaObraVisibleToArmazem({ estado: 'aguarda_orcamento' }), false);
+    assert.equal(isFolhaObraVisibleToArmazem({ estado: 'aguarda_orcamento' }), true);
+    assert.equal(isFolhaObraVisibleToArmazem({ estado: 'orcamento_enviado' }), true);
+    assert.equal(isFolhaObraVisibleToArmazem({ estado: 'pendente_faturacao' }), false);
     assert.equal(normalizeFolhaResponsabilidade('ms'), 'MS');
     assert.equal(formatFolhaResponsabilidadeLabel('RC'), 'R.C');
-  });
-
-  it('normalizeConsumiveis aceita linhas de consumíveis', async () => {
-    const { normalizeConsumiveis } = await import('../js/folhas-obra-db.js');
-    const rows = normalizeConsumiveis([{ artigo: 'Óleo 15W40', qtd: '2' }]);
-    assert.equal(rows[0].artigo, 'Óleo 15W40');
-    assert.equal(rows[0].qtd, '2');
   });
 });
 

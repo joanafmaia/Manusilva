@@ -25,20 +25,6 @@ export function emptyIntervencaoRow(technicianName = '') {
   };
 }
 
-export function emptyConsumivelRow() {
-  return { artigo: '', qtd: '' };
-}
-
-export function normalizeConsumiveis(rows) {
-  if (!Array.isArray(rows)) return [];
-  return rows
-    .map((row) => ({
-      artigo: String(row?.artigo || row?.material || row?.descricao || '').trim(),
-      qtd: String(row?.qtd ?? row?.quantidade ?? '').trim(),
-    }))
-    .filter((row) => row.artigo || row.qtd);
-}
-
 export function normalizeIntervencoes(rows) {
   if (!Array.isArray(rows)) return [];
   return rows.map((row) => ({
@@ -68,7 +54,6 @@ export function mapRowToFolhaObra(row) {
     responsabilidade: row.responsabilidade || 'RC',
     orcamentoReportId: row.orcamento_report_id ? String(row.orcamento_report_id) : '',
     orcamentoAceiteEm: row.orcamento_aceite_em || null,
-    consumiveis: normalizeConsumiveis(row.consumiveis),
     estado: row.estado || 'rascunho',
     submittedAt: row.submetido_em || null,
     faturacaoStatus: row.faturacao_status || null,
@@ -105,7 +90,6 @@ export function mapFolhaObraToRow(folha, overrides = {}) {
     responsabilidade: data.responsabilidade ?? 'RC',
     orcamento_report_id: data.orcamentoReportId || overrides.orcamento_report_id || null,
     orcamento_aceite_em: data.orcamentoAceiteEm ?? overrides.orcamento_aceite_em ?? null,
-    consumiveis: normalizeConsumiveis(data.consumiveis),
     estado: data.estado ?? 'rascunho',
     submetido_em: data.submittedAt ?? overrides.submetido_em ?? null,
     faturacao_status: data.faturacaoStatus ?? overrides.faturacao_status ?? null,

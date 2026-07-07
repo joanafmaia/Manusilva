@@ -45,7 +45,17 @@ export function resolveFolhaObraIdFromReport(report) {
 
 export function isFolhaObraVisibleToArmazem(folha) {
   const estado = folha?.estado || 'rascunho';
-  return estado === 'rascunho' || estado === 'em_reparacao';
+  return (
+    estado === 'rascunho' ||
+    estado === 'aguarda_orcamento' ||
+    estado === 'orcamento_enviado' ||
+    estado === 'em_reparacao'
+  );
+}
+
+export function isFolhaObraAguardaOrcamentoEstado(folhaOrEstado) {
+  const estado = typeof folhaOrEstado === 'string' ? folhaOrEstado : folhaOrEstado?.estado || 'rascunho';
+  return estado === 'aguarda_orcamento' || estado === 'orcamento_enviado';
 }
 
 export function isFolhaObraRepairEditable(folha) {

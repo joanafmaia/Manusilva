@@ -9,7 +9,6 @@ import { renderClientCombobox, bindClientComboboxes } from '../client-combobox.j
 import { getClient } from '../entity-lookups.js';
 import {
   emptyIntervencaoRow,
-  emptyConsumivelRow,
   ensureFolhasObraLoadedSafe,
   formatFolhaObraOrdemLabel,
   formatFolhaObraEstadoLabel,
@@ -28,6 +27,7 @@ import {
   isFolhaObraRepairEditable,
   isFolhaObraVisibleToArmazem,
   normalizeFolhaResponsabilidade,
+  isFolhaObraAguardaOrcamentoEstado,
 } from '../folha-obra-orcamento.js';
 import { openFolhaObraEtiquetaPreview, prepareFolhaObraEtiquetaPrint, printFolhaObraEtiqueta } from '../folha-obra-etiqueta.js';
 import { renderClientFormSection, mountClientForm } from './rh-client-form.js';
@@ -38,7 +38,7 @@ const TIPO_OPCOES = ['Empilhador', 'Bateria', 'Carregador', 'Outro equipamento']
 const ESTADO_FILTER_OPTIONS = [
   { value: 'all', label: 'Todos os estados' },
   { value: 'rascunho', label: 'Entrada em Armazém' },
-  { value: 'aguarda_orcamento', label: 'Aguarda orçamento' },
+  { value: 'aguarda_orcamento', label: 'Aguarda orçamento RH' },
   { value: 'em_reparacao', label: 'Reparação' },
   { value: 'finalizado', label: 'Finalizado' },
 ];
@@ -95,36 +95,6 @@ function renderIntervencaoRows(rows, technicianName) {
   `,
     )
     .join('');
-}
-
-function renderConsumivelRows(rows) {
-  const list = rows?.length ? rows : [emptyConsumivelRow()];
-  return list
-    .map(
-      (row, index) => `
-    <tr data-consumivel-row="${index}">
-      <td><input type="text" class="form-input form-input--sm" data-field="artigo" value="${escapeHtml(row.artigo || '')}" placeholder="Artigo / descrição"></td>
-      <td><input type="text" class="form-input form-input--sm" data-field="qtd" value="${escapeHtml(row.qtd || '')}" placeholder="Qtd."></td>
-      <td class="folha-obra-intervencao-actions">
-        <button type="button" class="btn-icon btn-icon--danger" data-remove-consumivel="${index}" title="Remover linha" aria-label="Remover linha">×</button>
-      </td>
-    </tr>
-  `,
-    )
-    .join('');
-}
-
-function collectConsumiveisFromForm(form) {
-  const rows = [];
-  form.querySelectorAll('[data-consumivel-row]').forEach((tr) => {
-    const row = {};
-    tr.querySelectorAll('[data-field]').forEach((input) => {
-      row[input.dataset.field] = input.value?.trim() || '';
-    });
-    const hasContent = Object.values(row).some((v) => String(v).trim());
-    if (hasContent) rows.push(row);
-  });
-  return rows;
 }
 
 function renderResponsabilidadeField(folha, { disabled = false } = {}) {
@@ -201,7 +171,6 @@ function collectFolhaFromForm(form, technicianId, session = null) {
     numeroSerie,
     dataRececao,
     intervencoes: collectIntervencoesFromForm(form),
-    consumiveis: collectConsumiveisFromForm(form),
     maquinaConcluidaEm,
     responsavel,
     responsabilidade: normalizeFolhaResponsabilidade(responsabilidade),
@@ -346,27 +315,6 @@ function renderFolhaObraFormHtml(folha, session) {
         </div>
       </section>
 
-      <section class="folha-obra-section">
-        <div class="folha-obra-section-head">
-          <h3 class="folha-obra-section-title">Consumíveis</h3>
-          ${isLocked ? '' : '<button type="button" class="btn-outline btn-sm" id="folha-add-consumivel">+ Linha</button>'}
-        </div>
-        <div class="folha-obra-table-wrap">
-          <table class="folha-obra-intervencoes-table">
-            <thead>
-              <tr>
-                <th>Artigo / Descrição</th>
-                <th>Quantidade</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody id="folha-consumiveis-body">
-              ${renderConsumivelRows(folha?.consumiveis)}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
       <section class="folha-obra-section folha-obra-section--closing">
         <h3 class="folha-obra-section-title">Conclusão do serviço</h3>
         <div class="folha-obra-closing-grid">
@@ -429,39 +377,6 @@ function bindFolhaObraForm(form, { getFolhaId, session }) {
     });
   }
   bindRemoveButtons(form);
-
-  const consumBody = form.querySelector('#folha-consumiveis-body');
-  form.querySelector('#folha-add-consumivel')?.addEventListener('click', () => {
-    if (!consumBody) return;
-    const index = consumBody.querySelectorAll('[data-consumivel-row]').length;
-    const wrapper = document.createElement('tbody');
-    wrapper.innerHTML = renderConsumivelRows([emptyConsumivelRow()]);
-    const tr = wrapper.querySelector('tr');
-    if (!tr) return;
-    tr.dataset.consumivelRow = String(index);
-    tr.querySelector('[data-remove-consumivel]')?.setAttribute('data-remove-consumivel', String(index));
-    consumBody.appendChild(tr);
-    bindRemoveConsumivelButtons(form);
-  });
-
-  function bindRemoveConsumivelButtons(root) {
-    if (!consumBody) return;
-    root.querySelectorAll('[data-remove-consumivel]').forEach((btn) => {
-      if (btn.dataset.bound) return;
-      btn.dataset.bound = '1';
-      btn.addEventListener('click', () => {
-        const rows = consumBody.querySelectorAll('[data-consumivel-row]');
-        if (rows.length <= 1) {
-          btn.closest('tr')?.querySelectorAll('[data-field]').forEach((input) => {
-            input.value = '';
-          });
-          return;
-        }
-        btn.closest('tr')?.remove();
-      });
-    });
-  }
-  bindRemoveConsumivelButtons(form);
 
   async function persist(mode = 'draft') {
     const payload = collectFolhaFromForm(form, session?.technicianId || '', session);
@@ -528,7 +443,6 @@ function mergeFolhaPayload(form, session, baseFolha, folhaId) {
     numeroOrdem: cached?.numeroOrdem ?? baseFolha?.numeroOrdem ?? null,
     etq: cached?.etq || baseFolha?.etq || '',
     responsabilidade: cached?.responsabilidade || draft.responsabilidade || baseFolha?.responsabilidade || 'RC',
-    consumiveis: draft.consumiveis || cached?.consumiveis || baseFolha?.consumiveis || [],
     estado: cached?.estado || draft.estado || baseFolha?.estado || 'rascunho',
   };
 }
@@ -894,6 +808,7 @@ export async function mountFolhasObraTab(
       .filter((folha) => {
         if (estado === 'all') return true;
         if (estado === 'finalizado') return isFolhaObraFinalizada(folha);
+        if (estado === 'aguarda_orcamento') return isFolhaObraAguardaOrcamentoEstado(folha);
         return folha.estado === estado;
       })
       .filter((folha) => (!dataMin ? true : String(folha.dataRececao || '') >= dataMin))
@@ -903,6 +818,7 @@ export async function mountFolhasObraTab(
       );
 
     const entradaArmazem = filtered.filter((f) => f.estado === 'rascunho');
+    const aguardaOrcamento = filtered.filter((f) => isFolhaObraAguardaOrcamentoEstado(f));
     const emReparacao = filtered.filter((f) => f.estado === 'em_reparacao');
     const finalizado = filtered.filter((f) => isFolhaObraFinalizada(f));
 
@@ -936,6 +852,7 @@ export async function mountFolhasObraTab(
           }
         </div>
         ${renderFolhasSection('Entrada em Armazém', entradaArmazem, 'Nenhum equipamento aguarda entrada.', layout)}
+        ${renderFolhasSection('Aguarda orçamento (R.C)', aguardaOrcamento, 'Nenhum equipamento R.C à espera de orçamento ou aceite.', layout)}
         ${renderFolhasSection('Reparação', emReparacao, 'Nenhum equipamento em reparação.', layout)}
         ${renderFolhasSection('Finalizado', finalizado, 'Ainda sem folhas concluídas.', layout)}
       </div>
