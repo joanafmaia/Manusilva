@@ -93,6 +93,22 @@ const billingFilters = {
 let highlightReportId = null;
 let highlightServicoId = null;
 
+async function openBillingFolhaObraPdf(folhaId) {
+  const folha = getFolhaObra(folhaId);
+  if (!folha) {
+    showToast('Folha de obra não encontrada.', 'error');
+    return;
+  }
+  try {
+    const { previewFolhaObraPDF } = await import('../pdf-preview.js');
+    showToast('A gerar PDF da folha de obra…', 'info', 2500);
+    await previewFolhaObraPDF(folha);
+  } catch (err) {
+    console.error('[Faturação] PDF folha de obra:', err);
+    showToast('Não foi possível abrir o PDF da folha de obra.', 'error');
+  }
+}
+
 async function openBillingReportPdf(reportId) {
   const report = getReport(reportId);
   if (!report) {
@@ -422,6 +438,9 @@ function buildBillingRowsFromItems(items) {
         approvedLabel: formatHistoryDate(String(folha.submittedAt || folha.maquinaConcluidaEm || '').split('T')[0]),
         urgent: false,
         estimate: estimateFolhaObraValue(folha),
+        hasPdf: true,
+        folhaPdfId: String(folha.id),
+        pdfTitle: 'Abrir PDF da folha de obra',
         primaryReportId: '',
       };
     }
@@ -665,9 +684,12 @@ function renderInvoiceRow(row, acumulado, showAcum) {
           ? `data-history-detail-folha-obra="${escapeHtml(detailId)}"`
           : `data-history-detail="${escapeHtml(detailId)}"`;
   const pdfReportId = resolveHistoryPdfReportId(kind, detailId);
-  const pdfBtn = pdfReportId
-    ? `<button type="button" class="btn-outline btn-sm faturacao-btn-compact" data-history-pdf="${escapeHtml(pdfReportId)}" title="Abrir PDF do relatório ou proposta">PDF</button>`
-    : '';
+  const pdfBtn =
+    kind === 'folha_obra'
+      ? `<button type="button" class="btn-outline btn-sm faturacao-btn-compact" data-history-pdf-folha-obra="${escapeHtml(detailId)}" title="Abrir PDF da folha de obra">PDF</button>`
+      : pdfReportId
+        ? `<button type="button" class="btn-outline btn-sm faturacao-btn-compact" data-history-pdf="${escapeHtml(pdfReportId)}" title="Abrir PDF do relatório ou proposta">PDF</button>`
+        : '';
   const paymentAttr =
     kind === 'servico'
       ? `data-confirm-payment-servico="${escapeHtml(detailId)}"`
@@ -852,6 +874,7 @@ function renderBillingTable(rows) {
                     ? `data-folha-obra-id="${escapeHtml(row.folha.id)}"`
                     : `data-report-id="${escapeHtml(reportId)}"`;
                 const pdfId = row.primaryReportId;
+                const folhaPdfId = row.folhaPdfId || (isFolhaObra ? String(row.folha?.id || '') : '');
                 const pdfTitle = row.pdfTitle || 'Abrir PDF do relatório técnico';
                 const registerAttr = isServico
                   ? `data-register-invoice-servico="${escapeHtml(row.servico.id)}"`
@@ -875,6 +898,7 @@ function renderBillingTable(rows) {
                 <td class="faturacao-col-action">
                   <div class="faturacao-billing-actions">
                     ${pdfId ? `<button type="button" class="btn-outline btn-sm faturacao-btn-compact" data-billing-pdf="${escapeHtml(pdfId)}" title="${escapeHtml(pdfTitle)}">PDF</button>` : ''}
+                    ${folhaPdfId ? `<button type="button" class="btn-outline btn-sm faturacao-btn-compact" data-billing-pdf-folha-obra="${escapeHtml(folhaPdfId)}" title="${escapeHtml(pdfTitle)}">PDF</button>` : ''}
                     <button type="button" class="btn-primary btn-sm faturacao-btn-compact" ${registerAttr} title="Marcar como faturado">Faturar</button>
                   </div>
                 </td>
@@ -1344,6 +1368,16 @@ function bindBillingRowActionButtons() {
       e.stopPropagation();
       const reportId = btn.getAttribute('data-billing-pdf');
       if (reportId) void openBillingReportPdf(reportId);
+    });
+  });
+
+  mountRoot?.querySelectorAll('[data-billing-pdf-folha-obra]').forEach((btn) => {
+    if (btn.dataset.boundBillingFolhaPdf === '1') return;
+    btn.dataset.boundBillingFolhaPdf = '1';
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const folhaId = btn.getAttribute('data-billing-pdf-folha-obra');
+      if (folhaId) void openBillingFolhaObraPdf(folhaId);
     });
   });
 
@@ -1896,6 +1930,16 @@ function bindHistoryDetailActions() {
       e.stopPropagation();
       const folhaId = btn.getAttribute('data-history-detail-folha-obra');
       if (folhaId) openFolhaObraInvoiceHistoryDetailModal(folhaId);
+    });
+  });
+
+  mountRoot?.querySelectorAll('[data-history-pdf-folha-obra]').forEach((btn) => {
+    if (btn.dataset.boundHistoryFolhaPdf === '1') return;
+    btn.dataset.boundHistoryFolhaPdf = '1';
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const folhaId = btn.getAttribute('data-history-pdf-folha-obra');
+      if (folhaId) void openBillingFolhaObraPdf(folhaId);
     });
   });
 

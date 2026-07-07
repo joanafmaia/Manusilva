@@ -79,3 +79,18 @@ describe('servicos-billing-workflow folha_obra', () => {
     assert.equal(items[0].folha.id, 'fo-1');
   });
 });
+
+describe('pdf-folha-obra', () => {
+  it('expõe geração e nome de ficheiro', async () => {
+    const { buildFolhaObraPdfFilename, generateFolhaObraPDFBlob } = await import('../js/pdf-folha-obra.js');
+    assert.equal(typeof generateFolhaObraPDFBlob, 'function');
+    assert.match(
+      buildFolhaObraPdfFilename({ numeroOrdem: 3, marcaModelo: 'Toyota 8FB' }),
+      /Manusilva-FO-3-Toyota-8FB\.pdf/,
+    );
+    await assert.rejects(
+      () => generateFolhaObraPDFBlob({ tipo: 'Empilhador' }),
+      /cliente/i,
+    );
+  });
+});

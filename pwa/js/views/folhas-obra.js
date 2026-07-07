@@ -334,6 +334,7 @@ export function openFolhaObraEditor(folhaId, session, { onClose } = {}) {
         ${renderFolhaObraFormHtml(folha, session)}
       </div>
       <footer class="folha-obra-panel__footer">
+        <button type="button" class="btn-outline" id="folha-obra-pdf">Gerar PDF</button>
         ${
           isLocked
             ? '<p class="folha-obra-locked-hint">Enviada para faturação — apenas consulta.</p>'
@@ -359,6 +360,23 @@ export function openFolhaObraEditor(folhaId, session, { onClose } = {}) {
   };
 
   overlay.querySelector('#folha-obra-close')?.addEventListener('click', close);
+
+  overlay.querySelector('#folha-obra-pdf')?.addEventListener('click', async () => {
+    try {
+      const draft = collectFolhaFromForm(form, session?.technicianId || '');
+      const base = folhaId ? getFolhaObra(folhaId) : folha;
+      const payload = {
+        ...(base || {}),
+        ...draft,
+        id: base?.id || folhaId || 'draft',
+        numeroOrdem: base?.numeroOrdem ?? null,
+      };
+      const { previewFolhaObraPDF } = await import('../pdf-preview.js');
+      await previewFolhaObraPDF(payload);
+    } catch (err) {
+      showToast(err?.message || 'Não foi possível gerar o PDF.', 'error', 6000, { force: true });
+    }
+  });
 
   overlay.querySelector('#folha-obra-save')?.addEventListener('click', async () => {
     try {

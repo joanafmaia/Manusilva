@@ -43,5 +43,6 @@ describe('warehouse role auth source', () => {
     const src = await fs.readFile(new URL('../js/views/folhas-obra.js', import.meta.url), 'utf8');
     assert.match(src, /folha-create-client/);
     assert.match(src, /\+ Novo cliente/);
+    assert.match(src, /folha-obra-pdf/);
   });
 });

@@ -397,3 +397,41 @@ export async function previewReportPDF(report) {
     throw err;
   }
 }
+
+/**
+ * Gera PDF da folha de obra e abre pré-visualização.
+ * @param {object} folha
+ */
+export async function previewFolhaObraPDF(folha) {
+  showPdfPreviewLoading(true, 'A gerar PDF da folha de obra…');
+  try {
+    const work = (async () => {
+      const { generateFolhaObraPDFBlob } = await import('./pdf-folha-obra.js');
+      return generateFolhaObraPDFBlob(folha);
+    })();
+
+    const timeout = new Promise((_, reject) => {
+      window.setTimeout(
+        () => reject(new Error('A geração do PDF demorou demasiado. Tente novamente.')),
+        PDF_PREVIEW_TIMEOUT_MS,
+      );
+    });
+
+    const payload = await Promise.race([work, timeout]);
+    showPdfPreviewLoading(false);
+    openPdfPreviewModal({
+      ...payload,
+      pageCount: payload.pageCount || 1,
+    });
+  } catch (err) {
+    showPdfPreviewLoading(false);
+    console.error('[PDF Folha de obra]', err);
+    try {
+      const { showToast } = await import('./app.js');
+      showToast(err?.message || 'Não foi possível gerar o PDF.', 'error');
+    } catch {
+      /* toast indisponível */
+    }
+    throw err;
+  }
+}

@@ -194,13 +194,22 @@ body.warehouse-page .folha-obra-empty {
 }
 
 /* Editor — modal centrado em ecrã grande */
+body.warehouse-page.folha-obra-open {
+  background: #f0f2f5;
+  overflow: hidden;
+}
+
+body.warehouse-page.folha-obra-open .bg-mesh {
+  display: none;
+}
+
 body.warehouse-page .folha-obra-overlay {
   display: flex;
   align-items: flex-start;
   justify-content: center;
   padding: 2rem 1.5rem;
-  background: rgba(15, 23, 42, 0.42);
-  backdrop-filter: blur(2px);
+  background: #f0f2f5;
+  backdrop-filter: none;
 }
 
 body.warehouse-page .folha-obra-panel {
@@ -210,8 +219,9 @@ body.warehouse-page .folha-obra-panel {
   margin: 0;
   border-radius: 14px;
   border: 1px solid var(--ms-border, #e2e8f0);
-  box-shadow: 0 24px 48px rgba(15, 23, 42, 0.18);
+  box-shadow: 0 24px 48px rgba(15, 23, 42, 0.12);
   overflow: hidden;
+  background: #fff;
 }
 
 body.warehouse-page .folha-obra-panel__header {
@@ -225,6 +235,7 @@ body.warehouse-page .folha-obra-panel__title {
 body.warehouse-page .folha-obra-panel__body {
   padding: 1.15rem 1.25rem 1.5rem;
   overflow-y: auto;
+  background: #fff;
 }
 
 body.warehouse-page .folha-obra-panel__footer {

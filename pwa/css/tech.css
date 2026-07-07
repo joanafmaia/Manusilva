@@ -8563,6 +8563,9 @@ body.folha-obra-open {
   position: sticky;
   bottom: 0;
 }
+.folha-obra-panel__footer #folha-obra-pdf {
+  margin-right: auto;
+}
 .folha-obra-section {
   margin-bottom: 1.25rem;
 }
