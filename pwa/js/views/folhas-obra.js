@@ -20,7 +20,7 @@ import {
   validateFolhaObraPayload,
 } from '../folhas-obra-db.js';
 import { registerFolhaObraEntrada, submitFolhaObraForBilling } from '../folhas-obra-workflow.js';
-import { printFolhaObraEtiqueta } from '../folha-obra-etiqueta.js';
+import { openFolhaObraEtiquetaPreview, prepareFolhaObraEtiquetaPrint, printFolhaObraEtiqueta } from '../folha-obra-etiqueta.js';
 import { renderClientFormSection, mountClientForm } from './rh-client-form.js';
 
 const TIPO_OPCOES = ['Empilhador', 'Bateria', 'Carregador', 'Outro equipamento'];
@@ -446,7 +446,12 @@ export function openFolhaObraEditor(folhaId, session, { onClose } = {}) {
 
         if (btn.id === 'folha-obra-etiqueta') {
           const payload = mergeFolhaPayload(form, sess, state.folha, state.id);
-          printFolhaObraEtiqueta(payload);
+          prepareFolhaObraEtiquetaPrint();
+          try {
+            await printFolhaObraEtiqueta(payload);
+          } catch {
+            openFolhaObraEtiquetaPreview(payload);
+          }
           return;
         }
 
@@ -461,6 +466,7 @@ export function openFolhaObraEditor(folhaId, session, { onClose } = {}) {
         }
 
         if (btn.id === 'folha-obra-entrada') {
+          prepareFolhaObraEtiquetaPrint();
           setFolhaObraEditorStatus(overlay, '');
           setFolhaObraEditorBusy(overlay, true, 'A registar entrada…');
           try {
@@ -477,17 +483,19 @@ export function openFolhaObraEditor(folhaId, session, { onClose } = {}) {
             const saved = await registerFolhaObraEntrada(state.id, payload);
             state.folha = saved;
             try {
-              printFolhaObraEtiqueta(saved);
+              await printFolhaObraEtiqueta(saved);
               showToast('Entrada registada. Etiqueta enviada para impressão.', 'success', 5000, { force: true });
-            } catch (printErr) {
+              ctx.close();
+            } catch {
+              ctx.close();
+              openFolhaObraEtiquetaPreview(saved);
               showToast(
-                `${printErr?.message || 'Não foi possível abrir a impressão.'} A entrada ficou registada (${saved.etq || 'ETQ'}).`,
-                'warning',
-                8000,
+                `Entrada registada (${saved.etq || 'ETQ'}). Confirme a impressão na janela da etiqueta.`,
+                'info',
+                7000,
                 { force: true },
               );
             }
-            ctx.close();
           } finally {
             setFolhaObraEditorBusy(overlay, false);
           }
