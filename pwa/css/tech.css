@@ -8605,8 +8605,8 @@ body.folha-obra-open {
 .folha-obra-phase-hint {
   padding: 0.85rem 1rem;
 }
-.folha-obra-panel__footer #folha-obra-etiqueta {
-  margin-right: 0;
+.folha-obra-panel__footer #folha-obra-delete {
+  margin-right: auto;
 }
 .folha-obra-panel__footer #folha-obra-pdf {
   margin-right: auto;

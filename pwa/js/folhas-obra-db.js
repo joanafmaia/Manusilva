@@ -224,6 +224,29 @@ export async function updateFolhaObra(id, updates) {
   return folha;
 }
 
+export function canDeleteFolhaObra(folha) {
+  if (!folha) return false;
+  const estado = folha.estado || 'rascunho';
+  return estado === 'rascunho' || estado === 'em_reparacao';
+}
+
+export async function deleteFolhaObra(id) {
+  const existing = getFolhaObra(id);
+  if (!existing) throw new Error('Folha de obra não encontrada.');
+  if (!canDeleteFolhaObra(existing)) {
+    throw new Error('Não é possível eliminar folhas já finalizadas ou em faturação.');
+  }
+
+  const supabase = await getAuthenticatedSupabaseClient();
+  const { error } = await supabase.from('folhas_obra').delete().eq('id', id);
+  if (error) throw new Error(formatFolhasObraError(error));
+
+  if (folhasObraCache) {
+    folhasObraCache = folhasObraCache.filter((item) => String(item.id) !== String(id));
+  }
+  return true;
+}
+
 export function getInvoicedFolhasObra() {
   return getFolhasObraSnapshot().filter((f) => f.faturacaoStatus === 'faturado');
 }
@@ -324,6 +347,9 @@ export function validateFolhaObraPayload(payload, mode = 'draft') {
   }
   if (!String(payload?.dataRececao || '').trim()) {
     throw new Error('Indique a data de entrada.');
+  }
+  if ((mode === 'entrada' || mode === 'concluir') && !String(payload?.responsavel || '').trim()) {
+    throw new Error('Selecione o técnico responsável.');
   }
 
   if (mode === 'concluir') {

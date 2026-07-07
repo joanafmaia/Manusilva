@@ -30,7 +30,11 @@ const TECHNICIAN_IDS = {
 };
 
 function technicianIdFor(user) {
-  if (user.role !== 'Tecnico' && user.role !== 'Armazem') return null;
+  if (user.role === 'Armazem') {
+    if (user.technicianId) return user.technicianId;
+    return null;
+  }
+  if (user.role !== 'Tecnico') return null;
   if (user.technicianId) return user.technicianId;
   return TECHNICIAN_IDS[String(user.email || '').toLowerCase()] || null;
 }
@@ -160,15 +164,18 @@ function profileFromAuthUser(user, roleFiltro) {
       (!normalizedFilter || normalizeDbRole(u.role) === normalizedFilter),
   );
   const normalizedMetaRole = normalizeDbRole(meta.role);
+  const poolMatch = buildLoginPool().find((u) => u.email.toLowerCase() === email);
   const baseRole = isRhOrAdminRole(meta.role)
     ? 'RH'
     : isRhOrAdminEmail(email) || isRhOrAdminName(meta.nome || meta.name)
       ? 'RH'
-      : normalizedMetaRole === 'Tecnico'
-        ? 'Tecnico'
-        : technicianIdFor({ email, role: 'Tecnico' })
+      : normalizedMetaRole === 'Armazem' || normalizeDbRole(poolMatch?.role) === 'Armazem'
+        ? 'Armazem'
+        : normalizedMetaRole === 'Tecnico'
           ? 'Tecnico'
-          : null;
+          : technicianIdFor({ email, role: 'Tecnico' })
+            ? 'Tecnico'
+            : null;
   let role = baseRole;
   if (normalizedFilter === 'Armazem' && baseRole === 'Tecnico') {
     role = 'Armazem';

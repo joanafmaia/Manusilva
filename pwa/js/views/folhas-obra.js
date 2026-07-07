@@ -17,11 +17,14 @@ import {
   getFolhaObra,
   insertFolhaObra,
   updateFolhaObra,
+  deleteFolhaObra,
+  canDeleteFolhaObra,
   validateFolhaObraPayload,
 } from '../folhas-obra-db.js';
 import { registerFolhaObraEntrada, submitFolhaObraForBilling } from '../folhas-obra-workflow.js';
 import { openFolhaObraEtiquetaPreview, prepareFolhaObraEtiquetaPrint, printFolhaObraEtiqueta } from '../folha-obra-etiqueta.js';
 import { renderClientFormSection, mountClientForm } from './rh-client-form.js';
+import { TECHNICIANS } from '../mock_data.js';
 
 const TIPO_OPCOES = ['Empilhador', 'Bateria', 'Carregador', 'Outro equipamento'];
 
@@ -102,6 +105,22 @@ function collectIntervencoesFromForm(form) {
   return rows;
 }
 
+function renderResponsavelSelect(folha, session, { disabled = false } = {}) {
+  const selectedName =
+    folha?.responsavel ||
+    TECHNICIANS.find((t) => t.id === session?.technicianId)?.name ||
+    '';
+  return `
+    <select class="form-select" id="folha-responsavel" name="responsavel" required ${disabled ? 'disabled' : ''}>
+      <option value="">— Selecionar técnico —</option>
+      ${TECHNICIANS.map(
+        (tech) =>
+          `<option value="${escapeHtml(tech.name)}" data-tech-id="${escapeHtml(tech.id)}"${selectedName === tech.name ? ' selected' : ''}>${escapeHtml(tech.name)}</option>`,
+      ).join('')}
+    </select>
+  `;
+}
+
 function collectFolhaFromForm(form, technicianId, session = null) {
   const combo = form.querySelector('[data-client-combobox]');
   const clientId = combo?.querySelector('.client-combobox-id')?.value?.trim() || '';
@@ -110,17 +129,15 @@ function collectFolhaFromForm(form, technicianId, session = null) {
   const numeroSerie = form.querySelector('[name="numero_serie"]')?.value?.trim() || '';
   const dataRececao = form.querySelector('[name="data_rececao"]')?.value?.trim() || '';
   const maquinaConcluidaEm = form.querySelector('[name="maquina_concluida_em"]')?.value?.trim() || '';
-  const responsavel =
-    form.querySelector('[name="responsavel"]')?.value?.trim() ||
-    session?.name ||
-    session?.username ||
-    '';
+  const responsavelSelect = form.querySelector('[name="responsavel"]');
+  const responsavel = responsavelSelect?.value?.trim() || '';
+  const technicianFromForm = responsavelSelect?.selectedOptions?.[0]?.dataset?.techId || '';
   const observacoes = form.querySelector('[name="observacoes"]')?.value?.trim() || '';
   const estado = form.querySelector('[name="estado"]')?.value || 'rascunho';
 
   return {
     clientId,
-    technicianId,
+    technicianId: technicianFromForm || technicianId || '',
     tipo,
     marcaModelo,
     numeroSerie,
@@ -221,7 +238,7 @@ function renderFolhaObraFormHtml(folha, session) {
           </div>
           <div class="form-group">
             <label class="form-label" for="folha-responsavel">Responsável</label>
-            <input type="text" class="form-input" id="folha-responsavel" name="responsavel" value="${escapeHtml(folha?.responsavel || technicianName)}" required ${isLocked ? 'readonly' : ''}>
+            ${renderResponsavelSelect(folha, session, { disabled: isLocked })}
           </div>
         </div>
       </section>
@@ -328,9 +345,14 @@ function bindFolhaObraForm(form, { getFolhaId, session }) {
 function renderFolhaObraFooterHtml(folha, { isLocked } = {}) {
   const aguardaEntrada = (folha?.estado || 'rascunho') === 'rascunho' && !isLocked;
   const emReparacaoAtiva = isFolhaReparacaoAtiva(folha);
+  const canDelete = Boolean(folha?.id) && canDeleteFolhaObra(folha) && !isLocked;
+  const deleteBtn = canDelete
+    ? '<button type="button" class="btn-danger" id="folha-obra-delete">Eliminar</button>'
+    : '';
 
   if (isLocked) {
     return `
+      ${deleteBtn}
       <button type="button" class="btn-outline" id="folha-obra-etiqueta">Imprimir etiqueta</button>
       <button type="button" class="btn-outline" id="folha-obra-pdf">Gerar PDF</button>
       <p class="folha-obra-locked-hint">Enviada para faturação — apenas consulta.</p>
@@ -338,6 +360,7 @@ function renderFolhaObraFooterHtml(folha, { isLocked } = {}) {
   }
 
   return `
+    ${deleteBtn}
     ${emReparacaoAtiva ? '<button type="button" class="btn-outline" id="folha-obra-etiqueta">Imprimir etiqueta</button>' : ''}
     ${emReparacaoAtiva ? '<button type="button" class="btn-outline" id="folha-obra-pdf">Gerar PDF</button>' : ''}
     ${
@@ -515,6 +538,29 @@ export function openFolhaObraEditor(folhaId, session, { onClose } = {}) {
           close();
           return;
         }
+
+        if (btn.id === 'folha-obra-delete') {
+          const folhaAtual = state.folha || getFolhaObra(state.id);
+          if (!folhaAtual || !canDeleteFolhaObra(folhaAtual)) {
+            throw new Error('Não é possível eliminar esta folha de obra.');
+          }
+          const label = formatFolhaObraOrdemLabel(folhaAtual);
+          if (
+            !window.confirm(
+              `Eliminar ${label}?\n\nEsta ação não pode ser desfeita.`,
+            )
+          ) {
+            return;
+          }
+          if (!state.id) {
+            ctx.close();
+            return;
+          }
+          await deleteFolhaObra(state.id);
+          showToast('Folha de obra eliminada.', 'success', 4000, { force: true });
+          ctx.close();
+          return;
+        }
       } catch (err) {
         const messages = {
           'folha-obra-pdf': 'Não foi possível gerar o PDF.',
@@ -522,6 +568,7 @@ export function openFolhaObraEditor(folhaId, session, { onClose } = {}) {
           'folha-obra-save': 'Erro ao guardar.',
           'folha-obra-entrada': 'Erro ao registar entrada.',
           'folha-obra-submit': 'Erro ao concluir.',
+          'folha-obra-delete': 'Erro ao eliminar.',
         };
         const message = err?.message || messages[btn.id] || 'Operação falhou.';
         setFolhaObraEditorStatus(overlay, message, 'error');

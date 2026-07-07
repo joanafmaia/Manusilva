@@ -2,6 +2,8 @@
  * Sessão do utilizador (localStorage) — sem dependências pesadas.
  */
 
+import { ARMAZEM_AUTH_EMAIL } from './mock_data.js';
+
 export const APP_SESSION_KEY = 'app_session';
 const LEGACY_SESSION_KEY = 'manusilva_session';
 export const AUTH_STORAGE_KEYS = [APP_SESSION_KEY, LEGACY_SESSION_KEY];
@@ -39,7 +41,11 @@ export function normalizeSession(sessao) {
     role,
     technicianId:
       sessao.technicianId ??
-      (role === 'technician' || role === 'warehouse' ? TECHNICIAN_IDS[email] || null : null),
+      (role === 'technician'
+        ? TECHNICIAN_IDS[email] || null
+        : role === 'warehouse' && email && email !== ARMAZEM_AUTH_EMAIL.toLowerCase()
+          ? TECHNICIAN_IDS[email] || null
+          : null),
     token: sessao.token,
     refreshToken: sessao.refreshToken,
     loginAt: sessao.loginAt,

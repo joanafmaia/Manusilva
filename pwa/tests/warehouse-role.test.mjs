@@ -17,6 +17,18 @@ describe('warehouse role session', () => {
     assert.equal(session.technicianId, 'tech-1');
     assert.equal(session.refreshToken, 'xyz');
   });
+
+  it('conta partilhada Armazém não herda technicianId', async () => {
+    const { normalizeSession } = await import('../js/session.js');
+    const session = normalizeSession({
+      nome: 'Armazém',
+      email: 'armazem@sistema.com',
+      role: 'Armazem',
+      token: 'abc',
+    });
+    assert.equal(session.role, 'warehouse');
+    assert.equal(session.technicianId, null);
+  });
 });
 
 describe('warehouse role auth source', () => {
@@ -43,6 +55,7 @@ describe('warehouse role auth source', () => {
     const src = await fs.readFile(new URL('../js/views/folhas-obra.js', import.meta.url), 'utf8');
     assert.match(src, /folha-create-client/);
     assert.match(src, /\+ Novo cliente/);
-    assert.match(src, /folha-obra-pdf/);
+    assert.match(src, /folha-obra-delete/);
+    assert.match(src, /renderResponsavelSelect/);
   });
 });

@@ -676,6 +676,9 @@ export const PDF_DOCUMENT_TITLES = {
  */
 export const FILIPA_AUTH_EMAIL = 'filipa@sistema.com';
 
+/** Login partilhado do PC da oficina — o responsável escolhe-se na folha de obra. */
+export const ARMAZEM_AUTH_EMAIL = 'armazem@sistema.com';
+
 /** E-mail legado (contas criadas antes da migração para @sistema.com). */
 export const FILIPA_LEGACY_AUTH_EMAIL = 'filipa@rh.manusilva.internal';
 
@@ -684,6 +687,14 @@ export const UTILIZADORES = [
   { nome: 'Hugo', nif: '236465767', telemovel: '917715182', email: 'filipasilvahugo2013@gmail.com', role: 'Tecnico', technicianId: 'tech-1' },
   { nome: 'Filipe', nif: '231912250', telemovel: '910858928', email: 'filipeg409@gmail.com', role: 'Tecnico', technicianId: 'tech-2' },
   { nome: 'Adelton', nif: '323438199', telemovel: '937123479', email: 'adeltonair@gmail.com', role: 'Tecnico', technicianId: 'tech-3' },
+  {
+    nome: 'Armazém',
+    nif: null,
+    telemovel: null,
+    email: ARMAZEM_AUTH_EMAIL,
+    role: 'Armazem',
+    semEmailPessoal: true,
+  },
   { nome: 'Joana', nif: '240563077', telemovel: '910587126', email: 'joanamaia97@gmail.com', role: 'RH' },
   {
     nome: 'Filipa',

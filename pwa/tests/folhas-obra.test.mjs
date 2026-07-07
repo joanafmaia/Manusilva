@@ -80,6 +80,24 @@ describe('folhas-obra-workflow', () => {
   });
 });
 
+describe('folhas-obra-db delete', () => {
+  it('canDeleteFolhaObra — só rascunho e reparação', async () => {
+    const { canDeleteFolhaObra } = await import('../js/folhas-obra-db.js');
+    assert.equal(canDeleteFolhaObra({ estado: 'rascunho' }), true);
+    assert.equal(canDeleteFolhaObra({ estado: 'em_reparacao' }), true);
+    assert.equal(canDeleteFolhaObra({ estado: 'pendente_faturacao' }), false);
+    assert.equal(canDeleteFolhaObra({ estado: 'faturado' }), false);
+  });
+});
+
+describe('armazem login', () => {
+  it('resolveLoginEmailCandidates — conta Armazém', async () => {
+    const { resolveLoginEmailCandidates } = await import('../js/auth.js');
+    const emails = resolveLoginEmailCandidates('Armazém');
+    assert.ok(emails.includes('armazem@sistema.com'));
+  });
+});
+
 describe('folhas-obra-db validate', () => {
   it('validateFolhaObraPayload — rascunho só exige cliente', async () => {
     const { validateFolhaObraPayload } = await import('../js/folhas-obra-db.js');
