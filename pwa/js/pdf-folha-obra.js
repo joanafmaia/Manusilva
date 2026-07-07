@@ -181,7 +181,7 @@ export async function generateFolhaObraPDFBlob(folha) {
     body: [
       [
         `ETQ: ${pdfDisplayValue(folha.etq)}`,
-        `Data de Receção: ${formatFolhaInterventionDate(folha.dataRececao)}`,
+        `Data de entrada: ${formatFolhaInterventionDate(folha.dataRececao)}`,
         `Estado: ${pdfDisplayValue(folha.estado)}`,
       ],
     ],

@@ -72,9 +72,9 @@ export function mapRowToFolhaObra(row) {
 
 export function mapFolhaObraToRow(folha, overrides = {}) {
   const data = { ...folha, ...overrides };
+  const clientId = data.clientId != null && data.clientId !== '' ? parseFolhaClientId(data.clientId) : null;
   return {
-    cliente_id:
-      data.clientId != null && data.clientId !== '' ? Number(data.clientId) : null,
+    cliente_id: clientId,
     tecnico_id: data.technicianId || overrides.tecnico_id || '',
     tipo: data.tipo ?? '',
     marca_modelo: data.marcaModelo ?? '',
@@ -186,6 +186,7 @@ async function loadFolhasObraFromSupabase() {
 }
 
 export async function insertFolhaObra(payload) {
+  validateFolhaObraPayload(payload, 'draft');
   const supabase = await getAuthenticatedSupabaseClient();
   const row = mapFolhaObraToRow(payload);
   delete row.atualizado_em;
@@ -245,4 +246,77 @@ export function formatFolhaObraOrdemLabel(folha) {
   if (!folha) return '—';
   if (folha.numeroOrdem != null) return `FO-${folha.numeroOrdem}`;
   return 'Folha de obra';
+}
+
+/** Rótulos para o painel Armazém / oficina (3 fases operacionais). */
+export const FOLHA_OBRA_ESTADO_ARM_LABELS = {
+  rascunho: 'Entrada em Armazém',
+  em_reparacao: 'Reparação',
+  pendente_faturacao: 'Finalizado',
+  faturado: 'Finalizado',
+  dispensado: 'Finalizado',
+};
+
+export function isFolhaObraFinalizada(folhaOrEstado) {
+  const estado = typeof folhaOrEstado === 'string' ? folhaOrEstado : folhaOrEstado?.estado || 'rascunho';
+  return estado === 'pendente_faturacao' || estado === 'faturado' || estado === 'dispensado';
+}
+
+export function formatFolhaObraEstadoLabel(estado, { rh = false } = {}) {
+  const key = estado || 'rascunho';
+  if (rh) {
+    const rhLabels = {
+      rascunho: 'Entrada em Armazém',
+      em_reparacao: 'Reparação',
+      pendente_faturacao: 'Aguarda faturação',
+      faturado: 'Faturado',
+      dispensado: 'Dispensado',
+    };
+    return rhLabels[key] || key;
+  }
+  return FOLHA_OBRA_ESTADO_ARM_LABELS[key] || key;
+}
+
+export function buildFolhaObraEtqLabel(folha) {
+  if (!folha) return '';
+  if (folha.etq?.trim()) return folha.etq.trim();
+  if (folha.numeroOrdem != null) return `FO-${folha.numeroOrdem}`;
+  return '';
+}
+
+export function parseFolhaClientId(clientId) {
+  const n = Number(clientId);
+  if (!clientId || !Number.isFinite(n) || n <= 0) {
+    throw new Error('Selecione um cliente válido da lista.');
+  }
+  return n;
+}
+
+/**
+ * @param {object} payload
+ * @param {'draft'|'entrada'|'concluir'} mode
+ */
+export function validateFolhaObraPayload(payload, mode = 'draft') {
+  parseFolhaClientId(payload?.clientId);
+
+  if (mode === 'draft') return;
+
+  if (!String(payload?.tipo || '').trim()) {
+    throw new Error('Indique o tipo de equipamento.');
+  }
+  if (!String(payload?.marcaModelo || '').trim()) {
+    throw new Error('Indique a marca/modelo.');
+  }
+  if (!String(payload?.dataRececao || '').trim()) {
+    throw new Error('Indique a data de entrada.');
+  }
+
+  if (mode === 'concluir') {
+    if (!String(payload?.maquinaConcluidaEm || '').trim()) {
+      throw new Error('Indique a data em que a máquina foi concluída.');
+    }
+    if (!String(payload?.responsavel || '').trim()) {
+      throw new Error('Indique o responsável.');
+    }
+  }
 }

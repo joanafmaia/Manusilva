@@ -59,6 +59,90 @@ describe('folhas-obra-workflow', () => {
     });
     assert.ok(val >= 80);
   });
+
+  it('registerFolhaObraEntrada exige dados de entrada', async () => {
+    const { replaceFolhasObraCache } = await import('../js/folhas-obra-db.js');
+    const { registerFolhaObraEntrada } = await import('../js/folhas-obra-workflow.js');
+    replaceFolhasObraCache([
+      {
+        id: 'fo-draft',
+        clientId: '1',
+        estado: 'rascunho',
+        tipo: '',
+        marcaModelo: '',
+        dataRececao: '',
+      },
+    ]);
+    await assert.rejects(
+      () => registerFolhaObraEntrada('fo-draft'),
+      /tipo de equipamento/i,
+    );
+  });
+});
+
+describe('folhas-obra-db validate', () => {
+  it('validateFolhaObraPayload — rascunho só exige cliente', async () => {
+    const { validateFolhaObraPayload } = await import('../js/folhas-obra-db.js');
+    assert.doesNotThrow(() => validateFolhaObraPayload({ clientId: '12' }, 'draft'));
+    assert.throws(() => validateFolhaObraPayload({ clientId: '' }, 'draft'), /cliente válido/i);
+  });
+
+  it('validateFolhaObraPayload — entrada exige equipamento e data', async () => {
+    const { validateFolhaObraPayload } = await import('../js/folhas-obra-db.js');
+    assert.throws(
+      () =>
+        validateFolhaObraPayload(
+          { clientId: '1', tipo: 'Empilhador', marcaModelo: 'X', dataRececao: '' },
+          'entrada',
+        ),
+      /data de entrada/i,
+    );
+  });
+
+  it('buildFolhaObraEtqLabel usa ETQ ou número de ordem', async () => {
+    const { buildFolhaObraEtqLabel } = await import('../js/folhas-obra-db.js');
+    assert.equal(buildFolhaObraEtqLabel({ etq: 'ETQ-9' }), 'ETQ-9');
+    assert.equal(buildFolhaObraEtqLabel({ numeroOrdem: 4 }), 'FO-4');
+  });
+
+  it('formatFolhaObraEstadoLabel — três fases no armazém', async () => {
+    const { formatFolhaObraEstadoLabel, isFolhaObraFinalizada } = await import('../js/folhas-obra-db.js');
+    assert.equal(formatFolhaObraEstadoLabel('rascunho'), 'Entrada em Armazém');
+    assert.equal(formatFolhaObraEstadoLabel('em_reparacao'), 'Reparação');
+    assert.equal(formatFolhaObraEstadoLabel('pendente_faturacao'), 'Finalizado');
+    assert.equal(formatFolhaObraEstadoLabel('faturado'), 'Finalizado');
+    assert.equal(isFolhaObraFinalizada('em_reparacao'), false);
+    assert.equal(isFolhaObraFinalizada({ estado: 'faturado' }), true);
+  });
+});
+
+describe('folha-obra-etiqueta', () => {
+  it('buildFolhaObraEtiquetaHtml inclui equipamento e data de entrada', async () => {
+    if (typeof globalThis.localStorage === 'undefined') {
+      const store = new Map();
+      globalThis.localStorage = {
+        getItem: (key) => (store.has(key) ? store.get(key) : null),
+        setItem: (key, value) => store.set(key, String(value)),
+        removeItem: (key) => store.delete(key),
+        clear: () => store.clear(),
+      };
+    }
+
+    const { buildFolhaObraEtiquetaHtml } = await import('../js/folha-obra-etiqueta.js');
+    const html = buildFolhaObraEtiquetaHtml({
+      clientId: '5',
+      tipo: 'Empilhador',
+      marcaModelo: 'Toyota',
+      numeroSerie: 'SN-1',
+      etq: 'FO-2',
+      dataRececao: '2026-07-07',
+      numeroOrdem: 2,
+    });
+    assert.match(html, /Entrada:/);
+    assert.match(html, /Empilhador/);
+    assert.match(html, /Toyota/);
+    assert.match(html, /FO-2/);
+  });
 });
 
 describe('servicos-billing-workflow folha_obra', () => {

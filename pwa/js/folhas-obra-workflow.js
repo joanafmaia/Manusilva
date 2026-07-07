@@ -6,6 +6,8 @@ import {
   getFolhaObra,
   isFolhaObraPendingBilling,
   updateFolhaObra,
+  buildFolhaObraEtqLabel,
+  validateFolhaObraPayload,
 } from './folhas-obra-db.js';
 import {
   normalizeInvoiceAmountInput,
@@ -24,6 +26,33 @@ export function estimateFolhaObraValue(folha) {
   return DEFAULT_ESTIMATE_EUR;
 }
 
+export async function registerFolhaObraEntrada(folhaId, payload = null) {
+  const existing = getFolhaObra(folhaId);
+  if (!existing) throw new Error('Folha de obra não encontrada.');
+
+  const merged = payload ? { ...existing, ...payload, id: existing.id } : existing;
+  validateFolhaObraPayload(merged, 'entrada');
+
+  const saved = await updateFolhaObra(folhaId, {
+    clientId: merged.clientId,
+    technicianId: merged.technicianId,
+    tipo: merged.tipo,
+    marcaModelo: merged.marcaModelo,
+    numeroSerie: merged.numeroSerie,
+    dataRececao: merged.dataRececao || existing.dataRececao || new Date().toISOString().split('T')[0],
+    intervencoes: merged.intervencoes || [],
+    observacoes: merged.observacoes || '',
+    responsavel: merged.responsavel || existing.responsavel || '',
+    estado: 'em_reparacao',
+    etq: buildFolhaObraEtqLabel(merged) || buildFolhaObraEtqLabel(existing) || merged.etq || '',
+  });
+
+  if (!saved.etq?.trim() && saved.numeroOrdem != null) {
+    return updateFolhaObra(folhaId, { etq: `FO-${saved.numeroOrdem}` });
+  }
+  return saved;
+}
+
 export async function submitFolhaObraForBilling(folhaId) {
   const folha = getFolhaObra(folhaId);
   if (!folha) throw new Error('Folha de obra não encontrada.');
@@ -33,11 +62,10 @@ export async function submitFolhaObraForBilling(folhaId) {
   if (folha.estado === 'faturado') {
     throw new Error('Esta folha já foi faturada.');
   }
-  if (!folha.clientId) throw new Error('Indique o cliente.');
-  if (!folha.tipo?.trim()) throw new Error('Indique o tipo de equipamento.');
-  if (!folha.marcaModelo?.trim()) throw new Error('Indique a marca/modelo.');
-  if (!folha.maquinaConcluidaEm) throw new Error('Indique a data em que a máquina foi concluída.');
-  if (!folha.responsavel?.trim()) throw new Error('Indique o responsável.');
+  if (folha.estado === 'rascunho') {
+    throw new Error('Registe primeiro a entrada do equipamento.');
+  }
+  validateFolhaObraPayload(folha, 'concluir');
 
   return updateFolhaObra(folhaId, {
     estado: 'pendente_faturacao',

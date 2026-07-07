@@ -8563,7 +8563,23 @@ body.folha-obra-open {
   position: sticky;
   bottom: 0;
 }
+.folha-obra-section-hint,
+.folha-obra-phase-hint {
+  margin: 0 0 0.85rem;
+  color: var(--ms-text-muted);
+  font-size: 0.9rem;
+}
+.folha-obra-phase-hint {
+  padding: 0.85rem 1rem;
+}
+.folha-obra-panel__footer #folha-obra-etiqueta {
+  margin-right: 0;
+}
 .folha-obra-panel__footer #folha-obra-pdf {
+  margin-right: auto;
+}
+.folha-obra-panel__footer #folha-obra-etiqueta:last-of-type:first-of-type,
+.folha-obra-panel__footer #folha-obra-etiqueta:only-of-type {
   margin-right: auto;
 }
 .folha-obra-section {

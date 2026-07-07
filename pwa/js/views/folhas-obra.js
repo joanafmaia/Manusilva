@@ -11,36 +11,39 @@ import {
   emptyIntervencaoRow,
   ensureFolhasObraLoadedSafe,
   formatFolhaObraOrdemLabel,
+  formatFolhaObraEstadoLabel,
+  isFolhaObraFinalizada,
   getFolhasObraSnapshot,
   getFolhaObra,
   insertFolhaObra,
   updateFolhaObra,
+  validateFolhaObraPayload,
 } from '../folhas-obra-db.js';
-import { submitFolhaObraForBilling } from '../folhas-obra-workflow.js';
+import { registerFolhaObraEntrada, submitFolhaObraForBilling } from '../folhas-obra-workflow.js';
+import { printFolhaObraEtiqueta } from '../folha-obra-etiqueta.js';
 import { renderClientFormSection, mountClientForm } from './rh-client-form.js';
 
 const TIPO_OPCOES = ['Empilhador', 'Bateria', 'Carregador', 'Outro equipamento'];
 
-const ESTADO_LABELS = {
-  rascunho: 'Rascunho',
-  em_reparacao: 'Em reparação',
-  pendente_faturacao: 'Aguarda faturação',
-  faturado: 'Faturado',
-  dispensado: 'Dispensado',
-};
-
 const ESTADO_FILTER_OPTIONS = [
   { value: 'all', label: 'Todos os estados' },
-  { value: 'rascunho', label: ESTADO_LABELS.rascunho },
-  { value: 'em_reparacao', label: ESTADO_LABELS.em_reparacao },
-  { value: 'pendente_faturacao', label: ESTADO_LABELS.pendente_faturacao },
-  { value: 'faturado', label: ESTADO_LABELS.faturado },
+  { value: 'rascunho', label: 'Entrada em Armazém' },
+  { value: 'em_reparacao', label: 'Reparação' },
+  { value: 'finalizado', label: 'Finalizado' },
 ];
 
+function isFolhaEmReparacao(folha) {
+  const estado = folha?.estado || 'rascunho';
+  return estado !== 'rascunho';
+}
+
+function isFolhaReparacaoAtiva(folha) {
+  return (folha?.estado || 'rascunho') === 'em_reparacao';
+}
+
 function estadoClass(estado) {
-  if (estado === 'pendente_faturacao') return 'folha-obra-estado--pending';
-  if (estado === 'faturado') return 'folha-obra-estado--done';
   if (estado === 'em_reparacao') return 'folha-obra-estado--active';
+  if (isFolhaObraFinalizada(estado)) return 'folha-obra-estado--done';
   return 'folha-obra-estado--draft';
 }
 
@@ -160,9 +163,13 @@ function renderFolhaObraFormHtml(folha, session) {
   const client = folha?.clientId ? getClient(folha.clientId) : null;
   const today = new Date().toISOString().split('T')[0];
   const isLocked = folha?.estado === 'pendente_faturacao' || folha?.estado === 'faturado';
+  const emReparacao = isFolhaEmReparacao(folha);
+  const estado = folha?.estado || 'rascunho';
+  const etqReadonly = emReparacao || isLocked;
 
   return `
     <form id="folha-obra-form" class="folha-obra-form" autocomplete="off">
+      <input type="hidden" name="estado" value="${escapeHtml(estado)}">
       <section class="folha-obra-section">
         <div class="folha-obra-section-head">
           <h3 class="folha-obra-section-title">Cliente</h3>
@@ -179,7 +186,8 @@ function renderFolhaObraFormHtml(folha, session) {
       </section>
 
       <section class="folha-obra-section folha-obra-section--header">
-        <h3 class="folha-obra-section-title">Equipamento recebido</h3>
+        <h3 class="folha-obra-section-title">Entrada do equipamento</h3>
+        <p class="folha-obra-section-hint">Registe a chegada do equipamento à oficina. Depois pode imprimir a etiqueta e registar intervenções.</p>
         <div class="folha-obra-header-grid">
           <div class="form-group">
             <label class="form-label" for="folha-tipo">Tipo</label>
@@ -201,22 +209,18 @@ function renderFolhaObraFormHtml(folha, session) {
           </div>
           <div class="form-group">
             <label class="form-label" for="folha-etq">ETQ</label>
-            <input type="text" class="form-input" id="folha-etq" name="etq" value="${escapeHtml(folha?.etq || '')}" ${isLocked ? 'readonly' : ''}>
+            <input type="text" class="form-input" id="folha-etq" name="etq" value="${escapeHtml(folha?.etq || '')}" placeholder="${emReparacao ? '' : 'Atribuída na entrada'}" ${etqReadonly ? 'readonly' : ''}>
           </div>
           <div class="form-group">
-            <label class="form-label" for="folha-rececao">Data de Receção</label>
-            <input type="date" class="form-input" id="folha-rececao" name="data_rececao" value="${escapeHtml(folha?.dataRececao || today)}" ${isLocked ? 'readonly' : ''}>
-          </div>
-          <div class="form-group">
-            <label class="form-label" for="folha-estado">Estado</label>
-            <select class="form-select" id="folha-estado" name="estado" ${isLocked ? 'disabled' : ''}>
-              <option value="rascunho"${folha?.estado === 'rascunho' || !folha ? ' selected' : ''}>Rascunho</option>
-              <option value="em_reparacao"${folha?.estado === 'em_reparacao' ? ' selected' : ''}>Em reparação</option>
-            </select>
+            <label class="form-label" for="folha-rececao">Data de entrada</label>
+            <input type="date" class="form-input" id="folha-rececao" name="data_rececao" value="${escapeHtml(folha?.dataRececao || today)}" required ${isLocked ? 'readonly' : ''}>
           </div>
         </div>
       </section>
 
+      ${
+        emReparacao
+          ? `
       <section class="folha-obra-section">
         <div class="folha-obra-section-head">
           <h3 class="folha-obra-section-title">Intervenções</h3>
@@ -242,10 +246,10 @@ function renderFolhaObraFormHtml(folha, session) {
       </section>
 
       <section class="folha-obra-section folha-obra-section--closing">
-        <h3 class="folha-obra-section-title">Conclusão</h3>
+        <h3 class="folha-obra-section-title">Conclusão do serviço</h3>
         <div class="folha-obra-closing-grid">
           <div class="form-group">
-            <label class="form-label" for="folha-concluida">Máquina Concluída a</label>
+            <label class="form-label" for="folha-concluida">Máquina concluída a</label>
             <input type="date" class="form-input" id="folha-concluida" name="maquina_concluida_em" value="${escapeHtml(folha?.maquinaConcluidaEm || '')}" ${isLocked ? 'readonly' : ''}>
           </div>
           <div class="form-group">
@@ -258,11 +262,16 @@ function renderFolhaObraFormHtml(folha, session) {
           <textarea class="form-input" id="folha-obs" name="observacoes" rows="2" ${isLocked ? 'readonly' : ''}>${escapeHtml(folha?.observacoes || '')}</textarea>
         </div>
       </section>
+      `
+          : `
+      <p class="folha-obra-phase-hint glass-card">Após <strong>Dar entrada</strong>, o equipamento passa a «Reparação» e pode registar intervenções e concluir o serviço.</p>
+      `
+      }
     </form>
   `;
 }
 
-function bindFolhaObraForm(form, { folhaId, session, onSaved }) {
+function bindFolhaObraForm(form, { getFolhaId, session }) {
   bindClientComboboxes(form);
   form.querySelector('#folha-create-client')?.addEventListener('click', () => {
     openCreateClientModal(form);
@@ -272,6 +281,7 @@ function bindFolhaObraForm(form, { folhaId, session, onSaved }) {
   const technicianName = session?.name || session?.username || '';
 
   form.querySelector('#folha-add-intervencao')?.addEventListener('click', () => {
+    if (!tbody) return;
     const index = tbody.querySelectorAll('[data-intervencao-row]').length;
     const wrapper = document.createElement('tbody');
     wrapper.innerHTML = renderIntervencaoRows([emptyIntervencaoRow(technicianName)], technicianName);
@@ -284,6 +294,7 @@ function bindFolhaObraForm(form, { folhaId, session, onSaved }) {
   });
 
   function bindRemoveButtons(root) {
+    if (!tbody) return;
     root.querySelectorAll('[data-remove-intervencao]').forEach((btn) => {
       if (btn.dataset.bound) return;
       btn.dataset.bound = '1';
@@ -299,9 +310,10 @@ function bindFolhaObraForm(form, { folhaId, session, onSaved }) {
   }
   bindRemoveButtons(form);
 
-  async function persist() {
+  async function persist(mode = 'draft') {
     const payload = collectFolhaFromForm(form, session?.technicianId || '');
-    if (!payload.clientId) throw new Error('Selecione o cliente.');
+    validateFolhaObraPayload(payload, mode);
+    const folhaId = getFolhaId();
     if (folhaId) return updateFolhaObra(folhaId, payload);
     return insertFolhaObra(payload);
   }
@@ -309,12 +321,68 @@ function bindFolhaObraForm(form, { folhaId, session, onSaved }) {
   return { persist };
 }
 
+function renderFolhaObraFooterHtml(folha, { isLocked } = {}) {
+  const aguardaEntrada = (folha?.estado || 'rascunho') === 'rascunho' && !isLocked;
+  const emReparacaoAtiva = isFolhaReparacaoAtiva(folha);
+
+  if (isLocked) {
+    return `
+      <button type="button" class="btn-outline" id="folha-obra-etiqueta">Imprimir etiqueta</button>
+      <button type="button" class="btn-outline" id="folha-obra-pdf">Gerar PDF</button>
+      <p class="folha-obra-locked-hint">Enviada para faturação — apenas consulta.</p>
+    `;
+  }
+
+  return `
+    ${emReparacaoAtiva ? '<button type="button" class="btn-outline" id="folha-obra-etiqueta">Imprimir etiqueta</button>' : ''}
+    ${emReparacaoAtiva ? '<button type="button" class="btn-outline" id="folha-obra-pdf">Gerar PDF</button>' : ''}
+    ${
+      aguardaEntrada
+        ? `
+        <button type="button" class="btn-outline" id="folha-obra-save">Guardar rascunho</button>
+        <button type="button" class="btn-primary" id="folha-obra-entrada">Dar entrada e imprimir etiqueta</button>
+      `
+        : emReparacaoAtiva
+          ? `
+        <button type="button" class="btn-outline" id="folha-obra-save">Guardar</button>
+        <button type="button" class="btn-primary" id="folha-obra-submit">Concluir e enviar para faturação</button>
+      `
+          : ''
+    }
+  `;
+}
+
+function mergeFolhaPayload(form, session, baseFolha, folhaId) {
+  const draft = collectFolhaFromForm(form, session?.technicianId || '');
+  const cached = folhaId ? getFolhaObra(folhaId) : null;
+  return {
+    ...(baseFolha || cached || {}),
+    ...draft,
+    id: cached?.id || baseFolha?.id || folhaId || 'draft',
+    numeroOrdem: cached?.numeroOrdem ?? baseFolha?.numeroOrdem ?? null,
+    etq: cached?.etq || draft.etq || baseFolha?.etq || '',
+    estado: cached?.estado || draft.estado || baseFolha?.estado || 'rascunho',
+  };
+}
+
 export function openFolhaObraEditor(folhaId, session, { onClose } = {}) {
-  const folha = folhaId ? getFolhaObra(folhaId) : null;
-  const isLocked = folha?.estado === 'pendente_faturacao' || folha?.estado === 'faturado';
-  const title = folha
-    ? `${formatFolhaObraOrdemLabel(folha)} — ${folha.marcaModelo || 'Folha de obra'}`
-    : 'Nova folha de obra';
+  const editorState = { id: folhaId || null, folha: folhaId ? getFolhaObra(folhaId) : null };
+  const runtime = { formActions: null };
+
+  function getFolha() {
+    return editorState.folha || (editorState.id ? getFolhaObra(editorState.id) : null);
+  }
+
+  function renderTitle() {
+    const folha = getFolha();
+    if (!folha) return 'Nova folha de obra';
+    return `${formatFolhaObraOrdemLabel(folha)} — ${folha.marcaModelo || 'Folha de obra'}`;
+  }
+
+  function isLocked() {
+    const folha = getFolha();
+    return folha?.estado === 'pendente_faturacao' || folha?.estado === 'faturado';
+  }
 
   let overlay = document.getElementById('folha-obra-overlay');
   if (!overlay) {
@@ -322,92 +390,137 @@ export function openFolhaObraEditor(folhaId, session, { onClose } = {}) {
     overlay.id = 'folha-obra-overlay';
     overlay.className = 'folha-obra-overlay';
     document.body.appendChild(overlay);
+
+    overlay.addEventListener('click', async (event) => {
+      const ctx = overlay._folhaObraEditor;
+      if (!ctx || overlay.hidden) return;
+
+      if (event.target.closest('#folha-obra-close')) {
+        ctx.close();
+        return;
+      }
+
+      const btn = event.target.closest('button');
+      if (!btn?.id?.startsWith('folha-obra-')) return;
+
+      const form = overlay.querySelector('#folha-obra-form');
+      if (!form) return;
+
+      const { editorState: state, session: sess, runtime: rt, close, onClose: afterClose } = ctx;
+
+      try {
+        if (btn.id === 'folha-obra-pdf') {
+          const payload = mergeFolhaPayload(form, sess, state.folha, state.id);
+          const { previewFolhaObraPDF } = await import('../pdf-preview.js');
+          await previewFolhaObraPDF(payload);
+          return;
+        }
+
+        if (btn.id === 'folha-obra-etiqueta') {
+          const payload = mergeFolhaPayload(form, sess, state.folha, state.id);
+          printFolhaObraEtiqueta(payload);
+          return;
+        }
+
+        if (btn.id === 'folha-obra-save') {
+          const saved = await rt.formActions.persist('draft');
+          state.id = saved.id;
+          state.folha = saved;
+          showToast('Folha de obra guardada.', 'success', 4000, { force: true });
+          ctx.repaint();
+          afterClose?.();
+          return;
+        }
+
+        if (btn.id === 'folha-obra-entrada') {
+          const payload = collectFolhaFromForm(form, sess?.technicianId || '');
+          validateFolhaObraPayload(payload, 'entrada');
+          if (!state.id) {
+            const inserted = await insertFolhaObra(payload);
+            state.id = inserted.id;
+          }
+          const saved = await registerFolhaObraEntrada(state.id, payload);
+          state.folha = saved;
+          printFolhaObraEtiqueta(saved);
+          showToast('Entrada registada. Etiqueta enviada para impressão.', 'success', 5000, { force: true });
+          ctx.repaint();
+          afterClose?.();
+          return;
+        }
+
+        if (btn.id === 'folha-obra-submit') {
+          const saved = await rt.formActions.persist('concluir');
+          state.id = saved.id;
+          state.folha = saved;
+          await submitFolhaObraForBilling(saved.id);
+          showToast('Folha enviada para faturação (RH).', 'success', 5000, { force: true });
+          close();
+          return;
+        }
+      } catch (err) {
+        const messages = {
+          'folha-obra-pdf': 'Não foi possível gerar o PDF.',
+          'folha-obra-etiqueta': 'Não foi possível imprimir a etiqueta.',
+          'folha-obra-save': 'Erro ao guardar.',
+          'folha-obra-entrada': 'Erro ao registar entrada.',
+          'folha-obra-submit': 'Erro ao concluir.',
+        };
+        showToast(err?.message || messages[btn.id] || 'Operação falhou.', 'error', 6000, { force: true });
+      }
+    });
   }
 
+  const close = () => {
+    overlay.hidden = true;
+    document.body.classList.remove('folha-obra-open');
+    overlay._folhaObraEditor = null;
+    onClose?.();
+  };
+
+  function syncFormBindings() {
+    const form = overlay.querySelector('#folha-obra-form');
+    if (!form) return;
+    runtime.formActions = bindFolhaObraForm(form, {
+      getFolhaId: () => editorState.id,
+      session,
+    });
+  }
+
+  function repaint() {
+    const folha = getFolha();
+    overlay.querySelector('#folha-obra-title').textContent = renderTitle();
+    overlay.querySelector('.folha-obra-panel__body').innerHTML = renderFolhaObraFormHtml(folha, session);
+    overlay.querySelector('.folha-obra-panel__footer').innerHTML = renderFolhaObraFooterHtml(folha, {
+      isLocked: isLocked(),
+    });
+    syncFormBindings();
+  }
+
+  const folha = editorState.folha;
   overlay.innerHTML = `
     <div class="folha-obra-panel" role="dialog" aria-modal="true" aria-labelledby="folha-obra-title">
       <header class="folha-obra-panel__header">
         <button type="button" class="folha-obra-panel__back" id="folha-obra-close" aria-label="Fechar">←</button>
-        <h2 id="folha-obra-title" class="folha-obra-panel__title">${escapeHtml(title)}</h2>
+        <h2 id="folha-obra-title" class="folha-obra-panel__title">${escapeHtml(renderTitle())}</h2>
       </header>
       <div class="folha-obra-panel__body">
         ${renderFolhaObraFormHtml(folha, session)}
       </div>
       <footer class="folha-obra-panel__footer">
-        <button type="button" class="btn-outline" id="folha-obra-pdf">Gerar PDF</button>
-        ${
-          isLocked
-            ? '<p class="folha-obra-locked-hint">Enviada para faturação — apenas consulta.</p>'
-            : `
-          <button type="button" class="btn-outline" id="folha-obra-save">Guardar rascunho</button>
-          <button type="button" class="btn-primary" id="folha-obra-submit">Concluir e enviar para faturação</button>
-        `
-        }
+        ${renderFolhaObraFooterHtml(folha, { isLocked: isLocked() })}
       </footer>
     </div>
   `;
 
+  overlay._folhaObraEditor = { editorState, session, runtime, close, onClose, repaint };
   overlay.hidden = false;
   document.body.classList.add('folha-obra-open');
-
-  const form = overlay.querySelector('#folha-obra-form');
-  const { persist } = bindFolhaObraForm(form, { folhaId, session });
-
-  const close = () => {
-    overlay.hidden = true;
-    document.body.classList.remove('folha-obra-open');
-    onClose?.();
-  };
-
-  overlay.querySelector('#folha-obra-close')?.addEventListener('click', close);
-
-  overlay.querySelector('#folha-obra-pdf')?.addEventListener('click', async () => {
-    try {
-      const draft = collectFolhaFromForm(form, session?.technicianId || '');
-      const base = folhaId ? getFolhaObra(folhaId) : folha;
-      const payload = {
-        ...(base || {}),
-        ...draft,
-        id: base?.id || folhaId || 'draft',
-        numeroOrdem: base?.numeroOrdem ?? null,
-      };
-      const { previewFolhaObraPDF } = await import('../pdf-preview.js');
-      await previewFolhaObraPDF(payload);
-    } catch (err) {
-      showToast(err?.message || 'Não foi possível gerar o PDF.', 'error', 6000, { force: true });
-    }
-  });
-
-  overlay.querySelector('#folha-obra-save')?.addEventListener('click', async () => {
-    try {
-      const saved = await persist();
-      showToast('Folha de obra guardada.', 'success', 4000, { force: true });
-      if (!folhaId) {
-        close();
-        openFolhaObraEditor(saved.id, session, { onClose });
-      }
-      onClose?.();
-    } catch (err) {
-      showToast(err?.message || 'Erro ao guardar.', 'error', 5000, { force: true });
-    }
-  });
-
-  overlay.querySelector('#folha-obra-submit')?.addEventListener('click', async () => {
-    try {
-      const saved = await persist();
-      await submitFolhaObraForBilling(saved.id);
-      showToast('Folha enviada para faturação (RH).', 'success', 5000, { force: true });
-      close();
-      onClose?.();
-    } catch (err) {
-      showToast(err?.message || 'Erro ao concluir.', 'error', 6000, { force: true });
-    }
-  });
+  syncFormBindings();
 }
 
 function renderFolhaCard(folha) {
   const clientName = resolveFolhaClientName(folha);
-  const estadoLabel = ESTADO_LABELS[folha.estado] || folha.estado;
+  const estadoLabel = formatFolhaObraEstadoLabel(folha.estado);
 
   return `
     <article class="tech-job-card folha-obra-card" data-folha-id="${escapeHtml(folha.id)}" role="button" tabindex="0">
@@ -421,7 +534,7 @@ function renderFolhaCard(folha) {
         <p class="tech-job-card__meta">
           ${folha.numeroSerie ? `Série ${escapeHtml(folha.numeroSerie)}` : ''}
           ${folha.etq ? ` · ETQ ${escapeHtml(folha.etq)}` : ''}
-          ${folha.dataRececao ? ` · Receção ${escapeHtml(formatDate(folha.dataRececao))}` : ''}
+          ${folha.dataRececao ? ` · Entrada ${escapeHtml(formatDate(folha.dataRececao))}` : ''}
         </p>
       </div>
     </article>
@@ -430,7 +543,7 @@ function renderFolhaCard(folha) {
 
 function renderFolhaTableRow(folha) {
   const clientName = resolveFolhaClientName(folha);
-  const estadoLabel = ESTADO_LABELS[folha.estado] || folha.estado;
+  const estadoLabel = formatFolhaObraEstadoLabel(folha.estado);
 
   return `
     <tr data-folha-id="${escapeHtml(folha.id)}" tabindex="0" role="button">
@@ -466,7 +579,7 @@ function renderFolhasSection(title, folhas, emptyText, layout = 'cards') {
                   <th>Marca / Modelo</th>
                   <th>N.º Série</th>
                   <th>ETQ</th>
-                  <th>Receção</th>
+                  <th>Entrada</th>
                   <th>Concluída</th>
                   <th>Responsável</th>
                   <th>Estado</th>
@@ -501,10 +614,11 @@ export async function mountFolhasObraTab(
   if (!mount) return;
 
   await ensureFolhasObraLoadedSafe(true);
-  const folhas = getFolhasObraSnapshot();
+
   const defaultCreate = () => openFolhaObraEditor(null, session, { onClose: () => onRefresh?.() });
 
   function render(filters = {}) {
+    const folhas = getFolhasObraSnapshot();
     const query = filters.query || '';
     const estado = filters.estado || 'all';
     const dataMin = filters.dataMin || '';
@@ -512,16 +626,20 @@ export async function mountFolhasObraTab(
 
     const filtered = folhas
       .filter((folha) => matchesFolhaSearch(folha, query))
-      .filter((folha) => (estado === 'all' ? true : folha.estado === estado))
+      .filter((folha) => {
+        if (estado === 'all') return true;
+        if (estado === 'finalizado') return isFolhaObraFinalizada(folha);
+        return folha.estado === estado;
+      })
       .filter((folha) => (!dataMin ? true : String(folha.dataRececao || '') >= dataMin))
       .filter((folha) => (!dataMax ? true : String(folha.dataRececao || '') <= dataMax))
       .sort((a, b) =>
         String(b.dataRececao || b.createdAt || '').localeCompare(String(a.dataRececao || a.createdAt || '')),
       );
 
-    const abertas = filtered.filter((f) => f.estado === 'rascunho' || f.estado === 'em_reparacao');
-    const faturacao = filtered.filter((f) => f.estado === 'pendente_faturacao');
-    const historico = filtered.filter((f) => f.estado === 'faturado' || f.estado === 'dispensado');
+    const entradaArmazem = filtered.filter((f) => f.estado === 'rascunho');
+    const emReparacao = filtered.filter((f) => f.estado === 'em_reparacao');
+    const finalizado = filtered.filter((f) => isFolhaObraFinalizada(f));
 
     mount.innerHTML = `
       <div class="folha-obra-tab">
@@ -538,7 +656,7 @@ export async function mountFolhasObraTab(
               </select>
             </div>
             <div class="form-group">
-              <label class="form-label" for="folha-obra-data-min">Receção de</label>
+              <label class="form-label" for="folha-obra-data-min">Entrada de</label>
               <input type="date" class="form-input" id="folha-obra-data-min" value="${escapeHtml(dataMin)}">
             </div>
             <div class="form-group">
@@ -552,9 +670,9 @@ export async function mountFolhasObraTab(
               : ''
           }
         </div>
-        ${renderFolhasSection('Em reparação', abertas, 'Nenhum equipamento em reparação.', layout)}
-        ${renderFolhasSection('A enviar / por faturar', faturacao, 'Nenhuma folha aguarda faturação.', layout)}
-        ${renderFolhasSection('Histórico', historico, 'Ainda sem folhas faturadas.', layout)}
+        ${renderFolhasSection('Entrada em Armazém', entradaArmazem, 'Nenhum equipamento aguarda entrada.', layout)}
+        ${renderFolhasSection('Reparação', emReparacao, 'Nenhum equipamento em reparação.', layout)}
+        ${renderFolhasSection('Finalizado', finalizado, 'Ainda sem folhas concluídas.', layout)}
       </div>
     `;
 

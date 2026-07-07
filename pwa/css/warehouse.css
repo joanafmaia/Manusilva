@@ -302,3 +302,22 @@ body.warehouse-page .form-input--sm {
     box-shadow: none;
   }
 }
+
+body.warehouse-page .folha-obra-section-hint,
+body.warehouse-page .folha-obra-phase-hint {
+  margin: 0 0 0.85rem;
+  color: var(--ms-text-muted);
+  font-size: 0.9rem;
+}
+
+body.warehouse-page .folha-obra-phase-hint {
+  padding: 0.85rem 1rem;
+}
+
+body.warehouse-page .folha-obra-panel__footer #folha-obra-etiqueta {
+  margin-right: 0;
+}
+
+body.warehouse-page .folha-obra-panel__footer #folha-obra-pdf {
+  margin-right: auto;
+}

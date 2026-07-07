@@ -426,12 +426,8 @@ export async function previewFolhaObraPDF(folha) {
   } catch (err) {
     showPdfPreviewLoading(false);
     console.error('[PDF Folha de obra]', err);
-    try {
-      const { showToast } = await import('./app.js');
-      showToast(err?.message || 'Não foi possível gerar o PDF.', 'error');
-    } catch {
-      /* toast indisponível */
-    }
+    const { showToast: toast } = await import('./toast-modal.js');
+    toast(err?.message || 'Não foi possível gerar o PDF.', 'error', 6000, { force: true });
     throw err;
   }
 }
