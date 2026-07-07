@@ -108,7 +108,6 @@ function collectFolhaFromForm(form, technicianId) {
   const tipo = form.querySelector('[name="tipo"]')?.value?.trim() || '';
   const marcaModelo = form.querySelector('[name="marca_modelo"]')?.value?.trim() || '';
   const numeroSerie = form.querySelector('[name="numero_serie"]')?.value?.trim() || '';
-  const etq = form.querySelector('[name="etq"]')?.value?.trim() || '';
   const dataRececao = form.querySelector('[name="data_rececao"]')?.value?.trim() || '';
   const maquinaConcluidaEm = form.querySelector('[name="maquina_concluida_em"]')?.value?.trim() || '';
   const responsavel = form.querySelector('[name="responsavel"]')?.value?.trim() || '';
@@ -121,7 +120,6 @@ function collectFolhaFromForm(form, technicianId) {
     tipo,
     marcaModelo,
     numeroSerie,
-    etq,
     dataRececao,
     intervencoes: collectIntervencoesFromForm(form),
     maquinaConcluidaEm,
@@ -165,7 +163,8 @@ function renderFolhaObraFormHtml(folha, session) {
   const isLocked = folha?.estado === 'pendente_faturacao' || folha?.estado === 'faturado';
   const emReparacao = isFolhaEmReparacao(folha);
   const estado = folha?.estado || 'rascunho';
-  const etqReadonly = emReparacao || isLocked;
+  const etqValue = folha?.etq || '';
+  const etqPlaceholder = etqValue ? '' : 'Gerado ao dar entrada (ex.: ETQ-12)';
 
   return `
     <form id="folha-obra-form" class="folha-obra-form" autocomplete="off">
@@ -208,8 +207,9 @@ function renderFolhaObraFormHtml(folha, session) {
             <input type="text" class="form-input" id="folha-serie" name="numero_serie" value="${escapeHtml(folha?.numeroSerie || '')}" ${isLocked ? 'readonly' : ''}>
           </div>
           <div class="form-group">
-            <label class="form-label" for="folha-etq">ETQ</label>
-            <input type="text" class="form-input" id="folha-etq" name="etq" value="${escapeHtml(folha?.etq || '')}" placeholder="${emReparacao ? '' : 'Atribuída na entrada'}" ${etqReadonly ? 'readonly' : ''}>
+            <label class="form-label" for="folha-etq">N.º etiqueta (ETQ)</label>
+            <input type="text" class="form-input" id="folha-etq" name="etq" value="${escapeHtml(etqValue)}" placeholder="${escapeHtml(etqPlaceholder)}" readonly aria-readonly="true">
+            <p class="folha-obra-field-hint">Número impresso na etiqueta física — gerado automaticamente na entrada.</p>
           </div>
           <div class="form-group">
             <label class="form-label" for="folha-rececao">Data de entrada</label>
@@ -360,7 +360,7 @@ function mergeFolhaPayload(form, session, baseFolha, folhaId) {
     ...draft,
     id: cached?.id || baseFolha?.id || folhaId || 'draft',
     numeroOrdem: cached?.numeroOrdem ?? baseFolha?.numeroOrdem ?? null,
-    etq: cached?.etq || draft.etq || baseFolha?.etq || '',
+    etq: cached?.etq || baseFolha?.etq || '',
     estado: cached?.estado || draft.estado || baseFolha?.estado || 'rascunho',
   };
 }
@@ -578,7 +578,7 @@ function renderFolhasSection(title, folhas, emptyText, layout = 'cards') {
                   <th>Tipo</th>
                   <th>Marca / Modelo</th>
                   <th>N.º Série</th>
-                  <th>ETQ</th>
+                  <th>Etiqueta</th>
                   <th>Entrada</th>
                   <th>Concluída</th>
                   <th>Responsável</th>

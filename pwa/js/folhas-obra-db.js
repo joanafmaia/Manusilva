@@ -188,7 +188,7 @@ async function loadFolhasObraFromSupabase() {
 export async function insertFolhaObra(payload) {
   validateFolhaObraPayload(payload, 'draft');
   const supabase = await getAuthenticatedSupabaseClient();
-  const row = mapFolhaObraToRow(payload);
+  const row = mapFolhaObraToRow({ ...payload, etq: '' });
   delete row.atualizado_em;
 
   const { data, error } = await supabase.from('folhas_obra').insert(row).select('*').single();
@@ -205,6 +205,9 @@ export async function updateFolhaObra(id, updates) {
 
   const supabase = await getAuthenticatedSupabaseClient();
   const merged = { ...existing, ...updates };
+  if (existing.estado === 'rascunho' && merged.estado === 'rascunho') {
+    merged.etq = '';
+  }
   const row = mapFolhaObraToRow(merged);
 
   const { data, error } = await supabase
@@ -277,11 +280,23 @@ export function formatFolhaObraEstadoLabel(estado, { rh = false } = {}) {
   return FOLHA_OBRA_ESTADO_ARM_LABELS[key] || key;
 }
 
+export function formatEtqNumber(numeroOrdem) {
+  const n = Number(numeroOrdem);
+  if (!Number.isFinite(n) || n <= 0) return '';
+  return `ETQ-${n}`;
+}
+
+/** Número da etiqueta física — gerado na entrada e pareado com a folha. */
 export function buildFolhaObraEtqLabel(folha) {
   if (!folha) return '';
   if (folha.etq?.trim()) return folha.etq.trim();
-  if (folha.numeroOrdem != null) return `FO-${folha.numeroOrdem}`;
-  return '';
+  return formatEtqNumber(folha.numeroOrdem);
+}
+
+export function assignFolhaObraEtq(folha) {
+  if (!folha) return '';
+  if (folha.etq?.trim()) return folha.etq.trim();
+  return formatEtqNumber(folha.numeroOrdem);
 }
 
 export function parseFolhaClientId(clientId) {

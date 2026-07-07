@@ -8564,10 +8564,15 @@ body.folha-obra-open {
   bottom: 0;
 }
 .folha-obra-section-hint,
-.folha-obra-phase-hint {
+.folha-obra-phase-hint,
+.folha-obra-field-hint {
   margin: 0 0 0.85rem;
   color: var(--ms-text-muted);
   font-size: 0.9rem;
+}
+.folha-obra-field-hint {
+  margin: 0.35rem 0 0;
+  font-size: 0.82rem;
 }
 .folha-obra-phase-hint {
   padding: 0.85rem 1rem;

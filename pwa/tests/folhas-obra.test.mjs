@@ -99,10 +99,12 @@ describe('folhas-obra-db validate', () => {
     );
   });
 
-  it('buildFolhaObraEtqLabel usa ETQ ou número de ordem', async () => {
-    const { buildFolhaObraEtqLabel } = await import('../js/folhas-obra-db.js');
+  it('formatEtqNumber e buildFolhaObraEtqLabel geram número da etiqueta', async () => {
+    const { formatEtqNumber, buildFolhaObraEtqLabel, assignFolhaObraEtq } = await import('../js/folhas-obra-db.js');
+    assert.equal(formatEtqNumber(4), 'ETQ-4');
     assert.equal(buildFolhaObraEtqLabel({ etq: 'ETQ-9' }), 'ETQ-9');
-    assert.equal(buildFolhaObraEtqLabel({ numeroOrdem: 4 }), 'FO-4');
+    assert.equal(buildFolhaObraEtqLabel({ numeroOrdem: 4 }), 'ETQ-4');
+    assert.equal(assignFolhaObraEtq({ numeroOrdem: 7, etq: '' }), 'ETQ-7');
   });
 
   it('formatFolhaObraEstadoLabel — três fases no armazém', async () => {
@@ -134,14 +136,14 @@ describe('folha-obra-etiqueta', () => {
       tipo: 'Empilhador',
       marcaModelo: 'Toyota',
       numeroSerie: 'SN-1',
-      etq: 'FO-2',
+      etq: 'ETQ-2',
       dataRececao: '2026-07-07',
       numeroOrdem: 2,
     });
     assert.match(html, /Entrada:/);
     assert.match(html, /Empilhador/);
     assert.match(html, /Toyota/);
-    assert.match(html, /FO-2/);
+    assert.match(html, /ETQ-2/);
   });
 });
 

@@ -6,7 +6,7 @@ import {
   getFolhaObra,
   isFolhaObraPendingBilling,
   updateFolhaObra,
-  buildFolhaObraEtqLabel,
+  assignFolhaObraEtq,
   validateFolhaObraPayload,
 } from './folhas-obra-db.js';
 import {
@@ -33,6 +33,11 @@ export async function registerFolhaObraEntrada(folhaId, payload = null) {
   const merged = payload ? { ...existing, ...payload, id: existing.id } : existing;
   validateFolhaObraPayload(merged, 'entrada');
 
+  const etq = assignFolhaObraEtq(existing);
+  if (!etq) {
+    throw new Error('Não foi possível gerar o número da etiqueta. Guarde a folha e tente novamente.');
+  }
+
   const saved = await updateFolhaObra(folhaId, {
     clientId: merged.clientId,
     technicianId: merged.technicianId,
@@ -44,12 +49,9 @@ export async function registerFolhaObraEntrada(folhaId, payload = null) {
     observacoes: merged.observacoes || '',
     responsavel: merged.responsavel || existing.responsavel || '',
     estado: 'em_reparacao',
-    etq: buildFolhaObraEtqLabel(merged) || buildFolhaObraEtqLabel(existing) || merged.etq || '',
+    etq,
   });
 
-  if (!saved.etq?.trim() && saved.numeroOrdem != null) {
-    return updateFolhaObra(folhaId, { etq: `FO-${saved.numeroOrdem}` });
-  }
   return saved;
 }
 

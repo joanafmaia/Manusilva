@@ -5,7 +5,7 @@
 import { escapeHtml } from './html-utils.js';
 import { formatDate } from './date-utils.js';
 import { getClient } from './entity-lookups.js';
-import { formatFolhaObraOrdemLabel } from './folhas-obra-db.js';
+import { formatFolhaObraOrdemLabel, assignFolhaObraEtq } from './folhas-obra-db.js';
 import { COMPANY } from './mock_data.js';
 
 function resolveClientName(folha) {
@@ -17,7 +17,7 @@ export function buildFolhaObraEtiquetaHtml(folha) {
   const ordem = formatFolhaObraOrdemLabel(folha);
   const cliente = resolveClientName(folha);
   const entrada = folha?.dataRececao ? formatDate(folha.dataRececao) : '—';
-  const etq = folha?.etq || ordem;
+  const etq = assignFolhaObraEtq(folha) || ordem;
 
   return `<!DOCTYPE html>
 <html lang="pt">
