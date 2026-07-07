@@ -17,6 +17,21 @@
   <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:ital,wght@0,400;0,500;0,600;0,700&family=Source+Serif+4:ital,wght@0,600;0,700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/base.css?v=clinica-v17">
   <script>
+    (function redirectLoggedInUser() {
+      try {
+        var raw = localStorage.getItem('app_session');
+        if (!raw) return;
+        var s = JSON.parse(raw);
+        var role = String(s.role || '').toLowerCase();
+        var panel = null;
+        if (role === 'rh' || role === 'admin' || role === 'administracao') panel = 'admin.html';
+        else if (role === 'armazem' || role === 'warehouse') panel = 'warehouse.html';
+        else if (role === 'tecnico' || role === 'technician') panel = 'dashboard.html';
+        if (panel) location.replace(panel);
+      } catch (e) { /* ignore */ }
+    })();
+  </script>
+  <script>
     (function purgeStalePwaCache() {
       try {
         if ('serviceWorker' in navigator) {

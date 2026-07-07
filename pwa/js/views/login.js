@@ -1,4 +1,5 @@
 import { AuthService, resolveLoginEmail, userUsesNameOnlyLogin } from '../auth.js';
+import { getPanelUrlForUiRole } from '../auth-guard.js';
 import { ROLE_UI_TO_DB } from '../mock_data.js';
 import { getSavedLoginIdentifier, loadLoginPrefs, saveLoginPrefs } from '../login-prefs.js';
 
@@ -226,7 +227,7 @@ export const LoginView = {
       if (resultado.success) {
         resetFailedCount(loginKeyRole, identifier);
         saveLoginPrefs({ role: selectedUiRole, identifier });
-        window.location.reload();
+        window.location.replace(getPanelUrlForUiRole(selectedUiRole));
         return;
       }
 

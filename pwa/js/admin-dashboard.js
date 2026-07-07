@@ -55,6 +55,7 @@ import { isTestClient } from './client-test-utils.js';
 import { reportPedidoOrcamentoRoutesToOrcamentosTab } from './pedido-orcamento.js';
 import { formatOrdemLabel } from './report-review-ui.js';
 import { renderClientCombobox, bindClientComboboxes } from './client-combobox.js';
+import { finishAppBoot } from './bootstrap-entry.js';
 import { forceLogout, renderUserGreeting } from './auth.js';
 import { initMetricsPanel, refreshMetricsPanel } from './views/dashboard.js';
 import { initClientsApp } from './views/clients-app.js';
@@ -445,6 +446,7 @@ export async function initAdminDashboard() {
   });
   bindAppRefreshControls();
   bindAdminNavigation();
+  finishAppBoot();
 
   try {
     await warmClientsCatalog();

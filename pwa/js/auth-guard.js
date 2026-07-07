@@ -17,6 +17,17 @@ function dashboardUrlForSession(session) {
   return 'dashboard.html';
 }
 
+/** Painel conforme o perfil escolhido no ecrã de login. */
+export function getPanelUrlForUiRole(uiRole) {
+  if (uiRole === 'admin') return 'admin.html';
+  if (uiRole === 'warehouse') return 'warehouse.html';
+  return 'dashboard.html';
+}
+
+export function getPanelUrlForSession(session) {
+  return dashboardUrlForSession(session);
+}
+
 export function requireAuth(role) {
   const session = getSession();
   if (!session) {
