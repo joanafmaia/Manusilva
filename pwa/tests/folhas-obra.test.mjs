@@ -159,14 +159,14 @@ describe('folha-obra-etiqueta', () => {
       numeroOrdem: 2,
       responsavel: 'Hugo',
     });
-    assert.match(html, />Entrada</);
+    assert.match(html, />Ent:</);
     assert.match(html, /Empilhador/);
     assert.match(html, /Toyota/);
     assert.match(html, /ETQ-2/);
-    assert.match(html, /Resp\./);
+    assert.match(html, />R:</);
     assert.match(html, /Hugo/);
-    assert.equal(ETIQUETA_PRINT_WIDTH_MM, 50);
-    assert.equal(ETIQUETA_PRINT_HEIGHT_MM, 68);
+    assert.equal(ETIQUETA_PRINT_WIDTH_MM, 25);
+    assert.equal(ETIQUETA_PRINT_HEIGHT_MM, 92);
   });
 });
 

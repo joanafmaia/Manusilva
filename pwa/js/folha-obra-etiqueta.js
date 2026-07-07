@@ -1,7 +1,7 @@
 /**
  * Etiqueta de entrada — equipamento recebido na oficina.
  * Impressão via iframe oculto (sem pop-ups).
- * Formato: fita 50 mm (largura máx.) — compatível com impressoras de etiquetas.
+ * Formato: fita 25 mm (largura máx.) — compatível com impressoras de etiquetas.
  */
 
 import { escapeHtml } from './html-utils.js';
@@ -14,9 +14,9 @@ import { closeModal, openModal, showToast } from './toast-modal.js';
 const PRINT_FRAME_ID = 'folha-obra-etiqueta-print-frame';
 
 /** Largura máxima da fita (mm). */
-export const ETIQUETA_PRINT_WIDTH_MM = 50;
+export const ETIQUETA_PRINT_WIDTH_MM = 25;
 /** Comprimento da etiqueta (mm) — bem abaixo do máximo da impressora (431,8 mm). */
-export const ETIQUETA_PRINT_HEIGHT_MM = 68;
+export const ETIQUETA_PRINT_HEIGHT_MM = 92;
 
 const ETIQUETA_STYLES = `
   @page {
@@ -36,44 +36,41 @@ const ETIQUETA_STYLES = `
   .folha-etiqueta {
     width: ${ETIQUETA_PRINT_WIDTH_MM}mm;
     height: ${ETIQUETA_PRINT_HEIGHT_MM}mm;
-    padding: 2mm 2.2mm;
+    padding: 1.5mm 1.4mm;
     display: flex;
     flex-direction: column;
-    gap: 0.8mm;
+    gap: 0.6mm;
     overflow: hidden;
   }
   .folha-etiqueta__brand {
-    font-size: 7pt;
+    font-size: 5.5pt;
     font-weight: 700;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.03em;
     text-transform: uppercase;
     color: #2b6cb0;
     line-height: 1.1;
   }
   .folha-etiqueta__etq {
-    font-size: 14pt;
+    font-size: 11pt;
     font-weight: 700;
     line-height: 1.05;
-    margin-bottom: 0.5mm;
+    margin-bottom: 0.3mm;
   }
   .folha-etiqueta__cliente {
-    font-size: 9pt;
+    font-size: 7pt;
     font-weight: 600;
     line-height: 1.15;
-    max-height: 11mm;
+    max-height: 14mm;
     overflow: hidden;
     word-break: break-word;
   }
   .folha-etiqueta__line {
-    font-size: 8pt;
-    line-height: 1.25;
-    display: flex;
-    gap: 1mm;
+    font-size: 6.5pt;
+    line-height: 1.2;
+    display: block;
     word-break: break-word;
   }
   .folha-etiqueta__line span {
-    flex: 0 0 auto;
-    min-width: 12mm;
     font-weight: 600;
     color: #475569;
   }
@@ -116,11 +113,11 @@ function buildFolhaObraEtiquetaBody(folha) {
       <div class="folha-etiqueta__brand">${escapeHtml(COMPANY.name || 'Manusilva')}</div>
       <div class="folha-etiqueta__etq">${escapeHtml(etq)}</div>
       <div class="folha-etiqueta__cliente">${escapeHtml(cliente)}</div>
-      <div class="folha-etiqueta__line"><span>Tipo</span> ${escapeHtml(folha?.tipo || '—')}</div>
-      <div class="folha-etiqueta__line"><span>Marca</span> ${escapeHtml(folha?.marcaModelo || '—')}</div>
-      <div class="folha-etiqueta__line"><span>Série</span> ${escapeHtml(folha?.numeroSerie || '—')}</div>
-      <div class="folha-etiqueta__line"><span>Entrada</span> ${escapeHtml(entrada)}</div>
-      <div class="folha-etiqueta__line"><span>Resp.</span> ${escapeHtml(responsavel)}</div>
+      <div class="folha-etiqueta__line"><span>T:</span> ${escapeHtml(folha?.tipo || '—')}</div>
+      <div class="folha-etiqueta__line"><span>M:</span> ${escapeHtml(folha?.marcaModelo || '—')}</div>
+      <div class="folha-etiqueta__line"><span>S:</span> ${escapeHtml(folha?.numeroSerie || '—')}</div>
+      <div class="folha-etiqueta__line"><span>Ent:</span> ${escapeHtml(entrada)}</div>
+      <div class="folha-etiqueta__line"><span>R:</span> ${escapeHtml(responsavel)}</div>
     </div>
   `;
 }
@@ -158,7 +155,7 @@ export function buildFolhaObraEtiquetaPreviewHtml(folha) {
         ${ETIQUETA_STYLES}
       </style>
       ${buildFolhaObraEtiquetaBody(folha)}
-      <p class="folha-etiqueta-preview-note">Formato de impressão: ${ETIQUETA_PRINT_WIDTH_MM} × ${ETIQUETA_PRINT_HEIGHT_MM} mm (fita 50 mm)</p>
+      <p class="folha-etiqueta-preview-note">Formato de impressão: ${ETIQUETA_PRINT_WIDTH_MM} × ${ETIQUETA_PRINT_HEIGHT_MM} mm (fita 25 mm)</p>
     </div>
   `;
 }
