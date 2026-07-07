@@ -15,6 +15,9 @@ import {
 import { getSession } from './session.js';
 
 async function bootEntry(entry, moduleQ) {
+  const { applyBrandLogo } = await import(`./brand-ui.js${moduleQ}`);
+  applyBrandLogo();
+
   if (entry === 'warehouse') {
     const { initLocalDatabase } = await import(`./tech-app-core.js${moduleQ}`);
     const { initLogoutButton } = await import(`./auth.js${moduleQ}`);

@@ -34,6 +34,12 @@
 
   if (needsEarlyPurge()) purgeStaleCaches();
 
+  try {
+    document.documentElement.classList.add('ms-booting');
+  } catch (e) {
+    /* ignore */
+  }
+
   window.msForceAppRefresh = function (event) {
     if (event) {
       event.preventDefault();

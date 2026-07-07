@@ -106,7 +106,9 @@ export function applyBuildAssetVersions(buildId) {
   document.querySelectorAll('link[rel="stylesheet"][href*="css/"]').forEach((link) => {
     const href = link.getAttribute('href') || '';
     const base = href.split('?')[0] || 'css/app.css';
-    link.setAttribute('href', `${base}?v=${encodeURIComponent(buildId)}`);
+    const next = `${base}?v=${encodeURIComponent(buildId)}`;
+    if (href === next) return;
+    link.setAttribute('href', next);
   });
 }
 

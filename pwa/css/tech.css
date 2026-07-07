@@ -48,6 +48,14 @@
   box-shadow: none;
   border-radius: 0;
 }
+html.ms-booting .brand-logo-slot:not(.brand-logo-slot--ready) {
+  opacity: 0;
+  visibility: hidden;
+}
+html.ms-booting .brand-logo-slot.brand-logo-slot--ready {
+  opacity: 1;
+  visibility: visible;
+}
 .brand-logo-img {
   display: block;
   max-height: 45px;
@@ -56,6 +64,12 @@
   max-width: 148px;
   object-fit: contain;
   object-position: left center;
+}
+.brand-logo-img:not(.brand-logo-img--ready) {
+  opacity: 0;
+}
+.brand-logo-img.brand-logo-img--ready {
+  opacity: 1;
 }
 .brand-logo-img--lg {
   max-height: 72px;
