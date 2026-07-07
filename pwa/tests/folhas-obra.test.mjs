@@ -210,8 +210,16 @@ describe('servicos-billing-workflow folha_obra', () => {
 
 describe('pdf-folha-obra', () => {
   it('expõe geração e nome de ficheiro', async () => {
-    const { buildFolhaObraPdfFilename, generateFolhaObraPDFBlob } = await import('../js/pdf-folha-obra.js');
+    const {
+      buildFolhaObraPdfFilename,
+      FOLHA_OBRA_DOC_REF,
+      formatFolhaObraPdfOrdemRef,
+      generateFolhaObraPDFBlob,
+    } = await import('../js/pdf-folha-obra.js');
     assert.equal(typeof generateFolhaObraPDFBlob, 'function');
+    assert.equal(FOLHA_OBRA_DOC_REF, 'MS.056.1');
+    assert.equal(formatFolhaObraPdfOrdemRef({ numeroOrdem: 9, responsabilidade: 'MS' }), 'FO-9 · M.S');
+    assert.equal(formatFolhaObraPdfOrdemRef({ numeroOrdem: 9, responsabilidade: 'RC' }), 'FO-9 · R.C');
     assert.match(
       buildFolhaObraPdfFilename({ numeroOrdem: 3, marcaModelo: 'Toyota 8FB' }),
       /Manusilva-FO-3-Toyota-8FB\.pdf/,

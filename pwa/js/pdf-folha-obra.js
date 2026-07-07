@@ -5,6 +5,7 @@
 import MANUSILVA_LOGO from './logo_data.js';
 import { isLogoConfigured, getPdfLogoFormat } from './brand-ui.js';
 import { getClient } from './entity-lookups.js';
+import { formatFolhaResponsabilidadeLabel } from './folha-obra-orcamento.js';
 import { formatFolhaObraOrdemLabel } from './folhas-obra-db.js';
 import { ensurePdfFonts, pdfAutoTableFont, pdfSetFont, pdfSafeText } from './pdf-font.js';
 import {
@@ -41,6 +42,30 @@ import { touchPdfContentPage } from './pdf-page-layout.js';
 const SECTION_GAP = 3.2;
 const TABLE_FONT = 8.5;
 const HEAD_FONT = 9.5;
+export const FOLHA_OBRA_DOC_REF = 'MS.056.1';
+const FOLHA_OBRA_DOC_REF_Y = 293.5;
+
+/** Referência FO-n + M.S/R.C no cabeçalho do PDF. */
+export function formatFolhaObraPdfOrdemRef(folha) {
+  const ordem = formatFolhaObraOrdemLabel(folha);
+  if (ordem === '—' || ordem === 'Folha de obra') return ordem;
+  return `${ordem} · ${formatFolhaResponsabilidadeLabel(folha?.responsabilidade)}`;
+}
+
+function drawFolhaObraDocumentRef(doc) {
+  pdfSetFont(doc, 'normal');
+  doc.setFontSize(7);
+  doc.setTextColor(...TEXT_MUTED);
+  doc.text(FOLHA_OBRA_DOC_REF, MARGIN, FOLHA_OBRA_DOC_REF_Y);
+}
+
+function stampFolhaObraDocumentRefAllPages(doc) {
+  const total = doc.getNumberOfPages();
+  for (let page = 1; page <= total; page += 1) {
+    doc.setPage(page);
+    drawFolhaObraDocumentRef(doc);
+  }
+}
 
 function resolveClientMetaForPdf(clientId) {
   const client = getClient(clientId);
@@ -130,7 +155,7 @@ function drawHeader(doc, folha, clientMeta) {
   pdfSetFont(doc, 'bold');
   doc.setFontSize(PDF_FONT_CAPTION);
   doc.setTextColor(...TEXT_MUTED);
-  doc.text(formatFolhaObraOrdemLabel(folha), MARGIN, y);
+  doc.text(formatFolhaObraPdfOrdemRef(folha), MARGIN, y);
   y += 4;
 
   return drawPdfDocumentTitleBar(doc, y, 'FOLHA DE OBRA', SECTION_GAP);
@@ -257,6 +282,7 @@ export async function generateFolhaObraPDFBlob(folha) {
   }
 
   drawFolhaDocumentFooters(doc);
+  stampFolhaObraDocumentRefAllPages(doc);
 
   const blob = doc.output('blob');
   const blobUrl = URL.createObjectURL(blob);
