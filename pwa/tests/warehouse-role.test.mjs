@@ -30,9 +30,12 @@ describe('warehouse role auth source', () => {
     const fs = await import('node:fs/promises');
     const html = await fs.readFile(new URL('../warehouse.html', import.meta.url), 'utf8');
     const auth = await fs.readFile(new URL('../js/auth-guard.js', import.meta.url), 'utf8');
+    const dashboard = await fs.readFile(new URL('../js/warehouse-dashboard.js', import.meta.url), 'utf8');
     assert.match(html, /warehouse-page/);
     assert.match(html, /runManusilvaEntry\('warehouse'/);
+    assert.match(html, /btn-force-app-refresh/);
     assert.match(auth, /warehouse\.html/);
+    assert.match(dashboard, /bindAppRefreshButton/);
   });
 
   it('folha de obra permite criar novo cliente', async () => {

@@ -65,6 +65,14 @@ body.warehouse-page {
   white-space: nowrap;
 }
 
+.warehouse-refresh-btn {
+  white-space: nowrap;
+}
+
+.warehouse-refresh-btn .tech-refresh-label {
+  display: inline;
+}
+
 .warehouse-logout-btn {
   white-space: nowrap;
 }

@@ -4,6 +4,7 @@
 
 import { requireAuth, warmOperacoes, applyBrandLogo, showToast } from './tech-app-core.js';
 import { initLogoutButton, renderUserGreeting } from './auth.js';
+import { bindAppRefreshButton } from './app-refresh-ui.js';
 import { openFolhaObraEditor, mountFolhasObraTab } from './views/folhas-obra.js';
 
 async function renderWarehouseHome(session) {
@@ -27,6 +28,10 @@ export async function initWarehouseDashboard() {
   applyBrandLogo();
   initLogoutButton();
   renderUserGreeting('user-name');
+  bindAppRefreshButton('btn-force-app-refresh', {
+    notifyStyle: 'button',
+    updateHint: 'Nova versão disponível — clique em Atualizar.',
+  });
 
   document.getElementById('warehouse-create-folha-btn')?.addEventListener('click', () => {
     openFolhaObraEditor(null, session, { onClose: () => renderWarehouseHome(session).catch(console.error) });
