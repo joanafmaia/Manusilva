@@ -56,19 +56,6 @@ html.ms-booting .brand-logo-slot.brand-logo-slot--ready {
   opacity: 1;
   visibility: visible;
 }
-html.ms-booting .warehouse-app,
-html.ms-booting .tech-app,
-html.ms-booting .admin-app,
-html.ms-booting #app {
-  opacity: 0;
-}
-html.ms-app-ready .warehouse-app,
-html.ms-app-ready .tech-app,
-html.ms-app-ready .admin-app,
-html.ms-app-ready #app {
-  opacity: 1;
-  transition: opacity 0.12s ease;
-}
 .brand-logo-img {
   display: block;
   max-height: 45px;
@@ -2203,11 +2190,13 @@ html.ms-app-ready #app {
   opacity: 0.85;
   cursor: pointer;
 }
-html.ms-booting input[type="date"]::-webkit-calendar-picker-indicator,
-html.ms-booting input[type="time"]::-webkit-calendar-picker-indicator,
-html.ms-booting input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+body.warehouse-page .folha-obra-filter-bar input[type="date"]::-webkit-calendar-picker-indicator {
   opacity: 0;
-  pointer-events: none;
+  width: 14px;
+  height: 14px;
+}
+body.warehouse-page .folha-obra-tab--ready .folha-obra-filter-bar input[type="date"]::-webkit-calendar-picker-indicator {
+  opacity: 0.85;
 }
 /* Cabeçalho do formulário técnico — dados do cliente */ .form-panel-header--minimal {
   justify-content: flex-start;

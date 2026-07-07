@@ -5,6 +5,7 @@
 import { requireAuth, warmOperacoes, showToast } from './tech-app-core.js';
 import { initLogoutButton, renderUserGreeting } from './auth.js';
 import { bindAppRefreshButton } from './app-refresh-ui.js';
+import { finishAppBoot } from './bootstrap-entry.js';
 import { openFolhaObraEditor, mountFolhasObraTab } from './views/folhas-obra.js';
 
 async function renderWarehouseHome(session) {
@@ -37,12 +38,13 @@ export async function initWarehouseDashboard() {
     openFolhaObraEditor(null, session, { onClose: () => renderWarehouseHome(session).catch(console.error) });
   });
 
-  try {
-    await warmOperacoes();
-  } catch (err) {
-    console.warn('[Armazém] Warm inicial:', err);
-    showToast('Alguns dados podem não estar atualizados.', 'warning', 5000, { force: true });
-  }
-
+  finishAppBoot();
   await renderWarehouseHome(session);
+
+  void warmOperacoes()
+    .then(() => renderWarehouseHome(session))
+    .catch((err) => {
+      console.warn('[Armazém] Warm inicial:', err);
+      showToast('Alguns dados podem não estar atualizados.', 'warning', 5000, { force: true });
+    });
 }

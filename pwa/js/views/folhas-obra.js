@@ -901,6 +901,9 @@ export async function mountFolhasObraTab(
 ) {
   if (!mount) return;
 
+  mount.innerHTML =
+    '<div class="folha-obra-tab folha-obra-tab--loading"><p class="text-muted">A carregar folhas de obra…</p></div>';
+
   await ensureFolhasObraLoadedSafe(true);
 
   const defaultCreate = () => openFolhaObraEditor(null, session, { onClose: () => onRefresh?.() });
@@ -1002,6 +1005,10 @@ export async function mountFolhasObraTab(
           open();
         }
       });
+    });
+
+    requestAnimationFrame(() => {
+      mount.querySelector('.folha-obra-tab')?.classList.add('folha-obra-tab--ready');
     });
   }
 

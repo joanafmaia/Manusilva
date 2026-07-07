@@ -14,9 +14,10 @@ import {
 } from './app-version.js';
 import { getSession } from './session.js';
 
-/** Revela a shell da app só depois do primeiro ecrã estar montado (evita flash de ícones). */
+/** Revela a app (idempotente). */
 export function finishAppBoot() {
   try {
+    if (document.documentElement.classList.contains('ms-app-ready')) return;
     document.documentElement.classList.add('ms-app-ready');
     document.documentElement.classList.remove('ms-booting');
   } catch {
