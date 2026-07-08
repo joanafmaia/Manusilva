@@ -29,14 +29,24 @@ export async function ensureFullClientsInStorage() {
   }
 
   const forkliftsById = new Map();
+  const aliasNamesById = new Map();
   stored.forEach((row) => {
     const leg = normalizeStoredClient(row);
     if (leg?.forklifts?.length) forkliftsById.set(leg.id, leg.forklifts);
+    const aliasNames = [row?.Nome, row?.name, ...(Array.isArray(row?.aliasNames) ? row.aliasNames : [])]
+      .map((value) => String(value || '').replace(/\s+/g, ' ').trim())
+      .filter(Boolean);
+    if (leg?.id && aliasNames.length) aliasNamesById.set(leg.id, [...new Set(aliasNames)]);
   });
 
   const merged = catalog.map((row) => {
     const copy = { ...row };
     if (forkliftsById.has(copy.id)) copy.forklifts = forkliftsById.get(copy.id);
+    if (aliasNamesById.has(copy.id)) {
+      copy.aliasNames = [
+        ...new Set([...(Array.isArray(copy.aliasNames) ? copy.aliasNames : []), ...aliasNamesById.get(copy.id)]),
+      ];
+    }
     return copy;
   });
 

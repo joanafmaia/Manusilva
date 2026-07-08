@@ -25,6 +25,14 @@ export function normalizeClientRecord(raw, index = 0) {
     raw.id !== undefined && raw.id !== null
       ? String(raw.id)
       : nif || `cli-${index}`;
+  const aliasNames = [
+    raw.nome_empresa,
+    raw.Nome,
+    raw.name,
+    ...(Array.isArray(raw.aliasNames) ? raw.aliasNames : []),
+  ]
+    .map((value) => String(value || '').replace(/\s+/g, ' ').trim())
+    .filter(Boolean);
   return {
     id,
     Nome: nome,
@@ -40,6 +48,7 @@ export function normalizeClientRecord(raw, index = 0) {
     plusCode: raw.plus_code ?? raw.plusCode ?? '',
     zonaRota: raw.zona_rota ?? raw.zonaRota ?? '',
     ehTeste: raw.eh_teste === true || raw.ehTeste === true,
+    aliasNames: [...new Set(aliasNames)],
     forklifts: raw.forklifts || [],
   };
 }
@@ -220,6 +229,9 @@ export function mergeClientsFromStorage() {
       if (Array.isArray(record.forklifts) && record.forklifts.length) {
         dup.forklifts = record.forklifts;
       }
+      dup.aliasNames = [
+        ...new Set([...(Array.isArray(dup.aliasNames) ? dup.aliasNames : []), ...record.aliasNames]),
+      ];
       if (record.NIF) catalogByNif.set(record.NIF, dup);
       catalogByNif.set(dup.id, dup);
       return;

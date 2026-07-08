@@ -60,8 +60,11 @@ function resolveClientMeta(clientId) {
 
 function clientIdAliases(clientId) {
   const { legacy } = resolveClientMeta(clientId);
+  const aliasNames = Array.isArray(legacy?.aliasNames) ? legacy.aliasNames : [];
   return new Set(
-    [clientId, legacy?.id, legacy?.NIF, legacy?.nif, legacy?.name, legacy?.Nome].filter(Boolean).map(String),
+    [clientId, legacy?.id, legacy?.NIF, legacy?.nif, legacy?.name, legacy?.Nome, ...aliasNames]
+      .filter(Boolean)
+      .map(String),
   );
 }
 

@@ -100,4 +100,29 @@ describe('clients-catalog offline', () => {
     const record = getClientFromCatalog('7');
     assert.equal(record?.Nome, 'Nome Certo Supabase');
   });
+
+  it('preserva nomes antigos como alias para históricos e pesquisas legadas', async () => {
+    globalThis.localStorage.setItem(
+      'manusilva_db',
+      JSON.stringify({
+        schemaVersion: 24,
+        clients: [{ id: '8', Nome: 'Cliente Nome Antigo', NIF: '800000000' }],
+        technicians: [],
+        utilizadores: [],
+        offlineQueue: [],
+        settings: { offline: false },
+      }),
+    );
+
+    const { resetProductionCatalogCache, registerClientInCatalog, mergeClientsFromStorage, getClientFromCatalog } =
+      await import('../js/clients-catalog.js');
+
+    resetProductionCatalogCache();
+    registerClientInCatalog({ id: 8, nome_empresa: 'Cliente Nome Novo', nif: '800000000' });
+    mergeClientsFromStorage();
+
+    const record = getClientFromCatalog('8');
+    assert.equal(record?.Nome, 'Cliente Nome Novo');
+    assert.deepEqual(record?.aliasNames, ['Cliente Nome Novo', 'Cliente Nome Antigo']);
+  });
 });
