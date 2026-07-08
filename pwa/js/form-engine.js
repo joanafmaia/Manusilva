@@ -1221,6 +1221,13 @@ function resolveDependencySelectedValue(overlay, depId) {
     return choiceGroup.querySelector('.choice-btn.selected')?.dataset.value ?? null;
   }
 
+  const dropdown = overlay.querySelector(
+    `[data-field-id="${depId}"][data-field-kind="dropdown"]`,
+  );
+  if (dropdown) {
+    return dropdown.value || null;
+  }
+
   return null;
 }
 
@@ -2638,6 +2645,15 @@ export async function bindFormFieldInteractions(overlay) {
         btn.classList.add('selected');
         evaluateFieldDependencies(overlay);
       });
+    });
+  });
+
+  overlay.querySelectorAll('select[data-field-kind="dropdown"]').forEach((select) => {
+    if (select.dataset.dropdownBound === '1') return;
+    select.dataset.dropdownBound = '1';
+    select.addEventListener('change', () => {
+      evaluateFieldDependencies(overlay);
+      overlay.dispatchEvent(new Event('input', { bubbles: true }));
     });
   });
 

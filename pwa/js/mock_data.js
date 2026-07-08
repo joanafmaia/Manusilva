@@ -323,6 +323,14 @@ export const INSPECAO_DL50_TIPO_OPTIONS = [
   'Rebocador',
 ];
 
+/** Tipos de equipamento — Recolha / Entrega no cliente */
+export const MOVIMENTO_EQUIPAMENTO_TIPO_OPTIONS = [
+  ...INSPECAO_DL50_TIPO_OPTIONS,
+  'Carregador',
+  'Bateria',
+  'Outro',
+];
+
 /** Template oficial — Inspeção Decreto-Lei 50/2005 */
 export const INSPECAO_DL50_2005 = {
   id: 'inspecao_dl50_2005',
@@ -682,47 +690,43 @@ export const MOVIMENTO_MATERIAL_CLIENTE = {
     },
     { type: 'date', id: 'data_movimento', label: 'Data', section: 'Movimento' },
     {
-      type: 'choice',
-      id: 'tipo_conteudo',
-      label: 'O que foi movimentado',
-      section: 'Movimento',
-      options: ['Máquina', 'Outro'],
+      type: 'dropdown',
+      id: 'tipo',
+      label: LABEL_TIPO,
+      section: 'Equipamento',
+      options: MOVIMENTO_EQUIPAMENTO_TIPO_OPTIONS,
     },
     {
       type: 'text',
-      id: 'tipo_conteudo_outro',
-      label: 'Especificar',
-      section: 'Movimento',
-      dependency: 'tipo_conteudo:Outro',
-      placeholder: 'Descreva o que foi movimentado',
+      id: 'tipo_outro',
+      label: 'Especificar tipo',
+      section: 'Equipamento',
+      dependency: 'tipo:Outro',
+      placeholder: 'Descreva o equipamento movimentado',
     },
     {
       type: 'text',
       id: 'marca',
       label: LABEL_MARCA,
-      section: 'Máquina',
-      dependency: 'tipo_conteudo:Máquina',
+      section: 'Equipamento',
     },
     {
       type: 'text',
       id: 'modelo',
       label: LABEL_MODELO,
-      section: 'Máquina',
-      dependency: 'tipo_conteudo:Máquina',
+      section: 'Equipamento',
     },
     {
       type: 'text',
       id: 'numero_de_serie',
       label: LABEL_NUMERO_SERIE,
-      section: 'Máquina',
-      dependency: 'tipo_conteudo:Máquina',
+      section: 'Equipamento',
     },
     {
       type: 'text',
       id: 'n_interno',
       label: LABEL_N_INTERNO,
-      section: 'Máquina',
-      dependency: 'tipo_conteudo:Máquina',
+      section: 'Equipamento',
     },
     {
       type: 'textarea',
