@@ -18,9 +18,9 @@ import { closeModal, openModal, showToast } from './toast-modal.js';
 const PRINT_FRAME_ID = 'folha-obra-etiqueta-print-frame';
 
 /** Etiqueta vertical com mais comprimento para leitura fácil. */
-export const ETIQUETA_PRINT_WIDTH_MM = 35;
+export const ETIQUETA_PRINT_WIDTH_MM = 50;
 /** Comprimento da etiqueta no sentido vertical. */
-export const ETIQUETA_PRINT_HEIGHT_MM = 62;
+export const ETIQUETA_PRINT_HEIGHT_MM = 80;
 
 const ETIQUETA_STYLES = `
   @page {
@@ -40,10 +40,10 @@ const ETIQUETA_STYLES = `
   .folha-etiqueta {
     width: ${ETIQUETA_PRINT_WIDTH_MM}mm;
     height: ${ETIQUETA_PRINT_HEIGHT_MM}mm;
-    padding: 1.5mm 1.4mm 1.4mm;
+    padding: 2mm 1.8mm 1.8mm;
     display: flex;
     flex-direction: column;
-    gap: 1mm;
+    gap: 1.4mm;
     overflow: hidden;
     border: 0.25mm solid #cbd5e1;
     border-top: 1.1mm solid #1d4ed8;
@@ -55,12 +55,12 @@ const ETIQUETA_STYLES = `
     align-items: center;
     justify-content: space-between;
     gap: 0.7mm;
-    min-height: 4.2mm;
+    min-height: 6.5mm;
   }
   .folha-etiqueta__brand {
-    font-size: 5.4pt;
+    font-size: 7pt;
     font-weight: 700;
-    letter-spacing: 0.03em;
+    letter-spacing: 0.04em;
     text-transform: uppercase;
     color: #2563eb;
     line-height: 1;
@@ -72,10 +72,10 @@ const ETIQUETA_STYLES = `
   }
   .folha-etiqueta__badge {
     flex-shrink: 0;
-    font-size: 8pt;
+    font-size: 10pt;
     font-weight: 800;
     line-height: 1;
-    padding: 0.6mm 1mm;
+    padding: 0.8mm 1.3mm;
     border-radius: 0.6mm;
     letter-spacing: 0.02em;
   }
@@ -90,7 +90,7 @@ const ETIQUETA_STYLES = `
     border: 0.12mm solid #fdba74;
   }
   .folha-etiqueta__etq-wrap {
-    padding: 1.4mm 0.9mm 1.1mm;
+    padding: 2mm 1.2mm 1.5mm;
     border: 0.22mm solid #bfdbfe;
     border-radius: 0.8mm;
     background: linear-gradient(180deg, #f8fbff 0%, #eef5ff 100%);
@@ -101,24 +101,24 @@ const ETIQUETA_STYLES = `
     align-items: center;
   }
   .folha-etiqueta__etq {
-    font-size: 20pt;
+    font-size: 26pt;
     font-weight: 800;
     line-height: 0.95;
     letter-spacing: 0.05em;
     color: #0f172a;
   }
   .folha-etiqueta__fo {
-    font-size: 8pt;
+    font-size: 10pt;
     color: #334155;
     font-weight: 700;
     line-height: 1.1;
     margin-top: 0.8mm;
   }
   .folha-etiqueta__cliente {
-    font-size: 10.2pt;
+    font-size: 13pt;
     font-weight: 700;
-    line-height: 1.1;
-    max-height: 11mm;
+    line-height: 1.12;
+    max-height: 15mm;
     overflow: hidden;
     word-break: break-word;
     padding: 0.2mm 0;
@@ -127,13 +127,13 @@ const ETIQUETA_STYLES = `
   .folha-etiqueta__equip {
     display: flex;
     flex-direction: column;
-    gap: 1mm;
-    padding-top: 0.9mm;
+    gap: 1.4mm;
+    padding-top: 1.2mm;
     border-top: 0.18mm solid #e2e8f0;
   }
   .folha-etiqueta__row {
-    font-size: 7.8pt;
-    line-height: 1.15;
+    font-size: 10pt;
+    line-height: 1.18;
     display: block;
     min-width: 0;
   }
@@ -142,9 +142,9 @@ const ETIQUETA_STYLES = `
     font-weight: 700;
     color: #475569;
     text-transform: uppercase;
-    font-size: 5.1pt;
+    font-size: 6.2pt;
     letter-spacing: 0.03em;
-    margin-bottom: 0.3mm;
+    margin-bottom: 0.45mm;
   }
   .folha-etiqueta__row-value {
     display: block;
@@ -156,20 +156,20 @@ const ETIQUETA_STYLES = `
   .folha-etiqueta__people {
     display: flex;
     flex-direction: column;
-    gap: 0.9mm;
+    gap: 1.2mm;
     align-items: stretch;
-    padding-top: 0.9mm;
+    padding-top: 1.2mm;
     border-top: 0.18mm solid #e2e8f0;
     margin-top: auto;
   }
   .folha-etiqueta__person {
-    font-size: 7.2pt;
-    line-height: 1.15;
+    font-size: 9.4pt;
+    line-height: 1.18;
     word-break: break-word;
     background: #f8fafc;
     border: 0.16mm solid #e2e8f0;
     border-radius: 0.5mm;
-    padding: 0.8mm 0.9mm;
+    padding: 1mm 1.1mm;
   }
   .folha-etiqueta__person-label {
     font-weight: 700;
