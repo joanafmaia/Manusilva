@@ -681,7 +681,6 @@ export const MOVIMENTO_MATERIAL_CLIENTE = {
       options: ['Recolha', 'Entrega'],
     },
     { type: 'date', id: 'data_movimento', label: 'Data', section: 'Movimento' },
-    { type: 'time', id: 'hora_movimento', label: 'Hora', section: 'Movimento' },
     {
       type: 'choice',
       id: 'tipo_conteudo',

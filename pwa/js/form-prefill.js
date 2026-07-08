@@ -191,7 +191,6 @@ export function buildFormPrefill(service, job, _forklift, context = {}) {
     return {
       tipo_movimento: 'Recolha',
       data_movimento: job?.date || '',
-      hora_movimento: '',
       tipo_conteudo: 'Máquina',
       tipo_conteudo_outro: '',
       marca: '',
