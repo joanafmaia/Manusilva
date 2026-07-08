@@ -123,7 +123,17 @@ function renderCopyButton(value, label) {
 }
 
 function renderEquipamentosList(profile) {
-  const equipamentos = Array.isArray(profile?.equipamentos) ? profile.equipamentos : [];
+  const equipamentos = Array.isArray(profile?.equipamentos)
+    ? [...profile.equipamentos].sort((a, b) => {
+        const aLabel = String(
+          a?.numero_serie || a?.maquina || a?.matricula || a?.n_interno || a?.tipo || '',
+        ).toLowerCase();
+        const bLabel = String(
+          b?.numero_serie || b?.maquina || b?.matricula || b?.n_interno || b?.tipo || '',
+        ).toLowerCase();
+        return aLabel.localeCompare(bLabel, 'pt');
+      })
+    : [];
   if (equipamentos.length) {
     return `
       <ul class="client-ficha-machines" role="list">
@@ -154,7 +164,13 @@ function renderEquipamentosList(profile) {
     `;
   }
 
-  const forklifts = Array.isArray(profile?.forklifts) ? profile.forklifts : [];
+  const forklifts = Array.isArray(profile?.forklifts)
+    ? [...profile.forklifts].sort((a, b) => {
+        const aLabel = String(a?.serial || a?.brand || a?.model || '').toLowerCase();
+        const bLabel = String(b?.serial || b?.brand || b?.model || '').toLowerCase();
+        return aLabel.localeCompare(bLabel, 'pt');
+      })
+    : [];
   if (!forklifts.length) {
     return '<p class="client-ficha-muted ms-label">Sem equipamentos registados para este cliente.</p>';
   }
