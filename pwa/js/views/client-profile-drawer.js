@@ -10,6 +10,7 @@ import {
 import { getClient, escapeHtml, showToast } from '../app.js';
 import { putClient } from '../clients-api.js';
 import { mapClientToLegacy, DEMO_CLIENT_FORKLIFTS } from '../mock_data.js';
+import { formatEquipamentoLabel } from '../cliente-equipamentos.js';
 
 const COPY_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>`;
 
@@ -68,6 +69,7 @@ function enrichLegacyClient(clientId, catalogRecord) {
     zonaRota: zonaRota || '—',
     zonaRotaRaw: zonaRota || '',
     forklifts: legacy?.forklifts || [],
+    equipamentos: [],
   };
 }
 
@@ -95,11 +97,9 @@ export async function resolveClientProfile(clientId) {
 
   try {
     const { fetchClienteEquipamentos } = await import('../cliente-equipamentos-db.js');
-    const { equipamentosToForklifts } = await import('../cliente-equipamentos.js');
     const equipamentos = await fetchClienteEquipamentos(clientId);
-    const fromDb = equipamentosToForklifts(equipamentos);
-    if (fromDb.length) {
-      profile.forklifts = fromDb;
+    if (equipamentos.length) {
+      profile.equipamentos = equipamentos;
     }
   } catch (err) {
     console.warn('[ClientProfile] Equipamentos:', err);
@@ -122,10 +122,43 @@ function renderCopyButton(value, label) {
   `;
 }
 
-function renderForkliftsList(forklifts) {
-  if (!forklifts?.length) {
-    return '<p class="client-ficha-muted ms-label">Sem máquinas registadas para este cliente.</p>';
+function renderEquipamentosList(profile) {
+  const equipamentos = Array.isArray(profile?.equipamentos) ? profile.equipamentos : [];
+  if (equipamentos.length) {
+    return `
+      <ul class="client-ficha-machines" role="list">
+        ${equipamentos
+          .map((equipamento) => {
+            const heading =
+              equipamento.numero_serie ||
+              equipamento.maquina ||
+              equipamento.matricula ||
+              equipamento.n_interno ||
+              equipamento.tipo ||
+              '—';
+            const categoria =
+              equipamento.categoria === 'bateria'
+                ? 'Bateria'
+                : equipamento.categoria === 'carregador'
+                  ? 'Carregador'
+                  : 'Empilhador';
+            return `
+        <li class="client-ficha-machine">
+          <span class="client-ficha-machine-serial">${escapeHtml(heading)}</span>
+          <span class="client-ficha-machine-meta ms-label">${escapeHtml(categoria)} · ${escapeHtml(formatEquipamentoLabel(equipamento) || 'Equipamento')}</span>
+        </li>
+      `;
+          })
+          .join('')}
+      </ul>
+    `;
   }
+
+  const forklifts = Array.isArray(profile?.forklifts) ? profile.forklifts : [];
+  if (!forklifts.length) {
+    return '<p class="client-ficha-muted ms-label">Sem equipamentos registados para este cliente.</p>';
+  }
+
   return `
     <ul class="client-ficha-machines" role="list">
       ${forklifts
@@ -250,8 +283,8 @@ export function renderClientProfilePanel(profile, { editing = false } = {}) {
         ${phoneBlock}
 
         <section class="client-ficha-block client-ficha-block--machines">
-          <h3 class="client-ficha-label ms-label">Máquinas associadas</h3>
-          ${renderForkliftsList(profile.forklifts)}
+          <h3 class="client-ficha-label ms-label">Equipamentos associados</h3>
+          ${renderEquipamentosList(profile)}
         </section>
       </div>
 
