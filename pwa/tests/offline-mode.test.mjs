@@ -76,4 +76,28 @@ describe('clients-catalog offline', () => {
     assert.equal(catalog.length, 1);
     assert.equal(catalog[0].Nome, 'Cliente Teste');
   });
+
+  it('não deixa o localStorage trocar nomes vindos do Supabase', async () => {
+    globalThis.localStorage.setItem(
+      'manusilva_db',
+      JSON.stringify({
+        schemaVersion: 24,
+        clients: [{ id: '7', Nome: 'Nome Antigo Local', NIF: '700000000' }],
+        technicians: [],
+        utilizadores: [],
+        offlineQueue: [],
+        settings: { offline: false },
+      }),
+    );
+
+    const { resetProductionCatalogCache, registerClientInCatalog, mergeClientsFromStorage, getClientFromCatalog } =
+      await import('../js/clients-catalog.js');
+
+    resetProductionCatalogCache();
+    registerClientInCatalog({ id: 7, nome_empresa: 'Nome Certo Supabase', nif: '700000000' });
+    mergeClientsFromStorage();
+
+    const record = getClientFromCatalog('7');
+    assert.equal(record?.Nome, 'Nome Certo Supabase');
+  });
 });

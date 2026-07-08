@@ -28,10 +28,6 @@ export async function ensureFullClientsInStorage() {
     return stored.map(normalizeStoredClient).filter(Boolean);
   }
 
-  if (stored.length >= catalog.length) {
-    return stored.map(normalizeStoredClient).filter(Boolean);
-  }
-
   const forkliftsById = new Map();
   stored.forEach((row) => {
     const leg = normalizeStoredClient(row);

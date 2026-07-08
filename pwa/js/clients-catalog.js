@@ -207,7 +207,25 @@ export function mergeClientsFromStorage() {
   }
 
   (db.clients || []).forEach((row, index) => {
-    registerClientInCatalog(row, index);
+    const record = normalizeClientRecord(row, index);
+    if (!record?.Nome) return;
+
+    const dup = productionCatalog.find(
+      (c) => c.id === record.id || (record.NIF && c.NIF === record.NIF),
+    );
+
+    if (dup) {
+      // Quando o catálogo veio do Supabase, o nome e restantes campos devem prevalecer.
+      // Do storage local só preservamos anexos locais úteis.
+      if (Array.isArray(record.forklifts) && record.forklifts.length) {
+        dup.forklifts = record.forklifts;
+      }
+      if (record.NIF) catalogByNif.set(record.NIF, dup);
+      catalogByNif.set(dup.id, dup);
+      return;
+    }
+
+    registerClientInCatalog(record, index);
   });
 }
 
