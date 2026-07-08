@@ -62,11 +62,11 @@ const ETIQUETA_STYLES = `
     min-height: 3.6mm;
   }
   .folha-etiqueta__brand {
-    font-size: 5pt;
-    font-weight: 700;
-    letter-spacing: 0.03em;
+    font-size: 4.1pt;
+    font-weight: 600;
+    letter-spacing: 0.02em;
     text-transform: uppercase;
-    color: #1d4ed8;
+    color: #2563eb;
     line-height: 1;
     flex: 1 1 auto;
     min-width: 0;
