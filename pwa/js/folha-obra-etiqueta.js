@@ -267,9 +267,9 @@ function buildFolhaObraEtiquetaBody(folha) {
       <div class="folha-etiqueta__cliente">${escapeHtml(cliente)}</div>
       <div class="folha-etiqueta__equip">
         ${renderEquipRow('Tipo', folha?.tipo)}
-        ${renderEquipRow('Mod', folha?.marcaModelo)}
-        ${renderEquipRow('Sér', folha?.numeroSerie)}
-        ${renderEquipRow('Ent', entrada)}
+        ${renderEquipRow('Marca / Modelo', folha?.marcaModelo)}
+        ${renderEquipRow('Número de série', folha?.numeroSerie)}
+        ${renderEquipRow('Data de entrada', entrada)}
       </div>
       ${
         people.length
