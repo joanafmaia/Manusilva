@@ -242,7 +242,7 @@ describe('folha-obra-etiqueta', () => {
       }),
       'Luís',
     );
-    assert.equal(ETIQUETA_PRINT_WIDTH_MM, 75);
+    assert.equal(ETIQUETA_PRINT_WIDTH_MM, 50);
     assert.equal(ETIQUETA_PRINT_HEIGHT_MM, 25);
   });
 });
