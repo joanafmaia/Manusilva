@@ -58,27 +58,29 @@ export async function openServicoVisitSubmit(servicoId) {
   const summary = describeServicoVisitSubmitSummary(servicoId);
   const optionalSignatures = servicoVisitAllowsOptionalSignatures(servicoId);
 
-  const content = optionalSignatures
-    ? `
-    <p class="text-muted" style="margin-bottom:1rem">
-      ${escapeHtml(client?.name || 'Cliente')} — ${escapeHtml(formatDateLong(servico?.date || ''))}
-    </p>
-    <p class="text-muted" style="margin-bottom:1rem;font-size:0.875rem">${escapeHtml(summary)}</p>
-    <p style="margin-bottom:0.75rem;font-size:0.9375rem">
-      Recolha/entrega no cliente — <strong>assinaturas opcionais</strong>. Pode concluir a visita sem assinar.
-    </p>
-  `
-    : `
-    <p class="text-muted" style="margin-bottom:1rem">
-      ${escapeHtml(client?.name || 'Cliente')} — ${escapeHtml(formatDateLong(servico?.date || ''))}
-    </p>
-    <p class="text-muted" style="margin-bottom:1rem;font-size:0.875rem">${escapeHtml(summary)}</p>
-    <p style="margin-bottom:0.75rem;font-size:0.9375rem">
+  const signaturesHint = optionalSignatures
+    ? `<p class="text-muted" style="margin-bottom:0.75rem;font-size:0.9375rem">
+      Recolha/entrega no cliente — <strong>assinaturas opcionais</strong>. Pode assinar ou concluir sem assinaturas.
+    </p>`
+    : `<p style="margin-bottom:0.75rem;font-size:0.9375rem">
       As assinaturas aplicam-se a <strong>todos os relatórios</strong> desta visita.
+    </p>`;
+
+  const content = `
+    <p class="text-muted" style="margin-bottom:1rem">
+      ${escapeHtml(client?.name || 'Cliente')} — ${escapeHtml(formatDateLong(servico?.date || ''))}
     </p>
+    <p class="text-muted" style="margin-bottom:1rem;font-size:0.875rem">${escapeHtml(summary)}</p>
+    ${signaturesHint}
     <div class="signatures-grid tech-servico-signatures-grid">
-      ${createSignatureBlock('Assinatura do Técnico', 'technician')}
-      ${createSignatureBlock('Assinatura do Cliente', 'client')}
+      ${createSignatureBlock(
+        optionalSignatures ? 'Assinatura do Técnico (opcional)' : 'Assinatura do Técnico',
+        'technician',
+      )}
+      ${createSignatureBlock(
+        optionalSignatures ? 'Assinatura do Cliente (opcional)' : 'Assinatura do Cliente',
+        'client',
+      )}
     </div>
   `;
 
@@ -87,14 +89,11 @@ export async function openServicoVisitSubmit(servicoId) {
     <button type="button" class="btn-primary" id="servico-visit-submit">Concluir visita</button>
   `;
 
-  const overlay = openModal('Concluir visita', content, actions, {
-    signatures: !optionalSignatures,
-  });
+  const overlay = openModal('Concluir visita', content, actions, { signatures: true });
 
   let pads = null;
 
   const mountPads = () => {
-    if (optionalSignatures) return;
     pads = initSignaturePadsInContainer(overlay, ['technician', 'client']);
     restoreSignaturePads(pads, existingSigs);
     pads.technician?.resize?.();
@@ -109,17 +108,15 @@ export async function openServicoVisitSubmit(servicoId) {
 
   overlay.querySelector('#servico-visit-submit')?.addEventListener('click', async () => {
     const btn = overlay.querySelector('#servico-visit-submit');
-    if (!optionalSignatures && !pads) {
+    if (!pads) {
       showToast('Aguarde o carregamento das assinaturas.', 'warning');
       return;
     }
 
-    let signatures = {};
-    if (!optionalSignatures) {
-      if (padHasSignature(pads.technician)) commitSignatureSnapshot(pads.technician);
-      if (padHasSignature(pads.client)) commitSignatureSnapshot(pads.client);
-      signatures = resolveReportSignatures(pads, existingSigs);
-    }
+    if (padHasSignature(pads.technician)) commitSignatureSnapshot(pads.technician);
+    if (padHasSignature(pads.client)) commitSignatureSnapshot(pads.client);
+
+    const signatures = resolveReportSignatures(pads, existingSigs);
 
     btn.disabled = true;
     btn.textContent = 'A enviar…';
