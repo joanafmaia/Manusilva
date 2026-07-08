@@ -17,6 +17,21 @@ export function getPdfLogoFormat(dataUri = MANUSILVA_LOGO) {
   return 'PNG';
 }
 
+function logoSrcMatches(img) {
+  const attr = img?.getAttribute('src');
+  return attr === MANUSILVA_LOGO || img?.src === MANUSILVA_LOGO;
+}
+
+function isLogoSlotReady(slot, img) {
+  return (
+    img &&
+    slot.classList.contains('has-brand-image') &&
+    slot.classList.contains('brand-logo-slot--ready') &&
+    img.classList.contains('brand-logo-img--ready') &&
+    logoSrcMatches(img)
+  );
+}
+
 function markLogoSlotReady(slot, img) {
   img.classList.add('brand-logo-img--ready');
   slot.classList.add('brand-logo-slot--ready');
@@ -28,7 +43,12 @@ function bindLogoReveal(slot, img, onSettled) {
     onSettled();
   };
 
-  if (img.classList.contains('brand-logo-img--ready') && img.src === MANUSILVA_LOGO) {
+  if (isLogoSlotReady(slot, img)) {
+    onSettled();
+    return;
+  }
+
+  if (logoSrcMatches(img) && img.complete) {
     settle();
     return;
   }
@@ -40,7 +60,7 @@ function bindLogoReveal(slot, img, onSettled) {
   img.addEventListener('load', handleReady, { once: true });
   img.addEventListener('error', handleReady, { once: true });
 
-  if (img.src !== MANUSILVA_LOGO) {
+  if (!logoSrcMatches(img)) {
     img.src = MANUSILVA_LOGO;
   } else if (img.complete) {
     handleReady();
@@ -49,6 +69,7 @@ function bindLogoReveal(slot, img, onSettled) {
 
 /**
  * Substitui placeholders [data-brand-logo] por <img> e oculta títulos redundantes.
+ * Idempotente — chamadas repetidas não recriam a imagem nem fazem o logo piscar.
  * @param {ParentNode} [root]
  * @returns {boolean} true se o logo Base64 estiver configurado
  */
@@ -60,11 +81,16 @@ export function applyBrandLogo(root = document) {
 
   slots.forEach((slot) => {
     const isLarge = slot.hasAttribute('data-brand-logo-lg');
-    slot.classList.add('has-brand-image');
-    slot.textContent = '';
-
     let img = slot.querySelector('img.brand-logo-img');
+
+    if (isLogoSlotReady(slot, img)) {
+      return;
+    }
+
+    slot.classList.add('has-brand-image');
+
     if (!img) {
+      slot.textContent = '';
       img = document.createElement('img');
       img.alt = 'ManuSilva';
       img.className = isLarge ? 'brand-logo-img brand-logo-img--lg' : 'brand-logo-img';
