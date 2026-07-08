@@ -19,7 +19,7 @@ import { closeModal, openModal, showToast } from './toast-modal.js';
 const PRINT_FRAME_ID = 'folha-obra-etiqueta-print-frame';
 
 /** Etiqueta horizontal para fita 25 mm. */
-export const ETIQUETA_PRINT_WIDTH_MM = 62;
+export const ETIQUETA_PRINT_WIDTH_MM = 75;
 /** Altura da fita térmica. */
 export const ETIQUETA_PRINT_HEIGHT_MM = 25;
 
@@ -43,7 +43,7 @@ const ETIQUETA_STYLES = `
     height: ${ETIQUETA_PRINT_HEIGHT_MM}mm;
     padding: 1.1mm 1.2mm;
     display: grid;
-    grid-template-columns: 22mm 1fr;
+    grid-template-columns: 24mm 1fr;
     grid-template-rows: auto auto 1fr auto;
     column-gap: 1.3mm;
     row-gap: 0.55mm;
