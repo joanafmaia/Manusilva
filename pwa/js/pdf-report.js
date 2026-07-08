@@ -166,6 +166,10 @@ import {
   drawCorretivaMaquinasClosingSection,
 } from './pdf-corretiva-maquinas.js';
 import {
+  drawMovimentoMaterialBody,
+  drawMovimentoMaterialClosingSection,
+} from './pdf-movimento-material.js';
+import {
   drawGrandesTitleBar,
   drawGrandesBateriasBody,
   drawGrandesBateriasClosingSection,
@@ -245,6 +249,8 @@ export async function renderInterventionPDF(report) {
   const isCorretivaMaquinasPdf = reportForPdf.serviceType === 'manutencao_corretiva_maquinas';
   const isGrandesBateriasPdf = reportForPdf.serviceType === 'manutencao_baterias_grandes';
   const isEmpilhadoresPdf = reportForPdf.serviceType === EMPILHADORES_SERVICE_ID;
+  const isMovimentoMaterialClientePdf =
+    reportForPdf.serviceType === SERVICE_IDS.MOVIMENTO_MATERIAL_CLIENTE;
   const { fotoAntesUrl, fotoDepoisUrl } = resolvePdfFotoSources(job, data);
   const techName = tech?.name || '—';
 
@@ -285,7 +291,8 @@ export async function renderInterventionPDF(report) {
       isReparacaoCarregadorPdf ||
       isCorretivaMaquinasPdf ||
       isGrandesBateriasPdf ||
-      isDl50Pdf,
+      isDl50Pdf ||
+      isMovimentoMaterialClientePdf,
   };
 
   let y;
@@ -373,6 +380,21 @@ export async function renderInterventionPDF(report) {
       fotoDepoisUrl,
       simplePhotoLegend: true,
     });
+  } else if (isMovimentoMaterialClientePdf) {
+    y = drawTopRowWithClientBlock(doc, clientMeta, job?.numeroOrdem ?? null);
+    y = drawTitleBar(doc, y, title);
+    y = drawServiceInfoBlock(doc, y, {
+      serviceDate: formatPdfServiceDateOnly(report, job, values),
+      technician: techName || values.tecnico || '',
+    });
+    y = drawDivider(doc, y);
+    y = await drawMovimentoMaterialBody(doc, y, values);
+    y = await drawMovimentoMaterialClosingSection(doc, y, {
+      signatures: data.signatures || {},
+      observacoes: values.observacoes,
+      fotoAntesUrl,
+      fotoDepoisUrl,
+    });
   } else {
     y = drawTopRowWithClientBlock(doc, clientMeta, job?.numeroOrdem ?? null);
     y = drawTitleBar(doc, y, title);
@@ -382,12 +404,7 @@ export async function renderInterventionPDF(report) {
         ? buildEmpilhadoresServiceInfoMeta(report, job, values, visitCount)
         : {
             serviceDate: formatPdfServiceDateOnly(report, job, values),
-            numeroVisitas:
-              service.id === SERVICE_IDS.MOVIMENTO_MATERIAL_CLIENTE
-                ? null
-                : SERVICES_WITH_SECTION_VISITAS.has(service.id)
-                  ? null
-                  : visitCount,
+            numeroVisitas: SERVICES_WITH_SECTION_VISITAS.has(service.id) ? null : visitCount,
             metaBottomGapMm: isDl50Pdf ? DL50_SERVICE_META_BOTTOM_MM : null,
           }),
       deslocacao: reportIncludesDeslocacao(service) ? values.deslocacao || '—' : null,

@@ -199,6 +199,14 @@ describe('pdf-inspecao-dl50', () => {
   });
 });
 
+describe('pdf-movimento-material', () => {
+  it('expõe layout de recolha/entrega no cliente', async () => {
+    const mod = await import('../js/pdf-movimento-material.js');
+    assert.equal(typeof mod.drawMovimentoMaterialBody, 'function');
+    assert.equal(typeof mod.drawMovimentoMaterialClosingSection, 'function');
+  });
+});
+
 describe('pdf-format-utils — recolha/entrega', () => {
   it('não reserva campos de equipamento no PDF de movimento', async () => {
     const { isPdfLayoutReservedField } = await import('../js/pdf-format-utils.js');
