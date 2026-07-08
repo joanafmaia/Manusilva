@@ -388,10 +388,6 @@ export function validateFolhaObraPayload(payload, mode = 'draft') {
     throw new Error('Selecione o técnico de entrada.');
   }
 
-  if (mode === 'entrada' && responsabilidade === 'RC' && !String(payload?.entreguePor || '').trim()) {
-    throw new Error('Indique quem trouxe o equipamento (R.C).');
-  }
-
   if (mode === 'concluir') {
     if (!String(payload?.maquinaConcluidaEm || '').trim()) {
       throw new Error('Indique a data em que a máquina foi concluída.');

@@ -181,7 +181,6 @@ function collectFolhaFromForm(form, technicianId, session = null) {
   const responsavelSelect = form.querySelector('[name="responsavel"]');
   const responsavel = responsavelSelect?.value?.trim() || '';
   const technicianFromForm = responsavelSelect?.selectedOptions?.[0]?.dataset?.techId || '';
-  const entreguePor = form.querySelector('[name="entregue_por"]')?.value?.trim() || '';
   const tecnicoReparacao = form.querySelector('[name="tecnico_reparacao"]')?.value?.trim() || '';
   const observacoes = form.querySelector('[name="observacoes"]')?.value?.trim() || '';
   const diagnosticoTecnico = form.querySelector('[name="diagnostico_tecnico"]')?.value?.trim() || '';
@@ -201,7 +200,6 @@ function collectFolhaFromForm(form, technicianId, session = null) {
     intervencoes: collectIntervencoesFromForm(form),
     maquinaConcluidaEm,
     responsavel,
-    entreguePor,
     tecnicoReparacao,
     responsabilidade: normalizeFolhaResponsabilidade(responsabilidade),
     observacoes,
@@ -309,17 +307,6 @@ function renderFolhaObraFormHtml(folha, session) {
             ${renderResponsavelSelect(folha, session, { disabled: entradaLocked })}
             <p class="folha-obra-field-hint">Quem registou a entrada no Armazém.</p>
           </div>
-          ${
-            isRc
-              ? `
-          <div class="form-group folha-obra-field--entregue">
-            <label class="form-label" for="folha-entregue-por">Quem trouxe o equipamento</label>
-            <input type="text" class="form-input" id="folha-entregue-por" name="entregue_por" value="${escapeHtml(folha?.entreguePor || '')}" placeholder="Nome de quem entregou na oficina" ${entradaLocked ? 'readonly' : ''}${!entradaLocked ? ' required' : ''}>
-            <p class="folha-obra-field-hint">Obrigatório em R.C — aparece na etiqueta.</p>
-          </div>
-          `
-              : ''
-          }
         </div>
       </section>
 

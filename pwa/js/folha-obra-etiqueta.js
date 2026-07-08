@@ -190,16 +190,8 @@ export function resolveTecnicoReparacaoEtiqueta(folha) {
 
 /** Linhas de pessoas para a etiqueta (M.S / R.C). */
 export function buildEtiquetaPeopleLines(folha) {
-  const isRc = normalizeFolhaResponsabilidade(folha?.responsabilidade) === FOLHA_RESPONSABILIDADE.RC;
   const tecnico = resolveTecnicoReparacaoEtiqueta(folha);
   const lines = [];
-
-  if (isRc) {
-    const entregue = String(folha?.entreguePor || '').trim();
-    if (entregue) {
-      lines.push({ label: 'Trouxe', value: entregue });
-    }
-  }
 
   if (tecnico) {
     lines.push({ label: 'Arranjou', value: tecnico });
@@ -214,10 +206,6 @@ export function validateFolhaObraEtiqueta(folha) {
   if (!folha?.marcaModelo?.trim()) throw new Error('Indique a marca/modelo.');
   if (!folha?.dataRececao) throw new Error('Indique a data de entrada.');
 
-  const isRc = normalizeFolhaResponsabilidade(folha?.responsabilidade) === FOLHA_RESPONSABILIDADE.RC;
-  if (isRc && !String(folha?.entreguePor || '').trim()) {
-    throw new Error('Indique quem trouxe o equipamento (R.C) antes de imprimir.');
-  }
 }
 
 function renderEquipRow(label, value) {
