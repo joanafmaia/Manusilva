@@ -5,6 +5,7 @@
 import { pdfSafeText } from './pdf-font.js';
 import { VISITAS_FIELD_ID } from './deslocacao-field.js';
 import { PDF_LAYOUT_SKIP_FIELD_IDS } from './pdf-design-system.js';
+import { SERVICE_IDS } from './service-constants.js';
 
 const INSPECAO_DL50_SERVICE_ID = 'inspecao_dl50_2005';
 
@@ -174,6 +175,7 @@ export function formatPdfJobDateOnly(job, report) {
 
 export function formatPdfServiceDateOnly(report, job, values = {}) {
   const raw =
+    values.data_movimento ||
     job?.date ||
     values.data_de_conclusao ||
     values.data_1 ||
@@ -185,6 +187,9 @@ export function formatPdfServiceDateOnly(report, job, values = {}) {
 }
 
 export function isPdfLayoutReservedField(fieldId, service = null) {
+  if (service?.id === SERVICE_IDS.MOVIMENTO_MATERIAL_CLIENTE) {
+    return false;
+  }
   if (
     service?.id === INSPECAO_DL50_SERVICE_ID &&
     (fieldId === 'pedido_orcamento' || fieldId === 'detalhe_pedido_orcamento')

@@ -204,6 +204,7 @@ import {
   drawCompactClientBox,
   drawLogoPlaceholder,
 } from './pdf-header-blocks.js';
+import { SERVICE_IDS } from './service-constants.js';
 
 
 /**
@@ -381,7 +382,12 @@ export async function renderInterventionPDF(report) {
         ? buildEmpilhadoresServiceInfoMeta(report, job, values, visitCount)
         : {
             serviceDate: formatPdfServiceDateOnly(report, job, values),
-            numeroVisitas: SERVICES_WITH_SECTION_VISITAS.has(service.id) ? null : visitCount,
+            numeroVisitas:
+              service.id === SERVICE_IDS.MOVIMENTO_MATERIAL_CLIENTE
+                ? null
+                : SERVICES_WITH_SECTION_VISITAS.has(service.id)
+                  ? null
+                  : visitCount,
             metaBottomGapMm: isDl50Pdf ? DL50_SERVICE_META_BOTTOM_MM : null,
           }),
       deslocacao: reportIncludesDeslocacao(service) ? values.deslocacao || '—' : null,
@@ -986,7 +992,9 @@ async function drawReportFieldsSection(doc, y, service, values, pdfContext = nul
   const scalarRenderedIds = new Set();
   const gridRenderedSections = new Set();
 
-  PDF_LAYOUT_SKIP_FIELD_IDS.forEach((id) => scalarRenderedIds.add(id));
+  PDF_LAYOUT_SKIP_FIELD_IDS.forEach((id) => {
+    if (isPdfLayoutReservedField(id, service)) scalarRenderedIds.add(id);
+  });
   if (service.id === 'reparacao_avarias_bateria') {
     REPARACAO_AVARIAS_ESTADO_FINAL_FIELD_IDS.forEach((id) => scalarRenderedIds.add(id));
   }

@@ -198,3 +198,23 @@ describe('pdf-inspecao-dl50', () => {
     }
   });
 });
+
+describe('pdf-format-utils — recolha/entrega', () => {
+  it('não reserva campos de equipamento no PDF de movimento', async () => {
+    const { isPdfLayoutReservedField } = await import('../js/pdf-format-utils.js');
+    const service = { id: 'movimento_material_cliente' };
+    assert.equal(isPdfLayoutReservedField('marca', service), false);
+    assert.equal(isPdfLayoutReservedField('tipo', service), false);
+    assert.equal(isPdfLayoutReservedField('numero_de_serie', service), false);
+  });
+
+  it('usa data_movimento como data do serviço no PDF', async () => {
+    const { formatPdfServiceDateOnly } = await import('../js/pdf-format-utils.js');
+    const formatted = formatPdfServiceDateOnly(
+      { submittedAt: '2026-01-01' },
+      { date: '2026-02-01' },
+      { data_movimento: '2026-07-08' },
+    );
+    assert.equal(formatted, '08/07/2026');
+  });
+});
