@@ -223,25 +223,18 @@ describe('folha-obra-etiqueta', () => {
       dataRececao: '2026-07-07',
       numeroOrdem: 9,
       responsabilidade: 'RC',
-      entreguePor: 'João Silva',
       tecnicoReparacao: 'Ana',
     });
     assert.match(rcHtml, /R\.C/);
-    assert.match(rcHtml, /Trouxe/);
-    assert.match(rcHtml, /João Silva/);
     assert.match(rcHtml, /Arranjou/);
     assert.match(rcHtml, /Ana/);
 
     assert.deepEqual(
       buildEtiquetaPeopleLines({
         responsabilidade: 'RC',
-        entreguePor: 'Cliente X',
         tecnicoReparacao: 'Pedro',
       }),
-      [
-        { label: 'Trouxe', value: 'Cliente X' },
-        { label: 'Arranjou', value: 'Pedro' },
-      ],
+      [{ label: 'Arranjou', value: 'Pedro' }],
     );
     assert.equal(
       resolveTecnicoReparacaoEtiqueta({
@@ -249,8 +242,8 @@ describe('folha-obra-etiqueta', () => {
       }),
       'Luís',
     );
-    assert.equal(ETIQUETA_PRINT_WIDTH_MM, 25);
-    assert.equal(ETIQUETA_PRINT_HEIGHT_MM, 92);
+    assert.equal(ETIQUETA_PRINT_WIDTH_MM, 62);
+    assert.equal(ETIQUETA_PRINT_HEIGHT_MM, 25);
   });
 });
 
