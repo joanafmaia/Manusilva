@@ -12,10 +12,8 @@ import {
   getPendingBillingCount,
   getAdminReviewReports,
   getRhPanelReportCounts,
-  getReportsSnapshot,
   getReport,
   approveReport,
-  rejectReport,
   assignServico,
   deleteJob,
   deleteServico,
@@ -31,7 +29,6 @@ import {
   getAllTechnicians,
   getJobTechnicianLabel,
   getPrimaryTechnicianForJob,
-  jobAssignedToTechnician,
   openModal,
   closeModal,
   escapeHtml,
@@ -75,6 +72,7 @@ import {
   buildRhOpsSummaryText,
 } from './rh-panel-utils.js';
 import { computeDashboardMetrics } from './views/dashboard-metrics.js';
+import { syncTechniciansCatalog } from './technicians-admin.js';
 import {
   bindRhNotificationPermissionOnGesture,
   maybeNotifyRhPendingReport,
@@ -1034,6 +1032,7 @@ async function renderRhReviewStack() {
 
   try {
     await warmOperacoes();
+    await syncTechniciansCatalog({ silent: true });
   } catch (err) {
     console.warn('[Admin] Dados para painel de relatórios:', err);
   }
@@ -1669,33 +1668,6 @@ async function handleNewPendingReport(report, opts = {}, beep) {
 function updatePendingCount() {
   const count = document.getElementById('pending-count');
   if (count) count.textContent = String(getPendingReports().length);
-}
-
-function openRejectDialog(reportId) {
-  const content = `
-    <p class="text-muted mb-4">Escreva uma nota de correção para o técnico:</p>
-    <textarea id="reject-note" class="form-textarea" rows="4" placeholder="Ex: Faltam fotos do componente substituído..."></textarea>
-  `;
-  const actions = `
-    <button class="btn-ghost" id="cancel-reject">Cancelar</button>
-    <button class="btn-danger" id="confirm-reject">Enviar Rejeição</button>
-  `;
-
-  const overlay = openModal('Rejeitar Relatório', content, actions);
-
-  overlay.querySelector('#cancel-reject').addEventListener('click', closeModal);
-  overlay.querySelector('#confirm-reject').addEventListener('click', () => {
-    const note = document.getElementById('reject-note').value.trim();
-    if (!note) {
-      showToast('Por favor, escreva uma nota de correção.', 'error');
-      return;
-    }
-    rejectReport(reportId, note).then(async () => {
-      closeModal();
-      renderCalendar();
-      await renderRhReviewStack();
-    });
-  });
 }
 
 function bindAssignWork() {

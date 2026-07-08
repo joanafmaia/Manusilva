@@ -126,3 +126,31 @@ describe('clients-catalog offline', () => {
     assert.deepEqual(record?.aliasNames, ['Cliente Nome Novo', 'Cliente Nome Antigo']);
   });
 });
+
+describe('offline-mode queue', () => {
+  it('mantém itens não processados quando há falha a meio', async () => {
+    const { processOfflineQueue } = await import('../js/offline-mode.js');
+
+    const processed = [];
+    const queue = [
+      { queueId: 'a1', type: 'save_draft' },
+      { queueId: 'a2', type: 'submit_report' },
+      { queueId: 'a3', type: 'save_draft' },
+    ];
+
+    const result = await processOfflineQueue(queue, async (action) => {
+      processed.push(action.queueId);
+      if (action.queueId === 'a2') {
+        throw new Error('falha intermédia');
+      }
+    });
+
+    assert.deepEqual(processed, ['a1', 'a2']);
+    assert.equal(result.processedCount, 1);
+    assert.equal(result.error?.message, 'falha intermédia');
+    assert.deepEqual(
+      result.remaining.map((item) => item.queueId),
+      ['a2', 'a3'],
+    );
+  });
+});

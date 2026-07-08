@@ -11,6 +11,7 @@ export const SERVICE_IDS = Object.freeze({
   INSPECAO_DL50_2005: 'inspecao_dl50_2005',
   REPARACAO_AVARIAS_BATERIA: 'reparacao_avarias_bateria',
   REPARACAO_CARREGADOR: 'reparacao_carregador',
+  MOVIMENTO_MATERIAL_CLIENTE: 'movimento_material_cliente',
 });
 
 /** @deprecated preferir SERVICE_IDS.MANUTENCAO_PREVENTIVA_EMPILHADORES */
@@ -59,4 +60,8 @@ export function isFolhaAvariasService(serviceOrId) {
 
 export function isCorretivaService(serviceOrId) {
   return resolveServiceId(serviceOrId) === SERVICE_IDS.MANUTENCAO_CORRETIVA_MAQUINAS;
+}
+
+export function isMovimentoMaterialClienteService(serviceOrId) {
+  return resolveServiceId(serviceOrId) === SERVICE_IDS.MOVIMENTO_MATERIAL_CLIENTE;
 }

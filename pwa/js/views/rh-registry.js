@@ -3,6 +3,7 @@
  */
 
 import { getAllTechnicians } from '../app.js';
+import { syncTechniciansCatalog } from '../technicians-admin.js';
 import {
   renderTechnicianFormSection,
   renderTechniciansList,
@@ -98,6 +99,9 @@ export function initEmployeesPanel(root) {
   root.innerHTML = renderEmployeesPanel();
   bindRhAdminTabs(root);
   refreshTechniciansList(root);
+  syncTechniciansCatalog({ silent: true })
+    .then(() => refreshTechniciansList(root))
+    .catch((err) => console.warn('[RH] Sync técnicos:', err));
 
   mountTechnicianForm(root, {
     onSuccess: () => {

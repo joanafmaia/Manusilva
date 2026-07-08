@@ -5,7 +5,6 @@
 import { getJob } from './app.js';
 import {
   getReportOrcamentoPdfUrl,
-  reportHasPedidoOrcamento,
   reportIsRhOrcamento,
   withOrcamentoUrlCacheBust,
 } from './pedido-orcamento.js';

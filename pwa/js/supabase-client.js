@@ -2,7 +2,7 @@
  * Cliente Supabase (browser) — requer o script CDN em index.html / admin.html / dashboard.html
  */
 
-import { clearAuthStorage, clearSession, getRawSession, setRawSession } from './session.js';
+import { clearAuthStorage, getRawSession, setRawSession } from './session.js';
 import { isBrowserOffline } from './network-status.js';
 
 const SUPABASE_URL = 'https://zhfbezrevosmbmcbyskw.supabase.co';

@@ -170,7 +170,7 @@ function renderTecnicoReparacaoSelect(folha, session, { disabled = false } = {})
   `;
 }
 
-function collectFolhaFromForm(form, technicianId, session = null) {
+function collectFolhaFromForm(form, technicianId) {
   const combo = form.querySelector('[data-client-combobox]');
   const clientId = combo?.querySelector('.client-combobox-id')?.value?.trim() || '';
   const tipo = form.querySelector('[name="tipo"]')?.value?.trim() || '';
@@ -243,7 +243,6 @@ function renderFolhaObraFormHtml(folha, session) {
   const isLocked = estado === 'pendente_faturacao' || estado === 'faturado';
   const aguardaOrcamento = estado === 'aguarda_orcamento' || estado === 'orcamento_enviado';
   const emDiagnostico = isFolhaObraDiagnosticoEditable(folha);
-  const isRc = normalizeFolhaResponsabilidade(folha?.responsabilidade) === 'RC';
   const entradaLocked = isLocked || estado !== 'rascunho';
   const podeReparar = isFolhaObraRepairEditable(folha);
   const etqValue = folha?.etq || '';

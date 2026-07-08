@@ -540,7 +540,6 @@ export async function cancelPedidoOrcamentoReport(reportId) {
   }
 
   if (reportIsStandaloneOrcamento(report)) {
-    const meta = report?.data?.orcamento;
     const client = getClient(report.clientId);
     const label = client?.name || client?.Nome || 'esta proposta';
     const ok = window.confirm(

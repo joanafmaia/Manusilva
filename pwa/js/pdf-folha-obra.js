@@ -15,15 +15,10 @@ import {
   PDF_CONTENT_W as CONTENT_W,
   PDF_FONT_BODY,
   PDF_FONT_CAPTION,
-  PDF_FONT_TABLE,
-  PDF_HEADER_CLIENT_W,
   PDF_LOGO_HEIGHT_MM,
   PDF_LOGO_WIDTH_MM,
   PDF_MARGIN as MARGIN,
-  PDF_PAGE_CONTENT_START_Y,
-  PDF_PAGE_W as PAGE_W,
   PDF_SECTION_BG,
-  PDF_SECTION_GAP_MM,
   PDF_TABLE_ALT_ROW_FILL,
   PDF_TABLE_BODY_FILL,
   PDF_TABLE_CELL_PADDING_COMPACT,
@@ -164,7 +159,7 @@ function drawHeader(doc, folha, clientMeta) {
 export function buildFolhaObraPdfFilename(folha) {
   const ordem = formatFolhaObraOrdemLabel(folha).replace(/\s+/g, '-');
   const marca = String(folha?.marcaModelo || 'equipamento')
-    .replace(/[^\w\-]+/g, '-')
+    .replace(/[^\w-]+/g, '-')
     .replace(/-+/g, '-')
     .slice(0, 40);
   return `Manusilva-${ordem}-${marca}.pdf`;

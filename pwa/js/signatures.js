@@ -48,7 +48,7 @@ export class SignaturePad {
     window.addEventListener('resize', this._onWindowResize);
   }
 
-  _paintCanvasBackground(width, height) {
+  _paintCanvasBackground() {
     this.ctx.save();
     this.ctx.setTransform(1, 0, 0, 1, 0, 0);
     this.ctx.fillStyle = this.canvasBg;

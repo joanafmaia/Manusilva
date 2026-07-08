@@ -14,6 +14,7 @@ import {
 import {
   describeServicoVisitSubmitSummary,
   getServicoVisitSubmitState,
+  servicoVisitAllowsOptionalSignatures,
   submitServicoVisit,
 } from './servicos-submit-workflow.js';
 
@@ -55,8 +56,19 @@ export async function openServicoVisitSubmit(servicoId) {
   const client = getClient(servico?.clientId);
   const existingSigs = servico?.data?.signatures || {};
   const summary = describeServicoVisitSubmitSummary(servicoId);
+  const optionalSignatures = servicoVisitAllowsOptionalSignatures(servicoId);
 
-  const content = `
+  const content = optionalSignatures
+    ? `
+    <p class="text-muted" style="margin-bottom:1rem">
+      ${escapeHtml(client?.name || 'Cliente')} — ${escapeHtml(formatDateLong(servico?.date || ''))}
+    </p>
+    <p class="text-muted" style="margin-bottom:1rem;font-size:0.875rem">${escapeHtml(summary)}</p>
+    <p style="margin-bottom:0.75rem;font-size:0.9375rem">
+      Recolha/entrega no cliente — <strong>assinaturas opcionais</strong>. Pode concluir a visita sem assinar.
+    </p>
+  `
+    : `
     <p class="text-muted" style="margin-bottom:1rem">
       ${escapeHtml(client?.name || 'Cliente')} — ${escapeHtml(formatDateLong(servico?.date || ''))}
     </p>
@@ -75,11 +87,14 @@ export async function openServicoVisitSubmit(servicoId) {
     <button type="button" class="btn-primary" id="servico-visit-submit">Concluir visita</button>
   `;
 
-  const overlay = openModal('Concluir visita', content, actions, { signatures: true });
+  const overlay = openModal('Concluir visita', content, actions, {
+    signatures: !optionalSignatures,
+  });
 
   let pads = null;
 
   const mountPads = () => {
+    if (optionalSignatures) return;
     pads = initSignaturePadsInContainer(overlay, ['technician', 'client']);
     restoreSignaturePads(pads, existingSigs);
     pads.technician?.resize?.();
@@ -94,15 +109,17 @@ export async function openServicoVisitSubmit(servicoId) {
 
   overlay.querySelector('#servico-visit-submit')?.addEventListener('click', async () => {
     const btn = overlay.querySelector('#servico-visit-submit');
-    if (!pads) {
+    if (!optionalSignatures && !pads) {
       showToast('Aguarde o carregamento das assinaturas.', 'warning');
       return;
     }
 
-    if (padHasSignature(pads.technician)) commitSignatureSnapshot(pads.technician);
-    if (padHasSignature(pads.client)) commitSignatureSnapshot(pads.client);
-
-    const signatures = resolveReportSignatures(pads, existingSigs);
+    let signatures = {};
+    if (!optionalSignatures) {
+      if (padHasSignature(pads.technician)) commitSignatureSnapshot(pads.technician);
+      if (padHasSignature(pads.client)) commitSignatureSnapshot(pads.client);
+      signatures = resolveReportSignatures(pads, existingSigs);
+    }
 
     btn.disabled = true;
     btn.textContent = 'A enviar…';

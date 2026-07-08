@@ -98,10 +98,6 @@ async function fetchTrabalhoDate(trabalhoId, token) {
   return Array.isArray(rows) ? rows[0]?.data || null : null;
 }
 
-async function fetchApprovedReport(reportId, token) {
-  return fetchReportForEmail(reportId, token, 'relatorio');
-}
-
 async function fetchClienteEmail(clienteId, token) {
   if (clienteId == null || clienteId === '') return null;
   const id = encodeURIComponent(String(clienteId));

@@ -18,7 +18,7 @@
           });
         });
       }
-    } catch (e) {
+    } catch {
       /* ignore */
     }
   }
@@ -27,7 +27,7 @@
     try {
       if (/[?&](_ms|_bust)=/.test(location.search)) return true;
       return !!sessionStorage.getItem('manusilva_force_bust');
-    } catch (e) {
+    } catch {
       return /[?&](_ms|_bust)=/.test(location.search);
     }
   }
@@ -42,7 +42,7 @@
     var bust = String(Date.now());
     try {
       sessionStorage.setItem('manusilva_force_bust', bust);
-    } catch (e) {
+    } catch {
       /* ignore */
     }
     purgeStaleCaches();

@@ -42,7 +42,6 @@ import {
   getReportUrgencyLevel,
 } from './rh-panel-utils.js';
 import { reportHasPedidoOrcamento, reportOrcamentoPorPreparar } from './pedido-orcamento.js';
-import { dedupeReportsForDisplay } from './relatorios-db.js';
 import {
   groupReportsForRhStack,
   getFirstPendingReportIdForServico,

@@ -6,7 +6,8 @@ export function sanitizeUtilizadores(list) {
   if (!Array.isArray(list)) return list;
   return list.map((u) => {
     if (!u || typeof u !== 'object') return u;
-    const { password: _pwd, ...rest } = u;
+    const { password, ...rest } = u;
+    void password;
     return rest;
   });
 }

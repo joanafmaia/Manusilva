@@ -59,7 +59,9 @@ export function mapRowToServico(row) {
 export function mapServicoToRow(servico, overrides = {}) {
   const data = servico.data || {};
   const signatures = data.signatures || {};
-  const { signatures: _s, values: _v, ...restDados } = data;
+  const { signatures: removedSignatures, values: removedValues, ...restDados } = data;
+  void removedSignatures;
+  void removedValues;
   return {
     cliente_id: servico.clientId != null && servico.clientId !== '' ? Number(servico.clientId) : null,
     data: formatDateOnly(servico.date || overrides.data),

@@ -8,7 +8,6 @@ import {
   consumeModuleCacheBustQuery,
   ensureFreshAppBuild,
   fetchAppBuildId,
-  recoverFromModuleLoadFailure,
   registerAppServiceWorker,
   startBuildIdWatch,
 } from './app-version.js';

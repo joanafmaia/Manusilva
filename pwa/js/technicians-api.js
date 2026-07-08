@@ -1,5 +1,5 @@
 /**
- * API de técnicos — POST /api/technicians (criação de conta Supabase Auth).
+ * API de técnicos — listagem e criação via Supabase Auth.
  */
 
 import { getSession } from './session.js';
@@ -37,4 +37,22 @@ export async function createTechnicianAuthAccount(payload) {
   }
 
   return body;
+}
+
+export async function fetchTechnicianAuthCatalog() {
+  const session = requireRhSession();
+
+  const res = await fetch('/api/technicians', {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${session.token}`,
+    },
+  });
+
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(body.error || 'Falha ao obter técnicos do Supabase Auth.');
+  }
+
+  return Array.isArray(body.technicians) ? body.technicians : [];
 }

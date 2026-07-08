@@ -86,6 +86,53 @@ describe('servicos-submit-workflow', () => {
     assert.equal(warnings.length, 2);
   });
 
+  it('collectServicoSubmitWarnings — sem avisos quando assinaturas opcionais', async () => {
+    const { collectServicoSubmitWarnings } = await import('../js/servicos-submit-workflow.js');
+    const warnings = collectServicoSubmitWarnings({}, { optionalSignatures: true });
+    assert.equal(warnings.length, 0);
+  });
+
+  it('servicoVisitAllowsOptionalSignatures — só recolha/entrega', async () => {
+    const relatoriosDb = await import('../js/relatorios-db.js');
+    relatoriosDb.mergeReportInCache({
+      id: 'r-mov',
+      servicoId: 'svc-1',
+      serviceType: 'movimento_material_cliente',
+      status: 'draft',
+      clientId: '10',
+      technicianId: 'Filipe',
+      data: { values: {}, signatures: {}, photos: [], technicianCompleted: true },
+    });
+
+    const { servicoVisitAllowsOptionalSignatures } = await import('../js/servicos-submit-workflow.js');
+    assert.equal(servicoVisitAllowsOptionalSignatures('svc-1'), true);
+  });
+
+  it('servicoVisitAllowsOptionalSignatures — mistura com manutenção exige assinaturas', async () => {
+    const relatoriosDb = await import('../js/relatorios-db.js');
+    relatoriosDb.mergeReportInCache({
+      id: 'r-mov',
+      servicoId: 'svc-1',
+      serviceType: 'movimento_material_cliente',
+      status: 'draft',
+      clientId: '10',
+      technicianId: 'Filipe',
+      data: { values: {}, signatures: {}, photos: [], technicianCompleted: true },
+    });
+    relatoriosDb.mergeReportInCache({
+      id: 'r-man',
+      servicoId: 'svc-1',
+      serviceType: 'manutencao',
+      status: 'draft',
+      clientId: '10',
+      technicianId: 'Filipe',
+      data: { values: {}, signatures: {}, photos: [], technicianCompleted: true },
+    });
+
+    const { servicoVisitAllowsOptionalSignatures } = await import('../js/servicos-submit-workflow.js');
+    assert.equal(servicoVisitAllowsOptionalSignatures('svc-1'), false);
+  });
+
   it('canShowServicoVisitConcludeAction — mostra botão com rascunho por concluir', async () => {
     const relatoriosDb = await import('../js/relatorios-db.js');
     relatoriosDb.mergeReportInCache({

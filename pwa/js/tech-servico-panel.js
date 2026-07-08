@@ -22,8 +22,8 @@ import {
   isServicoReportTechnicianComplete,
 } from './servicos-panel-utils.js';
 import { formatOrdemLabel } from './report-review-ui.js';
-import { renderWorkStateBadge, resolveCalendarEventState } from './calendar-event-state.js';
-import { getServicoVisitSubmitState, canShowServicoVisitConcludeAction } from './servicos-submit-workflow.js';
+import { renderWorkStateBadge } from './calendar-event-state.js';
+import { canShowServicoVisitConcludeAction } from './servicos-submit-workflow.js';
 import { openServicoVisitSubmit } from './tech-servico-signatures.js';
 
 function reportStatusLabel(report) {
@@ -75,7 +75,6 @@ function buildReportRow(servico, report, servicoReports) {
     status: report.status === 'rejected' ? 'rejected' : 'scheduled',
     rejectionNote: report.rejectionNote,
   };
-  const state = resolveCalendarEventState(pseudoJob, report);
   const action = reportActionForStatus(report.status);
   const btnLabel =
     action === 'view' ? 'Ver' : action === 'start' ? 'Iniciar' : report.status === 'rejected' ? 'Corrigir' : 'Continuar';
@@ -122,7 +121,7 @@ function buildReportRow(servico, report, servicoReports) {
   `;
 }
 
-function openAddReportPicker(servicoId, overlay) {
+function openAddReportPicker(servicoId, _overlay) {
   const available = getAvailableServiceTypesForServico(servicoId, SERVICE_TYPES);
   if (!available.length) {
     showToast('Nenhum tipo de relatório disponível neste dispositivo.', 'warning', 5000);

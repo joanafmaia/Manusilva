@@ -6,7 +6,7 @@ import { getAllJobs, getJob, getServiceType, jobAssignedToTechnician } from './e
 import { sameEntityId } from './entity-id.js';
 import { filterOutLocallyDeletedReports } from './report-deleted-local.js';
 import { getReportsSnapshot, getCanonicalReportForJob } from './relatorios-db.js';
-import { getServico, getServicosSnapshot, isServicosCacheLoaded } from './servicos-db.js';
+import { getServico, getServicosSnapshot } from './servicos-db.js';
 
 /** Id do serviço/visita a que o relatório pertence (servico_id ou trabalho legado com o mesmo id). */
 export function resolveServicoIdForReport(report) {

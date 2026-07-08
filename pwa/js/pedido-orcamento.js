@@ -3,11 +3,7 @@
  */
 
 import { isTestClient } from './client-test-utils.js';
-import {
-  reportIsStandaloneOrcamento,
-  STANDALONE_ORCAMENTO_ORIGEM,
-  STANDALONE_ORCAMENTO_SERVICE_TYPE,
-} from './orcamento-standalone.js';
+import { reportIsStandaloneOrcamento } from './orcamento-standalone.js';
 
 export {
   reportIsStandaloneOrcamento,

@@ -103,7 +103,7 @@ export async function openReportReviewModal(reportId, options = {}) {
   bindReviewPdfButton(overlay, { job, report });
 
   if (showWorkflow) {
-    const { approveReport, rejectReport } = await import('./app.js');
+    const { approveReport } = await import('./app.js');
 
     overlay.querySelector('#modal-approve')?.addEventListener('click', async () => {
       const btn = overlay.querySelector('#modal-approve');

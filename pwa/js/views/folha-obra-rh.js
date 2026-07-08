@@ -9,8 +9,6 @@ import { getClient } from '../entity-lookups.js';
 import {
   ensureFolhasObraLoadedSafe,
   formatFolhaObraEstadoLabel,
-  formatFolhaObraOrdemLabel,
-  getFolhasObraSnapshot,
 } from '../folhas-obra-db.js';
 import {
   formatFolhaResponsabilidadeLabel,

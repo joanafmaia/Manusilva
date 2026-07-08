@@ -147,7 +147,7 @@ export function maybeNotifyTechJobScheduled(job, techMatch) {
 }
 
 function formatShortDate(iso) {
-  const [y, m, d] = String(iso).split('-');
+  const [, m, d] = String(iso).split('-');
   if (!d || !m) return iso;
   return `${d}/${m}`;
 }

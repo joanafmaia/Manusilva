@@ -12,7 +12,6 @@ import {
 import { loadJsPdfAutoTable } from './pdf-jspdf-loader.js';
 import {
   mergePdfTableDidParseCell,
-  PDF_COLOR_CORPORATE_BLUE as CORPORATE_BLUE,
   PDF_COLOR_TEXT_DARK as TEXT_DARK,
   PDF_CONTENT_W as CONTENT_W,
   PDF_FONT_BODY,

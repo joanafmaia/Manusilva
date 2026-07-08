@@ -1,5 +1,5 @@
 /**
- * Manusilva PWA — Mock Database (8 relatórios oficiais)
+ * Manusilva PWA — Mock Database (9 relatórios oficiais)
  */
 
 import { INSPECAO_DL50_CATEGORIES, INSPECAO_DL50_LEGAL_OPTIONS } from './inspecao-dl50-categories.js';
@@ -38,7 +38,7 @@ export const BATERIA_IDENTITY_FIELD_DEFS = [
   },
 ];
 
-export const SCHEMA_VERSION = 24;
+export const SCHEMA_VERSION = 25;
 
 export const COMPANY = {
   name: 'ManuSilva Manutenção Industrial, Unipessoal, Lda',
@@ -664,7 +664,72 @@ export const REPARACAO_AVARIAS_BATERIA = {
   ],
 };
 
-/** 8 templates oficiais — suite completa ManuSilva */
+/** Template oficial — Recolha / Entrega de material ou equipamento no cliente */
+export const MOVIMENTO_MATERIAL_CLIENTE = {
+  id: 'movimento_material_cliente',
+  title: 'Registo de Recolha / Entrega no Cliente',
+  label: 'Recolha / Entrega no Cliente',
+  icon: 'truck',
+  companyName: 'ManuSilva Manutenção Industrial, Unipessoal, Lda',
+  companyAddress: 'Rua São Mamede, Lote Nº1 - Fração D, 4760-725 Ribeirão VNF',
+  fields: [
+    {
+      type: 'status_pills',
+      id: 'tipo_movimento',
+      label: 'Tipo de movimento',
+      section: 'Movimento',
+      options: ['Recolha', 'Entrega'],
+    },
+    { type: 'date', id: 'data_movimento', label: 'Data', section: 'Movimento' },
+    { type: 'time', id: 'hora_movimento', label: 'Hora', section: 'Movimento' },
+    {
+      type: 'choice',
+      id: 'tipo_conteudo',
+      label: 'O que foi movimentado',
+      section: 'Movimento',
+      options: ['Material', 'Equipamento', 'Material e equipamento'],
+    },
+    {
+      type: 'textarea',
+      id: 'local_morada',
+      label: 'Local / Morada',
+      section: 'Movimento',
+      rows: 2,
+      placeholder: 'Morada ou local de recolha/entrega',
+    },
+    {
+      type: 'text',
+      id: 'contacto_no_local',
+      label: 'Contacto no local',
+      section: 'Movimento',
+      placeholder: 'Nome e telefone, se aplicável',
+    },
+    { type: 'text', id: 'marca', label: LABEL_MARCA, section: 'Equipamento' },
+    { type: 'text', id: 'modelo', label: LABEL_MODELO, section: 'Equipamento' },
+    { type: 'text', id: 'numero_de_serie', label: LABEL_NUMERO_SERIE, section: 'Equipamento' },
+    { type: 'text', id: 'n_interno', label: LABEL_N_INTERNO, section: 'Equipamento' },
+    createMaterialTableField({
+      id: 'itens_material',
+      section: 'Material',
+      label: 'Artigos / Materiais',
+      columns: [
+        { id: 'artigo', label: 'Artigo / Descrição' },
+        { id: 'qtd', label: 'Quantidade' },
+        { id: 'referencia', label: 'Referência / Notas' },
+      ],
+    }),
+    {
+      type: 'textarea',
+      id: 'observacoes',
+      label: 'Observações',
+      section: 'Observações',
+      rows: 4,
+      placeholder: 'Estado do material, acessórios, instruções do cliente…',
+    },
+  ],
+};
+
+/** 9 templates oficiais — suite completa ManuSilva */
 export const reportTemplates = [
   FOLHA_INTERVENCAO_AVARIAS,
   MANUTENCAO_BATERIAS_GRANDES,
@@ -674,6 +739,7 @@ export const reportTemplates = [
   MANUTENCAO_PREVENTIVA_EMPILHADORES,
   REPARACAO_CARREGADOR,
   REPARACAO_AVARIAS_BATERIA,
+  MOVIMENTO_MATERIAL_CLIENTE,
 ];
 
 export const PDF_DOCUMENT_TITLES = {
@@ -685,6 +751,7 @@ export const PDF_DOCUMENT_TITLES = {
   manutencao_preventiva_bateria: 'RELATÓRIO DE MANUTENÇÃO PREVENTIVA DE BATERIA',
   manutencao_baterias_grandes: 'FORMULÁRIO MANUTENÇÃO BATERIAS CLIENTES GRANDES',
   manutencao_corretiva_maquinas: 'FOLHA MANUTENÇÃO CORRETIVA DE MÁQUINAS',
+  movimento_material_cliente: 'REGISTO DE RECOLHA / ENTREGA NO CLIENTE',
 };
 
 /**
@@ -830,7 +897,6 @@ export function mapClientToLegacy(record) {
     email,
     phone: telemovel,
     telemovel,
-    Telemovel: telemovel,
     address,
     morada,
     codigoPostal: cp,

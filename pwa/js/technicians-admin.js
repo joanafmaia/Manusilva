@@ -16,6 +16,58 @@ function nextTechnicianId() {
   return `tech-${Math.max(0, ...ids, 0) + 1}`;
 }
 
+function buildUtilizadorFromTechnician(technician) {
+  return {
+    nome: technician.name,
+    nif: technician.nif || null,
+    telemovel: technician.phone || '',
+    email: technician.email,
+    role: 'Tecnico',
+    technicianId: technician.id,
+  };
+}
+
+function mergeTechnicianCatalog(localTechs, remoteTechs) {
+  const byId = new Map();
+  [...(localTechs || []), ...(remoteTechs || [])].forEach((tech, index) => {
+    const id = String(tech?.id || '').trim();
+    const email = String(tech?.email || '').trim().toLowerCase();
+    if (!id || !email) return;
+    const prev = byId.get(id) || {};
+    byId.set(id, {
+      id,
+      name: String(tech?.name || prev.name || '').trim(),
+      email,
+      phone: String(tech?.phone || prev.phone || '').trim(),
+      nif: String(tech?.nif || prev.nif || '').trim(),
+      color: tech?.color || prev.color || TECHNICIAN_COLORS[index % TECHNICIAN_COLORS.length],
+      authUserId: tech?.authUserId || prev.authUserId || null,
+    });
+  });
+  return [...byId.values()];
+}
+
+export async function syncTechniciansCatalog(options = {}) {
+  const { silent = false } = options;
+  const { fetchTechnicianAuthCatalog } = await import('./technicians-api.js');
+  const remoteTechs = await fetchTechnicianAuthCatalog();
+
+  updateDB((d) => {
+    const mergedTechs = mergeTechnicianCatalog(d.technicians || [], remoteTechs);
+    d.technicians = mergedTechs;
+
+    const others = Array.isArray(d.utilizadores)
+      ? d.utilizadores.filter((u) => String(u.role || '').trim() !== 'Tecnico')
+      : [];
+    d.utilizadores = [...others, ...mergedTechs.map(buildUtilizadorFromTechnician)];
+  });
+
+  if (!silent) {
+    showToast(`Catálogo de técnicos sincronizado (${remoteTechs.length}).`, 'success', 4000);
+  }
+  return remoteTechs;
+}
+
 /**
  * @returns {Promise<object|null>} registo do técnico
  */
@@ -78,6 +130,12 @@ export async function addTechnician({ nome, email, telemovel, nif }) {
     d.technicians.push(technician);
     d.utilizadores.push(utilizador);
   });
+
+  try {
+    await syncTechniciansCatalog({ silent: true });
+  } catch (err) {
+    console.warn('[Technicians] sync catalog after create:', err);
+  }
 
   showToast(
     `Técnico «${name}» adicionado. Conta de login criada no Supabase Auth.`,

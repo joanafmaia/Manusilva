@@ -45,8 +45,6 @@ import {
 import { reportIsFolhaObraOrcamento } from '../folha-obra-orcamento.js';
 import { getSession } from '../session.js';
 
-const PANEL_STATUSES = new Set(['pending_review', 'approved']);
-
 let mountRoot = null;
 let activeFilter = 'todas';
 let searchQuery = '';

@@ -231,7 +231,7 @@ export function isSingleSelfTitledSection(section, service) {
 /**
  * Secção cujos escalares já foram desenhados num bloco compacto dedicado.
  */
-export function isScalarCompactSection(section, service) {
+export function isScalarCompactSection(section, _service) {
   if (!section) return false;
   if (isMachineInfoSection(section)) return true;
   const norm = pdfNormalizeHeading(section);

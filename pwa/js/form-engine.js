@@ -11,7 +11,6 @@ import {
 import {
   columnKey,
   columnLabel,
-  emptyMaterialRow,
   emptyMaterialRowForField,
   isMaterialTableField,
   normalizeMaterialRows,
@@ -56,12 +55,12 @@ import {
   normalizeDynamicCellValue,
 } from './form-date-utils.js';
 import {
-  isOfficialTemplate,
-  getServiceFormTitle,
-  resolveClientDisplayMeta,
-  renderJobClientHeader,
-  buildFormPrefill,
-  mergeFormValues,
+  isOfficialTemplate as exportedIsOfficialTemplate,
+  getServiceFormTitle as exportedGetServiceFormTitle,
+  resolveClientDisplayMeta as exportedResolveClientDisplayMeta,
+  renderJobClientHeader as exportedRenderJobClientHeader,
+  buildFormPrefill as exportedBuildFormPrefill,
+  mergeFormValues as exportedMergeFormValues,
 } from './form-prefill.js';
 
 let grandesModule = null;
@@ -98,13 +97,13 @@ export {
   normalizeDatetimeForStorage,
 } from './form-date-utils.js';
 export {
-  isOfficialTemplate,
-  getServiceFormTitle,
-  resolveClientDisplayMeta,
-  renderJobClientHeader,
-  buildFormPrefill,
-  mergeFormValues,
-} from './form-prefill.js';
+  exportedIsOfficialTemplate as isOfficialTemplate,
+  exportedGetServiceFormTitle as getServiceFormTitle,
+  exportedResolveClientDisplayMeta as resolveClientDisplayMeta,
+  exportedRenderJobClientHeader as renderJobClientHeader,
+  exportedBuildFormPrefill as buildFormPrefill,
+  exportedMergeFormValues as mergeFormValues,
+};
 
 
 export { renderClientCombobox, renderHeaderClientCombobox, bindClientComboboxes, collectClientComboboxValues };
@@ -247,6 +246,9 @@ export function getReportFieldTab(field, service = null) {
 }
 
 export function analyzeReportFormTabs(service) {
+  if (service?.id === SERVICE_IDS.MOVIMENTO_MATERIAL_CLIENTE) {
+    return { geral: true, checklist: false, finalizacao: false };
+  }
   const fields = filterReportFields(service?.fields, service);
   const tabs = { geral: true, checklist: false, finalizacao: true };
   if (service?.id === EMPILHADORES_SERVICE_ID) {
@@ -365,7 +367,7 @@ function renderEmpilhadoresVerificationTable(field, value) {
   const items = field.items || [];
   const states = value && typeof value === 'object' ? value : {};
   const title = field.pdfTitle || field.section || field.label;
-  const { ok, fail, blank, total } = countEmpilhadoresVerificationProgress(items, states);
+  const { ok, blank, total } = countEmpilhadoresVerificationProgress(items, states);
 
   const rows = items
     .map((item) => {
@@ -1753,7 +1755,7 @@ function readEmpilhadoresVerifyRowValue(row) {
   return empilhadoresMatrixOptionFromDataValue(btn.getAttribute('data-value'));
 }
 
-function syncEmpilhadoresVerifyRow(row, wrap) {
+function syncEmpilhadoresVerifyRow(row) {
   const value = readEmpilhadoresVerifyRowValue(row);
   row.classList.remove(
     'verification-card--ok',

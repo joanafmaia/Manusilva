@@ -7,6 +7,7 @@ import { getServiceType } from './entity-lookups.js';
 import { formatServicosError, getServico, updateServico } from './servicos-db.js';
 import { getReportsForServico, getIncompleteServicoDraftReports, isServicoReportTechnicianComplete } from './servicos-panel-utils.js';
 import { reportDraftStorageKey } from './report-local-storage.js';
+import { SERVICE_IDS } from './service-constants.js';
 
 /**
  * Estado da visita antes de concluir.
@@ -78,11 +79,21 @@ export function canShowServicoVisitConcludeAction(servicoId) {
   return {
     show: true,
     state,
-    hint: 'Assine a visita — a assinatura aplica-se a todos os relatórios deste serviço.',
+    hint: servicoVisitAllowsOptionalSignatures(servicoId)
+      ? 'Conclua a visita — assinaturas opcionais para recolha/entrega no cliente.'
+      : 'Assine a visita — a assinatura aplica-se a todos os relatórios deste serviço.',
   };
 }
 
-export function collectServicoSubmitWarnings(signatures) {
+/** Assinaturas opcionais quando todos os relatórios activos da visita são recolha/entrega. */
+export function servicoVisitAllowsOptionalSignatures(servicoId) {
+  const reports = getReportsForServico(servicoId).filter((r) => r.status !== 'approved');
+  if (!reports.length) return false;
+  return reports.every((r) => r.serviceType === SERVICE_IDS.MOVIMENTO_MATERIAL_CLIENTE);
+}
+
+export function collectServicoSubmitWarnings(signatures, { optionalSignatures = false } = {}) {
+  if (optionalSignatures) return [];
   const warnings = [];
   if (!signatures?.technicianData) warnings.push('Sem assinatura do técnico.');
   if (!signatures?.clientData) warnings.push('Sem assinatura do cliente.');
@@ -152,7 +163,8 @@ export async function submitServicoVisit(servicoId, signatures) {
     return false;
   }
 
-  const warnings = collectServicoSubmitWarnings(signatures);
+  const optionalSignatures = servicoVisitAllowsOptionalSignatures(servicoId);
+  const warnings = collectServicoSubmitWarnings(signatures, { optionalSignatures });
   if (!confirmServicoSubmitWarnings(warnings)) return false;
 
   try {

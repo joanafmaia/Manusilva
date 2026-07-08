@@ -21,6 +21,7 @@ const SERVICE_FORM_TITLES = {
   reparacao_avarias_bateria: 'Relatório de Reparação de Baterias',
   reparacao_carregador: 'Relatório de Reparação de Carregador',
   inspecao_dl50_2005: 'Inspeção da Máquina Decreto-Lei 50/2005',
+  movimento_material_cliente: 'Registo de Recolha / Entrega no Cliente',
 };
 
 export function isOfficialTemplate(service) {
@@ -183,6 +184,24 @@ export function buildFormPrefill(service, job, _forklift, context = {}) {
       data_de_conclusao: job?.date || '',
       periodicidade_inspecao: 'Anual',
       pedido_orcamento: 'Não',
+    };
+  }
+
+  if (service.id === 'movimento_material_cliente') {
+    const { address, phone } = resolveClientDisplayMeta(client || {});
+    return {
+      tipo_movimento: 'Recolha',
+      data_movimento: job?.date || '',
+      hora_movimento: '',
+      tipo_conteudo: 'Material e equipamento',
+      local_morada: address || '',
+      contacto_no_local: phone || '',
+      marca: '',
+      modelo: '',
+      numero_de_serie: job?.forkliftSerial || '',
+      n_interno: '',
+      itens_material: [emptyMaterialRow()],
+      observacoes: '',
     };
   }
 

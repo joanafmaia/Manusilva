@@ -143,7 +143,7 @@ export function userUsesNameOnlyLogin(identifier, roleFiltro = null) {
   );
 }
 
-export function resolveDisplayNameForHint(identifier, roleFiltro = null) {
+export function resolveDisplayNameForHint(identifier, _roleFiltro = null) {
   const term = String(identifier || '').trim();
   if (!term) return '';
   if (term.includes('@')) {

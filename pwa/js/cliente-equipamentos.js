@@ -8,7 +8,6 @@ import {
   migrateLegacyEmpilhadoresMaquinas,
   normalizeEmpilhadoresMaquinaRow,
 } from './views/relatorio-empilhadores-maquinas.js';
-import { escapeHtml } from './html-utils.js';
 import {
   LABEL_MARCA,
   LABEL_MODELO,
@@ -16,17 +15,6 @@ import {
   LABEL_NUMERO_SERIE,
   LABEL_N_INTERNO,
 } from './field-labels.js';
-
-const MACHINE_VALUE_KEYS = [
-  'marca',
-  'modelo',
-  'numero_de_serie',
-  'num_serie',
-  'n_interno',
-  'horas',
-  'tipo',
-  'data_fabrico',
-];
 
 export const SERVICE_CATEGORIA = {
   manutencao_preventiva_empilhadores: 'empilhador',

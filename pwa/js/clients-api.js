@@ -3,7 +3,12 @@
  */
 
 import { updateClient, updateDB } from './app.js';
-import { normalizeClientRecord, registerClientInCatalog } from './clients-catalog.js';
+import {
+  normalizeClientRecord,
+  registerClientInCatalog,
+  getClientFromCatalog,
+  ensureProductionCatalog,
+} from './clients-catalog.js';
 import { getSession } from './session.js';
 import { isRhOrAdminSession } from './auth-roles-core.js';
 import { ensureSupabaseAuthSession } from './supabase-client.js';
@@ -33,6 +38,19 @@ function persistClientRecord(raw) {
   return record;
 }
 
+function snapshotClientAuditFields(record) {
+  return {
+    email: record?.['E-mail'] || record?.email || '',
+    morada: record?.Morada || record?.morada || '',
+    telemovel: record?.Telemovel || record?.telemovel || '',
+    codigo_postal: record?.['Código postal'] || record?.codigo_postal || '',
+    localidade: record?.Localidade || record?.localidade || '',
+    condicao_pagamento: record?.condicao_pagamento || record?.condicaoPagamento || '',
+    plus_code: record?.plusCode || record?.plus_code || '',
+    zona_rota: record?.zonaRota || record?.zona_rota || '',
+  };
+}
+
 function buildApiHeaders(session) {
   return {
     'Content-Type': 'application/json',
@@ -55,6 +73,10 @@ export async function putClient(clientId, patch) {
   }
 
   await ensureSupabaseAuthSession();
+  await ensureProductionCatalog();
+
+  const beforeRecord = getClientFromCatalog(clientId);
+  const beforeAudit = snapshotClientAuditFields(beforeRecord);
 
   try {
     const res = await fetch(`/api/clients/${id}`, {
@@ -65,7 +87,14 @@ export async function putClient(clientId, patch) {
 
     if (res.ok) {
       const body = await res.json().catch(() => ({}));
-      if (body.record) return persistClientRecord(body.record);
+      if (body.record) {
+        const record = persistClientRecord(body.record);
+        const { logClientChanges } = await import('./client-audit.js');
+        await logClientChanges(clientId, beforeAudit, snapshotClientAuditFields(record), {
+          origem: 'rh_ficha',
+        });
+        return record;
+      }
       return body.record || body;
     }
 

@@ -36,9 +36,8 @@ export function bindAppRefreshButton(buttonId = 'btn-force-app-refresh', options
       await forceAppRefresh();
     } catch (err) {
       console.error('[Manusilva] forceAppRefresh:', err);
-      const { markForceModuleBust, purgeBrowserCaches, navigateToFreshApp } = await import(
-        `./app-version.js${bust}`,
-      );
+      const { markForceModuleBust, purgeBrowserCaches, navigateToFreshApp } =
+        await import(`./app-version.js${bust}`);
       markForceModuleBust();
       await purgeBrowserCaches();
       await navigateToFreshApp();

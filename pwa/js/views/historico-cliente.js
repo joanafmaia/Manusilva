@@ -359,8 +359,6 @@ export const HistoricoClienteView = {
    */
   render(clientId, renderOptions = {}) {
     const batteryOnly = renderOptions.batteryOnly !== false;
-    const showWorkflow =
-      renderOptions.showWorkflowActions ?? activeNavOptions?.showWorkflowActions !== false;
     const { nome, nif, contact } = resolveClientMeta(clientId);
     const clientMeta = { nome, nif, contact };
     const reports = getClientHistoryReports(clientId, { batteryOnly });

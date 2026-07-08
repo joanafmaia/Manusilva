@@ -12,11 +12,16 @@ function readSearch() {
   return String(window.location.search || '');
 }
 
+function isLocalDevHost(host) {
+  return host === 'localhost' || host === '127.0.0.1';
+}
+
 /** Permite dados demo (CLIENTS vazio, forklifts demo, etc.) */
 export function isDevMockEnabled() {
   const host = readHostname();
-  if (host === 'localhost' || host === '127.0.0.1') return true;
-  return readSearch().includes('mock=1');
+  if (!isLocalDevHost(host)) return false;
+  const search = readSearch();
+  return !search || search.includes('mock=1');
 }
 
 export function isProductionRuntime() {

@@ -43,7 +43,7 @@ import {
 } from './orcamento-workflow.js';
 import { formatInterventionDatePt } from './report-intervention-date.js';
 
-function defaultOrcamentoEmail(report, client) {
+function defaultOrcamentoEmail(report, _client) {
   const meta = getReportOrcamentoMeta(report);
   if (meta?.emailDestinatario) return String(meta.emailDestinatario).trim();
   return '';

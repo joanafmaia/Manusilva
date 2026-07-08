@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { sameEntityId, normalizeEntityId } from '../js/entity-id.js';
 import { fitImageInBox } from '../js/pdf-image-fit.js';
 import { collectSubmitWarnings } from '../js/form-submit-checks.js';
-import { REPARACAO_CARREGADOR } from '../js/mock_data.js';
+import { MOVIMENTO_MATERIAL_CLIENTE, REPARACAO_CARREGADOR } from '../js/mock_data.js';
 
 describe('entity-id', () => {
   it('normaliza e compara ids string/number', () => {
@@ -61,5 +61,16 @@ describe('form-submit-checks', () => {
       skipSignatureWarnings: true,
     });
     assert.ok(!warnings.some((w) => w.includes('assinatura')));
+  });
+
+  it('recolha/entrega — não avisa fotos nem assinaturas em falta', () => {
+    const warnings = collectSubmitWarnings({
+      report: { data: { values: { observacoes: '' } } },
+      service: MOVIMENTO_MATERIAL_CLIENTE,
+      signaturePads: {},
+      hasFotoAntes: false,
+      hasFotoDepois: false,
+    });
+    assert.equal(warnings.length, 0);
   });
 });

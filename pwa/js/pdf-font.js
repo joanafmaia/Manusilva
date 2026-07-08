@@ -7,6 +7,21 @@ const FONT_REGULAR = 'Roboto-Regular.ttf';
 const FONT_BOLD = 'Roboto-Bold.ttf';
 const FONT_FAMILY = 'Roboto';
 
+function stripControlChars(text) {
+  return Array.from(String(text || ''))
+    .filter((ch) => {
+      const code = ch.charCodeAt(0);
+      return code === 9 || code === 10 || code === 13 || code >= 32;
+    })
+    .join('');
+}
+
+function stripOutsideLatin1(text) {
+  return Array.from(String(text || ''))
+    .filter((ch) => ch.charCodeAt(0) <= 0xff)
+    .join('');
+}
+
 const UNICODE_REPLACEMENTS = {
   '\uFEFF': '',
   '\u2018': "'",
@@ -134,7 +149,7 @@ export function pdfSafeText(val) {
     s = s.split(from).join(to);
   });
 
-  s = s.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '');
+  s = stripControlChars(s);
 
   s = s
     .replace(/☑\s*\[\s*\]/g, '')
@@ -147,7 +162,7 @@ export function pdfSafeText(val) {
     .trim();
 
   if (!unicodeFontsAvailable) {
-    s = s.replace(/[^\u0000-\u00FF]/g, '');
+    s = stripOutsideLatin1(s);
   }
 
   return s.trim();

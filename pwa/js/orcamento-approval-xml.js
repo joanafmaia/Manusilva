@@ -2,8 +2,6 @@
  * Caixa de aprovação do cliente — MS.015 (Word OOXML).
  */
 
-import { escapeXmlText } from './orcamento-fill-data.js';
-
 /** Tabela Word com borda — área para assinatura e carimbo do cliente. */
 export function buildOrcamentoApprovalBoxXml() {
   const inner =

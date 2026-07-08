@@ -437,40 +437,6 @@ export function collectEmpilhadoresMaquinas(overlay) {
   return store.map(normalizeEmpilhadoresMaquinaRow);
 }
 
-function renderIdCell(col, row) {
-  const val = row[col.key] ?? '';
-  if (col.input === 'number') {
-    return `
-      <input type="number"
-        class="form-input form-input-sm empilhadores-maquinas-cell"
-        data-col="${col.key}"
-        data-field-kind="empilhadores-maquina-id"
-        value="${escapeHtml(val)}"
-        min="0"
-        step="1"
-        inputmode="numeric"
-        aria-label="${escapeHtml(col.label)}">`;
-  }
-  return `
-    <input type="text"
-      class="form-input form-input-sm empilhadores-maquinas-cell"
-      data-col="${col.key}"
-      data-field-kind="empilhadores-maquina-id"
-      value="${escapeHtml(val)}"
-      aria-label="${escapeHtml(col.label)}">`;
-}
-
-function renderIdRow(row, rowIndex) {
-  const cells = EMPILHADORES_ID_COLUMNS.map((col) => {
-    return `<td class="empilhadores-maquinas-col" data-col-label="${escapeHtml(col.label)}">${renderIdCell(col, row)}</td>`;
-  }).join('');
-  return `
-    <tr class="empilhadores-maquinas-row dynamic-table-row" data-row-index="${rowIndex}">
-      <td class="empilhadores-maquinas-idx empilhadores-maquinas-row-num">${rowIndex + 1}</td>
-      ${cells}
-    </tr>`;
-}
-
 export function renderEmpilhadoresMaquinasSection(field, value) {
   const rows = migrateLegacyEmpilhadoresMaquinas({
     [EMPILHADORES_MAQUINAS_FIELD_ID]: Array.isArray(value) ? value : undefined,
@@ -508,36 +474,9 @@ export function renderEmpilhadoresMaquinaSelector(maquinas = [], activeIndex = 0
     </div>`;
 }
 
-function updateRowNumbers(tbody) {
-  tbody.querySelectorAll('.empilhadores-maquinas-row').forEach((tr, idx) => {
-    const numCell = tr.querySelector('.empilhadores-maquinas-row-num');
-    if (numCell) numCell.textContent = String(idx + 1);
-    tr.dataset.rowIndex = String(idx);
-  });
-}
-
-function updateCount(wrap) {
-  const tbody = wrap?.querySelector('.empilhadores-maquinas-body');
-  const countEl = wrap?.querySelector('[data-empilhadores-maquinas-count]');
-  const n = tbody?.querySelectorAll('.empilhadores-maquinas-row').length || 0;
-  if (countEl) countEl.textContent = `${n} máquina(s)`;
-}
-
 function syncStoreRowCount(overlay) {
   collectEmpilhadoresMaquinas(overlay);
   return readStore(overlay);
-}
-
-function buildIdRowElement(rowData = emptyEmpilhadoresMaquinaRow()) {
-  const tr = document.createElement('tr');
-  tr.className = 'empilhadores-maquinas-row dynamic-table-row';
-  tr.innerHTML = `
-    <td class="empilhadores-maquinas-idx empilhadores-maquinas-row-num"></td>
-    ${EMPILHADORES_ID_COLUMNS.map(
-      (col) =>
-        `<td class="empilhadores-maquinas-col" data-col-label="${escapeHtml(col.label)}">${renderIdCell(col, rowData)}</td>`,
-    ).join('')}`;
-  return tr;
 }
 
 function bindIdTable(wrap, overlay, onRowChange) {

@@ -468,12 +468,6 @@ function buildBillingRowsFromItems(items) {
   });
 }
 
-function buildBillingRows(reports) {
-  return buildBillingRowsFromItems(
-    reports.map((report) => ({ kind: 'report', id: String(report.id), report })),
-  );
-}
-
 function buildInvoiceRows(items) {
   return items.map((item) => {
     const entity = item.entity;
@@ -1274,7 +1268,7 @@ function openRegisterManualInvoiceModal() {
 function openRegisterInvoiceModalCore({
   title,
   defaultValor,
-  client,
+  _client,
   hint,
   extraHtml = '',
   onSave,

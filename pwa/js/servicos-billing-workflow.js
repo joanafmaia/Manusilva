@@ -17,6 +17,7 @@ import { getPendingOrcamentoBillingReports } from './orcamento-billing-workflow.
 import { getPendingBillingFolhasObra } from './folhas-obra-db.js';
 import { getReportOrcamentoMeta } from './orcamento-linhas.js';
 import { reportPedidoOrcamentoRoutesToOrcamentosTab } from './pedido-orcamento.js';
+import { showToast } from './toast-modal.js';
 
 /** Relatório com faturação delegada ao serviço (não aparece na fila por relatório). */
 export const REPORT_FATURACAO_VIA_SERVICO = 'via_servico';

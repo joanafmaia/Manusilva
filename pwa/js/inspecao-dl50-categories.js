@@ -1,9 +1,4 @@
 import {
-  buildPdfAutoTableStyles,
-  mergePdfTableDidParseCell,
-  PDF_MACHINE_SECTION,
-} from './pdf-design-system.js';
-import {
   LABEL_MARCA,
   LABEL_MODELO,
   LABEL_TIPO,
@@ -13,7 +8,7 @@ import {
   LABEL_ANO_FABRICO,
   formatAnoFabricoDisplay,
 } from './field-labels.js';
-import { pdfAutoTableFont, pdfSetFont, pdfSafeText, pdfSplitText } from './pdf-font.js';
+import { pdfSafeText } from './pdf-font.js';
 
 /** Pontos de inspeção DL 50/2005 — MS. 061 */
 export const INSPECAO_DL50_CATEGORIES = [
@@ -162,15 +157,6 @@ export function splitDl50MatrixCategories(categories) {
 }
 
 /* ─── PDF: cabeçalho (Informações da Máquina → Periodicidade) ─── */
-
-/** Alturas (mm) — estrutura Y do cabeçalho no PDF */
-const INSPECAO_DL50_PDF_Y = {
-  AFTER_CONCLUSAO: 3,
-  SECTION_TITLE: 6,
-  DIVIDER: 7,
-  AFTER_MACHINE_BLOCK: 5,
-  PERIODICITY_BLOCK: 12,
-};
 
 /** Campos da grelha «Informações da Máquina» no PDF DL50 */
 export const INSPECAO_DL50_MACHINE_FIELD_IDS = new Set([

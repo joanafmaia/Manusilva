@@ -64,7 +64,6 @@ export function resolveOrcamentoDocumentDate(report) {
 }
 
 export function buildOrcamentoFillData(report, job = null) {
-  const values = report?.data?.values || {};
   const resolvedJob = job || (report?.jobId ? getJob(report.jobId) : null);
   const year = new Date().getFullYear();
   const orcamentoMeta = getReportOrcamentoMeta(report);

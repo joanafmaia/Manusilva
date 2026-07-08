@@ -8,6 +8,15 @@ import { PDF_LAYOUT_SKIP_FIELD_IDS } from './pdf-design-system.js';
 
 const INSPECAO_DL50_SERVICE_ID = 'inspecao_dl50_2005';
 
+function stripControlChars(text) {
+  return Array.from(String(text || ''))
+    .filter((ch) => {
+      const code = ch.charCodeAt(0);
+      return code === 9 || code === 10 || code === 13 || code >= 32;
+    })
+    .join('');
+}
+
 /** Texto legível no PDF — sem aspas JSON, \\n literais nem lixo de serialização */
 export function cleanPdfText(val) {
   if (val === null || val === undefined) return '';
@@ -37,15 +46,16 @@ export function cleanPdfText(val) {
   if (typeof s !== 'string') return cleanPdfText(s);
 
   return pdfSafeText(
-    s
-      .replace(/\\n/g, '\n')
-      .replace(/\\r/g, '')
-      .replace(/\\t/g, ' ')
-      .replace(/\r\n/g, '\n')
-      .replace(/\s*\|\s*/g, ' ')
-      .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '')
-      .replace(/\n{3,}/g, '\n\n')
-      .trim(),
+    stripControlChars(
+      s
+        .replace(/\\n/g, '\n')
+        .replace(/\\r/g, '')
+        .replace(/\\t/g, ' ')
+        .replace(/\r\n/g, '\n')
+        .replace(/\s*\|\s*/g, ' ')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim(),
+    ),
   );
 }
 

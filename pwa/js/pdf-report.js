@@ -3,19 +3,9 @@
  */
 
 import {
-  COMPANY,
   PDF_DOCUMENT_TITLES,
   EMPILHADORES_MATERIAL_SECTION,
-  SERVICE_TYPES,
-  reportTemplates,
 } from './mock_data.js';
-import {
-  ensureProductionCatalog,
-  getClientFromCatalog,
-  getProductionClientsCatalog,
-} from './clients-catalog.js';
-import { getJobsSnapshot } from './trabalhos-db.js';
-import { buildReportPdfFilename } from './pdf-storage.js';
 import { pdfAddImageContained } from './pdf-image-fit.js';
 import MANUSILVA_LOGO from './logo_data.js';
 import { isLogoConfigured, getPdfLogoFormat } from './brand-ui.js';
@@ -25,104 +15,57 @@ import {
   pdfSetFont,
   pdfSafeText,
   pdfSplitText,
-  PDF_SYMBOL,
   pdfStatusGlyph,
 } from './pdf-font.js';
 import { getColumnLabels } from './views/relatorio-grandes.js';
 import {
-  buildEmpilhadoresMachineFilenameTag,
   buildEmpilhadoresPdfService,
   flattenEmpilhadoresValues,
   getEmpilhadoresMaquinasFromReport,
   isEmpilhadoresMultiMaquinaReport,
   maquinaRowLabel,
 } from './views/relatorio-empilhadores-maquinas.js';
-import { reportIncludesDeslocacao, SERVICES_WITH_SECTION_VISITAS, VISITAS_FIELD_ID, DESLOCACAO_BASE_FIELD_ID, normalizeVisitasForService } from './deslocacao-field.js';
+import { reportIncludesDeslocacao, SERVICES_WITH_SECTION_VISITAS, VISITAS_FIELD_ID, normalizeVisitasForService } from './deslocacao-field.js';
 import {
   buildPdfAutoTableStyles,
   getBlockPdfTitle,
   getMachineSectionScalarFields,
   getMachineSectionTitle,
   mergePdfTableDidParseCell,
-  PDF_AUTOTABLE_MARGIN_BOTTOM_MM,
   PDF_COLOR_CORPORATE_BLUE as CORPORATE_BLUE,
-  PDF_COLOR_CORPORATE_BLUE_DARK as CORPORATE_BLUE_DARK,
   PDF_COLOR_DANGER as DANGER,
   PDF_COLOR_SLATE_LINE as SLATE_LINE,
   PDF_COLOR_SUCCESS as SUCCESS,
   PDF_COLOR_TEXT_DARK as TEXT_DARK,
   PDF_COLOR_TEXT_MUTED as TEXT_MUTED,
-  PDF_COLOR_WHITE as WHITE,
-  PDF_CONTENT_SAFE_BOTTOM_MM,
   PDF_CONTENT_W as CONTENT_W,
   PDF_FONT_BODY,
-  PDF_FONT_CAPTION,
   PDF_FONT_SECTION,
   PDF_FONT_SUBTITLE,
   PDF_FONT_TABLE,
-  PDF_FONT_TITLE,
-  PDF_FOOTER_BLOCK_TOP,
-  PDF_FOOTER_INSTITUTIONAL_RGB,
-  PDF_FOOTER_TEXT_RGB,
-  PDF_FOTO_LABEL_ANTES,
-  PDF_FOTO_LABEL_DEPOIS,
-  PDF_FOTO_SECTION_TITLE,
-  PDF_INTERVENTION_FOTO_TITLE,
-  PDF_INTERVENTION_FOTO_LABEL_ANTES,
-  PDF_INTERVENTION_FOTO_LABEL_DEPOIS,
-  PDF_INTERVENTION_FOTO_HEAD_FONT_PT,
-  PDF_INTERVENTION_FOTO_CAPTION_PT,
-  PDF_INTERVENTION_FOTO_BAR_H_MM,
-  PDF_INTERVENTION_FOTO_BAR_RADIUS_MM,
-  PDF_INTERVENTION_FOTO_IMG_RADIUS_MM,
-  PDF_INTERVENTION_FOTO_GRID_GAP_MM,
-  PDF_INTERVENTION_FOTO_GRID_MARGIN_TOP_MM,
-  PDF_INTERVENTION_FOTO_MAX_H_MM,
-  PDF_INTERVENTION_FOTO_CAPTION_H_MM,
   PDF_INTERVENTION_FOTO_SLOT_FILL,
-  PDF_INTERVENTION_FOTO_IMG_PADDING_MM,
   PDF_APPENDIX_THUMB_W_MM,
   PDF_APPENDIX_THUMB_H_MM,
   PDF_APPENDIX_THUMB_GAP_MM,
-  estimatePdfInterventionFotosHeight,
-  PDF_HEADER_CLIENT_W,
   PDF_LOGO_HEIGHT_MM,
   PDF_LOGO_WIDTH_MM,
   PDF_MARGIN as MARGIN,
   PDF_MACHINE_SECTION,
-  PDF_PAGE_CONTENT_START_Y,
-  PDF_PAGE_H as PAGE_H,
-  PDF_PAGE_NUMBER_Y,
   PDF_PAGE_W as PAGE_W,
   PDF_SCALAR_FIELD_TYPES,
-  PDF_SECTION_BG,
   PDF_SECTION_BAND_HEIGHT_MM,
   PDF_SECTION_GAP_MM,
   PDF_SERVICE_INFO_MARGIN_TOP_MM,
   PDF_SERVICE_INFO_MARGIN_BOTTOM_MM,
   PDF_SERVICE_INFO_ROW_H_MM,
-  PDF_SERVICE_INFO_COL_GAP_MM,
-  PDF_TABLE_CELL_PADDING,
-  PDF_TABLE_CELL_PADDING_HEAD,
-  PDF_TABLE_CELL_PADDING_COMPACT,
-  PDF_TABLE_MIN_CELL_HEIGHT_COMPACT,
-  PDF_TABLE_MIN_CELL_HEIGHT,
-  PDF_TABLE_ROW_STEP_MM,
-  PDF_TITLE_BAR_HEIGHT_MM,
-  PDF_DOCUMENT_TITLE_BAR_H_MM,
   PDF_BAR_RADIUS_MM,
   PDF_CONTENT_BOX_RADIUS_MM,
   PDF_SECTION_TITLE_BAR_H_MM,
   PDF_STANDARD_MACHINE_SPECS,
   PDF_CLOSING_DIAGNOSTIC_SPECS,
   PDF_LAYOUT_SKIP_FIELD_IDS,
-  PREVENTIVA_BATERIA_ANALYSIS_SPECS,
   resolvePdfStandardFieldValue,
-  PDF_TABLE_ALT_ROW_FILL,
-  PDF_TABLE_BODY_FILL,
   PDF_CLIENT_BOX_FILL,
-  PDF_TABLE_HEAD_FILL,
-  PDF_TABLE_HEAD_TEXT,
   PDF_TABLE_LINE,
   PDF_TABLE_LINE_WIDTH,
   isMachineInfoSection,
@@ -132,7 +75,6 @@ import {
 } from './pdf-design-system.js';
 import {
   columnKey,
-  columnLabel as materialColumnLabel,
   fieldAnchorsReportClosing,
   findPairedObservationsField,
   getMaterialTablePdfLabel,
@@ -149,18 +91,15 @@ import {
   resolveInspecaoDl50MachineFields,
 } from './inspecao-dl50-categories.js';
 import { resolvePdfFotoSources } from './job-fotos.js';
-import { getClient, getTechnician, getServiceType, getJob } from './entity-lookups.js';
+import { getTechnician, getServiceType, getJob } from './entity-lookups.js';
 import { loadJsPDF, loadJsPdfAutoTable } from './pdf-jspdf-loader.js';
 export { loadJsPDF } from './pdf-jspdf-loader.js';
 import {
   cleanPdfText,
   pdfDisplayValue,
-  formatFolhaInterventionDate,
   resolvePdfCellToken,
   formatPdfDeslocacao,
   formatPdfNumeroVisitas,
-  formatPdfConclusionDate,
-  formatPdfJobDateOnly,
   formatPdfServiceDateOnly,
   isPdfLayoutReservedField,
 } from './pdf-format-utils.js';
@@ -169,7 +108,6 @@ import {
   pdfContentBottomY,
   getPdfAutoTableMargin,
   normalizeYAfterAutoTable,
-  clampYToSafeZone,
   ensureBlockFitsSafeZone,
   pdfMaxContentHeight,
   ensureKeepTogetherBlock,
@@ -183,7 +121,6 @@ import {
   drawPdfDocumentTitleBar,
   drawPdfSectionTitleBar,
   drawPdfContentBox,
-  drawColumnSectionTitle,
 } from './pdf-layout-bars.js';
 import {
   buildCorretivaServiceInfoMeta,
@@ -199,16 +136,11 @@ import {
   yieldToMain,
 } from './pdf-report-filename.js';
 import {
-  buildInstitutionalFooterLines,
-  buildFolhaInstitutionalFooterLines,
-  drawInstitutionalPageFooter,
-  drawFolhaInstitutionalPageFooter,
   drawFolhaDocumentFooters,
   drawPageFooter,
 } from './pdf-institutional-footer.js';
 import {
   estimatePdfInterventionFotosOverhead,
-  estimateInterventionFotografiasHeight,
   estimatePolaroidSectionHeight,
   estimateSignaturesHeight,
   resolveAdaptiveClosingPhotoHeight,
@@ -268,13 +200,10 @@ import {
   drawEstadoFinalClosedBlock,
 } from './pdf-preventiva-bateria.js';
 import { drawInterventionFotografiasSection } from './pdf-intervention-fotos.js';
-import { loadImageForPdf } from './pdf-image-loader.js';
 import {
   drawCompactClientBox,
   drawLogoPlaceholder,
-  formatOrdemDisplay,
 } from './pdf-header-blocks.js';
-import { FOLHA_INSTITUTIONAL_FOOTER_H_MM } from './pdf-institutional-footer.js';
 
 
 /**
@@ -470,7 +399,7 @@ export async function renderInterventionPDF(report) {
     y = await drawReportClosingSection(doc, y, closingOpts);
   }
   if ((data.photos || []).length && !isFolhaIntervencaoAvariasPdf) {
-    y = await drawPhotosAppendix(doc, y, data.photos || []);
+    await drawPhotosAppendix(doc, y, data.photos || []);
   }
 
   touchPdfContentPage(doc);
@@ -636,18 +565,6 @@ function buildTwoColumnGridBody(pairs) {
   return body;
 }
 
-function buildThreeColumnGridBody(pairs) {
-  const body = [];
-  for (let i = 0; i < pairs.length; i += 3) {
-    body.push([
-      pairs[i] ? pdfGridCell(pairs[i].label, pairs[i].value) : '',
-      pairs[i + 1] ? pdfGridCell(pairs[i + 1].label, pairs[i + 1].value) : '',
-      pairs[i + 2] ? pdfGridCell(pairs[i + 2].label, pairs[i + 2].value) : '',
-    ]);
-  }
-  return body;
-}
-
 function isPdfScalarField(field) {
   return Boolean(field?.type && PDF_SCALAR_FIELD_TYPES.has(field.type));
 }
@@ -690,43 +607,6 @@ async function drawSectionScalarGrid(doc, y, fields, values, pdfContext) {
   if (!body.length) return y;
   y = ensureSpace(doc, y, 14);
   return drawPdfGridTable(doc, y, { body });
-}
-
-function drawTopRow(doc, _service, numeroOrdem = null) {
-  const topY = MARGIN;
-  const logoW = PDF_LOGO_WIDTH_MM;
-  const logoH = PDF_LOGO_HEIGHT_MM;
-
-  if (isLogoConfigured()) {
-    try {
-      doc.addImage(
-        MANUSILVA_LOGO,
-        getPdfLogoFormat(),
-        MARGIN,
-        topY,
-        logoW,
-        logoH,
-        undefined,
-        'FAST',
-      );
-    } catch {
-      drawLogoPlaceholder(doc, MARGIN, topY, logoW, logoH);
-    }
-  } else {
-    drawLogoPlaceholder(doc, MARGIN, topY, logoW, logoH);
-  }
-
-  if (numeroOrdem != null) {
-    doc.setTextColor(...TEXT_DARK);
-    pdfSetFont(doc, 'normal');
-    doc.setFontSize(9);
-    doc.text(formatOrdemDisplay(numeroOrdem), PAGE_W - MARGIN, topY + logoH * 0.35, {
-      align: 'right',
-    });
-  }
-
-  touchPdfContentPage(doc);
-  return topY + logoH + PDF_SECTION_GAP_MM;
 }
 
 /** Cabeçalho — coluna esquerda: logo; coluna direita: caixa CLIENTE + Ordem */
@@ -1619,11 +1499,6 @@ function drawLegalVerdictBlock(doc, y, label, value, opts = {}) {
   return y + boxH + gapAfter;
 }
 
-const POLAROID_MM = 60;
-const POLAROID_FRAME_PAD = 3;
-const POLAROID_CAPTION_H = 9;
-const POLAROID_DESC_H = 10;
-
 const REPORT_CLOSING_PROFILES = [
   {
     polaroidMm: 60,
@@ -1661,18 +1536,6 @@ function estimateLegalVerdictHeight(doc, value, profile) {
   return (profile.legalGap <= 5 ? 5 : 6) + boxH + profile.legalGap;
 }
 
-function estimateReportClosingHeight(doc, y, opts = {}) {
-  const hasFotos = Boolean(opts.fotoAntesUrl || opts.fotoDepoisUrl);
-  const hasLegal = Boolean(opts.legalValue && String(opts.legalValue).trim());
-  const polaroidOpts = { simpleLegend: Boolean(opts.simplePhotoLegend) };
-  const profile = planReportClosingProfile(doc, y, opts);
-  return (
-    (hasLegal ? estimateLegalVerdictHeight(doc, opts.legalValue, profile) : 0) +
-    estimatePolaroidSectionHeight(hasFotos, profile, polaroidOpts) +
-    estimateSignaturesHeight(profile)
-  );
-}
-
 function planReportClosingProfile(doc, y, opts) {
   const bottom = pdfContentBottomY();
   const available = bottom - y;
@@ -1701,7 +1564,6 @@ function planReportClosingProfile(doc, y, opts) {
 async function drawReportClosingSection(doc, y, opts) {
   const hasLegal = Boolean(opts.legalValue && String(opts.legalValue).trim());
   const hasFotos = Boolean(opts.fotoAntesUrl || opts.fotoDepoisUrl);
-  const polaroidOpts = { simpleLegend: Boolean(opts.simplePhotoLegend) };
   const isEmpilhadoresClosing = opts.service?.id === EMPILHADORES_SERVICE_ID;
 
   let profile = planReportClosingProfile(doc, y, opts);
@@ -2107,111 +1969,6 @@ function drawLongTextBlock(doc, y, label, value, options = {}) {
 }
 
 
-async function drawPolaroidFrame(doc, x, y, imgData, phaseLabel, description = '', layout = {}) {
-  const polaroidMm = layout.polaroidMm ?? POLAROID_MM;
-  const descH = layout.descH ?? POLAROID_DESC_H;
-  const outerW = polaroidMm;
-  let cursorY = y;
-
-  if (description) {
-    pdfSetFont(doc, 'normal');
-    doc.setFontSize(PDF_FONT_CAPTION);
-    doc.setTextColor(...TEXT_MUTED);
-    const descLines = pdfSplitText(doc, pdfSafeText(description), outerW);
-    descLines.slice(0, 2).forEach((line, i) => {
-      doc.text(line, x + outerW / 2, cursorY + 3 + i * 3.5, { align: 'center' });
-    });
-    cursorY += descH;
-  }
-
-  const frameY = cursorY;
-  const outerH = polaroidMm + POLAROID_CAPTION_H;
-  const shadowOffset = 0.8;
-
-  doc.setFillColor(226, 232, 240);
-  doc.roundedRect(x + shadowOffset, frameY + shadowOffset, outerW, outerH, 2, 2, 'F');
-
-  doc.setDrawColor(203, 213, 225);
-  doc.setLineWidth(0.2);
-  doc.setFillColor(255, 255, 255);
-  doc.roundedRect(x, frameY, outerW, outerH, 2, 2, 'FD');
-
-  const imgPad = POLAROID_FRAME_PAD + 1;
-  const imgBoxSize = polaroidMm - imgPad * 2;
-  try {
-    await pdfAddImageContained(doc, imgData, x + imgPad, frameY + imgPad, imgBoxSize, imgBoxSize, {
-      padding: 0,
-    });
-  } catch {
-    doc.setFontSize(PDF_FONT_CAPTION);
-    doc.setTextColor(...TEXT_MUTED);
-    doc.text('IMG', x + outerW / 2, frameY + outerW / 2, { align: 'center' });
-  }
-
-  const safeLabel = pdfSafeText(phaseLabel);
-  const captionY = frameY + polaroidMm + POLAROID_CAPTION_H / 2 + 1;
-  pdfSetFont(doc, 'bold');
-  doc.setFontSize(PDF_FONT_BODY);
-  doc.setTextColor(...CORPORATE_BLUE);
-  if (safeLabel) {
-    doc.text(safeLabel, x + outerW / 2, captionY, { align: 'center' });
-  }
-  return cursorY - y + outerH;
-}
-
-/**
- * Secção Antes/Depois estilo Polaroid — só ocupa espaço se houver foto(s).
- */
-async function drawAntesDepoisPolaroidSection(doc, y, fotoAntesUrl, fotoDepoisUrl, legenda = '', opts = {}) {
-  const antes = fotoAntesUrl ? await loadImageForPdf(fotoAntesUrl) : null;
-  const depois = fotoDepoisUrl ? await loadImageForPdf(fotoDepoisUrl) : null;
-  if (!antes && !depois) return y;
-
-  const polaroidMm = opts.polaroidMm ?? POLAROID_MM;
-  const descH = opts.descH ?? POLAROID_DESC_H;
-  const bottomGap = opts.bottomGap ?? 10;
-  const showSectionHeader = opts.showSectionHeader !== false;
-  const frameLayout = { polaroidMm, descH };
-
-  const frameStackH = descH + polaroidMm + POLAROID_CAPTION_H;
-  const blockH = frameStackH + (showSectionHeader ? 16 : 4);
-
-  if (!opts.skipEnsure) {
-    y = ensureSpace(doc, y, blockH);
-  }
-
-  if (showSectionHeader) {
-    y = drawSectionTitle(doc, y, PDF_FOTO_SECTION_TITLE);
-    y = drawDivider(doc, y - 4);
-    if (!opts.skipEnsure) {
-      y = ensureSpace(doc, y, frameStackH + 6);
-    }
-  }
-
-  if (antes && depois) {
-    const gap = polaroidMm <= 48 ? 8 : 10;
-    const totalW = polaroidMm * 2 + gap;
-    const startX = MARGIN + (CONTENT_W - totalW) / 2;
-    const h1 = await drawPolaroidFrame(doc, startX, y, antes, PDF_FOTO_LABEL_ANTES, '', frameLayout);
-    const h2 = await drawPolaroidFrame(
-      doc,
-      startX + polaroidMm + gap,
-      y,
-      depois,
-      PDF_FOTO_LABEL_DEPOIS,
-      '',
-      frameLayout,
-    );
-    return y + Math.max(h1, h2) + bottomGap;
-  }
-
-  const single = antes || depois;
-  const phaseLabel = antes ? PDF_FOTO_LABEL_ANTES : PDF_FOTO_LABEL_DEPOIS;
-  const startX = MARGIN + (CONTENT_W - polaroidMm) / 2;
-  const frameH = await drawPolaroidFrame(doc, startX, y, single, phaseLabel, '', frameLayout);
-  return y + frameH + bottomGap;
-}
-
 async function drawPhotosAppendix(doc, y, photos) {
   if (!photos.length) return y;
 
@@ -2261,48 +2018,7 @@ async function drawPhotosAppendix(doc, y, photos) {
   return col > 0 ? rowY + thumbH + 10 : rowY + 6;
 }
 
-function formatPdfCompactDateTime(dateInput) {
-  if (!dateInput) return null;
-  const iso = String(dateInput).includes('T') ? dateInput : `${dateInput}T12:00:00`;
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return String(dateInput);
-  const dateStr = d.toLocaleDateString('pt-PT', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  });
-  const hasTime = String(dateInput).includes('T') || /:\d{2}/.test(String(dateInput));
-  if (!hasTime) return dateStr;
-  const timeStr = d.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' });
-  return `${dateStr} · ${timeStr}`;
-}
-
 /** Data/hora compacta para grelha de metadados — evita quebras artificiais */
-function formatReportDateTimeCompact(report, job, values = {}) {
-  if (report?.submittedAt) {
-    const compact = formatPdfCompactDateTime(report.submittedAt);
-    if (compact) return compact;
-  }
-
-  const dateKey =
-    values.data_de_conclusao ||
-    values.concluido_testado_em ||
-    values.data_1 ||
-    values.data_rececao ||
-    job?.date;
-
-  if (dateKey) {
-    const compact = formatPdfCompactDateTime(dateKey);
-    if (compact) return compact;
-  }
-
-  return formatPdfCompactDateTime(new Date().toISOString()) || '—';
-}
-
-function formatReportDateTime(report, job, values = {}) {
-  return formatReportDateTimeCompact(report, job, values);
-}
-
 function createPlaceholderImage(label) {
   return new Promise((resolve) => {
     const canvas = document.createElement('canvas');

@@ -2,6 +2,8 @@
  * Avisos suaves antes de submeter relatório (não bloqueiam por defeito).
  */
 
+import { isMovimentoMaterialClienteService } from './service-constants.js';
+
 const OBSERVATION_FIELD_IDS = new Set(['observacoes', 'observacoes_finais', 'observacao']);
 
 /**
@@ -21,6 +23,7 @@ export function resolveObservationsFieldId(service) {
  * @param {boolean} [params.hasFotoAntes]
  * @param {boolean} [params.hasFotoDepois]
  * @param {boolean} [params.skipSignatureWarnings] — visita: assinaturas em «Concluir visita»
+ * @param {boolean} [params.skipPhotoWarnings]
  * @returns {string[]}
  */
 export function collectSubmitWarnings({
@@ -30,25 +33,31 @@ export function collectSubmitWarnings({
   hasFotoAntes = false,
   hasFotoDepois = false,
   skipSignatureWarnings = false,
+  skipPhotoWarnings = false,
 }) {
   const warnings = [];
   const data = report?.data || {};
   const values = data.values || {};
+  const relaxedMedia = isMovimentoMaterialClienteService(service);
+  const skipPhotos = skipPhotoWarnings || relaxedMedia;
+  const skipSignatures = skipSignatureWarnings || relaxedMedia;
 
-  if (!hasFotoAntes && !hasFotoDepois) {
-    warnings.push('Não anexou fotos do trabalho (Antes/Depois).');
-  } else if (!hasFotoAntes || !hasFotoDepois) {
-    warnings.push('Só anexou uma das fotos (Antes/Depois).');
+  if (!skipPhotos) {
+    if (!hasFotoAntes && !hasFotoDepois) {
+      warnings.push('Não anexou fotos do trabalho (Antes/Depois).');
+    } else if (!hasFotoAntes || !hasFotoDepois) {
+      warnings.push('Só anexou uma das fotos (Antes/Depois).');
+    }
   }
 
   const techSig = data.signatures?.technician || signaturePads?.technician?.toDataURL?.();
   const clientSig = data.signatures?.client || signaturePads?.client?.toDataURL?.();
-  if (!skipSignatureWarnings) {
+  if (!skipSignatures) {
     if (!techSig) warnings.push('Sem assinatura do técnico.');
     if (!clientSig) warnings.push('Sem assinatura do cliente.');
   }
 
-  const obsFieldId = resolveObservationsFieldId(service);
+  const obsFieldId = relaxedMedia ? null : resolveObservationsFieldId(service);
   if (obsFieldId) {
     const obs = String(values[obsFieldId] || '').trim();
     if (!obs) warnings.push('Campo de observações em branco.');

@@ -8,6 +8,7 @@ import {
   getReportsSnapshot,
   updateRelatorio,
 } from './relatorios-db.js';
+import { showToast } from './toast-modal.js';
 import { normalizeStatusRecebimento } from './billing-constants.js';
 import { sameEntityId } from './entity-id.js';
 import { getReportOrcamentoMeta } from './orcamento-linhas.js';

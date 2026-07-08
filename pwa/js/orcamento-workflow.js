@@ -92,9 +92,8 @@ export async function setOrcamentoRespostaCliente(reportId, resposta) {
   if (saved) mergeReportInCache(saved);
 
   if (valid === ORCAMENTO_RESPOSTA.ACEITE) {
-    const { reportIsFolhaObraOrcamento, handleOrcamentoRespostaForFolhaObra } = await import(
-      './folha-obra-orcamento.js',
-    );
+    const { reportIsFolhaObraOrcamento, handleOrcamentoRespostaForFolhaObra } =
+      await import('./folha-obra-orcamento.js');
     if (reportIsFolhaObraOrcamento(saved)) {
       await handleOrcamentoRespostaForFolhaObra(saved);
     } else {

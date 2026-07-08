@@ -11,7 +11,6 @@ import {
   getJob,
   getReportForJob,
   resolveJobForForm,
-  closeModal,
   escapeHtml,
   formatDateLong,
   showToast,
@@ -63,7 +62,6 @@ import { ensureJobsLoaded } from './trabalhos-db.js';
 import { ensureServicosLoadedSafe, getServico } from './servicos-db.js';
 import {
   getReportByServicoAndType,
-  getReportsForServico,
   createServicoReportId,
 } from './servicos-panel-utils.js';
 import { getReport } from './entity-lookups.js';
@@ -82,7 +80,7 @@ import {
   resolveReportOpenConflict,
 } from './tech-data-conflict.js';
 import { triggerTechDataSync } from './tech-sync.js';
-import { isBatteryService } from './service-constants.js';
+import { isBatteryService, isMovimentoMaterialClienteService } from './service-constants.js';
 
 let formLoadingOverlayEl = null;
 
@@ -652,9 +650,8 @@ async function buildFormHTML(job, client, tech, service, existingReport, options
   const prefill = buildFormPrefill(service, job, null, formContext);
   let values = mergeFormValues(saved, prefill, service);
   if (service?.id === 'manutencao_baterias_grandes') {
-    const { migrateLegacyBatteryRows, GRANDES_BATTERY_FIELD_ID } = await import(
-      './views/relatorio-grandes.js',
-    );
+    const { migrateLegacyBatteryRows, GRANDES_BATTERY_FIELD_ID } =
+      await import('./views/relatorio-grandes.js');
     values[GRANDES_BATTERY_FIELD_ID] = migrateLegacyBatteryRows(values);
   }
   if (service?.id === 'manutencao_preventiva_empilhadores') {
@@ -862,7 +859,11 @@ async function buildFormHTML(job, client, tech, service, existingReport, options
           <div class="form-panel-footer-row">
             <button type="button" class="btn-primary btn-touch" id="btn-view-pdf-full">Ver PDF do relatório</button>
           </div>` : servicoVisitMode ? `
-          <p class="form-footer-hint text-muted"><strong>Guardar rascunho</strong> — continua mais tarde. <strong>Concluir relatório</strong> — marca este tipo como pronto; assine e envie tudo em <strong>Concluir visita</strong>.</p>
+          <p class="form-footer-hint text-muted">${
+            isMovimentoMaterialClienteService(service)
+              ? '<strong>Guardar rascunho</strong> — continua mais tarde. <strong>Concluir relatório</strong> — marca como pronto; use <strong>Concluir visita</strong> no ecrã da visita (assinaturas opcionais).'
+              : '<strong>Guardar rascunho</strong> — continua mais tarde. <strong>Concluir relatório</strong> — marca este tipo como pronto; assine e envie tudo em <strong>Concluir visita</strong>.'
+          }</p>
           <div class="form-panel-footer-row">
             <button type="button" class="btn-secondary btn-touch" id="btn-save-draft">Guardar rascunho</button>
             <button type="button" class="btn-primary btn-touch" id="btn-submit-report">Concluir relatório</button>
@@ -1200,9 +1201,8 @@ async function handleEmpilhadoresRowChange(overlay) {
   formAutosave?.markDirty();
   const panel = overlay.querySelector('[data-lazy-checklist="true"]');
   if (panel?.dataset.lazyLoaded !== 'true') return;
-  const { collectEmpilhadoresMaquinas, getActiveMaquinaIndex } = await import(
-    './views/relatorio-empilhadores-maquinas.js',
-  );
+  const { collectEmpilhadoresMaquinas, getActiveMaquinaIndex } =
+    await import('./views/relatorio-empilhadores-maquinas.js');
   const maquinas = collectEmpilhadoresMaquinas(overlay);
   const idx = Math.min(getActiveMaquinaIndex(overlay), Math.max(0, maquinas.length - 1));
   await rerenderEmpilhadoresChecklist(overlay, idx);
@@ -1280,11 +1280,6 @@ async function onReportTabActivatedAsync(tabId, overlay) {
 }
 
 let existingReportRef = null;
-
-function activateReportTab(overlay, tabId) {
-  const btn = overlay.querySelector(`[data-report-tab="${tabId}"]`);
-  btn?.click();
-}
 
 function applyFormReadOnly(overlay) {
   overlay.querySelectorAll('input:not([type="hidden"]), textarea, select').forEach((el) => {
@@ -1454,9 +1449,8 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport, opt
     let previewModule;
     try {
       if (service?.id === 'manutencao_preventiva_empilhadores') {
-        const { flushEmpilhadoresChecklistToStore } = await import(
-          './views/relatorio-empilhadores-maquinas.js',
-        );
+        const { flushEmpilhadoresChecklistToStore } =
+          await import('./views/relatorio-empilhadores-maquinas.js');
         flushEmpilhadoresChecklistToStore(overlay);
       }
       const report =

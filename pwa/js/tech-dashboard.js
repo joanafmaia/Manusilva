@@ -13,7 +13,6 @@ import {
   getServiceType,
   getTechnician,
   jobAssignedToTechnician,
-  resolveJobForForm,
   isOffline,
   isNetworkOnline,
   canReachServer,
@@ -254,13 +253,6 @@ function startOfLocalDay(date) {
 
 function getTodayIso() {
   return new Date().toISOString().split('T')[0];
-}
-
-function addDaysToIso(isoDate, days) {
-  const base = new Date(`${isoDate}T12:00:00`);
-  if (Number.isNaN(base.getTime())) return isoDate;
-  base.setDate(base.getDate() + days);
-  return base.toISOString().split('T')[0];
 }
 
 function sortJobsByDateTime(a, b) {
@@ -514,11 +506,6 @@ function sortAgendadosJobs(a, b) {
   const orderB = AGENDADOS_STATE_ORDER[stateB] ?? 9;
   if (orderA !== orderB) return orderA - orderB;
   return sortJobsByDateTime(a, b);
-}
-
-function jobMatchesTechOnDate(job, techId, isoDate) {
-  if (!jobAssignedToTechnician(job, techId)) return false;
-  return toPureDate(job.date) === isoDate;
 }
 
 /** Concluídos (aprovados) só na aba Realizados — não na lista Agendados nem no calendário. */
