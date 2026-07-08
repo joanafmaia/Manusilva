@@ -68,9 +68,32 @@ function clientIdAliases(clientId) {
   );
 }
 
+function reportClientAliases(report) {
+  const values = report?.data?.values || {};
+  return new Set(
+    [
+      report?.clientId,
+      values?.cliente_id,
+      values?.clienteId,
+      values?.nif,
+      values?.NIF,
+      values?.cliente,
+      values?.nome_empresa,
+      values?.cliente_nome,
+      values?.clientName,
+    ]
+      .filter(Boolean)
+      .map((value) => String(value).trim()),
+  );
+}
+
 function reportBelongsToClient(report, clientId) {
   const aliases = clientIdAliases(clientId);
-  return aliases.has(String(report.clientId));
+  const reportAliases = reportClientAliases(report);
+  for (const alias of reportAliases) {
+    if (aliases.has(alias)) return true;
+  }
+  return false;
 }
 
 function formatOrdemDisplay(numeroOrdem, client = null) {
@@ -390,6 +413,14 @@ export const HistoricoClienteView = {
    */
   async init(clientId, options = {}) {
     await warmOperacoes();
+
+    const app = document.getElementById('app');
+    if (app) {
+      app.innerHTML = HistoricoClienteView.render(clientId, {
+        batteryOnly: options.batteryOnly !== false,
+        showWorkflowActions: options.showWorkflowActions,
+      });
+    }
 
     const onDownloadPDF =
       typeof options.onDownloadPDF === 'function'
