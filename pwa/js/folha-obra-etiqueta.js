@@ -127,14 +127,19 @@ const ETIQUETA_STYLES = `
   .folha-etiqueta__equip {
     display: flex;
     flex-direction: column;
-    gap: 1.4mm;
+    gap: 1.8mm;
     padding-top: 1.2mm;
     border-top: 0.18mm solid #e2e8f0;
+    flex: 1 1 auto;
   }
   .folha-etiqueta__row {
-    font-size: 10pt;
-    line-height: 1.18;
-    display: block;
+    font-size: 12pt;
+    line-height: 1.2;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    flex: 1 1 0;
+    min-height: 0;
     min-width: 0;
   }
   .folha-etiqueta__row-label {
@@ -142,13 +147,13 @@ const ETIQUETA_STYLES = `
     font-weight: 700;
     color: #475569;
     text-transform: uppercase;
-    font-size: 6.2pt;
+    font-size: 7pt;
     letter-spacing: 0.03em;
-    margin-bottom: 0.45mm;
+    margin-bottom: 0.55mm;
   }
   .folha-etiqueta__row-value {
     display: block;
-    font-weight: 600;
+    font-weight: 700;
     color: #0f172a;
     overflow: hidden;
     word-break: break-word;
