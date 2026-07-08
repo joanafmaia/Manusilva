@@ -13,7 +13,6 @@ import {
   formatFolhaResponsabilidadeLabel,
   normalizeFolhaResponsabilidade,
 } from './folha-obra-orcamento.js';
-import { COMPANY } from './mock_data.js';
 import { closeModal, openModal, showToast } from './toast-modal.js';
 
 const PRINT_FRAME_ID = 'folha-obra-etiqueta-print-frame';
@@ -249,7 +248,7 @@ function buildFolhaObraEtiquetaBody(folha) {
   return `
     <div class="folha-etiqueta">
       <div class="folha-etiqueta__head">
-        <div class="folha-etiqueta__brand">${escapeHtml(COMPANY.name || 'Manusilva')}</div>
+        <div class="folha-etiqueta__brand">Manusilva</div>
         <span class="folha-etiqueta__badge ${badgeClass}">${escapeHtml(msRc)}</span>
       </div>
       <div class="folha-etiqueta__etq-wrap">
