@@ -261,12 +261,29 @@ export async function approveReport(reportId, options = {}) {
   const client = getClient(report.clientId);
   const service = getServiceType(report.serviceType);
   const clientEmailInput = String(options.clientEmail ?? '').trim();
+  const extraClientEmailInput = String(options.extraClientEmail ?? '').trim();
   const testClient = isTestClient(client);
 
-  if (clientEmailInput) {
+  const buildRecipientList = (primaryEmail, extraEmail) => {
+    const seen = new Set();
+    return [primaryEmail, extraEmail]
+      .map((value) => String(value || '').trim())
+      .filter((value) => {
+        const key = value.toLowerCase();
+        if (!key || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+  };
+
+  if (clientEmailInput || extraClientEmailInput) {
     const { isValidEmail } = await import('./validators.js');
-    if (!isValidEmail(clientEmailInput)) {
+    if (clientEmailInput && !isValidEmail(clientEmailInput)) {
       showToast('Introduza um e-mail de cliente válido antes de aprovar.', 'error');
+      return null;
+    }
+    if (extraClientEmailInput && !isValidEmail(extraClientEmailInput)) {
+      showToast('Introduza um e-mail adicional válido antes de aprovar.', 'error');
       return null;
     }
   }
@@ -361,12 +378,16 @@ export async function approveReport(reportId, options = {}) {
     const skipClientEmail = options.skipClientEmail === true;
 
     let emailSynced = false;
-    if (clientEmailInput && report.clientId) {
-      emailSynced = await syncClientEmailIfChanged(report.clientId, clientEmailInput);
+    if ((clientEmailInput || extraClientEmailInput) && report.clientId) {
+      emailSynced = await syncClientEmailIfChanged(
+        report.clientId,
+        clientEmailInput || extraClientEmailInput,
+      );
     }
 
-    const recipientEmail =
-      clientEmailInput || client?.email || client?.['E-mail'] || '';
+    const primaryRecipient = clientEmailInput || client?.email || client?.['E-mail'] || '';
+    const recipients = buildRecipientList(primaryRecipient, extraClientEmailInput);
+    const recipientsLabel = recipients.join(', ');
 
     const deferVisitEmail = servicoId && shouldDeferServicoVisitEmail({ ...report, servicoId, jobId: report.jobId || servicoId });
 
@@ -384,7 +405,7 @@ export async function approveReport(reportId, options = {}) {
       } = await import('./servicos-email-workflow.js');
 
       if (isServicoVisitFullyApproved(servicoId) && !wasServicoVisitEmailSent(servicoId)) {
-        if (!recipientEmail) {
+        if (!recipients.length) {
           showToast(
             'Todos os relatórios da visita aprovados, mas o cliente não tem e-mail registado.',
             'warning',
@@ -392,11 +413,14 @@ export async function approveReport(reportId, options = {}) {
           );
         } else {
           showToast(
-            `Visita concluída — a enviar ${getServicoActiveReports(servicoId).length} relatório(s) num único e-mail para ${recipientEmail}...`,
+            `Visita concluída — a enviar ${getServicoActiveReports(servicoId).length} relatório(s) num único e-mail para ${recipientsLabel}...`,
             'success',
             7000,
           );
-          sendServicoVisitClientEmail(servicoId, { clientEmail: recipientEmail }).catch((err) => {
+          sendServicoVisitClientEmail(servicoId, {
+            clientEmail: primaryRecipient || undefined,
+            extraClientEmail: extraClientEmailInput || undefined,
+          }).catch((err) => {
             console.error('[Email] Envio visita:', err);
             showToast(
               `Relatórios aprovados, mas o e-mail da visita falhou. ${err?.message || ''}`.trim(),
@@ -417,12 +441,12 @@ export async function approveReport(reportId, options = {}) {
           5000,
         );
       }
-    } else if (recipientEmail && !skipClientEmail) {
+    } else if (recipients.length && !skipClientEmail) {
       const pdfCount = pdfEntries.length;
       showToast(
         pdfCount > 1
-          ? `Relatório aprovado! ${pdfCount} PDFs guardados. A enviar e-mail para ${recipientEmail}...`
-          : `Relatório aprovado! PDF guardado no Storage. A enviar e-mail para ${recipientEmail}...`,
+          ? `Relatório aprovado! ${pdfCount} PDFs guardados. A enviar e-mail para ${recipientsLabel}...`
+          : `Relatório aprovado! PDF guardado no Storage. A enviar e-mail para ${recipientsLabel}...`,
         'success',
         7000,
       );
@@ -433,7 +457,7 @@ export async function approveReport(reportId, options = {}) {
           job,
           technicianName: getTechnician(report.technicianId)?.name || '',
         }),
-        to: recipientEmail,
+        to: recipients,
         ...emailPdfPayload,
       }).catch((err) => {
         console.error('[Email] Envio após aprovação falhou:', err);

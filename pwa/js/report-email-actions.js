@@ -24,9 +24,21 @@ import {
   resolveApprovedReportPdfSources,
 } from './report-email-pdf.js';
 
+function buildRecipientList(primaryEmail, extraEmail) {
+  const seen = new Set();
+  return [primaryEmail, extraEmail]
+    .map((value) => String(value || '').trim())
+    .filter((value) => {
+      const key = value.toLowerCase();
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+}
+
 /**
  * @param {string} reportId
- * @param {{ clientEmail?: string }} [options]
+ * @param {{ clientEmail?: string, extraClientEmail?: string }} [options]
  */
 export async function resendApprovedReportEmail(reportId, options = {}) {
   await ensureJobsLoaded(true);
@@ -45,24 +57,30 @@ export async function resendApprovedReportEmail(reportId, options = {}) {
   const job = report.jobId ? getJob(report.jobId) : null;
   const service = getServiceType(report.serviceType);
   const clientEmailInput = String(options.clientEmail ?? '').trim();
+  const extraClientEmailInput = String(options.extraClientEmail ?? '').trim();
 
-  if (clientEmailInput) {
+  if (clientEmailInput || extraClientEmailInput) {
     const { isValidEmail } = await import('./validators.js');
-    if (!isValidEmail(clientEmailInput)) {
+    if (clientEmailInput && !isValidEmail(clientEmailInput)) {
       showToast('Introduza um e-mail de cliente válido.', 'error');
       return false;
     }
+    if (extraClientEmailInput && !isValidEmail(extraClientEmailInput)) {
+      showToast('Introduza um e-mail adicional válido.', 'error');
+      return false;
+    }
     if (report.clientId) {
-      await syncClientEmailIfChanged(report.clientId, clientEmailInput);
+      await syncClientEmailIfChanged(report.clientId, clientEmailInput || extraClientEmailInput);
     }
   }
 
-  const recipientEmail =
-    clientEmailInput || client?.email || client?.['E-mail'] || '';
-  if (!recipientEmail) {
+  const primaryRecipient = clientEmailInput || client?.email || client?.['E-mail'] || '';
+  const recipients = buildRecipientList(primaryRecipient, extraClientEmailInput);
+  if (!recipients.length) {
     showToast('O cliente não tem e-mail registado. Indique um e-mail antes de reenviar.', 'warning');
     return false;
   }
+  const recipientsLabel = recipients.join(', ');
 
   const {
     isEmpilhadoresMultiMaquinaReport,
@@ -132,8 +150,8 @@ export async function resendApprovedReportEmail(reportId, options = {}) {
 
   showToast(
     pdfCount > 1
-      ? `A reenviar e-mail com ${pdfCount} relatórios para ${recipientEmail}...`
-      : `A reenviar e-mail para ${recipientEmail}...`,
+      ? `A reenviar e-mail com ${pdfCount} relatórios para ${recipientsLabel}...`
+      : `A reenviar e-mail para ${recipientsLabel}...`,
     'info',
     5000,
   );
@@ -145,10 +163,10 @@ export async function resendApprovedReportEmail(reportId, options = {}) {
         job,
         technicianName: getTechnician(report.technicianId)?.name || '',
       }),
-      to: recipientEmail,
+      to: recipients,
       ...emailPdfPayload,
     });
-    showToast(`E-mail reenviado para ${recipientEmail}.`, 'success', 6000);
+    showToast(`E-mail reenviado para ${recipientsLabel}.`, 'success', 6000);
     return true;
   } catch (err) {
     console.error('[Email] Reenvio falhou:', err);
@@ -159,7 +177,7 @@ export async function resendApprovedReportEmail(reportId, options = {}) {
 
 /**
  * @param {string[]} reportIds
- * @param {{ clientEmail?: string }} [options]
+ * @param {{ clientEmail?: string, extraClientEmail?: string }} [options]
  */
 export async function sendSelectedReportsEmail(reportIds, options = {}) {
   const uniqueIds = [...new Set((reportIds || []).map((id) => String(id)).filter(Boolean))];
@@ -192,23 +210,29 @@ export async function sendSelectedReportsEmail(reportIds, options = {}) {
 
   const client = getClient(clientId);
   const clientEmailInput = String(options.clientEmail ?? '').trim();
-  if (clientEmailInput) {
+  const extraClientEmailInput = String(options.extraClientEmail ?? '').trim();
+  if (clientEmailInput || extraClientEmailInput) {
     const { isValidEmail } = await import('./validators.js');
-    if (!isValidEmail(clientEmailInput)) {
+    if (clientEmailInput && !isValidEmail(clientEmailInput)) {
       showToast('Introduza um e-mail de cliente válido.', 'error');
       return false;
     }
+    if (extraClientEmailInput && !isValidEmail(extraClientEmailInput)) {
+      showToast('Introduza um e-mail adicional válido.', 'error');
+      return false;
+    }
     if (clientId) {
-      await syncClientEmailIfChanged(clientId, clientEmailInput);
+      await syncClientEmailIfChanged(clientId, clientEmailInput || extraClientEmailInput);
     }
   }
 
-  const recipientEmail =
-    clientEmailInput || client?.email || client?.['E-mail'] || '';
-  if (!recipientEmail) {
+  const primaryRecipient = clientEmailInput || client?.email || client?.['E-mail'] || '';
+  const recipients = buildRecipientList(primaryRecipient, extraClientEmailInput);
+  if (!recipients.length) {
     showToast('O cliente não tem e-mail registado.', 'warning');
     return false;
   }
+  const recipientsLabel = recipients.join(', ');
 
   const pdfEntries = [];
   for (const report of reports) {
@@ -255,7 +279,7 @@ export async function sendSelectedReportsEmail(reportIds, options = {}) {
   const tech = getTechnician(reports[0]?.technicianId);
 
   showToast(
-    `A enviar ${reports.length} relatório${reports.length === 1 ? '' : 's'} (${pdfEntries.length} PDF${pdfEntries.length === 1 ? '' : 's'}) para ${recipientEmail}...`,
+    `A enviar ${reports.length} relatório${reports.length === 1 ? '' : 's'} (${pdfEntries.length} PDF${pdfEntries.length === 1 ? '' : 's'}) para ${recipientsLabel}...`,
     'info',
     6000,
   );
@@ -271,7 +295,7 @@ export async function sendSelectedReportsEmail(reportIds, options = {}) {
       }),
       reportId: reports[0].id,
       numeroOrdem: null,
-      to: recipientEmail,
+      to: recipients,
       ...emailPdfPayload,
     });
 
@@ -282,7 +306,7 @@ export async function sendSelectedReportsEmail(reportIds, options = {}) {
       });
     }
 
-    showToast(`E-mail enviado para ${recipientEmail} com ${pdfEntries.length} anexo(s).`, 'success', 7000);
+    showToast(`E-mail enviado para ${recipientsLabel} com ${pdfEntries.length} anexo(s).`, 'success', 7000);
     window.dispatchEvent(new CustomEvent('db-updated'));
     return true;
   } catch (err) {

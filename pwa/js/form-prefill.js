@@ -110,6 +110,7 @@ export function buildFormPrefill(service, job, _forklift, context = {}) {
       data_de_conclusao: job?.date || '',
       numero_de_serie: job?.forkliftSerial || '',
       visitas_realizadas: 1,
+      pedido_orcamento: 'Não',
       estado_final: 'Reparação Concluída',
       consumiveis: [emptyMaterialRow()],
     };

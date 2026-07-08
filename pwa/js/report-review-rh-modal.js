@@ -23,7 +23,9 @@ import {
   renderReviewFotosSection,
   renderReviewClientEmailField,
   readReviewClientEmail,
+  readReviewExtraClientEmail,
   validateReviewClientEmail,
+  validateReviewExtraClientEmail,
   bindReviewFotoClicks,
   bindReviewPdfButton,
   bindReviewOrcamentoButton,
@@ -505,13 +507,22 @@ export async function openRhReviewModal(reportId, callbacks = {}) {
         showToast(emailErr, 'error');
         return;
       }
+      const extraEmailErr = await validateReviewExtraClientEmail(overlay);
+      if (extraEmailErr) {
+        showToast(extraEmailErr, 'error');
+        return;
+      }
       if (btn) {
         btn.disabled = true;
         btn.setAttribute('aria-busy', 'true');
       }
       try {
         const clientEmail = readReviewClientEmail(overlay);
-        const ok = await approveReport(reportId, { clientEmail });
+        const extraClientEmail = readReviewExtraClientEmail(overlay);
+        const ok = await approveReport(reportId, {
+          clientEmail,
+          extraClientEmail: extraClientEmail || undefined,
+        });
         if (!ok) return;
 
         const nextId = andNext ? callbacks.getNextReportId?.(reportId) : null;
@@ -576,9 +587,15 @@ export async function openRhReviewModal(reportId, callbacks = {}) {
         showToast(emailErr, 'error');
         return;
       }
+      const extraEmailErr = await validateReviewExtraClientEmail(overlay);
+      if (extraEmailErr) {
+        showToast(extraEmailErr, 'error');
+        return;
+      }
       const clientEmail = readReviewClientEmail(overlay);
+      const extraClientEmail = readReviewExtraClientEmail(overlay);
       const fallbackEmail = client?.email || client?.['E-mail'] || '';
-      if (!clientEmail && !fallbackEmail) {
+      if (!clientEmail && !fallbackEmail && !extraClientEmail) {
         showToast('Indique o e-mail do cliente para reenviar.', 'warning');
         return;
       }
@@ -587,6 +604,7 @@ export async function openRhReviewModal(reportId, callbacks = {}) {
       if (btn) btn.disabled = true;
       const ok = await resendApprovedReportEmail(reportId, {
         clientEmail: clientEmail || undefined,
+        extraClientEmail: extraClientEmail || undefined,
       });
       if (btn) btn.disabled = false;
       if (ok) closeModal();

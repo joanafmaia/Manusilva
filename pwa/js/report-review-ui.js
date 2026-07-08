@@ -27,7 +27,13 @@ function escapeAttr(str) {
  */
 export function renderReviewClientEmailField(
   client,
-  { editable = false, inputId = 'review-client-email', hint } = {},
+  {
+    editable = false,
+    inputId = 'review-client-email',
+    extraInputId = 'review-client-email-extra',
+    hint,
+    extraHint,
+  } = {},
 ) {
   const email = client?.email || client?.['E-mail'] || '';
   if (!editable) {
@@ -42,11 +48,21 @@ export function renderReviewClientEmailField(
       <input type="email" class="form-input client-profile-edit-input" id="${escapeHtml(inputId)}" name="review-client-email"
         value="${escapeAttr(email)}" autocomplete="email" placeholder="email@empresa.pt">
       <p class="text-muted review-email-hint">${escapeHtml(hintText)}</p>
+      <label class="form-label" for="${escapeHtml(extraInputId)}" style="margin-top:12px;">E-mail adicional (opcional)</label>
+      <input type="email" class="form-input client-profile-edit-input" id="${escapeHtml(extraInputId)}" name="review-client-email-extra"
+        value="" autocomplete="email" placeholder="outro.email@empresa.pt">
+      <p class="text-muted review-email-hint">${escapeHtml(
+        extraHint || 'Se necessário, envie também uma cópia para outro contacto do cliente.',
+      )}</p>
     </div>
   `;
 }
 
 export function readReviewClientEmail(root, inputId = 'review-client-email') {
+  return root?.querySelector(`#${CSS.escape(inputId)}`)?.value?.trim() || '';
+}
+
+export function readReviewExtraClientEmail(root, inputId = 'review-client-email-extra') {
   return root?.querySelector(`#${CSS.escape(inputId)}`)?.value?.trim() || '';
 }
 
@@ -56,6 +72,14 @@ export async function validateReviewClientEmail(root, inputId = 'review-client-e
   const email = readReviewClientEmail(root, inputId);
   if (!email) return null;
   if (!isValidEmail(email)) return 'Introduza um e-mail de cliente válido antes de aprovar.';
+  return null;
+}
+
+export async function validateReviewExtraClientEmail(root, inputId = 'review-client-email-extra') {
+  const { isValidEmail } = await import('./validators.js');
+  const email = readReviewExtraClientEmail(root, inputId);
+  if (!email) return null;
+  if (!isValidEmail(email)) return 'Introduza um e-mail adicional válido antes de aprovar.';
   return null;
 }
 

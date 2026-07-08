@@ -636,6 +636,23 @@ export const REPARACAO_AVARIAS_BATERIA = {
       placeholder: '1',
     },
     { type: 'number', id: 'horas', label: LABEL_HORAS, section: 'Número de Visitas e Tempo', min: 0, step: 0.5 },
+    {
+      type: 'choice',
+      id: 'pedido_orcamento',
+      label: 'Pedido de Orçamento',
+      section: 'Pedido de Orçamento',
+      options: ['Não', 'Sim'],
+      uiVariant: 'yesNo',
+    },
+    {
+      type: 'textarea',
+      id: 'detalhe_pedido_orcamento',
+      label: 'O que é necessário',
+      section: 'Pedido de Orçamento',
+      dependency: 'pedido_orcamento:Sim',
+      rows: 4,
+      placeholder: 'Descreva peças, trabalhos ou observações para o orçamento…',
+    },
     { type: 'textarea', id: 'observacao', label: 'Observação', section: 'Estado final', rows: 4 },
     {
       type: 'status_pills',

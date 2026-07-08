@@ -112,9 +112,19 @@ export async function openReportReviewModal(reportId, options = {}) {
         showToast(emailErr, 'error');
         return;
       }
+      const extraEmailErr = await import('./report-review-ui.js').then(({ validateReviewExtraClientEmail }) =>
+        validateReviewExtraClientEmail(overlay),
+      );
+      if (extraEmailErr) {
+        showToast(extraEmailErr, 'error');
+        return;
+      }
       btn.disabled = true;
       const clientEmail = readReviewClientEmail(overlay);
-      const ok = await approveReport(reportId, { clientEmail });
+      const extraClientEmail = await import('./report-review-ui.js').then(({ readReviewExtraClientEmail }) =>
+        readReviewExtraClientEmail(overlay),
+      );
+      const ok = await approveReport(reportId, { clientEmail, extraClientEmail });
       btn.disabled = false;
       if (ok) {
         closeModal();
