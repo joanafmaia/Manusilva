@@ -188,19 +188,16 @@ export function buildFormPrefill(service, job, _forklift, context = {}) {
   }
 
   if (service.id === 'movimento_material_cliente') {
-    const { address, phone } = resolveClientDisplayMeta(client || {});
     return {
       tipo_movimento: 'Recolha',
       data_movimento: job?.date || '',
       hora_movimento: '',
-      tipo_conteudo: 'Material e equipamento',
-      local_morada: address || '',
-      contacto_no_local: phone || '',
+      tipo_conteudo: 'Máquina',
+      tipo_conteudo_outro: '',
       marca: '',
       modelo: '',
       numero_de_serie: job?.forkliftSerial || '',
       n_interno: '',
-      itens_material: [emptyMaterialRow()],
       observacoes: '',
     };
   }

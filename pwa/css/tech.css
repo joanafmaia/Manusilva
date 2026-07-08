@@ -2341,6 +2341,15 @@ body.warehouse-page .folha-obra-tab--ready .folha-obra-filter-bar input[type="da
   border-color: var(--border-hover-strong);
   color: var(--text-primary);
 }
+.status-pill.selected {
+  border-color: var(--ms-primary);
+  background: color-mix(in srgb, var(--ms-primary) 10%, var(--ms-card-bg));
+  color: var(--ms-primary);
+  box-shadow: none;
+}
+.status-pill.selected .status-pill-dot {
+  background: var(--ms-primary);
+}
 .status-pill--green.selected {
   border-color: var(--success);
   background: color-mix(in srgb, var(--success) 12%, var(--ms-card-bg));

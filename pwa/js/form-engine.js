@@ -125,6 +125,8 @@ const STATUS_PILL_CLASS = {
   'Reparação Concluída': 'status-pill--green',
   'Necessita Elementos Novos': 'status-pill--amber',
   Inoperacional: 'status-pill--red',
+  Recolha: 'status-pill--amber',
+  Entrega: 'status-pill--green',
 };
 
 const LEGAL_VERDICT_CLASS = {
@@ -2420,16 +2422,21 @@ export async function bindFormFieldInteractions(overlay) {
   }
 
   overlay.querySelectorAll('[data-choice-group]').forEach((group) => {
+    if (group.dataset.choiceBound === '1') return;
+    group.dataset.choiceBound = '1';
     group.querySelectorAll('.choice-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
         group.querySelectorAll('.choice-btn').forEach((b) => b.classList.remove('selected'));
         btn.classList.add('selected');
         evaluateFieldDependencies(overlay);
+        overlay.dispatchEvent(new Event('input', { bubbles: true }));
       });
     });
   });
 
   overlay.querySelectorAll('[data-status-pills]').forEach((group) => {
+    if (group.dataset.pillsBound === '1') return;
+    group.dataset.pillsBound = '1';
     group.querySelectorAll('.status-pill').forEach((pill) => {
       pill.addEventListener('click', () => {
         group.querySelectorAll('.status-pill').forEach((p) => {
@@ -2438,6 +2445,8 @@ export async function bindFormFieldInteractions(overlay) {
         });
         pill.classList.add('selected');
         pill.setAttribute('aria-pressed', 'true');
+        evaluateFieldDependencies(overlay);
+        overlay.dispatchEvent(new Event('input', { bubbles: true }));
       });
     });
   });
