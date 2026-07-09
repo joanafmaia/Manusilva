@@ -806,7 +806,7 @@ function getDynamicColumnInputType(field, key) {
   if (key.includes('data_hora') || key.includes('datetime')) return 'datetime-local';
   if (key === 'hora' || key.startsWith('hora_') || key.endsWith('_hora')) return 'time';
   if (key.includes('data') || key.startsWith('data_')) return 'date';
-  if (key === 'horas' || key === 'quantidade' || key === 'tensao_v' || key === 'densidade') return 'number';
+  if (key === 'horas' || key === 'quantidade' || key === 'tensao_v') return 'number';
   return 'text';
 }
 
@@ -872,7 +872,7 @@ function renderDynamicTableCell(field, col, key, row) {
       value="${escapeHtml(toHtmlDatetimeLocalValue(val))}">`;
   }
   if (inputType === 'number') {
-    const step = key === 'horas' ? '0.5' : key === 'densidade' ? '0.01' : '1';
+    const step = key === 'horas' ? '0.5' : '1';
     return `<input type="number" class="form-input form-input-sm" data-col="${key}"
       value="${escapeHtml(val)}" placeholder="0" min="0" ${numberInputAttrs({}, step)}>`;
   }
