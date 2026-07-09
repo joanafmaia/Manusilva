@@ -17,7 +17,7 @@ import {
   PDF_TABLE_LINE_WIDTH,
   PDF_TABLE_MIN_CELL_HEIGHT_COMPACT,
 } from './pdf-design-system.js';
-import { LABEL_N_INTERNO, labelWithValue } from './field-labels.js';
+import { LABEL_N_INTERNO, LABEL_TIPO, labelWithValue } from './field-labels.js';
 import { formatFolhaInterventionDate, pdfDisplayValue } from './pdf-format-utils.js';
 import {
   ensureBlockFitsSafeZone,
@@ -101,6 +101,16 @@ async function drawSectionBar(doc, y, title) {
   });
 }
 
+function resolveTipoEquipamento(values) {
+  const tipo = pdfDisplayValue(values.tipo);
+  if (tipo === '—' || tipo === 'Outro') {
+    const outro = pdfDisplayValue(values.tipo_outro);
+    if (tipo === 'Outro' && outro !== '—') return `Outro — ${outro}`;
+    return tipo === 'Outro' ? 'Outro' : '—';
+  }
+  return tipo;
+}
+
 export async function drawMovimentoMaterialBody(doc, y, values) {
   const movimentoColW = CONTENT_W / 2;
   y = await drawSectionBar(doc, y, 'Movimento');
@@ -119,11 +129,18 @@ export async function drawMovimentoMaterialBody(doc, y, values) {
     ...movimentoTableStylePack(doc),
   });
 
+  const equipColW = CONTENT_W / 2;
   y = await drawSectionBar(doc, y, 'Equipamento');
   y = await drawPdfGridTable(doc, y, {
-    body: [[labelWithValue(LABEL_N_INTERNO, pdfDisplayValue(values.n_interno))]],
+    body: [
+      [
+        labelWithValue(LABEL_TIPO, resolveTipoEquipamento(values)),
+        labelWithValue(LABEL_N_INTERNO, pdfDisplayValue(values.n_interno)),
+      ],
+    ],
     columnStyles: {
-      0: { cellWidth: CONTENT_W, halign: 'left', fontSize: FONT_PT },
+      0: { cellWidth: equipColW, halign: 'left', fontSize: FONT_PT },
+      1: { cellWidth: equipColW, halign: 'left', fontSize: FONT_PT },
     },
     gapAfter: SECTION_GAP_MM,
     ...movimentoTableStylePack(doc),

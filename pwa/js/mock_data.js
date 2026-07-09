@@ -323,6 +323,14 @@ export const INSPECAO_DL50_TIPO_OPTIONS = [
   'Rebocador',
 ];
 
+/** Tipos de equipamento — Recolha / Entrega no cliente */
+export const MOVIMENTO_EQUIPAMENTO_TIPO_OPTIONS = [
+  ...INSPECAO_DL50_TIPO_OPTIONS,
+  'Carregador',
+  'Bateria',
+  'Outro',
+];
+
 /** Template oficial — Inspeção Decreto-Lei 50/2005 */
 export const INSPECAO_DL50_2005 = {
   id: 'inspecao_dl50_2005',
@@ -681,6 +689,21 @@ export const MOVIMENTO_MATERIAL_CLIENTE = {
       options: ['Recolha', 'Entrega'],
     },
     { type: 'date', id: 'data_movimento', label: 'Data', section: 'Movimento' },
+    {
+      type: 'dropdown',
+      id: 'tipo',
+      label: LABEL_TIPO,
+      section: 'Equipamento',
+      options: MOVIMENTO_EQUIPAMENTO_TIPO_OPTIONS,
+    },
+    {
+      type: 'text',
+      id: 'tipo_outro',
+      label: 'Especificar tipo',
+      section: 'Equipamento',
+      dependency: 'tipo:Outro',
+      placeholder: 'Descreva o equipamento movimentado',
+    },
     {
       type: 'text',
       id: 'n_interno',
