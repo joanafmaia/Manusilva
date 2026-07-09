@@ -38,6 +38,22 @@ export class SignaturePad {
     this._pendingPos = null;
     this._drawRaf = 0;
     this._resizeTimer = 0;
+    this._lastCssW = 0;
+    this._lastCssH = 0;
+
+    this._onLifecycleHide = () => {
+      if (this.hasSignature) this._syncSavedImageFromCanvas();
+    };
+    this._onLifecycleShow = () => {
+      if (this.hasSignature && this._savedImage) this._resize();
+    };
+    this._onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        this._onLifecycleHide();
+      } else if (document.visibilityState === 'visible') {
+        this._onLifecycleShow();
+      }
+    };
 
     this._resize();
     this._bindEvents();
@@ -46,6 +62,8 @@ export class SignaturePad {
       this._resizeTimer = setTimeout(() => this._resize(), RESIZE_DEBOUNCE_MS);
     };
     window.addEventListener('resize', this._onWindowResize);
+    document.addEventListener('visibilitychange', this._onVisibilityChange);
+    window.addEventListener('pagehide', this._onLifecycleHide);
   }
 
   _paintCanvasBackground() {
@@ -99,9 +117,24 @@ export class SignaturePad {
   }
 
   _resize() {
-    if (this.hasSignature) this._syncSavedImageFromCanvas();
+    // Não sobrescrever backup com canvas possivelmente apagado pelo SO (bloqueio do ecrã).
+    if (this.hasSignature && !this._savedImage) this._syncSavedImageFromCanvas();
 
-    const { cssW, cssH } = this._resolveCanvasSize();
+    const resolved = this._resolveCanvasSize();
+    let cssW = resolved.cssW;
+    let cssH = resolved.cssH;
+    if (cssW <= 0 || cssH <= 0) {
+      if (this._lastCssW > 0 && this._lastCssH > 0) {
+        cssW = this._lastCssW;
+        cssH = this._lastCssH;
+      } else {
+        return;
+      }
+    } else {
+      this._lastCssW = cssW;
+      this._lastCssH = cssH;
+    }
+
     const ratio = getSignatureDpr();
     this.canvas.width = Math.max(1, Math.round(cssW * ratio));
     this.canvas.height = Math.max(1, Math.round(cssH * ratio));
@@ -237,6 +270,8 @@ export class SignaturePad {
 
   destroy() {
     window.removeEventListener('resize', this._onWindowResize);
+    document.removeEventListener('visibilitychange', this._onVisibilityChange);
+    window.removeEventListener('pagehide', this._onLifecycleHide);
     clearTimeout(this._resizeTimer);
     if (this._drawRaf) cancelAnimationFrame(this._drawRaf);
   }
@@ -327,7 +362,24 @@ export function technicianSignatureReady(pads, storedSignatures = null) {
 export function refreshSignaturePads(pads = {}) {
   Object.values(pads).forEach((pad) => {
     if (!pad || typeof pad.resize !== 'function') return;
-    if (pad.hasSignature) pad._syncSavedImageFromCanvas?.();
     pad.resize();
   });
+}
+
+/** Guarda bitmaps antes de bloqueio do ecrã / troca de aba. */
+export function snapshotSignaturePads(pads = {}) {
+  Object.values(pads).forEach((pad) => {
+    if (!pad?.hasSignature) return;
+    pad._syncSavedImageFromCanvas?.();
+  });
+}
+
+/** Restaura pads a partir de data URLs (ex.: após desbloquear o tablet). */
+export function restoreSignaturePads(pads = {}, stored = {}) {
+  if (stored.technicianData && pads.technician) {
+    pads.technician.loadFromDataURL(stored.technicianData);
+  }
+  if (stored.clientData && pads.client) {
+    pads.client.loadFromDataURL(stored.clientData);
+  }
 }

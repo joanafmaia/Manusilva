@@ -29,9 +29,7 @@ export function getServicoVisitSubmitState(servicoId) {
     reason = 'Adicione pelo menos um relatório antes de concluir a visita.';
   } else if (rejectedReports.length) {
     reason = 'Corrija os relatórios rejeitados antes de concluir a visita.';
-  } else if (incompleteDraftReports.length) {
-    reason = 'Conclua cada relatório em rascunho antes de terminar a visita.';
-  } else if (readyDraftReports.length || pendingReports.length) {
+  } else if (draftReports.length || pendingReports.length) {
     canSubmit = true;
   } else if (approvedReports.length === reports.length) {
     reason = 'Todos os relatórios desta visita já foram aprovados.';
@@ -73,7 +71,7 @@ export function canShowServicoVisitConcludeAction(servicoId) {
     return {
       show: true,
       state,
-      hint: `Falta concluir ${n} relatório${n === 1 ? '' : 's'} — use «Concluir relatório» em cada um antes de assinar.`,
+      hint: `${n} relatório${n === 1 ? '' : 's'} em rascunho — ao assinar, ${n === 1 ? 'será concluído' : 'serão concluídos'} e enviado${n === 1 ? '' : 's'} automaticamente.`,
     };
   }
   return {
@@ -81,7 +79,7 @@ export function canShowServicoVisitConcludeAction(servicoId) {
     state,
     hint: servicoVisitAllowsOptionalSignatures(servicoId)
       ? 'Conclua a visita — assinaturas opcionais para recolha/entrega no cliente.'
-      : 'Assine a visita — a assinatura aplica-se a todos os relatórios deste serviço.',
+      : 'Assine a visita — a assinatura aplica-se a todos os relatórios e envia-os ao RH.',
   };
 }
 
@@ -152,7 +150,7 @@ export async function propagateServicoSignaturesToReports(servicoId, signatures)
 }
 
 /**
- * Conclui a visita: assinaturas no serviço + submissão dos relatórios em rascunho.
+ * Conclui a visita: assinaturas no serviço + submissão de todos os rascunhos (conclui o que faltar).
  * @param {string} servicoId
  * @param {object} signatures — payload de resolveReportSignatures
  */
@@ -177,13 +175,14 @@ export async function submitServicoVisit(servicoId, signatures) {
 
     let submitted = 0;
 
-    for (const report of state.readyDraftReports) {
+    for (const report of state.draftReports) {
       const withSignatures = {
         ...report,
         servicoId: report.servicoId || servicoId,
         data: {
           ...(report.data || {}),
           signatures: { ...(signatures || {}) },
+          technicianCompleted: true,
         },
       };
       const result = await submitReport(withSignatures, {
@@ -203,7 +202,7 @@ export async function submitServicoVisit(servicoId, signatures) {
     window.dispatchEvent(new CustomEvent('db-updated'));
     window.dispatchEvent(new CustomEvent('jobs-updated'));
 
-    if (state.readyDraftReports.length) {
+    if (state.draftReports.length) {
       if (!submitted) {
         showToast(
           'Assinaturas guardadas. Os relatórios serão sincronizados quando houver rede.',
@@ -236,8 +235,11 @@ export function describeServicoVisitSubmitSummary(servicoId) {
     return `${label} (${status})`;
   });
 
-  if (state.readyDraftReports.length) {
-    return `Serão enviados ${state.readyDraftReports.length} relatório(s): ${lines.join(', ')}.`;
+  if (state.draftReports.length) {
+    const pendingDrafts = state.incompleteDraftReports.length;
+    const base = `Serão enviados ${state.draftReports.length} relatório(s): ${lines.join(', ')}.`;
+    if (!pendingDrafts) return base;
+    return `${base} ${pendingDrafts} em rascunho ${pendingDrafts === 1 ? 'será concluído' : 'serão concluídos'} ao assinar.`;
   }
   return `Relatórios: ${lines.join(', ')}.`;
 }
