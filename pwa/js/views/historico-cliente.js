@@ -18,6 +18,7 @@ import { openReportReviewModal, downloadReportPDF } from '../report-review-modal
 import { openClientProfilePanel } from './client-profile-drawer.js';
 import { isTestClient, TEST_JOB_ORDEM_LABEL } from '../client-test-utils.js';
 import { dedupeReportsForDisplay } from '../relatorios-db.js';
+import { sameEntityId } from '../entity-id.js';
 
 /** Tipos de relatório técnico de bateria (MS. 061) */
 export const BATTERY_REPORT_SERVICE_TYPES = new Set([
@@ -58,42 +59,69 @@ function resolveClientMeta(clientId) {
   return { legacy, nome, nif, contact };
 }
 
-function clientIdAliases(clientId) {
+function normalizeBranchName(value) {
+  return String(value ?? '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '');
+}
+
+function clientBranchName(clientId) {
+  const { legacy } = resolveClientMeta(clientId);
+  return normalizeBranchName(legacy?.name || legacy?.Nome);
+}
+
+/**
+ * Identificadores desta filial — sem NIF (várias filiais partilham o mesmo contribuinte).
+ */
+function clientIdentityKeys(clientId) {
   const { legacy } = resolveClientMeta(clientId);
   const aliasNames = Array.isArray(legacy?.aliasNames) ? legacy.aliasNames : [];
   return new Set(
-    [clientId, legacy?.id, legacy?.NIF, legacy?.nif, legacy?.name, legacy?.Nome, ...aliasNames]
-      .filter(Boolean)
-      .map(String),
+    [clientId, legacy?.id, ...aliasNames].filter(Boolean).map((value) => String(value).trim()),
   );
 }
 
-function reportClientAliases(report) {
+function reportIdentityKeys(report) {
   const values = report?.data?.values || {};
   return new Set(
-    [
-      report?.clientId,
-      values?.cliente_id,
-      values?.clienteId,
-      values?.nif,
-      values?.NIF,
-      values?.cliente,
-      values?.nome_empresa,
-      values?.cliente_nome,
-      values?.clientName,
-    ]
+    [report?.clientId, values?.cliente_id, values?.clienteId]
       .filter(Boolean)
       .map((value) => String(value).trim()),
   );
 }
 
+function reportBranchNames(report) {
+  const values = report?.data?.values || {};
+  return [values?.cliente, values?.nome_empresa, values?.cliente_nome, values?.clientName]
+    .map(normalizeBranchName)
+    .filter(Boolean);
+}
+
+function reportUsedSharedNif(report, nif) {
+  if (!nif) return false;
+  const values = report?.data?.values || {};
+  const storedId = String(values?.cliente_id || values?.clienteId || '').trim();
+  const formNif = String(values?.nif || values?.NIF || '').trim();
+  return storedId === nif || formNif === nif;
+}
+
 function reportBelongsToClient(report, clientId) {
-  const aliases = clientIdAliases(clientId);
-  const reportAliases = reportClientAliases(report);
-  for (const alias of reportAliases) {
-    if (aliases.has(alias)) return true;
+  if (!clientId || !report) return false;
+
+  const identityKeys = clientIdentityKeys(clientId);
+  for (const key of reportIdentityKeys(report)) {
+    if (identityKeys.has(key) || sameEntityId(key, clientId)) return true;
   }
-  return false;
+
+  // Relatórios antigos com cliente_id = NIF partilhado — só contam se o nome da filial coincidir.
+  const { legacy } = resolveClientMeta(clientId);
+  const branchName = clientBranchName(clientId);
+  const sharedNif = String(legacy?.NIF || legacy?.nif || '').trim();
+  if (!branchName || !sharedNif || !reportUsedSharedNif(report, sharedNif)) return false;
+
+  return reportBranchNames(report).includes(branchName);
 }
 
 function formatOrdemDisplay(numeroOrdem, client = null) {
