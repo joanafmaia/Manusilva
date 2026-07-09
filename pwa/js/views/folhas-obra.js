@@ -894,7 +894,16 @@ export async function mountFolhasObraTab(
 
   const defaultCreate = () => openFolhaObraEditor(null, session, { onClose: () => onRefresh?.() });
 
-  function render(filters = {}) {
+  function readFilters() {
+    return {
+      query: mount.querySelector('#folha-obra-search')?.value || '',
+      estado: mount.querySelector('#folha-obra-estado-filter')?.value || 'all',
+      dataMin: mount.querySelector('#folha-obra-data-min')?.value || '',
+      dataMax: mount.querySelector('#folha-obra-data-max')?.value || '',
+    };
+  }
+
+  function filterFolhas(filters = {}) {
     let folhas = getFolhasObraSnapshot();
     if (audience === 'warehouse') {
       folhas = folhas.filter(isFolhaObraVisibleToArmazem);
@@ -904,7 +913,7 @@ export async function mountFolhasObraTab(
     const dataMin = filters.dataMin || '';
     const dataMax = filters.dataMax || '';
 
-    const filtered = folhas
+    return folhas
       .filter((folha) => matchesFolhaSearch(folha, query))
       .filter((folha) => {
         if (estado === 'all') return true;
@@ -918,12 +927,56 @@ export async function mountFolhasObraTab(
       .sort((a, b) =>
         String(b.dataRececao || b.createdAt || '').localeCompare(String(a.dataRececao || a.createdAt || '')),
       );
+  }
 
+  function renderResultsHtml(filtered) {
     const entradaArmazem = filtered.filter((f) => f.estado === 'rascunho');
     const emDiagnostico = filtered.filter((f) => f.estado === 'em_diagnostico');
     const aguardaOrcamento = filtered.filter((f) => isFolhaObraAguardaOrcamentoEstado(f));
     const emReparacao = filtered.filter((f) => f.estado === 'em_reparacao');
     const finalizado = filtered.filter((f) => isFolhaObraFinalizada(f));
+
+    return `
+      ${renderFolhasSection('Entrada em Armazém', entradaArmazem, 'Nenhum equipamento aguarda entrada.', layout)}
+      ${renderFolhasSection('Diagnóstico técnico (R.C)', emDiagnostico, 'Nenhum equipamento R.C em diagnóstico.', layout)}
+      ${renderFolhasSection('Aguarda orçamento (R.C)', aguardaOrcamento, 'Nenhum equipamento R.C à espera de orçamento ou aceite.', layout)}
+      ${renderFolhasSection('Reparação', emReparacao, 'Nenhum equipamento em reparação.', layout)}
+      ${renderFolhasSection('Finalizado', finalizado, 'Ainda sem folhas concluídas.', layout)}
+    `;
+  }
+
+  function bindResultCards() {
+    mount.querySelectorAll('[data-folha-id]').forEach((card) => {
+      const open = () => {
+        const id = card.getAttribute('data-folha-id');
+        if (id) openFolhaObraEditor(id, session, { onClose: () => onRefresh?.() });
+      };
+      card.addEventListener('click', open);
+      card.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          open();
+        }
+      });
+    });
+  }
+
+  function renderResults(filters = readFilters()) {
+    const resultsMount = mount.querySelector('[data-folha-obra-results]');
+    if (!resultsMount) return;
+
+    resultsMount.innerHTML = renderResultsHtml(filterFolhas(filters));
+    bindResultCards();
+    requestAnimationFrame(() => {
+      mount.querySelector('.folha-obra-tab')?.classList.add('folha-obra-tab--ready');
+    });
+  }
+
+  function renderShell(filters = {}) {
+    const query = filters.query || '';
+    const estado = filters.estado || 'all';
+    const dataMin = filters.dataMin || '';
+    const dataMax = filters.dataMax || '';
 
     mount.innerHTML = `
       <div class="folha-obra-tab">
@@ -954,11 +1007,7 @@ export async function mountFolhasObraTab(
               : ''
           }
         </div>
-        ${renderFolhasSection('Entrada em Armazém', entradaArmazem, 'Nenhum equipamento aguarda entrada.', layout)}
-        ${renderFolhasSection('Diagnóstico técnico (R.C)', emDiagnostico, 'Nenhum equipamento R.C em diagnóstico.', layout)}
-        ${renderFolhasSection('Aguarda orçamento (R.C)', aguardaOrcamento, 'Nenhum equipamento R.C à espera de orçamento ou aceite.', layout)}
-        ${renderFolhasSection('Reparação', emReparacao, 'Nenhum equipamento em reparação.', layout)}
-        ${renderFolhasSection('Finalizado', finalizado, 'Ainda sem folhas concluídas.', layout)}
+        <div data-folha-obra-results></div>
       </div>
     `;
 
@@ -966,36 +1015,25 @@ export async function mountFolhasObraTab(
       (onCreateRequest || defaultCreate)();
     });
 
-    const rerender = () =>
-      render({
-        query: mount.querySelector('#folha-obra-search')?.value || '',
-        estado: mount.querySelector('#folha-obra-estado-filter')?.value || 'all',
-        dataMin: mount.querySelector('#folha-obra-data-min')?.value || '',
-        dataMax: mount.querySelector('#folha-obra-data-max')?.value || '',
+    if (!mount.dataset.folhaObraFiltersBound) {
+      mount.dataset.folhaObraFiltersBound = '1';
+      mount.addEventListener('input', (e) => {
+        if (e.target.id !== 'folha-obra-search') return;
+        renderResults();
       });
-
-    mount.querySelector('#folha-obra-search')?.addEventListener('input', rerender);
-    mount.querySelector('#folha-obra-estado-filter')?.addEventListener('change', rerender);
-    mount.querySelector('#folha-obra-data-min')?.addEventListener('change', rerender);
-    mount.querySelector('#folha-obra-data-max')?.addEventListener('change', rerender);
-
-    mount.querySelectorAll('[data-folha-id]').forEach((card) => {
-      const open = () => {
-        const id = card.getAttribute('data-folha-id');
-        if (id) openFolhaObraEditor(id, session, { onClose: () => onRefresh?.() });
-      };
-      card.addEventListener('click', open);
-      card.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          open();
-        }
+      mount.addEventListener('change', (e) => {
+        if (!e.target.matches('#folha-obra-estado-filter, #folha-obra-data-min, #folha-obra-data-max')) return;
+        renderResults();
       });
-    });
+    }
+  }
 
-    requestAnimationFrame(() => {
-      mount.querySelector('.folha-obra-tab')?.classList.add('folha-obra-tab--ready');
-    });
+  function render(filters = {}) {
+    const shellExists = Boolean(mount.querySelector('[data-folha-obra-results]'));
+    if (!shellExists) {
+      renderShell(filters);
+    }
+    renderResults(shellExists ? readFilters() : filters);
   }
 
   render();
