@@ -109,30 +109,137 @@ async function openBillingFolhaObraPdf(folhaId) {
   }
 }
 
+function formatBillingReportPdfLabel(report) {
+  const job = report?.jobId ? getJob(report.jobId) : null;
+  const op = formatOpLabel(job?.numeroOrdem);
+  const service = getServiceType(report.serviceType)?.label || report.serviceType || 'Relatório';
+  if (op) return `${op} · ${service}`;
+  return service;
+}
+
+function sortBillingReportsByOrdem(reports = []) {
+  return [...reports].sort((a, b) => {
+    const na = a?.jobId ? Number(getJob(a.jobId)?.numeroOrdem) : 0;
+    const nb = b?.jobId ? Number(getJob(b.jobId)?.numeroOrdem) : 0;
+    if (Number.isFinite(na) && Number.isFinite(nb) && na !== nb) return na - nb;
+    return String(a?.serviceType || '').localeCompare(String(b?.serviceType || ''));
+  });
+}
+
+async function urlToPdfPreviewItem(url, label, filename) {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`Não foi possível obter o PDF (${label}).`);
+  const blob = await response.blob();
+  const blobUrl = URL.createObjectURL(blob);
+  const safeName = String(filename || `${label}.pdf`).replace(/[<>:"/\\|?*]+/g, '-');
+  return {
+    blobUrl,
+    blob,
+    filename: safeName,
+    machineLabel: label,
+    pageCount: 1,
+  };
+}
+
+async function reportToPdfPreviewItems(report) {
+  const label = formatBillingReportPdfLabel(report);
+  const entries = resolveBillingReportPdfEntries(report);
+
+  if (entries.length) {
+    const items = [];
+    for (const entry of entries) {
+      const entryLabel = entries.length > 1 ? `${label} · ${entry.label}` : label;
+      items.push(await urlToPdfPreviewItem(entry.url, entryLabel, `${entryLabel}.pdf`));
+    }
+    return items;
+  }
+
+  const { importPdfReport } = await import('../pdf-loader.js');
+  const { generateInterventionPDFBlob } = await importPdfReport();
+  const payload = await generateInterventionPDFBlob({
+    ...report,
+    submittedAt: report.submittedAt || new Date().toISOString(),
+  });
+
+  if (payload?.isMulti && Array.isArray(payload.pdfs) && payload.pdfs.length) {
+    return payload.pdfs.map((entry, index) => ({
+      ...entry,
+      machineLabel:
+        payload.pdfs.length > 1
+          ? `${label} · ${entry.machineLabel || `Máquina ${index + 1}`}`
+          : label,
+    }));
+  }
+
+  return [{ ...payload, machineLabel: label }];
+}
+
+/** Abre um ou vários PDFs de relatórios (modal com separadores quando há mais do que um). */
+async function openBillingReportsPdf(reports) {
+  const sorted = sortBillingReportsByOrdem((reports || []).filter(Boolean));
+  if (!sorted.length) {
+    showToast('Nenhum relatório encontrado.', 'error');
+    return;
+  }
+
+  const {
+    showPdfPreviewLoading,
+    openEmpilhadoresPdfPreviewModal,
+    openPdfPreviewModal,
+  } = await import('../pdf-preview.js');
+
+  showPdfPreviewLoading(
+    true,
+    sorted.length > 1 ? `A preparar ${sorted.length} PDFs…` : 'A gerar PDF do relatório…',
+  );
+
+  try {
+    const pdfs = [];
+    for (let i = 0; i < sorted.length; i++) {
+      if (sorted.length > 1) {
+        showPdfPreviewLoading(true, `A preparar PDF ${i + 1} de ${sorted.length}…`);
+      }
+      const items = await reportToPdfPreviewItems(sorted[i]);
+      pdfs.push(...items);
+    }
+
+    showPdfPreviewLoading(false);
+
+    if (!pdfs.length) {
+      showToast('Não foi possível obter PDFs destes relatórios.', 'error');
+      return;
+    }
+
+    if (pdfs.length === 1) {
+      openPdfPreviewModal(pdfs[0]);
+    } else {
+      openEmpilhadoresPdfPreviewModal(pdfs);
+    }
+  } catch (err) {
+    showPdfPreviewLoading(false);
+    console.error('[Faturação] PDFs:', err);
+    showToast(err?.message || 'Não foi possível abrir os PDFs.', 'error');
+  }
+}
+
+async function openBillingServicoPdfs(servicoId) {
+  const reports = sortBillingReportsByOrdem(
+    getApprovedReportsForServico(servicoId).filter(isServicoReportBillable),
+  );
+  if (!reports.length) {
+    showToast('Nenhum relatório aprovado nesta visita.', 'error');
+    return;
+  }
+  await openBillingReportsPdf(reports);
+}
+
 async function openBillingReportPdf(reportId) {
   const report = getReport(reportId);
   if (!report) {
     showToast('Relatório não encontrado.', 'error');
     return;
   }
-
-  const entries = resolveBillingReportPdfEntries(report);
-  if (entries.length) {
-    window.open(entries[0].url, '_blank', 'noopener,noreferrer');
-    if (entries.length > 1) {
-      showToast(`Este trabalho tem ${entries.length} PDFs — aberto o primeiro.`, 'info', 5000);
-    }
-    return;
-  }
-
-  try {
-    const { previewReportPDF } = await import('../pdf-preview.js');
-    showToast('A gerar PDF do relatório…', 'info', 2500);
-    await previewReportPDF(report);
-  } catch (err) {
-    console.error('[Faturação] PDF:', err);
-    showToast('Não foi possível abrir o PDF do relatório.', 'error');
-  }
+  await openBillingReportsPdf([report]);
 }
 
 function loadChartJs() {
@@ -681,6 +788,8 @@ function renderInvoiceRow(row, acumulado, showAcum) {
   const pdfBtn =
     kind === 'folha_obra'
       ? `<button type="button" class="btn-outline btn-sm faturacao-btn-compact" data-history-pdf-folha-obra="${escapeHtml(detailId)}" title="Abrir PDF da folha de obra">PDF</button>`
+      : kind === 'servico'
+        ? `<button type="button" class="btn-outline btn-sm faturacao-btn-compact" data-history-pdf-servico="${escapeHtml(detailId)}" title="Abrir PDFs de todos os relatórios da visita">PDF</button>`
       : pdfReportId
         ? `<button type="button" class="btn-outline btn-sm faturacao-btn-compact" data-history-pdf="${escapeHtml(pdfReportId)}" title="Abrir PDF do relatório ou proposta">PDF</button>`
         : '';
@@ -867,9 +976,12 @@ function renderBillingTable(rows) {
                   : isFolhaObra
                     ? `data-folha-obra-id="${escapeHtml(row.folha.id)}"`
                     : `data-report-id="${escapeHtml(reportId)}"`;
-                const pdfId = row.primaryReportId;
+                const pdfId = isServico ? '' : row.primaryReportId;
+                const servicoPdfId = isServico && row.reports?.length ? String(row.servico.id) : '';
                 const folhaPdfId = row.folhaPdfId || (isFolhaObra ? String(row.folha?.id || '') : '');
-                const pdfTitle = row.pdfTitle || 'Abrir PDF do relatório técnico';
+                const pdfTitle = isServico
+                  ? `Abrir PDFs dos ${row.reports.length} relatórios da visita`
+                  : row.pdfTitle || 'Abrir PDF do relatório técnico';
                 const registerAttr = isServico
                   ? `data-register-invoice-servico="${escapeHtml(row.servico.id)}"`
                   : isFolhaObra
@@ -891,6 +1003,7 @@ function renderBillingTable(rows) {
                 <td class="faturacao-cell-date">${escapeHtml(row.approvedLabel)}</td>
                 <td class="faturacao-col-action">
                   <div class="faturacao-billing-actions">
+                    ${servicoPdfId ? `<button type="button" class="btn-outline btn-sm faturacao-btn-compact" data-billing-pdf-servico="${escapeHtml(servicoPdfId)}" title="${escapeHtml(pdfTitle)}">PDF</button>` : ''}
                     ${pdfId ? `<button type="button" class="btn-outline btn-sm faturacao-btn-compact" data-billing-pdf="${escapeHtml(pdfId)}" title="${escapeHtml(pdfTitle)}">PDF</button>` : ''}
                     ${folhaPdfId ? `<button type="button" class="btn-outline btn-sm faturacao-btn-compact" data-billing-pdf-folha-obra="${escapeHtml(folhaPdfId)}" title="${escapeHtml(pdfTitle)}">PDF</button>` : ''}
                     <button type="button" class="btn-primary btn-sm faturacao-btn-compact" ${registerAttr} title="Marcar como faturado">Faturar</button>
@@ -1355,6 +1468,16 @@ function openRegisterInvoiceModalCore({
 }
 
 function bindBillingRowActionButtons() {
+  mountRoot?.querySelectorAll('[data-billing-pdf-servico]').forEach((btn) => {
+    if (btn.dataset.boundBillingServicoPdf === '1') return;
+    btn.dataset.boundBillingServicoPdf = '1';
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const servicoId = btn.getAttribute('data-billing-pdf-servico');
+      if (servicoId) void openBillingServicoPdfs(servicoId);
+    });
+  });
+
   mountRoot?.querySelectorAll('[data-billing-pdf]').forEach((btn) => {
     if (btn.dataset.boundBilling === '1') return;
     btn.dataset.boundBilling = '1';
@@ -1924,6 +2047,16 @@ function bindHistoryDetailActions() {
       e.stopPropagation();
       const folhaId = btn.getAttribute('data-history-detail-folha-obra');
       if (folhaId) openFolhaObraInvoiceHistoryDetailModal(folhaId);
+    });
+  });
+
+  mountRoot?.querySelectorAll('[data-history-pdf-servico]').forEach((btn) => {
+    if (btn.dataset.boundHistoryServicoPdf === '1') return;
+    btn.dataset.boundHistoryServicoPdf = '1';
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const servicoId = btn.getAttribute('data-history-pdf-servico');
+      if (servicoId) void openBillingServicoPdfs(servicoId);
     });
   });
 
