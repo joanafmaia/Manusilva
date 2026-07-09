@@ -50,26 +50,6 @@ const ETIQUETA_STYLES = `
     border-radius: 0.8mm;
     background: #fff;
   }
-  .folha-etiqueta__head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.7mm;
-    min-height: 5.5mm;
-  }
-  .folha-etiqueta__brand {
-    font-size: 7.5pt;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: #2563eb;
-    line-height: 1;
-    flex: 1 1 auto;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
   .folha-etiqueta__badge {
     flex-shrink: 0;
     font-size: 10pt;
@@ -94,10 +74,34 @@ const ETIQUETA_STYLES = `
     border: 0.22mm solid #bfdbfe;
     border-radius: 0.8mm;
     background: linear-gradient(180deg, #f8fbff 0%, #eef5ff 100%);
-    text-align: center;
     display: flex;
     flex-direction: column;
     justify-content: center;
+    gap: 0.8mm;
+  }
+  .folha-etiqueta__etq-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.2mm;
+    min-height: 5.5mm;
+  }
+  .folha-etiqueta__brand {
+    font-size: 7.5pt;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #2563eb;
+    line-height: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .folha-etiqueta__etq-main {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
     align-items: center;
   }
   .folha-etiqueta__etq {
@@ -250,13 +254,15 @@ function buildFolhaObraEtiquetaBody(folha) {
 
   return `
     <div class="folha-etiqueta">
-      <div class="folha-etiqueta__head">
-        <div class="folha-etiqueta__brand">Manusilva</div>
-        <span class="folha-etiqueta__badge ${badgeClass}">${escapeHtml(msRc)}</span>
-      </div>
       <div class="folha-etiqueta__etq-wrap">
-        <div class="folha-etiqueta__etq">${escapeHtml(etq)}</div>
-        ${fo && fo !== '—' && fo !== etq ? `<div class="folha-etiqueta__fo">${escapeHtml(fo)}</div>` : ''}
+        <div class="folha-etiqueta__etq-top">
+          <div class="folha-etiqueta__brand">Manusilva</div>
+          <span class="folha-etiqueta__badge ${badgeClass}">${escapeHtml(msRc)}</span>
+        </div>
+        <div class="folha-etiqueta__etq-main">
+          <div class="folha-etiqueta__etq">${escapeHtml(etq)}</div>
+          ${fo && fo !== '—' && fo !== etq ? `<div class="folha-etiqueta__fo">${escapeHtml(fo)}</div>` : ''}
+        </div>
       </div>
       <div class="folha-etiqueta__cliente">${escapeHtml(cliente)}</div>
       <div class="folha-etiqueta__equip">
