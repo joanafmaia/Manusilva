@@ -350,18 +350,26 @@ body .glass-card-inner {
   font-family: inherit;
   cursor: pointer;
   border: none;
-  transition: all var(--transition);
+  width: auto;
+  max-width: 100%;
+  flex: 0 0 auto;
+  transition:
+    background var(--transition),
+    color var(--transition),
+    border-color var(--transition),
+    box-shadow var(--transition),
+    opacity var(--transition);
   text-align: center;
 }
 .btn-primary {
   background: var(--ms-primary);
   color: #ffffff;
-  width: 100%;
   box-shadow: none;
 }
 .btn-primary:hover {
   background: var(--ms-primary-hover);
   box-shadow: 0 2px 8px rgba(30, 77, 114, 0.22);
+  transform: none;
 }
 .btn-secondary {
   background: var(--surface-hover);
@@ -373,7 +381,10 @@ body .glass-card-inner {
   color: var(--primary);
   border: 1px solid color-mix(in srgb, var(--primary) 35%, var(--border-color));
 }
-.btn-outline:hover { background: var(--primary-glow); }
+.btn-outline:hover {
+  background: var(--primary-glow);
+  transform: none;
+}
 .btn-ghost {
   background: transparent;
   color: var(--text-secondary);
@@ -383,6 +394,27 @@ body .glass-card-inner {
 .btn-danger { background: rgba(248, 113, 113, 0.15); color: var(--danger); border: 1px solid rgba(248, 113, 113, 0.3); }
 .btn-success { background: rgba(16, 185, 129, 0.15); color: var(--success); border: 1px solid rgba(16, 185, 129, 0.3); }
 .btn-sm { padding: 0.4rem 0.75rem; font-size: 0.8125rem; }
+
+/* Botões em linhas de tabela / toolbars — evita «tremer» ao passar o rato */
+.btn-primary.btn-sm,
+.btn-outline.btn-sm,
+.btn-secondary.btn-sm,
+.btn-ghost.btn-sm,
+.rh-btn-compact,
+.faturacao-btn-compact {
+  width: auto;
+  min-width: 0;
+  flex: 0 0 auto;
+}
+
+/* Largura total só onde o layout pede (formulários, tablet) */
+.btn-touch,
+.form-panel-footer .btn-primary,
+.form-panel-footer .btn-secondary,
+.form-panel-footer-row .btn-primary,
+.form-panel-footer-row .btn-secondary {
+  width: 100%;
+}
 
 /* ─── Login — clínica B2B, split desktop ─── */
 .text-muted { color: var(--text-muted); }

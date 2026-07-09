@@ -1553,10 +1553,10 @@ html.ms-booting .brand-logo-slot.brand-logo-slot--ready {
   transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, background 0.15s ease;
 }
 .btn-preview:hover:not(:disabled) {
-  transform: translateY(-1px);
   color: var(--ms-primary-hover);
   background: color-mix(in srgb, var(--ms-primary) 12%, var(--surface-accent));
   box-shadow: var(--ms-shadow-sm);
+  transform: none;
 }
 .btn-preview:disabled {
   opacity: 0.55;

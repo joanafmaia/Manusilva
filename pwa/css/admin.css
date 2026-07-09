@@ -568,9 +568,9 @@
   transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
 }
 .dashboard-metric-card--clickable:hover {
-  transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
   border-color: var(--primary);
+  transform: none;
 }
 .dashboard-metric-card--clickable:focus-visible {
   outline: 2px solid var(--primary);
@@ -3580,6 +3580,8 @@ body .admin-rh-page .btn-primary, body .admin-rh-page .btn-secondary, body .admi
   font-size: 0.7rem;
   line-height: 1.15;
   border-radius: 0.35rem;
+  width: auto;
+  flex: 0 0 auto;
 }
 .admin-rh-page .rh-table-actions,
 .admin-rh-page .faturacao-billing-actions {
