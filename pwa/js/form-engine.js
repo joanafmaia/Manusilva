@@ -806,7 +806,7 @@ function getDynamicColumnInputType(field, key) {
   if (key.includes('data_hora') || key.includes('datetime')) return 'datetime-local';
   if (key === 'hora' || key.startsWith('hora_') || key.endsWith('_hora')) return 'time';
   if (key.includes('data') || key.startsWith('data_')) return 'date';
-  if (key === 'horas' || key === 'quantidade' || key === 'tensao_v') return 'number';
+  if (key === 'horas' || key === 'quantidade') return 'number';
   return 'text';
 }
 

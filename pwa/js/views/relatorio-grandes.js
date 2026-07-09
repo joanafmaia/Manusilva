@@ -12,7 +12,7 @@ export const GRANDES_BATTERY_COLUMNS = [
   { key: 'maquina', label: LABEL_MAQUINA, input: 'text' },
   { key: 'matricula', label: LABEL_MATRICULA, input: 'text' },
   { key: 'tipo', label: LABEL_TIPO, input: 'text' },
-  { key: 'tensao_v', label: 'Tensão (V)', input: 'number' },
+  { key: 'tensao_v', label: 'Tensão (V)', input: 'text' },
   { key: 'densidade', label: 'Densidade', input: 'text' },
   {
     key: 'nivel_eletrolito',
@@ -90,21 +90,6 @@ function renderCell(col, row) {
         ${opts}
       </select>
     `;
-  }
-
-  if (col.input === 'number') {
-    const step = '1';
-    const inputmode = 'numeric';
-    return `
-    <input type="number"
-      class="form-input form-input-sm grandes-battery-cell"
-      data-col="${col.key}"
-      data-field-kind="grandes-battery"
-      value="${escapeHtml(val)}"
-      min="0"
-      step="${step}"
-      inputmode="${inputmode}"
-      aria-label="${escapeHtml(col.label)}">`;
   }
 
   return `
