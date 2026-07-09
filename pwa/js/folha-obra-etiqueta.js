@@ -1,7 +1,7 @@
 /**
  * Etiqueta de entrada — equipamento recebido na oficina.
  * Impressão via iframe oculto (sem pop-ups).
- * Formato: fita 25 mm (largura máx.) — compatível com impressoras de etiquetas.
+ * Formato: etiqueta 62 × 80 mm — compatível com impressoras de etiquetas térmicas.
  */
 
 import { escapeHtml } from './html-utils.js';
@@ -17,8 +17,8 @@ import { closeModal, openModal, showToast } from './toast-modal.js';
 
 const PRINT_FRAME_ID = 'folha-obra-etiqueta-print-frame';
 
-/** Etiqueta vertical com mais comprimento para leitura fácil. */
-export const ETIQUETA_PRINT_WIDTH_MM = 50;
+/** Largura da etiqueta (fita 62 mm). */
+export const ETIQUETA_PRINT_WIDTH_MM = 62;
 /** Comprimento da etiqueta no sentido vertical. */
 export const ETIQUETA_PRINT_HEIGHT_MM = 80;
 
@@ -40,10 +40,10 @@ const ETIQUETA_STYLES = `
   .folha-etiqueta {
     width: ${ETIQUETA_PRINT_WIDTH_MM}mm;
     height: ${ETIQUETA_PRINT_HEIGHT_MM}mm;
-    padding: 2mm 1.8mm 1.8mm;
+    padding: 2mm 2.4mm 1.8mm;
     display: flex;
     flex-direction: column;
-    gap: 1.4mm;
+    gap: 1.5mm;
     overflow: hidden;
     border: 0.25mm solid #cbd5e1;
     border-top: 1.1mm solid #1d4ed8;
@@ -58,7 +58,7 @@ const ETIQUETA_STYLES = `
     min-height: 6.5mm;
   }
   .folha-etiqueta__brand {
-    font-size: 7pt;
+    font-size: 7.5pt;
     font-weight: 700;
     letter-spacing: 0.04em;
     text-transform: uppercase;
@@ -90,7 +90,7 @@ const ETIQUETA_STYLES = `
     border: 0.12mm solid #fdba74;
   }
   .folha-etiqueta__etq-wrap {
-    padding: 2mm 1.2mm 1.5mm;
+    padding: 2mm 2mm 1.5mm;
     border: 0.22mm solid #bfdbfe;
     border-radius: 0.8mm;
     background: linear-gradient(180deg, #f8fbff 0%, #eef5ff 100%);
@@ -101,7 +101,7 @@ const ETIQUETA_STYLES = `
     align-items: center;
   }
   .folha-etiqueta__etq {
-    font-size: 26pt;
+    font-size: 28pt;
     font-weight: 800;
     line-height: 0.95;
     letter-spacing: 0.05em;
@@ -115,10 +115,10 @@ const ETIQUETA_STYLES = `
     margin-top: 0.8mm;
   }
   .folha-etiqueta__cliente {
-    font-size: 13pt;
+    font-size: 13.5pt;
     font-weight: 700;
-    line-height: 1.12;
-    max-height: 15mm;
+    line-height: 1.14;
+    max-height: 17mm;
     overflow: hidden;
     word-break: break-word;
     padding: 0.2mm 0;
@@ -133,11 +133,12 @@ const ETIQUETA_STYLES = `
     flex: 1 1 auto;
   }
   .folha-etiqueta__row {
-    font-size: 12pt;
-    line-height: 1.2;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
+    font-size: 11.5pt;
+    line-height: 1.18;
+    display: grid;
+    grid-template-columns: 20mm 1fr;
+    gap: 1.2mm;
+    align-items: start;
     flex: 1 1 0;
     min-height: 0;
     min-width: 0;
@@ -147,9 +148,10 @@ const ETIQUETA_STYLES = `
     font-weight: 700;
     color: #475569;
     text-transform: uppercase;
-    font-size: 7pt;
+    font-size: 6.8pt;
     letter-spacing: 0.03em;
-    margin-bottom: 0.55mm;
+    line-height: 1.15;
+    padding-top: 0.15mm;
   }
   .folha-etiqueta__row-value {
     display: block;
@@ -310,7 +312,7 @@ export function buildFolhaObraEtiquetaPreviewHtml(folha) {
         }
         .folha-etiqueta-preview-wrap .folha-etiqueta {
           transform-origin: top center;
-          transform: scale(2.4);
+          transform: scale(2.1);
           box-shadow: 0 10px 28px rgba(15, 23, 42, 0.14);
           border: 0.35mm solid #94a3b8;
           border-radius: 1mm;
@@ -318,7 +320,7 @@ export function buildFolhaObraEtiquetaPreviewHtml(folha) {
         ${ETIQUETA_STYLES}
       </style>
       ${buildFolhaObraEtiquetaBody(folha)}
-      <p class="folha-etiqueta-preview-note">Formato de impressão: ${ETIQUETA_PRINT_WIDTH_MM} × ${ETIQUETA_PRINT_HEIGHT_MM} mm (fita 25 mm)</p>
+      <p class="folha-etiqueta-preview-note">Formato de impressão: ${ETIQUETA_PRINT_WIDTH_MM} × ${ETIQUETA_PRINT_HEIGHT_MM} mm</p>
     </div>
   `;
 }
