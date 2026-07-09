@@ -297,7 +297,19 @@ export function collectClientComboboxValues(overlay, values) {
     const fieldId = wrap.dataset.fieldId || 'cliente';
     const input = wrap.querySelector('.client-combobox-input');
     const hidden = wrap.querySelector('.client-combobox-id');
-    if (input?.value?.trim()) values[fieldId] = input.value.trim();
-    if (hidden?.value) values.cliente_id = hidden.value;
+    const nome = input?.value?.trim();
+    if (nome) {
+      values[fieldId] = nome;
+      // Filiais com o mesmo NIF distinguem-se pelo nome (não gravar NIF nem id numérico).
+      values.cliente_id = nome;
+    } else if (hidden?.value) {
+      const catalog = getProductionClientsCatalog();
+      const record = getClientFromCatalog(hidden.value, catalog);
+      const fallback = record?.Nome || '';
+      if (fallback) {
+        values[fieldId] = fallback;
+        values.cliente_id = fallback;
+      }
+    }
   });
 }

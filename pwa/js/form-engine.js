@@ -926,7 +926,7 @@ function renderField(field, value = '', context = {}) {
         fieldId: field.id,
         label: field.label,
         value: value || context.client?.Nome || context.client?.name || '',
-        selectedId: context.selectedClientId || context.client?.id || context.client?.NIF || '',
+        selectedId: context.selectedClientId || context.client?.id || context.job?.clientId || '',
       });
       break;
     case 'text': {
@@ -935,7 +935,7 @@ function renderField(field, value = '', context = {}) {
           fieldId: field.id,
           label: field.label,
           value: value || context.client?.Nome || context.client?.name || '',
-          selectedId: context.selectedClientId || context.client?.id || context.client?.NIF || '',
+          selectedId: context.selectedClientId || context.client?.id || context.job?.clientId || '',
         });
         break;
       }

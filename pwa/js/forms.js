@@ -581,10 +581,9 @@ function legacyToValues(data) {
 
 function renderLockedClientHiddenFields(client, values) {
   const nome = values.cliente || client?.Nome || client?.name || '';
-  const id = values.cliente_id || client?.id || client?.NIF || '';
   return `
     <input type="hidden" data-field-id="cliente" data-field-kind="text" value="${escapeHtml(nome)}">
-    <input type="hidden" data-field-id="cliente_id" data-field-kind="text" value="${escapeHtml(id)}">
+    <input type="hidden" data-field-id="cliente_id" data-field-kind="text" value="${escapeHtml(nome)}">
   `;
 }
 
@@ -644,7 +643,7 @@ async function buildFormHTML(job, client, tech, service, existingReport, options
     client,
     job,
     service,
-    selectedClientId: saved.cliente_id || client?.id || job?.clientId || client?.NIF || '',
+    selectedClientId: client?.id || job?.clientId || '',
     lockClient: true,
   };
   const prefill = buildFormPrefill(service, job, null, formContext);
@@ -1322,7 +1321,7 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport, opt
     client,
     job,
     service,
-    selectedClientId: savedValues.cliente_id || client?.id || job?.clientId || client?.NIF || '',
+    selectedClientId: client?.id || job?.clientId || '',
     lockClient: true,
   };
   overlay.__lazyFormState = {

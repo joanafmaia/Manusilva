@@ -127,7 +127,7 @@ export function buildFormPrefill(service, job, _forklift, context = {}) {
       data_rececao: job?.date || '',
       concluido_testado_em: '',
       cliente: nome,
-      cliente_id: client?.id || client?.NIF || '',
+      cliente_id: client?.Nome || client?.name || '',
       etiqueta: '',
       responsavel: '',
       registo_intervencao: [interventionRow],

@@ -72,26 +72,6 @@ function clientBranchName(clientId) {
   return normalizeBranchName(legacy?.name || legacy?.Nome);
 }
 
-/**
- * Identificadores desta filial — sem NIF (várias filiais partilham o mesmo contribuinte).
- */
-function clientIdentityKeys(clientId) {
-  const { legacy } = resolveClientMeta(clientId);
-  const aliasNames = Array.isArray(legacy?.aliasNames) ? legacy.aliasNames : [];
-  return new Set(
-    [clientId, legacy?.id, ...aliasNames].filter(Boolean).map((value) => String(value).trim()),
-  );
-}
-
-function reportIdentityKeys(report) {
-  const values = report?.data?.values || {};
-  return new Set(
-    [report?.clientId, values?.cliente_id, values?.clienteId]
-      .filter(Boolean)
-      .map((value) => String(value).trim()),
-  );
-}
-
 function reportBranchNames(report) {
   const values = report?.data?.values || {};
   return [values?.cliente, values?.nome_empresa, values?.cliente_nome, values?.clientName]
@@ -99,29 +79,27 @@ function reportBranchNames(report) {
     .filter(Boolean);
 }
 
-function reportUsedSharedNif(report, nif) {
-  if (!nif) return false;
-  const values = report?.data?.values || {};
-  const storedId = String(values?.cliente_id || values?.clienteId || '').trim();
-  const formNif = String(values?.nif || values?.NIF || '').trim();
-  return storedId === nif || formNif === nif;
-}
-
 function reportBelongsToClient(report, clientId) {
   if (!clientId || !report) return false;
 
-  const identityKeys = clientIdentityKeys(clientId);
-  for (const key of reportIdentityKeys(report)) {
-    if (identityKeys.has(key) || sameEntityId(key, clientId)) return true;
-  }
+  // Ligação na BD pelo id numérico da filial.
+  if (report?.clientId && sameEntityId(report.clientId, clientId)) return true;
 
-  // Relatórios antigos com cliente_id = NIF partilhado — só contam se o nome da filial coincidir.
-  const { legacy } = resolveClientMeta(clientId);
   const branchName = clientBranchName(clientId);
-  const sharedNif = String(legacy?.NIF || legacy?.nif || '').trim();
-  if (!branchName || !sharedNif || !reportUsedSharedNif(report, sharedNif)) return false;
+  if (!branchName) return false;
 
-  return reportBranchNames(report).includes(branchName);
+  const { legacy } = resolveClientMeta(clientId);
+  const aliasNames = (legacy?.aliasNames || []).map(normalizeBranchName).filter(Boolean);
+  const acceptedNames = new Set([branchName, ...aliasNames]);
+
+  const reportNames = reportBranchNames(report);
+  if (reportNames.some((name) => acceptedNames.has(name))) return true;
+
+  const values = report?.data?.values || {};
+  const storedBranch = normalizeBranchName(values?.cliente_id || values?.clienteId);
+  if (storedBranch && acceptedNames.has(storedBranch)) return true;
+
+  return false;
 }
 
 function formatOrdemDisplay(numeroOrdem, client = null) {
