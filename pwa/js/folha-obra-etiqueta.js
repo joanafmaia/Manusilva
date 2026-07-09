@@ -199,25 +199,23 @@ function resolveEtqLabel(folha) {
   return assignFolhaObraEtq(folha) || formatFolhaObraOrdemLabel(folha);
 }
 
-/** Técnico que arranjou — campo explícito ou última intervenção. */
+/** Técnico de entrada — responsável pelo registo no armazém. */
+export function resolveEntradaEtiqueta(folha) {
+  return String(folha?.responsavel || '').trim();
+}
+
+/** @deprecated Usar resolveEntradaEtiqueta */
 export function resolveTecnicoReparacaoEtiqueta(folha) {
-  const explicit = String(folha?.tecnicoReparacao || '').trim();
-  if (explicit) return explicit;
-  const rows = Array.isArray(folha?.intervencoes) ? folha.intervencoes : [];
-  for (let i = rows.length - 1; i >= 0; i -= 1) {
-    const nome = String(rows[i]?.realizado_por || '').trim();
-    if (nome) return nome;
-  }
-  return '';
+  return resolveEntradaEtiqueta(folha);
 }
 
 /** Linhas de pessoas para a etiqueta (M.S / R.C). */
 export function buildEtiquetaPeopleLines(folha) {
-  const tecnico = resolveTecnicoReparacaoEtiqueta(folha);
+  const entrada = resolveEntradaEtiqueta(folha);
   const lines = [];
 
-  if (tecnico) {
-    lines.push({ label: 'Arranjou', value: tecnico });
+  if (entrada) {
+    lines.push({ label: 'Entrada', value: entrada });
   }
 
   return lines;
