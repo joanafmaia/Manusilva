@@ -475,8 +475,9 @@ function buildHtmlBody(payload = {}, options = {}) {
     return [];
   })();
 
-  const pdfBlock = pdfLinks.length
-    ? `<div style="margin:18px 0 0 0;">
+  const pdfBlock =
+    !hasAttachment && pdfLinks.length
+      ? `<div style="margin:18px 0 0 0;">
         ${pdfLinks
           .map((item, index) => {
             const label = escapeHtml(
@@ -495,7 +496,7 @@ function buildHtmlBody(payload = {}, options = {}) {
           })
           .join('')}
       </div>`
-    : '';
+      : '';
 
   const attachmentCount = Number(options.attachmentCount) || (hasAttachment ? 1 : 0);
   const attachmentNote = attachmentCount > 0
@@ -503,7 +504,7 @@ function buildHtmlBody(payload = {}, options = {}) {
         ${
           attachmentCount > 1
             ? `Os ${attachmentCount} relatórios encontram-se em anexo a este e-mail.`
-            : 'O documento encontra-se também em anexo a este e-mail.'
+            : 'O documento encontra-se em anexo a este e-mail.'
         }
       </p>`
     : '';
