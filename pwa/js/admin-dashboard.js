@@ -64,6 +64,7 @@ import {
   queueOrcamentoReportFocus,
   countOrcamentosPorPreparar,
 } from './views/orcamentos.js';
+import { initAvaliacoesPanel, refreshAvaliacoesPanel } from './views/avaliacoes.js';
 import {
   loadRhReviewFilters,
   saveRhReviewFilters,
@@ -98,6 +99,7 @@ const ADMIN_TAB_BY_NAV = {
   '#pending': 'relatorios',
   '#orcamentos': 'orcamentos',
   '#billing': 'faturacao',
+  '#avaliacoes': 'avaliacoes',
   '#clients': 'clientes',
   '#employees': 'funcionarios',
 };
@@ -138,22 +140,58 @@ const adminTabDirty = {
   ops: false,
   orcamentos: false,
   faturacao: false,
+  avaliacoes: false,
   clientes: false,
   funcionarios: false,
 };
+
+/** Avaliações do cliente por visita — cache para calendário e painel RH. */
+let calendarAvaliacoesMap = new Map();
 
 function isOpsTabActive() {
   return currentTab === 'calendario' || currentTab === 'relatorios';
 }
 
 function refreshOpsTab() {
-  renderCalendar();
-  renderSidebar();
-  updateAdminChrome();
-  renderRhReviewStack().catch(console.error);
-  if (currentTab === 'calendario') {
-    refreshMetricsPanel(getMetricActionHandlers()).catch(console.error);
+  loadCalendarAvaliacoes()
+    .then(() => {
+      renderCalendar();
+      renderSidebar();
+      updateAdminChrome();
+      renderRhReviewStack().catch(console.error);
+      if (currentTab === 'calendario') {
+        refreshMetricsPanel(getMetricActionHandlers()).catch(console.error);
+      }
+    })
+    .catch((err) => {
+      console.warn('[Admin] Avaliações no calendário:', err);
+      renderCalendar();
+      renderSidebar();
+      updateAdminChrome();
+      renderRhReviewStack().catch(console.error);
+    });
+}
+
+async function loadCalendarAvaliacoes() {
+  const jobs = filterCalendarItemsByTech(getAdminCalendarItems(), filterTechId);
+  const servicoIds = jobs.filter((job) => job.isServico).map((job) => String(job.id));
+  if (!servicoIds.length) {
+    calendarAvaliacoesMap = new Map();
+    return calendarAvaliacoesMap;
   }
+  const { fetchAvaliacoesByServicoIds } = await import('./avaliacoes-db.js');
+  calendarAvaliacoesMap = await fetchAvaliacoesByServicoIds(servicoIds);
+  return calendarAvaliacoesMap;
+}
+
+function getCalendarAvaliacao(job) {
+  if (!job?.isServico) return null;
+  return calendarAvaliacoesMap.get(String(job.id)) || null;
+}
+
+function renderCalendarAvaliacaoBadge(avaliacao, { compact = false } = {}) {
+  if (!avaliacao) return '';
+  return `<span class="cal-block-avaliacao" title="${escapeHtml(avaliacao.label)}" aria-label="Avaliação: ${escapeHtml(avaliacao.label)}">${avaliacao.emoji}</span>`;
 }
 
 function persistRhReviewFilters() {
@@ -229,6 +267,11 @@ function flushDirtyAdminTab(tab) {
     refreshOrcamentosPanel().catch(console.error);
     return;
   }
+  if (tab === 'avaliacoes' && adminTabDirty.avaliacoes) {
+    adminTabDirty.avaliacoes = false;
+    refreshAvaliacoesPanel().catch(console.error);
+    return;
+  }
   if (tab === 'clientes' && adminTabDirty.clientes) {
     adminTabDirty.clientes = false;
     refreshClientesTab();
@@ -261,6 +304,13 @@ function handleAdminDbUpdated() {
       refreshOrcamentosPanel().catch(console.error);
     } else {
       adminTabDirty.orcamentos = true;
+    }
+
+    if (currentTab === 'avaliacoes') {
+      adminTabDirty.avaliacoes = false;
+      refreshAvaliacoesPanel().catch(console.error);
+    } else {
+      adminTabDirty.avaliacoes = true;
     }
 
     if (currentTab === 'clientes') {
@@ -340,6 +390,9 @@ export function setAdminTab(tab) {
   flushDirtyAdminTab(tab);
   if (tab === 'orcamentos') {
     refreshOrcamentosPanel().catch(console.error);
+  }
+  if (tab === 'avaliacoes') {
+    refreshAvaliacoesPanel().catch(console.error);
   }
   if (tab === 'relatorios' || tab === 'calendario') {
     updateOpsSummary();
@@ -463,7 +516,7 @@ export async function initAdminDashboard() {
 
   try {
     renderSidebar();
-    renderCalendar();
+    loadCalendarAvaliacoes().then(() => renderCalendar()).catch(console.error);
     bindAdminSidebarToggle();
     bindReviewPanelHeightSync();
     bindViewToggle();
@@ -491,7 +544,7 @@ export async function initAdminDashboard() {
     onTrabalhoInserted: () => {
       try {
         if (isOpsTabActive()) {
-          renderCalendar();
+          loadCalendarAvaliacoes().then(() => renderCalendar()).catch(console.error);
         } else {
           adminTabDirty.ops = true;
         }
@@ -502,7 +555,7 @@ export async function initAdminDashboard() {
     onServicoChanged: () => {
       try {
         if (isOpsTabActive()) {
-          renderCalendar();
+          loadCalendarAvaliacoes().then(() => renderCalendar()).catch(console.error);
         } else {
           adminTabDirty.ops = true;
         }
@@ -545,6 +598,7 @@ export async function initAdminDashboard() {
   const metricsRoot = document.getElementById('admin-metrics-root');
   const faturacaoRoot = document.getElementById('faturacao-panel-root');
   const orcamentosRoot = document.getElementById('orcamentos-panel-root');
+  const avaliacoesRoot = document.getElementById('avaliacoes-panel-root');
 
   await Promise.all([
     metricsRoot
@@ -568,6 +622,12 @@ export async function initAdminDashboard() {
           showToast('Erro ao carregar o painel de faturação.', 'error');
         })
       : Promise.resolve(),
+    avaliacoesRoot
+      ? initAvaliacoesPanel(avaliacoesRoot).catch((err) => {
+          console.error('[Admin] Avaliações:', err);
+          showToast('Erro ao carregar o painel de avaliações.', 'error');
+        })
+      : Promise.resolve(),
   ]);
 
   try {
@@ -576,6 +636,13 @@ export async function initAdminDashboard() {
     console.error('[Admin] Funcionários:', err);
     showToast('Erro ao carregar cadastro de técnicos.', 'error');
   }
+
+  window.addEventListener('admin-open-calendar-item', (event) => {
+    const jobId = event?.detail?.jobId;
+    if (!jobId) return;
+    setAdminTab('calendario');
+    openJobDetailModal(String(jobId));
+  });
 
   window.addEventListener('db-updated', handleAdminDbUpdated);
 }
@@ -918,11 +985,14 @@ function renderCalendarBlock(job, compact = false) {
   const stateClass = getCalendarEventStateClass(job, report);
   const sizeClass = compact ? 'cal-block cal-block-sm' : 'cal-block';
   const testClass = isTestClient(client) ? ' cal-block--teste' : '';
+  const avaliacao = getCalendarAvaliacao(job);
+  const avaliacaoHtml = renderCalendarAvaliacaoBadge(avaliacao, { compact });
   const cls = `${sizeClass} cal-block--interactive ${stateClass}${testClass}`;
-  const label = `${client?.name || 'Cliente'} — ${subtitle}`;
+  const label = `${client?.name || 'Cliente'} — ${subtitle}${avaliacao ? ` — ${avaliacao.label}` : ''}`;
   return `
     <button type="button" class="${cls}" data-job-id="${job.id}" style="--tech-color:${tech?.color || '#3b82f6'}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">
-      <span class="cal-block-client">${escapeHtml(compact ? client?.name?.split(' ')[0] : client?.name)}</span>
+      ${avaliacaoHtml}
+      <span class="cal-block-client${avaliacao ? ' cal-block-client--with-avaliacao' : ''}">${escapeHtml(compact ? client?.name?.split(' ')[0] : client?.name)}</span>
       ${!compact ? `<span class="cal-block-tech">${escapeHtml(techLabel.split(',')[0]?.trim() || tech?.name?.split(' ')[0] || '—')}</span>` : ''}
     </button>
   `;
@@ -965,6 +1035,10 @@ function renderAgendaListItem(job) {
   const subtitle = getCalendarItemSubtitle(job);
   const stateClass = getCalendarEventStateClass(job, report);
   const serial = !job.isServico && job.forkliftSerial ? ` · ${job.forkliftSerial}` : '';
+  const avaliacao = getCalendarAvaliacao(job);
+  const avaliacaoHtml = avaliacao
+    ? `<span class="agenda-list-avaliacao" title="${escapeHtml(avaliacao.label)}" aria-label="Avaliação: ${escapeHtml(avaliacao.label)}">${avaliacao.emoji}</span>`
+    : '';
 
   return `
     <div class="agenda-swipe-row" data-job-id="${job.id}">
@@ -975,6 +1049,7 @@ function renderAgendaListItem(job) {
         <button type="button" class="agenda-list-item ${stateClass}" data-job-id="${job.id}" style="--tech-color:${tech?.color || '#3b82f6'}">
           <div class="agenda-list-top">
             ${renderWorkStateBadge(job, report)}
+            ${avaliacaoHtml}
           </div>
           <p class="agenda-list-client">${escapeHtml(client?.name || 'Cliente')}</p>
           <p class="agenda-list-meta">${escapeHtml(subtitle)} · ${escapeHtml(techLabel)}${escapeHtml(serial)}</p>
@@ -1445,12 +1520,18 @@ function buildCalendarItemDetailContent(item) {
     })
     .join('');
 
+  const avaliacao = getCalendarAvaliacao(item);
+  const avaliacaoLine = avaliacao
+    ? `<div><dt>Avaliação do cliente</dt><dd>${escapeHtml(`${avaliacao.emoji} ${avaliacao.label}`)}</dd></div>`
+    : '';
+
   return `
     <dl class="job-detail-grid">
       <div><dt>Cliente</dt><dd>${escapeHtml(client?.name || '—')}</dd></div>
       <div><dt>Técnicos</dt><dd>${escapeHtml(techLabel)}</dd></div>
       <div><dt>Data</dt><dd>${escapeHtml(formatDateLong(item.date))}</dd></div>
       <div><dt>Estado</dt><dd>${statusBadge(item.status)}</dd></div>
+      ${avaliacaoLine}
       <div><dt>Relatórios</dt><dd>${reportsHtml}</dd></div>
     </dl>
     ${rejectedNotes}

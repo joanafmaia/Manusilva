@@ -1663,6 +1663,7 @@
   margin-bottom: 0;
 }
 .cal-block {
+  position: relative;
   padding: 0.4rem 0.5rem;
   border-radius: 6px;
   background: color-mix(in srgb, var(--tech-color) 15%, transparent);
@@ -1670,6 +1671,75 @@
   font-size: 0.7rem;
   cursor: default;
   transition: transform var(--transition);
+}
+.cal-block-avaliacao {
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  font-size: 0.85rem;
+  line-height: 1;
+  pointer-events: none;
+  filter: drop-shadow(0 0 1px rgba(255, 255, 255, 0.85));
+}
+.cal-block-sm .cal-block-avaliacao {
+  top: 1px;
+  right: 2px;
+  font-size: 0.72rem;
+}
+.agenda-list-avaliacao {
+  margin-left: auto;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+.avaliacoes-panel-lead {
+  margin: 0.25rem 0 0;
+  font-size: 0.9rem;
+}
+.avaliacoes-panel-empty {
+  margin: 1.25rem 0 0;
+}
+.avaliacoes-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  margin-top: 1rem;
+}
+.avaliacoes-list-item {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: var(--surface-elevated, #fff);
+}
+.avaliacoes-list-item__score {
+  font-size: 1.75rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.avaliacoes-list-item__body {
+  flex: 1;
+  min-width: 0;
+}
+.avaliacoes-list-item__title {
+  margin: 0;
+  font-size: 0.95rem;
+}
+.avaliacoes-list-item__meta,
+.avaliacoes-list-item__label {
+  margin: 0.2rem 0 0;
+  font-size: 0.82rem;
+}
+.avaliacao-score--bad {
+  border-color: color-mix(in srgb, #dc2626 35%, var(--border-subtle));
+  background: color-mix(in srgb, #dc2626 6%, var(--surface-elevated, #fff));
+}
+.avaliacao-score--mid {
+  border-color: color-mix(in srgb, #ca8a04 35%, var(--border-subtle));
+}
+.avaliacao-score--good {
+  border-color: color-mix(in srgb, #16a34a 30%, var(--border-subtle));
 }
 /* Estados do calendário — tabela oficial (--ws-*) */ .cal-event--scheduled, .work-state-card--scheduled {
   background: var(--ws-scheduled-bg);
@@ -1913,6 +1983,7 @@
 }
 .cal-block-time { font-weight: 600; color: var(--tech-color); display: block; }
 .cal-block-client { display: block; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cal-block-client--with-avaliacao { padding-right: 1.15rem; }
 .cal-block-tech { display: block; color: var(--text-muted); font-size: 0.65rem; }
 .cal-empty { color: var(--text-muted); font-size: 0.75rem; text-align: center; padding: 1rem 0; }
 .calendar-month {

@@ -63,3 +63,27 @@ export function formatAvaliacaoBadge(avaliacao) {
   if (!avaliacao) return '';
   return `${avaliacao.emoji} ${avaliacao.label}`;
 }
+
+/**
+ * @param {{ limit?: number }} [options]
+ */
+export async function fetchAllAvaliacoes(options = {}) {
+  const limit = Math.min(Math.max(Number(options.limit) || 300, 1), 1000);
+
+  const { getAuthenticatedSupabaseClient } = await import('./supabase-client.js');
+  const supabase = await getAuthenticatedSupabaseClient();
+  if (!supabase) return [];
+
+  const { data, error } = await supabase
+    .from('avaliacoes_servico')
+    .select('id,servico_id,cliente_id,score,comentario,criado_em')
+    .order('criado_em', { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    console.warn('[avaliacoes-db] fetchAll:', error.message);
+    return [];
+  }
+
+  return (data || []).map(mapRow).filter(Boolean);
+}
