@@ -9,6 +9,11 @@ import {
 } from '../clients-catalog.js';
 import { getClient, escapeHtml, showToast } from '../app.js';
 import { putClient } from '../clients-api.js';
+import {
+  buildClientAlteracoesCsv,
+  fetchClientAlteracoes,
+  formatClientAlteracaoDate,
+} from '../client-audit.js';
 import { mapClientToLegacy, DEMO_CLIENT_FORKLIFTS } from '../mock_data.js';
 import { formatEquipamentoLabel } from '../cliente-equipamentos.js';
 
@@ -225,6 +230,50 @@ function renderViewField(label, valueHtml, { copyValue = '', copyLabel = '' } = 
   `;
 }
 
+function renderAlteracoesSection(profile) {
+  const rows = Array.isArray(profile.alteracoes) ? profile.alteracoes : [];
+  if (!rows.length) {
+    return `
+      <section class="client-ficha-block client-ficha-block--audit">
+        <h3 class="client-ficha-label ms-label">Histórico de alterações</h3>
+        <p class="client-ficha-muted">Sem alterações registadas nesta ficha.</p>
+      </section>
+    `;
+  }
+
+  return `
+    <section class="client-ficha-block client-ficha-block--audit">
+      <div class="client-ficha-audit-header">
+        <h3 class="client-ficha-label ms-label">Histórico de alterações</h3>
+        <button type="button" class="btn-outline btn-sm" data-client-ficha-export-audit>
+          Exportar CSV
+        </button>
+      </div>
+      <div class="client-ficha-audit-list-wrap">
+        <ul class="client-ficha-audit-list" role="list">
+          ${rows
+            .map(
+              (row) => `
+            <li class="client-ficha-audit-item" role="listitem">
+              <p class="client-ficha-audit-meta text-muted">
+                ${escapeHtml(formatClientAlteracaoDate(row.criadoEm))} · ${escapeHtml(row.alteradoPor)}
+              </p>
+              <p class="client-ficha-audit-field"><strong>${escapeHtml(row.campo)}</strong></p>
+              <p class="client-ficha-audit-diff">
+                <span class="client-ficha-audit-old">${escapeHtml(row.valorAnterior || '—')}</span>
+                <span class="client-ficha-audit-arrow" aria-hidden="true">→</span>
+                <span class="client-ficha-audit-new">${escapeHtml(row.valorNovo || '—')}</span>
+              </p>
+            </li>
+          `,
+            )
+            .join('')}
+        </ul>
+      </div>
+    </section>
+  `;
+}
+
 export function renderClientProfilePanel(profile, { editing = false } = {}) {
   const moradaBlock = editing
     ? renderAddressEditBlock(profile)
@@ -302,6 +351,8 @@ export function renderClientProfilePanel(profile, { editing = false } = {}) {
           <h3 class="client-ficha-label ms-label">Equipamentos associados</h3>
           ${renderEquipamentosList(profile)}
         </section>
+
+        ${editing ? '' : renderAlteracoesSection(profile)}
       </div>
 
       <footer class="client-ficha-footer client-ficha-footer--actions">
@@ -365,6 +416,9 @@ function bindClientProfilePanel(shell, profile, options = {}) {
 
   const repaint = async (editing) => {
     const fresh = editing ? profile : await resolveClientProfile(clientId);
+    if (!editing) {
+      fresh.alteracoes = await fetchClientAlteracoes(clientId);
+    }
     if (!editing) Object.assign(profile, fresh);
     const panel = shell.querySelector('.client-ficha-panel');
     if (panel) {
@@ -394,6 +448,23 @@ function bindClientProfilePanel(shell, profile, options = {}) {
       e.stopPropagation();
       copyToClipboard(btn.dataset.copyValue);
     });
+  });
+
+  shell.querySelector('[data-client-ficha-export-audit]')?.addEventListener('click', () => {
+    const rows = Array.isArray(profile.alteracoes) ? profile.alteracoes : [];
+    if (!rows.length) {
+      showToast('Não há alterações para exportar.', 'info');
+      return;
+    }
+    const { content, filename } = buildClientAlteracoesCsv(rows, profile.nome);
+    const blob = new Blob([content], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(url);
+    showToast('Histórico exportado.', 'success', 3000);
   });
 
   shell.querySelector('[data-client-ficha-history]')?.addEventListener('click', () => {
@@ -462,6 +533,7 @@ export async function openClientProfilePanel(clientId, options = {}) {
   let profile;
   try {
     profile = await resolveClientProfile(clientId);
+    profile.alteracoes = await fetchClientAlteracoes(clientId);
   } catch (err) {
     console.error('[Ficha Cliente]', err);
     showToast('Não foi possível carregar a ficha do cliente.', 'error');

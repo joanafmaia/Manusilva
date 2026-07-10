@@ -4114,7 +4114,20 @@ body .admin-rh-page .btn-primary, body .admin-rh-page .btn-secondary, body .admi
 /* Faturação — filtros e destaque */ .faturacao-filter-actions {
   margin-top: 0.75rem;
   display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
   justify-content: flex-end;
+  gap: 0.65rem;
+}
+.faturacao-audit-year-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 7rem;
+}
+.faturacao-audit-year-label .form-label {
+  margin: 0;
+  font-size: 0.78rem;
 }
 .faturacao-row--highlight {
   animation: faturacao-row-flash 1.2s ease-in-out 3;

@@ -59,6 +59,11 @@ import {
   registerFolhaObraInvoice,
   revertFolhaObraInvoice,
 } from '../folhas-obra-workflow.js';
+import {
+  buildBillingAuditSummary,
+  filterBillingByYear,
+  listAvailableBillingYears,
+} from '../faturacao-stats.js';
 
 const URGENT_DAYS = 3;
 const DEFAULT_ESTIMATE_EUR = 120;
@@ -92,6 +97,7 @@ const billingFilters = {
 
 let highlightReportId = null;
 let highlightServicoId = null;
+let auditExportYear = String(new Date().getFullYear());
 
 async function openBillingFolhaObraPdf(folhaId) {
   const folha = getFolhaObra(folhaId);
@@ -413,6 +419,46 @@ function getFilteredInvoices() {
   return getAllInvoicedEntities()
     .filter(invoiceMatchesFilters)
     .sort((a, b) => invoiceDateOfEntity(b).localeCompare(invoiceDateOfEntity(a)));
+}
+
+function buildAuditInvoiceRow(item) {
+  const entity = item.entity;
+  const meta = resolveClientMeta(entity.clientId);
+  const trabalho = resolveInvoiceTrabalhoLabel(item);
+  return {
+    date: invoiceDateOfEntity(item),
+    tipo: resolveInvoiceTipoLabel(item),
+    cliente: meta.nome,
+    nif: meta.nif,
+    ordem: trabalho.ordem,
+    trabalho: trabalho.detail,
+    valor: Number(entity.valorFaturado) || 0,
+    estado: entity.statusRecebimento || 'pendente',
+    estadoLabel: labelStatusRecebimento(entity.statusRecebimento),
+    numeroFatura: entity.numeroFatura || '',
+    dataRecebimento: String(entity.dataRecebimento || '').split('T')[0],
+    dataVencimento: String(entity.dataVencimento || '').split('T')[0],
+    condicaoPagamento: entity.condicaoPagamento || '',
+  };
+}
+
+function getAllAuditInvoiceRows() {
+  return getAllInvoicedEntities().map(buildAuditInvoiceRow);
+}
+
+function renderAuditYearOptions(rows) {
+  const current = String(new Date().getFullYear());
+  const years = listAvailableBillingYears(rows);
+  const unique = [...new Set([current, ...years])].sort((a, b) => b.localeCompare(a));
+  if (!unique.includes(auditExportYear)) {
+    auditExportYear = unique[0] || current;
+  }
+  return unique
+    .map(
+      (year) =>
+        `<option value="${escapeHtml(year)}"${auditExportYear === year ? ' selected' : ''}>${escapeHtml(year)}</option>`,
+    )
+    .join('');
 }
 
 /** KPIs calculados sobre as faturas filtradas. */
@@ -739,11 +785,20 @@ function renderFiltersSection() {
         </div>
       </div>
       <div class="faturacao-filter-actions">
+        <label class="faturacao-audit-year-label">
+          <span class="form-label">Ano auditoria</span>
+          <select class="form-select-sm" id="faturacao-audit-year">
+            ${renderAuditYearOptions(getAllAuditInvoiceRows())}
+          </select>
+        </label>
         <button type="button" class="btn-primary btn-sm" id="faturacao-manual-invoice">
           Registar fatura manual
         </button>
         <button type="button" class="btn-outline btn-sm" id="faturacao-export-csv">
           Exportar CSV
+        </button>
+        <button type="button" class="btn-outline btn-sm" id="faturacao-export-pdf">
+          Exportar PDF anual
         </button>
       </div>
     </section>
@@ -1176,6 +1231,14 @@ function bindFilterEvents() {
 
   root.querySelector('#faturacao-export-csv')?.addEventListener('click', () => {
     exportFilteredInvoicesCsv();
+  });
+
+  root.querySelector('#faturacao-audit-year')?.addEventListener('change', (event) => {
+    auditExportYear = event.target.value || String(new Date().getFullYear());
+  });
+
+  root.querySelector('#faturacao-export-pdf')?.addEventListener('click', () => {
+    void exportFaturacaoAuditPdf();
   });
 
   root.querySelector('#faturacao-manual-invoice')?.addEventListener('click', () => {
@@ -2185,6 +2248,43 @@ function csvEscape(value) {
   const s = String(value ?? '');
   if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
   return s;
+}
+
+async function exportFaturacaoAuditPdf() {
+  const allRows = getAllAuditInvoiceRows();
+  const yearRows = filterBillingByYear(allRows, auditExportYear);
+  const summary = buildBillingAuditSummary(allRows, auditExportYear);
+
+  if (!summary.metrics.invoiceCount) {
+    showToast('Não há faturas para exportar neste ano.', 'info');
+    return;
+  }
+
+  const btn = mountRoot?.querySelector('#faturacao-export-pdf');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'A gerar PDF…';
+  }
+
+  try {
+    const { generateFaturacaoAuditPdfBlob } = await import('../pdf-faturacao-audit.js');
+    const { downloadPdfBlob } = await import('../pdf-preview.js');
+    const { blob, filename } = await generateFaturacaoAuditPdfBlob({
+      summary,
+      rows: yearRows,
+      year: auditExportYear,
+    });
+    downloadPdfBlob(blob, filename);
+    showToast('PDF de faturação exportado.', 'success', 4000);
+  } catch (err) {
+    console.error('[Faturação] PDF auditoria:', err);
+    showToast(err?.message || 'Não foi possível gerar o PDF.', 'error');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = 'Exportar PDF anual';
+    }
+  }
 }
 
 function exportFilteredInvoicesCsv() {
