@@ -18,15 +18,26 @@ function scoreClass(score) {
   return '';
 }
 
+function formatOrdemLabel(numeroOrdem) {
+  if (numeroOrdem == null || !Number.isFinite(Number(numeroOrdem))) return '';
+  return `OP-2026-${String(numeroOrdem).padStart(2, '0')}`;
+}
+
 function enrichRow(avaliacao) {
   const client = avaliacao.clienteId ? getClient(avaliacao.clienteId) : null;
   const servico = avaliacao.servicoId ? getServico(avaliacao.servicoId) : null;
-  const visitDate = servico?.date || '';
+  const visitDate = avaliacao.servicoDate || servico?.date || '';
+  const opLabel = formatOrdemLabel(avaliacao.numeroOrdem ?? servico?.numeroOrdem);
+  const visitSummary = visitDate
+    ? `${formatDateLong(visitDate)}${opLabel ? ` · ${opLabel}` : ''}`
+    : 'Data da visita indisponível';
   return {
     ...avaliacao,
     clientName: client?.name || client?.Nome || 'Cliente',
     visitDate,
     visitDateLabel: visitDate ? formatDateLong(visitDate) : '—',
+    visitSummary,
+    opLabel,
     respondedAtLabel: avaliacao.criadoEm
       ? formatDateLong(String(avaliacao.criadoEm).slice(0, 10))
       : '—',
@@ -77,13 +88,13 @@ function renderRows(rows) {
           <div class="avaliacoes-list-item__body">
             <h3 class="avaliacoes-list-item__title">${escapeHtml(row.clientName)}</h3>
             <p class="avaliacoes-list-item__meta text-muted">
-              Visita: ${escapeHtml(row.visitDateLabel)} · Resposta: ${escapeHtml(row.respondedAtLabel)}
+              Visita: <strong>${escapeHtml(row.visitSummary)}</strong> · Resposta: ${escapeHtml(row.respondedAtLabel)}
             </p>
             <p class="avaliacoes-list-item__label">${escapeHtml(formatAvaliacaoBadge(row))}</p>
           </div>
           ${
             row.servicoId
-              ? `<button type="button" class="btn-outline btn-sm" data-open-servico="${escapeHtml(row.servicoId)}">Ver visita</button>`
+              ? `<button type="button" class="btn-outline btn-sm" data-open-servico="${escapeHtml(row.servicoId)}" data-visit-date="${escapeHtml(row.visitDate)}" data-client-name="${escapeHtml(row.clientName)}" data-visit-summary="${escapeHtml(row.visitSummary)}">Ver no calendário</button>`
               : ''
           }
         </article>`,
@@ -131,7 +142,14 @@ function renderPanel() {
       const servicoId = btn.dataset.openServico;
       if (!servicoId) return;
       window.dispatchEvent(
-        new CustomEvent('admin-open-calendar-item', { detail: { jobId: servicoId } }),
+        new CustomEvent('admin-open-calendar-item', {
+          detail: {
+            jobId: servicoId,
+            visitDate: btn.dataset.visitDate || '',
+            clientName: btn.dataset.clientName || '',
+            visitSummary: btn.dataset.visitSummary || '',
+          },
+        }),
       );
     });
   });

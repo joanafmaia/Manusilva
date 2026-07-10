@@ -12,6 +12,15 @@ function mapRow(row) {
   if (!row) return null;
   const score = Number(row.score);
   const meta = SCORE_LABELS[score] || { emoji: '❓', label: '—' };
+  const servicoEmbed = Array.isArray(row.servicos) ? row.servicos[0] : row.servicos;
+  const servicoDateRaw = servicoEmbed?.data;
+  const servicoDate = servicoDateRaw
+    ? String(servicoDateRaw).includes('T')
+      ? String(servicoDateRaw).split('T')[0]
+      : String(servicoDateRaw).slice(0, 10)
+    : '';
+  const numeroOrdem =
+    servicoEmbed?.numero_ordem != null ? Number(servicoEmbed.numero_ordem) : null;
   return {
     id: row.id,
     servicoId: row.servico_id ? String(row.servico_id) : '',
@@ -21,6 +30,8 @@ function mapRow(row) {
     label: meta.label,
     comentario: row.comentario || '',
     criadoEm: row.criado_em || null,
+    servicoDate,
+    numeroOrdem,
   };
 }
 
@@ -76,7 +87,7 @@ export async function fetchAllAvaliacoes(options = {}) {
 
   const { data, error } = await supabase
     .from('avaliacoes_servico')
-    .select('id,servico_id,cliente_id,score,comentario,criado_em')
+    .select('id,servico_id,cliente_id,score,comentario,criado_em,servicos(data,numero_ordem,estado)')
     .order('criado_em', { ascending: false })
     .limit(limit);
 

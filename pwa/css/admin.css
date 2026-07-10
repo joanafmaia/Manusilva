@@ -1812,6 +1812,12 @@
   outline: 2px solid color-mix(in srgb, var(--tech-color) 50%, transparent);
   outline-offset: 1px;
 }
+.cal-block--focus {
+  outline: 2px solid #2563eb !important;
+  outline-offset: 1px;
+  box-shadow: 0 0 0 3px color-mix(in srgb, #2563eb 28%, transparent);
+  z-index: 2;
+}
 .cal-block--teste {
   border-left-style: dashed;
   opacity: 0.92;

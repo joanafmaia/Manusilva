@@ -638,10 +638,7 @@ export async function initAdminDashboard() {
   }
 
   window.addEventListener('admin-open-calendar-item', (event) => {
-    const jobId = event?.detail?.jobId;
-    if (!jobId) return;
-    setAdminTab('calendario');
-    openJobDetailModal(String(jobId));
+    void focusCalendarVisit(event?.detail || {});
   });
 
   window.addEventListener('db-updated', handleAdminDbUpdated);
@@ -858,6 +855,76 @@ function getCalendarDates() {
     dates.push(new Date(d).toISOString().split('T')[0]);
   }
   return dates;
+}
+
+function dateToWeekOffset(targetDateStr) {
+  const raw = String(targetDateStr || '').trim().slice(0, 10);
+  if (!raw) return 0;
+  const targetMonday = getWeekDates(new Date(`${raw}T12:00:00`))[0];
+  const todayMonday = getWeekDates(new Date())[0];
+  const targetMs = new Date(`${targetMonday}T12:00:00`).getTime();
+  const todayMs = new Date(`${todayMonday}T12:00:00`).getTime();
+  return Math.round((targetMs - todayMs) / (7 * 24 * 60 * 60 * 1000));
+}
+
+async function focusCalendarVisit({ jobId, visitDate, clientName, visitSummary } = {}) {
+  const id = String(jobId || '').trim();
+  if (!id) return;
+
+  setAdminTab('calendario');
+
+  try {
+    const { ensureServicosLoadedSafe } = await import('./servicos-db.js');
+    await ensureServicosLoadedSafe(true);
+  } catch (err) {
+    console.warn('[Admin] Serviços para foco de visita:', err);
+  }
+
+  const resolved = resolveCalendarItemById(id);
+  const date = String(visitDate || resolved?.date || '').trim().slice(0, 10);
+  const label = String(clientName || getClient(resolved?.clientId)?.name || 'Visita').trim();
+  const summary = String(visitSummary || (date ? `${formatDateLong(date)}` : '')).trim();
+
+  if (date) {
+    currentWeekOffset = dateToWeekOffset(date);
+    if (calendarView === 'month') {
+      calendarView = 'week';
+      document.querySelectorAll('[data-cal-view]').forEach((btn) => {
+        btn.classList.toggle('active', btn.dataset.calView === 'week');
+      });
+    }
+  }
+
+  try {
+    await loadCalendarAvaliacoes();
+  } catch (err) {
+    console.warn('[Admin] Avaliações ao focar visita:', err);
+  }
+  renderCalendar();
+
+  requestAnimationFrame(() => {
+    const block = document.querySelector(`[data-job-id="${CSS.escape(id)}"]`);
+    if (block) {
+      block.classList.add('cal-block--focus');
+      block.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      window.setTimeout(() => block.classList.remove('cal-block--focus'), 3500);
+    } else if (summary) {
+      showToast(`Visita: ${label} — ${summary}`, 'info', 6000);
+    }
+  });
+
+  if (resolved) {
+    openJobDetailModal(id);
+    return;
+  }
+
+  showToast(
+    summary
+      ? `Visita de ${label} (${summary}) — não encontrada no calendário atual.`
+      : 'Visita não encontrada no calendário.',
+    'warning',
+    7000,
+  );
 }
 
 /** Trabalhos do dia no calendário RH — lista plana (sem pastas). */
