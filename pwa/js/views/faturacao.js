@@ -425,6 +425,16 @@ function buildAuditInvoiceRow(item) {
   const entity = item.entity;
   const meta = resolveClientMeta(entity.clientId);
   const trabalho = resolveInvoiceTrabalhoLabel(item);
+  const actor =
+    item.kind === 'manual'
+      ? entity.registeredBy || ''
+      : item.kind === 'servico'
+        ? entity.invoicedBy || ''
+        : item.kind === 'folha_obra'
+          ? entity.invoicedBy || ''
+          : entity.invoicedBy || '';
+  const aprovadoPor =
+    item.kind === 'report' ? entity.approvedBy || '' : item.kind === 'servico' ? entity.approvedBy || '' : '';
   return {
     date: invoiceDateOfEntity(item),
     tipo: resolveInvoiceTipoLabel(item),
@@ -439,7 +449,23 @@ function buildAuditInvoiceRow(item) {
     dataRecebimento: String(entity.dataRecebimento || '').split('T')[0],
     dataVencimento: String(entity.dataVencimento || '').split('T')[0],
     condicaoPagamento: entity.condicaoPagamento || '',
+    aprovadoPor,
+    faturadoPor: actor,
   };
+}
+
+function renderAuditActorFields({ aprovadoPor = '', faturadoPor = '', registadoPor = '' } = {}) {
+  const rows = [];
+  if (aprovadoPor) {
+    rows.push(`<div><dt>Aprovado por</dt><dd>${escapeHtml(aprovadoPor)}</dd></div>`);
+  }
+  if (faturadoPor) {
+    rows.push(`<div><dt>Faturado por</dt><dd>${escapeHtml(faturadoPor)}</dd></div>`);
+  }
+  if (registadoPor) {
+    rows.push(`<div><dt>Registado por</dt><dd>${escapeHtml(registadoPor)}</dd></div>`);
+  }
+  return rows.join('');
 }
 
 function getAllAuditInvoiceRows() {
@@ -1627,6 +1653,7 @@ function openInvoiceHistoryDetailModal(reportId) {
       <div><dt>Data de vencimento</dt><dd>${escapeHtml(vencimentoLabel)}</dd></div>
       <div><dt>Data do recebimento</dt><dd>${escapeHtml(recebimentoLabel)}</dd></div>
       <div><dt>Estado</dt><dd>${pago ? 'Pago' : 'Pendente'}</dd></div>
+      ${renderAuditActorFields({ aprovadoPor: report.approvedBy, faturadoPor: report.invoicedBy })}
     </dl>
   `;
 
@@ -1678,6 +1705,7 @@ function openServicoInvoiceHistoryDetailModal(servicoId) {
       <div><dt>Data de vencimento</dt><dd>${escapeHtml(vencimentoLabel)}</dd></div>
       <div><dt>Data do recebimento</dt><dd>${escapeHtml(recebimentoLabel)}</dd></div>
       <div><dt>Estado</dt><dd>${pago ? 'Pago' : 'Pendente'}</dd></div>
+      ${renderAuditActorFields({ aprovadoPor: servico.approvedBy, faturadoPor: servico.invoicedBy })}
     </dl>
   `;
 
@@ -1724,6 +1752,7 @@ function openManualInvoiceHistoryDetailModal(invoiceId) {
       <div><dt>Data de vencimento</dt><dd>${escapeHtml(vencimentoLabel)}</dd></div>
       <div><dt>Data do recebimento</dt><dd>${escapeHtml(recebimentoLabel)}</dd></div>
       <div><dt>Estado</dt><dd>${pago ? 'Pago' : 'Pendente'}</dd></div>
+      ${renderAuditActorFields({ registadoPor: invoice.registeredBy })}
     </dl>
   `;
 
@@ -1764,6 +1793,7 @@ function openFolhaObraInvoiceHistoryDetailModal(folhaId) {
       <div><dt>Data de vencimento</dt><dd>${escapeHtml(vencimentoLabel)}</dd></div>
       <div><dt>Data do recebimento</dt><dd>${escapeHtml(recebimentoLabel)}</dd></div>
       <div><dt>Estado</dt><dd>${pago ? 'Pago' : 'Pendente'}</dd></div>
+      ${renderAuditActorFields({ faturadoPor: folha.invoicedBy })}
     </dl>
   `;
 
@@ -2304,6 +2334,8 @@ function exportFilteredInvoicesCsv() {
     'Valor (EUR)',
     'Estado',
     'Data recebimento',
+    'Aprovado por',
+    'Faturado por',
   ];
   const lines = [header.join(';')];
 
@@ -2313,6 +2345,7 @@ function exportFilteredInvoicesCsv() {
     const recebimento = entity.dataRecebimento ? String(entity.dataRecebimento).split('T')[0] : '';
     const trabalho = resolveInvoiceTrabalhoLabel(item);
     const trabalhoLabel = [trabalho.ordem, trabalho.detail].filter(Boolean).join(' — ');
+    const auditRow = buildAuditInvoiceRow(item);
     const row = [
       invoiceDateOfEntity(item),
       resolveInvoiceTipoLabel(item),
@@ -2323,6 +2356,8 @@ function exportFilteredInvoicesCsv() {
       Number.isFinite(Number(entity.valorFaturado)) ? Number(entity.valorFaturado) : '',
       labelStatusRecebimento(entity.statusRecebimento),
       recebimento,
+      auditRow.aprovadoPor || '',
+      auditRow.faturadoPor || '',
     ].map(csvEscape);
     lines.push(row.join(';'));
   });

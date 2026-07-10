@@ -14,6 +14,7 @@ import {
   normalizeInvoiceAmountInput,
   resolveInvoiceBillingFields,
 } from './billing-workflow.js';
+import { resolveAuditActor } from './audit-actor.js';
 import { getReportOrcamentoMeta, computeOrcamentoTotals } from './orcamento-linhas.js';
 import { getReport } from './app.js';
 
@@ -152,6 +153,7 @@ export async function registerFolhaObraInvoice(
     dataVencimento: billing.dataVencimento,
     dataRecebimento: billing.dataRecebimento,
     faturaCondicaoPagamento: billing.faturaCondicaoPagamento,
+    invoicedBy: resolveAuditActor(),
   });
 }
 
@@ -187,5 +189,6 @@ export async function revertFolhaObraInvoice(folhaId) {
     dataVencimento: null,
     dataRecebimento: null,
     faturaCondicaoPagamento: null,
+    invoicedBy: null,
   });
 }

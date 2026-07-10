@@ -13,6 +13,7 @@ import { normalizeStatusRecebimento } from './billing-constants.js';
 import { sameEntityId } from './entity-id.js';
 import { getReportOrcamentoMeta } from './orcamento-linhas.js';
 import { getClient } from './entity-lookups.js';
+import { resolveAuditActor } from './audit-actor.js';
 import {
   getReportOrcamentoPdfUrl,
   getReportTechnicalPdfUrl,
@@ -257,6 +258,7 @@ export async function registerReportInvoice(
     faturaCondicaoPagamento: billing.faturaCondicaoPagamento,
     statusRecebimento: billing.statusRecebimento,
     dataVencimento: billing.dataVencimento,
+    invoicedBy: resolveAuditActor(),
   });
   window.dispatchEvent(new CustomEvent('db-updated'));
   return true;
@@ -336,6 +338,7 @@ export async function revertReportInvoice(reportId) {
     statusRecebimento: null,
     dataVencimento: null,
     dataRecebimento: null,
+    invoicedBy: null,
   });
   window.dispatchEvent(new CustomEvent('db-updated'));
   return true;

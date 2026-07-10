@@ -13,6 +13,7 @@ import {
 } from './billing-workflow.js';
 import { getClient } from './entity-lookups.js';
 import { getServicoActiveReports, isServicoVisitFullyApproved } from './servicos-email-workflow.js';
+import { resolveAuditActor } from './audit-actor.js';
 import { getPendingOrcamentoBillingReports } from './orcamento-billing-workflow.js';
 import { getPendingBillingFolhasObra } from './folhas-obra-db.js';
 import { getReportOrcamentoMeta } from './orcamento-linhas.js';
@@ -132,6 +133,7 @@ export async function markServicoPendingBillingIfReady(servicoId) {
   await updateServico(servicoId, {
     faturacao_status: 'pendente',
     aprovado_em: latestApproval || servico.approvedAt || new Date().toISOString(),
+    aprovado_por: resolveAuditActor(),
     estado: 'approved',
   });
   return true;
@@ -164,6 +166,7 @@ export async function registerServicoInvoice(
     condicao_pagamento: billing.faturaCondicaoPagamento,
     status_recebimento: billing.statusRecebimento,
     data_vencimento: billing.dataVencimento,
+    faturado_por: resolveAuditActor(),
   });
 
   const reports = getServicoActiveReports(servicoId).filter((r) => r.status === 'approved');
@@ -202,6 +205,7 @@ export async function revertServicoInvoice(servicoId) {
     status_recebimento: null,
     data_vencimento: null,
     data_recebimento: null,
+    faturado_por: null,
   });
 
   const reports = getServicoActiveReports(servicoId).filter((r) => r.status === 'approved');

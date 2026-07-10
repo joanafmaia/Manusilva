@@ -20,6 +20,7 @@ import { isTestClient } from './client-test-utils.js';
 import { canReachServer } from './offline-mode.js';
 import { isDraftSafelySynced } from './report-draft-sync.js';
 import { sendOfficialReportEmail } from './report-email-api.js';
+import { resolveAuditActor } from './audit-actor.js';
 import {
   buildReportEmailPdfPayload,
   blobToBase64,
@@ -348,6 +349,7 @@ export async function approveReport(reportId, options = {}) {
     await updateRelatorio(reportId, {
       status: 'approved',
       approvedAt: new Date().toISOString(),
+      approvedBy: resolveAuditActor(),
       pdfFilename: filename,
       faturacaoStatus: servicoId
         ? 'via_servico'

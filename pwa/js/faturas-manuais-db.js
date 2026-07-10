@@ -4,7 +4,7 @@
  */
 
 import { getAuthenticatedSupabaseClient } from './supabase-client.js';
-import { getSession } from './session.js';
+import { resolveAuditActor } from './audit-actor.js';
 import {
   normalizeInvoiceAmountInput,
   resolveInvoiceBillingFields,
@@ -38,6 +38,7 @@ export function mapRowToManualInvoice(row) {
     dataRecebimento: formatDateOnly(row.data_recebimento) || null,
     descricao: row.descricao || null,
     createdAt: row.criado_em || null,
+    registeredBy: row.registado_por || null,
   };
 }
 
@@ -53,6 +54,7 @@ export function mapManualInvoiceToRow(invoice) {
     data_vencimento: invoice.dataVencimento ? formatDateOnly(invoice.dataVencimento) : null,
     data_recebimento: invoice.dataRecebimento ? formatDateOnly(invoice.dataRecebimento) : null,
     descricao: invoice.descricao ?? null,
+    registado_por: invoice.registeredBy ?? null,
   };
 }
 
@@ -90,8 +92,7 @@ function formatFaturasManuaisAuditError(err) {
 }
 
 function resolveDeleteActor() {
-  const session = getSession();
-  return session?.name || session?.username || session?.email || 'RH';
+  return resolveAuditActor();
 }
 
 export function getManualInvoicesSnapshot() {
@@ -232,6 +233,7 @@ export async function registerManualInvoice({
       status_recebimento: billing.statusRecebimento,
       data_vencimento: billing.dataVencimento,
       descricao: descricaoTrim || null,
+      registado_por: resolveAuditActor(),
     })
     .select();
 

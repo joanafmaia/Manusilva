@@ -3,7 +3,7 @@
  */
 
 import { getSupabaseClient } from './supabase-client.js';
-import { getSession } from './session.js';
+import { resolveAuditActor } from './audit-actor.js';
 
 const FIELD_LABELS = {
   email: 'E-mail',
@@ -17,8 +17,7 @@ const FIELD_LABELS = {
 };
 
 function resolveActor() {
-  const session = getSession();
-  return session?.name || session?.username || session?.email || 'RH';
+  return resolveAuditActor();
 }
 
 /**

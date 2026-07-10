@@ -79,6 +79,7 @@ export function buildFaturacaoAuditDetailRows(rows = []) {
       formatEurPdf(row.valor),
       pdfSafeText(row.estadoLabel || row.estado || '—'),
       String(row.dataRecebimento || '').slice(0, 10) || '—',
+      pdfSafeText(row.faturadoPor || row.aprovadoPor || '—'),
     ]);
 }
 
@@ -218,19 +219,20 @@ export async function generateFaturacaoAuditPdfBlob(payload) {
   );
 
   const detailCols = {
-    0: { cellWidth: 20 },
-    1: { cellWidth: 18 },
-    2: { cellWidth: 38 },
-    3: { cellWidth: 22 },
-    4: { cellWidth: 20, halign: 'right' },
-    5: { cellWidth: 18 },
-    6: { cellWidth: 20 },
+    0: { cellWidth: 19 },
+    1: { cellWidth: 16 },
+    2: { cellWidth: 34 },
+    3: { cellWidth: 20 },
+    4: { cellWidth: 19, halign: 'right' },
+    5: { cellWidth: 16 },
+    6: { cellWidth: 19 },
+    7: { cellWidth: 21 },
   };
   await drawDataSection(
     doc,
     y,
     'Registo detalhado',
-    ['Data', 'Tipo', 'Cliente', 'Nº Fatura', 'Valor', 'Estado', 'Recebido em'],
+    ['Data', 'Tipo', 'Cliente', 'Nº Fatura', 'Valor', 'Estado', 'Recebido em', 'Responsável'],
     buildFaturacaoAuditDetailRows(rows),
     detailCols,
   );
