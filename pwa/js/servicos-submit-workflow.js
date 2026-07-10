@@ -73,7 +73,7 @@ export function canShowServicoVisitConcludeAction(servicoId) {
     return {
       show: false,
       state,
-      hint: `Falta concluir ${n} relatório${n === 1 ? '' : 's'} — use «Concluir relatório» em cada um (verde) antes de assinar a visita.`,
+      hint: `Falta concluir ${n} relatório${n === 1 ? '' : 's'} — abra os que estão a cinza e use «Concluir relatório» em cada um (ficam verdes).`,
     };
   }
   return {

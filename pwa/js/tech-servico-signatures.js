@@ -93,7 +93,7 @@ export async function openServicoVisitSubmit(servicoId) {
       Recolha/entrega no cliente — <strong>assinaturas opcionais</strong>. Pode assinar ou concluir sem assinaturas.
     </p>`
     : `<p style="margin-bottom:0.75rem;font-size:0.9375rem">
-      As assinaturas aplicam-se a <strong>todos os relatórios</strong> desta visita. Só pode concluir quando cada relatório estiver <strong>concluído</strong> (verde).
+      As assinaturas aplicam-se a <strong>todos os relatórios</strong> desta visita. Só pode concluir quando nenhum estiver a cinza — todos verdes.
     </p>`;
 
   const content = `

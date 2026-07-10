@@ -4924,13 +4924,13 @@ body.tech-dashboard-page .form-overlay .signature-canvas-wrap, body.tech-dashboa
   flex-shrink: 0;
 }
 .tech-servico-reports-legend__item--incomplete::before {
-  background: var(--ws-draft, #f59e0b);
+  background: var(--ws-draft, #6b7280);
 }
 .tech-servico-reports-legend__item--ready::before {
-  background: var(--ws-approved, #10b981);
+  background: var(--ws-approved, #2f7a52);
 }
 .tech-servico-reports-legend__item--pending::before {
-  background: var(--ws-pending, #eab308);
+  background: var(--ws-pending, #c9922a);
 }
 .tech-servico-type-pick-intro {
   margin: 0 0 0.85rem;
@@ -4995,12 +4995,12 @@ body.tech-dashboard-page .form-overlay .signature-canvas-wrap, body.tech-dashboa
   background: var(--surface-raised, rgba(255, 255, 255, 0.04));
 }
 .tech-servico-report-row--incomplete {
-  border-left-color: var(--ws-draft, #f59e0b);
-  background: var(--ws-draft-bg, rgba(245, 158, 11, 0.08));
+  border-left-color: var(--ws-draft, #6b7280);
+  background: var(--ws-draft-bg, color-mix(in srgb, #6b7280 12%, transparent));
 }
 .tech-servico-report-row--ready {
-  border-left-color: var(--ws-approved, #10b981);
-  background: var(--ws-approved-bg, rgba(16, 185, 129, 0.08));
+  border-left-color: var(--ws-approved, #2f7a52);
+  background: var(--ws-approved-bg, color-mix(in srgb, #2f7a52 10%, transparent));
 }
 .tech-servico-report-row--pending {
   border-left-color: var(--ws-pending, #eab308);
@@ -5027,14 +5027,14 @@ body.tech-dashboard-page .form-overlay .signature-canvas-wrap, body.tech-dashboa
   line-height: 1.25;
 }
 .tech-servico-report-status--incomplete {
-  color: var(--ws-draft-text, #92400e);
-  background: color-mix(in srgb, var(--ws-draft, #f59e0b) 18%, #fff);
-  border: 1px solid color-mix(in srgb, var(--ws-draft, #f59e0b) 35%, transparent);
+  color: var(--ws-draft-text, #4a545e);
+  background: color-mix(in srgb, var(--ws-draft, #6b7280) 14%, #fff);
+  border: 1px solid color-mix(in srgb, var(--ws-draft, #6b7280) 30%, transparent);
 }
 .tech-servico-report-status--ready {
-  color: var(--ws-approved-text, #065f46);
-  background: color-mix(in srgb, var(--ws-approved, #10b981) 16%, #fff);
-  border: 1px solid color-mix(in srgb, var(--ws-approved, #10b981) 35%, transparent);
+  color: var(--ws-approved-text, #1f5c36);
+  background: color-mix(in srgb, var(--ws-approved, #2f7a52) 14%, #fff);
+  border: 1px solid color-mix(in srgb, var(--ws-approved, #2f7a52) 30%, transparent);
 }
 .tech-servico-report-status--pending {
   color: var(--ws-pending-text, #854d0e);
