@@ -6,7 +6,6 @@ import {
   getClient,
   getDB,
   getServiceType,
-  getTechnician,
   getJob,
   escapeHtml,
   formatDateLong,
@@ -19,6 +18,10 @@ import { openClientProfilePanel } from './client-profile-drawer.js';
 import { isTestClient, TEST_JOB_ORDEM_LABEL } from '../client-test-utils.js';
 import { dedupeReportsForDisplay } from '../relatorios-db.js';
 import { sameEntityId } from '../entity-id.js';
+import {
+  resolveJobContextForReport,
+  resolveReportTechnicianLabel,
+} from '../servicos-panel-utils.js';
 
 /** Tipos de relatório técnico de bateria (MS. 061) */
 export const BATTERY_REPORT_SERVICE_TYPES = new Set([
@@ -143,15 +146,15 @@ export function getLastClientIntervention(clientId) {
 }
 
 function enrichReportRow(report, clientMeta) {
-  const job = report.jobId ? getJob(report.jobId) : null;
+  const job = resolveJobContextForReport(report);
   const service = getServiceType(report.serviceType);
-  const tech = getTechnician(report.technicianId);
+  const technicianLabel = resolveReportTechnicianLabel(report, job);
   const dateRaw = report.submittedAt || job?.date || '';
   const dateStr = dateRaw ? formatDateLong(String(dateRaw).split('T')[0]) : '—';
   const ordem = formatOrdemDisplay(job?.numeroOrdem, clientMeta.legacy);
   const machine = report.forkliftSerial || job?.forkliftSerial || '—';
   const serviceLabel = service?.label || report.serviceType || '—';
-  const searchBlob = [clientMeta.nome, ordem, machine, serviceLabel, tech?.name || '']
+  const searchBlob = [clientMeta.nome, ordem, machine, serviceLabel, technicianLabel]
     .join(' ')
     .toLowerCase();
 
@@ -159,7 +162,7 @@ function enrichReportRow(report, clientMeta) {
     report,
     job,
     service,
-    tech,
+    tech: { name: technicianLabel },
     dateStr,
     dateRaw,
     ordem,

@@ -44,6 +44,7 @@ import {
   getAdminCalendarItems,
   getCalendarItemReport,
   getCalendarItemSubtitle,
+  resolveJobContextForReport,
   servicoToCalendarItem,
 } from './servicos-panel-utils.js';
 import { openTechServicoDetail } from './tech-servico-panel.js';
@@ -270,11 +271,7 @@ function sortJobsByDateTime(a, b) {
 function reportAssignedToTechnician(report, techId) {
   if (!report || !techId) return false;
   const tech = getTechnician(techId);
-  let job = report.jobId ? getJob(report.jobId) : null;
-  if (!job && report.servicoId) {
-    const servico = getServico(report.servicoId);
-    if (servico) job = servicoToCalendarItem(servico);
-  }
+  const job = resolveJobContextForReport(report);
   return reportMatchesTechnicianTeam(report, job, {
     techId,
     techName: tech?.name,
@@ -466,8 +463,10 @@ async function loadTechTabData() {
   if (techJobsTab === 'realizados') {
     const { ensureReportsLoaded } = await import('./relatorios-db.js');
     const { ensureJobsLoaded } = await import('./trabalhos-db.js');
+    const { ensureServicosLoadedSafe } = await import('./servicos-db.js');
     await ensureReportsLoaded();
     await ensureJobsLoaded();
+    await ensureServicosLoadedSafe();
   } else if (techJobsTab === 'agendados') {
     const { ensureReportsLoaded } = await import('./relatorios-db.js');
     await ensureReportsLoaded();
@@ -609,9 +608,7 @@ function getRealizadosItems(techId) {
   )
     .map((report) => ({
       report,
-      job:
-        (report.jobId ? getJob(report.jobId) : null) ||
-        (report.servicoId ? servicoToCalendarItem(getServico(report.servicoId)) : null),
+      job: resolveJobContextForReport(report),
     }))
     .sort((a, b) => {
       const dateA = a.job?.date || a.report.approvedAt || a.report.submittedAt || '';

@@ -4,18 +4,13 @@
  */
 
 import { getReportsSnapshot, dedupeReportsForDisplay } from './relatorios-db.js';
-import { getJobsSnapshot } from './trabalhos-db.js';
 import { reportMatchesTechnicianTeam } from './job-technician-utils.js';
+import { resolveJobContextForReport } from './servicos-panel-utils.js';
 
 function getApprovedReports() {
   return dedupeReportsForDisplay(
     getReportsSnapshot().filter((r) => r.status === 'approved'),
   );
-}
-
-function findJob(jobId) {
-  if (!jobId) return null;
-  return getJobsSnapshot().find((j) => j.id === jobId) || null;
 }
 
 /** Data de referência YYYY-MM-DD: dia do trabalho ou, na falta, aprovação/submissão. */
@@ -38,7 +33,7 @@ function currentMonthKey() {
 export function getConcluidosForTechnician(tech) {
   const match = { techId: tech?.id, techName: tech?.name };
   return getApprovedReports()
-    .map((report) => ({ report, job: findJob(report.jobId) }))
+    .map((report) => ({ report, job: resolveJobContextForReport(report) }))
     .filter(({ report, job }) => reportMatchesTechnicianTeam(report, job, match))
     .map(({ report, job }) => ({ report, job, date: getConcluidoDate(report, job) }))
     .sort((a, b) => b.date.localeCompare(a.date));

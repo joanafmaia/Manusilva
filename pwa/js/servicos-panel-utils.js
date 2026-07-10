@@ -2,7 +2,7 @@
  * Utilitários do calendário RH — serviços como visitas multi-relatório.
  */
 
-import { getAllJobs, getJob, getServiceType, jobAssignedToTechnician } from './entity-lookups.js';
+import { getAllJobs, getJob, getServiceType, getJobTechnicianLabel, getTechnician, jobAssignedToTechnician } from './entity-lookups.js';
 import { sameEntityId } from './entity-id.js';
 import { filterOutLocallyDeletedReports } from './report-deleted-local.js';
 import { getReportsSnapshot, getCanonicalReportForJob } from './relatorios-db.js';
@@ -213,7 +213,47 @@ export function servicoToCalendarItem(servico) {
     rejectionNote: servico.rejectionNote,
     numeroOrdem: servico.numeroOrdem,
     isServico: true,
+    servicoId: servico.id,
   };
+}
+
+/**
+ * Contexto de trabalho/visita para filtros e etiquetas — prioriza a equipa do serviço
+ * («Hugo, Filipe») quando o trabalho só guardou o submissor.
+ */
+export function resolveJobContextForReport(report) {
+  if (!report) return null;
+
+  const job = report.jobId ? getJob(report.jobId) : null;
+  const servicoId = resolveServicoIdForReport(report);
+  const servico = servicoId ? getServico(servicoId) : null;
+
+  if (servico) {
+    const fromServico = servicoToCalendarItem(servico);
+    if (!job) return fromServico;
+    return {
+      ...fromServico,
+      ...job,
+      id: job.id,
+      date: servico.date || job.date,
+      numeroOrdem: job.numeroOrdem ?? servico.numeroOrdem,
+      technicianId: servico.technicianIds || job.technicianId,
+      servicoId: servico.id,
+      isServico: true,
+    };
+  }
+
+  return job;
+}
+
+/** Nome(s) dos técnicos no relatório — equipa da visita quando existir. */
+export function resolveReportTechnicianLabel(report, job = null) {
+  const ctx = job || resolveJobContextForReport(report);
+  if (ctx?.technicianId) {
+    const label = getJobTechnicianLabel(ctx.technicianId);
+    if (label && label !== '—') return label;
+  }
+  return getTechnician(report?.technicianId)?.name || '—';
 }
 
 function mapServicoStatusForCalendar(servico) {

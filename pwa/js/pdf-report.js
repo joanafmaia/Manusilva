@@ -91,7 +91,8 @@ import {
   resolveInspecaoDl50MachineFields,
 } from './inspecao-dl50-categories.js';
 import { resolvePdfFotoSources } from './job-fotos.js';
-import { getTechnician, getServiceType, getJob } from './entity-lookups.js';
+import { getServiceType, getJob } from './entity-lookups.js';
+import { resolveReportTechnicianLabel } from './servicos-panel-utils.js';
 import { loadJsPDF, loadJsPdfAutoTable } from './pdf-jspdf-loader.js';
 export { loadJsPDF } from './pdf-jspdf-loader.js';
 import {
@@ -231,9 +232,10 @@ export async function renderInterventionPDF(report) {
   const reportForPdf = withServicoSignaturesForPdf(report);
 
   const service = getServiceType(reportForPdf.serviceType);
-  const tech = getTechnician(reportForPdf.technicianId);
   const job = reportForPdf.jobId ? getJob(reportForPdf.jobId) : null;
   const data = reportForPdf.data || {};
+  const techName = resolveReportTechnicianLabel(reportForPdf, job);
+  const tech = { name: techName };
 
   const title = sanitizePdfTitle(
     PDF_DOCUMENT_TITLES[reportForPdf.serviceType] ||
@@ -252,7 +254,6 @@ export async function renderInterventionPDF(report) {
   const isMovimentoMaterialClientePdf =
     reportForPdf.serviceType === SERVICE_IDS.MOVIMENTO_MATERIAL_CLIENTE;
   const { fotoAntesUrl, fotoDepoisUrl } = resolvePdfFotoSources(job, data);
-  const techName = tech?.name || '—';
 
   const pdfContext = buildPdfRenderContext(report, job, clientMeta, tech);
   let pdfService = service;

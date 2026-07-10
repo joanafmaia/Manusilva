@@ -5,7 +5,6 @@
 import {
   getReport,
   getClient,
-  getTechnician,
   getServiceType,
   getJob,
   escapeHtml,
@@ -29,6 +28,7 @@ import {
   isEmpilhadoresMultiMaquinaReport,
 } from './views/relatorio-empilhadores-maquinas.js';
 import { ensureJobsLoaded } from './trabalhos-db.js';
+import { resolveReportTechnicianLabel } from './servicos-panel-utils.js';
 
 /**
  * @param {string} reportId
@@ -50,12 +50,12 @@ export async function openReportReviewModal(reportId, options = {}) {
   }
 
   const client = getClient(report.clientId);
-  const tech = getTechnician(report.technicianId);
   const service = getServiceType(report.serviceType);
   const data = report.data || {};
   const values = data.values || { ...data.textFields, ...data.dropdowns };
   const fieldsHTML = renderReportValuesForReview(service, values);
   const job = report.jobId ? getJob(report.jobId) : null;
+  const technicianLabel = resolveReportTechnicianLabel(report, job);
 
   const statusLabel =
     report.status === 'approved'
@@ -76,7 +76,7 @@ export async function openReportReviewModal(reportId, options = {}) {
       <div class="review-header-info">
         <p><strong>Estado:</strong> ${escapeHtml(statusLabel)}</p>
         <p><strong>Cliente:</strong> ${escapeHtml(client?.name || client?.Nome || '—')}</p>
-        <p><strong>Técnico:</strong> ${escapeHtml(tech?.name || '—')}</p>
+        <p><strong>Técnico:</strong> ${escapeHtml(technicianLabel || '—')}</p>
         ${contactField}
       </div>
       <h4 class="review-section-title">Dados do Relatório</h4>${fieldsHTML}

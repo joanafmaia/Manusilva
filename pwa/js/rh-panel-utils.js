@@ -5,6 +5,8 @@
 import { getJob, getClient, getTechnician, getPendingReports } from './app.js';
 import { getReportsSnapshot } from './relatorios-db.js';
 import { formatOrdemLabel } from './report-review-ui.js';
+import { reportMatchesTechnicianTeam } from './job-technician-utils.js';
+import { resolveJobContextForReport, resolveReportTechnicianLabel } from './servicos-panel-utils.js';
 
 const RH_FILTER_STORAGE_KEY = 'manusilva.rhReviewFilters';
 
@@ -67,18 +69,21 @@ export function filterRhReports(reports, { techId, search }) {
   let list = [...reports];
 
   if (techId && techId !== 'all') {
-    list = list.filter((r) => String(r.technicianId) === String(techId));
+    const tech = getTechnician(techId);
+    const match = { techId, techName: tech?.name };
+    list = list.filter((report) =>
+      reportMatchesTechnicianTeam(report, resolveJobContextForReport(report), match),
+    );
   }
 
   const q = String(search || '').trim().toLowerCase();
   if (!q) return list;
 
   return list.filter((report) => {
-    const job = report.jobId ? getJob(report.jobId) : null;
+    const job = resolveJobContextForReport(report);
     const client = getClient(report.clientId);
-    const tech = getTechnician(report.technicianId);
+    const techName = resolveReportTechnicianLabel(report, job).toLowerCase();
     const clientName = String(client?.name || client?.Nome || '').toLowerCase();
-    const techName = String(tech?.name || '').toLowerCase();
     const ordem = String(formatOrdemLabel(job) || '').toLowerCase();
     const ordemNum = job?.numeroOrdem != null ? String(job.numeroOrdem) : '';
     return (

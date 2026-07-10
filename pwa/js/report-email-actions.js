@@ -15,6 +15,7 @@ import {
   getServiceType,
   getTechnician,
 } from './entity-lookups.js';
+import { resolveReportTechnicianLabel } from './servicos-panel-utils.js';
 import { syncClientEmailIfChanged } from './clients-admin.js';
 import { sendOfficialReportEmail } from './report-email-api.js';
 import {
@@ -161,7 +162,7 @@ export async function resendApprovedReportEmail(reportId, options = {}) {
       ...buildReportEmailMeta(report, {
         client,
         job,
-        technicianName: getTechnician(report.technicianId)?.name || '',
+        technicianName: resolveReportTechnicianLabel(report, job),
       }),
       to: recipients,
       ...emailPdfPayload,
@@ -276,7 +277,7 @@ export async function sendSelectedReportsEmail(reportIds, options = {}) {
   }
 
   const emailPdfPayload = buildReportEmailPdfPayload(pdfEntries);
-  const tech = getTechnician(reports[0]?.technicianId);
+  const firstJob = reports[0]?.jobId ? getJob(reports[0].jobId) : null;
 
   showToast(
     `A enviar ${reports.length} relatório${reports.length === 1 ? '' : 's'} (${pdfEntries.length} PDF${pdfEntries.length === 1 ? '' : 's'}) para ${recipientsLabel}...`,
@@ -288,8 +289,8 @@ export async function sendSelectedReportsEmail(reportIds, options = {}) {
     await sendOfficialReportEmail({
       ...buildReportEmailMeta(reports[0], {
         client,
-        job: reports[0].jobId ? getJob(reports[0].jobId) : null,
-        technicianName: tech?.name || '',
+        job: firstJob,
+        technicianName: resolveReportTechnicianLabel(reports[0], firstJob),
         multiReport: reports.length > 1,
         multiPdf: pdfEntries.length > 1,
       }),

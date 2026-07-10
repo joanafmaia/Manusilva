@@ -42,7 +42,8 @@ import {
 import { reportHasPedidoOrcamento, reportOrcamentoPorPreparar } from './pedido-orcamento.js';
 import { deleteStandaloneOrcamentoReport, reportIsStandaloneOrcamento } from './orcamento-standalone.js';
 import { getServicoActiveReports, resolveServicoIdForVisitEmail, shouldDeferServicoVisitEmail } from './servicos-email-workflow.js';
-import { resolveServicoIdForReport } from './servicos-panel-utils.js';
+import { resolveServicoIdForReport, resolveReportTechnicianLabel } from './servicos-panel-utils.js';
+import { ensureServicosLoadedSafe } from './servicos-db.js';
 
 /**
  * @param {object} report
@@ -295,6 +296,9 @@ export async function approveReport(reportId, options = {}) {
     let reportForPdf = report;
 
     if (!job) {
+      if (report.servicoId || resolveServicoIdForReport(report)) {
+        await ensureServicosLoadedSafe();
+      }
       job = await insertTrabalhoFromReport(report);
       if (!job?.id) {
         showToast('Não foi possível criar o trabalho para o relatório.', 'error');
@@ -455,7 +459,7 @@ export async function approveReport(reportId, options = {}) {
         ...buildReportEmailMeta(report, {
           client,
           job,
-          technicianName: getTechnician(report.technicianId)?.name || '',
+          technicianName: resolveReportTechnicianLabel(report, job),
         }),
         to: recipients,
         ...emailPdfPayload,

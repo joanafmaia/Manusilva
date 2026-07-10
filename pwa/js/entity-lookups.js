@@ -79,6 +79,9 @@ export function getTechnician(id) {
 export function parseTechnicianNamesFromJob(technicianId) {
   if (!technicianId) return [];
   const stored = String(technicianId);
+  if (stored.includes(',')) {
+    return splitTechnicianStoredValue(stored);
+  }
   const byId = getTechnician(stored);
   if (byId?.name) return [byId.name];
   return splitTechnicianStoredValue(stored);
