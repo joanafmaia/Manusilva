@@ -44,6 +44,7 @@ import {
 } from './pdf-closing-estimates.js';
 import { drawInterventionFotografiasSection } from './pdf-intervention-fotos.js';
 import { drawSignaturesFooter } from './pdf-signatures-footer.js';
+import { drawFolhaIntervencaoOrcamentoBlock } from './pdf-folha-avarias.js';
 import { drawPdfGridTable } from './pdf-grid-table.js';
 import {
   getMaterialTablePdfLabel,
@@ -284,7 +285,9 @@ export async function drawRavBateriaClosingSection(doc, y, opts) {
   const values = opts.values || {};
   const profile = RAV_CLOSING_PROFILE;
   const hasFotos = Boolean(opts.fotoAntesUrl || opts.fotoDepoisUrl);
+  const pedidoSim = String(values.pedido_orcamento || '').toLowerCase() === 'sim';
 
+  y = await drawFolhaIntervencaoOrcamentoBlock(doc, y, values);
   y = await drawRavEstadoFinalBlock(doc, y, values);
 
   if (hasFotos) {
@@ -295,7 +298,7 @@ export async function drawRavBateriaClosingSection(doc, y, opts) {
       estimatePdfInterventionFotosOverhead(bottomGap) + maxImgH + estimateSignaturesHeight(profile);
 
     if (y + tailH > pdfContentBottomY()) {
-      y = ensureBlockFitsSafeZone(doc, y, tailH);
+      y = ensureBlockFitsSafeZone(doc, y, tailH + (pedidoSim ? 8 : 0));
       available = pdfContentBottomY() - y;
       maxImgH = resolveAdaptiveClosingPhotoHeight(available, profile, bottomGap);
       tailH =
