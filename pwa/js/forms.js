@@ -750,7 +750,7 @@ async function buildFormHTML(job, client, tech, service, existingReport, options
         ? `<section class="form-section form-section--final form-section-card">
       <div class="servico-visit-signatures-hint" role="status">
         <strong>Assinaturas no fim da visita</strong>
-        <p class="text-muted" style="margin:0.35rem 0 0">Guarde este relatório e use <strong>Concluir visita</strong> no ecrã da visita para assinar e enviar tudo ao RH.</p>
+        <p class="text-muted" style="margin:0.35rem 0 0">Conclua cada relatório aqui e use <strong>Assinar e concluir visita</strong> no ecrã da visita. As assinaturas guardam-se automaticamente enquanto desenha.</p>
       </div>
     </section>`
         : `<section class="form-section form-section--final form-section-card">

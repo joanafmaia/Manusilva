@@ -112,6 +112,9 @@ export async function openServicoVisitSubmit(servicoId) {
         'client',
       )}
     </div>
+    <p class="signature-auto-save-hint" role="status">
+      As assinaturas guardam-se automaticamente enquanto desenha — pode bloquear o ecrã ou voltar mais tarde. Use <strong>Concluir visita</strong> para enviar.
+    </p>
   `;
 
   const actions = `

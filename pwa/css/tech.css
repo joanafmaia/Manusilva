@@ -4856,6 +4856,16 @@ body.tech-dashboard-page .form-overlay .signature-canvas-wrap, body.tech-dashboa
 .signature-block.has-signature .signature-placeholder {
   opacity: 0;
 }
+.signature-auto-save-hint {
+  margin: 0.75rem 0 0;
+  padding: 0.55rem 0.7rem;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+  background: color-mix(in srgb, var(--ms-primary, #2563eb) 6%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ms-primary, #2563eb) 14%, transparent);
+  border-radius: 0.45rem;
+}
 /* Modal de assinaturas da visita — sem blur (melhor resposta no tablet) */
 .modal-overlay--signatures {
   backdrop-filter: none;
