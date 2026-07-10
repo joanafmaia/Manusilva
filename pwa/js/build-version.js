@@ -1,2 +1,2 @@
 /** Gerado automaticamente no deploy — não editar */
-export const APP_BUILD_ID = "b905c2a";
+export const APP_BUILD_ID = "ca15ad2";

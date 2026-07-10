@@ -594,45 +594,6 @@ function renderFotoPreviewHtml(url, label) {
   return `<img src="${escapeHtml(url)}" alt="${escapeHtml(label)}" class="foto-antes-depois-img" loading="lazy">`;
 }
 
-function renderInterventionFotografiasPreviewHtml(antesState, depoisState) {
-  const antesUrl = fotoDisplayUrl(antesState);
-  const depoisUrl = fotoDisplayUrl(depoisState);
-  if (!antesUrl && !depoisUrl) return '';
-
-  const renderSlot = (url, label) => {
-    if (!url) {
-      return '<div class="intervention-foto-slot intervention-foto-slot--empty" aria-hidden="true"></div>';
-    }
-    return `
-    <figure class="intervention-foto-card">
-      <img src="${escapeHtml(url)}" alt="${escapeHtml(label)}" class="intervention-foto-img" loading="lazy">
-      <figcaption class="intervention-foto-caption">${escapeHtml(label)}</figcaption>
-    </figure>`;
-  };
-
-  return `
-    <div class="intervention-fotografias-bar">
-      <span class="intervention-fotografias-bar-title">Fotografias da Intervenção</span>
-    </div>
-    <div class="intervention-fotografias-grid">
-      ${renderSlot(antesUrl, 'Foto Antes')}
-      ${renderSlot(depoisUrl, 'Foto Depois')}
-    </div>`;
-}
-
-function refreshInterventionFotografiasPreview(overlay) {
-  const section = overlay.querySelector('.intervention-fotografias-section');
-  if (!section) return;
-  const preview = renderInterventionFotografiasPreviewHtml(fotoAntesState, fotoDepoisState);
-  if (!preview) {
-    section.hidden = true;
-    section.innerHTML = '';
-    return;
-  }
-  section.hidden = false;
-  section.innerHTML = preview;
-}
-
 async function buildFormHTML(job, client, tech, service, existingReport, options = {}) {
   await preloadFormFieldModules(service);
   const viewOnly = options.viewOnly === true;
@@ -770,14 +731,10 @@ async function buildFormHTML(job, client, tech, service, existingReport, options
   const isRavBateriaForm = isBatteryService(service);
   const isFolhaAvariasForm = service?.id === 'folha_intervencao_avarias';
   const isEmpilhadoresForm = service?.id === 'manutencao_preventiva_empilhadores';
-  const interventionFotosPreviewHtml = isFolhaAvariasForm
-    ? renderInterventionFotografiasPreviewHtml(fotoAntesState, fotoDepoisState)
-    : '';
   const finalizacaoPanelBody = `
               <section class="form-section report-fields-section">
                 <div class="report-fields">${fieldsFinalizacao}</div>
               </section>
-              ${isFolhaAvariasForm ? `<div class="intervention-fotografias-section"${interventionFotosPreviewHtml ? '' : ' hidden'}>${interventionFotosPreviewHtml}</div>` : ''}
               ${fotoSection}`;
   const finalizacaoShellClass = isDl50Form
     ? 'dl50-closing-shell'
@@ -986,7 +943,6 @@ function updateFotoPreview(overlay, which) {
     preview.innerHTML = renderFotoPreviewHtml(url, which === 'antes' ? 'Antes' : 'Depois');
   }
   if (clearBtn) clearBtn.hidden = !url;
-  refreshInterventionFotografiasPreview(overlay);
 }
 
 function bindFotoInputs(overlay) {
