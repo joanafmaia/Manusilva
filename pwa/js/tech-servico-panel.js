@@ -58,6 +58,25 @@ function formatReportTypeLabel(report, servicoReports) {
   return `${base} (${idx})`;
 }
 
+function servicoReportRowClass(report) {
+  if (!report) return '';
+  if (report.status === 'approved') return 'tech-servico-report-row--approved';
+  if (report.status === 'rejected') return 'tech-servico-report-row--rejected';
+  if (report.status === 'pending_review') return 'tech-servico-report-row--pending';
+  if (report.status === 'draft' && isServicoReportTechnicianComplete(report)) {
+    return 'tech-servico-report-row--ready';
+  }
+  if (report.status === 'draft') return 'tech-servico-report-row--incomplete';
+  return '';
+}
+
+function servicoReportStatusPill(report) {
+  const rowClass = servicoReportRowClass(report);
+  const label = reportStatusLabel(report);
+  if (!rowClass) return escapeHtml(label);
+  return `<span class="tech-servico-report-status ${rowClass.replace('tech-servico-report-row', 'tech-servico-report-status')}">${escapeHtml(label)}</span>`;
+}
+
 function buildReportRow(servico, report, servicoReports) {
   const st = getServiceType(report.serviceType);
   const typeLabel = formatReportTypeLabel(report, servicoReports);
@@ -96,14 +115,14 @@ function buildReportRow(servico, report, servicoReports) {
     : '';
 
   return `
-    <div class="tech-servico-report-row">
+    <div class="tech-servico-report-row ${servicoReportRowClass(report)}">
       <div class="tech-servico-report-row__main">
         <div class="tech-servico-report-row__top">
           <span>${serviceIconHtml(st, 'ms-icon')} ${escapeHtml(typeLabel)}</span>
           ${opHtml}
           ${renderWorkStateBadge(pseudoJob, report)}
         </div>
-        <p class="text-muted" style="margin:0.25rem 0 0;font-size:0.8125rem">${escapeHtml(reportStatusLabel(report))}</p>
+        <p class="tech-servico-report-row__status">${servicoReportStatusPill(report)}</p>
         ${rejection}
       </div>
       <div class="tech-servico-report-row__actions">
@@ -198,6 +217,11 @@ export async function openTechServicoDetail(servicoId) {
       <div><dt>Data</dt><dd>${escapeHtml(formatDateLong(servico.date))}</dd></div>
     </dl>
     <h4 style="margin:0 0 0.5rem;font-size:0.9375rem">Relatórios desta visita</h4>
+    <div class="tech-servico-reports-legend" role="list" aria-label="Legenda de estados">
+      <span class="tech-servico-reports-legend__item tech-servico-reports-legend__item--incomplete">Rascunho</span>
+      <span class="tech-servico-reports-legend__item tech-servico-reports-legend__item--ready">Concluído</span>
+      <span class="tech-servico-reports-legend__item tech-servico-reports-legend__item--pending">À espera RH</span>
+    </div>
     <div class="tech-servico-reports-list">${reportsHtml}</div>
     ${
       concludeUi.show

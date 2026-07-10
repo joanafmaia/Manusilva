@@ -147,7 +147,7 @@ describe('servicos-submit-workflow', () => {
 
     const { canShowServicoVisitConcludeAction } = await import('../js/servicos-submit-workflow.js');
     const ui = canShowServicoVisitConcludeAction('svc-1');
-    assert.equal(ui.show, true);
+    assert.equal(ui.show, false);
     assert.match(ui.hint, /Falta concluir/i);
     assert.equal(ui.state.canSubmit, false);
   });

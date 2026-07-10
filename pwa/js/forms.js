@@ -860,8 +860,8 @@ async function buildFormHTML(job, client, tech, service, existingReport, options
           </div>` : servicoVisitMode ? `
           <p class="form-footer-hint text-muted">${
             isMovimentoMaterialClienteService(service)
-              ? '<strong>Guardar rascunho</strong> — continua mais tarde. <strong>Concluir relatório</strong> — opcional; também pode assinar a visita e o rascunho será concluído automaticamente.'
-              : '<strong>Guardar rascunho</strong> — continua mais tarde. <strong>Concluir relatório</strong> — opcional; ao <strong>Assinar e concluir visita</strong>, os rascunhos são concluídos e enviados.'
+              ? '<strong>Guardar rascunho</strong> — continua mais tarde. <strong>Concluir relatório</strong> — marca como pronto; use <strong>Assinar e concluir visita</strong> no ecrã da visita (assinaturas opcionais).'
+              : '<strong>Guardar rascunho</strong> — continua mais tarde. <strong>Concluir relatório</strong> — marca este tipo como pronto; assine a visita só quando todos estiverem concluídos (verde).'
           }</p>
           <div class="form-panel-footer-row">
             <button type="button" class="btn-secondary btn-touch" id="btn-save-draft">Guardar rascunho</button>
