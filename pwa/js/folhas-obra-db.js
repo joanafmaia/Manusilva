@@ -4,6 +4,11 @@
  */
 
 import { getAuthenticatedSupabaseClient } from './supabase-client.js';
+import {
+  AUDIT_FOLHA_COLUMNS,
+  isMissingAuditColumnError,
+  stripAuditColumns,
+} from './audit-fields.js';
 
 let folhasObraCache = null;
 let folhasObraLoadPromise = null;
@@ -230,12 +235,22 @@ export async function updateFolhaObra(id, updates) {
   }
   const row = mapFolhaObraToRow(merged);
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from('folhas_obra')
     .update(row)
     .eq('id', id)
     .select('*')
     .single();
+
+  if (error && isMissingAuditColumnError(error)) {
+    const { patch: stripped } = stripAuditColumns(row, AUDIT_FOLHA_COLUMNS);
+    ({ data, error } = await supabase
+      .from('folhas_obra')
+      .update(stripped)
+      .eq('id', id)
+      .select('*')
+      .single());
+  }
 
   if (error) throw new Error(formatFolhasObraError(error));
 

@@ -6,6 +6,11 @@
 import { getAuthenticatedSupabaseClient } from './supabase-client.js';
 import { resolveAuditActor } from './audit-actor.js';
 import {
+  AUDIT_MANUAL_COLUMNS,
+  isMissingAuditColumnError,
+  stripAuditColumns,
+} from './audit-fields.js';
+import {
   normalizeInvoiceAmountInput,
   resolveInvoiceBillingFields,
 } from './billing-workflow.js';
@@ -222,20 +227,27 @@ export async function registerManualInvoice({
   if (!descricaoTrim) throw new Error('Indique do que é a fatura (Visita / Relatório).');
 
   const supabase = await getAuthenticatedSupabaseClient();
-  const { data: inserted, error } = await supabase
+  const insertRow = {
+    cliente_id: Number(clienteId),
+    numero_fatura: numero,
+    data_fatura: data,
+    valor_faturado: valor == null ? null : Math.round(valor * 100) / 100,
+    condicao_pagamento: billing.faturaCondicaoPagamento,
+    status_recebimento: billing.statusRecebimento,
+    data_vencimento: billing.dataVencimento,
+    descricao: descricaoTrim || null,
+    registado_por: resolveAuditActor(),
+  };
+
+  let { data: inserted, error } = await supabase
     .from('faturas_manuais')
-    .insert({
-      cliente_id: Number(clienteId),
-      numero_fatura: numero,
-      data_fatura: data,
-      valor_faturado: valor == null ? null : Math.round(valor * 100) / 100,
-      condicao_pagamento: billing.faturaCondicaoPagamento,
-      status_recebimento: billing.statusRecebimento,
-      data_vencimento: billing.dataVencimento,
-      descricao: descricaoTrim || null,
-      registado_por: resolveAuditActor(),
-    })
+    .insert(insertRow)
     .select();
+
+  if (error && isMissingAuditColumnError(error)) {
+    const { patch } = stripAuditColumns(insertRow, AUDIT_MANUAL_COLUMNS);
+    ({ data: inserted, error } = await supabase.from('faturas_manuais').insert(patch).select());
+  }
 
   if (error) {
     console.error('[ManuSilva] registerManualInvoice:', error);

@@ -12,6 +12,12 @@ import { legacyPrazoToCondicao } from './billing-constants.js';
 import { sameEntityId } from './entity-id.js';
 import { reportIsCommercialOrcamento } from './pedido-orcamento.js';
 import { isReportLocallyDeleted, filterOutLocallyDeletedReports } from './report-deleted-local.js';
+import {
+  buildRelatorioAuditDados,
+  isMissingAuditColumnError,
+  readAuditField,
+  stripAuditFromRelatorioRow,
+} from './audit-fields.js';
 
 let reportsCache = null;
 /** Índice lazy jobId → relatório canónico (deduplicado). */
@@ -129,8 +135,8 @@ export function mapRowToReport(row) {
     status: row.estado || 'draft',
     submittedAt: row.submetido_em || '',
     approvedAt: row.aprovado_em || null,
-    approvedBy: row.aprovado_por || null,
-    invoicedBy: row.faturado_por || null,
+    approvedBy: readAuditField(row, 'aprovado_por'),
+    invoicedBy: readAuditField(row, 'faturado_por'),
     pdfFilename: row.nome_pdf || null,
     rejectionNote: row.nota_rejeicao ?? null,
     faturacaoStatus: row.faturacao_status || null,
@@ -163,6 +169,7 @@ export function mapRowToReport(row) {
       orcamento: dados.orcamento && typeof dados.orcamento === 'object' ? dados.orcamento : null,
       orcamentoOrigem: dados.orcamentoOrigem || null,
       technicianCompleted: dados.technicianCompleted === true,
+      audit: dados.audit && typeof dados.audit === 'object' ? dados.audit : undefined,
     },
   };
 }
@@ -181,6 +188,27 @@ function resolveServicoIdForReport(report) {
 
 export function mapReportToRow(report) {
   const data = report.data || {};
+  const dados = buildRelatorioAuditDados(
+    {
+      values: data.values || {},
+      signatures: data.signatures || {},
+      photos: Array.isArray(data.photos) ? data.photos : [],
+      fotoAntesUrl: data.fotoAntesUrl || null,
+      fotoDepoisUrl: data.fotoDepoisUrl || null,
+      visitClienteEmailSentAt: data.visitClienteEmailSentAt || null,
+      urlPdfs: Array.isArray(data.urlPdfs) ? data.urlPdfs : null,
+      pdfFilenames: Array.isArray(data.pdfFilenames) ? data.pdfFilenames : null,
+      urlPdfOrcamento: data.urlPdfOrcamento || null,
+      orcamentoPdfFilename: data.orcamentoPdfFilename || null,
+      urlDocxOrcamento: data.urlDocxOrcamento || null,
+      orcamentoDocxFilename: data.orcamentoDocxFilename || null,
+      orcamento: data.orcamento && typeof data.orcamento === 'object' ? data.orcamento : null,
+      orcamentoOrigem: data.orcamentoOrigem || null,
+      technicianCompleted: data.technicianCompleted === true ? true : null,
+      audit: data.audit && typeof data.audit === 'object' ? data.audit : undefined,
+    },
+    report,
+  );
   return {
     trabalho_id: report.jobId || null,
     servico_id: resolveServicoIdForReport(report),
@@ -206,23 +234,7 @@ export function mapReportToRow(report) {
     status_recebimento: report.statusRecebimento || null,
     data_vencimento: report.dataVencimento || null,
     data_recebimento: report.dataRecebimento || null,
-    dados: {
-      values: data.values || {},
-      signatures: data.signatures || {},
-      photos: Array.isArray(data.photos) ? data.photos : [],
-      fotoAntesUrl: data.fotoAntesUrl || null,
-      fotoDepoisUrl: data.fotoDepoisUrl || null,
-      visitClienteEmailSentAt: data.visitClienteEmailSentAt || null,
-      urlPdfs: Array.isArray(data.urlPdfs) ? data.urlPdfs : null,
-      pdfFilenames: Array.isArray(data.pdfFilenames) ? data.pdfFilenames : null,
-      urlPdfOrcamento: data.urlPdfOrcamento || null,
-      orcamentoPdfFilename: data.orcamentoPdfFilename || null,
-      urlDocxOrcamento: data.urlDocxOrcamento || null,
-      orcamentoDocxFilename: data.orcamentoDocxFilename || null,
-      orcamento: data.orcamento && typeof data.orcamento === 'object' ? data.orcamento : null,
-      orcamentoOrigem: data.orcamentoOrigem || null,
-      technicianCompleted: data.technicianCompleted === true ? true : null,
-    },
+    dados,
   };
 }
 
@@ -572,6 +584,31 @@ async function ensureTrabalhoForReport(report) {
   return { report: { ...report, jobId: job.id }, job };
 }
 
+async function persistRelatorioRow(supabase, { existingId, row, linkedReport }) {
+  let currentRow = row;
+  let data;
+  let error;
+
+  const execute = () => {
+    if (existingId) {
+      return supabase.from('relatorios').update(currentRow).eq('id', existingId).select();
+    }
+    const insertRow =
+      linkedReport.id && isUuid(linkedReport.id)
+        ? { id: linkedReport.id, ...currentRow }
+        : currentRow;
+    return supabase.from('relatorios').insert(insertRow).select();
+  };
+
+  ({ data, error } = await execute());
+  if (error && isMissingAuditColumnError(error)) {
+    currentRow = stripAuditFromRelatorioRow(row);
+    ({ data, error } = await execute());
+  }
+
+  return { data, error };
+}
+
 /** Cria ou atualiza relatório (um por trabalho, identificado por trabalho_id) */
 export async function upsertRelatorio(report) {
   const { report: linkedReport } = await ensureTrabalhoForReport(report);
@@ -580,20 +617,7 @@ export async function upsertRelatorio(report) {
   const row = mapReportToRow(linkedReport);
   const existingId = await findExistingReportId(linkedReport);
 
-  let data;
-  let error;
-
-  if (existingId) {
-    ({ data, error } = await supabase
-      .from('relatorios')
-      .update(row)
-      .eq('id', existingId)
-      .select());
-  } else {
-    const insertRow =
-      linkedReport.id && isUuid(linkedReport.id) ? { id: linkedReport.id, ...row } : row;
-    ({ data, error } = await supabase.from('relatorios').insert(insertRow).select());
-  }
+  let { data, error } = await persistRelatorioRow(supabase, { existingId, row, linkedReport });
 
   if (error) {
     console.error('[ManuSilva] Erro ao gravar relatório:', error);
@@ -603,10 +627,12 @@ export async function upsertRelatorio(report) {
   let inserted = Array.isArray(data) ? data[0] : data;
 
   if (!inserted && existingId) {
-    ({ data, error } = await supabase
-      .from('relatorios')
-      .insert({ id: existingId, ...row })
-      .select());
+    let insertRow = { id: existingId, ...row };
+    ({ data, error } = await supabase.from('relatorios').insert(insertRow).select());
+    if (error && isMissingAuditColumnError(error)) {
+      insertRow = { id: existingId, ...stripAuditFromRelatorioRow(row) };
+      ({ data, error } = await supabase.from('relatorios').insert(insertRow).select());
+    }
     if (error) {
       console.error('[ManuSilva] Erro ao inserir relatório (fallback):', error);
       throw new Error(formatRelatoriosError(error));

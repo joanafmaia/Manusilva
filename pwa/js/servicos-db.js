@@ -4,6 +4,13 @@
  */
 
 import { getAuthenticatedSupabaseClient } from './supabase-client.js';
+import {
+  AUDIT_SERVICO_COLUMNS,
+  isMissingAuditColumnError,
+  mergeAuditIntoDados,
+  readAuditField,
+  stripAuditColumns,
+} from './audit-fields.js';
 
 let servicosCache = null;
 let servicosLoadPromise = null;
@@ -36,8 +43,8 @@ export function mapRowToServico(row) {
     rejectionNote: row.nota_rejeicao ?? null,
     submittedAt: row.submetido_em || '',
     approvedAt: row.aprovado_em || null,
-    approvedBy: row.aprovado_por || null,
-    invoicedBy: row.faturado_por || null,
+    approvedBy: readAuditField(row, 'aprovado_por'),
+    invoicedBy: readAuditField(row, 'faturado_por'),
     clientEmailSentAt: row.email_cliente_enviado_em || dados.visitClienteEmailSentAt || null,
     faturacaoStatus: row.faturacao_status || null,
     numeroFatura: row.numero_fatura || null,
@@ -293,11 +300,30 @@ export async function insertServico(servicoData) {
 
 export async function updateServico(servicoId, patch) {
   const supabase = await getAuthenticatedSupabaseClient();
-  const { data, error } = await supabase
+  let payload = { ...patch, atualizado_em: new Date().toISOString() };
+
+  let { data, error } = await supabase
     .from('servicos')
-    .update({ ...patch, atualizado_em: new Date().toISOString() })
+    .update(payload)
     .eq('id', servicoId)
     .select();
+
+  if (error && isMissingAuditColumnError(error)) {
+    const { patch: stripped, audit } = stripAuditColumns(patch, AUDIT_SERVICO_COLUMNS);
+    if (Object.keys(audit).length) {
+      const current = getServico(servicoId);
+      payload = {
+        ...stripped,
+        dados: mergeAuditIntoDados(current?.data || {}, audit),
+        atualizado_em: new Date().toISOString(),
+      };
+      ({ data, error } = await supabase
+        .from('servicos')
+        .update(payload)
+        .eq('id', servicoId)
+        .select());
+    }
+  }
 
   if (error) {
     console.error('[ManuSilva] Erro ao atualizar serviço:', error);
