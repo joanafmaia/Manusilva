@@ -1060,7 +1060,11 @@ async function renderRhReviewStack() {
       : RH_EMPTY_MESSAGES[rhReviewFilter] || RH_EMPTY_MESSAGES.all;
     stackHtml = `<p class="rh-review-panel-empty">${escapeHtml(emptyMsg)}</p>`;
   } else {
-    const cards = buildRhReviewGroupedStack(reports, { getJobFn: getJob });
+    const { resolveServicoIdForReport } = await import('./servicos-panel-utils.js');
+    const { fetchAvaliacoesByServicoIds } = await import('./avaliacoes-db.js');
+    const servicoIds = reports.map((report) => resolveServicoIdForReport(report)).filter(Boolean);
+    const avaliacoesMap = await fetchAvaliacoesByServicoIds(servicoIds);
+    const cards = buildRhReviewGroupedStack(reports, { getJobFn: getJob, avaliacoesMap });
 
     stackHtml = `<div class="rh-review-stack" role="list">${cards}</div>`;
   }

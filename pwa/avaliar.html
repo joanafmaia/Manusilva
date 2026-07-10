@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="pt">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Avaliar serviço — ManuSilva</title>
+  <style>
+    body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center;
+      font-family:Segoe UI, system-ui, sans-serif; background:#f8fafc; color:#0f172a; padding:24px; }
+    .card { max-width:420px; width:100%; background:#fff; border:1px solid #e2e8f0; border-radius:12px;
+      padding:32px 28px; text-align:center; }
+    h1 { margin:0 0 12px; font-size:22px; }
+    p { margin:0 0 20px; color:#475569; line-height:1.6; }
+    .faces { display:flex; gap:12px; justify-content:center; }
+    .faces a { font-size:36px; text-decoration:none; padding:10px 14px; border-radius:10px;
+      border:2px solid #e2e8f0; }
+    .faces a:hover { border-color:#94a3b8; }
+    .muted { margin-top:20px; font-size:12px; color:#94a3b8; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Como avalia o nosso serviço?</h1>
+    <p id="lead">Escolha uma opção — demora apenas um clique.</p>
+    <div class="faces" id="faces" hidden>
+      <a href="#" data-score="3" title="Satisfeito" aria-label="Satisfeito">😊</a>
+      <a href="#" data-score="2" title="Regular" aria-label="Regular">😐</a>
+      <a href="#" data-score="1" title="Insatisfeito" aria-label="Insatisfeito">😞</a>
+    </div>
+    <p class="muted">ManuSilva — Manutenção de Empilhadores</p>
+  </div>
+  <script>
+    (function () {
+      const params = new URLSearchParams(window.location.search);
+      const token = params.get('token');
+      const lead = document.getElementById('lead');
+      const faces = document.getElementById('faces');
+      if (!token) {
+        lead.textContent = 'Link inválido ou expirado.';
+        return;
+      }
+      faces.hidden = false;
+      faces.querySelectorAll('a[data-score]').forEach((link) => {
+        const score = link.getAttribute('data-score');
+        link.href = '/api/avaliacao?token=' + encodeURIComponent(token) + '&score=' + score;
+      });
+    })();
+  </script>
+</body>
+</html>

@@ -462,6 +462,8 @@ export async function approveReport(reportId, options = {}) {
           technicianName: resolveReportTechnicianLabel(report, job),
         }),
         to: recipients,
+        servicoId: servicoId || null,
+        includeRatingLinks: Boolean(servicoId),
         ...emailPdfPayload,
       }).catch((err) => {
         console.error('[Email] Envio após aprovação falhou:', err);

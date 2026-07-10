@@ -245,7 +245,7 @@ export function buildRhReviewListItem({ job, report, client, tech }) {
 /**
  * Pasta de visita no painel RH — vários relatórios do mesmo serviço.
  */
-export function buildRhVisitaFolder({ servicoId, reports, getJobFn = getJob }) {
+export function buildRhVisitaFolder({ servicoId, reports, getJobFn = getJob, avaliacao = null }) {
   const { title, dateLabel, state, servico } = getServicoReviewMeta(servicoId);
   const statusParts = [];
   if (state.pending) statusParts.push(`${state.pending} pendente${state.pending === 1 ? '' : 's'}`);
@@ -260,6 +260,10 @@ export function buildRhVisitaFolder({ servicoId, reports, getJobFn = getJob }) {
       : state.allApproved
         ? `<span class="rh-visita-folder__email-hint text-muted">Pronto para enviar e-mail ao cliente</span>`
         : '';
+
+  const avaliacaoHint = avaliacao
+    ? `<span class="rh-visita-folder__email-hint" title="Avaliação do cliente">Cliente: ${escapeHtml(avaliacao.emoji)} ${escapeHtml(avaliacao.label)}</span>`
+    : '';
 
   const reviewBtn = state.hasPending
     ? `<button type="button" class="btn-primary btn-sm" data-servico-review="${escapeHtml(servicoId)}">Rever visita</button>`
@@ -291,6 +295,7 @@ export function buildRhVisitaFolder({ servicoId, reports, getJobFn = getJob }) {
         </div>
         <div class="rh-visita-folder__actions">
           ${emailHint}
+          ${avaliacaoHint}
           ${reviewBtn}
         </div>
       </header>
@@ -337,14 +342,19 @@ function buildRhVisitReviewBanner(servicoId, currentReportId) {
 /**
  * Lista RH — pastas de visita (serviço) + cartões soltos (legado / relatório único).
  */
-export function buildRhReviewGroupedStack(reports, { getJobFn = getJob } = {}) {
+export function buildRhReviewGroupedStack(reports, { getJobFn = getJob, avaliacoesMap = null } = {}) {
   return groupReportsForRhStack(reports)
     .map((item) => {
       if (item.kind === 'servico') {
+        const avaliacao =
+          avaliacoesMap && typeof avaliacoesMap.get === 'function'
+            ? avaliacoesMap.get(String(item.servicoId)) || null
+            : null;
         return buildRhVisitaFolder({
           servicoId: item.servicoId,
           reports: item.reports,
           getJobFn,
+          avaliacao,
         });
       }
       const report = item.report;

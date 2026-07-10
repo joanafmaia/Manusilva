@@ -15,7 +15,7 @@ import {
   getServiceType,
   getTechnician,
 } from './entity-lookups.js';
-import { resolveReportTechnicianLabel } from './servicos-panel-utils.js';
+import { resolveReportTechnicianLabel, resolveServicoIdForReport } from './servicos-panel-utils.js';
 import { syncClientEmailIfChanged } from './clients-admin.js';
 import { sendOfficialReportEmail } from './report-email-api.js';
 import {
@@ -165,6 +165,8 @@ export async function resendApprovedReportEmail(reportId, options = {}) {
         technicianName: resolveReportTechnicianLabel(report, job),
       }),
       to: recipients,
+      servicoId: resolveServicoIdForReport(report) || null,
+      skipRatingLink: true,
       ...emailPdfPayload,
     });
     showToast(`E-mail reenviado para ${recipientsLabel}.`, 'success', 6000);
@@ -286,6 +288,7 @@ export async function sendSelectedReportsEmail(reportIds, options = {}) {
   );
 
   try {
+    const servicoId = resolveServicoIdForReport(reports[0]) || null;
     await sendOfficialReportEmail({
       ...buildReportEmailMeta(reports[0], {
         client,
@@ -297,6 +300,8 @@ export async function sendSelectedReportsEmail(reportIds, options = {}) {
       reportId: reports[0].id,
       numeroOrdem: null,
       to: recipients,
+      servicoId,
+      includeRatingLinks: Boolean(servicoId) && !options.skipRatingLink,
       ...emailPdfPayload,
     });
 

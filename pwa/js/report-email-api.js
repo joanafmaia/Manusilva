@@ -45,6 +45,9 @@ export async function sendOfficialReportEmail(meta = {}) {
       pdfFilename: meta.pdfFilename,
       pdfBase64: meta.pdfBase64,
       pdfAttachments: meta.pdfAttachments,
+      servicoId: meta.servicoId || null,
+      includeRatingLinks: meta.includeRatingLinks !== false,
+      skipRatingLink: Boolean(meta.skipRatingLink),
     }),
   });
 

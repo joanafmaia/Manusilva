@@ -1,5 +1,7 @@
 const nodemailer = require('nodemailer');
 const { isRhOrAdminAuthUser } = require('./lib/auth-roles');
+const { createAvaliacaoToken, getAppBaseUrl } = require('./lib/avaliacao-token');
+const { serviceGet, hasServiceRoleKey } = require('./lib/supabase-service');
 const {
   formatInterventionDatePt,
   resolveReportInterventionDatePt,
@@ -85,7 +87,7 @@ async function fetchReportForEmail(reportId, token, tipoRelatorio) {
   const isOrcamento = String(tipoRelatorio || '').toLowerCase() === 'orcamento';
   const estadoFilter = isOrcamento ? '' : '&estado=eq.approved';
   const rows = await supabaseGet(
-    `/rest/v1/relatorios?id=eq.${id}${estadoFilter}&select=id,cliente_id,estado,aprovado_em,submetido_em,dados,trabalho_id`,
+    `/rest/v1/relatorios?id=eq.${id}${estadoFilter}&select=id,cliente_id,estado,aprovado_em,submetido_em,dados,trabalho_id,servico_id`,
     token,
   );
   return Array.isArray(rows) ? rows[0] || null : null;
@@ -343,6 +345,62 @@ function formatOpEmailLabel(numeroOrdem) {
   return `OP-2026-${String(n).padStart(2, '0')}`;
 }
 
+async function fetchExistingAvaliacaoForServico(servicoId) {
+  if (!servicoId || !hasServiceRoleKey()) return null;
+  const id = encodeURIComponent(String(servicoId));
+  const rows = await serviceGet(
+    `/rest/v1/avaliacoes_servico?servico_id=eq.${id}&select=id&limit=1`,
+  );
+  return Array.isArray(rows) && rows.length ? rows[0] : null;
+}
+
+async function resolveServicoIdForEmail(report, payload = {}) {
+  const fromPayload = String(payload.servicoId || '').trim();
+  if (fromPayload) return fromPayload;
+
+  const fromReport = report?.servico_id ? String(report.servico_id).trim() : '';
+  if (fromReport) return fromReport;
+
+  const trabalhoId = report?.trabalho_id ? String(report.trabalho_id).trim() : '';
+  if (!trabalhoId || !hasServiceRoleKey()) return '';
+
+  const rows = await serviceGet(
+    `/rest/v1/servicos?id=eq.${encodeURIComponent(trabalhoId)}&select=id&limit=1`,
+  );
+  return Array.isArray(rows) && rows[0]?.id ? String(rows[0].id) : '';
+}
+
+function buildRatingBlockHtml(ratingToken) {
+  if (!ratingToken) return '';
+
+  const baseUrl = getAppBaseUrl();
+  const faces = [
+    { score: 3, emoji: '😊', label: 'Satisfeito' },
+    { score: 2, emoji: '😐', label: 'Regular' },
+    { score: 1, emoji: '😞', label: 'Insatisfeito' },
+  ];
+
+  const cells = faces
+    .map((face) => {
+      const href = `${baseUrl}/api/avaliacao?token=${encodeURIComponent(ratingToken)}&score=${face.score}`;
+      return `<td style="padding:0 8px;">
+        <a href="${escapeHtml(href)}" title="${escapeHtml(face.label)}" aria-label="${escapeHtml(face.label)}" style="display:inline-block;font-size:34px;line-height:1;text-decoration:none;padding:10px 14px;border-radius:12px;border:2px solid #e2e8f0;background:#ffffff;">
+          ${face.emoji}
+        </a>
+      </td>`;
+    })
+    .join('');
+
+  return `
+                <div style="margin:22px 0 0 0;padding:18px 16px;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;text-align:center;">
+                  <p style="margin:0 0 14px 0;font-size:14px;font-weight:600;color:#0f172a;">Como avalia o nosso serviço?</p>
+                  <table role="presentation" cellspacing="0" cellpadding="0" align="center" style="margin:0 auto;">
+                    <tr>${cells}</tr>
+                  </table>
+                  <p style="margin:10px 0 0 0;font-size:11px;line-height:1.45;color:#94a3b8;">Um clique — demora 2 segundos</p>
+                </div>`;
+}
+
 function buildSubject(payload = {}) {
   const company = payload.clienteNome || payload.nomeEmpresa || payload.clientName || 'Empresa';
   const tipoRelatorio = String(payload.tipoRelatorio || '').toLowerCase();
@@ -393,6 +451,7 @@ function buildHtmlBody(payload = {}, options = {}) {
   const tipoRelatorio = String(payload.tipoRelatorio || '').toLowerCase();
   const op = formatOpEmailLabel(payload.numeroOrdem);
   const opText = op ? `, ordem <strong>${escapeHtml(op)}</strong>` : '';
+  const ratingBlock = options.ratingBlockHtml || '';
 
   const pdfLinks = (() => {
     const fromList = Array.isArray(payload.pdfUrls)
@@ -543,6 +602,7 @@ function buildHtmlBody(payload = {}, options = {}) {
                 </p>
                 ${pdfBlock}
                 ${attachmentNote}
+                ${ratingBlock}
                 <p style="margin:18px 0 0 0;font-size:14px;line-height:1.6;color:#334155;">
                   Com os melhores cumprimentos,<br>
                   <strong>ManuSilva</strong>
@@ -672,6 +732,31 @@ module.exports = async function handler(req, res) {
 
     const attachments = pdfResolved.attachments || [];
 
+    let ratingBlockHtml = '';
+    const skipRatingLink = Boolean(payload.skipRatingLink);
+    const includeRatingLinks =
+      !skipRatingLink &&
+      tipoRelatorio !== 'orcamento' &&
+      payload.includeRatingLinks !== false;
+
+    if (includeRatingLinks) {
+      try {
+        const servicoId = await resolveServicoIdForEmail(report, payload);
+        if (servicoId) {
+          const alreadyRated = await fetchExistingAvaliacaoForServico(servicoId);
+          if (!alreadyRated) {
+            const ratingToken = createAvaliacaoToken({
+              servicoId,
+              clienteId: report.cliente_id,
+            });
+            ratingBlockHtml = buildRatingBlockHtml(ratingToken);
+          }
+        }
+      } catch (ratingErr) {
+        console.warn('[API /enviar-email] Bloco de avaliação omitido:', ratingErr?.message || ratingErr);
+      }
+    }
+
     await transporter.sendMail({
       from: EMAIL_USER,
       to: recipients.join(', '),
@@ -679,6 +764,7 @@ module.exports = async function handler(req, res) {
       html: buildHtmlBody(emailPayload, {
         hasPdfAttachment: attachments.length > 0,
         attachmentCount: attachments.length,
+        ratingBlockHtml,
       }),
       attachments: attachments.length ? attachments : undefined,
     });
