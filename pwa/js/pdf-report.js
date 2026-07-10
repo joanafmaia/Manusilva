@@ -197,8 +197,6 @@ import {
   drawDl50DualMatrixInspectionBlock,
 } from './pdf-inspecao-dl50.js';
 import {
-  drawPreventivaBateriaMirrorHeader,
-  drawFolhaTitleBar,
   drawPreventivaBateriaBody,
   drawPreventivaBateriaClosingSection,
   drawPreventivaBateriaIntervencaoTable,
@@ -298,8 +296,12 @@ export async function renderInterventionPDF(report) {
 
   let y;
   if (isPreventivaBateriaPdf) {
-    y = drawPreventivaBateriaMirrorHeader(doc, clientMeta, techName, report, job, values, job?.numeroOrdem ?? null);
-    y = drawFolhaTitleBar(doc, y, title);
+    y = drawTopRowWithClientBlock(doc, clientMeta, job?.numeroOrdem ?? null);
+    y = drawRavBateriaTitleBar(doc, y, title);
+    y = drawServiceInfoBlock(doc, y, {
+      ...buildRavServiceInfoMeta(report, job, values),
+      technician: techName || values.tecnico || '',
+    });
     y = await drawGenericMachineInfoBlock(doc, y, service, values, pdfContext);
     y = await drawPreventivaBateriaBody(doc, y, values, service);
     y = await drawPreventivaBateriaClosingSection(doc, y, {

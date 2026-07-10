@@ -217,7 +217,7 @@ function ravEstadoFinalColor(estadoText) {
   return TEXT_DARK;
 }
 
-async function drawRavEstadoFinalBlock(doc, y, values) {
+export async function drawRavEstadoFinalBlock(doc, y, values) {
   const observacao = pdfDisplayValue(values.observacao);
   const estado = pdfDisplayValue(values.estado_final);
   const textW = CONTENT_W - 8;
