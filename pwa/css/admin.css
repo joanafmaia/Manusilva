@@ -1741,6 +1741,100 @@
 .avaliacao-score--good {
   border-color: color-mix(in srgb, #16a34a 30%, var(--border-subtle));
 }
+.avaliacoes-audit-section {
+  margin-top: 1rem;
+  padding: 1.15rem 1.25rem;
+}
+.avaliacoes-audit-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+.avaliacoes-audit-title {
+  margin: 0;
+  font-size: 1rem;
+}
+.avaliacoes-audit-lead {
+  margin: 0.25rem 0 0;
+  font-size: 0.85rem;
+}
+.avaliacoes-audit-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.65rem;
+}
+.avaliacoes-year-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.78rem;
+}
+.avaliacoes-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1.15rem;
+}
+.avaliacoes-kpi {
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: var(--surface-elevated, #fff);
+}
+.avaliacoes-kpi__label {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--text-muted, var(--ms-text-muted));
+}
+.avaliacoes-kpi__value {
+  margin: 0.2rem 0 0;
+  font-size: 1.35rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+.avaliacoes-kpi__hint {
+  margin: 0.15rem 0 0;
+  font-size: 0.72rem;
+}
+.avaliacoes-charts-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  gap: 1rem;
+}
+.avaliacoes-chart-card {
+  padding: 0.85rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: var(--surface-elevated, #fff);
+}
+.avaliacoes-chart-title {
+  margin: 0 0 0.5rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+.avaliacoes-chart-wrap {
+  position: relative;
+  height: 240px;
+  width: 100%;
+}
+.avaliacoes-chart-wrap--donut {
+  height: 220px;
+}
+.avaliacoes-filter-bar {
+  margin-top: 1.25rem;
+}
+@media (max-width: 900px) {
+  .avaliacoes-kpi-grid {
+    grid-template-columns: 1fr;
+  }
+  .avaliacoes-charts-grid {
+    grid-template-columns: 1fr;
+  }
+}
 /* Estados do calendário — tabela oficial (--ws-*) */ .cal-event--scheduled, .work-state-card--scheduled {
   background: var(--ws-scheduled-bg);
   color: var(--ws-scheduled-text);

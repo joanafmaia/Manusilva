@@ -79,7 +79,7 @@ export function formatAvaliacaoBadge(avaliacao) {
  * @param {{ limit?: number }} [options]
  */
 export async function fetchAllAvaliacoes(options = {}) {
-  const limit = Math.min(Math.max(Number(options.limit) || 300, 1), 1000);
+  const limit = Math.min(Math.max(Number(options.limit) || 2000, 1), 5000);
 
   const { getAuthenticatedSupabaseClient } = await import('./supabase-client.js');
   const supabase = await getAuthenticatedSupabaseClient();
