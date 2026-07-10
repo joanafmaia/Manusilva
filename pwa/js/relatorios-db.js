@@ -13,10 +13,12 @@ import { sameEntityId } from './entity-id.js';
 import { reportIsCommercialOrcamento } from './pedido-orcamento.js';
 import { isReportLocallyDeleted, filterOutLocallyDeletedReports } from './report-deleted-local.js';
 import {
+  AUDIT_RELATORIO_COLUMNS,
   buildRelatorioAuditDados,
   isMissingAuditColumnError,
   readAuditField,
   stripAuditFromRelatorioRow,
+  withOptionalAuditColumns,
 } from './audit-fields.js';
 
 let reportsCache = null;
@@ -209,33 +211,38 @@ export function mapReportToRow(report) {
     },
     report,
   );
-  return {
-    trabalho_id: report.jobId || null,
-    servico_id: resolveServicoIdForReport(report),
-    tecnico_id: report.technicianId,
-    cliente_id: parseClientId(report.clientId),
-    numero_serie: report.forkliftSerial || null,
-    tipo_servico: report.serviceType,
-    estado: report.status || 'draft',
-    submetido_em: report.submittedAt || null,
-    aprovado_em: report.approvedAt || null,
-    aprovado_por: report.approvedBy || null,
-    faturado_por: report.invoicedBy || null,
-    nome_pdf: report.pdfFilename || null,
-    nota_rejeicao: report.rejectionNote ?? null,
-    faturacao_status: report.faturacaoStatus || null,
-    numero_fatura: report.numeroFatura || null,
-    data_fatura: report.dataFatura || null,
-    valor_faturado:
-      report.valorFaturado != null && Number.isFinite(Number(report.valorFaturado))
-        ? Number(report.valorFaturado)
-        : null,
-    condicao_pagamento: report.faturaCondicaoPagamento || null,
-    status_recebimento: report.statusRecebimento || null,
-    data_vencimento: report.dataVencimento || null,
-    data_recebimento: report.dataRecebimento || null,
-    dados,
-  };
+  return withOptionalAuditColumns(
+    {
+      trabalho_id: report.jobId || null,
+      servico_id: resolveServicoIdForReport(report),
+      tecnico_id: report.technicianId,
+      cliente_id: parseClientId(report.clientId),
+      numero_serie: report.forkliftSerial || null,
+      tipo_servico: report.serviceType,
+      estado: report.status || 'draft',
+      submetido_em: report.submittedAt || null,
+      aprovado_em: report.approvedAt || null,
+      nome_pdf: report.pdfFilename || null,
+      nota_rejeicao: report.rejectionNote ?? null,
+      faturacao_status: report.faturacaoStatus || null,
+      numero_fatura: report.numeroFatura || null,
+      data_fatura: report.dataFatura || null,
+      valor_faturado:
+        report.valorFaturado != null && Number.isFinite(Number(report.valorFaturado))
+          ? Number(report.valorFaturado)
+          : null,
+      condicao_pagamento: report.faturaCondicaoPagamento || null,
+      status_recebimento: report.statusRecebimento || null,
+      data_vencimento: report.dataVencimento || null,
+      data_recebimento: report.dataRecebimento || null,
+      dados,
+    },
+    {
+      aprovado_por: report.approvedBy,
+      faturado_por: report.invoicedBy,
+    },
+    AUDIT_RELATORIO_COLUMNS,
+  );
 }
 
 export function formatRelatoriosError(err) {

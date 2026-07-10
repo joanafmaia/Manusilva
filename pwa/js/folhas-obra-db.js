@@ -8,6 +8,7 @@ import {
   AUDIT_FOLHA_COLUMNS,
   isMissingAuditColumnError,
   stripAuditColumns,
+  withOptionalAuditColumns,
 } from './audit-fields.js';
 
 let folhasObraCache = null;
@@ -85,7 +86,7 @@ export function mapRowToFolhaObra(row) {
 export function mapFolhaObraToRow(folha, overrides = {}) {
   const data = { ...folha, ...overrides };
   const clientId = data.clientId != null && data.clientId !== '' ? parseFolhaClientId(data.clientId) : null;
-  return {
+  const base = {
     cliente_id: clientId,
     tecnico_id: data.technicianId || overrides.tecnico_id || '',
     tipo: data.tipo ?? '',
@@ -111,11 +112,17 @@ export function mapFolhaObraToRow(folha, overrides = {}) {
     status_recebimento: data.statusRecebimento ?? overrides.status_recebimento ?? null,
     data_vencimento: data.dataVencimento ? formatDateOnly(data.dataVencimento) : null,
     data_recebimento: data.dataRecebimento ? formatDateOnly(data.dataRecebimento) : null,
-    faturado_por: data.invoicedBy ?? overrides.faturado_por ?? null,
     observacoes: data.observacoes ?? null,
     diagnostico_tecnico: data.diagnosticoTecnico ?? '',
     atualizado_em: new Date().toISOString(),
   };
+
+  return withOptionalAuditColumns(
+    base,
+    { faturado_por: data.invoicedBy ?? overrides.faturado_por },
+    AUDIT_FOLHA_COLUMNS,
+    { dadosKey: null },
+  );
 }
 
 export function formatFolhasObraError(err) {

@@ -5,6 +5,7 @@ import {
   mergeAuditIntoDados,
   readAuditField,
   stripAuditFromRelatorioRow,
+  withOptionalAuditColumns,
 } from '../js/audit-fields.js';
 
 describe('audit-fields', () => {
@@ -39,5 +40,15 @@ describe('audit-fields', () => {
     const dados = mergeAuditIntoDados({ values: { a: 1 } }, { faturado_por: 'RH' });
     assert.equal(dados.audit.faturado_por, 'RH');
     assert.equal(dados.values.a, 1);
+  });
+
+  it('omite colunas de auditoria vazias no payload', () => {
+    const row = withOptionalAuditColumns(
+      { estado: 'scheduled', dados: { values: {} } },
+      { aprovado_por: null, faturado_por: '' },
+      ['aprovado_por', 'faturado_por'],
+    );
+    assert.equal('aprovado_por' in row, false);
+    assert.equal('faturado_por' in row, false);
   });
 });

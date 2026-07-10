@@ -69,3 +69,29 @@ export function stripAuditFromRelatorioRow(row = {}) {
     dados: mergeAuditIntoDados(patch.dados || {}, audit),
   };
 }
+
+/** Só inclui colunas de auditoria no payload quando têm valor (evita erro PGRST204 em INSERT). */
+export function withOptionalAuditColumns(
+  row,
+  auditValues = {},
+  columns = [],
+  options = {},
+) {
+  const dadosKey = options.dadosKey === undefined ? 'dados' : options.dadosKey;
+  const next = { ...row };
+  const auditPatch = {};
+
+  for (const col of columns) {
+    const value = auditValues[col];
+    if (value != null && value !== '') {
+      next[col] = value;
+      auditPatch[col] = value;
+    }
+  }
+
+  if (dadosKey && Object.keys(auditPatch).length && next[dadosKey] && typeof next[dadosKey] === 'object') {
+    next[dadosKey] = mergeAuditIntoDados(next[dadosKey], auditPatch);
+  }
+
+  return next;
+}

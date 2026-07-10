@@ -10,6 +10,7 @@ import {
   mergeAuditIntoDados,
   readAuditField,
   stripAuditColumns,
+  withOptionalAuditColumns,
 } from './audit-fields.js';
 
 let servicosCache = null;
@@ -71,7 +72,7 @@ export function mapServicoToRow(servico, overrides = {}) {
   const { signatures: removedSignatures, values: removedValues, ...restDados } = data;
   void removedSignatures;
   void removedValues;
-  return {
+  const base = {
     cliente_id: servico.clientId != null && servico.clientId !== '' ? Number(servico.clientId) : null,
     data: formatDateOnly(servico.date || overrides.data),
     hora: servico.time || null,
@@ -80,8 +81,6 @@ export function mapServicoToRow(servico, overrides = {}) {
     nota_rejeicao: overrides.nota_rejeicao ?? servico.rejectionNote ?? null,
     submetido_em: servico.submittedAt || overrides.submetido_em || null,
     aprovado_em: servico.approvedAt || overrides.aprovado_em || null,
-    aprovado_por: servico.approvedBy ?? overrides.aprovado_por ?? null,
-    faturado_por: servico.invoicedBy ?? overrides.faturado_por ?? null,
     email_cliente_enviado_em: servico.clientEmailSentAt || overrides.email_cliente_enviado_em || null,
     faturacao_status: servico.faturacaoStatus ?? overrides.faturacao_status ?? null,
     numero_fatura: servico.numeroFatura ?? overrides.numero_fatura ?? null,
@@ -97,6 +96,15 @@ export function mapServicoToRow(servico, overrides = {}) {
       signatures,
     },
   };
+
+  return withOptionalAuditColumns(
+    base,
+    {
+      aprovado_por: servico.approvedBy ?? overrides.aprovado_por,
+      faturado_por: servico.invoicedBy ?? overrides.faturado_por,
+    },
+    AUDIT_SERVICO_COLUMNS,
+  );
 }
 
 export function formatServicosError(err) {
@@ -283,9 +291,18 @@ export function getInvoicedServicos() {
 
 export async function insertServico(servicoData) {
   const supabase = await getAuthenticatedSupabaseClient();
-  const row = mapServicoToRow(servicoData, { estado: 'scheduled' });
+  let row = mapServicoToRow(servicoData, { estado: 'scheduled' });
 
-  const { data, error } = await supabase.from('servicos').insert(row).select();
+  let { data, error } = await supabase.from('servicos').insert(row).select();
+
+  if (error && isMissingAuditColumnError(error)) {
+    const { patch: stripped, audit } = stripAuditColumns(row, AUDIT_SERVICO_COLUMNS);
+    row =
+      Object.keys(audit).length > 0
+        ? { ...stripped, dados: mergeAuditIntoDados(stripped.dados || {}, audit) }
+        : stripped;
+    ({ data, error } = await supabase.from('servicos').insert(row).select());
+  }
 
   if (error) {
     console.error('[ManuSilva] Erro ao criar serviço:', error);
