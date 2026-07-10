@@ -118,6 +118,7 @@ function renderAuditSection(summary) {
             </select>
           </label>
           <button type="button" class="btn-outline btn-sm" id="avaliacoes-export-csv">Exportar CSV</button>
+          <button type="button" class="btn-outline btn-sm" id="avaliacoes-export-pdf">Exportar PDF</button>
         </div>
       </div>
       <div class="avaliacoes-kpi-grid">
@@ -277,6 +278,37 @@ async function updateCharts(summary) {
   }
 }
 
+async function exportAuditPdf(auditRows, auditSummary) {
+  if (!auditRows.length) {
+    showToast('Não há avaliações para exportar neste período.', 'info');
+    return;
+  }
+  const btn = mountRoot?.querySelector('#avaliacoes-export-pdf');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'A gerar PDF…';
+  }
+  try {
+    const { generateAvaliacoesAuditPdfBlob } = await import('../pdf-avaliacoes-audit.js');
+    const { downloadPdfBlob } = await import('../pdf-preview.js');
+    const { blob, filename } = await generateAvaliacoesAuditPdfBlob({
+      summary: auditSummary,
+      rows: auditRows,
+      year: selectedYear,
+    });
+    downloadPdfBlob(blob, filename);
+    showToast('PDF exportado.', 'success', 4000);
+  } catch (err) {
+    console.error('[Avaliações] PDF:', err);
+    showToast(err?.message || 'Não foi possível gerar o PDF.', 'error');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = 'Exportar PDF';
+    }
+  }
+}
+
 function exportAuditCsv(rows) {
   const header = ['Ano', 'Data resposta', 'Cliente', 'Visita', 'Score', 'Avaliação'];
   const lines = [header.join(';')];
@@ -337,6 +369,14 @@ function bindPanelEvents(enriched, auditRows) {
     }
     exportAuditCsv(auditRows);
     showToast('CSV exportado.', 'success', 4000);
+  });
+
+  mountRoot.querySelector('#avaliacoes-export-pdf')?.addEventListener('click', () => {
+    const auditSummary = buildAvaliacoesAuditSummary(
+      enriched,
+      selectedYear === 'all' ? 'all' : selectedYear,
+    );
+    void exportAuditPdf(auditRows, auditSummary);
   });
 }
 
