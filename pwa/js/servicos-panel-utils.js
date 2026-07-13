@@ -111,6 +111,22 @@ export function dropSupersededServicoDrafts(reports = []) {
   });
 }
 
+/** Contexto de trabalho para PDF/e-mail — relatório de visita sem linha em `trabalhos`. */
+export function buildJobContextForServicoReport(servico, report) {
+  if (!servico) return null;
+  return {
+    id: report?.jobId || servico.id,
+    numeroOrdem: servico.numeroOrdem ?? null,
+    servicoId: String(servico.id),
+    clientId: servico.clientId || report?.clientId || '',
+    date: servico.date || '',
+    technicianId: servico.technicianIds || report?.technicianId || '',
+    serviceType: report?.serviceType || '',
+    status: 'completed',
+    urlPdf: null,
+  };
+}
+
 /** Relatórios ligados a um serviço (servico_id ou trabalho legado com o mesmo id). */
 export function getReportsForServico(servicoId) {
   return normalizeServicoVisitReports(collectReportsLinkedToServico(servicoId));

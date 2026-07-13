@@ -43,8 +43,8 @@ import {
 import { reportHasPedidoOrcamento, reportOrcamentoPorPreparar } from './pedido-orcamento.js';
 import { deleteStandaloneOrcamentoReport, reportIsStandaloneOrcamento } from './orcamento-standalone.js';
 import { getServicoActiveReports, resolveServicoIdForVisitEmail, shouldDeferServicoVisitEmail } from './servicos-email-workflow.js';
-import { resolveServicoIdForReport, resolveReportTechnicianLabel } from './servicos-panel-utils.js';
-import { ensureServicosLoadedSafe } from './servicos-db.js';
+import { resolveServicoIdForReport, resolveReportTechnicianLabel, buildJobContextForServicoReport } from './servicos-panel-utils.js';
+import { ensureServicosLoadedSafe, getServico } from './servicos-db.js';
 
 /** Evita aprovações concorrentes do mesmo relatório (duplo clique → 2 OPs / 2 e-mails). */
 const approvalPromises = new Map();
@@ -328,15 +328,25 @@ async function approveReportOnce(reportId, options = {}) {
 
     let reportForPdf = getReport(reportId) || report;
     let job = reportForPdf.jobId ? getJob(reportForPdf.jobId) : null;
+    let createdTrabalhoId = null;
 
-    if (!job) {
-      if (reportForPdf.servicoId || resolveServicoIdForReport(reportForPdf)) {
-        await ensureServicosLoadedSafe();
-      }
+    const linkedServicoId =
+      resolveServicoIdForReport(reportForPdf) || resolveServicoIdForReport(report);
+
+    if (!job && linkedServicoId) {
+      await ensureServicosLoadedSafe();
       const refreshed = getReport(reportId);
       if (refreshed?.jobId) {
         reportForPdf = refreshed;
         job = getJob(refreshed.jobId);
+      }
+    }
+
+    if (!job && linkedServicoId) {
+      const servico = getServico(linkedServicoId);
+      const visitJob = buildJobContextForServicoReport(servico, reportForPdf);
+      if (visitJob?.numeroOrdem != null || testClient) {
+        job = visitJob;
       }
     }
 
@@ -346,13 +356,14 @@ async function approveReportOnce(reportId, options = {}) {
         showToast('Não foi possível criar o trabalho para o relatório.', 'error');
         return null;
       }
+      createdTrabalhoId = job.id;
       reportForPdf = { ...reportForPdf, jobId: job.id };
       await upsertRelatorio(reportForPdf);
     }
 
-    if (job.numeroOrdem == null && !testClient) {
+    if (job.numeroOrdem == null && !testClient && createdTrabalhoId) {
       await ensureJobsLoaded(true);
-      job = getJob(job.id) || job;
+      job = getJob(createdTrabalhoId) || job;
     }
 
     showToast('A gerar folha de intervenção em PDF...', 'info', 2500);
@@ -409,8 +420,8 @@ async function approveReportOnce(reportId, options = {}) {
       await markServicoPendingBillingIfReady(servicoId);
     }
 
-    if (reportForPdf.jobId) {
-      await patchTrabalho(reportForPdf.jobId, {
+    if (createdTrabalhoId) {
+      await patchTrabalho(createdTrabalhoId, {
         status: 'completed',
         rejectionNote: null,
         urlPdf: publicPdfUrl,

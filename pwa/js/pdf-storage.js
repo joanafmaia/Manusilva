@@ -3,6 +3,7 @@
  */
 
 import { getSupabaseClient } from './supabase-client.js';
+import { resolvePdfNumeroOrdem } from './pdf-header-blocks.js';
 
 export const PDF_BUCKET = 'pdfs_trabalhos';
 
@@ -34,7 +35,11 @@ export function buildReportPdfFilename(job, report, options = {}) {
   const tipo = sanitizePdfFilenameSegment(
     options.serviceTitle || options.tipoTrabalhoLabel || report?.serviceType || 'relatorio',
   );
-  const op = formatOpPdfFilenameSuffix(job?.numeroOrdem);
+  const opNum =
+    options.numeroOrdem != null
+      ? options.numeroOrdem
+      : resolvePdfNumeroOrdem(report, job, report?.data?.values);
+  const op = formatOpPdfFilenameSuffix(opNum);
   const machineTag = options.machineTag
     ? sanitizePdfFilenameSegment(options.machineTag)
     : '';

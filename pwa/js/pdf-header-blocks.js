@@ -47,6 +47,18 @@ export function parsePdfNumeroOrdemValue(raw) {
  * @param {object} [values]
  */
 export function resolvePdfNumeroOrdem(report, job, values = null) {
+  const servicoIds = [];
+  if (report?.servicoId) servicoIds.push(String(report.servicoId));
+  if (job?.servicoId) servicoIds.push(String(job.servicoId));
+
+  for (const sid of [...new Set(servicoIds)]) {
+    const servico = getServico(sid);
+    const fromServico = servico?.numeroOrdem;
+    if (fromServico != null && Number.isFinite(Number(fromServico))) {
+      return Number(fromServico);
+    }
+  }
+
   const fromJob = job?.numeroOrdem;
   if (fromJob != null && Number.isFinite(Number(fromJob))) {
     return Number(fromJob);
@@ -55,18 +67,6 @@ export function resolvePdfNumeroOrdem(report, job, values = null) {
   const resolvedValues = values || report?.data?.values || {};
   const fromValues = parsePdfNumeroOrdemValue(resolvedValues.numero_ordem);
   if (fromValues != null) return fromValues;
-
-  const servicoIds = new Set();
-  if (report?.servicoId) servicoIds.add(String(report.servicoId));
-  if (job?.servicoId) servicoIds.add(String(job.servicoId));
-
-  for (const sid of servicoIds) {
-    const servico = getServico(sid);
-    const fromServico = servico?.numeroOrdem;
-    if (fromServico != null && Number.isFinite(Number(fromServico))) {
-      return Number(fromServico);
-    }
-  }
 
   return null;
 }
