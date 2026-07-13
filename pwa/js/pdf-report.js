@@ -149,6 +149,7 @@ import {
 import { formatTableHeaderLabel, buildSmartColumnStyles } from './pdf-table-column-utils.js';
 import { drawSignaturesFooter } from './pdf-signatures-footer.js';
 import { drawPdfGridTable } from './pdf-grid-table.js';
+import { pdfEstadoGridDidParseCell, resolvePdfEstadoTextColor } from './pdf-estado-colors.js';
 import {
   drawFolhaAvariasTitleBar,
   drawFolhaIntervencaoAvariasBody,
@@ -632,7 +633,10 @@ async function drawSectionScalarGrid(doc, y, fields, values, pdfContext) {
   const body = buildTwoColumnGridBody(pairs);
   if (!body.length) return y;
   y = ensureSpace(doc, y, 14);
-  return drawPdfGridTable(doc, y, { body });
+  return drawPdfGridTable(doc, y, {
+    body,
+    didParseCell: mergePdfTableDidParseCell(pdfEstadoGridDidParseCell),
+  });
 }
 
 /** Cabeçalho — coluna esquerda: logo; coluna direita: caixa CLIENTE + Ordem */
@@ -702,7 +706,10 @@ async function drawSectionScalarGridFromPairs(doc, y, pairs) {
   const body = buildTwoColumnGridBody(pairs);
   if (!body.length) return y;
   y = ensureSpace(doc, y, 14);
-  return drawPdfGridTable(doc, y, { body });
+  return drawPdfGridTable(doc, y, {
+    body,
+    didParseCell: mergePdfTableDidParseCell(pdfEstadoGridDidParseCell),
+  });
 }
 
 /** Campo label+valor numa linha (fonte compacta) */
@@ -1876,9 +1883,7 @@ function drawKeyValueLine(doc, y, label, value, fieldType) {
   let rgb = TEXT_DARK;
 
   if (fieldType === 'status_pills') {
-    if (/apta a trabalhar|normal|operacional|reparação concluída|reparacao concluida/i.test(text)) rgb = SUCCESS;
-    else if (/aguardar|baixo|alto|irregular|peças|pecas|elementos novos|necessita/i.test(text)) rgb = [245, 158, 11];
-    else if (/orçamento|orcamento|inoperacional|segurança|seguranca|^inoperacional$/i.test(text)) rgb = DANGER;
+    rgb = resolvePdfEstadoTextColor(text);
     symbolKind = 'bullet';
   } else if (fieldType === 'toggle_component') {
     const damaged = /danificad/i.test(text);
@@ -1907,7 +1912,7 @@ function drawKeyValueLine(doc, y, label, value, fieldType) {
 
   pdfSetFont(doc, 'normal');
   doc.setFontSize(8.5);
-  doc.setTextColor(...TEXT_DARK);
+  doc.setTextColor(...(fieldType === 'status_pills' ? rgb : TEXT_DARK));
   doc.text(valLines, MARGIN + 58, y);
 
   touchPdfContentPage(doc);

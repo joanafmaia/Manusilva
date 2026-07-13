@@ -6,7 +6,6 @@ import { pdfAutoTableFont, pdfSetFont, pdfSplitText } from './pdf-font.js';
 import {
   mergePdfTableDidParseCell,
   PDF_COLOR_CORPORATE_BLUE as CORPORATE_BLUE,
-  PDF_COLOR_SUCCESS as SUCCESS,
   PDF_COLOR_TEXT_DARK as TEXT_DARK,
   PDF_CONTENT_W as CONTENT_W,
   PDF_MARGIN as MARGIN,
@@ -18,6 +17,7 @@ import {
   PDF_TABLE_MIN_CELL_HEIGHT_COMPACT,
   resolvePdfStandardFieldValue,
 } from './pdf-design-system.js';
+import { pdfEstadoValueDidParseCell } from './pdf-estado-colors.js';
 import {
   LABEL_MARCA,
   LABEL_MODELO,
@@ -255,28 +255,15 @@ export async function drawFolhaIntervencaoOrcamentoBlock(doc, y, values) {
   });
 }
 
-function folhaAvariasEstadoColor(estadoText) {
-  const text = String(estadoText || '');
-  if (/apta a trabalhar/i.test(text)) return SUCCESS;
-  if (/aguardar/i.test(text)) return [245, 158, 11];
-  return TEXT_DARK;
-}
-
 async function drawFolhaIntervencaoEstadoBlock(doc, y, values) {
   const estado = pdfDisplayValue(resolvePdfStandardFieldValue(values, { id: 'estado_maquina' }));
-  const estadoRgb = folhaAvariasEstadoColor(estado);
 
   return drawFolhaAvariasDashboardTable(doc, y, 'Estado em que Ficou a Máquina', {
     body: [[estado]],
     columnStyles: {
       0: { cellWidth: CONTENT_W, halign: 'left', fontStyle: 'bold' },
     },
-    didParseCell: (data) => {
-      if (data.section === 'body' && data.column.index === 0) {
-        data.cell.styles.textColor = estadoRgb;
-        data.cell.styles.fontStyle = 'bold';
-      }
-    },
+    didParseCell: mergePdfTableDidParseCell(pdfEstadoValueDidParseCell),
   });
 }
 

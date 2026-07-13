@@ -333,23 +333,12 @@ function handleAdminDbUpdated() {
   }
 }
 
-/** Iguala a altura do painel de relatórios à do calendário (scroll interno isolado). */
+/** Painel de relatórios em ecrã inteiro — altura definida por CSS, não pelo calendário. */
 function syncReviewPanelHeight() {
-  const cal = document.querySelector('.admin-split-calendar');
   const panel = document.querySelector('.admin-review-panel');
-  if (!cal || !panel) return;
-
-  if (isAdminMobileLayout()) {
-    panel.style.removeProperty('height');
-    panel.style.removeProperty('max-height');
-    return;
-  }
-
-  const h = cal.offsetHeight;
-  if (h > 0) {
-    panel.style.height = `${h}px`;
-    panel.style.maxHeight = `${h}px`;
-  }
+  if (!panel) return;
+  panel.style.removeProperty('height');
+  panel.style.removeProperty('max-height');
 }
 
 function bindReviewPanelHeightSync() {

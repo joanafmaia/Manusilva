@@ -41,6 +41,10 @@ import { drawPdfGridTable } from './pdf-grid-table.js';
 import { isMaterialTableField, normalizeMaterialRows } from './material-table-field.js';
 import { getColumnKeys } from './views/relatorio-grandes.js';
 import { LABEL_HORAS, labelWithValue } from './field-labels.js';
+import {
+  pdfEstadoGridDidParseCell,
+  resolvePdfEstadoTextColor,
+} from './pdf-estado-colors.js';
 
 const GRANDES_SECTION_GAP_MM = 2.1;
 const GRANDES_SECTION_BAR_H_MM = 5;
@@ -355,6 +359,10 @@ async function drawGrandesResumoRow(doc, y, values) {
     },
     gapAfter: GRANDES_SECTION_GAP_MM,
     ...pack,
+    didParseCell: mergePdfTableDidParseCell((data) => {
+      pack.didParseCell?.(data);
+      pdfEstadoGridDidParseCell(data);
+    }),
   });
 }
 

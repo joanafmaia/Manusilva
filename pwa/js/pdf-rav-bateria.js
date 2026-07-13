@@ -7,8 +7,6 @@ import {
   mergePdfTableDidParseCell,
   PDF_CLIENT_BOX_FILL,
   PDF_COLOR_CORPORATE_BLUE as CORPORATE_BLUE,
-  PDF_COLOR_DANGER as DANGER,
-  PDF_COLOR_SUCCESS as SUCCESS,
   PDF_COLOR_TEXT_DARK as TEXT_DARK,
   PDF_COLOR_TEXT_MUTED as TEXT_MUTED,
   PDF_CONTENT_W as CONTENT_W,
@@ -23,6 +21,7 @@ import {
   PDF_TABLE_MIN_CELL_HEIGHT_COMPACT,
   resolvePdfStandardFieldValue,
 } from './pdf-design-system.js';
+import { resolvePdfEstadoTextColor } from './pdf-estado-colors.js';
 import { LABEL_HORAS } from './field-labels.js';
 import { pdfDisplayValue, formatPdfNumeroVisitas } from './pdf-format-utils.js';
 import { VISITAS_FIELD_ID } from './deslocacao-field.js';
@@ -209,14 +208,6 @@ async function drawRavConsumablesVisitasDualBlock(doc, y, service, values) {
   return Math.max(leftEndY, rightEndY) + RAV_SECTION_GAP_MM;
 }
 
-function ravEstadoFinalColor(estadoText) {
-  const text = String(estadoText || '');
-  if (/reparação concluída|reparacao concluida/i.test(text)) return SUCCESS;
-  if (/inoperacional/i.test(text)) return DANGER;
-  if (/elementos novos|necessita/i.test(text)) return [245, 158, 11];
-  return TEXT_DARK;
-}
-
 export async function drawRavEstadoFinalBlock(doc, y, values) {
   const observacao = pdfDisplayValue(values.observacao);
   const estado = pdfDisplayValue(values.estado_final);
@@ -271,7 +262,7 @@ export async function drawRavEstadoFinalBlock(doc, y, values) {
   y = ensureSpace(doc, y, estadoBandH);
   pdfSetFont(doc, 'bold');
   doc.setFontSize(RAV_TABLE_FONT_PT);
-  doc.setTextColor(...ravEstadoFinalColor(estado));
+  doc.setTextColor(...resolvePdfEstadoTextColor(estado));
   doc.text(`Estado: ${estado}`, MARGIN + 2, y + 3.5);
   touchPdfContentPage(doc);
   return y + estadoBandH;

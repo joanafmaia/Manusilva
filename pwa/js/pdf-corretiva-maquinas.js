@@ -30,6 +30,7 @@ import {
   LABEL_ESTADO_MAQUINA,
   labelWithValue,
 } from './field-labels.js';
+import { pdfEstadoGridDidParseCell } from './pdf-estado-colors.js';
 import { pdfDisplayValue } from './pdf-format-utils.js';
 import {
   ensureBlockFitsSafeZone,
@@ -244,6 +245,7 @@ async function drawCorretivaResumoRow(doc, y, values) {
 
   y = await drawCorretivaSectionBar(doc, y, 'Resumo da Intervenção');
   const pack = corretivaTableStylePack(doc);
+  const packDidParse = pack.didParseCell;
   return drawPdfGridTable(doc, y, {
     body: [[labelWithValue(LABEL_HORAS, horas), labelWithValue(LABEL_ESTADO_MAQUINA, estado)]],
     columnStyles: {
@@ -252,6 +254,10 @@ async function drawCorretivaResumoRow(doc, y, values) {
     },
     gapAfter: CORRETIVA_SECTION_GAP_MM,
     ...pack,
+    didParseCell: mergePdfTableDidParseCell((data) => {
+      if (packDidParse) packDidParse(data);
+      pdfEstadoGridDidParseCell(data);
+    }),
   });
 }
 
