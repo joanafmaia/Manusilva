@@ -39,6 +39,60 @@ export function buildReportEmailPdfPayload(pdfEntries = []) {
   return payload;
 }
 
+const EMAIL_PDF_MAX_BASE64_LEN = 3_000_000;
+
+/**
+ * Prepara payload de e-mail com anexos em base64 (browser → API, sem depender de fetch no servidor).
+ * @param {Array<{ blob?: Blob, filename: string, publicUrl?: string, machineLabel?: string, base64?: string }>} pdfEntries
+ */
+export async function prepareEmailPdfPayload(pdfEntries = []) {
+  const entries = (pdfEntries || []).filter(Boolean);
+  if (!entries.length) {
+    return { pdfUrl: null, pdfUrls: [], pdfAttachments: [] };
+  }
+
+  const pdfUrls = entries
+    .filter((entry) => entry?.publicUrl)
+    .map((entry) => ({
+      url: entry.publicUrl,
+      filename: entry.filename || '',
+      label: entry.machineLabel || entry.filename || '',
+    }));
+
+  const pdfAttachments = [];
+  for (const entry of entries) {
+    let base64 = entry.base64 || '';
+    if (!base64 && entry.blob) {
+      base64 = await blobToBase64(entry.blob);
+    }
+    if (!base64 && entry.publicUrl) {
+      try {
+        const res = await fetch(entry.publicUrl);
+        if (res.ok) {
+          const buf = await res.arrayBuffer();
+          base64 = arrayBufferToBase64(buf);
+        }
+      } catch (err) {
+        console.warn('[Email] Download PDF para anexo:', err);
+      }
+    }
+    const filename = entry.filename || 'relatorio.pdf';
+    if (base64 && base64.length > 0 && base64.length <= EMAIL_PDF_MAX_BASE64_LEN) {
+      pdfAttachments.push({ pdfFilename: filename, pdfBase64: base64 });
+    }
+  }
+
+  if (pdfAttachments.length === entries.length) {
+    return {
+      pdfUrl: pdfUrls[0]?.url || null,
+      pdfUrls,
+      pdfAttachments,
+    };
+  }
+
+  return buildReportEmailPdfPayload(entries);
+}
+
 export async function blobToBase64(blob) {
   const buffer = await blob.arrayBuffer();
   return arrayBufferToBase64(buffer);

@@ -466,7 +466,10 @@ export async function ensureRelatoriosForServicos(servicoIds = []) {
 
   for (let offset = 0; offset < ids.length; offset += RELATORIOS_IN_BATCH_SIZE) {
     const batch = ids.slice(offset, offset + RELATORIOS_IN_BATCH_SIZE);
-    const { data, error } = await supabase.from('relatorios').select('*').in('servico_id', batch);
+    const orFilter = batch
+      .flatMap((id) => [`servico_id.eq.${id}`, `trabalho_id.eq.${id}`])
+      .join(',');
+    const { data, error } = await supabase.from('relatorios').select('*').or(orFilter);
 
     if (error) {
       console.error('[ManuSilva] Erro ao carregar relatórios dos serviços:', error);

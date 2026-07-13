@@ -77,11 +77,10 @@ function collectReportsLinkedToServico(servicoId) {
     add(report);
   }
 
-  if (servico?.numeroOrdem != null && servico.clientId) {
-    const ordem = Number(servico.numeroOrdem);
-    for (const report of filterOutLocallyDeletedReports(getReportsSnapshot())) {
-      if (!sameEntityId(report.clientId, servico.clientId)) continue;
-      if (getReportNumeroOrdem(report) === ordem) add(report);
+  // Legacy: relatórios ligados só por trabalho_id = id da visita (sem servico_id na BD)
+  for (const report of filterOutLocallyDeletedReports(getReportsSnapshot())) {
+    if (sameEntityId(report.servicoId, key) || sameEntityId(report.jobId, key)) {
+      add(report);
     }
   }
 

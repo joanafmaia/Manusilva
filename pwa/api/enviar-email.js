@@ -307,6 +307,11 @@ async function fetchPdfAttachmentsFromUrls(urlEntries = []) {
 }
 
 async function resolveEmailPdfAttachments(payload = {}) {
+  const fromPayload = validatePdfAttachments(payload);
+  if (fromPayload.ok && fromPayload.attachments?.length) {
+    return fromPayload;
+  }
+
   const urlEntries = normalizePdfUrlEntries(payload);
 
   if (urlEntries.length > 1) {

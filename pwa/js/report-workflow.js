@@ -470,65 +470,81 @@ async function approveReportOnce(reportId, options = {}) {
         jobId: reportForPdf.jobId || servicoId,
       });
 
-    if (emailSynced) {
-      showToast(
-        'Relatório aprovado e email do cliente atualizado na base de dados!',
-        'success',
-        6000,
-      );
-    } else if (servicoId && deferVisitEmail) {
+    const sendVisitEmailIfReady = async ({ quiet = false } = {}) => {
+      if (!servicoId || !deferVisitEmail) return false;
+
       const {
         isServicoVisitFullyApproved,
         wasServicoVisitEmailSent,
         sendServicoVisitClientEmail,
       } = await import('./servicos-email-workflow.js');
 
-      if (isServicoVisitFullyApproved(servicoId) && !wasServicoVisitEmailSent(servicoId)) {
-        if (!recipients.length) {
+      if (!isServicoVisitFullyApproved(servicoId)) return false;
+
+      if (wasServicoVisitEmailSent(servicoId)) {
+        if (!quiet) {
+          const count = getServicoActiveReports(servicoId).length;
           showToast(
-            'Todos os relatórios da visita aprovados, mas o cliente não tem e-mail registado.',
-            'warning',
-            8000,
-          );
-        } else {
-          showToast(
-            `Visita concluída — a enviar ${getServicoActiveReports(servicoId).length} relatório(s) num único e-mail para ${recipientsLabel}...`,
+            count > 1
+              ? `Visita concluída — ${count} relatórios aprovados.`
+              : 'Relatório aprovado.',
             'success',
-            7000,
+            5000,
           );
-          try {
-            const visitEmailOk = await sendServicoVisitClientEmail(servicoId, {
-              clientEmail: primaryRecipient || undefined,
-              extraClientEmail: extraClientEmailInput || undefined,
-            });
-            if (!visitEmailOk) {
-              showToast(
-                'Relatórios aprovados, mas o e-mail da visita não foi enviado (já enviado ou PDFs em falta). Use «Reenviar e-mail da visita» se necessário.',
-                'warning',
-                9000,
-              );
-            }
-          } catch (err) {
-            console.error('[Email] Envio visita:', err);
-            showToast(
-              `Relatórios aprovados, mas o e-mail da visita falhou. ${err?.message || ''}`.trim(),
-              'warning',
-              9000,
-            );
-          }
         }
-      } else if (!isServicoVisitFullyApproved(servicoId)) {
-        /* Aprovação intermédia na visita — sem toast repetitivo. */
-      } else {
-        const count = getServicoActiveReports(servicoId).length;
+        return false;
+      }
+
+      if (!recipients.length) {
         showToast(
-          count > 1
-            ? `Visita concluída — ${count} relatórios aprovados.`
-            : 'Relatório aprovado.',
+          'Todos os relatórios da visita aprovados, mas o cliente não tem e-mail registado.',
+          'warning',
+          8000,
+        );
+        return false;
+      }
+
+      if (!quiet) {
+        showToast(
+          `Visita concluída — a enviar ${getServicoActiveReports(servicoId).length} relatório(s) num único e-mail para ${recipientsLabel}...`,
           'success',
-          5000,
+          7000,
         );
       }
+
+      try {
+        const visitEmailOk = await sendServicoVisitClientEmail(servicoId, {
+          clientEmail: primaryRecipient || undefined,
+          extraClientEmail: extraClientEmailInput || undefined,
+        });
+        if (!visitEmailOk) {
+          showToast(
+            'Relatórios aprovados, mas o e-mail da visita não foi enviado (já enviado ou PDFs em falta). Use «Reenviar e-mail da visita» se necessário.',
+            'warning',
+            9000,
+          );
+        }
+        return visitEmailOk;
+      } catch (err) {
+        console.error('[Email] Envio visita:', err);
+        showToast(
+          `Relatórios aprovados, mas o e-mail da visita falhou. ${err?.message || ''}`.trim(),
+          'warning',
+          9000,
+        );
+        return false;
+      }
+    };
+
+    if (emailSynced) {
+      showToast(
+        'Relatório aprovado e email do cliente atualizado na base de dados!',
+        'success',
+        6000,
+      );
+      await sendVisitEmailIfReady({ quiet: true });
+    } else if (servicoId && deferVisitEmail) {
+      await sendVisitEmailIfReady();
     } else if (recipients.length && !skipClientEmail) {
       const latestForEmail = getReport(reportId) || reportForPdf;
       if (reportClientEmailAlreadySent(latestForEmail)) {

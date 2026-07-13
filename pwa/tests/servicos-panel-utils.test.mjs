@@ -319,37 +319,36 @@ describe('servicos-panel-utils', () => {
     assert.equal(item.status, 'completed');
   });
 
-  it('getReportsForServico — fallback por OP da visita e cliente quando falta servico_id', async () => {
+  it('getReportsForServico — fallback por trabalho_id = id da visita quando falta servico_id', async () => {
     const servicosDb = await import('../js/servicos-db.js');
     const relatoriosDb = await import('../js/relatorios-db.js');
     relatoriosDb.invalidateReportsCache();
     servicosDb.mergeServicoInCache({
-      id: 'svc-op43-fallback',
+      id: 'svc-legacy-fallback',
       clientId: '10',
       date: '2026-06-29',
       technicianIds: 'Hugo',
       status: 'approved',
-      numeroOrdem: 43,
       faturacaoStatus: 'faturado',
     });
     relatoriosDb.mergeReportInCache({
-      id: 'r-op43-orphan',
+      id: 'r-legacy-orphan',
       servicoId: '',
-      jobId: '',
+      jobId: 'svc-legacy-fallback',
       serviceType: 'manutencao_preventiva_empilhadores',
       status: 'approved',
       clientId: '10',
       technicianId: 'Hugo',
       faturacaoStatus: 'via_servico',
-      data: { values: { numero_ordem: '43' } },
+      data: { values: {} },
     });
     const { getReportsForServico, getApprovedReportsForServico } = await import(
       '../js/servicos-panel-utils.js'
     );
-    const reports = getReportsForServico('svc-op43-fallback');
+    const reports = getReportsForServico('svc-legacy-fallback');
     assert.equal(reports.length, 1);
-    assert.equal(reports[0].id, 'r-op43-orphan');
-    assert.equal(getApprovedReportsForServico('svc-op43-fallback').length, 1);
+    assert.equal(reports[0].id, 'r-legacy-orphan');
+    assert.equal(getApprovedReportsForServico('svc-legacy-fallback').length, 1);
   });
 
   it('getReportsForServico — por servico_id', async () => {

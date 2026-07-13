@@ -72,7 +72,10 @@ async function releaseServicoVisitEmailClaim(servicoId) {
 
 async function loadVisitReportsForEmail(servicoId) {
   await ensureServicosLoadedSafe();
-  const { ensureRelatoriosForServicos } = await import('./relatorios-db.js');
+  const { ensureRelatoriosForServicos, ensureReportsLoaded } = await import('./relatorios-db.js');
+  const { ensureJobsLoaded } = await import('./trabalhos-db.js');
+  await ensureJobsLoaded(true);
+  await ensureReportsLoaded(true);
   await ensureRelatoriosForServicos([servicoId]);
   return getApprovedReportsForServico(servicoId);
 }

@@ -24,9 +24,44 @@ import { sendOfficialReportEmail } from './report-email-api.js';
 import {
   buildReportEmailPdfPayload,
   blobToBase64,
+  prepareEmailPdfPayload,
   generateAndUploadApprovedReportPdfs,
   resolveApprovedReportPdfSources,
 } from './report-email-pdf.js';
+
+async function resolveReportEmailPdfSources(report, job, service) {
+  const {
+    isEmpilhadoresMultiMaquinaReport,
+    getEmpilhadoresMaquinasFromReport,
+  } = await import('./views/relatorio-empilhadores-maquinas.js');
+
+  let sources = resolveApprovedReportPdfSources(report, job);
+  const expectedPdfCount = isEmpilhadoresMultiMaquinaReport(report)
+    ? getEmpilhadoresMaquinasFromReport(report).length
+    : 1;
+
+  if (sources.length < expectedPdfCount) {
+    try {
+      const regenerated = await generateAndUploadApprovedReportPdfs(report, job, service);
+      if (regenerated.length) {
+        sources = regenerated;
+        await updateRelatorio(report.id, {
+          data: {
+            urlPdfs: regenerated.map((entry) => entry.publicUrl),
+            pdfFilenames: regenerated.map((entry) => entry.filename),
+          },
+        });
+        if (report.jobId && regenerated[0]?.publicUrl) {
+          await patchTrabalho(report.jobId, { urlPdf: regenerated[0].publicUrl });
+        }
+      }
+    } catch (err) {
+      console.warn('[Email] Regeneração PDF:', err);
+    }
+  }
+
+  return sources;
+}
 
 function buildRecipientList(primaryEmail, extraEmail) {
   const seen = new Set();
@@ -244,25 +279,7 @@ export async function sendSelectedReportsEmail(reportIds, options = {}) {
   for (const report of reports) {
     const job = resolveJobForApprovedReport(report);
     const service = getServiceType(report.serviceType);
-    let sources = resolveApprovedReportPdfSources(report, job);
-
-    if (!sources.length) {
-      try {
-        const regenerated = await generateAndUploadApprovedReportPdfs(report, job, service);
-        sources = regenerated;
-        await updateRelatorio(report.id, {
-          data: {
-            urlPdfs: regenerated.map((entry) => entry.publicUrl),
-            pdfFilenames: regenerated.map((entry) => entry.filename),
-          },
-        });
-        if (report.jobId && regenerated[0]?.publicUrl) {
-          await patchTrabalho(report.jobId, { urlPdf: regenerated[0].publicUrl });
-        }
-      } catch (err) {
-        console.warn('[Email] Regeneração PDF seleção:', err);
-      }
-    }
+    const sources = await resolveReportEmailPdfSources(report, job, service);
 
     const serviceLabel = service?.label || report.serviceType || 'Relatório';
     sources.forEach((source, index) => {
@@ -281,16 +298,18 @@ export async function sendSelectedReportsEmail(reportIds, options = {}) {
     return false;
   }
 
-  if (reports.length > 1 && pdfEntries.length < reports.length) {
+  const emailPdfPayload = await prepareEmailPdfPayload(pdfEntries);
+  const deliveredCount =
+    emailPdfPayload.pdfAttachments?.length || emailPdfPayload.pdfUrls?.length || 0;
+  if (reports.length > 1 && deliveredCount < pdfEntries.length) {
     showToast(
-      `Só ${pdfEntries.length} de ${reports.length} PDFs estão disponíveis. Não foi enviado e-mail incompleto ao cliente.`,
+      `Só ${deliveredCount} de ${reports.length} PDFs estão disponíveis. Não foi enviado e-mail incompleto ao cliente.`,
       'error',
       9000,
     );
     return false;
   }
 
-  const emailPdfPayload = buildReportEmailPdfPayload(pdfEntries);
   const firstJob = resolveJobForApprovedReport(reports[0]);
 
   showToast(
