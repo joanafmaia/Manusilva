@@ -20,6 +20,7 @@ import {
   getAvailableServiceTypesForServico,
   getReportsForServico,
   isServicoReportTechnicianComplete,
+  resolveJobContextForReport,
 } from './servicos-panel-utils.js';
 import { formatOrdemLabel } from './report-review-ui.js';
 import { renderWorkStateBadge } from './calendar-event-state.js';
@@ -80,7 +81,7 @@ function servicoReportStatusPill(report) {
 function buildReportRow(servico, report, servicoReports) {
   const st = getServiceType(report.serviceType);
   const typeLabel = formatReportTypeLabel(report, servicoReports);
-  const job = report.jobId ? getJob(report.jobId) : null;
+  const job = resolveJobContextForReport(report);
   const opLabel = formatOrdemLabel(job);
   const opHtml =
     opLabel && opLabel !== '—'

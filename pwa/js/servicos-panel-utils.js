@@ -32,15 +32,23 @@ export function reportBelongsToServico(report, servicoId) {
 function parseNumeroOrdemFromReportValues(report) {
   const raw = report?.data?.values?.numero_ordem;
   if (raw == null || raw === '') return null;
-  const digits = String(raw).replace(/\D/g, '');
-  if (!digits) return null;
-  const n = Number(digits);
-  return Number.isFinite(n) ? n : null;
+  const s = String(raw).trim();
+  const opMatch = s.match(/OP\s*[-–]?\s*\d{4}\s*[-–]?\s*(\d+)/i);
+  if (opMatch?.[1]) {
+    const n = Number(opMatch[1]);
+    return Number.isFinite(n) ? n : null;
+  }
+  const plain = s.match(/^(\d{1,4})$/);
+  if (plain) return Number(plain[1]);
+  return null;
 }
 
-/** OP oficial do relatório (trabalho ou valor guardado no formulário). */
+/** OP oficial do relatório (coluna, trabalho ou valor legado no formulário). */
 export function getReportNumeroOrdem(report) {
   if (!report) return null;
+  if (report.numeroOrdem != null && Number.isFinite(Number(report.numeroOrdem))) {
+    return Number(report.numeroOrdem);
+  }
   if (report.jobId) {
     const job = getJob(report.jobId);
     const n = job?.numeroOrdem;
@@ -116,7 +124,7 @@ export function buildJobContextForServicoReport(servico, report) {
   if (!servico) return null;
   return {
     id: report?.jobId || servico.id,
-    numeroOrdem: servico.numeroOrdem ?? null,
+    numeroOrdem: getReportNumeroOrdem(report) ?? servico.numeroOrdem ?? null,
     servicoId: String(servico.id),
     clientId: servico.clientId || report?.clientId || '',
     date: servico.date || '',
@@ -223,6 +231,17 @@ export function getPrimaryReportForServico(servicoId) {
   return [...reports].sort((a, b) => (priority[a.status] ?? 9) - (priority[b.status] ?? 9))[0];
 }
 
+function resolveServicoCalendarNumeroOrdem(servico) {
+  if (servico?.numeroOrdem != null && Number.isFinite(Number(servico.numeroOrdem))) {
+    return Number(servico.numeroOrdem);
+  }
+  const reports = getReportsForServico(servico.id).filter((r) => r.status === 'approved');
+  const ops = [
+    ...new Set(reports.map((r) => getReportNumeroOrdem(r)).filter((n) => n != null)),
+  ].sort((a, b) => a - b);
+  return ops[0] ?? null;
+}
+
 /** Item no formato esperado pelo calendário admin (compatível com trabalhos legados). */
 export function servicoToCalendarItem(servico) {
   return {
@@ -235,7 +254,7 @@ export function servicoToCalendarItem(servico) {
     forkliftSerial: '',
     status: mapServicoStatusForCalendar(servico),
     rejectionNote: servico.rejectionNote,
-    numeroOrdem: servico.numeroOrdem,
+    numeroOrdem: resolveServicoCalendarNumeroOrdem(servico),
     isServico: true,
     servicoId: servico.id,
   };
@@ -260,7 +279,7 @@ export function resolveJobContextForReport(report) {
       ...job,
       id: job.id,
       date: servico.date || job.date,
-      numeroOrdem: job.numeroOrdem ?? servico.numeroOrdem,
+      numeroOrdem: getReportNumeroOrdem(report) ?? job.numeroOrdem ?? servico.numeroOrdem,
       technicianId: servico.technicianIds || job.technicianId,
       servicoId: servico.id,
       isServico: true,

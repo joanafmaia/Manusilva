@@ -4,6 +4,7 @@
 
 import { COMPANY } from './mock_data.js';
 import { getServico } from './servicos-db.js';
+import { getReportNumeroOrdem } from './servicos-panel-utils.js';
 import { pdfSetFont, pdfSafeText, pdfSplitText } from './pdf-font.js';
 import {
   PDF_COLOR_CORPORATE_BLUE as CORPORATE_BLUE,
@@ -47,6 +48,9 @@ export function parsePdfNumeroOrdemValue(raw) {
  * @param {object} [values]
  */
 export function resolvePdfNumeroOrdem(report, job, values = null) {
+  const fromReport = getReportNumeroOrdem(report);
+  if (fromReport != null) return fromReport;
+
   const servicoIds = [];
   if (report?.servicoId) servicoIds.push(String(report.servicoId));
   if (job?.servicoId) servicoIds.push(String(job.servicoId));

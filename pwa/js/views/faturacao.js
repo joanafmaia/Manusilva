@@ -26,7 +26,7 @@ import {
   registerManualInvoice,
 } from '../faturas-manuais-db.js';
 import { getServiceType } from '../entity-lookups.js';
-import { getApprovedReportsForServico } from '../servicos-panel-utils.js';
+import { getApprovedReportsForServico, getReportNumeroOrdem } from '../servicos-panel-utils.js';
 import {
   getPendingBillingItems,
   registerServicoInvoice,
@@ -520,11 +520,7 @@ function formatServicoOrdemLabel(servico, reports = []) {
   const ops = [
     ...new Set(
       (reports || [])
-        .map((r) => {
-          if (!r?.jobId) return null;
-          const job = getJob(r.jobId);
-          return job?.numeroOrdem != null ? Number(job.numeroOrdem) : null;
-        })
+        .map((r) => getReportNumeroOrdem(r))
         .filter((n) => n != null),
     ),
   ];

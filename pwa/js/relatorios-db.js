@@ -83,6 +83,9 @@ export function dedupeReportsByJobPreferNewest(reports = []) {
 }
 
 function resolveReportNumeroOrdem(report) {
+  if (report?.numeroOrdem != null && Number.isFinite(Number(report.numeroOrdem))) {
+    return Number(report.numeroOrdem);
+  }
   if (!report?.jobId) return null;
   const job = getJobsSnapshot().find((j) => sameEntityId(j.id, report.jobId));
   const n = job?.numeroOrdem;
@@ -158,6 +161,10 @@ export function mapRowToReport(row) {
     statusRecebimento: row.status_recebimento || row.pagamento_status || null,
     dataVencimento: row.data_vencimento || null,
     dataRecebimento: row.data_recebimento || null,
+    numeroOrdem:
+      row.numero_ordem != null && row.numero_ordem !== ''
+        ? Number(row.numero_ordem)
+        : null,
     data: {
       values: dados.values || {},
       signatures: dados.signatures || {},
@@ -238,6 +245,10 @@ export function mapReportToRow(report) {
       status_recebimento: report.statusRecebimento || null,
       data_vencimento: report.dataVencimento || null,
       data_recebimento: report.dataRecebimento || null,
+      numero_ordem:
+        report.numeroOrdem != null && Number.isFinite(Number(report.numeroOrdem))
+          ? Number(report.numeroOrdem)
+          : null,
       dados,
     },
     {
@@ -733,6 +744,38 @@ export async function updateRelatorio(reportId, patch) {
   };
 
   return upsertRelatorio(merged);
+}
+
+/**
+ * Reserva a OP oficial do relatório na BD (antes de gerar o PDF na aprovação).
+ * @param {object} report
+ * @param {{ testClient?: boolean }} [options]
+ * @returns {Promise<number|null>}
+ */
+export async function reserveRelatorioNumeroOrdem(report, options = {}) {
+  if (!report?.id) return null;
+
+  if (report.numeroOrdem != null && Number.isFinite(Number(report.numeroOrdem))) {
+    return Number(report.numeroOrdem);
+  }
+
+  if (options.testClient) return null;
+
+  const supabase = await getAuthenticatedSupabaseClient();
+  const { data, error } = await supabase.rpc('assign_relatorio_numero_ordem', {
+    p_relatorio_id: report.id,
+  });
+
+  if (error) {
+    console.error('[ManuSilva] Reservar OP relatório:', error);
+    throw new Error(formatRelatoriosError(error));
+  }
+
+  const op = data != null && Number.isFinite(Number(data)) ? Number(data) : null;
+  if (op != null) {
+    mergeReportInCache({ ...report, numeroOrdem: op });
+  }
+  return op;
 }
 
 export async function deleteRelatoriosByTrabalho(trabalhoId) {

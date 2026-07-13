@@ -39,6 +39,7 @@ import {
   upsertRelatorio,
   updateRelatorio,
   formatRelatoriosError,
+  reserveRelatorioNumeroOrdem,
 } from './relatorios-db.js';
 import { reportHasPedidoOrcamento, reportOrcamentoPorPreparar } from './pedido-orcamento.js';
 import { deleteStandaloneOrcamentoReport, reportIsStandaloneOrcamento } from './orcamento-standalone.js';
@@ -333,24 +334,32 @@ async function approveReportOnce(reportId, options = {}) {
     const linkedServicoId =
       resolveServicoIdForReport(reportForPdf) || resolveServicoIdForReport(report);
 
+    if (!testClient) {
+      try {
+        const reservedOp = await reserveRelatorioNumeroOrdem(reportForPdf, { testClient });
+        if (reservedOp != null) {
+          reportForPdf = { ...reportForPdf, numeroOrdem: reservedOp };
+        }
+      } catch (reserveErr) {
+        console.error('[ManuSilva] Reservar OP:', reserveErr);
+        showToast(reserveErr?.message || 'Não foi possível atribuir número OP.', 'error', 9000);
+        return null;
+      }
+    }
+
     if (!job && linkedServicoId) {
       await ensureServicosLoadedSafe();
       const refreshed = getReport(reportId);
       if (refreshed?.jobId) {
-        reportForPdf = refreshed;
+        reportForPdf = { ...reportForPdf, ...refreshed };
         job = getJob(refreshed.jobId);
       }
     }
 
     if (!job && linkedServicoId) {
       const servico = getServico(linkedServicoId);
-      const visitJob = buildJobContextForServicoReport(servico, reportForPdf);
-      if (visitJob?.numeroOrdem != null || testClient) {
-        job = visitJob;
-      }
-    }
-
-    if (!job) {
+      job = buildJobContextForServicoReport(servico, reportForPdf);
+    } else if (!job) {
       job = await insertTrabalhoFromReport(reportForPdf);
       if (!job?.id) {
         showToast('Não foi possível criar o trabalho para o relatório.', 'error');
@@ -358,10 +367,15 @@ async function approveReportOnce(reportId, options = {}) {
       }
       createdTrabalhoId = job.id;
       reportForPdf = { ...reportForPdf, jobId: job.id };
+      if (job.numeroOrdem != null) {
+        reportForPdf = { ...reportForPdf, numeroOrdem: job.numeroOrdem };
+      }
       await upsertRelatorio(reportForPdf);
     }
 
-    if (job.numeroOrdem == null && !testClient && createdTrabalhoId) {
+    if (reportForPdf.numeroOrdem != null) {
+      job = { ...job, numeroOrdem: reportForPdf.numeroOrdem };
+    } else if (job.numeroOrdem == null && !testClient && createdTrabalhoId) {
       await ensureJobsLoaded(true);
       job = getJob(createdTrabalhoId) || job;
     }
@@ -403,6 +417,7 @@ async function approveReportOnce(reportId, options = {}) {
       approvedAt: new Date().toISOString(),
       approvedBy: resolveAuditActor(),
       pdfFilename: filename,
+      numeroOrdem: reportForPdf.numeroOrdem ?? undefined,
       faturacaoStatus: servicoId
         ? 'via_servico'
         : reportIsRhOrcamento(report)

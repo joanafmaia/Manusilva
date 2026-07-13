@@ -86,8 +86,16 @@ describe('pdf-header-blocks', () => {
 
     assert.equal(resolvePdfNumeroOrdem(null, { numeroOrdem: 12 }), 12);
     assert.equal(
+      resolvePdfNumeroOrdem({ servicoId: 'svc-op', numeroOrdem: 77 }, { numeroOrdem: 99 }),
+      77,
+    );
+    assert.equal(
       resolvePdfNumeroOrdem({ servicoId: 'svc-op' }, { numeroOrdem: 99 }),
       55,
+    );
+    assert.equal(
+      resolvePdfNumeroOrdem({ servicoId: 'svc-op', jobId: 'job-only', numeroOrdem: 88 }, { numeroOrdem: 99 }),
+      88,
     );
     assert.equal(
       resolvePdfNumeroOrdem({ servicoId: 'svc-op' }, null, {}),

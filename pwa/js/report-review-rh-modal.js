@@ -19,6 +19,7 @@ import {
 import { msIconHtml, serviceIconHtml } from './ui-icons.js';
 import {
   formatOrdemLabel,
+  formatOpLabel,
   renderReviewFotosSection,
   renderReviewClientEmailField,
   readReviewClientEmail,
@@ -55,7 +56,7 @@ import {
   getServicoReviewMeta,
   summarizeServicoReviewState,
 } from './servicos-rh-review.js';
-import { resolveServicoIdForReport } from './servicos-panel-utils.js';
+import { resolveServicoIdForReport, resolveJobContextForReport, getReportNumeroOrdem } from './servicos-panel-utils.js';
 import { resolvePdfSignaturesForReport } from './report-pdf-signatures.js';
 import {
   computeReviewChecks,
@@ -270,11 +271,13 @@ export function buildRhReviewListItem({ job, report, client, tech }) {
 function buildRhVisitaReportCompactRow(report, getJobFn = getJob) {
   const service = getServiceType(report.serviceType);
   const label = service?.label || report.serviceType || 'Relatório';
-  const badge = renderReportWorkStateBadge(report, report.jobId ? getJobFn(report.jobId) : null);
+  const job = resolveJobContextForReport(report);
+  const op = formatOpLabel(getReportNumeroOrdem(report));
+  const badge = renderReportWorkStateBadge(report, job);
   return `
     <div class="rh-visita-folder__report-row rh-visita-folder__report-row--compact">
       <button type="button" class="rh-visita-folder__compact-link" data-panel-open="${escapeHtml(report.id)}">
-        ${serviceIconHtml(service, 'ms-icon')} <span class="rh-visita-folder__compact-label">${escapeHtml(label)}</span> ${badge}
+        ${serviceIconHtml(service, 'ms-icon')} <span class="rh-visita-folder__compact-label">${escapeHtml(label)}</span>${op ? ` <code class="rh-ordem-badge">${escapeHtml(op)}</code>` : ''} ${badge}
       </button>
     </div>`;
 }
@@ -312,7 +315,7 @@ export function buildRhVisitaFolder({ servicoId, reports, getJobFn = getJob, ava
     .map((report) => {
       if (report.status === 'pending_review') {
         const item = buildRhReviewListItem({
-          job: report.jobId ? getJobFn(report.jobId) : null,
+          job: resolveJobContextForReport(report),
           report,
           client: getClient(report.clientId),
           tech: getTechnician(report.technicianId),
@@ -404,7 +407,7 @@ export function buildRhReviewGroupedStack(
       });
     }
     const report = item.report;
-    const job = report.jobId ? getJobFn(report.jobId) : null;
+    const job = resolveJobContextForReport(report);
     return buildRhReviewListItem({
       job,
       report,
@@ -501,7 +504,7 @@ export async function openRhReviewModal(reportId, callbacks = {}) {
 
   const { renderReportValuesForReview } = await import('./form-engine.js');
 
-  const job = report.jobId ? getJob(report.jobId) : null;
+  const job = resolveJobContextForReport(report);
   const client = getClient(report.clientId);
   const tech = getTechnician(report.technicianId);
   const service = getServiceType(report.serviceType);
