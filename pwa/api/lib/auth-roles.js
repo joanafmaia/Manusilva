@@ -61,7 +61,6 @@ function isRhOrAdminAuthUser(user) {
   if (!user) return false;
   const meta = user.user_metadata || {};
   if (isRhOrAdminRole(meta.role)) return true;
-  if (isRhOrAdminName(meta.nome || meta.name)) return true;
   return isRhOrAdminEmail(user.email);
 }
 

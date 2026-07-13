@@ -157,4 +157,55 @@ describe('dedupeReportsForDisplay', () => {
     assert.equal(deduped.length, 1);
     assert.equal(deduped[0].id, 'rep-pedido');
   });
+
+  it('mantém todos os relatórios de uma visita com o mesmo jobId legado', async () => {
+    const { dedupeReportsForDisplay } = await import('../js/relatorios-db.js');
+    const { mergeServicoInCache, invalidateServicosCache } = await import('../js/servicos-db.js');
+    invalidateServicosCache();
+    mergeServicoInCache({
+      id: 'svc-multi',
+      clientId: '10',
+      date: '2026-07-10',
+      technicianIds: 'Filipe',
+      status: 'pending_review',
+      data: {},
+    });
+
+    const reports = [
+      {
+        id: 'r-a',
+        jobId: 'svc-multi',
+        servicoId: 'svc-multi',
+        serviceType: 'manutencao_preventiva_empilhadores',
+        status: 'pending_review',
+        clientId: '10',
+        numeroOrdem: 88,
+      },
+      {
+        id: 'r-b',
+        jobId: 'svc-multi',
+        servicoId: 'svc-multi',
+        serviceType: 'manutencao_preventiva_bateria',
+        status: 'pending_review',
+        clientId: '10',
+        numeroOrdem: 89,
+      },
+      {
+        id: 'r-c',
+        jobId: 'svc-multi',
+        servicoId: 'svc-multi',
+        serviceType: 'reparacao_carregador',
+        status: 'pending_review',
+        clientId: '10',
+        numeroOrdem: 90,
+      },
+    ];
+
+    const deduped = dedupeReportsForDisplay(reports);
+    assert.equal(deduped.length, 3);
+    assert.deepEqual(
+      deduped.map((r) => r.id).sort(),
+      ['r-a', 'r-b', 'r-c'],
+    );
+  });
 });

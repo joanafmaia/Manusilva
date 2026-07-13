@@ -38,6 +38,10 @@ describe('auth-roles', () => {
       isRhOrAdminAuthUser({ email: 'x@y.com', user_metadata: { role: 'admin' } }),
       true,
     );
+    assert.equal(
+      isRhOrAdminAuthUser({ email: 'x@y.com', user_metadata: { nome: 'Joana' } }),
+      false,
+    );
   });
 
   it('valida sessão UI admin', () => {

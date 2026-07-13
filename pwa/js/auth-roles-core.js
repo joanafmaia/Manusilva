@@ -70,7 +70,6 @@ export function isRhOrAdminAuthUser(user) {
   if (!user) return false;
   const meta = user.user_metadata || {};
   if (isRhOrAdminRole(meta.role)) return true;
-  if (isRhOrAdminName(meta.nome || meta.name)) return true;
   return isRhOrAdminEmail(user.email);
 }
 
@@ -79,7 +78,6 @@ export function isRhOrAdminSession(session) {
   if (!session) return false;
   if (session.role === 'admin') return true;
   if (isRhOrAdminRole(session.role)) return true;
-  if (isRhOrAdminName(session.name)) return true;
   return isRhOrAdminEmail(session.username || session.email);
 }
 

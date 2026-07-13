@@ -23,7 +23,7 @@ import {
 import { isPendingOrcamentoBilling } from './orcamento-billing-workflow.js';
 import { getInvoicedServicos } from './servicos-db.js';
 import { getJob } from './entity-lookups.js';
-import { resolveServicoIdForReport } from './servicos-panel-utils.js';
+import { resolveServicoIdForReport, getReportNumeroOrdem } from './servicos-panel-utils.js';
 
 function findReport(reportId) {
   return getReportsSnapshot().find((r) => sameEntityId(r.id, reportId)) || null;
@@ -39,6 +39,8 @@ function safeGetClient(clientId) {
 }
 
 function reportNumeroOrdem(report) {
+  const fromReport = getReportNumeroOrdem(report);
+  if (fromReport != null) return fromReport;
   if (!report?.jobId) return null;
   const job = getJob(report.jobId);
   const n = job?.numeroOrdem;

@@ -66,6 +66,7 @@ function compareReportsForDisplayDedupe(a, b) {
 export function dedupeReportsByJobPreferNewest(reports = []) {
   const byJob = new Map();
   const withoutJob = [];
+  const servicoIds = new Set(getServicosSnapshot().map((s) => String(s.id)));
 
   for (const report of reports) {
     if (!report?.jobId) {
@@ -73,6 +74,11 @@ export function dedupeReportsByJobPreferNewest(reports = []) {
       continue;
     }
     const key = String(report.jobId);
+    // Visitas: vários relatórios podem partilhar jobId = id da visita — não colapsar
+    if (servicoIds.has(key)) {
+      withoutJob.push(report);
+      continue;
+    }
     const existing = byJob.get(key);
     if (!existing || compareReportsForDisplayDedupe(existing, report) < 0) {
       byJob.set(key, report);

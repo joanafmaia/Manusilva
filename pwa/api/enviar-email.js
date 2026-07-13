@@ -148,7 +148,7 @@ function isRecipientAllowed(to, registeredEmail, clientDomains) {
   const regNorm = normalizeEmail(registeredEmail);
   if (regNorm && toNorm === regNorm) return true;
 
-  if (!regNorm) return true;
+  if (!regNorm) return false;
 
   const toDomain = extractEmailDomain(toNorm);
   const regDomain = extractEmailDomain(regNorm);
@@ -442,7 +442,18 @@ function buildSubject(payload = {}) {
 function isSafeHttpUrl(value) {
   try {
     const url = new URL(String(value || '').trim());
-    return url.protocol === 'https:' || url.protocol === 'http:';
+    if (url.protocol !== 'https:' && url.protocol !== 'http:') return false;
+
+    const host = url.hostname.toLowerCase();
+    try {
+      const { getSupabaseUrl } = require('./lib/supabase-env');
+      const projectHost = new URL(getSupabaseUrl()).hostname.toLowerCase();
+      if (host === projectHost) return true;
+    } catch {
+      /* SUPABASE_URL não configurado — validar só domínio storage */
+    }
+
+    return host.endsWith('.supabase.co') && url.pathname.includes('/storage/');
   } catch {
     return false;
   }

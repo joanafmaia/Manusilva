@@ -116,8 +116,7 @@ async function openBillingFolhaObraPdf(folhaId) {
 }
 
 function formatBillingReportPdfLabel(report) {
-  const job = report?.jobId ? getJob(report.jobId) : null;
-  const op = formatOpLabel(job?.numeroOrdem);
+  const op = formatOpLabel(getReportNumeroOrdem(report));
   const service = getServiceType(report.serviceType)?.label || report.serviceType || 'Relatório';
   if (op) return `${op} · ${service}`;
   return service;
@@ -125,8 +124,8 @@ function formatBillingReportPdfLabel(report) {
 
 function sortBillingReportsByOrdem(reports = []) {
   return [...reports].sort((a, b) => {
-    const na = a?.jobId ? Number(getJob(a.jobId)?.numeroOrdem) : 0;
-    const nb = b?.jobId ? Number(getJob(b.jobId)?.numeroOrdem) : 0;
+    const na = Number(getReportNumeroOrdem(a)) || 0;
+    const nb = Number(getReportNumeroOrdem(b)) || 0;
     if (Number.isFinite(na) && Number.isFinite(nb) && na !== nb) return na - nb;
     return String(a?.serviceType || '').localeCompare(String(b?.serviceType || ''));
   });
@@ -624,7 +623,8 @@ function buildBillingRowsFromItems(items) {
     const meta = resolveClientMeta(report.clientId);
     const job = report.jobId ? getJob(report.jobId) : null;
     const pdfEntries = resolveBillingReportPdfEntries(report);
-    const ordem = formatOrdemLabel(job);
+    const reportOp = getReportNumeroOrdem(report);
+    const ordem = reportOp != null ? formatOpLabel(reportOp) : formatOrdemLabel(job);
     const detail = getServiceType(report.serviceType)?.label || report.serviceType || 'Relatório';
     return {
       kind: 'report',
