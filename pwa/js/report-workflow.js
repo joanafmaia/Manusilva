@@ -46,6 +46,13 @@ import { getServicoActiveReports, resolveServicoIdForVisitEmail, shouldDeferServ
 import { resolveServicoIdForReport, resolveReportTechnicianLabel } from './servicos-panel-utils.js';
 import { ensureServicosLoadedSafe } from './servicos-db.js';
 
+/** Evita aprovações concorrentes do mesmo relatório (duplo clique → 2 OPs / 2 e-mails). */
+const approvalPromises = new Map();
+
+function reportClientEmailAlreadySent(report) {
+  return Boolean(report?.data?.visitClienteEmailSentAt);
+}
+
 /**
  * @param {object} report
  * @param {{ silent?: boolean }} [options]
@@ -254,9 +261,35 @@ export async function submitReport(report, options = {}) {
  * @param {{ clientEmail?: string, skipClientEmail?: boolean }} [options]
  */
 export async function approveReport(reportId, options = {}) {
+  const key = String(reportId || '');
+  if (!key) {
+    showToast('Relatório não encontrado.', 'error');
+    return null;
+  }
+
+  const inFlight = approvalPromises.get(key);
+  if (inFlight) return inFlight;
+
+  const run = approveReportOnce(key, options).finally(() => {
+    approvalPromises.delete(key);
+  });
+  approvalPromises.set(key, run);
+  return run;
+}
+
+async function approveReportOnce(reportId, options = {}) {
   const report = getReport(reportId);
   if (!report) {
     showToast('Relatório não encontrado.', 'error');
+    return null;
+  }
+
+  if (report.status !== 'pending_review') {
+    if (report.status === 'approved') {
+      showToast('Este relatório já foi aprovado.', 'info', 5000);
+    } else {
+      showToast('Este relatório não está pendente de aprovação.', 'warning', 5000);
+    }
     return null;
   }
 
@@ -291,21 +324,29 @@ export async function approveReport(reportId, options = {}) {
   }
 
   try {
-    await ensureJobsLoaded(true);
+    await ensureJobsLoaded();
 
-    let job = report.jobId ? getJob(report.jobId) : null;
-    let reportForPdf = report;
+    let reportForPdf = getReport(reportId) || report;
+    let job = reportForPdf.jobId ? getJob(reportForPdf.jobId) : null;
 
     if (!job) {
-      if (report.servicoId || resolveServicoIdForReport(report)) {
+      if (reportForPdf.servicoId || resolveServicoIdForReport(reportForPdf)) {
         await ensureServicosLoadedSafe();
       }
-      job = await insertTrabalhoFromReport(report);
+      const refreshed = getReport(reportId);
+      if (refreshed?.jobId) {
+        reportForPdf = refreshed;
+        job = getJob(refreshed.jobId);
+      }
+    }
+
+    if (!job) {
+      job = await insertTrabalhoFromReport(reportForPdf);
       if (!job?.id) {
         showToast('Não foi possível criar o trabalho para o relatório.', 'error');
         return null;
       }
-      reportForPdf = { ...report, jobId: job.id };
+      reportForPdf = { ...reportForPdf, jobId: job.id };
       await upsertRelatorio(reportForPdf);
     }
 
@@ -395,7 +436,13 @@ export async function approveReport(reportId, options = {}) {
     const recipients = buildRecipientList(primaryRecipient, extraClientEmailInput);
     const recipientsLabel = recipients.join(', ');
 
-    const deferVisitEmail = servicoId && shouldDeferServicoVisitEmail({ ...report, servicoId, jobId: report.jobId || servicoId });
+    const deferVisitEmail =
+      servicoId &&
+      shouldDeferServicoVisitEmail({
+        ...reportForPdf,
+        servicoId,
+        jobId: reportForPdf.jobId || servicoId,
+      });
 
     if (emailSynced) {
       showToast(
@@ -448,33 +495,44 @@ export async function approveReport(reportId, options = {}) {
         );
       }
     } else if (recipients.length && !skipClientEmail) {
-      const pdfCount = pdfEntries.length;
-      showToast(
-        pdfCount > 1
-          ? `Relatório aprovado! ${pdfCount} PDFs guardados. A enviar e-mail para ${recipientsLabel}...`
-          : `Relatório aprovado! PDF guardado no Storage. A enviar e-mail para ${recipientsLabel}...`,
-        'success',
-        7000,
-      );
-
-      sendOfficialReportEmail({
-        ...buildReportEmailMeta(report, {
-          client,
-          job,
-          technicianName: resolveReportTechnicianLabel(report, job),
-        }),
-        to: recipients,
-        servicoId: servicoId || null,
-        includeRatingLinks: Boolean(servicoId),
-        ...emailPdfPayload,
-      }).catch((err) => {
-        console.error('[Email] Envio após aprovação falhou:', err);
+      const latestForEmail = getReport(reportId) || reportForPdf;
+      if (reportClientEmailAlreadySent(latestForEmail)) {
+        showToast('Relatório aprovado. O e-mail ao cliente já tinha sido enviado.', 'success', 5000);
+      } else {
+        const pdfCount = pdfEntries.length;
         showToast(
-          `Relatório aprovado, mas o e-mail para o cliente falhou. ${err?.message || ''}`.trim(),
-          'warning',
-          8000,
+          pdfCount > 1
+            ? `Relatório aprovado! ${pdfCount} PDFs guardados. A enviar e-mail para ${recipientsLabel}...`
+            : `Relatório aprovado! PDF guardado no Storage. A enviar e-mail para ${recipientsLabel}...`,
+          'success',
+          7000,
         );
-      });
+
+        sendOfficialReportEmail({
+          ...buildReportEmailMeta(reportForPdf, {
+            client,
+            job,
+            technicianName: resolveReportTechnicianLabel(reportForPdf, job),
+          }),
+          to: recipients,
+          servicoId: servicoId || null,
+          includeRatingLinks: Boolean(servicoId),
+          ...emailPdfPayload,
+        })
+          .then(async () => {
+            await updateRelatorio(reportId, {
+              data: { visitClienteEmailSentAt: new Date().toISOString() },
+            });
+          })
+          .catch((err) => {
+            console.error('[Email] Envio após aprovação falhou:', err);
+            showToast(
+              `Relatório aprovado, mas o e-mail para o cliente falhou. ${err?.message || ''}`.trim(),
+              'warning',
+              8000,
+            );
+          });
+      }
     } else if (!emailSynced) {
       showToast('Relatório aprovado, mas o cliente não tem e-mail registado.', 'warning');
     }

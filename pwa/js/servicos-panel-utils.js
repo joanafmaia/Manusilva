@@ -5,7 +5,7 @@
 import { getAllJobs, getJob, getServiceType, getJobTechnicianLabel, getTechnician, jobAssignedToTechnician } from './entity-lookups.js';
 import { sameEntityId } from './entity-id.js';
 import { filterOutLocallyDeletedReports } from './report-deleted-local.js';
-import { getReportsSnapshot, getCanonicalReportForJob } from './relatorios-db.js';
+import { getReportsSnapshot, getCanonicalReportForJob, getReportsSnapshotByServicoId } from './relatorios-db.js';
 import { getServico, getServicosSnapshot } from './servicos-db.js';
 
 /** Id do serviço/visita a que o relatório pertence (servico_id ou trabalho legado com o mesmo id). */
@@ -65,8 +65,8 @@ function collectReportsLinkedToServico(servicoId) {
     out.push(report);
   };
 
-  for (const report of filterOutLocallyDeletedReports(getReportsSnapshot())) {
-    if (reportBelongsToServico(report, key)) add(report);
+  for (const report of getReportsSnapshotByServicoId(key)) {
+    add(report);
   }
 
   if (servico?.numeroOrdem != null && servico.clientId) {
@@ -87,31 +87,27 @@ function normalizeServicoVisitReports(raw) {
 /** Remove rascunhos obsoletos quando já existe relatório aprovado (mesma OP ou mesmo tipo). */
 export function dropSupersededServicoDrafts(reports = []) {
   const list = Array.isArray(reports) ? reports : [];
+  if (list.length < 2) return list;
+
+  const approvedOrdens = new Set();
+  const approvedJobIds = new Set();
+  const approvedTypes = new Set();
+
+  for (const other of list) {
+    if (other?.status !== 'approved') continue;
+    const ordem = getReportNumeroOrdem(other);
+    if (ordem != null) approvedOrdens.add(ordem);
+    if (other.jobId) approvedJobIds.add(String(other.jobId));
+    if (other.serviceType) approvedTypes.add(other.serviceType);
+  }
+
   return list.filter((draft) => {
     if (draft?.status !== 'draft') return true;
     const ordem = getReportNumeroOrdem(draft);
-    if (ordem != null) {
-      return !list.some(
-        (other) =>
-          other.id !== draft.id &&
-          other.status === 'approved' &&
-          getReportNumeroOrdem(other) === ordem,
-      );
-    }
-    if (draft.jobId) {
-      return !list.some(
-        (other) =>
-          other.id !== draft.id &&
-          other.status === 'approved' &&
-          sameEntityId(other.jobId, draft.jobId),
-      );
-    }
-    return !list.some(
-      (other) =>
-        other.id !== draft.id &&
-        other.status === 'approved' &&
-        other.serviceType === draft.serviceType,
-    );
+    if (ordem != null && approvedOrdens.has(ordem)) return false;
+    if (draft.jobId && approvedJobIds.has(String(draft.jobId))) return false;
+    if (draft.serviceType && approvedTypes.has(draft.serviceType)) return false;
+    return true;
   });
 }
 

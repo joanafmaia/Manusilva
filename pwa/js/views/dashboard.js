@@ -15,39 +15,48 @@ import { mountClientHistoryView } from './historico-cliente.js';
 import { restoreClientsDashboard } from './clients-app.js';
 
 let metricsRoot = null;
+let metricsActionHandlers = {};
+let metricsActionsBound = false;
+
+function bindMetricsPanelActions(root) {
+  if (!root || metricsActionsBound) return;
+  metricsActionsBound = true;
+
+  const trigger = (action) => {
+    const fn = metricsActionHandlers[action];
+    if (typeof fn === 'function') fn();
+  };
+
+  root.addEventListener('click', (e) => {
+    const el = e.target.closest('[data-metric-action]');
+    if (!el) return;
+    trigger(el.dataset.metricAction);
+  });
+
+  root.addEventListener('keydown', (e) => {
+    const el = e.target.closest('[data-metric-action]');
+    if (!el) return;
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      trigger(el.dataset.metricAction);
+    }
+  });
+}
 
 export async function initMetricsPanel(root, onAction) {
   metricsRoot = root;
+  metricsActionHandlers = onAction || {};
   if (!metricsRoot) return;
+  bindMetricsPanelActions(metricsRoot);
   await ensureProductionCatalog();
   await refreshMetricsPanel(onAction);
 }
 
 export async function refreshMetricsPanel(onAction) {
   if (!metricsRoot) return;
+  if (onAction) metricsActionHandlers = onAction;
   await ensureProductionCatalog();
   metricsRoot.innerHTML = renderMetricsSection(computeDashboardMetrics());
-  bindMetricsPanelActions(metricsRoot, onAction);
-}
-
-function bindMetricsPanelActions(root, handlers = {}) {
-  if (!root || !handlers) return;
-
-  const trigger = (action) => {
-    const fn = handlers[action];
-    if (typeof fn === 'function') fn();
-  };
-
-  root.querySelectorAll('[data-metric-action]').forEach((el) => {
-    const action = el.dataset.metricAction;
-    el.addEventListener('click', () => trigger(action));
-    el.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        trigger(action);
-      }
-    });
-  });
 }
 
 /** @deprecated Use initMetricsPanel — mantido para compatibilidade */

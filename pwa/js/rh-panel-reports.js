@@ -4,7 +4,7 @@
 
 import { dedupeReportsForDisplay, getReportsSnapshot } from './relatorios-db.js';
 import { isRhOrcamentoQueueReport } from './pedido-orcamento.js';
-import { shouldDeferRhReviewForServicoReport } from './servicos-panel-utils.js';
+import { resolveServicoIdForReport } from './servicos-panel-utils.js';
 
 /** Estados de relatório exibidos no painel RH (histórico completo) */
 export const RH_PANEL_REPORT_STATUSES = new Set([
@@ -18,10 +18,25 @@ function getRhPanelReportsRaw() {
   return getReportsSnapshot().filter((r) => RH_PANEL_REPORT_STATUSES.has(r.status));
 }
 
+function buildServicosWithDraftReports(reports) {
+  const servicosWithDrafts = new Set();
+  for (const report of reports) {
+    if (report?.status !== 'draft') continue;
+    const servicoId = resolveServicoIdForReport(report);
+    if (servicoId) servicosWithDrafts.add(String(servicoId));
+  }
+  return servicosWithDrafts;
+}
+
 function getPendingReviewReportsSnapshot() {
-  return getRhPanelReportsRaw().filter(
-    (r) => r.status === 'pending_review' && !shouldDeferRhReviewForServicoReport(r),
-  );
+  const raw = getRhPanelReportsRaw();
+  const servicosWithDrafts = buildServicosWithDraftReports(raw);
+  return raw.filter((report) => {
+    if (report.status !== 'pending_review') return false;
+    const servicoId = resolveServicoIdForReport(report);
+    if (!servicoId) return true;
+    return !servicosWithDrafts.has(String(servicoId));
+  });
 }
 
 function getRhPanelReports() {
@@ -64,12 +79,20 @@ export function getAdminReviewReports(filter = 'all') {
 export function getRhPanelReportCounts() {
   const list = getRhPanelReports();
   const pendingReview = dedupeReportsForDisplay(getPendingReviewReportsSnapshot());
+  let draft = 0;
+  let approved = 0;
+  let rejected = 0;
+  for (const report of list) {
+    if (report.status === 'draft') draft += 1;
+    else if (report.status === 'approved') approved += 1;
+    else if (report.status === 'rejected') rejected += 1;
+  }
   return {
     all: list.length,
     pending_review: pendingReview.length,
     orcamento_pendente: getRhOrcamentoQueueReports().length,
-    draft: list.filter((r) => r.status === 'draft').length,
-    approved: list.filter((r) => r.status === 'approved').length,
-    rejected: list.filter((r) => r.status === 'rejected').length,
+    draft,
+    approved,
+    rejected,
   };
 }

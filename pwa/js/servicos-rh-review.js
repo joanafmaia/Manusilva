@@ -148,13 +148,15 @@ export function groupReportsForRhStack(filteredReports) {
 
   const folderServicos = new Set();
   for (const [sid, visibleCount] of visibleByServico) {
-    if (visibleCount >= 2 || getReportsForServico(sid).length >= 2) {
+    const totalInServico = getReportsForServico(sid).length;
+    if (visibleCount >= 2 || totalInServico >= 2) {
       folderServicos.add(sid);
     }
   }
 
   const items = [];
   const usedReportIds = new Set();
+  const listIdSet = new Set(list.map((r) => r.id));
 
   const folderOrder = [...folderServicos]
     .map((sid) => {
@@ -176,17 +178,17 @@ export function groupReportsForRhStack(filteredReports) {
     }
   }
 
-  return items.sort((a, b) => {
-    const repA =
-      a.kind === 'servico'
-        ? a.reports.find((r) => list.some((x) => x.id === r.id)) || a.reports[0]
-        : a.report;
-    const repB =
-      b.kind === 'servico'
-        ? b.reports.find((r) => list.some((x) => x.id === r.id)) || b.reports[0]
-        : b.report;
-    return reportSortKey(repA).localeCompare(reportSortKey(repB));
-  });
+  const itemSortKeys = new Map(
+    items.map((item) => {
+      const rep =
+        item.kind === 'servico'
+          ? item.reports.find((r) => listIdSet.has(r.id)) || item.reports[0]
+          : item.report;
+      return [item, reportSortKey(rep)];
+    }),
+  );
+
+  return items.sort((a, b) => itemSortKeys.get(a).localeCompare(itemSortKeys.get(b)));
 }
 
 /** Primeiro relatório pendente da visita (para «Rever visita»). */

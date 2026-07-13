@@ -66,6 +66,36 @@ describe('pdf-header-blocks', () => {
     assert.equal(typeof mod.drawCompactClientBox, 'function');
     assert.equal(typeof mod.drawLogoPlaceholder, 'function');
     assert.equal(typeof mod.formatOrdemDisplay, 'function');
+    assert.equal(typeof mod.resolvePdfNumeroOrdem, 'function');
+  });
+
+  it('resolvePdfNumeroOrdem — trabalho, visita e formulário', async () => {
+    const { invalidateServicosCache, mergeServicoInCache } = await import('../js/servicos-db.js');
+    const { resolvePdfNumeroOrdem } = await import('../js/pdf-header-blocks.js');
+
+    invalidateServicosCache();
+    mergeServicoInCache({
+      id: 'svc-op',
+      clientId: 'c1',
+      date: '2026-07-01',
+      technicianIds: 'Filipe',
+      status: 'pending_review',
+      numeroOrdem: 55,
+      data: {},
+    });
+
+    assert.equal(resolvePdfNumeroOrdem(null, { numeroOrdem: 12 }), 12);
+    assert.equal(
+      resolvePdfNumeroOrdem({ servicoId: 'svc-op' }, null, {}),
+      55,
+    );
+    assert.equal(
+      resolvePdfNumeroOrdem({ data: { values: { numero_ordem: 'OP-2026-33' } } }, null, {
+        numero_ordem: 'OP-2026-33',
+      }),
+      33,
+    );
+    assert.equal(resolvePdfNumeroOrdem({}, null, {}), null);
   });
 });
 

@@ -3,6 +3,7 @@
  */
 
 import { COMPANY } from './mock_data.js';
+import { getServico } from './servicos-db.js';
 import { pdfSetFont, pdfSafeText, pdfSplitText } from './pdf-font.js';
 import {
   PDF_COLOR_CORPORATE_BLUE as CORPORATE_BLUE,
@@ -23,6 +24,51 @@ import {
 export function formatOrdemDisplay(numeroOrdem) {
   const padded = String(numeroOrdem).padStart(2, '0');
   return `Ordem No: OP-2026-${padded}`;
+}
+
+/** Extrai número OP de texto livre (ex.: «OP-2026-42» ou «42»). */
+export function parsePdfNumeroOrdemValue(raw) {
+  if (raw == null || raw === '') return null;
+  const s = String(raw).trim();
+  const opMatch = s.match(/OP\s*[-–]?\s*\d{4}\s*[-–]?\s*(\d+)/i);
+  if (opMatch?.[1]) {
+    const n = Number(opMatch[1]);
+    if (Number.isFinite(n)) return n;
+  }
+  const plain = s.match(/^(\d{1,4})$/);
+  if (plain) return Number(plain[1]);
+  return null;
+}
+
+/**
+ * Número de ordem para cabeçalho PDF — trabalho, visita (serviço) ou valor do formulário.
+ * @param {object} [report]
+ * @param {object} [job]
+ * @param {object} [values]
+ */
+export function resolvePdfNumeroOrdem(report, job, values = null) {
+  const fromJob = job?.numeroOrdem;
+  if (fromJob != null && Number.isFinite(Number(fromJob))) {
+    return Number(fromJob);
+  }
+
+  const resolvedValues = values || report?.data?.values || {};
+  const fromValues = parsePdfNumeroOrdemValue(resolvedValues.numero_ordem);
+  if (fromValues != null) return fromValues;
+
+  const servicoIds = new Set();
+  if (report?.servicoId) servicoIds.add(String(report.servicoId));
+  if (job?.servicoId) servicoIds.add(String(job.servicoId));
+
+  for (const sid of servicoIds) {
+    const servico = getServico(sid);
+    const fromServico = servico?.numeroOrdem;
+    if (fromServico != null && Number.isFinite(Number(fromServico))) {
+      return Number(fromServico);
+    }
+  }
+
+  return null;
 }
 
 export function drawCompactClientBox(doc, topY, clientMeta, numeroOrdem = null) {

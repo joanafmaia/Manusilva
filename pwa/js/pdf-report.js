@@ -207,6 +207,7 @@ import { drawInterventionFotografiasSection } from './pdf-intervention-fotos.js'
 import {
   drawCompactClientBox,
   drawLogoPlaceholder,
+  resolvePdfNumeroOrdem,
 } from './pdf-header-blocks.js';
 import { SERVICE_IDS } from './service-constants.js';
 
@@ -267,6 +268,7 @@ export async function renderInterventionPDF(report) {
   values = { ...values, ...resolveInspecaoDl50MachineFields(values, pdfContext) };
   pdfContext.values = values;
   pdfContext.service = pdfService;
+  const pdfNumeroOrdem = resolvePdfNumeroOrdem(reportForPdf, job, values);
   pdfContext.closingOpts = {
     fotoAntesUrl,
     fotoDepoisUrl,
@@ -297,7 +299,7 @@ export async function renderInterventionPDF(report) {
 
   let y;
   if (isPreventivaBateriaPdf) {
-    y = drawTopRowWithClientBlock(doc, clientMeta, job?.numeroOrdem ?? null);
+    y = drawTopRowWithClientBlock(doc, clientMeta, pdfNumeroOrdem);
     y = drawRavBateriaTitleBar(doc, y, title);
     y = drawServiceInfoBlock(doc, y, {
       ...buildRavServiceInfoMeta(report, job, values),
@@ -312,7 +314,7 @@ export async function renderInterventionPDF(report) {
       fotoDepoisUrl,
     });
   } else if (isFolhaIntervencaoAvariasPdf) {
-    y = drawTopRowWithClientBlock(doc, clientMeta, job?.numeroOrdem ?? null);
+    y = drawTopRowWithClientBlock(doc, clientMeta, pdfNumeroOrdem);
     y = drawFolhaAvariasTitleBar(doc, y, title);
     y = drawServiceInfoBlock(doc, y, {
       ...buildFolhaAvariasServiceInfoMeta(report, job, values),
@@ -327,7 +329,7 @@ export async function renderInterventionPDF(report) {
       fotoDepoisUrl,
     });
   } else if (isReparacaoAvariasBateriaPdf) {
-    y = drawTopRowWithClientBlock(doc, clientMeta, job?.numeroOrdem ?? null);
+    y = drawTopRowWithClientBlock(doc, clientMeta, pdfNumeroOrdem);
     y = drawRavBateriaTitleBar(doc, y, title);
     y = drawServiceInfoBlock(doc, y, {
       ...buildRavServiceInfoMeta(report, job, values),
@@ -352,7 +354,7 @@ export async function renderInterventionPDF(report) {
       fotoDepoisUrl,
     });
   } else if (isCorretivaMaquinasPdf) {
-    y = drawTopRowWithClientBlock(doc, clientMeta, job?.numeroOrdem ?? null);
+    y = drawTopRowWithClientBlock(doc, clientMeta, pdfNumeroOrdem);
     y = drawCorretivaTitleBar(doc, y, title);
     const visitCount = formatPdfNumeroVisitas(values);
     y = drawServiceInfoBlock(doc, y, {
@@ -368,7 +370,7 @@ export async function renderInterventionPDF(report) {
       simplePhotoLegend: true,
     });
   } else if (isGrandesBateriasPdf) {
-    y = drawTopRowWithClientBlock(doc, clientMeta, job?.numeroOrdem ?? null);
+    y = drawTopRowWithClientBlock(doc, clientMeta, pdfNumeroOrdem);
     y = drawGrandesTitleBar(doc, y, title);
     const visitCount = formatPdfNumeroVisitas(values);
     y = drawServiceInfoBlock(doc, y, {
@@ -385,7 +387,7 @@ export async function renderInterventionPDF(report) {
       simplePhotoLegend: true,
     });
   } else if (isMovimentoMaterialClientePdf) {
-    y = drawTopRowWithClientBlock(doc, clientMeta, job?.numeroOrdem ?? null);
+    y = drawTopRowWithClientBlock(doc, clientMeta, pdfNumeroOrdem);
     y = drawTitleBar(doc, y, title);
     y = drawServiceInfoBlock(doc, y, {
       serviceDate: formatPdfServiceDateOnly(report, job, values),
@@ -400,7 +402,7 @@ export async function renderInterventionPDF(report) {
       fotoDepoisUrl,
     });
   } else {
-    y = drawTopRowWithClientBlock(doc, clientMeta, job?.numeroOrdem ?? null);
+    y = drawTopRowWithClientBlock(doc, clientMeta, pdfNumeroOrdem);
     y = drawTitleBar(doc, y, title);
     const visitCount = formatPdfNumeroVisitas(values);
     y = drawServiceInfoBlock(doc, y, {
@@ -431,7 +433,7 @@ export async function renderInterventionPDF(report) {
 
   touchPdfContentPage(doc);
   trimTrailingBlankPages(doc);
-  if (isPreventivaBateriaPdf || isFolhaIntervencaoAvariasPdf || isReparacaoCarregadorPdf) {
+  if (isFolhaIntervencaoAvariasPdf || isReparacaoCarregadorPdf) {
     drawFolhaDocumentFooters(doc);
   } else {
     drawPageFooter(doc, report.id);

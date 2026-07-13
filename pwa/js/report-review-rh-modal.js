@@ -265,7 +265,20 @@ export function buildRhReviewListItem({ job, report, client, tech }) {
 
 /**
  * Pasta de visita no painel RH — vários relatórios do mesmo serviço.
+ * Pendentes: cartão completo; restantes: linha compacta (menos DOM com visitas grandes).
  */
+function buildRhVisitaReportCompactRow(report, getJobFn = getJob) {
+  const service = getServiceType(report.serviceType);
+  const label = service?.label || report.serviceType || 'Relatório';
+  const badge = renderReportWorkStateBadge(report, report.jobId ? getJobFn(report.jobId) : null);
+  return `
+    <div class="rh-visita-folder__report-row rh-visita-folder__report-row--compact">
+      <button type="button" class="rh-visita-folder__compact-link" data-panel-open="${escapeHtml(report.id)}">
+        ${serviceIconHtml(service, 'ms-icon')} <span class="rh-visita-folder__compact-label">${escapeHtml(label)}</span> ${badge}
+      </button>
+    </div>`;
+}
+
 export function buildRhVisitaFolder({ servicoId, reports, getJobFn = getJob, avaliacao = null }) {
   const { title, dateLabel, state, servico } = getServicoReviewMeta(servicoId);
   const statusParts = [];
@@ -292,15 +305,16 @@ export function buildRhVisitaFolder({ servicoId, reports, getJobFn = getJob, ava
 
   const reportsHtml = reports
     .map((report) => {
-      const item = buildRhReviewListItem({
-        job: report.jobId ? getJobFn(report.jobId) : null,
-        report,
-        client: getClient(report.clientId),
-        tech: getTechnician(report.technicianId),
-      });
-      const rowClass =
-        report.status === 'pending_review' ? ' rh-visita-folder__report-row--pending' : '';
-      return `<div class="rh-visita-folder__report-row${rowClass}"><div class="rh-visita-folder__report-item">${item}</div></div>`;
+      if (report.status === 'pending_review') {
+        const item = buildRhReviewListItem({
+          job: report.jobId ? getJobFn(report.jobId) : null,
+          report,
+          client: getClient(report.clientId),
+          tech: getTechnician(report.technicianId),
+        });
+        return `<div class="rh-visita-folder__report-row rh-visita-folder__report-row--pending"><div class="rh-visita-folder__report-item">${item}</div></div>`;
+      }
+      return buildRhVisitaReportCompactRow(report, getJobFn);
     })
     .join('');
 
@@ -474,7 +488,7 @@ export async function openRhReviewModal(reportId, callbacks = {}) {
   }
 
   try {
-    await ensureJobsLoaded(true);
+    await ensureJobsLoaded();
   } catch (err) {
     console.warn('[RH] Trabalhos para revisão:', err);
   }

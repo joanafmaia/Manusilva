@@ -784,6 +784,11 @@
 }
 .rh-review-filters-wrap {
   margin-bottom: 0.35rem;
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: var(--bg-card);
+  padding-bottom: 0.15rem;
 }
 .rh-review-filters {
   display: flex;
@@ -792,10 +797,6 @@
   padding: 0 0 0.85rem;
   margin-bottom: 0.35rem;
   border-bottom: 1px solid var(--ms-border-md);
-  position: sticky;
-  top: 0;
-  z-index: 2;
-  background: var(--bg-card);
   padding-top: 0.15rem;
 }
 .rh-filter-chip {
@@ -830,6 +831,10 @@
   border-color: var(--primary);
   transform: none;
   box-shadow: none;
+}
+.rh-filter-chip .ms-icon,
+.rh-filter-chip .rh-filter-chip__icon {
+  pointer-events: none;
 }
 .rh-review-stack-wrap {
   min-width: 0;
@@ -942,14 +947,9 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  position: sticky;
-  top: 0;
-  z-index: 2;
   padding: 0.35rem 0.15rem 0.5rem;
   margin: 0;
-  background: color-mix(in srgb, var(--ms-page-bg, #f7f6f3) 94%, transparent);
   border-bottom: 1px solid var(--ms-border-md);
-  backdrop-filter: blur(4px);
 }
 .rh-review-day-group__toggle {
   display: inline-flex;
@@ -1090,6 +1090,34 @@
 }
 .rh-visita-folder__report-row--pending .rh-visita-folder__report-item {
   opacity: 1;
+}
+.rh-visita-folder__report-row--compact {
+  padding: 4px 0;
+}
+.rh-visita-folder__compact-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--ms-border-sm);
+  border-radius: 8px;
+  background: var(--ms-card-bg);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.rh-visita-folder__compact-link:hover {
+  background: color-mix(in srgb, var(--primary) 5%, var(--ms-card-bg));
+}
+.rh-visita-folder__compact-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .rh-visita-folder--highlight {
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 55%, transparent);
@@ -3828,6 +3856,10 @@
 }
 /* ═══ Painel RH — clínica B2B (alinhado a base.css) ═══ */ body.admin-rh-page .admin-main, body .admin-rh-page .admin-page {
   background-color: var(--ms-page-bg);
+}
+body.admin-rh-page :is(button, .rh-filter-chip, .nav-item, .view-toggle button, .admin-ops-mobile-toggle button, .dashboard-metric-card--clickable) {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 body .admin-rh-page .bg-mesh {
   background: var(--ms-page-bg);

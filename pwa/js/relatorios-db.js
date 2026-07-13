@@ -8,6 +8,7 @@ import {
   getJobsSnapshot,
   insertTrabalhoFromReport,
 } from './trabalhos-db.js';
+import { getServicosSnapshot } from './servicos-db.js';
 import { legacyPrazoToCondicao } from './billing-constants.js';
 import { sameEntityId } from './entity-id.js';
 import { reportIsCommercialOrcamento } from './pedido-orcamento.js';
@@ -24,6 +25,8 @@ import {
 let reportsCache = null;
 /** Índice lazy jobId → relatório canónico (deduplicado). */
 let reportsByJobIdIndex = null;
+/** Índice lazy servicoId → relatórios da visita (lookup O(k) em vez de varrer todo o cache). */
+let reportsByServicoIdIndex = null;
 /** true só depois de um SELECT completo à tabela relatorios (não rascunhos locais). */
 let reportsFullyLoaded = false;
 let reportsLoadPromise = null;
@@ -262,6 +265,45 @@ export function formatRelatoriosError(err) {
 
 function invalidateReportsJobIndex() {
   reportsByJobIdIndex = null;
+  reportsByServicoIdIndex = null;
+}
+
+function resolveServicoIdForReportIndex(report, servicoIds, jobsById) {
+  if (!report) return '';
+  const direct = report.servicoId ? String(report.servicoId) : '';
+  if (direct) return direct;
+  const jobId = report.jobId ? String(report.jobId) : '';
+  if (!jobId) return '';
+  if (servicoIds.has(jobId)) return jobId;
+  const job = jobsById.get(jobId);
+  const viaJob = job?.servicoId ? String(job.servicoId) : '';
+  if (viaJob && servicoIds.has(viaJob)) return viaJob;
+  return '';
+}
+
+function rebuildReportsServicoIndex() {
+  reportsByServicoIdIndex = new Map();
+  if (!reportsCache?.length) return reportsByServicoIdIndex;
+
+  const servicoIds = new Set(getServicosSnapshot().map((s) => String(s.id)));
+  const jobsById = new Map(getJobsSnapshot().map((j) => [String(j.id), j]));
+
+  for (const report of filterOutLocallyDeletedReports(reportsCache)) {
+    const sid = resolveServicoIdForReportIndex(report, servicoIds, jobsById);
+    if (!sid) continue;
+    if (!reportsByServicoIdIndex.has(sid)) reportsByServicoIdIndex.set(sid, []);
+    reportsByServicoIdIndex.get(sid).push(report);
+  }
+  return reportsByServicoIdIndex;
+}
+
+/** Relatórios ligados a uma visita — lookup indexado (fallback ordem+cliente em servicos-panel-utils). */
+export function getReportsSnapshotByServicoId(servicoId) {
+  if (servicoId == null || servicoId === '') return [];
+  const key = String(servicoId);
+  if (!reportsByServicoIdIndex) rebuildReportsServicoIndex();
+  const bucket = reportsByServicoIdIndex.get(key);
+  return bucket ? [...bucket] : [];
 }
 
 function rebuildReportsJobIndex() {

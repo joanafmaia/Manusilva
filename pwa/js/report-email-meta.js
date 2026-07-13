@@ -3,6 +3,7 @@
  */
 
 import { getClientName } from './client-display.js';
+import { resolvePdfNumeroOrdem } from './pdf-header-blocks.js';
 import { SERVICE_IDS } from './service-constants.js';
 import { resolveReportInterventionDatePt } from './report-intervention-date.js';
 
@@ -41,6 +42,6 @@ export function buildReportEmailMeta(report, options = {}) {
     tecnico: String(values.tecnico || options.technicianName || '').trim(),
     dataConclusao: resolveReportInterventionDatePt(report, job),
     serieFrota: String(values.numero_de_serie || report?.forkliftSerial || '').trim(),
-    numeroOrdem: job?.numeroOrdem ?? null,
+    numeroOrdem: resolvePdfNumeroOrdem(report, job, values),
   };
 }

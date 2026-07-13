@@ -72,6 +72,7 @@ import {
   getNextPendingReportId,
   buildRhOpsSummaryText,
   loadRhDayCollapseState,
+  isRhDayCollapsed,
   toggleRhDayCollapsed,
 } from './rh-panel-utils.js';
 import { computeDashboardMetrics } from './views/dashboard-metrics.js';
@@ -136,6 +137,42 @@ const RH_EMPTY_MESSAGES = {
 const AGENDA_SWIPE_OPEN_PX = 88;
 
 let reviewPanelHeightObserver = null;
+let rhReviewStackRenderToken = 0;
+
+/** Evita substituir o DOM a meio do ciclo de clique (mousedown → mouseup). */
+function deferPanelDomWrite(writeFn) {
+  return new Promise((resolve) => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        writeFn();
+        resolve();
+      });
+    });
+  });
+}
+
+function applyRhDayCollapseDom(section, collapsed) {
+  if (!section) return;
+  section.classList.toggle('is-collapsed', collapsed);
+  const items = section.querySelector('.rh-review-day-group__items');
+  const toggle = section.querySelector('.rh-review-day-group__toggle');
+  const chevron = section.querySelector('.rh-review-day-group__chevron');
+  if (items) items.hidden = collapsed;
+  if (toggle) toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+  if (chevron) chevron.textContent = collapsed ? '▸' : '▾';
+}
+
+function syncRhReviewFilterChipsUi(panel, activeFilter = rhReviewFilter) {
+  panel?.querySelectorAll('[data-rh-filter]').forEach((chip) => {
+    const active = chip.dataset.rhFilter === activeFilter;
+    chip.classList.toggle('is-active', active);
+    chip.setAttribute('aria-selected', active ? 'true' : 'false');
+  });
+}
+
+function queueRhReviewStackRender() {
+  void renderRhReviewStack().catch(console.error);
+}
 
 /** Secções fora do ecrã — refresh adiado até o utilizador abrir a aba. */
 const adminTabDirty = {
@@ -1163,12 +1200,15 @@ async function renderRhReviewStack() {
   const panel = document.getElementById('rh-review-panel');
   if (!panel) return;
 
+  const token = ++rhReviewStackRenderToken;
+
   try {
-    await warmOperacoes();
     await syncTechniciansCatalog({ silent: true });
   } catch (err) {
     console.warn('[Admin] Dados para painel de relatórios:', err);
   }
+
+  if (token !== rhReviewStackRenderToken) return;
 
   updateAdminChrome();
 
@@ -1178,6 +1218,8 @@ async function renderRhReviewStack() {
   const { buildRhReviewGroupedStack, buildRhReviewFilterBar } = await import(
     './report-review-rh-modal.js'
   );
+
+  if (token !== rhReviewStackRenderToken) return;
 
   const filterBar = buildRhReviewFilterBar(counts, rhReviewFilter, {
     techId: rhReviewTechFilter,
@@ -1196,8 +1238,14 @@ async function renderRhReviewStack() {
   } else {
     const { resolveServicoIdForReport } = await import('./servicos-panel-utils.js');
     const { fetchAvaliacoesByServicoIds } = await import('./avaliacoes-db.js');
-    const servicoIds = reports.map((report) => resolveServicoIdForReport(report)).filter(Boolean);
+    if (token !== rhReviewStackRenderToken) return;
+
+    const servicoIds = [
+      ...new Set(reports.map((report) => resolveServicoIdForReport(report)).filter(Boolean)),
+    ];
     const avaliacoesMap = await fetchAvaliacoesByServicoIds(servicoIds);
+    if (token !== rhReviewStackRenderToken) return;
+
     const dayCollapseState = loadRhDayCollapseState();
     const cards = buildRhReviewGroupedStack(reports, {
       getJobFn: getJob,
@@ -1208,14 +1256,18 @@ async function renderRhReviewStack() {
     stackHtml = `<div class="rh-review-stack" role="list">${cards}</div>`;
   }
 
-  panel.innerHTML = `
+  const html = `
     <div class="rh-review-panel-inner">
       ${filterBar}
       <div class="rh-review-stack-wrap">${stackHtml}</div>
     </div>`;
 
-  requestAnimationFrame(() => syncReviewPanelHeight());
-  updateRhBatchToolbar(panel);
+  await deferPanelDomWrite(() => {
+    if (token !== rhReviewStackRenderToken) return;
+    panel.innerHTML = html;
+    requestAnimationFrame(() => syncReviewPanelHeight());
+    updateRhBatchToolbar(panel);
+  });
 }
 
 function rhReviewModalCallbacks() {
@@ -1254,6 +1306,8 @@ function rhReviewModalCallbacks() {
 }
 
 let rhReviewPanelBound = false;
+/** Relatórios com aprovação rápida em curso (evita duplo clique). */
+const rhApprovingReportIds = new Set();
 
 function updateRhBatchToolbar(panel) {
   const checkboxes = [...panel.querySelectorAll('.rh-batch-checkbox:checked')];
@@ -1310,7 +1364,6 @@ async function approveSelectedRhReports(panel) {
       6000,
     );
     await rhReviewModalCallbacks().onApproved?.();
-    await renderRhReviewStack();
   } else {
     showToast('Nenhum relatório foi aprovado.', 'warning', 5000);
   }
@@ -1361,10 +1414,10 @@ function bindRhReviewPanel() {
     }
   });
 
-  panel.addEventListener('click', async (e) => {
+  panel.addEventListener('click', (e) => {
     const batchBtn = e.target.closest('#rh-batch-approve');
     if (batchBtn) {
-      await approveSelectedRhReports(panel);
+      void approveSelectedRhReports(panel);
       return;
     }
 
@@ -1374,7 +1427,8 @@ function bindRhReviewPanel() {
       if (next && next !== rhReviewFilter) {
         rhReviewFilter = next;
         persistRhReviewFilters();
-        await renderRhReviewStack();
+        syncRhReviewFilterChipsUi(panel, next);
+        queueRhReviewStackRender();
       }
       return;
     }
@@ -1389,73 +1443,98 @@ function bindRhReviewPanel() {
     if (dayHeader && !e.target.closest('.rh-review-day-group__count')) {
       const section = dayHeader.closest('.rh-review-day-group');
       if (section) {
-        e.preventDefault();
+        const nextCollapsed = !isRhDayCollapsed(section.dataset.day ?? '');
         toggleRhDayCollapsed(section.dataset.day ?? '');
-        await renderRhReviewStack();
+        applyRhDayCollapseDom(section, nextCollapsed);
         return;
       }
     }
 
     const quickApproveNext = e.target.closest('[data-quick-approve-next]');
     if (quickApproveNext?.dataset.quickApproveNext) {
-      await quickApproveRhReportAndNext(quickApproveNext.dataset.quickApproveNext);
+      const reportId = quickApproveNext.dataset.quickApproveNext;
+      if (rhApprovingReportIds.has(reportId)) return;
+      quickApproveNext.disabled = true;
+      quickApproveNext.setAttribute('aria-busy', 'true');
+      void quickApproveRhReportAndNext(reportId).finally(() => {
+        quickApproveNext.disabled = false;
+        quickApproveNext.removeAttribute('aria-busy');
+      });
       return;
     }
 
     const quickApprove = e.target.closest('[data-quick-approve]');
     if (quickApprove?.dataset.quickApprove) {
-      await quickApproveRhReport(quickApprove.dataset.quickApprove);
+      const reportId = quickApprove.dataset.quickApprove;
+      if (rhApprovingReportIds.has(reportId)) return;
+      quickApprove.disabled = true;
+      quickApprove.setAttribute('aria-busy', 'true');
+      void quickApproveRhReport(reportId).finally(() => {
+        quickApprove.disabled = false;
+        quickApprove.removeAttribute('aria-busy');
+      });
       return;
     }
 
     const quickReject = e.target.closest('[data-quick-reject]');
     if (quickReject?.dataset.quickReject) {
-      const { openRhRejectDialog } = await import('./report-review-rh-modal.js');
-      openRhRejectDialog(quickReject.dataset.quickReject, rhReviewModalCallbacks().onRejected);
+      void import('./report-review-rh-modal.js').then(({ openRhRejectDialog }) => {
+        openRhRejectDialog(quickReject.dataset.quickReject, rhReviewModalCallbacks().onRejected);
+      });
       return;
     }
 
     const openBtn = e.target.closest('[data-panel-open]');
     if (openBtn?.dataset.panelOpen) {
-      const { openRhReviewModal } = await import('./report-review-rh-modal.js');
-      await openRhReviewModal(openBtn.dataset.panelOpen, rhReviewModalCallbacks());
+      void import('./report-review-rh-modal.js').then(({ openRhReviewModal }) =>
+        openRhReviewModal(openBtn.dataset.panelOpen, rhReviewModalCallbacks()),
+      );
       return;
     }
 
     const servicoReviewBtn = e.target.closest('[data-servico-review]');
     if (servicoReviewBtn?.dataset.servicoReview) {
-      const { openRhServicoReview } = await import('./report-review-rh-modal.js');
-      await openRhServicoReview(servicoReviewBtn.dataset.servicoReview, rhReviewModalCallbacks());
+      void import('./report-review-rh-modal.js').then(({ openRhServicoReview }) =>
+        openRhServicoReview(servicoReviewBtn.dataset.servicoReview, rhReviewModalCallbacks()),
+      );
     }
   });
 }
 
 async function quickApproveRhReport(reportId, options = {}) {
   const { quiet = false } = options;
-  const report = getReport(reportId);
-  if (!report || report.status !== 'pending_review') return false;
+  const key = String(reportId || '');
+  if (!key || rhApprovingReportIds.has(key)) return false;
+  rhApprovingReportIds.add(key);
 
-  const client = getClient(report.clientId);
-  const clientEmail = String(client?.email || client?.['E-mail'] || '').trim();
-  if (!isValidClientEmail(clientEmail)) {
-    showToast('E-mail do cliente em falta ou inválido. Abra «Rever» para corrigir.', 'error');
-    return false;
+  try {
+    const report = getReport(key);
+    if (!report || report.status !== 'pending_review') return false;
+
+    const client = getClient(report.clientId);
+    const clientEmail = String(client?.email || client?.['E-mail'] || '').trim();
+    if (!isValidClientEmail(clientEmail)) {
+      showToast('E-mail do cliente em falta ou inválido. Abra «Rever» para corrigir.', 'error');
+      return false;
+    }
+
+    const job = report.jobId ? getJob(report.jobId) : null;
+    const ordem = formatOrdemLabel(job, client);
+    const confirmMsg = isTestClient(client)
+      ? `Aprovar relatório de teste (${ordem})? Sem número OP oficial; o e-mail segue normalmente se o cliente tiver endereço válido.`
+      : `Aprovar ${ordem} e enviar para o cliente?`;
+    const confirmed = quiet ? true : window.confirm(confirmMsg);
+    if (!confirmed) return false;
+
+    const ok = await approveReport(key, { clientEmail });
+    if (ok) {
+      await rhReviewModalCallbacks().onApproved?.();
+      if (!quiet) await renderRhReviewStack();
+    }
+    return Boolean(ok);
+  } finally {
+    rhApprovingReportIds.delete(key);
   }
-
-  const job = report.jobId ? getJob(report.jobId) : null;
-  const ordem = formatOrdemLabel(job, client);
-  const confirmMsg = isTestClient(client)
-    ? `Aprovar relatório de teste (${ordem})? Sem número OP oficial; o e-mail segue normalmente se o cliente tiver endereço válido.`
-    : `Aprovar ${ordem} e enviar para o cliente?`;
-  const confirmed = quiet ? true : window.confirm(confirmMsg);
-  if (!confirmed) return false;
-
-  const ok = await approveReport(reportId, { clientEmail });
-  if (ok) {
-    await rhReviewModalCallbacks().onApproved?.();
-    if (!quiet) await renderRhReviewStack();
-  }
-  return Boolean(ok);
 }
 
 async function quickApproveRhReportAndNext(reportId) {
@@ -1466,12 +1545,10 @@ async function quickApproveRhReportAndNext(reportId) {
   if (nextId) {
     const { openRhReviewModal } = await import('./report-review-rh-modal.js');
     await openRhReviewModal(nextId, rhReviewModalCallbacks());
-    await renderRhReviewStack();
     return;
   }
 
   showToast('Relatório aprovado. Não há mais pendentes nesta fila.', 'success', 5000);
-  await renderRhReviewStack();
 }
 
 /** Swipe para a esquerda na vista Agenda — revela Eliminar */
