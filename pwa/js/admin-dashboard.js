@@ -1339,6 +1339,7 @@ async function approveSelectedRhReports(panel) {
   if (btn) btn.disabled = true;
 
   let approved = 0;
+  let skippedEmail = 0;
   const total = ids.length;
   for (let i = 0; i < ids.length; i += 1) {
     const reportId = ids[i];
@@ -1348,6 +1349,10 @@ async function approveSelectedRhReports(panel) {
     if (!report || report.status !== 'pending_review') continue;
     const client = getClient(report.clientId);
     const clientEmail = String(client?.email || client?.['E-mail'] || '').trim();
+    if (!isValidClientEmail(clientEmail)) {
+      skippedEmail += 1;
+      continue;
+    }
     const ok = await approveReport(reportId, { clientEmail });
     if (ok) approved += 1;
   }
@@ -1363,7 +1368,24 @@ async function approveSelectedRhReports(panel) {
       'success',
       6000,
     );
+    if (skippedEmail > 0) {
+      showToast(
+        skippedEmail === 1
+          ? '1 relatório ignorado — e-mail do cliente em falta ou inválido.'
+          : `${skippedEmail} relatórios ignorados — e-mail do cliente em falta ou inválido.`,
+        'warning',
+        8000,
+      );
+    }
     await rhReviewModalCallbacks().onApproved?.();
+  } else if (skippedEmail > 0) {
+    showToast(
+      skippedEmail === 1
+        ? 'Relatório ignorado — e-mail do cliente em falta ou inválido.'
+        : `${skippedEmail} relatórios ignorados — e-mail do cliente em falta ou inválido.`,
+      'warning',
+      8000,
+    );
   } else {
     showToast('Nenhum relatório foi aprovado.', 'warning', 5000);
   }

@@ -23,6 +23,7 @@ import {
 import { isPendingOrcamentoBilling } from './orcamento-billing-workflow.js';
 import { getInvoicedServicos } from './servicos-db.js';
 import { getJob } from './entity-lookups.js';
+import { resolveServicoIdForReport } from './servicos-panel-utils.js';
 
 function findReport(reportId) {
   return getReportsSnapshot().find((r) => sameEntityId(r.id, reportId)) || null;
@@ -150,7 +151,7 @@ export function isPendingBilling(report, allReports = null) {
   if (reportPedidoOrcamentoRoutesToOrcamentosTab(report, safeGetClient(report.clientId))) {
     return false;
   }
-  if (report.servicoId) return false;
+  if (resolveServicoIdForReport(report)) return false;
   const snapshot = allReports || getReportsSnapshot();
   if (reportIsCommercialOrcamento(report)) return false;
   if (sharesNumeroOrdemWithCommercialOrcamento(report, snapshot)) return false;

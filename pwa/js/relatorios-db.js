@@ -187,15 +187,20 @@ export function mapRowToReport(row) {
 }
 
 function resolveServicoIdForReport(report) {
-  const explicit = String(report?.servicoId || '').trim();
+  if (!report) return null;
+  const explicit = String(report.servicoId || '').trim();
   if (explicit) return explicit;
 
-  const jobId = String(report?.jobId || '').trim();
+  const jobId = String(report.jobId || '').trim();
   if (!jobId) return null;
+
+  const servicoIds = new Set(getServicosSnapshot().map((s) => String(s.id)));
+  if (servicoIds.has(jobId)) return jobId;
 
   const job = getJobsSnapshot().find((row) => sameEntityId(row.id, jobId));
   const fromJob = String(job?.servicoId || '').trim();
-  return fromJob || null;
+  if (fromJob && servicoIds.has(fromJob)) return fromJob;
+  return null;
 }
 
 export function mapReportToRow(report) {

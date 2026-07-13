@@ -470,6 +470,53 @@ async function approveReportOnce(reportId, options = {}) {
         jobId: reportForPdf.jobId || servicoId,
       });
 
+    const sendIndividualClientEmail = async ({ quiet = false } = {}) => {
+      const latestForEmail = getReport(reportId) || reportForPdf;
+      if (reportClientEmailAlreadySent(latestForEmail)) {
+        if (!quiet) {
+          showToast('Relatório aprovado. O e-mail ao cliente já tinha sido enviado.', 'success', 5000);
+        }
+        return true;
+      }
+
+      const pdfCount = pdfEntries.length;
+      if (!quiet) {
+        showToast(
+          pdfCount > 1
+            ? `Relatório aprovado! ${pdfCount} PDFs guardados. A enviar e-mail para ${recipientsLabel}...`
+            : `Relatório aprovado! PDF guardado no Storage. A enviar e-mail para ${recipientsLabel}...`,
+          'success',
+          7000,
+        );
+      }
+
+      try {
+        await sendOfficialReportEmail({
+          ...buildReportEmailMeta(reportForPdf, {
+            client,
+            job,
+            technicianName: resolveReportTechnicianLabel(reportForPdf, job),
+          }),
+          to: recipients,
+          servicoId: servicoId || null,
+          includeRatingLinks: Boolean(servicoId),
+          ...emailPdfPayload,
+        });
+        await updateRelatorio(reportId, {
+          data: { visitClienteEmailSentAt: new Date().toISOString() },
+        });
+        return true;
+      } catch (err) {
+        console.error('[Email] Envio após aprovação falhou:', err);
+        showToast(
+          `Relatório aprovado, mas o e-mail para o cliente falhou. ${err?.message || ''}`.trim(),
+          'warning',
+          8000,
+        );
+        return false;
+      }
+    };
+
     const sendVisitEmailIfReady = async ({ quiet = false } = {}) => {
       if (!servicoId || !deferVisitEmail) return false;
 
@@ -542,49 +589,16 @@ async function approveReportOnce(reportId, options = {}) {
         'success',
         6000,
       );
-      await sendVisitEmailIfReady({ quiet: true });
+      if (servicoId && deferVisitEmail) {
+        await sendVisitEmailIfReady({ quiet: true });
+      } else if (recipients.length && !skipClientEmail) {
+        await sendIndividualClientEmail({ quiet: true });
+      }
     } else if (servicoId && deferVisitEmail) {
       await sendVisitEmailIfReady();
     } else if (recipients.length && !skipClientEmail) {
-      const latestForEmail = getReport(reportId) || reportForPdf;
-      if (reportClientEmailAlreadySent(latestForEmail)) {
-        showToast('Relatório aprovado. O e-mail ao cliente já tinha sido enviado.', 'success', 5000);
-      } else {
-        const pdfCount = pdfEntries.length;
-        showToast(
-          pdfCount > 1
-            ? `Relatório aprovado! ${pdfCount} PDFs guardados. A enviar e-mail para ${recipientsLabel}...`
-            : `Relatório aprovado! PDF guardado no Storage. A enviar e-mail para ${recipientsLabel}...`,
-          'success',
-          7000,
-        );
-
-        sendOfficialReportEmail({
-          ...buildReportEmailMeta(reportForPdf, {
-            client,
-            job,
-            technicianName: resolveReportTechnicianLabel(reportForPdf, job),
-          }),
-          to: recipients,
-          servicoId: servicoId || null,
-          includeRatingLinks: Boolean(servicoId),
-          ...emailPdfPayload,
-        })
-          .then(async () => {
-            await updateRelatorio(reportId, {
-              data: { visitClienteEmailSentAt: new Date().toISOString() },
-            });
-          })
-          .catch((err) => {
-            console.error('[Email] Envio após aprovação falhou:', err);
-            showToast(
-              `Relatório aprovado, mas o e-mail para o cliente falhou. ${err?.message || ''}`.trim(),
-              'warning',
-              8000,
-            );
-          });
-      }
-    } else if (!emailSynced) {
+      await sendIndividualClientEmail();
+    } else {
       showToast('Relatório aprovado, mas o cliente não tem e-mail registado.', 'warning');
     }
 

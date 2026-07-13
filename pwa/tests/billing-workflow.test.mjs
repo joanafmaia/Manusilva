@@ -83,6 +83,36 @@ describe('billing-workflow', () => {
     assert.equal(isPendingBilling(relatorio), false);
   });
 
+  it('isPendingBilling — exclui relatório legado com jobId = id da visita (sem servicoId)', async () => {
+    const servicosDb = await import('../js/servicos-db.js');
+    const relatoriosDb = await import('../js/relatorios-db.js');
+    servicosDb.invalidateServicosCache();
+    relatoriosDb.invalidateReportsCache();
+
+    servicosDb.mergeServicoInCache({
+      id: 'svc-legacy',
+      clientId: '10',
+      date: '2026-07-10',
+      technicianIds: 'Filipe',
+      status: 'approved',
+      data: {},
+    });
+    relatoriosDb.mergeReportInCache({
+      id: 'r-legacy-visit',
+      jobId: 'svc-legacy',
+      serviceType: 'manutencao_preventiva_empilhadores',
+      status: 'approved',
+      approvedAt: '2026-07-10T10:00:00.000Z',
+      clientId: '10',
+      faturacaoStatus: 'pendente',
+      data: {},
+    });
+
+    const { isPendingBilling } = await import('../js/billing-workflow.js');
+    const { getReport } = await import('../js/entity-lookups.js');
+    assert.equal(isPendingBilling(getReport('r-legacy-visit')), false);
+  });
+
   it('isPendingBilling — exclui só proposta comercial standalone na mesma OP', async () => {
     const trabalhosDb = await import('../js/trabalhos-db.js');
     const relatoriosDb = await import('../js/relatorios-db.js');

@@ -301,9 +301,9 @@ export async function sendSelectedReportsEmail(reportIds, options = {}) {
   const emailPdfPayload = await prepareEmailPdfPayload(pdfEntries);
   const deliveredCount =
     emailPdfPayload.pdfAttachments?.length || emailPdfPayload.pdfUrls?.length || 0;
-  if (reports.length > 1 && deliveredCount < pdfEntries.length) {
+  if (deliveredCount < pdfEntries.length) {
     showToast(
-      `Só ${deliveredCount} de ${reports.length} PDFs estão disponíveis. Não foi enviado e-mail incompleto ao cliente.`,
+      `Só ${deliveredCount} de ${pdfEntries.length} PDF(s) estão disponíveis. Não foi enviado e-mail incompleto ao cliente.`,
       'error',
       9000,
     );
