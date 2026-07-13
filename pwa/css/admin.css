@@ -136,14 +136,9 @@
 .admin-app.admin-sidebar--collapsed .admin-sidebar-toggle-icon {
   transform: rotate(180deg);
 }
-@media (min-width: 768px) and (max-width: 1366px) {
+@media (min-width: 768px) {
   .admin-sidebar-toggle {
     display: inline-flex;
-  }
-}
-@media (min-width: 1367px) {
-  .admin-app.admin-sidebar--collapsed {
-    grid-template-columns: 260px 1fr;
   }
 }
 .nav-item {
