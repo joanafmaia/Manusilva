@@ -3,12 +3,14 @@
  */
 
 import { getAuthenticatedSupabaseClient } from './supabase-client.js';
-import { getServico } from './servicos-db.js';
+import { ensureServicosLoadedSafe, getServico } from './servicos-db.js';
 import {
+  getApprovedReportsForServico,
   getServicoActiveReports,
   isServicoVisitFullyApproved,
   resolveServicoIdForReport,
 } from './servicos-panel-utils.js';
+import { showToast } from './toast-modal.js';
 
 export { getServicoActiveReports, isServicoVisitFullyApproved };
 
@@ -68,15 +70,24 @@ async function releaseServicoVisitEmailClaim(servicoId) {
   }
 }
 
+async function loadVisitReportsForEmail(servicoId) {
+  await ensureServicosLoadedSafe();
+  const { ensureRelatoriosForServicos } = await import('./relatorios-db.js');
+  await ensureRelatoriosForServicos([servicoId]);
+  return getApprovedReportsForServico(servicoId);
+}
+
 /**
  * Envia um e-mail com todos os PDFs dos relatórios aprovados da visita.
  * @param {string} servicoId
- * @param {{ clientEmail?: string }} [options]
+ * @param {{ clientEmail?: string, extraClientEmail?: string }} [options]
  */
 export async function sendServicoVisitClientEmail(servicoId, options = {}) {
   if (!servicoId) return false;
 
-  const reports = getServicoActiveReports(servicoId).filter((r) => r.status === 'approved');
+  const reports = (await loadVisitReportsForEmail(servicoId)).filter(
+    (r) => r.status === 'approved',
+  );
   if (!reports.length) return false;
 
   const claimed = await tryClaimServicoVisitEmailSend(servicoId);
@@ -102,5 +113,36 @@ export async function sendServicoVisitClientEmail(servicoId, options = {}) {
 
   const { updateServico } = await import('./servicos-db.js');
   await updateServico(servicoId, { estado: 'approved' });
+  return true;
+}
+
+/**
+ * Reenvia o e-mail da visita com todos os relatórios aprovados (sem bloqueio de envio anterior).
+ * @param {string} servicoId
+ * @param {{ clientEmail?: string, extraClientEmail?: string }} [options]
+ */
+export async function resendServicoVisitClientEmail(servicoId, options = {}) {
+  if (!servicoId) return false;
+
+  const reports = await loadVisitReportsForEmail(servicoId);
+  if (!reports.length) {
+    showToast('Nenhum relatório aprovado nesta visita.', 'warning');
+    return false;
+  }
+
+  const { sendSelectedReportsEmail } = await import('./report-email-actions.js');
+  const ok = await sendSelectedReportsEmail(
+    reports.map((r) => r.id),
+    { ...options, skipRatingLink: true },
+  );
+
+  if (!ok) return false;
+
+  const sentAt = new Date().toISOString();
+  const { updateServico } = await import('./servicos-db.js');
+  await updateServico(servicoId, {
+    email_cliente_enviado_em: sentAt,
+    estado: 'approved',
+  });
   return true;
 }

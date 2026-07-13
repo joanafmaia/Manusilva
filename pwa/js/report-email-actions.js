@@ -10,12 +10,15 @@ import { patchTrabalho } from './trabalhos-db.js';
 import { arrayBufferToBase64 } from './base64-utils.js';
 import {
   getClient,
-  getJob,
   getReport,
   getServiceType,
   getTechnician,
 } from './entity-lookups.js';
-import { resolveReportTechnicianLabel, resolveServicoIdForReport } from './servicos-panel-utils.js';
+import {
+  resolveJobForApprovedReport,
+  resolveReportTechnicianLabel,
+  resolveServicoIdForReport,
+} from './servicos-panel-utils.js';
 import { syncClientEmailIfChanged } from './clients-admin.js';
 import { sendOfficialReportEmail } from './report-email-api.js';
 import {
@@ -55,7 +58,7 @@ export async function resendApprovedReportEmail(reportId, options = {}) {
   }
 
   const client = getClient(report.clientId);
-  const job = report.jobId ? getJob(report.jobId) : null;
+  const job = resolveJobForApprovedReport(report);
   const service = getServiceType(report.serviceType);
   const clientEmailInput = String(options.clientEmail ?? '').trim();
   const extraClientEmailInput = String(options.extraClientEmail ?? '').trim();
@@ -239,7 +242,7 @@ export async function sendSelectedReportsEmail(reportIds, options = {}) {
 
   const pdfEntries = [];
   for (const report of reports) {
-    const job = report.jobId ? getJob(report.jobId) : null;
+    const job = resolveJobForApprovedReport(report);
     const service = getServiceType(report.serviceType);
     let sources = resolveApprovedReportPdfSources(report, job);
 
@@ -278,8 +281,17 @@ export async function sendSelectedReportsEmail(reportIds, options = {}) {
     return false;
   }
 
+  if (reports.length > 1 && pdfEntries.length < reports.length) {
+    showToast(
+      `Só ${pdfEntries.length} de ${reports.length} PDFs estão disponíveis. Não foi enviado e-mail incompleto ao cliente.`,
+      'error',
+      9000,
+    );
+    return false;
+  }
+
   const emailPdfPayload = buildReportEmailPdfPayload(pdfEntries);
-  const firstJob = reports[0]?.jobId ? getJob(reports[0].jobId) : null;
+  const firstJob = resolveJobForApprovedReport(reports[0]);
 
   showToast(
     `A enviar ${reports.length} relatório${reports.length === 1 ? '' : 's'} (${pdfEntries.length} PDF${pdfEntries.length === 1 ? '' : 's'}) para ${recipientsLabel}...`,
@@ -298,7 +310,6 @@ export async function sendSelectedReportsEmail(reportIds, options = {}) {
         multiPdf: pdfEntries.length > 1,
       }),
       reportId: reports[0].id,
-      numeroOrdem: null,
       to: recipients,
       servicoId,
       includeRatingLinks: Boolean(servicoId) && !options.skipRatingLink,

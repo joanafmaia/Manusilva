@@ -481,17 +481,26 @@ async function approveReportOnce(reportId, options = {}) {
             'success',
             7000,
           );
-          sendServicoVisitClientEmail(servicoId, {
-            clientEmail: primaryRecipient || undefined,
-            extraClientEmail: extraClientEmailInput || undefined,
-          }).catch((err) => {
+          try {
+            const visitEmailOk = await sendServicoVisitClientEmail(servicoId, {
+              clientEmail: primaryRecipient || undefined,
+              extraClientEmail: extraClientEmailInput || undefined,
+            });
+            if (!visitEmailOk) {
+              showToast(
+                'Relatórios aprovados, mas o e-mail da visita não foi enviado (já enviado ou PDFs em falta). Use «Reenviar e-mail da visita» se necessário.',
+                'warning',
+                9000,
+              );
+            }
+          } catch (err) {
             console.error('[Email] Envio visita:', err);
             showToast(
               `Relatórios aprovados, mas o e-mail da visita falhou. ${err?.message || ''}`.trim(),
               'warning',
               9000,
             );
-          });
+          }
         }
       } else if (!isServicoVisitFullyApproved(servicoId)) {
         /* Aprovação intermédia na visita — sem toast repetitivo. */

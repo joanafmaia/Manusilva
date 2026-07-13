@@ -15,7 +15,6 @@ import {
   showToast,
   approveReport,
   rejectReport,
-  resendApprovedReportEmail,
 } from './app.js';
 import { msIconHtml, serviceIconHtml } from './ui-icons.js';
 import {
@@ -56,6 +55,7 @@ import {
   getServicoReviewMeta,
   summarizeServicoReviewState,
 } from './servicos-rh-review.js';
+import { resolveServicoIdForReport } from './servicos-panel-utils.js';
 import { resolvePdfSignaturesForReport } from './report-pdf-signatures.js';
 import {
   computeReviewChecks,
@@ -303,6 +303,11 @@ export function buildRhVisitaFolder({ servicoId, reports, getJobFn = getJob, ava
     ? `<button type="button" class="btn-primary btn-sm" data-servico-review="${escapeHtml(servicoId)}">Rever visita</button>`
     : '';
 
+  const resendVisitBtn =
+    state.allApproved && state.total > 1
+      ? `<button type="button" class="btn-secondary btn-sm" data-servico-resend-email="${escapeHtml(servicoId)}">Reenviar e-mail da visita</button>`
+      : '';
+
   const reportsHtml = reports
     .map((report) => {
       if (report.status === 'pending_review') {
@@ -331,6 +336,7 @@ export function buildRhVisitaFolder({ servicoId, reports, getJobFn = getJob, ava
         <div class="rh-visita-folder__actions">
           ${emailHint}
           ${avaliacaoHint}
+          ${resendVisitBtn}
           ${reviewBtn}
         </div>
       </header>
@@ -677,10 +683,24 @@ export async function openRhReviewModal(reportId, callbacks = {}) {
 
       const btn = overlay.querySelector('#modal-resend-email');
       if (btn) btn.disabled = true;
-      const ok = await resendApprovedReportEmail(reportId, {
-        clientEmail: clientEmail || undefined,
-        extraClientEmail: extraClientEmail || undefined,
-      });
+
+      const servicoId = resolveServicoIdForReport(report);
+      const { isServicoMultiReportVisit } = await import('./servicos-panel-utils.js');
+      let ok = false;
+      if (servicoId && isServicoMultiReportVisit(servicoId)) {
+        const { resendServicoVisitClientEmail } = await import('./servicos-email-workflow.js');
+        ok = await resendServicoVisitClientEmail(servicoId, {
+          clientEmail: clientEmail || undefined,
+          extraClientEmail: extraClientEmail || undefined,
+        });
+      } else {
+        const { resendApprovedReportEmail } = await import('./report-email-actions.js');
+        ok = await resendApprovedReportEmail(reportId, {
+          clientEmail: clientEmail || undefined,
+          extraClientEmail: extraClientEmail || undefined,
+        });
+      }
+
       if (btn) btn.disabled = false;
       if (ok) closeModal();
     });

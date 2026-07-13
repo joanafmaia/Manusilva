@@ -127,6 +127,18 @@ export function buildJobContextForServicoReport(servico, report) {
   };
 }
 
+/** Trabalho efetivo para PDF/e-mail — inclui visitas sem linha em `trabalhos`. */
+export function resolveJobForApprovedReport(report) {
+  if (!report) return null;
+  if (report.jobId) {
+    const job = getJob(report.jobId);
+    if (job) return job;
+  }
+  const servicoId = resolveServicoIdForReport(report);
+  if (!servicoId) return null;
+  return buildJobContextForServicoReport(getServico(servicoId), report);
+}
+
 /** Relatórios ligados a um serviço (servico_id ou trabalho legado com o mesmo id). */
 export function getReportsForServico(servicoId) {
   return normalizeServicoVisitReports(collectReportsLinkedToServico(servicoId));

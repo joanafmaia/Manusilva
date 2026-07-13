@@ -311,6 +311,12 @@ async function resolveEmailPdfAttachments(payload = {}) {
 
   if (urlEntries.length > 1) {
     const fetched = await fetchPdfAttachmentsFromUrls(urlEntries);
+    if (fetched.length < urlEntries.length) {
+      return {
+        ok: false,
+        error: `Só foi possível obter ${fetched.length} de ${urlEntries.length} PDFs para anexar. Tente reenviar o e-mail.`,
+      };
+    }
     if (fetched.length) return { ok: true, attachments: fetched };
     return {
       ok: false,

@@ -1497,6 +1497,32 @@ function bindRhReviewPanel() {
       void import('./report-review-rh-modal.js').then(({ openRhServicoReview }) =>
         openRhServicoReview(servicoReviewBtn.dataset.servicoReview, rhReviewModalCallbacks()),
       );
+      return;
+    }
+
+    const resendVisitBtn = e.target.closest('[data-servico-resend-email]');
+    if (resendVisitBtn?.dataset.servicoResendEmail) {
+      const servicoId = resendVisitBtn.dataset.servicoResendEmail;
+      const confirmed = window.confirm(
+        'Reenviar e-mail da visita com todos os relatórios aprovados em anexo?',
+      );
+      if (!confirmed) return;
+      resendVisitBtn.disabled = true;
+      void import('./servicos-email-workflow.js')
+        .then(({ resendServicoVisitClientEmail }) => resendServicoVisitClientEmail(servicoId))
+        .then((ok) => {
+          if (ok) {
+            showToast('E-mail da visita reenviado ao cliente.', 'success', 7000);
+            return renderRhReviewStack();
+          }
+        })
+        .catch((err) => {
+          console.error('[RH] Reenvio e-mail visita:', err);
+          showToast(err?.message || 'Falha ao reenviar e-mail da visita.', 'error', 8000);
+        })
+        .finally(() => {
+          resendVisitBtn.disabled = false;
+        });
     }
   });
 }
