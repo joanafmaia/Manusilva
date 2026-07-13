@@ -6,7 +6,7 @@ import { getJob, getClient, getTechnician, getPendingReports } from './app.js';
 import { getReportsSnapshot } from './relatorios-db.js';
 import { formatOrdemLabel } from './report-review-ui.js';
 import { reportMatchesTechnicianTeam } from './job-technician-utils.js';
-import { resolveJobContextForReport, resolveReportTechnicianLabel } from './servicos-panel-utils.js';
+import { resolveJobContextForReport, resolveReportTechnicianLabel, getReportNumeroOrdem } from './servicos-panel-utils.js';
 
 const RH_FILTER_STORAGE_KEY = 'manusilva.rhReviewFilters.v2';
 const RH_FILTER_LEGACY_KEY = 'manusilva.rhReviewFilters';
@@ -131,7 +131,13 @@ export function filterRhReports(reports, { techId, search }) {
     const techName = resolveReportTechnicianLabel(report, job).toLowerCase();
     const clientName = String(client?.name || client?.Nome || '').toLowerCase();
     const ordem = String(formatOrdemLabel(job) || '').toLowerCase();
-    const ordemNum = job?.numeroOrdem != null ? String(job.numeroOrdem) : '';
+    const reportOp = getReportNumeroOrdem(report);
+    const ordemNum =
+      reportOp != null
+        ? String(reportOp)
+        : job?.numeroOrdem != null
+          ? String(job.numeroOrdem)
+          : '';
     return (
       clientName.includes(q) ||
       techName.includes(q) ||

@@ -289,7 +289,7 @@ function buildRhVisitaReportCompactRow(report, getJobFn = getJob) {
     : '';
 
   return `
-    <div class="rh-visita-folder__report-row rh-visita-folder__report-row--compact${isPending ? ' is-pending' : ''}">
+    <div class="rh-visita-folder__report-row rh-visita-folder__report-row--compact${isPending ? ' is-pending' : ''}" data-report-id="${escapeHtml(report.id)}">
       ${pendingToolbar}
       <button type="button" class="rh-visita-folder__compact-link" data-panel-open="${escapeHtml(report.id)}">
         ${serviceIconHtml(service, 'ms-icon')}
@@ -435,7 +435,11 @@ export function buildRhReviewGroupedStack(
   return dayGroups
     .map((group) => {
       const cards = group.items.map(renderStackItem).join('');
-      const countLabel = `${group.items.length} relatório${group.items.length === 1 ? '' : 's'}`;
+      const reportCount = group.items.reduce((sum, item) => {
+        if (item.kind === 'servico') return sum + (item.reports?.length || 0);
+        return sum + 1;
+      }, 0);
+      const countLabel = `${reportCount} relatório${reportCount === 1 ? '' : 's'}`;
       const dayKey = rhDayCollapseKey(group.dateIso);
       const collapsed = isRhDayCollapsed(group.dateIso, dayCollapseState);
       return `

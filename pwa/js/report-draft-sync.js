@@ -64,6 +64,14 @@ export async function syncLocalReportDraftsToServer(options = {}) {
 
     const key = reportDraftStorageKey(draft);
     try {
+      const { ensureReportsLoaded, isRelatorioLockedOnServer } = await import('./relatorios-db.js');
+      await ensureReportsLoaded(true);
+      if (await isRelatorioLockedOnServer(draft)) {
+        console.warn('[ManuSilva] Rascunho local descartado — relatório já revisto no servidor:', key);
+        await removeLocalReportDraft(key);
+        continue;
+      }
+
       const report = await uploadPendingFotosFromReport(draft);
       const saved = await upsertRelatorio(report);
 

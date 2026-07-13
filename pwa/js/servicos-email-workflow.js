@@ -70,6 +70,36 @@ async function releaseServicoVisitEmailClaim(servicoId) {
   }
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => {
+    globalThis.setTimeout(resolve, ms);
+  });
+}
+
+/** Aguarda todos os relatórios da visita estarem aprovados e visíveis (evita corrida na aprovação paralela). */
+async function waitForVisitReportsReady(servicoId, { maxAttempts = 6, delayMs = 350 } = {}) {
+  if (!servicoId) return null;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const reports = (await loadVisitReportsForEmail(servicoId)).filter((r) => r.status === 'approved');
+    const active = getServicoActiveReports(servicoId);
+    if (!active.length || !reports.length) {
+      if (attempt < maxAttempts - 1) await sleep(delayMs);
+      continue;
+    }
+
+    const activeIds = new Set(active.map((r) => String(r.id)));
+    const approvedIds = new Set(reports.map((r) => String(r.id)));
+    const allReady =
+      active.length === reports.length && [...activeIds].every((id) => approvedIds.has(id));
+
+    if (allReady) return reports;
+    if (attempt < maxAttempts - 1) await sleep(delayMs);
+  }
+
+  return null;
+}
+
 async function loadVisitReportsForEmail(servicoId) {
   await ensureServicosLoadedSafe();
   const { ensureRelatoriosForServicos, ensureReportsLoaded } = await import('./relatorios-db.js');
@@ -88,10 +118,10 @@ async function loadVisitReportsForEmail(servicoId) {
 export async function sendServicoVisitClientEmail(servicoId, options = {}) {
   if (!servicoId) return false;
 
-  const reports = (await loadVisitReportsForEmail(servicoId)).filter(
-    (r) => r.status === 'approved',
-  );
-  if (!reports.length) return false;
+  if (!isServicoVisitFullyApproved(servicoId)) return false;
+
+  const reports = await waitForVisitReportsReady(servicoId);
+  if (!reports?.length) return false;
 
   const claimed = await tryClaimServicoVisitEmailSend(servicoId);
   if (!claimed) return false;

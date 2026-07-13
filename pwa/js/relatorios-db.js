@@ -624,6 +624,23 @@ async function findExistingReportId(report) {
   return null;
 }
 
+const SERVER_LOCKED_REPORT_STATES = new Set(['approved', 'rejected']);
+
+/** Relatório já aprovado/rejeitado no servidor — rascunho local não pode sobrescrever. */
+export async function isRelatorioLockedOnServer(report) {
+  const existingId = await findExistingReportId(report);
+  if (!existingId) return false;
+
+  const supabase = await getAuthenticatedSupabaseClient();
+  const { data, error } = await supabase
+    .from('relatorios')
+    .select('estado')
+    .eq('id', existingId)
+    .maybeSingle();
+  if (error || !data?.estado) return false;
+  return SERVER_LOCKED_REPORT_STATES.has(String(data.estado));
+}
+
 /**
  * Garante que existe um trabalho em Supabase (com numero_ordem) antes de gravar o relatório.
  * @returns {{ report: object, job: object | null }}
@@ -681,11 +698,35 @@ async function persistRelatorioRow(supabase, { existingId, row, linkedReport }) 
 export async function upsertRelatorio(report) {
   const { report: linkedReport } = await ensureTrabalhoForReport(report);
 
+  const existingId = await findExistingReportId(linkedReport);
+  const incomingStatus = linkedReport.status || 'draft';
+  if (
+    existingId &&
+    (incomingStatus === 'draft' || incomingStatus === 'pending_review') &&
+    (await isRelatorioLockedOnServer(linkedReport))
+  ) {
+    await ensureReportsLoaded(true);
+    const cached = reportsCache?.find((r) => sameEntityId(r.id, existingId));
+    if (cached) return cached;
+    const supabase = await getAuthenticatedSupabaseClient();
+    const { data } = await supabase.from('relatorios').select('*').eq('id', existingId).maybeSingle();
+    if (data) {
+      const saved = mapRowToReport(data);
+      upsertCacheEntry(saved);
+      return saved;
+    }
+    return null;
+  }
+
   const supabase = await getAuthenticatedSupabaseClient();
   const row = mapReportToRow(linkedReport);
-  const existingId = await findExistingReportId(linkedReport);
+  const resolvedExistingId = existingId ?? (await findExistingReportId(linkedReport));
 
-  let { data, error } = await persistRelatorioRow(supabase, { existingId, row, linkedReport });
+  let { data, error } = await persistRelatorioRow(supabase, {
+    existingId: resolvedExistingId,
+    row,
+    linkedReport,
+  });
 
   if (error) {
     console.error('[ManuSilva] Erro ao gravar relatório:', error);
@@ -694,11 +735,11 @@ export async function upsertRelatorio(report) {
 
   let inserted = Array.isArray(data) ? data[0] : data;
 
-  if (!inserted && existingId) {
-    let insertRow = { id: existingId, ...row };
+  if (!inserted && resolvedExistingId) {
+    let insertRow = { id: resolvedExistingId, ...row };
     ({ data, error } = await supabase.from('relatorios').insert(insertRow).select());
     if (error && isMissingAuditColumnError(error)) {
-      insertRow = { id: existingId, ...stripAuditFromRelatorioRow(row) };
+      insertRow = { id: resolvedExistingId, ...stripAuditFromRelatorioRow(row) };
       ({ data, error } = await supabase.from('relatorios').insert(insertRow).select());
     }
     if (error) {
