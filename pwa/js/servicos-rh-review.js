@@ -131,7 +131,7 @@ export function summarizeServicoReviewState(reports = []) {
 }
 
 /**
- * Agrupa relatórios do painel RH: pastas de visita (2+ relatórios) + itens soltos.
+ * Agrupa relatórios do painel RH: pastas de visita (1+ relatórios) + pastas soltas avulsas.
  * Dentro da pasta mostra todos os relatórios do serviço, não só os do filtro ativo.
  * @param {object[]} filteredReports
  */
@@ -139,19 +139,10 @@ export function groupReportsForRhStack(filteredReports) {
   const list = dedupeReportsForDisplay(filteredReports || []);
   if (!list.length) return [];
 
-  const visibleByServico = new Map();
+  const folderServicos = new Set();
   for (const report of list) {
     const sid = resolveServicoIdForReport(report);
-    if (!sid) continue;
-    visibleByServico.set(sid, (visibleByServico.get(sid) || 0) + 1);
-  }
-
-  const folderServicos = new Set();
-  for (const [sid, visibleCount] of visibleByServico) {
-    const totalInServico = getReportsForServico(sid).length;
-    if (visibleCount >= 2 || totalInServico >= 2) {
-      folderServicos.add(sid);
-    }
+    if (sid) folderServicos.add(sid);
   }
 
   const items = [];
@@ -168,27 +159,43 @@ export function groupReportsForRhStack(filteredReports) {
 
   for (const { sid, reports } of folderOrder) {
     const sorted = sortReportsChronologically(reports);
-    items.push({ kind: 'servico', servicoId: sid, reports: sorted });
+    items.push({ kind: 'servico', servicoId: sid, reports: sorted, standalone: false });
     sorted.forEach((r) => usedReportIds.add(r.id));
   }
 
   for (const report of sortReportsChronologically(list)) {
-    if (!usedReportIds.has(report.id)) {
-      items.push({ kind: 'report', report });
-    }
+    if (usedReportIds.has(report.id)) continue;
+    if (resolveServicoIdForReport(report)) continue;
+    items.push({ kind: 'servico', servicoId: null, reports: [report], standalone: true });
+    usedReportIds.add(report.id);
   }
 
   const itemSortKeys = new Map(
     items.map((item) => {
-      const rep =
-        item.kind === 'servico'
-          ? item.reports.find((r) => listIdSet.has(r.id)) || item.reports[0]
-          : item.report;
+      const rep = item.reports.find((r) => listIdSet.has(r.id)) || item.reports[0];
       return [item, reportSortKey(rep)];
     }),
   );
 
   return items.sort((a, b) => itemSortKeys.get(a).localeCompare(itemSortKeys.get(b)));
+}
+
+/** Metadados de pasta para relatório avulso (sem visita no calendário). */
+export function buildStandaloneFolderMeta(reports = [], getJobFn = null) {
+  const list = dedupeReportsForDisplay(reports);
+  const report = list[0];
+  const client = getClient(report?.clientId);
+  const dateIso = resolveReportDisplayDateIso(report, getJobFn);
+  const dateLabel = dateIso ? formatDateLong(dateIso) : '—';
+
+  return {
+    servico: null,
+    reports: list,
+    client,
+    state: summarizeServicoReviewState(list),
+    dateLabel,
+    title: client?.name || client?.Nome || 'Cliente',
+  };
 }
 
 /** Primeiro relatório pendente da visita (para «Rever visita»). */

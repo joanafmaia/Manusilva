@@ -1092,7 +1092,32 @@
   opacity: 1;
 }
 .rh-visita-folder__report-row--compact {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   padding: 4px 0;
+}
+.rh-visita-folder__report-row--compact .rh-visita-folder__compact-link {
+  flex: 1;
+  min-width: 0;
+}
+.rh-visita-folder__compact-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.rh-visita-folder__compact-check {
+  display: inline-flex;
+  align-items: center;
+  margin: 0;
+}
+.rh-visita-folder__compact-age {
+  font-size: 0.8125rem;
+  white-space: nowrap;
+}
+.rh-visita-folder__compact-rever {
+  flex-shrink: 0;
 }
 .rh-visita-folder__compact-link {
   display: flex;

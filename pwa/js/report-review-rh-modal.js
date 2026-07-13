@@ -55,6 +55,7 @@ import {
   getRhApproveNextLabel,
   getServicoReviewMeta,
   summarizeServicoReviewState,
+  buildStandaloneFolderMeta,
 } from './servicos-rh-review.js';
 import { resolveServicoIdForReport, resolveJobContextForReport, getReportNumeroOrdem } from './servicos-panel-utils.js';
 import { resolvePdfSignaturesForReport } from './report-pdf-signatures.js';
@@ -265,69 +266,90 @@ export function buildRhReviewListItem({ job, report, client, tech }) {
 }
 
 /**
- * Pasta de visita no painel RH — vários relatórios do mesmo serviço.
- * Pendentes: cartão completo; restantes: linha compacta (menos DOM com visitas grandes).
+ * Linha compacta dentro da pasta — todos os estados (igual Thyssenkrupp).
  */
 function buildRhVisitaReportCompactRow(report, getJobFn = getJob) {
   const service = getServiceType(report.serviceType);
   const label = service?.label || report.serviceType || 'Relatório';
   const job = resolveJobContextForReport(report);
   const op = formatOpLabel(getReportNumeroOrdem(report));
+  const opHtml = op ? `<code class="rh-ordem-badge">${escapeHtml(op)}</code>` : '';
   const badge = renderReportWorkStateBadge(report, job);
+  const age = formatReportAge(report?.submittedAt);
+  const isPending = report?.status === 'pending_review';
+
+  const pendingToolbar = isPending
+    ? `<div class="rh-visita-folder__compact-toolbar" role="group" aria-label="Ações rápidas">
+        <label class="rh-visita-folder__compact-check" aria-label="Selecionar para aprovação em lote">
+          <input type="checkbox" class="rh-batch-checkbox" data-batch-report-id="${escapeHtml(report.id)}">
+        </label>
+        <button type="button" class="rh-quick-btn rh-quick-btn--approve" data-quick-approve="${escapeHtml(report.id)}" title="Aprovar" aria-label="Aprovar relatório">${msIconHtml('check', 'rh-quick-btn__icon')}</button>
+        <button type="button" class="rh-quick-btn rh-quick-btn--reject" data-quick-reject="${escapeHtml(report.id)}" title="Rejeitar" aria-label="Rejeitar relatório">${msIconHtml('close', 'rh-quick-btn__icon')}</button>
+      </div>`
+    : '';
+
   return `
-    <div class="rh-visita-folder__report-row rh-visita-folder__report-row--compact">
+    <div class="rh-visita-folder__report-row rh-visita-folder__report-row--compact${isPending ? ' is-pending' : ''}">
+      ${pendingToolbar}
       <button type="button" class="rh-visita-folder__compact-link" data-panel-open="${escapeHtml(report.id)}">
-        ${serviceIconHtml(service, 'ms-icon')} <span class="rh-visita-folder__compact-label">${escapeHtml(label)}</span>${op ? ` <code class="rh-ordem-badge">${escapeHtml(op)}</code>` : ''} ${badge}
+        ${serviceIconHtml(service, 'ms-icon')}
+        <span class="rh-visita-folder__compact-label">${escapeHtml(label)}</span>
+        ${opHtml}
+        ${isPending ? `<span class="rh-visita-folder__compact-age text-muted">${escapeHtml(age)}</span>` : ''}
+        ${badge}
       </button>
+      ${isPending ? `<button type="button" class="btn-primary btn-sm rh-visita-folder__compact-rever" data-panel-open="${escapeHtml(report.id)}">Rever</button>` : ''}
     </div>`;
 }
 
-export function buildRhVisitaFolder({ servicoId, reports, getJobFn = getJob, avaliacao = null }) {
-  const { title, dateLabel, state, servico } = getServicoReviewMeta(servicoId);
+export function buildRhVisitaFolder({
+  servicoId,
+  reports,
+  getJobFn = getJob,
+  avaliacao = null,
+  standalone = false,
+}) {
+  const meta =
+    standalone || !servicoId
+      ? buildStandaloneFolderMeta(reports, getJobFn)
+      : getServicoReviewMeta(servicoId);
+  const { title, dateLabel, state, servico } = meta;
   const statusParts = [];
   if (state.pending) statusParts.push(`${state.pending} pendente${state.pending === 1 ? '' : 's'}`);
   if (state.approved) statusParts.push(`${state.approved} aprovado${state.approved === 1 ? '' : 's'}`);
   if (state.rejected) statusParts.push(`${state.rejected} rejeitado${state.rejected === 1 ? '' : 's'}`);
   if (state.draft) statusParts.push(`${state.draft} rascunho${state.draft === 1 ? '' : 's'}`);
 
-  const emailHint = servico?.clientEmailSentAt
-    ? `<span class="rh-visita-folder__email-hint text-muted">E-mail enviado ao cliente</span>`
-    : state.total > 1 && !state.allApproved
-      ? `<span class="rh-visita-folder__email-hint text-muted">E-mail único quando todos estiverem aprovados</span>`
-      : state.allApproved
-        ? `<span class="rh-visita-folder__email-hint text-muted">Pronto para enviar e-mail ao cliente</span>`
-        : '';
+  const emailHint =
+    !standalone && servico?.clientEmailSentAt
+      ? `<span class="rh-visita-folder__email-hint text-muted">E-mail enviado ao cliente</span>`
+      : !standalone && state.total > 1 && !state.allApproved
+        ? `<span class="rh-visita-folder__email-hint text-muted">E-mail único quando todos estiverem aprovados</span>`
+        : !standalone && state.allApproved
+          ? `<span class="rh-visita-folder__email-hint text-muted">Pronto para enviar e-mail ao cliente</span>`
+          : '';
 
-  const avaliacaoHint = avaliacao
-    ? `<span class="rh-visita-folder__email-hint" title="Avaliação do cliente">Cliente: ${escapeHtml(avaliacao.emoji)} ${escapeHtml(avaliacao.label)}</span>`
-    : '';
+  const avaliacaoHint =
+    !standalone && avaliacao
+      ? `<span class="rh-visita-folder__email-hint" title="Avaliação do cliente">Cliente: ${escapeHtml(avaliacao.emoji)} ${escapeHtml(avaliacao.label)}</span>`
+      : '';
 
-  const reviewBtn = state.hasPending
-    ? `<button type="button" class="btn-primary btn-sm" data-servico-review="${escapeHtml(servicoId)}">Rever visita</button>`
-    : '';
+  const reviewBtn =
+    !standalone && state.hasPending && servicoId
+      ? `<button type="button" class="btn-primary btn-sm" data-servico-review="${escapeHtml(servicoId)}">Rever visita</button>`
+      : '';
 
   const resendVisitBtn =
-    state.allApproved && state.total > 1
+    !standalone && state.allApproved && state.total > 1
       ? `<button type="button" class="btn-secondary btn-sm" data-servico-resend-email="${escapeHtml(servicoId)}">Reenviar e-mail da visita</button>`
       : '';
 
-  const reportsHtml = reports
-    .map((report) => {
-      if (report.status === 'pending_review') {
-        const item = buildRhReviewListItem({
-          job: resolveJobContextForReport(report),
-          report,
-          client: getClient(report.clientId),
-          tech: getTechnician(report.technicianId),
-        });
-        return `<div class="rh-visita-folder__report-row rh-visita-folder__report-row--pending"><div class="rh-visita-folder__report-item">${item}</div></div>`;
-      }
-      return buildRhVisitaReportCompactRow(report, getJobFn);
-    })
-    .join('');
+  const reportsHtml = reports.map((report) => buildRhVisitaReportCompactRow(report, getJobFn)).join('');
+
+  const servicoAttr = servicoId ? ` data-servico-id="${escapeHtml(servicoId)}"` : '';
 
   return `
-    <article class="rh-visita-folder" data-servico-id="${escapeHtml(servicoId)}" role="listitem">
+    <article class="rh-visita-folder"${servicoAttr} role="listitem">
       <header class="rh-visita-folder__header">
         <div class="rh-visita-folder__heading">
           ${msIconHtml('clipboard', 'rh-visita-folder__icon')}
@@ -345,7 +367,7 @@ export function buildRhVisitaFolder({ servicoId, reports, getJobFn = getJob, ava
       </header>
       <div class="rh-visita-folder__reports" role="list">${reportsHtml}</div>
       ${
-        state.total > 1
+        !standalone && state.total > 1
           ? `<p class="rh-visita-folder__hint text-muted">Assinaturas partilhadas no fim da visita — cada relatório é aprovado ou rejeitado individualmente.</p>`
           : ''
       }
@@ -396,7 +418,7 @@ export function buildRhReviewGroupedStack(
   const renderStackItem = (item) => {
     if (item.kind === 'servico') {
       const avaliacao =
-        avaliacoesMap && typeof avaliacoesMap.get === 'function'
+        !item.standalone && avaliacoesMap && typeof avaliacoesMap.get === 'function'
           ? avaliacoesMap.get(String(item.servicoId)) || null
           : null;
       return buildRhVisitaFolder({
@@ -404,16 +426,10 @@ export function buildRhReviewGroupedStack(
         reports: item.reports,
         getJobFn,
         avaliacao,
+        standalone: Boolean(item.standalone),
       });
     }
-    const report = item.report;
-    const job = resolveJobContextForReport(report);
-    return buildRhReviewListItem({
-      job,
-      report,
-      client: getClient(report.clientId),
-      tech: getTechnician(report.technicianId),
-    });
+    return '';
   };
 
   return dayGroups

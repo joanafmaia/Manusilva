@@ -63,11 +63,13 @@ describe('servicos-rh-review', () => {
     ];
     const groups = groupReportsForRhStack(filtered);
     assert.equal(groups.length, 2);
-    const folder = groups.find((g) => g.kind === 'servico');
-    const solo = groups.find((g) => g.kind === 'report');
+    const folder = groups.find((g) => g.kind === 'servico' && !g.standalone);
+    const solo = groups.find((g) => g.standalone);
     assert.ok(folder);
     assert.equal(folder.reports.length, 2);
     assert.ok(solo);
+    assert.equal(solo.reports.length, 1);
+    assert.equal(solo.reports[0].id, 'r3');
   });
 
   it('groupReportsForRhStack — pasta quando jobId aponta para serviço', async () => {
