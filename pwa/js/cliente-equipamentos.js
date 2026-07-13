@@ -294,7 +294,7 @@ function findBestEquipamentoMatch(pool, hints = {}) {
     if (byChave) return byChave;
   }
 
-  return pool[0];
+  return null;
 }
 
 /**

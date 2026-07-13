@@ -458,7 +458,18 @@ export async function openServicoReportForm(servicoId, options = {}) {
     }
 
     let existingReport;
-    if (conflictChoice === 'server') {
+    if (createNew) {
+      existingReport = {
+        id: resolvedReportId,
+        servicoId,
+        jobId: '',
+        serviceType,
+        clientId: servico.clientId,
+        technicianId: tech?.id || servico.technicianIds,
+        status: 'draft',
+        data: { values: {}, signatures: {} },
+      };
+    } else if (conflictChoice === 'server') {
       await applyServerConflictChoice(draftKey);
       existingReport = serverReport || null;
     } else if (conflictChoice === 'local') {
@@ -471,21 +482,6 @@ export async function openServicoReportForm(servicoId, options = {}) {
       existingReport = await resolveReportForServico(servicoId, serviceType, serverReport, {
         editPending: editPendingOpt,
       });
-    }
-
-    if (createNew && !existingReport) {
-      existingReport = {
-        id: resolvedReportId,
-        servicoId,
-        jobId: '',
-        serviceType,
-        clientId: servico.clientId,
-        technicianId: tech?.id || servico.technicianIds,
-        status: 'draft',
-        data: { values: {}, signatures: {} },
-      };
-    } else if (createNew && existingReport && resolvedReportId) {
-      existingReport = { ...existingReport, id: resolvedReportId };
     }
 
     if (existingReport?.status === 'approved' && !viewOnly) {

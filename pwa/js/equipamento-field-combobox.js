@@ -181,6 +181,10 @@ function shouldAutofillFromSelection(fieldId, match, pool, input, overlay) {
     );
     return same.length === 1;
   }
+  if (fieldId === 'tipo') {
+    const same = pool.filter((e) => normKey(e.tipo) === normKey(match.value));
+    return same.length === 1;
+  }
   return false;
 }
 
