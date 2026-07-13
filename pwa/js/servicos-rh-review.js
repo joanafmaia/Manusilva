@@ -2,7 +2,7 @@
  * Revisão RH por visita (serviço) — agrupamento e navegação entre relatórios.
  */
 
-import { formatDateLong } from './date-utils.js';
+import { formatDateLong, isToday, addDaysToIsoDate } from './date-utils.js';
 import { getClient } from './entity-lookups.js';
 import { dedupeReportsForDisplay } from './relatorios-db.js';
 import { getServico } from './servicos-db.js';
@@ -10,6 +10,101 @@ import { getReportsForServico, shouldDeferRhReviewForServicoReport } from './ser
 
 function reportSortKey(report) {
   return String(report?.submittedAt || report?.approvedAt || '');
+}
+
+function toLocalIsoDate(date = new Date()) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function isoDateFromTimestamp(ts) {
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return '';
+  return toLocalIsoDate(d);
+}
+
+function normalizeIsoDate(value) {
+  const raw = String(value ?? '').trim();
+  if (!raw) return '';
+  if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10);
+  return isoDateFromTimestamp(raw);
+}
+
+/** Data de trabalho/visita usada para agrupar relatórios no painel RH. */
+export function resolveReportDisplayDateIso(report, getJobFn = null) {
+  if (!report) return '';
+
+  if (report.servicoId) {
+    const servico = getServico(String(report.servicoId));
+    const servicoDate = normalizeIsoDate(servico?.date);
+    if (servicoDate) return servicoDate;
+  }
+
+  if (report.jobId && typeof getJobFn === 'function') {
+    const job = getJobFn(report.jobId);
+    const jobDate = normalizeIsoDate(job?.date);
+    if (jobDate) return jobDate;
+  }
+
+  return normalizeIsoDate(report.submittedAt || report.approvedAt);
+}
+
+export function formatRhDayGroupLabel(iso) {
+  if (!iso) return 'Sem data definida';
+  if (isToday(iso)) return 'Hoje';
+  const yesterdayIso = addDaysToIsoDate(toLocalIsoDate(), -1);
+  if (iso === yesterdayIso) return 'Ontem';
+  return formatDateLong(iso);
+}
+
+function resolveStackItemDateIso(item, getJobFn) {
+  if (item.kind === 'servico') {
+    const servico = getServico(String(item.servicoId));
+    const servicoDate = normalizeIsoDate(servico?.date);
+    if (servicoDate) return servicoDate;
+    const report = item.reports?.[0];
+    return resolveReportDisplayDateIso(report, getJobFn);
+  }
+  return resolveReportDisplayDateIso(item.report, getJobFn);
+}
+
+/**
+ * Agrupa itens do painel RH (pastas de visita + relatórios soltos) por dia de trabalho.
+ * Dias mais recentes aparecem primeiro.
+ */
+export function groupRhStackItemsByDay(items = [], getJobFn = null) {
+  const buckets = new Map();
+  const undated = [];
+
+  for (const item of items) {
+    const iso = resolveStackItemDateIso(item, getJobFn);
+    if (!iso) {
+      undated.push(item);
+      continue;
+    }
+    if (!buckets.has(iso)) buckets.set(iso, []);
+    buckets.get(iso).push(item);
+  }
+
+  const groups = [...buckets.keys()]
+    .sort((a, b) => b.localeCompare(a))
+    .map((dateIso) => ({
+      dateIso,
+      label: formatRhDayGroupLabel(dateIso),
+      items: buckets.get(dateIso) || [],
+    }));
+
+  if (undated.length) {
+    groups.push({
+      dateIso: '',
+      label: formatRhDayGroupLabel(''),
+      items: undated,
+    });
+  }
+
+  return groups;
 }
 
 function sortReportsChronologically(reports) {

@@ -116,4 +116,23 @@ describe('servicos-rh-review', () => {
     assert.equal(state.approved, 1);
     assert.equal(state.allApproved, false);
   });
+
+  it('groupRhStackItemsByDay — agrupa por data da visita', async () => {
+    await seedReports();
+    const { groupReportsForRhStack, groupRhStackItemsByDay } = await import(
+      '../js/servicos-rh-review.js'
+    );
+    const filtered = [
+      { id: 'r1', servicoId: 'svc-1', status: 'pending_review', submittedAt: '2026-07-03T10:00:00Z' },
+      { id: 'r2', servicoId: 'svc-1', status: 'pending_review', submittedAt: '2026-07-03T11:00:00Z' },
+      { id: 'r3', servicoId: '', jobId: 'job-legacy', status: 'pending_review', submittedAt: '2026-07-02T10:00:00Z' },
+    ];
+    const stack = groupReportsForRhStack(filtered);
+    const days = groupRhStackItemsByDay(stack, () => ({ date: '2026-07-02' }));
+    assert.equal(days.length, 2);
+    assert.equal(days[0].dateIso, '2026-07-03');
+    assert.equal(days[0].items.length, 1);
+    assert.equal(days[1].dateIso, '2026-07-02');
+    assert.equal(days[1].items.length, 1);
+  });
 });

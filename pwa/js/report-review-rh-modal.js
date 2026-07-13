@@ -44,6 +44,7 @@ import {
 import { reportHasPedidoOrcamento, reportOrcamentoPorPreparar } from './pedido-orcamento.js';
 import {
   groupReportsForRhStack,
+  groupRhStackItemsByDay,
   getFirstPendingReportIdForServico,
   getRhApproveNextLabel,
   getServicoReviewMeta,
@@ -340,31 +341,48 @@ function buildRhVisitReviewBanner(servicoId, currentReportId) {
 }
 
 /**
- * Lista RH — pastas de visita (serviço) + cartões soltos (legado / relatório único).
+ * Lista RH — pastas de visita (serviço) + cartões soltos, agrupados por dia.
  */
 export function buildRhReviewGroupedStack(reports, { getJobFn = getJob, avaliacoesMap = null } = {}) {
-  return groupReportsForRhStack(reports)
-    .map((item) => {
-      if (item.kind === 'servico') {
-        const avaliacao =
-          avaliacoesMap && typeof avaliacoesMap.get === 'function'
-            ? avaliacoesMap.get(String(item.servicoId)) || null
-            : null;
-        return buildRhVisitaFolder({
-          servicoId: item.servicoId,
-          reports: item.reports,
-          getJobFn,
-          avaliacao,
-        });
-      }
-      const report = item.report;
-      const job = report.jobId ? getJobFn(report.jobId) : null;
-      return buildRhReviewListItem({
-        job,
-        report,
-        client: getClient(report.clientId),
-        tech: getTechnician(report.technicianId),
+  const stackItems = groupReportsForRhStack(reports);
+  const dayGroups = groupRhStackItemsByDay(stackItems, getJobFn);
+
+  const renderStackItem = (item) => {
+    if (item.kind === 'servico') {
+      const avaliacao =
+        avaliacoesMap && typeof avaliacoesMap.get === 'function'
+          ? avaliacoesMap.get(String(item.servicoId)) || null
+          : null;
+      return buildRhVisitaFolder({
+        servicoId: item.servicoId,
+        reports: item.reports,
+        getJobFn,
+        avaliacao,
       });
+    }
+    const report = item.report;
+    const job = report.jobId ? getJobFn(report.jobId) : null;
+    return buildRhReviewListItem({
+      job,
+      report,
+      client: getClient(report.clientId),
+      tech: getTechnician(report.technicianId),
+    });
+  };
+
+  return dayGroups
+    .map((group) => {
+      const cards = group.items.map(renderStackItem).join('');
+      const countLabel = `${group.items.length} relatório${group.items.length === 1 ? '' : 's'}`;
+      return `
+        <section class="rh-review-day-group" data-day="${escapeHtml(group.dateIso)}" aria-label="${escapeHtml(group.label)}">
+          <header class="rh-review-day-group__header">
+            <h3 class="rh-review-day-group__title">${escapeHtml(group.label)}</h3>
+            <span class="rh-review-day-group__count">${escapeHtml(countLabel)}</span>
+          </header>
+          <div class="rh-review-day-group__items" role="list">${cards}</div>
+        </section>
+      `;
     })
     .join('');
 }

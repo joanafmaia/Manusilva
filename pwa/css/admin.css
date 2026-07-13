@@ -837,7 +837,45 @@
 /* ─── Painel RH — lista compacta + detalhe expandido ─── */ .rh-review-stack {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 1rem;
+}
+.rh-review-day-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.rh-review-day-group__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 0.35rem 0.15rem 0.5rem;
+  margin: 0;
+  background: color-mix(in srgb, var(--ms-page-bg, #f7f6f3) 94%, transparent);
+  border-bottom: 1px solid var(--ms-border-md);
+  backdrop-filter: blur(4px);
+}
+.rh-review-day-group__title {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--ms-text-800);
+  text-transform: capitalize;
+}
+.rh-review-day-group__count {
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--ms-text-500);
+}
+.rh-review-day-group__items {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 .rh-review-stack-card {
   flex-shrink: 0;
