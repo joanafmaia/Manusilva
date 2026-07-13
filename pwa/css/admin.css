@@ -994,6 +994,14 @@
   flex-direction: column;
   gap: 0.5rem;
 }
+.rh-review-day-group__items[hidden],
+.rh-review-day-group.is-collapsed .rh-review-day-group__items {
+  display: none !important;
+}
+.rh-review-day-group__header {
+  cursor: pointer;
+  user-select: none;
+}
 .rh-review-stack-card {
   flex-shrink: 0;
 }

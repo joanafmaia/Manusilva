@@ -148,3 +148,16 @@ describe('servicos-rh-review', () => {
     assert.equal(days[1].items.length, 1);
   });
 });
+
+describe('rh-panel-utils day collapse', () => {
+  it('alterna estado colapsado por data', async () => {
+    const { isRhDayCollapsed, toggleRhDayCollapsed } = await import('../js/rh-panel-utils.js');
+
+    let state = {};
+    state = toggleRhDayCollapsed('2026-07-13', state);
+    assert.equal(isRhDayCollapsed('2026-07-13', state), true);
+
+    state = toggleRhDayCollapsed('2026-07-13', state);
+    assert.equal(isRhDayCollapsed('2026-07-13', state), false);
+  });
+});

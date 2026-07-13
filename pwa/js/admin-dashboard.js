@@ -1385,13 +1385,15 @@ function bindRhReviewPanel() {
       return;
     }
 
-    const dayToggle = e.target.closest('[data-rh-day-toggle]');
-    if (dayToggle?.dataset.rhDayToggle) {
-      const section = dayToggle.closest('.rh-review-day-group');
-      const dateIso = section?.dataset.day || '';
-      toggleRhDayCollapsed(dateIso);
-      await renderRhReviewStack();
-      return;
+    const dayHeader = e.target.closest('.rh-review-day-group__header');
+    if (dayHeader && !e.target.closest('.rh-review-day-group__count')) {
+      const section = dayHeader.closest('.rh-review-day-group');
+      if (section) {
+        e.preventDefault();
+        toggleRhDayCollapsed(section.dataset.day ?? '');
+        await renderRhReviewStack();
+        return;
+      }
     }
 
     const quickApproveNext = e.target.closest('[data-quick-approve-next]');
