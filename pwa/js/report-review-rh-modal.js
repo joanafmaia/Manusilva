@@ -40,7 +40,13 @@ import {
 import {
   formatReportAge,
   getReportUrgencyLevel,
+  isRhDayCollapsed,
+  rhDayCollapseKey,
 } from './rh-panel-utils.js';
+import {
+  renderRhReportBillingBadge,
+  renderRhReportEquipmentHint,
+} from './rh-report-card-hints.js';
 import { reportHasPedidoOrcamento, reportOrcamentoPorPreparar } from './pedido-orcamento.js';
 import {
   groupReportsForRhStack,
@@ -95,8 +101,8 @@ export function getReportStatusPanelMeta(status) {
 }
 
 const RH_FILTER_TABS = [
-  { id: 'all', label: 'Todos' },
   { id: 'pending_review', label: 'Pendente RH', icon: 'pending' },
+  { id: 'all', label: 'Todos' },
   { id: 'orcamento_pendente', label: 'Orçamento', icon: 'euro' },
   { id: 'draft', label: 'Em aberto', icon: 'draft' },
   { id: 'approved', label: 'Concluído', icon: 'approved' },
@@ -105,7 +111,7 @@ const RH_FILTER_TABS = [
 
 /** Barra de filtros rápidos no topo do painel RH */
 export function buildRhReviewFilterBar(counts, activeFilter = 'pending_review', options = {}) {
-  const { techId = 'all', search = '', technicians = [] } = options;
+  const { techId = 'all', search = '', technicians = [], showFullListLink = false } = options;
 
   const chips = RH_FILTER_TABS.map(({ id, label, icon }) => {
     const count = counts[id] ?? 0;
@@ -140,6 +146,10 @@ export function buildRhReviewFilterBar(counts, activeFilter = 'pending_review', 
     </div>`
     : '';
 
+  const fullListLink = showFullListLink
+    ? `<button type="button" class="btn-ghost btn-sm rh-review-full-list-btn" id="rh-open-full-relatorios-tab">Abrir lista completa</button>`
+    : '';
+
   return `<div class="rh-review-filters-wrap">
     <div class="rh-review-search-row">
       <input
@@ -160,6 +170,7 @@ export function buildRhReviewFilterBar(counts, activeFilter = 'pending_review', 
           )
           .join('')}
       </select>
+      ${fullListLink}
     </div>
     <div class="rh-review-filters" role="tablist" aria-label="Filtrar relatórios">${chips}</div>
     ${batchBar}
@@ -178,6 +189,8 @@ export function buildRhReviewListItem({ job, report, client, tech }) {
   const service = getServiceType(report?.serviceType || job?.serviceType);
   const serviceLabel = service?.label || report?.serviceType || '—';
   const age = formatReportAge(report?.submittedAt);
+  const equipmentHint = renderRhReportEquipmentHint(report);
+  const billingBadge = renderRhReportBillingBadge(report);
   const orcamentoBadge = reportHasPedidoOrcamento(report)
     ? reportOrcamentoPorPreparar(report)
       ? '<span class="rh-list-item__orcamento-badge rh-list-item__orcamento-badge--pending" title="Proposta comercial por preparar">Orçamento</span>'
@@ -205,6 +218,7 @@ export function buildRhReviewListItem({ job, report, client, tech }) {
       <div class="rh-list-item__quick-actions" role="group" aria-label="Ações rápidas">
         <button type="button" class="rh-quick-btn rh-quick-btn--approve" data-quick-approve="${escapeHtml(report.id)}" title="Aprovar" aria-label="Aprovar relatório">${msIconHtml('check', 'rh-quick-btn__icon')}</button>
         <button type="button" class="rh-quick-btn rh-quick-btn--reject" data-quick-reject="${escapeHtml(report.id)}" title="Rejeitar" aria-label="Rejeitar relatório">${msIconHtml('close', 'rh-quick-btn__icon')}</button>
+        <button type="button" class="btn-success btn-sm rh-list-item__approve-next-btn" data-quick-approve-next="${escapeHtml(report.id)}">Aprovar e seguinte</button>
       </div>`
       : '';
 
@@ -231,6 +245,12 @@ export function buildRhReviewListItem({ job, report, client, tech }) {
               <span class="rh-list-item__service">${serviceIconHtml(service, 'rh-list-item__service-icon')} ${escapeHtml(serviceLabel)}</span>
               <span class="rh-list-item__age">${escapeHtml(age)}</span>
             </span>
+            ${equipmentHint}
+            ${
+              billingBadge
+                ? `<span class="rh-list-item__badges-row">${billingBadge}</span>`
+                : ''
+            }
             <span class="rh-list-item__tech">${escapeHtml(techName)}</span>
           </div>
         </div>
@@ -343,7 +363,10 @@ function buildRhVisitReviewBanner(servicoId, currentReportId) {
 /**
  * Lista RH — pastas de visita (serviço) + cartões soltos, agrupados por dia.
  */
-export function buildRhReviewGroupedStack(reports, { getJobFn = getJob, avaliacoesMap = null } = {}) {
+export function buildRhReviewGroupedStack(
+  reports,
+  { getJobFn = getJob, avaliacoesMap = null, dayCollapseState = {} } = {},
+) {
   const stackItems = groupReportsForRhStack(reports);
   const dayGroups = groupRhStackItemsByDay(stackItems, getJobFn);
 
@@ -374,13 +397,24 @@ export function buildRhReviewGroupedStack(reports, { getJobFn = getJob, avaliaco
     .map((group) => {
       const cards = group.items.map(renderStackItem).join('');
       const countLabel = `${group.items.length} relatório${group.items.length === 1 ? '' : 's'}`;
+      const dayKey = rhDayCollapseKey(group.dateIso);
+      const collapsed = isRhDayCollapsed(group.dateIso, dayCollapseState);
       return `
-        <section class="rh-review-day-group" data-day="${escapeHtml(group.dateIso)}" aria-label="${escapeHtml(group.label)}">
+        <section class="rh-review-day-group${collapsed ? ' is-collapsed' : ''}" data-day="${escapeHtml(group.dateIso)}" data-day-key="${escapeHtml(dayKey)}" aria-label="${escapeHtml(group.label)}">
           <header class="rh-review-day-group__header">
-            <h3 class="rh-review-day-group__title">${escapeHtml(group.label)}</h3>
+            <button
+              type="button"
+              class="rh-review-day-group__toggle"
+              data-rh-day-toggle="${escapeHtml(dayKey)}"
+              aria-expanded="${collapsed ? 'false' : 'true'}"
+              aria-controls="rh-day-items-${escapeHtml(dayKey)}"
+            >
+              <span class="rh-review-day-group__chevron" aria-hidden="true">${collapsed ? '▸' : '▾'}</span>
+              <span class="rh-review-day-group__title">${escapeHtml(group.label)}</span>
+            </button>
             <span class="rh-review-day-group__count">${escapeHtml(countLabel)}</span>
           </header>
-          <div class="rh-review-day-group__items" role="list">${cards}</div>
+          <div class="rh-review-day-group__items" id="rh-day-items-${escapeHtml(dayKey)}" role="list"${collapsed ? ' hidden' : ''}>${cards}</div>
         </section>
       `;
     })

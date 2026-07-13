@@ -59,7 +59,7 @@ describe('servicos-rh-review', () => {
     const filtered = [
       { id: 'r1', servicoId: 'svc-1', status: 'pending_review', submittedAt: '2026-07-03T10:00:00Z' },
       { id: 'r2', servicoId: 'svc-1', status: 'pending_review', submittedAt: '2026-07-03T11:00:00Z' },
-      { id: 'r3', servicoId: '', status: 'pending_review', submittedAt: '2026-07-02T10:00:00Z' },
+      { id: 'r3', servicoId: '', jobId: 'job-legacy', status: 'pending_review', submittedAt: '2026-07-02T10:00:00Z' },
     ];
     const groups = groupReportsForRhStack(filtered);
     assert.equal(groups.length, 2);
@@ -68,6 +68,18 @@ describe('servicos-rh-review', () => {
     assert.ok(folder);
     assert.equal(folder.reports.length, 2);
     assert.ok(solo);
+  });
+
+  it('groupReportsForRhStack — pasta quando jobId aponta para serviço', async () => {
+    await seedReports();
+    const { groupReportsForRhStack } = await import('../js/servicos-rh-review.js');
+    const filtered = [
+      { id: 'r1', jobId: 'svc-1', status: 'pending_review', submittedAt: '2026-07-03T10:00:00Z' },
+      { id: 'r2', jobId: 'svc-1', status: 'pending_review', submittedAt: '2026-07-03T11:00:00Z' },
+    ];
+    const groups = groupReportsForRhStack(filtered);
+    assert.equal(groups.length, 1);
+    assert.equal(groups[0].kind, 'servico');
   });
 
   it('getNextPendingReportId — prioriza mesma visita', async () => {

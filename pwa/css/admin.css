@@ -485,6 +485,45 @@
   padding: 0.5rem 0.65rem;
   font-size: 0.875rem;
 }
+.rh-review-full-list-btn {
+  width: 100%;
+  justify-content: center;
+}
+.rh-list-item__equip-hint {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--ms-text-600);
+  line-height: 1.35;
+  word-break: break-word;
+}
+.rh-list-item__badges-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.rh-list-item__billing-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.12rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: #9a3412;
+  background: rgba(234, 88, 12, 0.12);
+  border: 1px solid rgba(234, 88, 12, 0.25);
+}
+.rh-list-item__billing-badge--orcamento {
+  color: #7c3aed;
+  background: rgba(124, 58, 237, 0.1);
+  border-color: rgba(124, 58, 237, 0.22);
+}
+.rh-list-item__approve-next-btn {
+  white-space: nowrap;
+  padding: 0.35rem 0.55rem;
+  font-size: 0.75rem;
+}
 .rh-list-item__meta {
   display: flex;
   flex-wrap: wrap;
@@ -540,9 +579,9 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 6px;
+  gap: 0.4rem;
   flex-wrap: wrap;
-  padding-top: 2px;
+  padding-top: 0.35rem;
   border-top: 1px solid rgba(226, 232, 240, 0.85);
 }
 .rh-list-item__info-top {
@@ -562,7 +601,9 @@
 }
 .rh-list-item__quick-actions {
   display: flex;
-  gap: 4px;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
   flex-shrink: 0;
 }
 .rh-quick-btn {
@@ -871,9 +912,33 @@
   border-bottom: 1px solid var(--ms-border-md);
   backdrop-filter: blur(4px);
 }
+.rh-review-day-group__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  min-width: 0;
+}
+.rh-review-day-group__toggle:hover .rh-review-day-group__title {
+  color: var(--ms-primary);
+}
+.rh-review-day-group__chevron {
+  flex-shrink: 0;
+  width: 1rem;
+  text-align: center;
+  font-size: 0.875rem;
+  color: var(--ms-text-500);
+}
 .rh-review-day-group__title {
   margin: 0;
-  font-size: 0.8125rem;
+  font-size: 0.875rem;
   font-weight: 700;
   letter-spacing: -0.01em;
   color: var(--ms-text-800);

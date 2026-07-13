@@ -8,18 +8,28 @@ import { formatOrdemLabel } from './report-review-ui.js';
 import { reportMatchesTechnicianTeam } from './job-technician-utils.js';
 import { resolveJobContextForReport, resolveReportTechnicianLabel } from './servicos-panel-utils.js';
 
-const RH_FILTER_STORAGE_KEY = 'manusilva.rhReviewFilters';
+const RH_FILTER_STORAGE_KEY = 'manusilva.rhReviewFilters.v2';
+const RH_FILTER_LEGACY_KEY = 'manusilva.rhReviewFilters';
+const RH_DAY_COLLAPSE_KEY = 'manusilva.rhReviewDayCollapse';
 
 export function loadRhReviewFilters() {
   try {
-    const raw = localStorage.getItem(RH_FILTER_STORAGE_KEY);
+    let raw = localStorage.getItem(RH_FILTER_STORAGE_KEY);
+    let migratedFromLegacy = false;
+    if (!raw) {
+      raw = localStorage.getItem(RH_FILTER_LEGACY_KEY);
+      migratedFromLegacy = Boolean(raw);
+    }
     if (!raw) return { status: 'pending_review', techId: 'all', search: '' };
     const parsed = JSON.parse(raw);
+    let status = parsed.status || 'pending_review';
+    if (migratedFromLegacy && status === 'all') {
+      status = 'pending_review';
+    }
     return {
-      status: 'pending_review',
-      techId: 'all',
-      search: '',
-      ...parsed,
+      status,
+      techId: parsed.techId || 'all',
+      search: parsed.search || '',
     };
   } catch {
     return { status: 'pending_review', techId: 'all', search: '' };
@@ -39,6 +49,42 @@ export function saveRhReviewFilters(filters) {
   } catch {
     /* ignore quota */
   }
+}
+
+export function loadRhDayCollapseState() {
+  try {
+    const raw = localStorage.getItem(RH_DAY_COLLAPSE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+export function saveRhDayCollapseState(state) {
+  try {
+    localStorage.setItem(RH_DAY_COLLAPSE_KEY, JSON.stringify(state || {}));
+  } catch {
+    /* ignore quota */
+  }
+}
+
+export function rhDayCollapseKey(dateIso) {
+  return dateIso || '_undated';
+}
+
+export function isRhDayCollapsed(dateIso, state = loadRhDayCollapseState()) {
+  return Boolean(state[rhDayCollapseKey(dateIso)]);
+}
+
+export function toggleRhDayCollapsed(dateIso, state = loadRhDayCollapseState()) {
+  const key = rhDayCollapseKey(dateIso);
+  const next = { ...state };
+  if (next[key]) delete next[key];
+  else next[key] = true;
+  saveRhDayCollapseState(next);
+  return next;
 }
 
 export function formatReportAge(submittedAt) {

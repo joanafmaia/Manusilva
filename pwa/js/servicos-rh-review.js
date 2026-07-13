@@ -6,7 +6,7 @@ import { formatDateLong, isToday, addDaysToIsoDate } from './date-utils.js';
 import { getClient } from './entity-lookups.js';
 import { dedupeReportsForDisplay } from './relatorios-db.js';
 import { getServico } from './servicos-db.js';
-import { getReportsForServico, shouldDeferRhReviewForServicoReport } from './servicos-panel-utils.js';
+import { getReportsForServico, resolveServicoIdForReport, shouldDeferRhReviewForServicoReport } from './servicos-panel-utils.js';
 
 function reportSortKey(report) {
   return String(report?.submittedAt || report?.approvedAt || '');
@@ -139,13 +139,18 @@ export function groupReportsForRhStack(filteredReports) {
   const list = dedupeReportsForDisplay(filteredReports || []);
   if (!list.length) return [];
 
-  const servicoCandidates = new Set(
-    list.map((r) => (r.servicoId ? String(r.servicoId) : '')).filter(Boolean),
-  );
+  const visibleByServico = new Map();
+  for (const report of list) {
+    const sid = resolveServicoIdForReport(report);
+    if (!sid) continue;
+    visibleByServico.set(sid, (visibleByServico.get(sid) || 0) + 1);
+  }
 
   const folderServicos = new Set();
-  for (const sid of servicoCandidates) {
-    if (getReportsForServico(sid).length >= 2) folderServicos.add(sid);
+  for (const [sid, visibleCount] of visibleByServico) {
+    if (visibleCount >= 2 || getReportsForServico(sid).length >= 2) {
+      folderServicos.add(sid);
+    }
   }
 
   const items = [];
@@ -153,7 +158,7 @@ export function groupReportsForRhStack(filteredReports) {
 
   const folderOrder = [...folderServicos]
     .map((sid) => {
-      const visible = list.filter((r) => String(r.servicoId) === sid);
+      const visible = list.filter((r) => resolveServicoIdForReport(r) === sid);
       const earliest = sortReportsChronologically(visible)[0];
       return { sid, sort: reportSortKey(earliest), reports: getReportsForServico(sid) };
     })

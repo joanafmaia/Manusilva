@@ -71,6 +71,8 @@ import {
   filterRhReports,
   getNextPendingReportId,
   buildRhOpsSummaryText,
+  loadRhDayCollapseState,
+  toggleRhDayCollapsed,
 } from './rh-panel-utils.js';
 import { computeDashboardMetrics } from './views/dashboard-metrics.js';
 import { syncTechniciansCatalog } from './technicians-admin.js';
@@ -1192,6 +1194,7 @@ async function renderRhReviewStack() {
     techId: rhReviewTechFilter,
     search: rhReviewSearch,
     technicians: getAllTechnicians(),
+    showFullListLink: currentTab === 'calendario',
   });
 
   let stackHtml;
@@ -1206,7 +1209,12 @@ async function renderRhReviewStack() {
     const { fetchAvaliacoesByServicoIds } = await import('./avaliacoes-db.js');
     const servicoIds = reports.map((report) => resolveServicoIdForReport(report)).filter(Boolean);
     const avaliacoesMap = await fetchAvaliacoesByServicoIds(servicoIds);
-    const cards = buildRhReviewGroupedStack(reports, { getJobFn: getJob, avaliacoesMap });
+    const dayCollapseState = loadRhDayCollapseState();
+    const cards = buildRhReviewGroupedStack(reports, {
+      getJobFn: getJob,
+      avaliacoesMap,
+      dayCollapseState,
+    });
 
     stackHtml = `<div class="rh-review-stack" role="list">${cards}</div>`;
   }
@@ -1382,6 +1390,27 @@ function bindRhReviewPanel() {
       return;
     }
 
+    const fullListBtn = e.target.closest('#rh-open-full-relatorios-tab');
+    if (fullListBtn) {
+      setAdminTab('relatorios');
+      return;
+    }
+
+    const dayToggle = e.target.closest('[data-rh-day-toggle]');
+    if (dayToggle?.dataset.rhDayToggle) {
+      const section = dayToggle.closest('.rh-review-day-group');
+      const dateIso = section?.dataset.day || '';
+      toggleRhDayCollapsed(dateIso);
+      await renderRhReviewStack();
+      return;
+    }
+
+    const quickApproveNext = e.target.closest('[data-quick-approve-next]');
+    if (quickApproveNext?.dataset.quickApproveNext) {
+      await quickApproveRhReportAndNext(quickApproveNext.dataset.quickApproveNext);
+      return;
+    }
+
     const quickApprove = e.target.closest('[data-quick-approve]');
     if (quickApprove?.dataset.quickApprove) {
       await quickApproveRhReport(quickApprove.dataset.quickApprove);
@@ -1410,15 +1439,16 @@ function bindRhReviewPanel() {
   });
 }
 
-async function quickApproveRhReport(reportId) {
+async function quickApproveRhReport(reportId, options = {}) {
+  const { quiet = false } = options;
   const report = getReport(reportId);
-  if (!report || report.status !== 'pending_review') return;
+  if (!report || report.status !== 'pending_review') return false;
 
   const client = getClient(report.clientId);
   const clientEmail = String(client?.email || client?.['E-mail'] || '').trim();
   if (!isValidClientEmail(clientEmail)) {
     showToast('E-mail do cliente em falta ou inválido. Abra «Rever» para corrigir.', 'error');
-    return;
+    return false;
   }
 
   const job = report.jobId ? getJob(report.jobId) : null;
@@ -1426,14 +1456,31 @@ async function quickApproveRhReport(reportId) {
   const confirmMsg = isTestClient(client)
     ? `Aprovar relatório de teste (${ordem})? Sem número OP oficial; o e-mail segue normalmente se o cliente tiver endereço válido.`
     : `Aprovar ${ordem} e enviar para o cliente?`;
-  const confirmed = window.confirm(confirmMsg);
-  if (!confirmed) return;
+  const confirmed = quiet ? true : window.confirm(confirmMsg);
+  if (!confirmed) return false;
 
   const ok = await approveReport(reportId, { clientEmail });
   if (ok) {
     await rhReviewModalCallbacks().onApproved?.();
-    await renderRhReviewStack();
+    if (!quiet) await renderRhReviewStack();
   }
+  return Boolean(ok);
+}
+
+async function quickApproveRhReportAndNext(reportId) {
+  const ok = await quickApproveRhReport(reportId);
+  if (!ok) return;
+
+  const nextId = getNextPendingReportId(reportId, getRhFilteredReports());
+  if (nextId) {
+    const { openRhReviewModal } = await import('./report-review-rh-modal.js');
+    await openRhReviewModal(nextId, rhReviewModalCallbacks());
+    await renderRhReviewStack();
+    return;
+  }
+
+  showToast('Relatório aprovado. Não há mais pendentes nesta fila.', 'success', 5000);
+  await renderRhReviewStack();
 }
 
 /** Swipe para a esquerda na vista Agenda — revela Eliminar */
