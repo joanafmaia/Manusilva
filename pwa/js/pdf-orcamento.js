@@ -11,7 +11,6 @@ import { resolveOrcamentoTextoIntroForPdf } from './orcamento-cabecalho.js';
 import {
   collectMaquinaPdfFieldRows,
   filterOrcamentoPdfGroupLinhas,
-  formatMaquinaPdfHorizontalText,
   formatOrcamentoMaquinaPdfTableLabel,
   formatOrcamentoMaquinaLabel,
   formatOrcamentoMaquinaMatricula,
@@ -105,6 +104,7 @@ const CONTENT_MAX_Y = FOOTER_TOP - 6;
 const ORC_TABLE_ROW_H = 6.5;
 const ORC_TABLE_GAP_ABOVE_FOOTER = 3;
 const ORC_TABLE_COL_X = [MARGIN, MARGIN + 98, MARGIN + 112, MARGIN + 148, MARGIN + CONTENT_W];
+const ORC_EQUIP_FIELD_GAP = 5;
 
 let legalTextCache = null;
 
@@ -548,31 +548,70 @@ function createOrcamentoTableRowDrawer(doc, startY) {
   return { drawRow };
 }
 
+function buildHorizontalEquipLines(doc, equipRows, maxWidth = CONTENT_W) {
+  const lines = [];
+  let currentLine = [];
+  let currentWidth = 0;
+
+  equipRows.forEach(([label, value]) => {
+    const safeLabel = pdfSafeText(String(label || '').trim() || '—');
+    const safeValue = pdfSafeText(String(value || '').trim() || '—');
+    pdfSetFont(doc, 'normal');
+    doc.setFontSize(PDF_FONT_BODY);
+    const prefix = `${safeLabel}: `;
+    const prefixW = doc.getTextWidth(prefix);
+    pdfSetFont(doc, 'bold');
+    const valueW = doc.getTextWidth(safeValue);
+    const segmentW = prefixW + valueW;
+    const gap = currentLine.length ? ORC_EQUIP_FIELD_GAP : 0;
+
+    if (currentLine.length && currentWidth + gap + segmentW > maxWidth) {
+      lines.push(currentLine);
+      currentLine = [];
+      currentWidth = 0;
+    }
+    if (currentLine.length) currentWidth += ORC_EQUIP_FIELD_GAP;
+    currentLine.push({ label: safeLabel, value: safeValue, prefixW, valueW });
+    currentWidth += segmentW;
+  });
+
+  if (currentLine.length) lines.push(currentLine);
+  return lines;
+}
+
 function measureHorizontalEquipFieldsHeight(doc, equipRows, startY, maxEndY = CONTENT_MAX_Y) {
   if (!equipRows.length) return startY;
   let y = startY;
-  const text = formatMaquinaPdfHorizontalText(equipRows);
-  pdfSetFont(doc, 'normal');
-  doc.setFontSize(PDF_FONT_BODY);
-  pdfSplitText(doc, pdfSafeText(text), CONTENT_W).forEach(() => {
-    if (y + 5 > maxEndY) return;
+  const lineCount = buildHorizontalEquipLines(doc, equipRows).length;
+  for (let i = 0; i < lineCount; i += 1) {
+    if (y + 5 > maxEndY) break;
     y += 5;
-  });
+  }
   return y + 3;
 }
 
 function drawHorizontalEquipFields(doc, equipRows, startY, maxEndY = CONTENT_MAX_Y) {
   if (!equipRows.length) return startY;
   let y = startY;
-  const text = formatMaquinaPdfHorizontalText(equipRows);
-  pdfSetFont(doc, 'normal');
   doc.setFontSize(PDF_FONT_BODY);
   doc.setTextColor(...PDF_COLOR_TEXT_DARK);
-  pdfSplitText(doc, pdfSafeText(text), CONTENT_W).forEach((line) => {
+
+  buildHorizontalEquipLines(doc, equipRows).forEach((segments) => {
     if (y + 5 > maxEndY) return;
-    doc.text(line, MARGIN, y);
+    let x = MARGIN;
+    segments.forEach((segment, index) => {
+      if (index > 0) x += ORC_EQUIP_FIELD_GAP;
+      pdfSetFont(doc, 'normal');
+      const prefix = `${segment.label}: `;
+      doc.text(prefix, x, y);
+      x += segment.prefixW;
+      pdfSetFont(doc, 'bold');
+      doc.text(segment.value, x, y);
+      x += segment.valueW;
+    });
     y += 5;
   });
+
   return y + 3;
 }
 
@@ -685,16 +724,17 @@ export function planOrcamentoGenericPageLayout(doc, fill, bodyStartY) {
     y = advanceBodyY(y);
   });
   y = advanceBodyY(y, 4);
-  y = measureOrcamentoObservacoesHeight(doc, fill, y);
   const sectionsEndY = measureOrcamentoMaquinaSectionsHeight(doc, fill, y);
+  const contentEndY = measureOrcamentoObservacoesHeight(doc, fill, sectionsEndY);
   const tableLayout = computeOrcamentoTableLayout(fill.linhas, fill.maquinas, {
-    contentEndY: sectionsEndY,
+    contentEndY,
     equipamentoCampos: fill.equipamento_campos,
   });
 
   return {
     intro,
     sectionsEndY,
+    contentEndY,
     tableLayout,
   };
 }
@@ -1084,11 +1124,11 @@ export async function renderOrcamentoPDF(report) {
   });
   y = advanceBodyY(y, 4);
 
+  y = drawOrcamentoMaquinaSections(doc, fill, y, CONTENT_MAX_Y);
+
   y = drawOrcamentoObservacoesCliente(doc, fill, y, {
     maxEndY: CONTENT_MAX_Y,
   });
-
-  drawOrcamentoMaquinaSections(doc, fill, y, CONTENT_MAX_Y);
 
   drawOrcamentoFooter(doc, fill);
 
