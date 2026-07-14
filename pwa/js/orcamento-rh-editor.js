@@ -631,6 +631,7 @@ export function bindOrcamentoEditor(container, { report, onUpdated, onSent } = {
         orcamentoNumero: saved.data?.orcamento?.numeroFormatado || '',
         numeroOrdem: job?.numeroOrdem ?? null,
         pdfUrl,
+        pdfFilename: saved.data?.orcamentoPdfFilename || undefined,
       });
 
       mergeReportInCache(saved);

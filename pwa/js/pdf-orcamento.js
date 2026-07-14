@@ -21,8 +21,10 @@ import {
   computeLinhaTotal,
   formatEuro,
   getReportOrcamentoMeta,
+  isPlaceholderOrcamentoNumero,
   normalizeEquipamentoIndex,
   normalizeOrcamentoLinhas,
+  resolveOrcamentoNumeroFormatado,
 } from './orcamento-linhas.js';
 import {
   LABEL_MAQUINA,
@@ -615,18 +617,38 @@ export async function renderOrcamentoPDF(report) {
   return doc;
 }
 
+function sanitizeOrcamentoPdfFilenamePart(value) {
+  return String(value ?? '')
+    .trim()
+    .replace(/[/\\?%*:|"<>]/g, '-')
+    .replace(/\s+/g, '_')
+    .slice(0, 80);
+}
+
+/** Nome do ficheiro para o cliente (sem referência interna MS.015). */
 export function buildOrcamentoPdfFilename(report, job = null) {
   const meta = getReportOrcamentoMeta(report);
-  if (meta?.numeroSequencial && meta?.ano) {
-    return `MS015_Orcamento_${meta.numeroSequencial}-0_${meta.ano}.pdf`;
-  }
   const resolvedJob = job || (report?.jobId ? getJob(report.jobId) : null);
   const op = resolvedJob?.numeroOrdem;
-  if (op != null && Number.isFinite(Number(op))) {
-    return `MS015_Orcamento_OP${op}.pdf`;
+
+  const numero = resolveOrcamentoNumeroFormatado(meta, {
+    year: meta?.ano,
+    numeroOrdem: op,
+  });
+  if (!isPlaceholderOrcamentoNumero(numero)) {
+    return `Manusilva_Proposta_${sanitizeOrcamentoPdfFilenamePart(numero)}.pdf`;
   }
+
+  if (meta?.numeroSequencial && meta?.ano) {
+    return `Manusilva_Proposta_${meta.numeroSequencial}.0-${meta.ano}.pdf`;
+  }
+
+  if (op != null && Number.isFinite(Number(op))) {
+    return `Manusilva_Proposta_OP-2026-${String(op).padStart(2, '0')}.pdf`;
+  }
+
   const stamp = String(report?.id || Date.now())
     .replace(/-/g, '')
     .slice(0, 12);
-  return `MS015_Orcamento_${stamp}.pdf`;
+  return `Manusilva_Proposta_${stamp}.pdf`;
 }
