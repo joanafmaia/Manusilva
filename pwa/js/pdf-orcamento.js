@@ -11,8 +11,12 @@ import {
   formatOrcamentoMaquinaPdfTableLabel,
   formatOrcamentoMaquinaLabel,
   formatOrcamentoMaquinaMatricula,
+  groupOrcamentoLinhasByEquipamento,
   hasOrcamentoMaquinaData,
   normalizeOrcamentoMaquina,
+  shouldGroupOrcamentoLinhasByEquipamento,
+  countOrcamentoGroupedTableRows,
+  filterOrcamentoTableLinhas,
 } from './orcamento-maquinas.js';
 import { normalizeEquipamentoCampos } from './orcamento-equipamento-campos.js';
 import {
@@ -103,15 +107,16 @@ function canDrawTableLine(y, step = 5) {
 }
 
 function orcamentoTableDataRows(linhas, maquinas = []) {
-  const rows = normalizeOrcamentoLinhas(linhas, { machineCount: maquinas.length || 1 }).filter(
-    (r) => r.descricao || r.precoUnit || r.qtd !== '1',
-  );
-  return rows.length ? rows : [{ descricao: '—', qtd: '1', precoUnit: '', total: '' }];
+  return filterOrcamentoTableLinhas(linhas, maquinas);
 }
 
-export function computeOrcamentoTableLayout(linhas, maquinas = [], { contentEndY = null } = {}) {
-  const dataRows = orcamentoTableDataRows(linhas, maquinas);
-  const rowCount = 1 + dataRows.length;
+export function computeOrcamentoTableLayout(
+  linhas,
+  maquinas = [],
+  { contentEndY = null, equipamentoCampos = null } = {},
+) {
+  const campos = normalizeEquipamentoCampos(equipamentoCampos);
+  const rowCount = countOrcamentoGroupedTableRows(linhas, maquinas, campos);
   const blockH = rowCount * ORC_TABLE_ROW_H + 6;
   const anchoredStartY = FOOTER_TOP - blockH - ORC_TABLE_GAP_ABOVE_FOOTER;
   const flowStartY =
@@ -124,8 +129,10 @@ export function computeOrcamentoTableLayout(linhas, maquinas = [], { contentEndY
     startY,
     anchoredStartY,
     blockH,
-    dataRows,
-    multi: Array.isArray(maquinas) && maquinas.length > 1,
+    dataRows: orcamentoTableDataRows(linhas, maquinas),
+    grouped: shouldGroupOrcamentoLinhasByEquipamento(maquinas, campos),
+    groups: groupOrcamentoLinhasByEquipamento(linhas, maquinas, campos),
+    multi: false,
   };
 }
 
@@ -269,18 +276,19 @@ function fitTableCellText(doc, text, maxWidthMm) {
   return trimmed.length < safe.length ? `${trimmed}…` : trimmed;
 }
 
-function drawOrcamentoTable(doc, linhas, startY, { maquinas = [], layout = null } = {}) {
-  const table = layout || computeOrcamentoTableLayout(linhas, maquinas);
-  const multi = table.multi;
-  const dataRows = table.dataRows;
+function drawOrcamentoTable(doc, linhas, startY, { maquinas = [], equipamentoCampos = null, layout = null } = {}) {
+  const campos = normalizeEquipamentoCampos(equipamentoCampos);
+  const table =
+    layout ||
+    computeOrcamentoTableLayout(linhas, maquinas, { equipamentoCampos: campos });
+  const grouped = table.grouped;
+  const groups = table.groups || groupOrcamentoLinhasByEquipamento(linhas, maquinas, campos);
   const y0 = table.startY ?? startY;
 
-  const colX = multi
-    ? [MARGIN, MARGIN + 26, MARGIN + 94, MARGIN + 108, MARGIN + 144, MARGIN + CONTENT_W]
-    : [MARGIN, MARGIN + 98, MARGIN + 112, MARGIN + 148, MARGIN + CONTENT_W];
+  const colX = [MARGIN, MARGIN + 98, MARGIN + 112, MARGIN + 148, MARGIN + CONTENT_W];
   let y = y0;
 
-  const drawRow = (cells, { bold = false, fill = false, multiRow = multi } = {}) => {
+  const drawRow = (cells, { bold = false, fill = false } = {}) => {
     if (!canDrawTableLine(y, ORC_TABLE_ROW_H + 2)) return y;
     if (fill) {
       doc.setFillColor(241, 245, 249);
@@ -289,58 +297,65 @@ function drawOrcamentoTable(doc, linhas, startY, { maquinas = [], layout = null 
     pdfSetFont(doc, bold ? 'bold' : 'normal');
     doc.setFontSize(8.5);
     doc.setTextColor(...PDF_COLOR_TEXT_DARK);
-    if (multiRow) {
-      const descW = colX[2] - colX[1] - 3;
-      doc.text(fitTableCellText(doc, cells[0], colX[1] - colX[0] - 3), colX[0] + 1, y);
-      doc.text(fitTableCellText(doc, cells[1], descW), colX[1] + 1, y);
-      doc.text(pdfSafeText(cells[2]), colX[3] - 2, y, { align: 'right' });
-      doc.text(pdfSafeText(cells[3]), colX[4] - 2, y, { align: 'right' });
-      doc.text(pdfSafeText(cells[4]), colX[5] - 1, y, { align: 'right' });
-    } else {
-      doc.text(fitTableCellText(doc, cells[0], colX[1] - colX[0] - 3), colX[0] + 1, y);
-      doc.text(pdfSafeText(cells[1]), colX[2] - 2, y, { align: 'right' });
-      doc.text(pdfSafeText(cells[2]), colX[3] - 2, y, { align: 'right' });
-      doc.text(pdfSafeText(cells[3]), colX[4] - 1, y, { align: 'right' });
-    }
+    doc.text(fitTableCellText(doc, cells[0], colX[1] - colX[0] - 3), colX[0] + 1, y);
+    doc.text(pdfSafeText(cells[1]), colX[2] - 2, y, { align: 'right' });
+    doc.text(pdfSafeText(cells[2]), colX[3] - 2, y, { align: 'right' });
+    doc.text(pdfSafeText(cells[3]), colX[4] - 1, y, { align: 'right' });
     doc.setDrawColor(203, 213, 225);
     doc.line(MARGIN, y + 1.5, MARGIN + CONTENT_W, y + 1.5);
     return y + ORC_TABLE_ROW_H;
   };
 
-  if (multi) {
-    y = drawRow(['Equip.', 'Na reparação precisa', 'Qtd.', 'Preço Unit.', 'Total'], {
-      bold: true,
-      fill: true,
-      multiRow: true,
+  const drawMachineHeader = (label) => {
+    if (!canDrawTableLine(y, ORC_TABLE_ROW_H + 2)) return y;
+    doc.setFillColor(226, 232, 240);
+    doc.rect(MARGIN, y - 4.2, CONTENT_W, ORC_TABLE_ROW_H, 'F');
+    pdfSetFont(doc, 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(...PDF_COLOR_TEXT_DARK);
+    doc.text(fitTableCellText(doc, label, CONTENT_W - 4), MARGIN + 1, y);
+    doc.setDrawColor(203, 213, 225);
+    doc.line(MARGIN, y + 1.5, MARGIN + CONTENT_W, y + 1.5);
+    return y + ORC_TABLE_ROW_H;
+  };
+
+  if (grouped) {
+    groups.forEach((group, groupIndex) => {
+      y = drawMachineHeader(group.label);
+      y = drawRow(['Na reparação precisa', 'Qtd.', 'Preço Unit.', 'Total'], {
+        bold: true,
+        fill: true,
+      });
+      group.linhas.forEach((row) => {
+        const total =
+          row.total ||
+          (computeLinhaTotal(row) > 0 ? formatEuro(computeLinhaTotal(row)) : '');
+        y = drawRow(
+          [
+            row.descricao || '—',
+            row.qtd || '1',
+            row.precoUnit ? formatEuro(row.precoUnit) : '',
+            total,
+          ],
+          {},
+        );
+      });
+      if (groupIndex < groups.length - 1) y += 1.5;
     });
-  } else {
-    y = drawRow(['Na reparação precisa', 'Qtd.', 'Preço Unit.', 'Total'], { bold: true, fill: true });
+    return y + 4;
   }
 
-  dataRows.forEach((row) => {
+  y = drawRow(['Na reparação precisa', 'Qtd.', 'Preço Unit.', 'Total'], { bold: true, fill: true });
+  (table.dataRows || orcamentoTableDataRows(linhas, maquinas)).forEach((row) => {
     const total =
       row.total ||
       (computeLinhaTotal(row) > 0 ? formatEuro(computeLinhaTotal(row)) : '');
-    if (multi) {
-      const idx = normalizeEquipamentoIndex(row.equipamentoIndex, maquinas.length);
-      y = drawRow(
-        [
-          formatOrcamentoMaquinaPdfTableLabel(idx),
-          row.descricao || '—',
-          row.qtd || '1',
-          row.precoUnit ? formatEuro(row.precoUnit) : '',
-          total,
-        ],
-        { multiRow: true },
-      );
-    } else {
-      y = drawRow([
-        row.descricao || '—',
-        row.qtd || '1',
-        row.precoUnit ? formatEuro(row.precoUnit) : '',
-        total,
-      ]);
-    }
+    y = drawRow([
+      row.descricao || '—',
+      row.qtd || '1',
+      row.precoUnit ? formatEuro(row.precoUnit) : '',
+      total,
+    ]);
   });
   return y + 4;
 }
@@ -904,7 +919,9 @@ export async function renderOrcamentoPDF(report) {
   });
   y = advanceBodyY(y, 4);
 
-  const preliminaryLayout = computeOrcamentoTableLayout(fill.linhas, fill.maquinas);
+  const preliminaryLayout = computeOrcamentoTableLayout(fill.linhas, fill.maquinas, {
+    equipamentoCampos: fill.equipamento_campos,
+  });
   const maxEquipY = preliminaryLayout.anchoredStartY - 5;
 
   if (canDrawBodyLine(y, 12)) {
@@ -915,10 +932,14 @@ export async function renderOrcamentoPDF(report) {
     maxEndY: maxEquipY,
   });
 
-  const tableLayout = computeOrcamentoTableLayout(fill.linhas, fill.maquinas, { contentEndY: y });
+  const tableLayout = computeOrcamentoTableLayout(fill.linhas, fill.maquinas, {
+    contentEndY: y,
+    equipamentoCampos: fill.equipamento_campos,
+  });
 
   y = drawOrcamentoTable(doc, fill.linhas, tableLayout.startY, {
     maquinas: fill.maquinas,
+    equipamentoCampos: fill.equipamento_campos,
     layout: tableLayout,
   });
 

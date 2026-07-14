@@ -9,6 +9,12 @@ import {
   nextEquipamentoCampoKey,
   readOrcamentoEquipamentoCamposFromDom,
 } from './orcamento-equipamento-campos.js';
+import {
+  computeLinhaTotal,
+  formatEuro,
+  normalizeEquipamentoIndex,
+  normalizeOrcamentoLinhas,
+} from './orcamento-linhas.js';
 
 function readMaquinaFieldValue(raw, key) {
   if (raw == null || typeof raw !== 'object') return '';
@@ -117,13 +123,6 @@ export function renderOrcamentoEquipamentoSelect(maquinas = [], selectedIndex = 
   return `<select class="review-orc-input review-orc-input--equip" data-orc-field="equipamentoIndex" aria-label="Equipamento">${options}</select>`;
 }
 
-function normalizeEquipamentoIndex(value, machineCount = 1) {
-  if (machineCount <= 1) return 0;
-  const n = Number(value);
-  if (Number.isInteger(n) && n >= 0 && n < machineCount) return n;
-  return 0;
-}
-
 export function countOrcamentoMaquinasForLinhas(maquinas = [], campos = null) {
   const fields = normalizeEquipamentoCampos(campos);
   const list = normalizeOrcamentoMaquinasList(maquinas, fields);
@@ -135,8 +134,168 @@ export function shouldShowLinhaEquipamentoColumn(maquinas = [], campos = null) {
   return countOrcamentoMaquinasForLinhas(maquinas, campos) > 1;
 }
 
-/** Atualiza coluna «Equipamento» na tabela de linhas (ao adicionar/remover máquinas). */
-export function syncOrcamentoLinhaEquipamentoColumn(root) {
+/** Agrupa linhas por máquina para tabela/PDF com secções separadas. */
+export function shouldGroupOrcamentoLinhasByEquipamento(maquinas = [], campos = null) {
+  return shouldShowLinhaEquipamentoColumn(maquinas, campos);
+}
+
+export function filterOrcamentoTableLinhas(linhas, maquinas = []) {
+  const machineCount = Math.max(Array.isArray(maquinas) ? maquinas.length : 0, 1);
+  const rows = normalizeOrcamentoLinhas(linhas, { machineCount }).filter(
+    (r) => r.descricao || r.precoUnit || r.qtd !== '1',
+  );
+  return rows.length
+    ? rows
+    : [{ descricao: '—', qtd: '1', precoUnit: '', total: '', equipamentoIndex: 0 }];
+}
+
+export function groupOrcamentoLinhasByEquipamento(linhas, maquinas = [], campos = null) {
+  const fields = normalizeEquipamentoCampos(campos);
+  const list = normalizeOrcamentoMaquinasList(maquinas, fields);
+  const machineCount = Math.max(list.length, 1);
+  const rows = filterOrcamentoTableLinhas(linhas, list);
+
+  if (!shouldGroupOrcamentoLinhasByEquipamento(list, fields)) {
+    return [
+      {
+        equipamentoIndex: 0,
+        label: formatOrcamentoMaquinaLabel(list[0] || {}, 0, fields),
+        linhas: rows,
+      },
+    ];
+  }
+
+  return list.map((machine, index) => {
+    const machineLines = rows.filter(
+      (row) => normalizeEquipamentoIndex(row.equipamentoIndex, machineCount) === index,
+    );
+    return {
+      equipamentoIndex: index,
+      label: formatOrcamentoMaquinaLabel(machine, index, fields),
+      linhas: machineLines.length
+        ? machineLines
+        : [
+            {
+              descricao: '—',
+              qtd: '1',
+              precoUnit: '',
+              total: '',
+              equipamentoIndex: index,
+            },
+          ],
+    };
+  });
+}
+
+export function countOrcamentoGroupedTableRows(linhas, maquinas = [], campos = null) {
+  const groups = groupOrcamentoLinhasByEquipamento(linhas, maquinas, campos);
+  if (!shouldGroupOrcamentoLinhasByEquipamento(maquinas, campos)) {
+    return 1 + groups[0].linhas.length;
+  }
+  return groups.reduce((sum, group) => sum + 1 + 1 + group.linhas.length, 0);
+}
+
+export function readOrcamentoLinhasFromDom(root) {
+  const linhas = [];
+  root?.querySelectorAll('[data-orcamento-linha]').forEach((row) => {
+    const descricao = row.querySelector('[data-orc-field="descricao"]')?.value?.trim() || '';
+    const qtd = row.querySelector('[data-orc-field="qtd"]')?.value?.trim() || '1';
+    const precoUnit = row.querySelector('[data-orc-field="precoUnit"]')?.value?.trim() || '';
+    const equipamentoRaw =
+      row.querySelector('[data-orc-field="equipamentoIndex"]')?.value ??
+      row.dataset.equipamentoIndex ??
+      '0';
+    const total = computeLinhaTotal({ qtd, precoUnit });
+    linhas.push({
+      descricao,
+      qtd,
+      precoUnit,
+      total: total > 0 ? formatEuro(total) : '',
+      equipamentoIndex:
+        equipamentoRaw != null && equipamentoRaw !== '' ? Number(equipamentoRaw) : 0,
+    });
+  });
+  return linhas;
+}
+
+export function renderOrcamentoLinhaRow(row, index, options = {}) {
+  const { equipamentoIndex = Number(row.equipamentoIndex) || 0, grouped = false, maquinas = [] } =
+    options;
+  const descricao = escapeHtml(row.descricao || '');
+  const qtd = escapeHtml(row.qtd || '1');
+  const precoUnit = escapeHtml(row.precoUnit || '');
+  const total = computeLinhaTotal(row);
+  const totalLabel = total > 0 ? formatEuro(total) : '';
+  const multi = !grouped && shouldShowLinhaEquipamentoColumn(maquinas);
+  const equipCell = multi
+    ? `<td class="review-orc-equip-cell" data-orc-equip-td>${renderOrcamentoEquipamentoSelect(maquinas, equipamentoIndex)}</td>`
+    : '';
+  const equipHidden = grouped
+    ? `<input type="hidden" data-orc-field="equipamentoIndex" value="${equipamentoIndex}" />`
+    : '';
+  return `
+    <tr data-orcamento-linha data-index="${index}" data-equipamento-index="${equipamentoIndex}">
+      ${equipCell}
+      <td>${equipHidden}<input type="text" class="review-orc-input review-orc-input--descricao" data-orc-field="descricao" value="${descricao}" placeholder="Artigo / descrição" /></td>
+      <td><input type="text" class="review-orc-input review-orc-input--qty" data-orc-field="qtd" value="${qtd}" inputmode="decimal" /></td>
+      <td><input type="text" class="review-orc-input review-orc-input--money" data-orc-field="precoUnit" value="${precoUnit}" inputmode="decimal" placeholder="0,00" /></td>
+      <td class="review-orc-total" data-orc-line-total>${totalLabel}</td>
+      <td class="review-orc-row-actions">
+        <button type="button" class="btn-icon review-orc-remove" title="Remover linha" aria-label="Remover linha">×</button>
+      </td>
+    </tr>`;
+}
+
+export function renderOrcamentoLinhasTableBody(linhas = [], maquinas = [], campos = null) {
+  const fields = normalizeEquipamentoCampos(campos);
+  const groups = groupOrcamentoLinhasByEquipamento(linhas, maquinas, fields);
+  const grouped = shouldGroupOrcamentoLinhasByEquipamento(maquinas, fields);
+  const colSpan = 5;
+
+  return groups
+    .map((group) => {
+      const header = grouped
+        ? `<tr class="review-orc-equip-group" data-orc-equip-group="${group.equipamentoIndex}">
+            <td colspan="${colSpan}" class="review-orc-equip-group__cell">
+              <div class="review-orc-equip-group__head">
+                <strong class="review-orc-equip-group__title">${escapeHtml(group.label)}</strong>
+                <button type="button" class="btn-outline btn-sm" data-orc-add-linha-equip="${group.equipamentoIndex}">+ Linha</button>
+              </div>
+            </td>
+          </tr>`
+        : '';
+      const rows = group.linhas
+        .map((row, rowIndex) =>
+          renderOrcamentoLinhaRow(row, rowIndex, {
+            equipamentoIndex: group.equipamentoIndex,
+            grouped,
+            maquinas,
+          }),
+        )
+        .join('');
+      return header + rows;
+    })
+    .join('');
+}
+
+export function renderOrcamentoLinhasTableHead(maquinas = [], campos = null) {
+  const grouped = shouldGroupOrcamentoLinhasByEquipamento(maquinas, campos);
+  const equipTh =
+    !grouped && shouldShowLinhaEquipamentoColumn(maquinas, campos)
+      ? '<th class="review-orc-equip-th" data-orc-equip-th scope="col">Equipamento</th>'
+      : '';
+  return `
+    <tr>
+      ${equipTh}
+      <th>Na reparação precisa</th>
+      <th>Qtd.</th>
+      <th>Preço unit. (€)</th>
+      <th>Total (€)</th>
+      <th></th>
+    </tr>`;
+}
+
+export function rebuildOrcamentoLinhasTable(root, linhas = null) {
   const table = root?.querySelector('.review-orc-table');
   const theadRow = table?.querySelector('thead tr');
   const tbody = root?.querySelector('#review-orc-linhas-body');
@@ -144,41 +303,38 @@ export function syncOrcamentoLinhaEquipamentoColumn(root) {
 
   const campos = readOrcamentoEquipamentoCamposFromDom(root);
   const maquinas = readOrcamentoMaquinasFromDom(root, campos);
+  const grouped = shouldGroupOrcamentoLinhasByEquipamento(maquinas, campos);
+  const preserved = Array.isArray(linhas) ? linhas : readOrcamentoLinhasFromDom(root);
+
+  table.classList.toggle('review-orc-table--grouped-equip', grouped);
+  table.classList.toggle('review-orc-table--multi-equip', !grouped && maquinas.length > 1);
+
+  theadRow.innerHTML = renderOrcamentoLinhasTableHead(maquinas, campos)
+    .trim()
+    .replace(/^<tr>/, '')
+    .replace(/<\/tr>$/, '');
+  tbody.innerHTML = renderOrcamentoLinhasTableBody(preserved, maquinas, campos);
+}
+
+/** Atualiza tabela de linhas ao adicionar/remover máquinas. */
+export function syncOrcamentoLinhaEquipamentoColumn(root) {
+  rebuildOrcamentoLinhasTable(root);
+  const campos = readOrcamentoEquipamentoCamposFromDom(root);
+  const maquinas = readOrcamentoMaquinasFromDom(root, campos);
+  const grouped = shouldGroupOrcamentoLinhasByEquipamento(maquinas, campos);
   const multi = shouldShowLinhaEquipamentoColumn(maquinas, campos);
-  table.classList.toggle('review-orc-table--multi-equip', multi);
-
-  let equipTh = theadRow.querySelector('[data-orc-equip-th]');
-  if (multi && !equipTh) {
-    theadRow.insertAdjacentHTML(
-      'afterbegin',
-      '<th class="review-orc-equip-th" data-orc-equip-th scope="col">Equipamento</th>',
-    );
-  } else if (!multi && equipTh) {
-    equipTh.remove();
+  root?.querySelector('.review-orcamento-editor__toolbar')?.classList.toggle(
+    'review-orcamento-editor__toolbar--hidden',
+    grouped,
+  );
+  const hint = root?.querySelector('.review-orc-catalog-hint');
+  if (hint) {
+    hint.textContent = grouped
+      ? 'Com várias máquinas, cada equipamento tem a sua secção. Use «+ Linha» em cada máquina para os artigos dessa máquina.'
+      : multi
+        ? 'Na coluna «Na reparação precisa», escreva para pesquisar no catálogo. Com várias máquinas, indique o equipamento em cada linha.'
+        : 'Na coluna «Na reparação precisa», escreva para pesquisar no catálogo.';
   }
-
-  tbody.querySelectorAll('[data-orcamento-linha]').forEach((tr) => {
-    let equipTd = tr.querySelector('[data-orc-equip-td]');
-    const selected =
-      tr.querySelector('[data-orc-field="equipamentoIndex"]')?.value ??
-      tr.dataset.equipamentoIndex ??
-      '0';
-
-    if (multi) {
-      if (!equipTd) {
-        tr.insertAdjacentHTML(
-          'afterbegin',
-          `<td class="review-orc-equip-cell" data-orc-equip-td></td>`,
-        );
-        equipTd = tr.querySelector('[data-orc-equip-td]');
-      }
-      if (equipTd) {
-        equipTd.innerHTML = renderOrcamentoEquipamentoSelect(maquinas, selected, campos);
-      }
-    } else if (equipTd) {
-      equipTd.remove();
-    }
-  });
 }
 
 export function syncLegacyMaquinaFieldsFromList(maquinas = [], campos = null) {

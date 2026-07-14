@@ -19,8 +19,11 @@ import { resolveOrcamentoCabecalho } from './orcamento-cabecalho.js';
 import {
   bindOrcamentoMaquinasSection,
   readOrcamentoMaquinasFromDom,
-  renderOrcamentoEquipamentoSelect,
+  renderOrcamentoLinhaRow,
+  renderOrcamentoLinhasTableBody,
+  renderOrcamentoLinhasTableHead,
   renderOrcamentoMaquinasSection,
+  shouldGroupOrcamentoLinhasByEquipamento,
   shouldShowLinhaEquipamentoColumn,
   syncOrcamentoLinhaEquipamentoColumn,
 } from './orcamento-maquinas.js';
@@ -70,44 +73,6 @@ function defaultOrcamentoEmail(report, _client) {
   const meta = getReportOrcamentoMeta(report);
   if (meta?.emailDestinatario) return String(meta.emailDestinatario).trim();
   return '';
-}
-
-function renderLinhaRow(row, index, maquinas = []) {
-  const descricao = escapeHtml(row.descricao || '');
-  const qtd = escapeHtml(row.qtd || '1');
-  const precoUnit = escapeHtml(row.precoUnit || '');
-  const total = computeLinhaTotal(row);
-  const totalLabel = total > 0 ? formatEuro(total) : '';
-  const multi = shouldShowLinhaEquipamentoColumn(maquinas);
-  const equipCell = multi
-    ? `<td class="review-orc-equip-cell" data-orc-equip-td>${renderOrcamentoEquipamentoSelect(maquinas, row.equipamentoIndex ?? 0)}</td>`
-    : '';
-  return `
-    <tr data-orcamento-linha data-index="${index}" data-equipamento-index="${Number(row.equipamentoIndex) || 0}">
-      ${equipCell}
-      <td><input type="text" class="review-orc-input review-orc-input--descricao" data-orc-field="descricao" value="${descricao}" placeholder="Artigo / descrição" /></td>
-      <td><input type="text" class="review-orc-input review-orc-input--qty" data-orc-field="qtd" value="${qtd}" inputmode="decimal" /></td>
-      <td><input type="text" class="review-orc-input review-orc-input--money" data-orc-field="precoUnit" value="${precoUnit}" inputmode="decimal" placeholder="0,00" /></td>
-      <td class="review-orc-total" data-orc-line-total>${totalLabel}</td>
-      <td class="review-orc-row-actions">
-        <button type="button" class="btn-icon review-orc-remove" title="Remover linha" aria-label="Remover linha">×</button>
-      </td>
-    </tr>`;
-}
-
-function renderLinhasTableHead(maquinas = []) {
-  const equipTh = shouldShowLinhaEquipamentoColumn(maquinas)
-    ? '<th class="review-orc-equip-th" data-orc-equip-th scope="col">Equipamento</th>'
-    : '';
-  return `
-    <tr>
-      ${equipTh}
-      <th>Na reparação precisa</th>
-      <th>Qtd.</th>
-      <th>Preço unit. (€)</th>
-      <th>Total (€)</th>
-      <th></th>
-    </tr>`;
 }
 
 function renderTotals(meta) {
@@ -538,18 +503,34 @@ export function renderOrcamentoEditor(report, { client } = {}) {
       </label>
 
       <div class="review-orc-table-wrap">
-        <p class="review-orc-catalog-hint text-muted">Na coluna «Na reparação precisa», escreva para pesquisar no catálogo. Com várias máquinas, indique o equipamento em cada linha.</p>
-        <table class="review-orc-table${shouldShowLinhaEquipamentoColumn(cab.maquinas) ? ' review-orc-table--multi-equip' : ''}">
+        <p class="review-orc-catalog-hint text-muted">${
+          shouldGroupOrcamentoLinhasByEquipamento(cab.maquinas, cab.equipamentoCampos)
+            ? 'Com várias máquinas, cada equipamento tem a sua secção. Use «+ Linha» em cada máquina para os artigos dessa máquina.'
+            : shouldShowLinhaEquipamentoColumn(cab.maquinas, cab.equipamentoCampos)
+              ? 'Na coluna «Na reparação precisa», escreva para pesquisar no catálogo. Com várias máquinas, indique o equipamento em cada linha.'
+              : 'Na coluna «Na reparação precisa», escreva para pesquisar no catálogo.'
+        }</p>
+        <table class="review-orc-table${
+          shouldGroupOrcamentoLinhasByEquipamento(cab.maquinas, cab.equipamentoCampos)
+            ? ' review-orc-table--grouped-equip'
+            : shouldShowLinhaEquipamentoColumn(cab.maquinas, cab.equipamentoCampos)
+              ? ' review-orc-table--multi-equip'
+              : ''
+        }">
           <thead>
-            ${renderLinhasTableHead(cab.maquinas)}
+            ${renderOrcamentoLinhasTableHead(cab.maquinas, cab.equipamentoCampos)}
           </thead>
           <tbody id="review-orc-linhas-body">
-            ${linhas.map((row, i) => renderLinhaRow(row, i, cab.maquinas)).join('')}
+            ${renderOrcamentoLinhasTableBody(linhas, cab.maquinas, cab.equipamentoCampos)}
           </tbody>
         </table>
       </div>
 
-      <div class="review-orcamento-editor__toolbar">
+      <div class="review-orcamento-editor__toolbar${
+        shouldGroupOrcamentoLinhasByEquipamento(cab.maquinas, cab.equipamentoCampos)
+          ? ' review-orcamento-editor__toolbar--hidden'
+          : ''
+      }">
         <button type="button" class="btn-outline btn-touch" id="review-orc-add-linha">+ Linha</button>
       </div>
 
@@ -635,6 +616,33 @@ function bindLinhaEvents(root, report) {
   });
 
   tbody.addEventListener('click', (e) => {
+    const addEquipBtn = e.target.closest('[data-orc-add-linha-equip]');
+    if (addEquipBtn) {
+      const maquinas = readOrcamentoMaquinasFromDom(root);
+      const equipIndex = Number(addEquipBtn.dataset.orcAddLinhaEquip) || 0;
+      const groupLines = [
+        ...tbody.querySelectorAll(
+          `[data-orcamento-linha][data-equipamento-index="${equipIndex}"]`,
+        ),
+      ];
+      const insertAfter =
+        groupLines.length > 0
+          ? groupLines[groupLines.length - 1]
+          : addEquipBtn.closest('[data-orc-equip-group]');
+      const index = tbody.querySelectorAll('[data-orcamento-linha]').length;
+      insertAfter?.insertAdjacentHTML(
+        'afterend',
+        renderOrcamentoLinhaRow(emptyOrcamentoLinha(equipIndex), index, {
+          equipamentoIndex: equipIndex,
+          grouped: true,
+          maquinas,
+        }),
+      );
+      bindCatalog();
+      refreshLineTotals(root, report);
+      return;
+    }
+
     const btn = e.target.closest('.review-orc-remove');
     if (!btn) return;
     const row = btn.closest('[data-orcamento-linha]');
@@ -656,7 +664,10 @@ function bindLinhaEvents(root, report) {
   root.querySelector('#review-orc-add-linha')?.addEventListener('click', () => {
     const maquinas = readOrcamentoMaquinasFromDom(root);
     const index = tbody.querySelectorAll('[data-orcamento-linha]').length;
-    tbody.insertAdjacentHTML('beforeend', renderLinhaRow(emptyOrcamentoLinha(), index, maquinas));
+    tbody.insertAdjacentHTML(
+      'beforeend',
+      renderOrcamentoLinhaRow(emptyOrcamentoLinha(), index, { maquinas }),
+    );
     syncOrcamentoLinhaEquipamentoColumn(root);
     bindCatalog();
     refreshLineTotals(root, report);

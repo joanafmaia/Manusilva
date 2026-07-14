@@ -1,9 +1,13 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  countOrcamentoGroupedTableRows,
   formatOrcamentoMaquinasDocxText,
+  groupOrcamentoLinhasByEquipamento,
   hasOrcamentoMaquinaData,
   normalizeOrcamentoMaquina,
+  renderOrcamentoLinhasTableBody,
+  shouldGroupOrcamentoLinhasByEquipamento,
 } from '../js/orcamento-maquinas.js';
 import { suggestOrcamentoMaquinas } from '../js/orcamento-cabecalho.js';
 import {
@@ -112,5 +116,35 @@ describe('orcamento-maquinas', () => {
       ),
       formatOrcamentoNumeroLabel(305, 2026),
     );
+  });
+
+  it('agrupa linhas por máquina com vários equipamentos', () => {
+    const maquinas = [
+      { marca: 'Toyota', modelo: 'A' },
+      { marca: 'Linde', modelo: 'B' },
+    ];
+    const linhas = [
+      { descricao: 'Anilha', qtd: '2', precoUnit: '10', equipamentoIndex: 0 },
+      { descricao: 'Correia', qtd: '1', precoUnit: '25', equipamentoIndex: 1 },
+    ];
+    assert.equal(shouldGroupOrcamentoLinhasByEquipamento(maquinas), true);
+    const groups = groupOrcamentoLinhasByEquipamento(linhas, maquinas);
+    assert.equal(groups.length, 2);
+    assert.equal(groups[0].linhas[0].descricao, 'Anilha');
+    assert.equal(groups[1].linhas[0].descricao, 'Correia');
+    assert.equal(countOrcamentoGroupedTableRows(linhas, maquinas), 6);
+    const html = renderOrcamentoLinhasTableBody(linhas, maquinas);
+    assert.match(html, /data-orc-equip-group="0"/);
+    assert.match(html, /data-orc-equip-group="1"/);
+    assert.match(html, /data-orc-add-linha-equip="0"/);
+  });
+
+  it('mantém tabela simples com uma máquina', () => {
+    const maquinas = [{ marca: 'Toyota', modelo: 'A' }];
+    const linhas = [{ descricao: 'Anilha', qtd: '1', precoUnit: '10', equipamentoIndex: 0 }];
+    assert.equal(shouldGroupOrcamentoLinhasByEquipamento(maquinas), false);
+    const groups = groupOrcamentoLinhasByEquipamento(linhas, maquinas);
+    assert.equal(groups.length, 1);
+    assert.doesNotMatch(renderOrcamentoLinhasTableBody(linhas, maquinas), /data-orc-equip-group/);
   });
 });

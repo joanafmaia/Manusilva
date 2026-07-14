@@ -331,7 +331,10 @@ export function readOrcamentoFormFromDom(root, report) {
       const descricao = row.querySelector('[data-orc-field="descricao"]')?.value?.trim() || '';
       const qtd = row.querySelector('[data-orc-field="qtd"]')?.value?.trim() || '1';
       const precoUnit = row.querySelector('[data-orc-field="precoUnit"]')?.value?.trim() || '';
-      const equipamentoRaw = row.querySelector('[data-orc-field="equipamentoIndex"]')?.value;
+      const equipamentoRaw =
+        row.querySelector('[data-orc-field="equipamentoIndex"]')?.value ??
+        row.dataset.equipamentoIndex ??
+        '0';
       const total = computeLinhaTotal({ qtd, precoUnit });
       linhas.push({
         descricao,

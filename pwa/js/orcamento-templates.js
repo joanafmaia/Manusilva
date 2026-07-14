@@ -251,8 +251,8 @@ export function renderManutencaoBateriaTemplatePreview(meta = {}) {
   const paragrafos = buildManutencaoBateriaParagrafos(meta, meta);
   const periodicidadeParagrafo = paragrafos[paragrafos.length - 1] || '';
   return `
-    <section class="review-orc-template-preview" aria-label="Texto fixo da proposta">
-      <h4 class="review-orc-cabecalho__title">Texto da proposta (fixo no PDF)</h4>
+    <details class="review-orc-template-preview review-orc-template-preview--collapsible">
+      <summary class="review-orc-template-preview__summary">Texto da proposta (fixo no PDF)</summary>
       <div class="review-orc-template-preview__body">
         <p>${MANUTENCAO_BATERIA_INTRO}</p>
         <p><strong>${MANUTENCAO_BATERIA_ESPECIFICACAO_TITULO}</strong></p>
@@ -262,7 +262,7 @@ export function renderManutencaoBateriaTemplatePreview(meta = {}) {
         <p data-orc-periodicidade-paragrafo-preview>${periodicidadeParagrafo}</p>
         <p class="text-muted">${MANUTENCAO_BATERIA_NOTA_PECAS}</p>
       </div>
-    </section>`;
+    </details>`;
 }
 
 /* ─── Manutenção Máquinas (empilhadores) ─── */
