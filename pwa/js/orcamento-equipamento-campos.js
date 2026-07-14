@@ -57,6 +57,7 @@ export function readOrcamentoEquipamentoCamposFromDom(root) {
     const key = row.dataset.campoKey || '';
     const label =
       row.querySelector('[data-orc-campo-label]')?.value?.trim() ||
+      row.querySelector('[data-orc-maquina-label-for]')?.value?.trim() ||
       row.querySelector('[data-orc-maquina-label-for]')?.textContent?.trim() ||
       '';
     const normalized = normalizeEquipamentoCampo({ key, label });

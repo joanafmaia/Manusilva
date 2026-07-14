@@ -197,12 +197,21 @@ function renderMaquinaFieldRow({ key, label }, value, { isSchemaCard, canRemoveC
         placeholder="Campo"
         aria-label="Nome do campo"
       />`
-    : `<span class="review-orc-maquina-campo-label-readonly" data-orc-maquina-label-for="${escapeHtml(key)}">${escapeHtml(label)}</span>`;
+    : `<input
+        type="text"
+        class="review-orc-input review-orc-maquina-campo-label review-orc-maquina-campo-label--readonly"
+        data-orc-maquina-label-for="${escapeHtml(key)}"
+        value="${escapeHtml(label)}"
+        readonly
+        tabindex="-1"
+        aria-readonly="true"
+        aria-label="${escapeHtml(label)}"
+      />`;
 
   const removeBtn =
     isSchemaCard && canRemoveCampo
       ? `<button type="button" class="btn-icon review-orc-maquina-campo-remove" title="Remover campo" aria-label="Remover campo">×</button>`
-      : '';
+      : '<span class="review-orc-maquina-field__action-spacer" aria-hidden="true"></span>';
 
   return `
     <div class="review-orc-maquina-field" data-orc-maquina-campo data-campo-key="${escapeHtml(key)}">
@@ -266,11 +275,12 @@ function syncMaquinaFieldLabels(root, campos) {
   const fields = normalizeEquipamentoCampos(campos);
   fields.forEach(({ key, label }) => {
     root.querySelectorAll(`[data-orc-maquina-label-for="${key}"]`).forEach((el) => {
-      el.textContent = label;
+      if (el instanceof HTMLInputElement) el.value = label;
+      else el.textContent = label;
     });
     root.querySelectorAll(`[data-orc-maquina-field="${key}"]`).forEach((input) => {
       input.placeholder = label;
-      if (!input.value.trim()) input.setAttribute('aria-label', label);
+      input.setAttribute('aria-label', label);
     });
   });
 }
