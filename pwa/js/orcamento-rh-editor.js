@@ -26,6 +26,7 @@ import {
   shouldGroupOrcamentoLinhasByEquipamento,
   shouldShowLinhaEquipamentoColumn,
   syncOrcamentoLinhaEquipamentoColumn,
+  syncOrcamentoGroupedEquipHeaders,
 } from './orcamento-maquinas.js';
 import {
   getReportOrcamentoPdfUrl,
@@ -787,10 +788,14 @@ export function bindOrcamentoEditor(container, { report, onUpdated, onSent, onTi
     root.addEventListener('change', onTemplateFieldChange);
     refreshTemplate();
   } else {
-    const syncEquipColumn = () => syncOrcamentoLinhaEquipamentoColumn(root);
+    const syncEquipStructure = () => syncOrcamentoLinhaEquipamentoColumn(root);
+    const syncEquipFieldValue = () => syncOrcamentoGroupedEquipHeaders(root);
     bindLinhaEvents(root, currentReport);
-    bindOrcamentoMaquinasSection(root, { onChange: syncEquipColumn });
-    syncEquipColumn();
+    bindOrcamentoMaquinasSection(root, {
+      onChange: syncEquipStructure,
+      onFieldChange: syncEquipFieldValue,
+    });
+    syncEquipStructure();
     refreshLineTotals(root, currentReport);
   }
 

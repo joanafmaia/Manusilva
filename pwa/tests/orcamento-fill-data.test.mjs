@@ -4,6 +4,10 @@ import {
   formatOrcamentoDateLong,
   resolveOrcamentoDocumentDate,
 } from '../js/orcamento-fill-data.js';
+import {
+  computeOrcamentoTableLayout,
+  resolveOrcamentoEquipamentoPdfBlocks,
+} from '../js/pdf-orcamento.js';
 
 describe('resolveOrcamentoDocumentDate', () => {
   it('usa enviadoEm quando a proposta já foi enviada', () => {
@@ -32,5 +36,40 @@ describe('resolveOrcamentoDocumentDate', () => {
 describe('formatOrcamentoDateLong', () => {
   it('formata ISO em português', () => {
     assert.equal(formatOrcamentoDateLong('2026-06-11'), '11 de Junho 2026');
+  });
+});
+
+describe('resolveOrcamentoEquipamentoPdfBlocks', () => {
+  it('mantém todos os equipamentos com dados e índices corretos para o PDF', () => {
+    const fill = {
+      maquina: '—',
+      equipamento_campos: [
+        { key: 'marca', label: 'Marca' },
+        { key: 'modelo', label: 'Modelo' },
+        { key: 'numeroSerie', label: 'Nº Série' },
+        { key: 'numeroInterno', label: 'Nº Interno' },
+      ],
+      maquinas: [
+        { marca: 'Linde', modelo: 'L12', numeroSerie: '120273' },
+        { marca: 'Toyota', modelo: '8FB', numeroInterno: 'M2' },
+      ],
+    };
+    const blocks = resolveOrcamentoEquipamentoPdfBlocks(fill);
+    assert.equal(blocks.blocks.length, 2);
+    assert.equal(blocks.blocks[0].index, 0);
+    assert.equal(blocks.blocks[1].index, 1);
+    assert.equal(blocks.blocks[1].machine.marca, 'Toyota');
+    assert.equal(blocks.blocks[1].machine.numeroInterno, 'M2');
+  });
+});
+
+describe('computeOrcamentoTableLayout', () => {
+  it('coloca a tabela abaixo do conteúdo quando o meio da folha é longo', () => {
+    const layout = computeOrcamentoTableLayout(
+      [{ descricao: 'Peça', qtd: '1', precoUnit: '10', equipamentoIndex: 0 }],
+      [{ marca: 'A' }, { marca: 'B' }],
+      { contentEndY: 210, equipamentoCampos: null },
+    );
+    assert.ok(layout.startY >= 210);
   });
 });

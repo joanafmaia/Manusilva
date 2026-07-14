@@ -100,11 +100,15 @@ export function buildOrcamentoFillData(report, job = null) {
       ? orcamentoMeta.maquinas
       : cabecalho.maquinas || suggestOrcamentoMaquinas(report);
   const maquinasNormalized = normalizeOrcamentoMaquinasList(maquinasRaw, equipamentoCampos);
-  const maquinasWithData = isMaquinaTemplate
-    ? maquinasNormalized.filter((row) => hasTemplateMaquinaIdentData(row))
-    : maquinasNormalized.filter((row) => hasOrcamentoMaquinaData(row, equipamentoCampos));
-  const maquinasForPdf = maquinasWithData.length ? maquinasWithData : maquinasNormalized;
-  const firstMachine = maquinasForPdf[0] || {};
+  const maquinasForPdf = maquinasNormalized.length
+    ? maquinasNormalized
+    : normalizeOrcamentoMaquinasList(suggestOrcamentoMaquinas(report), equipamentoCampos);
+  const hasMachineData = (row) =>
+    isMaquinaTemplate
+      ? hasTemplateMaquinaIdentData(row)
+      : hasOrcamentoMaquinaData(row, equipamentoCampos);
+  const firstMachine =
+    maquinasForPdf.find((row) => hasMachineData(row)) || maquinasForPdf[0] || {};
   const legacyMaquina = isMaquinaTemplate
     ? String(firstMachine.maquinaManutencaoNome || orcamentoMeta?.maquinaManutencaoNome || '').trim()
     : [firstMachine.marca, firstMachine.modelo, firstMachine.tipo]

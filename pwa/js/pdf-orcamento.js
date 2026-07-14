@@ -124,7 +124,7 @@ export function computeOrcamentoTableLayout(
       ? contentEndY + ORC_TABLE_GAP_ABOVE_FOOTER
       : null;
   const startY =
-    flowStartY != null ? Math.min(flowStartY, anchoredStartY) : anchoredStartY;
+    flowStartY != null ? Math.max(flowStartY, anchoredStartY) : anchoredStartY;
   return {
     startY,
     anchoredStartY,
@@ -464,17 +464,24 @@ function drawLegalPage(doc, legalText) {
   });
 }
 
-function drawOrcamentoEquipamentoBlocks(doc, fill, startY, options = {}) {
-  const maxEndY = Number.isFinite(options.maxEndY) ? options.maxEndY : CONTENT_MAX_Y;
-  const canEquipLine = (y, step = 5) => y + step <= maxEndY;
-  const advanceEquipY = (y, step = 5) => (canEquipLine(y, step) ? y + step : y);
-  let y = startY;
+export function resolveOrcamentoEquipamentoPdfBlocks(fill = {}) {
   const campos = normalizeEquipamentoCampos(fill.equipamento_campos);
-  const maquinas = (fill.maquinas || []).filter((row) => hasOrcamentoMaquinaData(row, campos));
-  const blocks = maquinas.length
-    ? maquinas
-    : [
-        normalizeOrcamentoMaquina(
+  const allMaquinas = Array.isArray(fill.maquinas) ? fill.maquinas : [];
+  const blocks = allMaquinas
+    .map((row, index) => ({
+      index,
+      machine: normalizeOrcamentoMaquina(row, campos),
+    }))
+    .filter(({ machine }) => hasOrcamentoMaquinaData(machine, campos));
+
+  if (blocks.length) return { campos, blocks };
+
+  return {
+    campos,
+    blocks: [
+      {
+        index: 0,
+        machine: normalizeOrcamentoMaquina(
           {
             marca: fill.marca,
             modelo: fill.modelo,
@@ -485,10 +492,20 @@ function drawOrcamentoEquipamentoBlocks(doc, fill, startY, options = {}) {
           },
           campos,
         ),
-      ];
+      },
+    ],
+  };
+}
 
-  blocks.forEach((row, index) => {
-    const machine = normalizeOrcamentoMaquina(row, campos);
+function drawOrcamentoEquipamentoBlocks(doc, fill, startY, options = {}) {
+  const maxEndY = Number.isFinite(options.maxEndY) ? options.maxEndY : CONTENT_MAX_Y;
+  const canEquipLine = (y, step = 5) => y + step <= maxEndY;
+  const advanceEquipY = (y, step = 5) => (canEquipLine(y, step) ? y + step : y);
+  let y = startY;
+  const { campos, blocks } = resolveOrcamentoEquipamentoPdfBlocks(fill);
+  const multi = blocks.length > 1;
+
+  blocks.forEach(({ machine, index }, blockIndex) => {
     if (!hasOrcamentoMaquinaData(machine, campos) && fill.maquina === '—') return;
 
     const equipRows = campos
@@ -501,7 +518,7 @@ function drawOrcamentoEquipamentoBlocks(doc, fill, startY, options = {}) {
       equipRows.push([LABEL_MAQUINA, label], [LABEL_MATRICULA, matricula]);
     }
 
-    if (blocks.length > 1) {
+    if (multi) {
       if (!canEquipLine(y, 8)) return;
       pdfSetFont(doc, 'bold');
       doc.setFontSize(PDF_FONT_BODY);
@@ -528,7 +545,7 @@ function drawOrcamentoEquipamentoBlocks(doc, fill, startY, options = {}) {
       y = advanceEquipY(y, 5.5);
     });
 
-    if (index < blocks.length - 1) y = advanceEquipY(y, 2);
+    if (blockIndex < blocks.length - 1) y = advanceEquipY(y, 2);
   });
 
   return advanceEquipY(y, 4);
@@ -919,17 +936,12 @@ export async function renderOrcamentoPDF(report) {
   });
   y = advanceBodyY(y, 4);
 
-  const preliminaryLayout = computeOrcamentoTableLayout(fill.linhas, fill.maquinas, {
-    equipamentoCampos: fill.equipamento_campos,
-  });
-  const maxEquipY = preliminaryLayout.anchoredStartY - 5;
-
   if (canDrawBodyLine(y, 12)) {
-    y = Math.min(maxEquipY, drawOrcamentoEquipamentoBlocks(doc, fill, y, { maxEndY: maxEquipY }));
+    y = drawOrcamentoEquipamentoBlocks(doc, fill, y, { maxEndY: CONTENT_MAX_Y });
   }
 
   y = drawOrcamentoObservacoesCliente(doc, fill, y, {
-    maxEndY: maxEquipY,
+    maxEndY: CONTENT_MAX_Y,
   });
 
   const tableLayout = computeOrcamentoTableLayout(fill.linhas, fill.maquinas, {

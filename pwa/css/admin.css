@@ -2832,19 +2832,19 @@
   z-index: 1;
   min-height: 100vh;
   min-height: 100dvh;
-  padding: 1rem 1.25rem 2rem;
-  max-width: 1440px;
+  padding: 0.65rem 1rem 1.25rem;
+  max-width: 1280px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 0.65rem;
 }
 .orcamento-page-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
-  padding: 0.85rem 1rem;
+  gap: 0.65rem;
+  padding: 0.55rem 0.75rem;
   flex-wrap: wrap;
 }
 .orcamento-page-header__start {
@@ -2873,7 +2873,7 @@
 }
 .orcamento-page-main {
   flex: 1;
-  padding: 1.25rem 1.5rem 1.5rem;
+  padding: 0.85rem 1rem 1rem;
   overflow: visible;
 }
 .orcamento-page-empty {
@@ -2881,31 +2881,83 @@
   text-align: center;
 }
 .orcamento-view-lead {
-  margin: 0 0 0.75rem;
-  font-size: 0.88rem;
-  line-height: 1.5;
+  margin: 0 0 0.5rem;
+  font-size: 0.84rem;
+  line-height: 1.45;
 }
 .orcamento-view-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.35rem 1.25rem;
-  margin-bottom: 1rem;
-  padding-bottom: 0.85rem;
+  gap: 0.35rem 1rem;
+  margin-bottom: 0.65rem;
+  padding-bottom: 0.55rem;
   border-bottom: 1px solid rgba(15, 23, 42, 0.08);
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   color: var(--text-muted);
 }
+.orcamento-page .review-orc-cabecalho {
+  margin-bottom: 0.55rem;
+  padding-bottom: 0.5rem;
+}
 .orcamento-page .review-orc-cabecalho__grid {
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.45rem 0.55rem;
+  margin-bottom: 0.4rem;
 }
 .orcamento-page .review-orc-textarea {
-  min-height: 7rem;
+  min-height: 4.5rem;
+}
+.orcamento-page .review-orc-field-hint {
+  font-size: 0.68rem;
+  line-height: 1.35;
+}
+.orcamento-page .review-orcamento-editor {
+  margin: 0.35rem 0 0.5rem;
+  padding: 0.55rem 0.65rem;
+}
+.orcamento-page .review-orcamento-editor__head {
+  margin-bottom: 0.4rem;
+}
+.orcamento-page .review-orc-maquinas {
+  margin-top: 0.35rem;
+}
+.orcamento-page .review-orc-maquinas__head {
+  margin-bottom: 0.4rem;
+  gap: 0.35rem 0.65rem;
+}
+.orcamento-page .review-orc-maquinas__list {
+  gap: 0.45rem;
+}
+.orcamento-page .review-orc-maquina {
+  padding: 0.55rem 0.65rem;
+}
+.orcamento-page .review-orc-maquina__head {
+  margin-bottom: 0.35rem;
+}
+.orcamento-page .review-orc-maquina__fields {
+  gap: 0.35rem;
+}
+.orcamento-page .review-orc-maquina-field {
+  grid-template-columns: minmax(8.5rem, 10rem) minmax(10rem, 1fr) 1.75rem;
+  gap: 0.35rem;
+}
+.orcamento-page .review-orc-maquinas__actions {
+  margin-top: 0.45rem;
+  gap: 0.4rem;
 }
 .orcamento-page .review-orc-table-wrap {
   overflow: visible;
 }
 .orcamento-page .review-orc-table {
-  font-size: 0.88rem;
+  font-size: 0.82rem;
+}
+.orcamento-page .review-orc-table th,
+.orcamento-page .review-orc-table td {
+  padding: 0.28rem 0.35rem;
+}
+.orcamento-page .review-orc-input {
+  padding: 0.28rem 0.4rem;
+  font-size: 0.76rem;
 }
 .orcamento-page .review-orc-table th:first-child,
 .orcamento-page .review-orc-table td:first-child {
@@ -2921,17 +2973,30 @@
 }
 .orcamento-page .review-orcamento-editor__extras {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 0.65rem 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.45rem 0.65rem;
+  margin-bottom: 0.45rem;
+}
+.orcamento-page .review-orcamento-editor__totals {
+  margin-bottom: 0.45rem;
+  font-size: 0.76rem;
 }
 .orcamento-page .review-orcamento-editor__actions {
   position: sticky;
   bottom: 0;
   z-index: 5;
-  margin-top: 1rem;
-  padding: 0.85rem 0 0.25rem;
+  margin-top: 0.55rem;
+  padding: 0.45rem 0 0.15rem;
   background: var(--ms-card-bg);
   border-top: 1px solid var(--ms-border-md);
+}
+.orcamento-page .review-orc-template-preview {
+  margin: 0.35rem 0;
+  padding: 0.35rem 0.5rem;
+}
+.orcamento-page .review-orc-template-maquina-card,
+.orcamento-page .review-orc-template-equip-valores__card {
+  padding: 0.35rem 0.45rem;
 }
 .review-orc-maquinas {
   margin: 0.85rem 0 1rem;
@@ -2964,19 +3029,15 @@
   font-weight: 600;
   cursor: default;
   pointer-events: none;
-}
-.review-orc-maquina-campo-label-readonly {
-  font-size: 0.82rem;
-  font-weight: 600;
-  color: var(--ms-text-muted);
   padding: 0.35rem 0.45rem;
   min-height: 2rem;
-  display: flex;
-  align-items: center;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
 }
 .review-orc-maquina-field__value {
   min-width: 0;
   width: 100%;
+  pointer-events: auto;
 }
 .review-orc-maquina-field__action-spacer {
   display: block;

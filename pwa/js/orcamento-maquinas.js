@@ -316,6 +316,20 @@ export function rebuildOrcamentoLinhasTable(root, linhas = null) {
   tbody.innerHTML = renderOrcamentoLinhasTableBody(preserved, maquinas, campos);
 }
 
+/** Atualiza só os títulos das secções agrupadas (sem reconstruir a tabela). */
+export function syncOrcamentoGroupedEquipHeaders(root) {
+  const campos = readOrcamentoEquipamentoCamposFromDom(root);
+  const maquinas = readOrcamentoMaquinasFromDom(root, campos);
+  if (!shouldGroupOrcamentoLinhasByEquipamento(maquinas, campos)) return;
+  const fields = normalizeEquipamentoCampos(campos);
+  root?.querySelectorAll('[data-orc-equip-group]').forEach((row) => {
+    const index = Number(row.dataset.orcEquipGroup) || 0;
+    const label = formatOrcamentoMaquinaLabel(maquinas[index] || {}, index, fields);
+    const title = row.querySelector('.review-orc-equip-group__title');
+    if (title) title.textContent = label;
+  });
+}
+
 /** Atualiza tabela de linhas ao adicionar/remover máquinas. */
 export function syncOrcamentoLinhaEquipamentoColumn(root) {
   rebuildOrcamentoLinhasTable(root);
@@ -467,7 +481,7 @@ export function renderOrcamentoMaquinasSection(maquinas = [], equipamentoCampos 
     <section class="review-orc-maquinas" aria-label="Equipamentos da proposta">
       <div class="review-orc-maquinas__head">
         <h4 class="review-orc-cabecalho__title">Equipamentos</h4>
-        <span class="review-orc-field-hint text-muted">Edite o nome de cada campo no primeiro equipamento; preencha os valores (Marca, Modelo, etc.) em cada máquina.</span>
+        <span class="review-orc-field-hint text-muted">Nomes dos campos no 1.º equipamento; valores em cada máquina.</span>
       </div>
       <div class="review-orc-maquinas__list" id="review-orc-maquinas-list">
         ${renderMaquinasList(maquinas, campos)}
@@ -497,13 +511,14 @@ export function readOrcamentoMaquinasFromDom(root, campos = null) {
 
 export { readOrcamentoEquipamentoCamposFromDom };
 
-export function bindOrcamentoMaquinasSection(root, { onChange } = {}) {
+export function bindOrcamentoMaquinasSection(root, { onChange, onFieldChange } = {}) {
   const list = root?.querySelector('#review-orc-maquinas-list');
   const addMaquinaBtn = root?.querySelector('#review-orc-add-maquina');
   const addCampoBtn = root?.querySelector('#review-orc-add-campo');
   if (!list || !addMaquinaBtn) return;
 
-  const notify = () => onChange?.();
+  const notifyStructure = () => onChange?.();
+  const notifyField = () => onFieldChange?.();
 
   const renumber = () => {
     const cards = list.querySelectorAll('[data-orcamento-maquina]');
@@ -522,7 +537,7 @@ export function bindOrcamentoMaquinasSection(root, { onChange } = {}) {
     list.innerHTML = renderMaquinasList(maquinas, campos);
     renumber();
     syncMaquinaFieldLabels(root, campos);
-    notify();
+    notifyStructure();
   };
 
   addCampoBtn?.addEventListener('click', () => {
@@ -536,7 +551,7 @@ export function bindOrcamentoMaquinasSection(root, { onChange } = {}) {
     list.innerHTML = renderMaquinasList(maquinas, nextCampos);
     renumber();
     syncMaquinaFieldLabels(root, nextCampos);
-    notify();
+    notifyStructure();
   });
 
   list.addEventListener('click', (e) => {
@@ -553,7 +568,7 @@ export function bindOrcamentoMaquinasSection(root, { onChange } = {}) {
       list.innerHTML = renderMaquinasList(maquinas, nextCampos);
       renumber();
       syncMaquinaFieldLabels(root, nextCampos);
-      notify();
+      notifyStructure();
       return;
     }
 
@@ -566,7 +581,7 @@ export function bindOrcamentoMaquinasSection(root, { onChange } = {}) {
       card.querySelectorAll('[data-orc-maquina-field]').forEach((input) => {
         input.value = '';
       });
-      notify();
+      notifyField();
       return;
     }
     card.remove();
@@ -577,10 +592,9 @@ export function bindOrcamentoMaquinasSection(root, { onChange } = {}) {
     if (e.target.matches('[data-orc-campo-label]')) {
       const campos = readOrcamentoEquipamentoCamposFromDom(root);
       syncMaquinaFieldLabels(root, campos);
-      notify();
       return;
     }
-    if (e.target.matches('[data-orc-maquina-field]')) notify();
+    if (e.target.matches('[data-orc-maquina-field]')) notifyField();
   });
 
   addMaquinaBtn.addEventListener('click', () => {
@@ -594,6 +608,6 @@ export function bindOrcamentoMaquinasSection(root, { onChange } = {}) {
     const lastCard = cards[cards.length - 1];
     const firstInput = lastCard?.querySelector('[data-orc-maquina-field]');
     firstInput?.focus();
-    notify();
+    notifyStructure();
   });
 }
