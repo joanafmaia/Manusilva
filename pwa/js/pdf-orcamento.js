@@ -85,6 +85,12 @@ const FOOTER_TOP = APPROVAL_TOP - FOOTER_BLOCK_H;
 /** Zona do corpo da proposta baterias — acima do bloco fixo de valores/pagamento. */
 const BATERIA_FOOTER_ANCHOR_Y = FOOTER_TOP - FOOTER_BLOCK_H + 2;
 const BATERIA_BODY_MAX_Y = BATERIA_FOOTER_ANCHOR_Y - 6;
+/** Manutenção máquinas: rodapé mais alto (3 linhas de preço + prazo/pagamento). */
+const MAQUINA_FOOTER_BLOCK_H = 42;
+const MAQUINA_FOOTER_ANCHOR_Y = APPROVAL_TOP - MAQUINA_FOOTER_BLOCK_H - 6;
+const MAQUINA_BODY_MAX_Y = MAQUINA_FOOTER_ANCHOR_Y - 4;
+const MAQUINA_BULLET_LINE_STEP = 3.35;
+const PROPOSTA_FOOTER_MAX_Y = APPROVAL_TOP - 6;
 const CONTENT_MAX_Y = FOOTER_TOP - 6;
 
 const ORC_TABLE_ROW_H = 6.5;
@@ -635,7 +641,7 @@ function drawOrcamentoBulletList(doc, items, startY, options = {}) {
 
 function drawManutencaoBateriaFooter(doc, fill) {
   let y = BATERIA_FOOTER_ANCHOR_Y;
-  const footerMaxY = APPROVAL_TOP - 6;
+  const footerMaxY = PROPOSTA_FOOTER_MAX_Y;
   pdfSetFont(doc, 'normal');
   doc.setFontSize(PDF_FONT_BODY);
   doc.setTextColor(...PDF_COLOR_TEXT_DARK);
@@ -672,8 +678,9 @@ function drawManutencaoBateriaFooter(doc, fill) {
   return y;
 }
 
-function drawManutencaoMaquinaFooter(doc, fill, startY) {
-  let y = startY + 6;
+function drawManutencaoMaquinaFooter(doc, fill) {
+  let y = MAQUINA_FOOTER_ANCHOR_Y;
+  const footerMaxY = PROPOSTA_FOOTER_MAX_Y;
   pdfSetFont(doc, 'normal');
   doc.setFontSize(PDF_FONT_BODY);
   doc.setTextColor(...PDF_COLOR_TEXT_DARK);
@@ -689,7 +696,7 @@ function drawManutencaoMaquinaFooter(doc, fill, startY) {
   precoLinhas.forEach((line) => {
     pdfSetFont(doc, 'bold');
     pdfSplitText(doc, line, CONTENT_W).forEach((textLine) => {
-      if (y > FOOTER_TOP - 8) return;
+      if (y > footerMaxY) return;
       doc.text(textLine, MARGIN, y);
       y += 5;
     });
@@ -705,7 +712,7 @@ function drawManutencaoMaquinaFooter(doc, fill, startY) {
 
   blocks.forEach((text) => {
     pdfSplitText(doc, text, CONTENT_W).forEach((line) => {
-      if (y > FOOTER_TOP - 6) return;
+      if (y > footerMaxY) return;
       doc.text(line, MARGIN, y);
       y += 4.8;
     });
@@ -723,31 +730,37 @@ async function renderManutencaoMaquinaOrcamentoPDF(doc, report, job) {
 
   pdfSetFont(doc, 'normal');
   doc.setFontSize(PDF_FONT_BODY);
-  y = drawOrcamentoBodyParagraphs(doc, [MANUTENCAO_MAQUINA_INTRO], y);
-  y += 3;
+  y = drawOrcamentoBodyParagraphs(doc, [MANUTENCAO_MAQUINA_INTRO], y, { maxEndY: MAQUINA_BODY_MAX_Y });
+  y += 2;
 
   pdfSetFont(doc, 'bold');
-  if (canDrawBodyLine(y)) {
+  if (canDrawContentLine(y, 5) && y + 5 <= MAQUINA_BODY_MAX_Y) {
     doc.text(MANUTENCAO_MAQUINA_PLANO_TITULO, MARGIN, y);
-    y = advanceBodyY(y, 6);
+    y = advanceContentY(y, 5);
   }
   pdfSetFont(doc, 'normal');
-  if (canDrawBodyLine(y)) {
+  if (canDrawContentLine(y, 5) && y + 5 <= MAQUINA_BODY_MAX_Y) {
     doc.text(`– ${MANUTENCAO_MAQUINA_PLANO_DETALHE}`, MARGIN, y);
-    y = advanceBodyY(y, 6);
+    y = advanceContentY(y, 5);
   }
 
   pdfSetFont(doc, 'bold');
-  if (canDrawBodyLine(y)) {
+  if (canDrawContentLine(y, 5) && y + 5 <= MAQUINA_BODY_MAX_Y) {
     doc.text(MANUTENCAO_MAQUINA_ESPECIFICACAO_TITULO, MARGIN, y);
-    y = advanceBodyY(y, 6);
+    y = advanceContentY(y, 5);
   }
 
   pdfSetFont(doc, 'normal');
-  y = drawOrcamentoBodyParagraphs(doc, [MANUTENCAO_MAQUINA_TRABALHOS_INTRO], y, { lineStep: 4.5 });
-  y = drawOrcamentoBulletList(doc, MANUTENCAO_MAQUINA_TRABALHOS, y, { maxEndY: FOOTER_TOP - 28 });
+  y = drawOrcamentoBodyParagraphs(doc, [MANUTENCAO_MAQUINA_TRABALHOS_INTRO], y, {
+    lineStep: 4.2,
+    maxEndY: MAQUINA_BODY_MAX_Y,
+  });
+  y = drawOrcamentoBulletList(doc, MANUTENCAO_MAQUINA_TRABALHOS, y, {
+    lineStep: MAQUINA_BULLET_LINE_STEP,
+    maxEndY: MAQUINA_BODY_MAX_Y,
+  });
 
-  drawManutencaoMaquinaFooter(doc, fill, Math.min(y + 4, FOOTER_TOP - 48));
+  drawManutencaoMaquinaFooter(doc, fill);
 
   doc.setPage(1);
   drawClientApprovalBox(doc);

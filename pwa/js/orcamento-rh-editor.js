@@ -847,6 +847,9 @@ export function bindOrcamentoEditor(container, { report, onUpdated, onSent, onTi
       showToast('A guardar proposta comercial…', 'info', 3000);
       await saveMeta();
       showToast('Proposta comercial guardada.', 'success');
+      if (isOrcamentoDedicatedPage()) {
+        exitOrcamentoPageAfterSend();
+      }
     } catch (err) {
       console.error('[RH] Guardar orçamento:', err);
       const { showToast } = await import('./app.js');

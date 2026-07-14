@@ -64,6 +64,7 @@ import {
   queueOrcamentoReportFocus,
   countOrcamentosPorPreparar,
 } from './views/orcamentos.js';
+import { consumeAdminPendingTab } from './orcamento-modal.js';
 import { initAvaliacoesPanel, refreshAvaliacoesPanel } from './views/avaliacoes.js';
 import {
   loadRhReviewFilters,
@@ -498,6 +499,16 @@ function bindAdminSidebarToggle() {
   });
 }
 
+function applyAdminInitialTab() {
+  const pending = consumeAdminPendingTab();
+  if (pending) {
+    setAdminTab(pending);
+    return;
+  }
+  const tab = ADMIN_TAB_BY_NAV[window.location.hash];
+  if (tab) setAdminTab(tab);
+}
+
 function bindAdminNavigation() {
   document.querySelectorAll('.nav-item').forEach((item) => {
     item.addEventListener('click', (e) => {
@@ -506,6 +517,11 @@ function bindAdminNavigation() {
       const tab = item.dataset.adminTab || ADMIN_TAB_BY_NAV[href];
       if (tab) setAdminTab(tab);
     });
+  });
+
+  window.addEventListener('hashchange', () => {
+    const tab = ADMIN_TAB_BY_NAV[window.location.hash];
+    if (tab) setAdminTab(tab);
   });
 }
 
@@ -560,6 +576,7 @@ export async function initAdminDashboard() {
     bindCalTodayBtn();
     updateAdminChrome();
     renderRhReviewStack().catch(console.error);
+    applyAdminInitialTab();
     updateAdminTabUI();
     window.matchMedia(ADMIN_MOBILE_LAYOUT_MQ).addEventListener('change', () => {
       updateAdminTabUI();

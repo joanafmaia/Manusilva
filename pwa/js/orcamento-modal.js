@@ -3,6 +3,32 @@
  */
 
 const RETURN_KEY = 'orcamento_return_url';
+const ADMIN_PENDING_TAB_KEY = 'admin_pending_tab';
+
+function rememberAdminPendingTab(tab) {
+  try {
+    sessionStorage.setItem(ADMIN_PENDING_TAB_KEY, String(tab || 'orcamentos'));
+  } catch {
+    /* ignore */
+  }
+}
+
+/** URL do painel admin com a aba Orçamentos activa (mesmo directório que orcamento.html). */
+export function resolveOrcamentosAdminUrl(preferredReturn) {
+  try {
+    const raw = String(preferredReturn || 'admin.html#orcamentos').trim() || 'admin.html#orcamentos';
+    const url = new URL(raw, window.location.href);
+    if (!/\/admin\.html$/i.test(url.pathname)) {
+      const dir = window.location.pathname.replace(/[^/]+$/, '');
+      url.pathname = `${dir}admin.html`;
+    }
+    url.hash = 'orcamentos';
+    url.search = '';
+    return url.href;
+  } catch {
+    return 'admin.html#orcamentos';
+  }
+}
 
 export function buildOrcamentoPageUrl(reportId, { returnTo } = {}) {
   const id = encodeURIComponent(String(reportId || '').trim());
@@ -45,21 +71,36 @@ export function isOrcamentoDedicatedPage() {
   return /orcamento\.html$/i.test(String(window.location.pathname || ''));
 }
 
-/** Sai da página da proposta após envio — volta ao painel RH ou fecha separador. */
+export function consumeAdminPendingTab() {
+  try {
+    const tab = sessionStorage.getItem(ADMIN_PENDING_TAB_KEY);
+    if (tab) sessionStorage.removeItem(ADMIN_PENDING_TAB_KEY);
+    return tab || null;
+  } catch {
+    return null;
+  }
+}
+
+/** Sai da página da proposta — volta à aba Orçamentos no painel admin. */
 export function exitOrcamentoPageAfterSend({ returnUrl } = {}) {
-  const target = returnUrl || window.__orcamentoReturnUrl || peekOrcamentoReturnUrl();
+  const preferred = returnUrl || window.__orcamentoReturnUrl || peekOrcamentoReturnUrl();
+  const target = resolveOrcamentosAdminUrl(preferred);
+  rememberAdminPendingTab('orcamentos');
 
   if (window.opener && !window.opener.closed) {
     try {
+      window.opener.sessionStorage?.setItem(ADMIN_PENDING_TAB_KEY, 'orcamentos');
       window.opener.focus();
       const openerPath = String(window.opener.location.pathname || '');
       if (openerPath.includes('admin.html')) {
-        window.opener.location.hash = 'orcamentos';
+        window.opener.location.replace(target);
+      } else {
+        window.opener.location.href = target;
       }
       window.close();
       return;
     } catch {
-      /* navegação no separador atual */
+      /* navegação no separador actual */
     }
   }
 
