@@ -11,7 +11,6 @@ import MANUSILVA_LOGO from './logo_data.js';
 import { buildOrcamentoFillData } from './orcamento-fill-data.js';
 import {
   formatOrcamentoMaquinaPdfTableLabel,
-  formatOrcamentoMaquinaCompactLine,
   formatOrcamentoMaquinaLabel,
   formatOrcamentoMaquinaMatricula,
   hasOrcamentoMaquinaData,
@@ -80,13 +79,20 @@ function orcamentoTableDataRows(linhas, maquinas = []) {
   return rows.length ? rows : [{ descricao: '—', qtd: '1', precoUnit: '', total: '' }];
 }
 
-export function computeOrcamentoTableLayout(linhas, maquinas = []) {
+export function computeOrcamentoTableLayout(linhas, maquinas = [], { contentEndY = null } = {}) {
   const dataRows = orcamentoTableDataRows(linhas, maquinas);
   const rowCount = 1 + dataRows.length;
   const blockH = rowCount * ORC_TABLE_ROW_H + 6;
-  const startY = FOOTER_TOP - blockH - ORC_TABLE_GAP_ABOVE_FOOTER;
+  const anchoredStartY = FOOTER_TOP - blockH - ORC_TABLE_GAP_ABOVE_FOOTER;
+  const flowStartY =
+    contentEndY != null && Number.isFinite(contentEndY)
+      ? contentEndY + ORC_TABLE_GAP_ABOVE_FOOTER
+      : null;
+  const startY =
+    flowStartY != null ? Math.min(flowStartY, anchoredStartY) : anchoredStartY;
   return {
     startY,
+    anchoredStartY,
     blockH,
     dataRows,
     multi: Array.isArray(maquinas) && maquinas.length > 1,
@@ -439,30 +445,6 @@ function drawOrcamentoEquipamentoBlocks(doc, fill, startY, options = {}) {
     const machine = normalizeOrcamentoMaquina(row, campos);
     if (!hasOrcamentoMaquinaData(machine, campos) && fill.maquina === '—') return;
 
-    if (blocks.length > 1) {
-      if (!canEquipLine(y, 8)) return;
-      pdfSetFont(doc, 'bold');
-      doc.setFontSize(PDF_FONT_BODY);
-      doc.setTextColor(...PDF_COLOR_TEXT_DARK);
-      const prefix = `Equipamento ${index + 1}: `;
-      doc.text(prefix, MARGIN, y);
-      const prefixW = doc.getTextWidth(prefix);
-      pdfSetFont(doc, 'normal');
-      pdfSplitText(doc, formatOrcamentoMaquinaCompactLine(machine, index, campos), CONTENT_W - prefixW).forEach(
-        (line, lineIndex) => {
-          if (lineIndex === 0) {
-            doc.text(pdfSafeText(line), MARGIN + prefixW, y);
-          } else {
-            y = advanceEquipY(y, 5);
-            if (!canEquipLine(y)) return;
-            doc.text(pdfSafeText(line), MARGIN, y);
-          }
-        },
-      );
-      y = advanceEquipY(y, 6);
-      return;
-    }
-
     const equipRows = campos
       .map(({ key, label }) => [label, machine[key]])
       .filter(([, value]) => String(value || '').trim());
@@ -471,6 +453,15 @@ function drawOrcamentoEquipamentoBlocks(doc, fill, startY, options = {}) {
       const label = formatOrcamentoMaquinaLabel(machine, index, campos);
       const matricula = formatOrcamentoMaquinaMatricula(machine, campos);
       equipRows.push([LABEL_MAQUINA, label], [LABEL_MATRICULA, matricula]);
+    }
+
+    if (blocks.length > 1) {
+      if (!canEquipLine(y, 8)) return;
+      pdfSetFont(doc, 'bold');
+      doc.setFontSize(PDF_FONT_BODY);
+      doc.setTextColor(...PDF_COLOR_TEXT_DARK);
+      doc.text(`Equipamento ${index + 1}:`, MARGIN, y);
+      y = advanceEquipY(y, 6);
     }
 
     equipRows.forEach(([label, value]) => {
@@ -591,16 +582,18 @@ export async function renderOrcamentoPDF(report) {
   });
   y = advanceBodyY(y, 4);
 
-  const tableLayout = computeOrcamentoTableLayout(fill.linhas, fill.maquinas);
-  const maxBodyY = tableLayout.startY - 5;
+  const preliminaryLayout = computeOrcamentoTableLayout(fill.linhas, fill.maquinas);
+  const maxEquipY = preliminaryLayout.anchoredStartY - 5;
 
   if (canDrawBodyLine(y, 12)) {
-    y = Math.min(maxBodyY, drawOrcamentoEquipamentoBlocks(doc, fill, y, { maxEndY: maxBodyY }));
+    y = Math.min(maxEquipY, drawOrcamentoEquipamentoBlocks(doc, fill, y, { maxEndY: maxEquipY }));
   }
 
   y = drawOrcamentoObservacoesCliente(doc, fill, y, {
-    maxEndY: tableLayout.startY - 2,
+    maxEndY: maxEquipY,
   });
+
+  const tableLayout = computeOrcamentoTableLayout(fill.linhas, fill.maquinas, { contentEndY: y });
 
   y = drawOrcamentoTable(doc, fill.linhas, tableLayout.startY, {
     maquinas: fill.maquinas,

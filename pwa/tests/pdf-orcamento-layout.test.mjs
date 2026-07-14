@@ -9,9 +9,16 @@ describe('pdf-orcamento layout', () => {
       { descricao: 'Mão de obra', qtd: '1', precoUnit: '120' },
     ];
     const layout = computeOrcamentoTableLayout(linhas, []);
-    assert.ok(layout.startY < 189, 'cabeçalho da tabela deve ficar acima do rodapé (y≈189)');
+    assert.ok(layout.anchoredStartY < 189, 'cabeçalho da tabela deve ficar acima do rodapé (y≈189)');
     assert.equal(layout.dataRows.length, 2);
-    assert.ok(layout.startY + layout.blockH < 189);
+    assert.ok(layout.anchoredStartY + layout.blockH < 189);
+  });
+
+  it('posiciona a tabela após o equipamento quando há pouco conteúdo', () => {
+    const linhas = [{ descricao: 'Roda de Tração', qtd: '1', precoUnit: '145' }];
+    const layout = computeOrcamentoTableLayout(linhas, [], { contentEndY: 102 });
+    assert.ok(layout.startY < layout.anchoredStartY, 'tabela deve seguir o fluxo do conteúdo');
+    assert.ok(layout.startY >= 105);
   });
 
   it('mantém pelo menos uma linha quando não há artigos', () => {

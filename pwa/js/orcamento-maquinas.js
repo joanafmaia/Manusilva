@@ -281,7 +281,7 @@ export function renderOrcamentoMaquinasSection(maquinas = [], equipamentoCampos 
     <section class="review-orc-maquinas" aria-label="Equipamentos da proposta">
       <div class="review-orc-maquinas__head">
         <h4 class="review-orc-cabecalho__title">Equipamentos</h4>
-        <span class="review-orc-field-hint text-muted">Edite o nome de cada campo no primeiro equipamento; os valores preenchem-se em cada máquina.</span>
+        <span class="review-orc-field-hint text-muted">Edite o nome de cada campo no primeiro equipamento; preencha os valores (Marca, Modelo, etc.) em cada máquina.</span>
       </div>
       <div class="review-orc-maquinas__list" id="review-orc-maquinas-list">
         ${renderMaquinasList(maquinas, campos)}
@@ -335,6 +335,7 @@ export function bindOrcamentoMaquinasSection(root, { onChange } = {}) {
     const maquinas = readOrcamentoMaquinasFromDom(root, campos);
     list.innerHTML = renderMaquinasList(maquinas, campos);
     renumber();
+    syncMaquinaFieldLabels(root, campos);
     notify();
   };
 
@@ -348,6 +349,7 @@ export function bindOrcamentoMaquinasSection(root, { onChange } = {}) {
     const nextCampos = [...campos, { key, label: 'Novo campo' }];
     list.innerHTML = renderMaquinasList(maquinas, nextCampos);
     renumber();
+    syncMaquinaFieldLabels(root, nextCampos);
     notify();
   });
 
@@ -364,6 +366,7 @@ export function bindOrcamentoMaquinasSection(root, { onChange } = {}) {
       const maquinas = readOrcamentoMaquinasFromDom(root, campos);
       list.innerHTML = renderMaquinasList(maquinas, nextCampos);
       renumber();
+      syncMaquinaFieldLabels(root, nextCampos);
       notify();
       return;
     }
@@ -396,15 +399,15 @@ export function bindOrcamentoMaquinasSection(root, { onChange } = {}) {
 
   addMaquinaBtn.addEventListener('click', () => {
     const campos = readOrcamentoEquipamentoCamposFromDom(root);
-    const index = list.querySelectorAll('[data-orcamento-maquina]').length;
-    list.insertAdjacentHTML(
-      'beforeend',
-      renderMaquinaCard(emptyOrcamentoMaquina(campos), index, campos, {
-        canRemoveMachine: true,
-        campoCount: campos.length,
-      }),
-    );
+    const maquinas = readOrcamentoMaquinasFromDom(root, campos);
+    maquinas.push(emptyOrcamentoMaquina(campos));
+    list.innerHTML = renderMaquinasList(maquinas, campos);
     renumber();
+    syncMaquinaFieldLabels(root, campos);
+    const cards = list.querySelectorAll('[data-orcamento-maquina]');
+    const lastCard = cards[cards.length - 1];
+    const firstInput = lastCard?.querySelector('[data-orc-maquina-field]');
+    firstInput?.focus();
     notify();
   });
 }
