@@ -44,10 +44,10 @@ import {
 } from './orcamento-templates.js';
 import {
   bindTemplateBateriasValoresSection,
-  bindTemplateMaquinasIdentSection,
+  bindTemplateMaquinasSection,
   readTemplateMaquinasFromDom,
   renderTemplateEquipValoresSection,
-  renderTemplateMaquinasIdentificacaoSection,
+  renderTemplateMaquinasSection,
   resolveTemplateEquipamentos,
   syncTemplateEquipValoresList,
 } from './orcamento-template-equipamentos.js';
@@ -364,9 +364,7 @@ function renderManutencaoMaquinaOrcamentoEditor(report, ctx) {
 
       ${renderManutencaoMaquinaTemplatePreview()}
 
-      ${renderTemplateMaquinasIdentificacaoSection(equipamentos, meta)}
-
-      ${renderTemplateEquipValoresSection(equipamentos, [], meta, 'maquina')}
+      ${renderTemplateMaquinasSection(equipamentos, meta)}
 
       <section class="review-orc-template-fields" aria-label="Condições da proposta">
         <h4 class="review-orc-cabecalho__title">Condições</h4>
@@ -765,12 +763,12 @@ export function bindOrcamentoEditor(container, { report, onUpdated, onSent, onTi
       refreshTemplate();
     };
     if (isMaquinaTemplate) {
-      bindTemplateMaquinasIdentSection(root, { onChange: onTemplateEquipChange });
+      bindTemplateMaquinasSection(root, { onChange: refreshTemplate });
     } else {
       bindTemplateBateriasValoresSection(root, { onChange: onTemplateEquipChange });
     }
     const templateFieldSelector =
-      '[data-orc-template-equip-valores] [data-orc-field], [data-orc-field="valorDeslocacao"], [data-orc-field="formaPagamento"], [data-orc-field="validadeOrcamento"], [data-orc-field="prazoEntrega"]';
+      '[data-orc-template-equip-valores] [data-orc-field], [data-template-maquina-card] [data-orc-field], [data-orc-field="valorDeslocacao"], [data-orc-field="formaPagamento"], [data-orc-field="validadeOrcamento"], [data-orc-field="prazoEntrega"]';
     const onTemplateFieldChange = (e) => {
       if (e.target.matches(templateFieldSelector)) refreshTemplate();
     };

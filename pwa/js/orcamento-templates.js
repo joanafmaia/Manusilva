@@ -472,8 +472,8 @@ function emptyOrcamentoLinhaTemplate() {
 export function renderManutencaoMaquinaTemplatePreview() {
   const trabalhos = MANUTENCAO_MAQUINA_TRABALHOS.map((item) => `<li>${item}</li>`).join('');
   return `
-    <section class="review-orc-template-preview" aria-label="Texto fixo da proposta">
-      <h4 class="review-orc-cabecalho__title">Texto da proposta (fixo no PDF)</h4>
+    <details class="review-orc-template-preview review-orc-template-preview--collapsible">
+      <summary class="review-orc-template-preview__summary">Texto da proposta (fixo no PDF)</summary>
       <div class="review-orc-template-preview__body">
         <p>${MANUTENCAO_MAQUINA_INTRO}</p>
         <p><strong>${MANUTENCAO_MAQUINA_PLANO_TITULO}</strong></p>
@@ -482,7 +482,7 @@ export function renderManutencaoMaquinaTemplatePreview() {
         <p>${MANUTENCAO_MAQUINA_TRABALHOS_INTRO}</p>
         <ul>${trabalhos}</ul>
       </div>
-    </section>`;
+    </details>`;
 }
 
 export function renderManutencaoMaquinaPrecoPreviewHtml(meta = {}, cabecalho = {}) {

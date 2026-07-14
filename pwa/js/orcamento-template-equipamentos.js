@@ -208,6 +208,10 @@ export function mergeMaquinasWithTemplateValores(maquinas, valores, mode, meta =
 }
 
 export function readTemplateMaquinasIdentFromDom(root) {
+  const fromCards = readTemplateMaquinasCardsFromDom(root);
+  if (fromCards) {
+    return fromCards.map((row) => ({ maquinaManutencaoNome: row.maquinaManutencaoNome }));
+  }
   const list = root?.querySelector('[data-template-maquinas-ident-list]');
   if (!list) return [];
   const rows = [];
@@ -221,12 +225,15 @@ export function readTemplateMaquinasIdentFromDom(root) {
 }
 
 export function readTemplateMaquinasFromDom(root, mode, meta = {}) {
-  const valores = readTemplateEquipValoresFromDom(root, mode);
   if (mode === 'maquina') {
+    const fromCards = readTemplateMaquinasCardsFromDom(root);
+    if (fromCards) return { campos: [], maquinas: fromCards };
     const maquinas = readTemplateMaquinasIdentFromDom(root);
+    const valores = readTemplateEquipValoresFromDom(root, mode);
     const merged = mergeMaquinasWithTemplateValores(maquinas, valores, mode, meta);
     return { campos: [], maquinas: merged };
   }
+  const valores = readTemplateEquipValoresFromDom(root, mode);
   const merged = mergeMaquinasWithTemplateValores(valores, valores, mode, meta);
   return { campos: [], maquinas: merged };
 }
@@ -262,7 +269,7 @@ function renderBateriaValorRow(row, index, total) {
     <article class="review-orc-template-equip-valores__card" data-orc-template-equip-valores data-equip-index="${index}">
       <div class="review-orc-template-equip-valores__head">
         <h5 class="review-orc-template-equip-valores__title">${escapeHtml(label)}</h5>
-        <button type="button" class="btn-text review-orc-template-equip-valores__remove" data-template-bateria-valor-remove${removeHidden}>Remover</button>
+        <button type="button" class="review-orc-template-icon-remove" data-template-bateria-valor-remove${removeHidden} title="Remover" aria-label="Remover">×</button>
       </div>
       <div class="review-orc-cabecalho__grid">
         <label class="review-orc-field">
@@ -277,31 +284,81 @@ function renderBateriaValorRow(row, index, total) {
     </article>`;
 }
 
-function renderMaquinaValorRow(row, index) {
-  const label = formatTemplateMaquinaNome(row, index);
+function renderTemplateRemoveButton(dataAttr, hidden = false) {
+  const hiddenAttr = hidden ? ' hidden' : '';
+  return `<button type="button" class="review-orc-template-icon-remove" ${dataAttr}${hiddenAttr} title="Remover" aria-label="Remover">×</button>`;
+}
+
+function renderTemplateMaquinaCard(row, index, total) {
+  const nome = escapeHtml(row.maquinaManutencaoNome || '');
   const valorGeral = escapeHtml(row.valorManutencaoGeral || '');
   const valorInspecao = escapeHtml(
     row.valorInspecaoDl50 || formatEuro(MAQUINA_INSPECAO_DL50_DEFAULT),
   );
   const incluirDl50 = row.incluirInspecaoDl50 ? ' checked' : '';
   return `
-    <article class="review-orc-template-equip-valores__card" data-orc-template-equip-valores data-equip-index="${index}">
-      <h5 class="review-orc-template-equip-valores__title">${escapeHtml(label)}</h5>
-      <div class="review-orc-cabecalho__grid">
+    <article class="review-orc-template-maquina-card" data-template-maquina-card data-maquina-index="${index}">
+      <div class="review-orc-template-maquina-card__grid">
         <label class="review-orc-field">
-          <span>Manutenção geral (€)</span>
+          <span>Máquina ${index + 1}</span>
+          <input
+            type="text"
+            class="review-orc-input"
+            data-orc-field="maquinaManutencaoNome"
+            value="${nome}"
+            placeholder="ex.: Toyota 8FBMT16"
+          />
+        </label>
+        <label class="review-orc-field">
+          <span>Manutenção (€)</span>
           <input type="text" class="review-orc-input review-orc-input--money" data-orc-field="valorManutencaoGeral" value="${valorGeral}" inputmode="decimal" placeholder="0,00" />
         </label>
-        <label class="review-orc-field review-orc-field--checkbox">
-          <span>Incluir inspeção DL50/2005</span>
+        <label class="review-orc-field review-orc-field--checkbox-inline">
           <input type="checkbox" class="review-orc-checkbox" data-orc-field="incluirInspecaoDl50"${incluirDl50} />
+          <span>DL50/2005</span>
         </label>
         <label class="review-orc-field">
-          <span>Valor inspeção DL50/2005 (€)</span>
+          <span>Inspeção (€)</span>
           <input type="text" class="review-orc-input review-orc-input--money" data-orc-field="valorInspecaoDl50" value="${valorInspecao}" inputmode="decimal" placeholder="40,00" />
         </label>
+        ${renderTemplateRemoveButton('data-template-maquina-remove', total <= 1)}
       </div>
     </article>`;
+}
+
+export function renderTemplateMaquinasSection(maquinas = [], meta = {}) {
+  const rows = resolveTemplateEquipamentos({ ...meta, maquinas }, { maquinas }, 'maquina');
+  const cards = rows.map((row, index) => renderTemplateMaquinaCard(row, index, rows.length)).join('');
+  return `
+    <section class="review-orc-template-maquinas" aria-label="Máquinas">
+      <h4 class="review-orc-cabecalho__title">Máquinas</h4>
+      <p class="review-orc-field-hint text-muted">Marca/modelo e preços por máquina; a deslocação é única em Condições.</p>
+      <div class="review-orc-template-maquinas__list" data-template-maquinas-list>
+        ${cards}
+      </div>
+      <button type="button" class="btn-outline btn-sm btn-touch review-orc-template-maquinas__add" data-template-maquinas-add>
+        + Adicionar máquina
+      </button>
+    </section>`;
+}
+
+export function readTemplateMaquinasCardsFromDom(root) {
+  const list = root?.querySelector('[data-template-maquinas-list]');
+  if (!list) return null;
+  const rows = [];
+  list.querySelectorAll('[data-template-maquina-card]').forEach((card) => {
+    rows.push({
+      maquinaManutencaoNome:
+        card.querySelector('[data-orc-field="maquinaManutencaoNome"]')?.value?.trim() || '',
+      valorManutencaoGeral:
+        card.querySelector('[data-orc-field="valorManutencaoGeral"]')?.value?.trim() || '',
+      incluirInspecaoDl50:
+        card.querySelector('[data-orc-field="incluirInspecaoDl50"]')?.checked ?? false,
+      valorInspecaoDl50:
+        card.querySelector('[data-orc-field="valorInspecaoDl50"]')?.value?.trim() || '',
+    });
+  });
+  return rows.length ? rows : [{ ...emptyTemplateMaquinaIdentRow(), ...defaultMaquinaEquipValores() }];
 }
 
 export function renderTemplateEquipValoresSection(maquinas, campos, meta, mode) {
@@ -310,11 +367,12 @@ export function renderTemplateEquipValoresSection(maquinas, campos, meta, mode) 
   const hint =
     mode === 'bateria'
       ? 'Indique periodicidade e valor por visita. Pode adicionar várias baterias.'
-      : 'Preço de manutenção e DL50 por máquina; a deslocação é única para a proposta.';
+      : '';
+  if (mode !== 'bateria') return '';
   const cards =
     mode === 'bateria'
       ? rows.map((row, i) => renderBateriaValorRow(row, i, rows.length)).join('')
-      : rows.map((row, i) => renderMaquinaValorRow(row, i)).join('');
+      : '';
   const addBateriaBtn =
     mode === 'bateria'
       ? `<button type="button" class="btn-outline btn-touch review-orc-template-equip-valores__add" data-template-baterias-valores-add>+ Adicionar bateria</button>`
@@ -333,14 +391,8 @@ export function renderTemplateEquipValoresSection(maquinas, campos, meta, mode) 
 
 export function syncTemplateEquipValoresList(root, mode, meta = {}) {
   const listEl = root?.querySelector('[data-orc-template-equip-valores-list]');
-  if (!listEl) return;
+  if (!listEl || mode === 'maquina') return;
   const valores = readTemplateEquipValoresFromDom(root, mode);
-  if (mode === 'maquina') {
-    const maquinas = readTemplateMaquinasIdentFromDom(root);
-    const merged = mergeMaquinasWithTemplateValores(maquinas, valores, mode, meta);
-    listEl.innerHTML = merged.map((row, i) => renderMaquinaValorRow(row, i)).join('');
-    return;
-  }
   const merged = mergeMaquinasWithTemplateValores(valores, valores, mode, meta);
   listEl.innerHTML = merged.map((row, i) => renderBateriaValorRow(row, i, merged.length)).join('');
 }
@@ -399,69 +451,30 @@ export function bindTemplateBateriasValoresSection(root, { onChange } = {}) {
   });
 }
 
-function renderTemplateMaquinaIdentRow(row, index) {
-  const nome = escapeHtml(row.maquinaManutencaoNome || '');
-  const removeHidden = index === 0 ? ' hidden' : '';
-  return `
-    <article class="review-orc-template-maquina-ident" data-template-maquina-ident data-maquina-index="${index}">
-      <div class="review-orc-template-maquina-ident__head">
-        <h5 class="review-orc-template-maquina-ident__title">Máquina ${index + 1}</h5>
-        <button type="button" class="btn-text review-orc-template-maquina-ident__remove" data-template-maquina-ident-remove${removeHidden}>Remover</button>
-      </div>
-      <label class="review-orc-field">
-        <span>Máquina</span>
-        <input
-          type="text"
-          class="review-orc-input"
-          data-orc-field="maquinaManutencaoNome"
-          value="${nome}"
-          placeholder="ex.: Toyota 8FBMT16"
-        />
-      </label>
-    </article>`;
-}
-
-export function renderTemplateMaquinasIdentificacaoSection(maquinas = [], meta = {}) {
-  const rows = resolveTemplateEquipamentos({ ...meta, maquinas }, { maquinas }, 'maquina');
-  const cards = rows.map((row, index) => renderTemplateMaquinaIdentRow(row, index)).join('');
-  return `
-    <section class="review-orc-template-maquinas-ident" aria-label="Máquinas">
-      <h4 class="review-orc-cabecalho__title">Máquinas</h4>
-      <p class="review-orc-field-hint text-muted">Identifique cada máquina (marca/modelo). Pode adicionar várias.</p>
-      <div class="review-orc-template-maquinas-ident__list" data-template-maquinas-ident-list>
-        ${cards}
-      </div>
-      <button type="button" class="btn-outline btn-touch review-orc-template-maquinas-ident__add" data-template-maquinas-ident-add>
-        + Adicionar máquina
-      </button>
-    </section>`;
-}
-
-export function bindTemplateMaquinasIdentSection(root, { onChange } = {}) {
-  const list = root?.querySelector('[data-template-maquinas-ident-list]');
-  const addBtn = root?.querySelector('[data-template-maquinas-ident-add]');
+export function bindTemplateMaquinasSection(root, { onChange } = {}) {
+  const list = root?.querySelector('[data-template-maquinas-list]');
+  const addBtn = root?.querySelector('[data-template-maquinas-add]');
   if (!list || !addBtn) return;
 
   const notify = () => onChange?.();
 
   const rerender = () => {
-    const maquinas = readTemplateMaquinasIdentFromDom(root);
-    list.innerHTML = maquinas.map((row, index) => renderTemplateMaquinaIdentRow(row, index)).join('');
+    const rows = readTemplateMaquinasCardsFromDom(root) || [];
+    list.innerHTML = rows.map((row, index) => renderTemplateMaquinaCard(row, index, rows.length)).join('');
     notify();
   };
 
-  list.addEventListener('input', (e) => {
-    if (e.target.matches('[data-orc-field="maquinaManutencaoNome"]')) notify();
-  });
-
   list.addEventListener('click', (e) => {
-    const btn = e.target.closest('[data-template-maquina-ident-remove]');
+    const btn = e.target.closest('[data-template-maquina-remove]');
     if (!btn || btn.hidden) return;
-    const card = btn.closest('[data-template-maquina-ident]');
+    const card = btn.closest('[data-template-maquina-card]');
     if (!card) return;
-    const cards = list.querySelectorAll('[data-template-maquina-ident]');
+    const cards = list.querySelectorAll('[data-template-maquina-card]');
     if (cards.length <= 1) {
-      card.querySelector('[data-orc-field="maquinaManutencaoNome"]').value = '';
+      card.querySelectorAll('[data-orc-field]').forEach((input) => {
+        if (input.type === 'checkbox') input.checked = false;
+        else input.value = '';
+      });
       notify();
       return;
     }
@@ -470,13 +483,18 @@ export function bindTemplateMaquinasIdentSection(root, { onChange } = {}) {
   });
 
   addBtn.addEventListener('click', () => {
-    const maquinas = readTemplateMaquinasIdentFromDom(root);
-    maquinas.push(emptyTemplateMaquinaIdentRow());
-    list.innerHTML = maquinas.map((row, index) => renderTemplateMaquinaIdentRow(row, index)).join('');
-    const cards = list.querySelectorAll('[data-template-maquina-ident]');
+    const rows = readTemplateMaquinasCardsFromDom(root) || [];
+    rows.push({ ...emptyTemplateMaquinaIdentRow(), ...defaultMaquinaEquipValores() });
+    list.innerHTML = rows.map((row, index) => renderTemplateMaquinaCard(row, index, rows.length)).join('');
+    const cards = list.querySelectorAll('[data-template-maquina-card]');
     cards[cards.length - 1]?.querySelector('[data-orc-field="maquinaManutencaoNome"]')?.focus();
     notify();
   });
+}
+
+/** @deprecated usar bindTemplateMaquinasSection */
+export function bindTemplateMaquinasIdentSection(root, options = {}) {
+  bindTemplateMaquinasSection(root, options);
 }
 
 export function syncLegacyTemplateFieldsFromMaquinas(meta, mode) {

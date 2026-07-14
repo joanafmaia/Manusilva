@@ -3073,11 +3073,144 @@
   color: var(--ms-primary, #1e4d72);
 }
 .review-orc-template-preview {
-  margin: 0.85rem 0;
-  padding: 0.75rem 0.85rem;
+  margin: 0.55rem 0;
+  padding: 0.55rem 0.7rem;
   border-radius: 0.55rem;
   border: 1px solid rgba(15, 23, 42, 0.1);
   background: rgba(241, 245, 249, 0.65);
+}
+.review-orc-template-preview--collapsible {
+  padding: 0;
+}
+.review-orc-template-preview__summary {
+  padding: 0.55rem 0.7rem;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+  cursor: pointer;
+  list-style: none;
+}
+.review-orc-template-preview__summary::-webkit-details-marker {
+  display: none;
+}
+.review-orc-template-preview__summary::before {
+  content: '▸ ';
+  font-size: 0.7rem;
+}
+.review-orc-template-preview--collapsible[open] .review-orc-template-preview__summary::before {
+  content: '▾ ';
+}
+.review-orc-template-preview--collapsible .review-orc-template-preview__body {
+  padding: 0 0.7rem 0.55rem;
+}
+.review-orc-template-maquinas,
+.review-orc-template-equip-valores {
+  margin: 0.5rem 0 0.65rem;
+}
+.review-orc-template-maquinas__list,
+.review-orc-template-equip-valores__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.review-orc-template-maquina-card,
+.review-orc-template-equip-valores__card {
+  padding: 0.45rem 0.55rem;
+  border-radius: 0.45rem;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: rgba(255, 255, 255, 0.7);
+}
+.review-orc-template-maquina-card__grid {
+  display: grid;
+  grid-template-columns: minmax(9rem, 1.4fr) minmax(5.5rem, 0.85fr) auto minmax(5.5rem, 0.85fr) 1.75rem;
+  gap: 0.35rem 0.45rem;
+  align-items: end;
+}
+.review-orc-template-maquina-card .review-orc-field span,
+.review-orc-template-equip-valores__card .review-orc-field span {
+  font-size: 0.68rem;
+  margin-bottom: 0.15rem;
+}
+.review-orc-template-maquina-card .review-orc-input,
+.review-orc-template-equip-valores__card .review-orc-input {
+  padding: 0.35rem 0.45rem;
+  font-size: 0.82rem;
+}
+.review-orc-field--checkbox-inline {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.35rem;
+  padding-bottom: 0.35rem;
+  min-height: 2.1rem;
+}
+.review-orc-field--checkbox-inline span {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.review-orc-template-equip-valores__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.3rem;
+}
+.review-orc-template-equip-valores__title {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-primary, #0f172a);
+}
+.review-orc-template-icon-remove {
+  flex-shrink: 0;
+  width: 1.65rem;
+  height: 1.65rem;
+  margin-bottom: 0.35rem;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: #94a3b8;
+  font-size: 1.15rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.review-orc-template-icon-remove:hover {
+  border-color: rgba(239, 68, 68, 0.25);
+  background: rgba(239, 68, 68, 0.08);
+  color: #dc2626;
+}
+.review-orc-template-icon-remove[hidden] {
+  display: none;
+}
+.review-orc-template-maquinas__add,
+.review-orc-template-equip-valores__add {
+  margin-top: 0.4rem;
+}
+.review-orc-template-valor-preview {
+  margin: 0.35rem 0 0;
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+.review-orc-template-valor-preview p {
+  margin: 0 0 0.15rem;
+}
+.review-orc-template-fields {
+  margin-bottom: 0.55rem;
+}
+@media (max-width: 720px) {
+  .review-orc-template-maquina-card__grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .review-orc-template-maquina-card__grid .review-orc-template-icon-remove {
+    grid-column: 2;
+    justify-self: end;
+  }
 }
 .review-orc-template-preview__body {
   font-size: 0.8rem;
