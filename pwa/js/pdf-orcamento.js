@@ -7,6 +7,7 @@
 import { COMPANY } from './mock_data.js';
 import { getJob } from './app.js';
 import { buildOrcamentoFillData } from './orcamento-fill-data.js';
+import { resolveOrcamentoTextoIntroForPdf } from './orcamento-cabecalho.js';
 import {
   collectMaquinaPdfFieldRows,
   formatOrcamentoMaquinaPdfTableLabel,
@@ -509,11 +510,103 @@ export function resolveOrcamentoEquipamentoPdfBlocks(fill = {}) {
 }
 
 function drawOrcamentoEquipamentoSeparator(doc, y) {
-  const lineY = y + 1.5;
+  const lineY = y + 2;
   doc.setDrawColor(148, 163, 184);
-  doc.setLineWidth(0.35);
+  doc.setLineWidth(0.5);
   doc.line(MARGIN, lineY, MARGIN + CONTENT_W, lineY);
-  return lineY + 4;
+  return lineY + 5;
+}
+
+function measureOrcamentoEquipamentoSeparator(y) {
+  return y + 2 + 5;
+}
+
+function measureOrcamentoEquipamentoBlocksHeight(doc, fill, startY, maxEndY = CONTENT_MAX_Y) {
+  const canEquipLine = (y, step = 5) => y + step <= maxEndY;
+  const advanceEquipY = (y, step = 5) => (canEquipLine(y, step) ? y + step : y);
+  let y = startY;
+  const { blocks } = resolveOrcamentoEquipamentoPdfBlocks(fill);
+
+  blocks.forEach((block, blockIndex) => {
+    const equipRows = block.rows?.length
+      ? block.rows
+      : collectMaquinaPdfFieldRows(block.machine, fill.equipamento_campos);
+
+    if (!equipRows.length && fill.maquina === '—') return;
+
+    const rowsToDraw =
+      equipRows.length > 0
+        ? equipRows
+        : [
+            [LABEL_MAQUINA, formatOrcamentoMaquinaLabel(block.machine, block.index, block.campos)],
+            [LABEL_MATRICULA, formatOrcamentoMaquinaMatricula(block.machine, block.campos)],
+          ];
+
+    rowsToDraw.forEach(([label, value]) => {
+      if (!canEquipLine(y)) return;
+      pdfSetFont(doc, 'bold');
+      const prefix = `${label}: `;
+      const prefixW = doc.getTextWidth(prefix);
+      pdfSetFont(doc, 'normal');
+      const valueLines = pdfSplitText(doc, pdfSafeText(value || '—'), Math.max(12, CONTENT_W - prefixW));
+      valueLines.forEach((line, lineIndex) => {
+        if (lineIndex > 0) {
+          y = advanceEquipY(y, 5.5);
+          if (!canEquipLine(y)) return;
+        }
+      });
+      y = advanceEquipY(y, 5.5);
+    });
+
+    if (blockIndex < blocks.length - 1 && canEquipLine(y, 6)) {
+      y = measureOrcamentoEquipamentoSeparator(y);
+    }
+  });
+
+  return advanceEquipY(y, 4);
+}
+
+function measureOrcamentoObservacoesHeight(doc, fill, startY, maxEndY = CONTENT_MAX_Y) {
+  const text = String(fill.observacoes_cliente || '').trim();
+  if (!text || text === '—') return startY;
+  const lineStep = 4.2;
+  let y = startY;
+  if (y + 5 > maxEndY) return startY;
+  y += 5;
+  pdfSetFont(doc, 'normal');
+  pdfSplitText(doc, text, CONTENT_W).forEach((line) => {
+    if (y + lineStep > maxEndY) return;
+    y += lineStep;
+  });
+  return y + 2;
+}
+
+export function planOrcamentoGenericPageLayout(doc, fill, bodyStartY) {
+  pdfSetFont(doc, 'normal');
+  doc.setFontSize(PDF_FONT_BODY);
+
+  const intro = resolveOrcamentoTextoIntroForPdf(fill.maquinas, fill.texto_intro);
+  let y = bodyStartY;
+  pdfSplitText(doc, intro, CONTENT_W).forEach(() => {
+    y = advanceBodyY(y);
+  });
+  y = advanceBodyY(y, 4);
+
+  const equipStartY = y;
+  const equipEndY = measureOrcamentoEquipamentoBlocksHeight(doc, fill, equipStartY);
+  const obsEndY = measureOrcamentoObservacoesHeight(doc, fill, equipEndY);
+  const tableLayout = computeOrcamentoTableLayout(fill.linhas, fill.maquinas, {
+    contentEndY: obsEndY,
+    equipamentoCampos: fill.equipamento_campos,
+  });
+  const middleMaxY = Math.max(equipStartY, tableLayout.startY - ORC_TABLE_GAP_ABOVE_FOOTER);
+
+  return {
+    intro,
+    equipStartY,
+    middleMaxY,
+    tableLayout,
+  };
 }
 
 function drawOrcamentoEquipamentoBlocks(doc, fill, startY, options = {}) {
@@ -941,8 +1034,8 @@ export async function renderOrcamentoPDF(report) {
 
   pdfSetFont(doc, 'normal');
   doc.setFontSize(PDF_FONT_BODY);
-  const intro = String(fill.texto_intro || '').trim() || 'Vimos por este meio enviar o nosso orçamento para a seguinte máquina:';
-  pdfSplitText(doc, intro, CONTENT_W).forEach((line) => {
+  const pagePlan = planOrcamentoGenericPageLayout(doc, fill, y);
+  pdfSplitText(doc, pagePlan.intro, CONTENT_W).forEach((line) => {
     if (!canDrawBodyLine(y)) return;
     doc.text(line, MARGIN, y);
     y = advanceBodyY(y);
@@ -950,22 +1043,17 @@ export async function renderOrcamentoPDF(report) {
   y = advanceBodyY(y, 4);
 
   if (canDrawBodyLine(y, 12)) {
-    y = drawOrcamentoEquipamentoBlocks(doc, fill, y, { maxEndY: CONTENT_MAX_Y });
+    y = drawOrcamentoEquipamentoBlocks(doc, fill, y, { maxEndY: pagePlan.middleMaxY });
   }
 
   y = drawOrcamentoObservacoesCliente(doc, fill, y, {
-    maxEndY: CONTENT_MAX_Y,
+    maxEndY: pagePlan.middleMaxY,
   });
 
-  const tableLayout = computeOrcamentoTableLayout(fill.linhas, fill.maquinas, {
-    contentEndY: y,
-    equipamentoCampos: fill.equipamento_campos,
-  });
-
-  y = drawOrcamentoTable(doc, fill.linhas, tableLayout.startY, {
+  y = drawOrcamentoTable(doc, fill.linhas, pagePlan.tableLayout.startY, {
     maquinas: fill.maquinas,
     equipamentoCampos: fill.equipamento_campos,
-    layout: tableLayout,
+    layout: pagePlan.tableLayout,
   });
 
   drawOrcamentoFooter(doc, fill);

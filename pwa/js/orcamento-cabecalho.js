@@ -23,6 +23,25 @@ export const ORCAMENTO_TEXTO_INTRO_SINGULAR =
 export const ORCAMENTO_TEXTO_INTRO_PLURAL =
   'Vimos por este meio enviar o nosso orçamento para as seguintes máquinas:';
 
+/** Ajusta singular/plural conforme o n.º de equipamentos (mantém texto personalizado). */
+export function resolveOrcamentoTextoIntroForPdf(maquinas = [], textoIntro = '') {
+  const saved = String(textoIntro || '').trim();
+  const list = normalizeOrcamentoMaquinasList(maquinas);
+  const withData = list.filter((row) => hasOrcamentoMaquinaData(row));
+  const count = Math.max(1, withData.length || list.length);
+
+  if (!saved || saved === '—') {
+    return count > 1 ? ORCAMENTO_TEXTO_INTRO_PLURAL : ORCAMENTO_TEXTO_INTRO_SINGULAR;
+  }
+  if (count > 1 && saved === ORCAMENTO_TEXTO_INTRO_SINGULAR) {
+    return ORCAMENTO_TEXTO_INTRO_PLURAL;
+  }
+  if (count === 1 && saved === ORCAMENTO_TEXTO_INTRO_PLURAL) {
+    return ORCAMENTO_TEXTO_INTRO_SINGULAR;
+  }
+  return saved;
+}
+
 function readOrcamentoMeta(report) {
   const meta = report?.data?.orcamento;
   return meta && typeof meta === 'object' ? meta : {};

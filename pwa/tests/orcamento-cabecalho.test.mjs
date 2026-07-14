@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   ORCAMENTO_TEXTO_INTRO_PLURAL,
   ORCAMENTO_TEXTO_INTRO_SINGULAR,
+  resolveOrcamentoTextoIntroForPdf,
   resolveReportObservacoesTecnico,
   suggestOrcamentoTextoIntro,
 } from '../js/orcamento-cabecalho.js';
@@ -28,6 +29,21 @@ describe('suggestOrcamentoTextoIntro', () => {
     const custom = 'Texto personalizado:';
     const report = { data: { orcamento: { textoIntro: custom } } };
     assert.equal(suggestOrcamentoTextoIntro(report), custom);
+  });
+});
+
+describe('resolveOrcamentoTextoIntroForPdf', () => {
+  it('passa a plural quando há várias máquinas e o texto guardado é singular', () => {
+    const intro = resolveOrcamentoTextoIntroForPdf(
+      [{ marca: 'A' }, { marca: 'B' }],
+      ORCAMENTO_TEXTO_INTRO_SINGULAR,
+    );
+    assert.equal(intro, ORCAMENTO_TEXTO_INTRO_PLURAL);
+  });
+
+  it('mantém texto personalizado do RH', () => {
+    const custom = 'Proposta para reparação urgente:';
+    assert.equal(resolveOrcamentoTextoIntroForPdf([{ marca: 'A' }, { marca: 'B' }], custom), custom);
   });
 });
 

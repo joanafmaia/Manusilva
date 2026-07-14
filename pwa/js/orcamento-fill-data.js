@@ -12,7 +12,7 @@ import {
   resolveOrcamentoNumeroFormatado,
   suggestOrcamentoLinhas,
 } from './orcamento-linhas.js';
-import { resolveOrcamentoCabecalho, suggestOrcamentoMaquinas } from './orcamento-cabecalho.js';
+import { resolveOrcamentoCabecalho, resolveOrcamentoTextoIntroForPdf, suggestOrcamentoMaquinas } from './orcamento-cabecalho.js';
 import {
   formatOrcamentoMaquinasDocxText,
   hasOrcamentoMaquinaData,
@@ -163,13 +163,13 @@ export function buildOrcamentoFillData(report, job = null) {
       : isMaquinaTemplate
         ? orcamentoMeta?.textoIntro ||
           resolveManutencaoMaquinaIntro(orcamentoMeta, cabecalho)
-        : display(cabecalho.textoIntro),
+        : resolveOrcamentoTextoIntroForPdf(maquinasForPdf, cabecalho.textoIntro),
     intro_servico: isBateriaTemplate
       ? MANUTENCAO_BATERIA_INTRO
       : isMaquinaTemplate
         ? orcamentoMeta?.textoIntro ||
           resolveManutencaoMaquinaIntro(orcamentoMeta, cabecalho)
-        : display(cabecalho.textoIntro),
+        : resolveOrcamentoTextoIntroForPdf(maquinasForPdf, cabecalho.textoIntro),
     valor_manutencao_visita: orcamentoMeta?.valorManutencaoVisita || '',
     periodicidade_manutencao: orcamentoMeta?.periodicidadeManutencao || '',
     maquina_manutencao_nome: orcamentoMeta?.maquinaManutencaoNome || '',
