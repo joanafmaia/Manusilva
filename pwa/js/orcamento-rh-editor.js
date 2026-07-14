@@ -56,8 +56,8 @@ import {
   syncTemplateEquipValoresList,
 } from './orcamento-template-equipamentos.js';
 import {
-  exitOrcamentoPageAfterSend,
   isOrcamentoDedicatedPage,
+  returnToOrcamentosMenu,
 } from './orcamento-modal.js';
 import { bindOrcamentoCatalogoComboboxes } from './orcamento-catalogo-combobox.js';
 import { escapeHtml } from './html-utils.js';
@@ -70,7 +70,18 @@ import {
 } from './orcamento-workflow.js';
 import { formatInterventionDatePt } from './report-intervention-date.js';
 
-function defaultOrcamentoEmail(report, _client) {
+function shouldReturnToOrcamentosMenu() {
+  return isOrcamentoDedicatedPage() || Boolean(window.__orcamentoReturnUrl);
+}
+
+function finishOrcamentoEditingAndReturn({ onSaved, onSent, saved, action }) {
+  if (action === 'save') onSaved?.(saved);
+  if (action === 'send') onSent?.(saved);
+  if (shouldReturnToOrcamentosMenu()) {
+    returnToOrcamentosMenu();
+  }
+}
+
   const meta = getReportOrcamentoMeta(report);
   if (meta?.emailDestinatario) return String(meta.emailDestinatario).trim();
   return '';
@@ -752,7 +763,7 @@ function bindOrcamentoSentView(root, { report, onUpdated }) {
  * @param {HTMLElement} container
  * @param {{ report: object, onUpdated?: (report: object) => void, onSent?: (report: object) => void }} ctx
  */
-export function bindOrcamentoEditor(container, { report, onUpdated, onSent, onTipoChange } = {}) {
+export function bindOrcamentoEditor(container, { report, onUpdated, onSaved, onSent, onTipoChange } = {}) {
   const root = container?.querySelector('#orcamento-editor');
   if (!root) return;
 
@@ -860,9 +871,7 @@ export function bindOrcamentoEditor(container, { report, onUpdated, onSent, onTi
       showToast('A guardar proposta comercial…', 'info', 3000);
       await saveMeta();
       showToast('Proposta comercial guardada.', 'success');
-      if (isOrcamentoDedicatedPage()) {
-        exitOrcamentoPageAfterSend();
-      }
+      finishOrcamentoEditingAndReturn({ onSaved, saved: currentReport, action: 'save' });
     } catch (err) {
       console.error('[RH] Guardar orçamento:', err);
       const { showToast } = await import('./app.js');
@@ -952,11 +961,7 @@ export function bindOrcamentoEditor(container, { report, onUpdated, onSent, onTi
 
       mergeReportInCache(saved);
       showToast(`Proposta enviada para ${recipients.join(', ')}.`, 'success', 2500);
-      if (isOrcamentoDedicatedPage()) {
-        exitOrcamentoPageAfterSend();
-      } else {
-        onSent?.(saved);
-      }
+      finishOrcamentoEditingAndReturn({ onSent, saved, action: 'send' });
     } catch (err) {
       console.error('[Orçamento] Envio e-mail:', err);
       const { showToast } = await import('./app.js');

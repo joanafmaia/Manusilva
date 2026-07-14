@@ -68,7 +68,12 @@ export function consumeOrcamentoReturnUrl() {
 }
 
 export function isOrcamentoDedicatedPage() {
-  return /orcamento\.html$/i.test(String(window.location.pathname || ''));
+  if (document.body?.classList.contains('orcamento-page')) return true;
+  const leaf = String(window.location.pathname || '')
+    .split('/')
+    .pop()
+    .toLowerCase();
+  return /^orcamento(?:\.html)?$/i.test(leaf);
 }
 
 export function consumeAdminPendingTab() {
@@ -81,8 +86,8 @@ export function consumeAdminPendingTab() {
   }
 }
 
-/** Sai da página da proposta — volta à aba Orçamentos no painel admin. */
-export function exitOrcamentoPageAfterSend({ returnUrl } = {}) {
+/** Volta à lista de orçamentos no painel admin (aba Orçamentos). */
+export function returnToOrcamentosMenu({ returnUrl } = {}) {
   const preferred = returnUrl || window.__orcamentoReturnUrl || peekOrcamentoReturnUrl();
   const target = resolveOrcamentosAdminUrl(preferred);
   rememberAdminPendingTab('orcamentos');
@@ -107,15 +112,18 @@ export function exitOrcamentoPageAfterSend({ returnUrl } = {}) {
   window.location.replace(target);
 }
 
+/** @deprecated usar returnToOrcamentosMenu */
+export function exitOrcamentoPageAfterSend(options = {}) {
+  returnToOrcamentosMenu(options);
+}
+
 /**
  * @param {object} report
  * @param {{ onUpdated?: (report: object) => void, returnTo?: string }} [options]
  */
 export function openOrcamentoPage(report, { returnTo } = {}) {
   if (!report?.id) return;
-  const back =
-    returnTo ||
-    `${window.location.pathname.split('/').pop() || 'admin.html'}${window.location.hash || '#orcamentos'}`;
+  const back = returnTo || resolveOrcamentosAdminUrl();
   rememberOrcamentoReturnUrl(back);
   window.location.href = buildOrcamentoPageUrl(report.id, { returnTo: back });
 }

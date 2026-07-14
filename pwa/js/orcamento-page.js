@@ -10,7 +10,7 @@ import {
   warmOperacoes,
 } from './app.js';
 import { forceLogout } from './auth.js';
-import { consumeOrcamentoReturnUrl } from './orcamento-modal.js';
+import { consumeOrcamentoReturnUrl, resolveOrcamentosAdminUrl } from './orcamento-modal.js';
 import { mountOrcamentoEditorView, resolveOrcamentoTitleNumero } from './orcamento-view.js';
 import { escapeHtml } from './html-utils.js';
 
@@ -38,7 +38,7 @@ export async function initOrcamentoPage() {
   const backBtn = document.getElementById('orcamento-page-back');
   const returnUrl = consumeOrcamentoReturnUrl();
   window.__orcamentoReturnUrl = returnUrl;
-  if (backBtn) backBtn.href = returnUrl;
+  if (backBtn) backBtn.href = resolveOrcamentosAdminUrl(returnUrl);
 
   document.getElementById('orcamento-page-logout')?.addEventListener('click', () => {
     void forceLogout();

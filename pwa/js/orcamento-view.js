@@ -26,7 +26,7 @@ export function renderOrcamentoMetaBar(report, { client, job, tech } = {}) {
 /**
  * @param {HTMLElement} root
  * @param {object} report
- * @param {{ client?: object, onUpdated?: (report: object) => void, onNumeroChange?: (numero: string) => void, onSent?: (report: object) => void }} [options]
+ * @param {{ client?: object, onUpdated?: (report: object) => void, onNumeroChange?: (numero: string) => void, onSaved?: (report: object) => void, onSent?: (report: object) => void }} [options]
  */
 export function mountOrcamentoEditorView(root, report, options = {}) {
   const client = options.client ?? getClient(report?.clientId);
@@ -47,6 +47,7 @@ export function mountOrcamentoEditorView(root, report, options = {}) {
         const num = updated.data?.orcamento?.numeroFormatado;
         if (num) options.onNumeroChange?.(num);
       },
+      onSaved: options.onSaved,
       onSent: options.onSent,
       onTipoChange: (nextReport) => render(nextReport),
     });
