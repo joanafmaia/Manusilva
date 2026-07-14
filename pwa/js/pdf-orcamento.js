@@ -178,9 +178,14 @@ function drawOrcamentoLetterhead(doc, fill) {
   const clienteLabel = pdfSafeText(fill.cliente_nome).toUpperCase();
   const acLabel = pdfSafeText(fill.cliente_ac).toUpperCase();
   doc.setFontSize(10);
-  doc.text(`PARA: ${clienteLabel}`, rightColX, ty);
-  ty += 5.5;
-  doc.text(`A/C. ${acLabel}`, rightColX, ty);
+  pdfSplitText(doc, `PARA: ${clienteLabel}`, rightColW).forEach((line) => {
+    doc.text(line, rightColX, ty);
+    ty += 5;
+  });
+  pdfSplitText(doc, `A/C. ${acLabel}`, rightColW).forEach((line) => {
+    doc.text(line, rightColX, ty);
+    ty += 5;
+  });
 
   const headerBottom = Math.max(topY + logoH, ty + 2) + 6;
   doc.setDrawColor(...PDF_TABLE_LINE);
@@ -216,6 +221,17 @@ function stampMs015DocumentRefAllPages(doc) {
   }
 }
 
+function fitTableCellText(doc, text, maxWidthMm) {
+  const safe = pdfSafeText(text);
+  if (!safe || maxWidthMm <= 0) return safe;
+  if (doc.getTextWidth(safe) <= maxWidthMm) return safe;
+  let trimmed = safe;
+  while (trimmed.length > 1 && doc.getTextWidth(`${trimmed}…`) > maxWidthMm) {
+    trimmed = trimmed.slice(0, -1);
+  }
+  return trimmed.length < safe.length ? `${trimmed}…` : trimmed;
+}
+
 function drawOrcamentoTable(doc, linhas, startY, { maquinas = [], layout = null } = {}) {
   const table = layout || computeOrcamentoTableLayout(linhas, maquinas);
   const multi = table.multi;
@@ -237,13 +253,14 @@ function drawOrcamentoTable(doc, linhas, startY, { maquinas = [], layout = null 
     doc.setFontSize(8.5);
     doc.setTextColor(...PDF_COLOR_TEXT_DARK);
     if (multiRow) {
-      doc.text(pdfSafeText(cells[0]), colX[0] + 1, y);
-      doc.text(pdfSafeText(cells[1]), colX[1] + 1, y);
+      const descW = colX[2] - colX[1] - 3;
+      doc.text(fitTableCellText(doc, cells[0], colX[1] - colX[0] - 3), colX[0] + 1, y);
+      doc.text(fitTableCellText(doc, cells[1], descW), colX[1] + 1, y);
       doc.text(pdfSafeText(cells[2]), colX[3] - 2, y, { align: 'right' });
       doc.text(pdfSafeText(cells[3]), colX[4] - 2, y, { align: 'right' });
       doc.text(pdfSafeText(cells[4]), colX[5] - 1, y, { align: 'right' });
     } else {
-      doc.text(pdfSafeText(cells[0]), colX[0] + 1, y);
+      doc.text(fitTableCellText(doc, cells[0], colX[1] - colX[0] - 3), colX[0] + 1, y);
       doc.text(pdfSafeText(cells[1]), colX[2] - 2, y, { align: 'right' });
       doc.text(pdfSafeText(cells[2]), colX[3] - 2, y, { align: 'right' });
       doc.text(pdfSafeText(cells[3]), colX[4] - 1, y, { align: 'right' });
@@ -339,12 +356,15 @@ function drawClientApprovalBox(doc) {
   return boxY + APPROVAL_BOX_H;
 }
 
-function normalizeLegalParagraphs(raw) {
+export function normalizeLegalParagraphs(raw) {
   let text = String(raw || '').replace(/\r\n/g, '\n');
   text = text.replace(/\s+([IVX]+)\s*[-–]\s*/g, '\n\n$1 – ');
+  text = text.replace(/(Cliente)(O cliente)/gi, '$1\n$2');
+  text = text.replace(/(orçamento\.)(Ao recusar)/gi, '$1\n$2');
+  text = text.replace(/([.;:])\s*([a-e]\))/gi, '$1\n$2');
+  text = text.replace(/([a-e]\))\s*/gi, '$1 ');
   text = text.replace(/([a-záéíóúãõç])([A-ZÁÉÍÓÚ])/g, '$1 $2');
-  text = text.replace(/([.;])([a-e]\))/g, '$1\n$2');
-  text = text.replace(/([a-e]\))\s*/g, '$1 ');
+  text = text.replace(/;\s*/g, ';\n');
   return text
     .split(/\n+/)
     .map((para) => para.trim())
@@ -390,11 +410,6 @@ function drawLegalPage(doc, legalText) {
     }
     y += 1.2;
   });
-
-  pdfSetFont(doc, 'normal');
-  doc.setFontSize(7);
-  doc.setTextColor(...PDF_COLOR_TEXT_MUTED);
-  drawMs015DocumentRef(doc);
 }
 
 function drawOrcamentoEquipamentoBlocks(doc, fill, startY, options = {}) {
@@ -524,7 +539,7 @@ function drawOrcamentoFooter(doc, fill) {
   const drawTaxasSaida = () => {
     const taxas = Array.isArray(fill.taxas_saida) ? fill.taxas_saida.filter(Boolean) : [];
     if (!taxas.length) {
-      drawLabelValue('Taxa de Saída – ', '_______ €');
+      drawLabelValue('Taxa de Saída – ', '—');
       return;
     }
     taxas.forEach((value, index) => {
@@ -536,17 +551,18 @@ function drawOrcamentoFooter(doc, fill) {
   drawTaxasSaida();
   drawLabelValue(
     'Prazo de Entrega: ',
-    fill.prazo_entrega === '—' ? '_______________' : fill.prazo_entrega,
+    fill.prazo_entrega === '—' ? '—' : fill.prazo_entrega,
   );
   drawLabelValue('Forma de Pagamento: ', fill.forma_pagamento);
   drawLabelValue('Validade do orçamento – ', fill.validade_orcamento);
 
-  doc.text(`Subtotal (s/ IVA): ${fill.subtotal} €`, MARGIN, y);
+  const totalsX = MARGIN + CONTENT_W;
+  doc.text(`Subtotal (s/ IVA): ${fill.subtotal} €`, totalsX, y, { align: 'right' });
   y += 5;
-  doc.text(`IVA (23%): ${fill.iva} €`, MARGIN, y);
+  doc.text(`IVA (23%): ${fill.iva} €`, totalsX, y, { align: 'right' });
   y += 5;
   pdfSetFont(doc, 'bold');
-  doc.text(`Total: ${fill.total_geral} €`, MARGIN, y);
+  doc.text(`Total: ${fill.total_geral} €`, totalsX, y, { align: 'right' });
   pdfSetFont(doc, 'normal');
 }
 

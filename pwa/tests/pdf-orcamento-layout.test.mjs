@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { computeOrcamentoTableLayout } from '../js/pdf-orcamento.js';
+import { computeOrcamentoTableLayout, normalizeLegalParagraphs } from '../js/pdf-orcamento.js';
 
 describe('pdf-orcamento layout', () => {
   it('ancora a tabela acima do rodapé fixo mesmo com muitas linhas vazias', () => {
@@ -18,5 +18,14 @@ describe('pdf-orcamento layout', () => {
     const layout = computeOrcamentoTableLayout([{ descricao: '', qtd: '1', precoUnit: '' }], []);
     assert.equal(layout.dataRows.length, 1);
     assert.equal(layout.dataRows[0].descricao, '—');
+  });
+
+  it('separa parágrafos legais colados (Cliente, alíneas)', () => {
+    const raw =
+      'III – Deveres do ClienteO cliente obriga-se a:a) Enviar o equipamento.b) Outro ponto.';
+    const paras = normalizeLegalParagraphs(raw);
+    assert.ok(paras.some((p) => /^III – Deveres do Cliente$/i.test(p)));
+    assert.ok(paras.some((p) => /^O cliente obriga-se a:$/i.test(p)));
+    assert.ok(paras.some((p) => /^a\)/.test(p)));
   });
 });
