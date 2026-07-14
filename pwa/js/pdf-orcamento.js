@@ -556,13 +556,12 @@ function drawOrcamentoFooter(doc, fill) {
   drawLabelValue('Forma de Pagamento: ', fill.forma_pagamento);
   drawLabelValue('Validade do orçamento – ', fill.validade_orcamento);
 
-  const totalsX = MARGIN + CONTENT_W;
-  doc.text(`Subtotal (s/ IVA): ${fill.subtotal} €`, totalsX, y, { align: 'right' });
+  doc.text(`Subtotal (s/ IVA): ${fill.subtotal} €`, MARGIN, y);
   y += 5;
-  doc.text(`IVA (23%): ${fill.iva} €`, totalsX, y, { align: 'right' });
+  doc.text(`IVA (23%): ${fill.iva} €`, MARGIN, y);
   y += 5;
   pdfSetFont(doc, 'bold');
-  doc.text(`Total: ${fill.total_geral} €`, totalsX, y, { align: 'right' });
+  doc.text(`Total: ${fill.total_geral} €`, MARGIN, y);
   pdfSetFont(doc, 'normal');
 }
 
