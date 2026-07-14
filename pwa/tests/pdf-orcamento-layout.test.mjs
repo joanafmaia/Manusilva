@@ -1,6 +1,16 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { computeOrcamentoTableLayout, formatOrcamentoPdfMoneyCell, formatPrazoEntregaForPdf, normalizeLegalParagraphs } from '../js/pdf-orcamento.js';
+import {
+  computeOrcamentoTableLayout,
+  estimateOrcamentoMachineGroupBlockHeight,
+  formatOrcamentoPdfMoneyCell,
+  formatPrazoEntregaForPdf,
+  normalizeLegalParagraphs,
+} from '../js/pdf-orcamento.js';
+import {
+  filterOrcamentoPdfGroupLinhas,
+  groupOrcamentoLinhasByEquipamento,
+} from '../js/orcamento-maquinas.js';
 
 describe('pdf-orcamento layout', () => {
   it('ancora a tabela acima do rodapé fixo mesmo com muitas linhas vazias', () => {
@@ -52,5 +62,28 @@ describe('pdf-orcamento layout', () => {
     const paras = normalizeLegalParagraphs('Serviços da Manusilva. . Outro parágrafo.');
     assert.ok(paras.some((p) => /Manusilva\.\s*Outro/.test(p) || p.includes('Manusilva.')));
     assert.equal(paras.join(' ').includes('. .'), false);
+  });
+
+  it('agrupa e mantém todas as linhas do equipamento 2', () => {
+    const linhas = Array.from({ length: 5 }, (_, index) => ({
+      descricao: `Peça ${index + 1}`,
+      qtd: '1',
+      precoUnit: '10',
+      equipamentoIndex: 1,
+    }));
+    const groups = groupOrcamentoLinhasByEquipamento(linhas, [{ marca: 'A' }, { marca: 'B' }]);
+    assert.equal(groups[1].linhas.length, 5);
+    assert.equal(filterOrcamentoPdfGroupLinhas(groups[1].linhas).length, 5);
+  });
+
+  it('reserva altura para tabela com várias linhas por equipamento', () => {
+    const linhas = Array.from({ length: 5 }, (_, index) => ({
+      descricao: `Artigo ${index + 1}`,
+      qtd: '1',
+      precoUnit: '20',
+      equipamentoIndex: 1,
+    }));
+    const blockH = estimateOrcamentoMachineGroupBlockHeight(linhas, 4);
+    assert.ok(blockH >= 6.5 * (1 + 5) + 8, 'cabeçalho + 5 linhas + campos do equipamento');
   });
 });

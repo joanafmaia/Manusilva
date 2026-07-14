@@ -108,8 +108,40 @@ const ORC_EQUIP_FIELD_GAP = 5;
 
 let legalTextCache = null;
 
+function getOrcamentoFlowMaxY(doc) {
+  const page = doc.internal?.getCurrentPageInfo?.()?.pageNumber ?? 1;
+  return page === 1 ? FOOTER_TOP - 1 : PAGE_BOTTOM - 8;
+}
+
+function ensureOrcamentoFlowSpace(doc, y, neededHeight) {
+  if (y + neededHeight <= getOrcamentoFlowMaxY(doc)) return y;
+  doc.addPage();
+  return MARGIN;
+}
+
+function canDrawOrcamentoTableLine(y, step = ORC_TABLE_ROW_H + 2, maxEndY = FOOTER_TOP - 1) {
+  return y + step <= maxEndY;
+}
+
 function canDrawTableLine(y, step = 5) {
-  return y + step <= FOOTER_TOP - 1;
+  return canDrawOrcamentoTableLine(y, step, FOOTER_TOP - 1);
+}
+
+function estimateOrcamentoMachineGroupHeight(doc, equipRows, linhas, { includeSeparator = false } = {}) {
+  let h = 0;
+  if (equipRows.length) {
+    h += measureHorizontalEquipFieldsHeight(doc, equipRows, 0, Number.POSITIVE_INFINITY);
+  }
+  const rows = filterOrcamentoPdfGroupLinhas(linhas);
+  h += ORC_TABLE_ROW_H * (1 + rows.length) + 4;
+  if (includeSeparator) h += measureOrcamentoEquipamentoSeparator(0);
+  return h;
+}
+
+export function estimateOrcamentoMachineGroupBlockHeight(linhas = [], equipFieldCount = 2) {
+  const rows = filterOrcamentoPdfGroupLinhas(linhas);
+  const equipLines = Math.max(1, Math.ceil(equipFieldCount / 3));
+  return equipLines * 5 + 3 + ORC_TABLE_ROW_H * (1 + rows.length) + 4;
 }
 
 function orcamentoTableDataRows(linhas, maquinas = []) {
@@ -542,12 +574,12 @@ export function formatPrazoEntregaForPdf(value) {
   return text;
 }
 
-function createOrcamentoTableRowDrawer(doc, startY) {
+function createOrcamentoTableRowDrawer(doc, startY, { maxEndY = FOOTER_TOP - 1 } = {}) {
   let y = startY;
   const colX = ORC_TABLE_COL_X;
 
   const drawRow = (cells, { bold = false, fill = false } = {}) => {
-    if (!canDrawTableLine(y, ORC_TABLE_ROW_H + 2)) return y;
+    if (!canDrawOrcamentoTableLine(y, ORC_TABLE_ROW_H + 2, maxEndY)) return y;
     if (fill) {
       doc.setFillColor(241, 245, 249);
       doc.rect(MARGIN, y - 4.2, CONTENT_W, ORC_TABLE_ROW_H, 'F');
@@ -645,15 +677,29 @@ function measureOrcamentoMachineTableHeight(doc, linhas, startY) {
 
 function drawOrcamentoMachineTableSection(doc, linhas, startY) {
   const rows = filterOrcamentoPdfGroupLinhas(linhas);
-  const { drawRow } = createOrcamentoTableRowDrawer(doc, startY);
-  let y = drawRow(['Na reparação precisa', 'Qtd.', 'Preço Unit.', 'Total'], {
-    bold: true,
-    fill: true,
-  });
-  rows.forEach((row) => {
+  let y = startY;
+  let maxEndY = getOrcamentoFlowMaxY(doc);
+
+  const drawTableHeader = () => {
+    const { drawRow } = createOrcamentoTableRowDrawer(doc, y, { maxEndY });
+    const nextY = drawRow(['Na reparação precisa', 'Qtd.', 'Preço Unit.', 'Total'], {
+      bold: true,
+      fill: true,
+    });
+    if (nextY > y) y = nextY;
+  };
+
+  const drawDataRow = (row) => {
+    if (!canDrawOrcamentoTableLine(y, ORC_TABLE_ROW_H + 2, maxEndY)) {
+      doc.addPage();
+      y = MARGIN;
+      maxEndY = getOrcamentoFlowMaxY(doc);
+      drawTableHeader();
+    }
+    const { drawRow } = createOrcamentoTableRowDrawer(doc, y, { maxEndY });
     const total =
       row.total || (computeLinhaTotal(row) > 0 ? formatEuro(computeLinhaTotal(row)) : '');
-    y = drawRow(
+    const nextY = drawRow(
       [
         row.descricao || '—',
         row.qtd || '1',
@@ -662,7 +708,16 @@ function drawOrcamentoMachineTableSection(doc, linhas, startY) {
       ],
       {},
     );
-  });
+    if (nextY > y) y = nextY;
+  };
+
+  if (!canDrawOrcamentoTableLine(y, ORC_TABLE_ROW_H + 2, maxEndY)) {
+    doc.addPage();
+    y = MARGIN;
+    maxEndY = getOrcamentoFlowMaxY(doc);
+  }
+  drawTableHeader();
+  rows.forEach(drawDataRow);
   return y + 4;
 }
 
@@ -707,11 +762,19 @@ function drawOrcamentoMaquinaSections(doc, fill, startY, maxEndY = CONTENT_MAX_Y
   groups.forEach((group, groupIndex) => {
     const block = blocks.find((row) => row.index === group.equipamentoIndex) || blocks[groupIndex];
     const equipRows = resolveMaquinaEquipRows(block, fill);
+    const includeSeparator = groupIndex < groups.length - 1;
+    y = ensureOrcamentoFlowSpace(
+      doc,
+      y,
+      estimateOrcamentoMachineGroupHeight(doc, equipRows, group.linhas, { includeSeparator }),
+    );
+
+    const flowMaxY = getOrcamentoFlowMaxY(doc);
     if (equipRows.length) {
-      y = drawHorizontalEquipFields(doc, equipRows, y, maxEndY);
+      y = drawHorizontalEquipFields(doc, equipRows, y, flowMaxY);
     }
     y = drawOrcamentoMachineTableSection(doc, group.linhas, y);
-    if (groupIndex < groups.length - 1 && y + 12 <= maxEndY) {
+    if (includeSeparator && y + 12 <= flowMaxY) {
       y = drawOrcamentoEquipamentoSeparator(doc, y);
     }
   });
@@ -1161,9 +1224,10 @@ export async function renderOrcamentoPDF(report) {
   y = drawOrcamentoMaquinaSections(doc, fill, y, CONTENT_MAX_Y);
 
   y = drawOrcamentoObservacoesCliente(doc, fill, y, {
-    maxEndY: CONTENT_MAX_Y,
+    maxEndY: getOrcamentoFlowMaxY(doc),
   });
 
+  doc.setPage(1);
   drawOrcamentoFooter(doc, fill);
 
   doc.setPage(1);
