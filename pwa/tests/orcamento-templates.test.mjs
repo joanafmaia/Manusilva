@@ -2,6 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { ORCAMENTO_TIPO_PROPOSTA } from '../js/orcamento-tipo-proposta.js';
+import { computeOrcamentoTotals, formatEuro } from '../js/orcamento-linhas.js';
 import {
   applyManutencaoBateriaTemplateMeta,
   applyManutencaoMaquinaTemplateMeta,
@@ -41,6 +42,17 @@ describe('orcamento-templates — manutenção baterias', () => {
       formatLinhaValorManutencaoBateria({ valorManutencaoVisita: '120', periodicidadeManutencao: 'mensal' }),
       /bateria mensal fica/,
     );
+  });
+
+  it('calcula totais com IVA para o rodapé do PDF', () => {
+    const meta = applyManutencaoBateriaTemplateMeta({
+      tipoProposta: ORCAMENTO_TIPO_PROPOSTA.MANUTENCAO_BATERIA,
+      valorManutencaoVisita: '85',
+    });
+    const totals = computeOrcamentoTotals(meta.linhas, meta);
+    assert.equal(formatEuro(totals.subtotal), '85,00');
+    assert.equal(formatEuro(totals.iva), '19,55');
+    assert.equal(formatEuro(totals.total), '104,55');
   });
 
   it('suporta várias baterias com periodicidade e valor distintos', () => {

@@ -816,6 +816,23 @@ function drawOrcamentoObservacoesCliente(doc, fill, startY, options = {}) {
   return y + 2;
 }
 
+function drawOrcamentoIvaTotals(doc, fill, startY, maxY = Infinity) {
+  let y = startY;
+  const lines = [
+    { text: `Subtotal (s/ IVA): ${fill.subtotal} €`, bold: false },
+    { text: `IVA (23%): ${fill.iva} €`, bold: false },
+    { text: `Total: ${fill.total_geral} €`, bold: true },
+  ];
+  lines.forEach(({ text, bold }) => {
+    if (y > maxY) return;
+    pdfSetFont(doc, bold ? 'bold' : 'normal');
+    doc.text(text, MARGIN, y);
+    y += 5;
+  });
+  pdfSetFont(doc, 'normal');
+  return y;
+}
+
 function drawOrcamentoFooter(doc, fill) {
   let y = FOOTER_TOP + 4;
   pdfSetFont(doc, 'normal');
@@ -849,13 +866,7 @@ function drawOrcamentoFooter(doc, fill) {
   drawLabelValue('Forma de Pagamento: ', fill.forma_pagamento);
   drawLabelValue('Validade do orçamento – ', fill.validade_orcamento);
 
-  doc.text(`Subtotal (s/ IVA): ${fill.subtotal} €`, MARGIN, y);
-  y += 5;
-  doc.text(`IVA (23%): ${fill.iva} €`, MARGIN, y);
-  y += 5;
-  pdfSetFont(doc, 'bold');
-  doc.text(`Total: ${fill.total_geral} €`, MARGIN, y);
-  pdfSetFont(doc, 'normal');
+  drawOrcamentoIvaTotals(doc, fill, y);
 }
 
 function drawOrcamentoBodyParagraphs(doc, paragraphs, startY, options = {}) {
@@ -943,6 +954,9 @@ function drawManutencaoBateriaFooter(doc, fill) {
     });
     y += 1;
   });
+
+  y = drawOrcamentoIvaTotals(doc, fill, y + 1, footerMaxY);
+  y += 1;
 
   pdfSetFont(doc, 'normal');
   const blocks = [
