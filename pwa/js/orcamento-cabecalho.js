@@ -343,9 +343,13 @@ export function readOrcamentoCabecalhoFromDom(root, report) {
   const equipamentoCampos = readOrcamentoEquipamentoCamposFromDom(root);
   const maquinas = readOrcamentoMaquinasFromDom(root, equipamentoCampos);
   const legacy = syncLegacyMaquinaFieldsFromList(maquinas, equipamentoCampos);
+  const clienteNomeField = root?.querySelector('[data-orc-field="clienteNome"]');
+  const clienteNome = clienteNomeField
+    ? read('clienteNome') || resolveOrcamentoClienteNome(report)
+    : resolveOrcamentoClienteNome(report);
   const cabecalho = syncDerivedEquipamento(
     {
-      clienteNome: resolveOrcamentoClienteNome(report),
+      clienteNome,
       clienteAc: read('clienteAc') || 'Exmos. Senhores',
       marca: legacy.marca,
       modelo: legacy.modelo,

@@ -13,6 +13,7 @@ import {
   showToast,
   cancelPedidoOrcamentoReport,
 } from '../app.js';
+import { getClientName } from '../client-display.js';
 import { openOrcamentoModal } from '../orcamento-modal.js';
 import { formatOrdemLabel } from '../report-review-ui.js';
 import {
@@ -99,8 +100,8 @@ function filterOrcamentoReports(reports) {
 
   return rows.filter((report) => {
     const client = getClient(report.clientId);
-    const job = report.jobId ? getJob(report.jobId) : null;
-    const clientName = String(client?.name || client?.Nome || '').toLowerCase();
+    const values = report?.data?.values || {};
+    const clientName = getClientName(client, values).toLowerCase();
     const op = formatOrdemLabel(job).toLowerCase();
     const numero = String(getReportOrcamentoMeta(report)?.numeroFormatado || '').toLowerCase();
     const tipo = formatOrcamentoTipoPropostaLabel(getOrcamentoTipoProposta(report)).toLowerCase();
@@ -193,6 +194,7 @@ function renderKpis(counts) {
 
 function renderTableRow(report) {
   const client = getClient(report.clientId);
+  const values = report?.data?.values || {};
   const job = report.jobId ? getJob(report.jobId) : null;
   const tech = getTechnician(report.technicianId);
   const service = getServiceType(report.serviceType);
@@ -212,7 +214,7 @@ function renderTableRow(report) {
   const aguardaResposta = orcamentoAguardaRespostaCliente(report);
   const podeMarcarResposta = Boolean(meta?.enviadoEm);
   const highlighted = highlightReportId && report.id === highlightReportId;
-  const clientName = client?.name || client?.Nome || '—';
+  const clientName = getClientName(client, values) || '—';
   const tipoLabel = formatOrcamentoTipoPropostaLabel(getOrcamentoTipoProposta(report));
 
   return `

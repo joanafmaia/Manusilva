@@ -39,7 +39,7 @@ import {
 } from './orcamento-modal.js';
 import { bindOrcamentoCatalogoComboboxes } from './orcamento-catalogo-combobox.js';
 import { escapeHtml } from './html-utils.js';
-import { reportIsStandaloneOrcamento } from './orcamento-standalone.js';
+import { reportIsStandaloneOrcamento, reportUsesFreeformOrcamentoCliente } from './orcamento-standalone.js';
 import {
   resolveOrcamentoWorkflowClass,
   resolveOrcamentoWorkflowLabel,
@@ -204,6 +204,20 @@ export function renderOrcamentoEditor(report, { client } = {}) {
   const clienteEmailHint = escapeHtml(client?.email || client?.['E-mail'] || '');
   const cab = resolveOrcamentoCabecalho(report);
   const isStandalone = reportIsStandaloneOrcamento(report);
+  const freeformCliente = reportUsesFreeformOrcamentoCliente(report);
+  const clienteField = freeformCliente
+    ? `
+          <label class="review-orc-field">
+            <span>Para (cliente)</span>
+            <input type="text" class="review-orc-input" data-orc-field="clienteNome" value="${escapeHtml(cab.clienteNome === '—' ? '' : cab.clienteNome)}" placeholder="Nome da empresa / cliente" required />
+            <span class="review-orc-field-hint text-muted">Cliente ainda não está na ficha — pode corrigir o nome aqui.</span>
+          </label>`
+    : `
+          <div class="review-orc-field review-orc-field--readonly">
+            <span>Para (cliente)</span>
+            <p class="review-orc-readonly" aria-readonly="true">${escapeHtml(cab.clienteNome) || '—'}</p>
+            <span class="review-orc-field-hint text-muted">Sempre o cliente deste relatório.</span>
+          </div>`;
   const apoioOrcamentoField = isStandalone
     ? ''
     : `
@@ -228,11 +242,7 @@ export function renderOrcamentoEditor(report, { client } = {}) {
         <h4 class="review-orc-cabecalho__title">Dados da proposta</h4>
         <div class="review-orc-cabecalho__grid">
           ${renderOrcamentoTipoPropostaSelect(getOrcamentoTipoProposta(report))}
-          <div class="review-orc-field review-orc-field--readonly">
-            <span>Para (cliente)</span>
-            <p class="review-orc-readonly" aria-readonly="true">${escapeHtml(cab.clienteNome) || '—'}</p>
-            <span class="review-orc-field-hint text-muted">Sempre o cliente deste relatório.</span>
-          </div>
+          ${clienteField}
           <label class="review-orc-field">
             <span>A/C.</span>
             <input type="text" class="review-orc-input" data-orc-field="clienteAc" value="${escapeHtml(cab.clienteAc)}" placeholder="Destinatário / contacto" />
@@ -491,8 +501,26 @@ export function bindOrcamentoEditor(container, { report, onUpdated, onSent } = {
   const saveMeta = async () => {
     const meta = readOrcamentoFormFromDom(root, currentReport);
     const { saveAndRegenerateOrcamento } = await import('./orcamento-pdf-service.js');
-    const saved = await saveAndRegenerateOrcamento(currentReport, meta);
+    const { updateRelatorio } = await import('./relatorios-db.js');
+    let saved = await saveAndRegenerateOrcamento(currentReport, meta);
     if (!saved) throw new Error('Não foi possível guardar a proposta.');
+
+    if (reportUsesFreeformOrcamentoCliente(currentReport)) {
+      const nome = String(meta.clienteNome || '').trim();
+      if (nome) {
+        const withValues = await updateRelatorio(saved.id, {
+          data: {
+            values: {
+              ...(saved.data?.values || {}),
+              nome_empresa: nome,
+              cliente: nome,
+            },
+          },
+        });
+        if (withValues) saved = withValues;
+      }
+    }
+
     currentReport = saved;
     onUpdated?.(saved);
     const formatado = saved.data?.orcamento?.numeroFormatado;

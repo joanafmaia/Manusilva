@@ -10,6 +10,8 @@ import {
 } from '../js/pedido-orcamento.js';
 import {
   reportIsStandaloneOrcamento,
+  reportUsesFreeformOrcamentoCliente,
+  resolveStandaloneClienteForCreate,
   STANDALONE_ORCAMENTO_ORIGEM,
   STANDALONE_ORCAMENTO_SERVICE_TYPE,
 } from '../js/orcamento-standalone.js';
@@ -78,5 +80,27 @@ describe('orcamento standalone', () => {
     assert.equal(reportPedidoOrcamentoRoutesToOrcamentosTab(report, testClient), true);
     assert.equal(reportPedidoOrcamentoRoutesToOrcamentosTab(report, realClient), false);
     assert.equal(isRhOrcamentoQueueReport(report), true);
+  });
+
+  it('resolveStandaloneClienteForCreate — aceita nome livre sem id', () => {
+    const resolved = resolveStandaloneClienteForCreate({ clienteNome: 'Empresa Nova Lda' });
+    assert.equal(resolved.clientId, '');
+    assert.equal(resolved.nome, 'Empresa Nova Lda');
+  });
+
+  it('resolveStandaloneClienteForCreate — prefere cliente da lista quando há id', () => {
+    const resolved = resolveStandaloneClienteForCreate({
+      clientId: '42',
+      clientRecord: { id: '42', Nome: 'Cliente Catálogo' },
+      clienteNome: 'Outro nome',
+    });
+    assert.equal(resolved.clientId, '42');
+    assert.equal(resolved.nome, 'Cliente Catálogo');
+  });
+
+  it('reportUsesFreeformOrcamentoCliente — standalone sem clientId', () => {
+    const report = standaloneReport({ clientId: '' });
+    assert.equal(reportUsesFreeformOrcamentoCliente(report), true);
+    assert.equal(reportUsesFreeformOrcamentoCliente(standaloneReport({ clientId: '42' })), false);
   });
 });

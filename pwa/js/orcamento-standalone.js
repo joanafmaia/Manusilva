@@ -29,6 +29,11 @@ export function reportIsStandaloneOrcamento(report) {
   return String(report?.data?.orcamentoOrigem || '').trim() === STANDALONE_ORCAMENTO_ORIGEM;
 }
 
+/** Proposta RH criada só com nome (sem cliente_id na ficha). */
+export function reportUsesFreeformOrcamentoCliente(report) {
+  return reportIsStandaloneOrcamento(report) && !String(report?.clientId || '').trim();
+}
+
 function clientDisplayName(clientId, clientRecord = null) {
   const fromRecord = String(clientRecord?.Nome || clientRecord?.name || '').trim();
   if (fromRecord) return fromRecord;
@@ -36,16 +41,36 @@ function clientDisplayName(clientId, clientRecord = null) {
   return String(client?.name || client?.Nome || '').trim();
 }
 
-function buildStandaloneReportDraft({ clientId, clientRecord, tipoProposta }) {
-  const nome = clientDisplayName(clientId, clientRecord);
-  if (!nome) {
-    throw new Error('Cliente inválido.');
+/**
+ * Cliente para nova proposta: id da lista ou nome livre.
+ * @param {{ clientId?: string, clientRecord?: object|null, clienteNome?: string }} input
+ */
+export function resolveStandaloneClienteForCreate({ clientId, clientRecord = null, clienteNome }) {
+  const id = String(clientId ?? '').trim();
+  const typed = String(clienteNome ?? '').trim();
+
+  if (id) {
+    const nome = clientDisplayName(id, clientRecord);
+    if (!nome) throw new Error('Cliente inválido.');
+    return { clientId: id, nome };
+  }
+
+  if (!typed) {
+    throw new Error('Indique o cliente — selecione na lista ou escreva o nome.');
+  }
+
+  return { clientId: '', nome: typed };
+}
+
+function buildStandaloneReportDraft({ clientId, nome, tipoProposta }) {
+  const clienteNome = String(nome ?? '').trim();
+  if (!clienteNome) {
+    throw new Error('Indique o nome do cliente.');
   }
 
   const tipo = normalizeOrcamentoTipoProposta(tipoProposta);
   const now = new Date().toISOString();
-  return {
-    clientId: String(clientId),
+  const draft = {
     technicianId: STANDALONE_ORCAMENTO_TECH_ID,
     serviceType: STANDALONE_ORCAMENTO_SERVICE_TYPE,
     status: 'approved',
@@ -55,8 +80,8 @@ function buildStandaloneReportDraft({ clientId, clientRecord, tipoProposta }) {
     forkliftSerial: '',
     data: {
       values: {
-        nome_empresa: nome,
-        cliente: nome,
+        nome_empresa: clienteNome,
+        cliente: clienteNome,
       },
       orcamentoOrigem: STANDALONE_ORCAMENTO_ORIGEM,
       orcamento: {
@@ -64,15 +89,27 @@ function buildStandaloneReportDraft({ clientId, clientRecord, tipoProposta }) {
       },
     },
   };
+
+  if (clientId) {
+    draft.clientId = String(clientId);
+  }
+
+  return draft;
 }
 
 /** Cria relatório mínimo + trabalho (OP) e abre o editor MS.015. */
-export async function createStandaloneOrcamentoReport({ clientId, clientRecord = null, tipoProposta }) {
-  const id = String(clientId ?? '').trim();
-  if (!id) throw new Error('Selecione um cliente.');
-
-  const record = clientRecord || getClientFromCatalog(id);
-  const report = buildStandaloneReportDraft({ clientId: id, clientRecord: record, tipoProposta });
+export async function createStandaloneOrcamentoReport({
+  clientId,
+  clientRecord = null,
+  clienteNome,
+  tipoProposta,
+}) {
+  const resolved = resolveStandaloneClienteForCreate({ clientId, clientRecord, clienteNome });
+  const report = buildStandaloneReportDraft({
+    clientId: resolved.clientId,
+    nome: resolved.nome,
+    tipoProposta,
+  });
   const saved = await upsertRelatorio(report);
   if (!saved?.id) {
     throw new Error('Não foi possível criar a proposta.');
@@ -130,6 +167,9 @@ export function openNovaPropostaModal({ onCreated } = {}) {
         value: '',
         selectedId: '',
       })}
+      <p class="text-muted nova-proposta-client-hint" style="margin-top:-0.35rem;font-size:0.8125rem">
+        Selecione na lista ou escreva o nome — não é obrigatório ter o cliente criado na ficha.
+      </p>
       <label class="review-orc-field">
         <span>Tipo</span>
         <select class="form-input" id="nova-proposta-tipo" data-nova-proposta-tipo required>
@@ -151,13 +191,15 @@ export function openNovaPropostaModal({ onCreated } = {}) {
 
   const combo = overlay.querySelector('[data-client-combobox][data-field-id="nova-proposta-client"]');
   const getSelectedClientId = () => combo?.querySelector('.client-combobox-id')?.value?.trim() || '';
+  const getTypedClientName = () => combo?.querySelector('.client-combobox-input')?.value?.trim() || '';
 
   overlay.querySelector('[data-nova-proposta-cancel]')?.addEventListener('click', () => closeModal());
 
   const runCreate = async () => {
     const clientId = getSelectedClientId();
-    if (!clientId) {
-      showToast('Selecione um cliente da lista.', 'warning');
+    const clienteNome = getTypedClientName();
+    if (!clientId && !clienteNome) {
+      showToast('Indique o cliente — selecione na lista ou escreva o nome.', 'warning');
       combo?.querySelector('.client-combobox-input')?.focus();
       return;
     }
@@ -169,11 +211,16 @@ export function openNovaPropostaModal({ onCreated } = {}) {
     }
 
     try {
-      const clientRecord = getClientFromCatalog(clientId);
+      const clientRecord = clientId ? getClientFromCatalog(clientId) : null;
       const tipoProposta =
         overlay.querySelector('[data-nova-proposta-tipo]')?.value?.trim() ||
         ORCAMENTO_TIPO_PROPOSTA.ORCAMENTO;
-      const report = await createStandaloneOrcamentoReport({ clientId, clientRecord, tipoProposta });
+      const report = await createStandaloneOrcamentoReport({
+        clientId,
+        clientRecord,
+        clienteNome: clientId ? '' : clienteNome,
+        tipoProposta,
+      });
       closeModal();
       onCreated?.(report);
       openOrcamentoPage(report);

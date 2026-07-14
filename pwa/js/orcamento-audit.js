@@ -3,6 +3,7 @@
  */
 
 import { getClient, getJob, getTechnician } from './entity-lookups.js';
+import { getClientName } from './client-display.js';
 import { formatOrdemLabel } from './report-review-ui.js';
 import { getReportOrcamentoMeta, parseOrcamentoNumber } from './orcamento-linhas.js';
 import { getPedidoOrcamentoDetalhe } from './pedido-orcamento.js';
@@ -23,7 +24,8 @@ import {
 
 function safeClientName(report) {
   const client = getClient(report?.clientId);
-  return String(client?.name || client?.Nome || '—').trim() || '—';
+  const values = report?.data?.values || {};
+  return getClientName(client, values) || '—';
 }
 
 function filterByYear(reports, year) {
