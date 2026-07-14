@@ -83,7 +83,9 @@ describe('pdf-orcamento layout', () => {
       precoUnit: '20',
       equipamentoIndex: 1,
     }));
-    const blockH = estimateOrcamentoMachineGroupBlockHeight(linhas, 4);
-    assert.ok(blockH >= 6.5 * (1 + 5) + 8, 'cabeçalho + 5 linhas + campos do equipamento');
+    const normalH = estimateOrcamentoMachineGroupBlockHeight(linhas, 4, 'normal');
+    const compactH = estimateOrcamentoMachineGroupBlockHeight(linhas, 4, 'compact');
+    assert.ok(normalH > compactH, 'perfil compacto ocupa menos altura');
+    assert.ok(compactH >= 5.5 * (1 + 5) + 6);
   });
 });

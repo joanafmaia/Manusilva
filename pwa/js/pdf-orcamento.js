@@ -106,42 +106,147 @@ const ORC_TABLE_GAP_ABOVE_FOOTER = 3;
 const ORC_TABLE_COL_X = [MARGIN, MARGIN + 98, MARGIN + 112, MARGIN + 148, MARGIN + CONTENT_W];
 const ORC_EQUIP_FIELD_GAP = 5;
 
+/** Perfis de densidade — orçamento genérico numa folha sem páginas extra. */
+const ORC_GENERIC_DENSITY = {
+  normal: {
+    tableRowH: 6.5,
+    tableFontSize: 8.5,
+    tableCellPad: 4.2,
+    equipLineStep: 5,
+    equipTail: 3,
+    separatorBefore: 3,
+    separatorAfter: 7,
+    sectionTail: 2,
+    introStep: 5,
+    introGap: 4,
+    obsLineStep: 4.2,
+    obsHeadGap: 4,
+    obsTitleStep: 5,
+  },
+  compact: {
+    tableRowH: 5.5,
+    tableFontSize: 8,
+    tableCellPad: 3.6,
+    equipLineStep: 4,
+    equipTail: 2,
+    separatorBefore: 2,
+    separatorAfter: 4,
+    sectionTail: 1,
+    introStep: 4.2,
+    introGap: 2,
+    obsLineStep: 3.6,
+    obsHeadGap: 2.5,
+    obsTitleStep: 4,
+  },
+  tight: {
+    tableRowH: 5,
+    tableFontSize: 7.5,
+    tableCellPad: 3.1,
+    equipLineStep: 3.5,
+    equipTail: 1.5,
+    separatorBefore: 1.5,
+    separatorAfter: 3,
+    sectionTail: 1,
+    introStep: 3.8,
+    introGap: 1.5,
+    obsLineStep: 3.3,
+    obsHeadGap: 2,
+    obsTitleStep: 3.5,
+  },
+};
+
+const ORC_GENERIC_BODY_MAX_Y = FOOTER_TOP - 2;
+
 let legalTextCache = null;
 
-function getOrcamentoFlowMaxY(doc) {
-  const page = doc.internal?.getCurrentPageInfo?.()?.pageNumber ?? 1;
-  return page === 1 ? FOOTER_TOP - 1 : PAGE_BOTTOM - 8;
+function getOrcamentoGenericDensityProfile(id = 'normal') {
+  return ORC_GENERIC_DENSITY[id] || ORC_GENERIC_DENSITY.normal;
 }
 
-function ensureOrcamentoFlowSpace(doc, y, neededHeight) {
-  if (y + neededHeight <= getOrcamentoFlowMaxY(doc)) return y;
-  doc.addPage();
-  return MARGIN;
+function measureOrcamentoIntroHeight(doc, intro, startY, density = ORC_GENERIC_DENSITY.normal) {
+  let y = startY;
+  pdfSetFont(doc, 'normal');
+  doc.setFontSize(PDF_FONT_BODY);
+  pdfSplitText(doc, intro, CONTENT_W).forEach(() => {
+    y += density.introStep;
+  });
+  return y + density.introGap;
 }
 
-function canDrawOrcamentoTableLine(y, step = ORC_TABLE_ROW_H + 2, maxEndY = FOOTER_TOP - 1) {
-  return y + step <= maxEndY;
-}
-
-function canDrawTableLine(y, step = 5) {
-  return canDrawOrcamentoTableLine(y, step, FOOTER_TOP - 1);
-}
-
-function estimateOrcamentoMachineGroupHeight(doc, equipRows, linhas, { includeSeparator = false } = {}) {
+function estimateOrcamentoMachineGroupHeight(
+  doc,
+  equipRows,
+  linhas,
+  { includeSeparator = false, density = ORC_GENERIC_DENSITY.normal } = {},
+) {
   let h = 0;
   if (equipRows.length) {
-    h += measureHorizontalEquipFieldsHeight(doc, equipRows, 0, Number.POSITIVE_INFINITY);
+    h += measureHorizontalEquipFieldsHeight(doc, equipRows, 0, Number.POSITIVE_INFINITY, density) - 0;
   }
   const rows = filterOrcamentoPdfGroupLinhas(linhas);
-  h += ORC_TABLE_ROW_H * (1 + rows.length) + 4;
-  if (includeSeparator) h += measureOrcamentoEquipamentoSeparator(0);
+  h += density.tableRowH * (1 + rows.length);
+  if (includeSeparator) h += measureOrcamentoEquipamentoSeparator(0, density) - 0;
   return h;
 }
 
-export function estimateOrcamentoMachineGroupBlockHeight(linhas = [], equipFieldCount = 2) {
+export function estimateOrcamentoMachineGroupBlockHeight(
+  linhas = [],
+  equipFieldCount = 2,
+  densityId = 'normal',
+) {
+  const density = getOrcamentoGenericDensityProfile(densityId);
   const rows = filterOrcamentoPdfGroupLinhas(linhas);
   const equipLines = Math.max(1, Math.ceil(equipFieldCount / 3));
-  return equipLines * 5 + 3 + ORC_TABLE_ROW_H * (1 + rows.length) + 4;
+  return equipLines * density.equipLineStep + density.equipTail + density.tableRowH * (1 + rows.length);
+}
+
+export function resolveOrcamentoGenericLayout(doc, fill, bodyStartY) {
+  const intro = resolveOrcamentoTextoIntroForPdf(fill.maquinas, fill.texto_intro);
+  const order = ['normal', 'compact', 'tight'];
+
+  for (const densityId of order) {
+    const density = getOrcamentoGenericDensityProfile(densityId);
+    const introEndY = measureOrcamentoIntroHeight(doc, intro, bodyStartY, density);
+    const sectionsEndY = measureOrcamentoMaquinaSectionsHeight(
+      doc,
+      fill,
+      introEndY,
+      ORC_GENERIC_BODY_MAX_Y,
+      density,
+    );
+    const contentEndY = measureOrcamentoObservacoesHeight(
+      doc,
+      fill,
+      sectionsEndY,
+      ORC_GENERIC_BODY_MAX_Y,
+      density,
+    );
+    if (contentEndY <= ORC_GENERIC_BODY_MAX_Y) {
+      return { density, densityId, intro, introEndY, sectionsEndY, contentEndY };
+    }
+  }
+
+  const density = getOrcamentoGenericDensityProfile('tight');
+  const introEndY = measureOrcamentoIntroHeight(doc, intro, bodyStartY, density);
+  const sectionsEndY = measureOrcamentoMaquinaSectionsHeight(
+    doc,
+    fill,
+    introEndY,
+    ORC_GENERIC_BODY_MAX_Y,
+    density,
+  );
+  const contentEndY = measureOrcamentoObservacoesHeight(
+    doc,
+    fill,
+    sectionsEndY,
+    ORC_GENERIC_BODY_MAX_Y,
+    density,
+  );
+  return { density, densityId: 'tight', intro, introEndY, sectionsEndY, contentEndY };
+}
+
+function canDrawTableLine(y, step = 5) {
+  return y + step <= FOOTER_TOP - 1;
 }
 
 function orcamentoTableDataRows(linhas, maquinas = []) {
@@ -543,17 +648,17 @@ export function resolveOrcamentoEquipamentoPdfBlocks(fill = {}) {
   };
 }
 
-function drawOrcamentoEquipamentoSeparator(doc, y) {
-  y += 3;
+function drawOrcamentoEquipamentoSeparator(doc, y, density = ORC_GENERIC_DENSITY.normal) {
+  y += density.separatorBefore;
   const lineY = y + 1;
   doc.setDrawColor(100, 116, 139);
   doc.setLineWidth(0.65);
   doc.line(MARGIN, lineY, MARGIN + CONTENT_W, lineY);
-  return lineY + 7;
+  return lineY + density.separatorAfter;
 }
 
-function measureOrcamentoEquipamentoSeparator(y) {
-  return y + 3 + 1 + 7;
+function measureOrcamentoEquipamentoSeparator(y, density = ORC_GENERIC_DENSITY.normal) {
+  return y + density.separatorBefore + 1 + density.separatorAfter;
 }
 
 /** Valor monetário na tabela do PDF — sempre com símbolo €. */
@@ -574,18 +679,25 @@ export function formatPrazoEntregaForPdf(value) {
   return text;
 }
 
-function createOrcamentoTableRowDrawer(doc, startY, { maxEndY = FOOTER_TOP - 1 } = {}) {
+function createOrcamentoTableRowDrawer(
+  doc,
+  startY,
+  { maxEndY = FOOTER_TOP - 1, density = ORC_GENERIC_DENSITY.normal, clip = true } = {},
+) {
   let y = startY;
   const colX = ORC_TABLE_COL_X;
+  const rowH = density.tableRowH ?? ORC_TABLE_ROW_H;
+  const fontSize = density.tableFontSize ?? 8.5;
+  const cellPad = density.tableCellPad ?? 4.2;
 
   const drawRow = (cells, { bold = false, fill = false } = {}) => {
-    if (!canDrawOrcamentoTableLine(y, ORC_TABLE_ROW_H + 2, maxEndY)) return y;
+    if (clip && y + rowH + 2 > maxEndY) return y;
     if (fill) {
       doc.setFillColor(241, 245, 249);
-      doc.rect(MARGIN, y - 4.2, CONTENT_W, ORC_TABLE_ROW_H, 'F');
+      doc.rect(MARGIN, y - cellPad, CONTENT_W, rowH, 'F');
     }
     pdfSetFont(doc, bold ? 'bold' : 'normal');
-    doc.setFontSize(8.5);
+    doc.setFontSize(fontSize);
     doc.setTextColor(...PDF_COLOR_TEXT_DARK);
     doc.text(fitTableCellText(doc, cells[0], colX[1] - colX[0] - 3), colX[0] + 1, y);
     doc.text(pdfSafeText(cells[1]), colX[2] - 2, y, { align: 'right' });
@@ -593,7 +705,7 @@ function createOrcamentoTableRowDrawer(doc, startY, { maxEndY = FOOTER_TOP - 1 }
     doc.text(pdfSafeText(cells[3]), colX[4] - 1, y, { align: 'right' });
     doc.setDrawColor(203, 213, 225);
     doc.line(MARGIN, y + 1.5, MARGIN + CONTENT_W, y + 1.5);
-    y += ORC_TABLE_ROW_H;
+    y += rowH;
     return y;
   };
 
@@ -631,25 +743,37 @@ function buildHorizontalEquipLines(doc, equipRows, maxWidth = CONTENT_W) {
   return lines;
 }
 
-function measureHorizontalEquipFieldsHeight(doc, equipRows, startY, maxEndY = CONTENT_MAX_Y) {
+function measureHorizontalEquipFieldsHeight(
+  doc,
+  equipRows,
+  startY,
+  maxEndY = CONTENT_MAX_Y,
+  density = ORC_GENERIC_DENSITY.normal,
+) {
   if (!equipRows.length) return startY;
   let y = startY;
   const lineCount = buildHorizontalEquipLines(doc, equipRows).length;
   for (let i = 0; i < lineCount; i += 1) {
-    if (y + 5 > maxEndY) break;
-    y += 5;
+    if (y + density.equipLineStep > maxEndY) break;
+    y += density.equipLineStep;
   }
-  return y + 3;
+  return y + density.equipTail;
 }
 
-function drawHorizontalEquipFields(doc, equipRows, startY, maxEndY = CONTENT_MAX_Y) {
+function drawHorizontalEquipFields(
+  doc,
+  equipRows,
+  startY,
+  maxEndY = CONTENT_MAX_Y,
+  density = ORC_GENERIC_DENSITY.normal,
+) {
   if (!equipRows.length) return startY;
   let y = startY;
   doc.setFontSize(PDF_FONT_BODY);
   doc.setTextColor(...PDF_COLOR_TEXT_DARK);
 
   buildHorizontalEquipLines(doc, equipRows).forEach((segments) => {
-    if (y + 5 > maxEndY) return;
+    if (y + density.equipLineStep > maxEndY) return;
     let x = MARGIN;
     segments.forEach((segment, index) => {
       if (index > 0) x += ORC_EQUIP_FIELD_GAP;
@@ -661,45 +785,32 @@ function drawHorizontalEquipFields(doc, equipRows, startY, maxEndY = CONTENT_MAX
       doc.text(segment.value, x, y);
       x += segment.valueW;
     });
-    y += 5;
+    y += density.equipLineStep;
   });
 
-  return y + 3;
+  return y + density.equipTail;
 }
 
-function measureOrcamentoMachineTableHeight(doc, linhas, startY) {
+function measureOrcamentoMachineTableHeight(doc, linhas, startY, density = ORC_GENERIC_DENSITY.normal) {
   const rows = filterOrcamentoPdfGroupLinhas(linhas);
-  let y = startY;
-  y += ORC_TABLE_ROW_H;
-  y += rows.length * ORC_TABLE_ROW_H;
-  return y + 4;
+  return startY + density.tableRowH * (1 + rows.length);
 }
 
-function drawOrcamentoMachineTableSection(doc, linhas, startY) {
+function drawOrcamentoMachineTableSection(doc, linhas, startY, density = ORC_GENERIC_DENSITY.normal) {
   const rows = filterOrcamentoPdfGroupLinhas(linhas);
-  let y = startY;
-  let maxEndY = getOrcamentoFlowMaxY(doc);
-
-  const drawTableHeader = () => {
-    const { drawRow } = createOrcamentoTableRowDrawer(doc, y, { maxEndY });
-    const nextY = drawRow(['Na reparação precisa', 'Qtd.', 'Preço Unit.', 'Total'], {
-      bold: true,
-      fill: true,
-    });
-    if (nextY > y) y = nextY;
-  };
-
-  const drawDataRow = (row) => {
-    if (!canDrawOrcamentoTableLine(y, ORC_TABLE_ROW_H + 2, maxEndY)) {
-      doc.addPage();
-      y = MARGIN;
-      maxEndY = getOrcamentoFlowMaxY(doc);
-      drawTableHeader();
-    }
-    const { drawRow } = createOrcamentoTableRowDrawer(doc, y, { maxEndY });
+  const { drawRow } = createOrcamentoTableRowDrawer(doc, startY, {
+    maxEndY: ORC_GENERIC_BODY_MAX_Y,
+    density,
+    clip: false,
+  });
+  let y = drawRow(['Na reparação precisa', 'Qtd.', 'Preço Unit.', 'Total'], {
+    bold: true,
+    fill: true,
+  });
+  rows.forEach((row) => {
     const total =
       row.total || (computeLinhaTotal(row) > 0 ? formatEuro(computeLinhaTotal(row)) : '');
-    const nextY = drawRow(
+    y = drawRow(
       [
         row.descricao || '—',
         row.qtd || '1',
@@ -708,17 +819,8 @@ function drawOrcamentoMachineTableSection(doc, linhas, startY) {
       ],
       {},
     );
-    if (nextY > y) y = nextY;
-  };
-
-  if (!canDrawOrcamentoTableLine(y, ORC_TABLE_ROW_H + 2, maxEndY)) {
-    doc.addPage();
-    y = MARGIN;
-    maxEndY = getOrcamentoFlowMaxY(doc);
-  }
-  drawTableHeader();
-  rows.forEach(drawDataRow);
-  return y + 4;
+  });
+  return y;
 }
 
 function resolveMaquinaEquipRows(block, fill) {
@@ -732,7 +834,13 @@ function resolveMaquinaEquipRows(block, fill) {
   ];
 }
 
-function measureOrcamentoMaquinaSectionsHeight(doc, fill, startY, maxEndY = CONTENT_MAX_Y) {
+function measureOrcamentoMaquinaSectionsHeight(
+  doc,
+  fill,
+  startY,
+  maxEndY = CONTENT_MAX_Y,
+  density = ORC_GENERIC_DENSITY.normal,
+) {
   const campos = normalizeEquipamentoCampos(fill.equipamento_campos);
   const groups = groupOrcamentoLinhasByEquipamento(fill.linhas, fill.maquinas, campos);
   const { blocks } = resolveOrcamentoEquipamentoPdfBlocks(fill);
@@ -742,18 +850,24 @@ function measureOrcamentoMaquinaSectionsHeight(doc, fill, startY, maxEndY = CONT
     const block = blocks.find((row) => row.index === group.equipamentoIndex) || blocks[groupIndex];
     const equipRows = resolveMaquinaEquipRows(block, fill);
     if (equipRows.length) {
-      y = measureHorizontalEquipFieldsHeight(doc, equipRows, y, maxEndY);
+      y = measureHorizontalEquipFieldsHeight(doc, equipRows, y, maxEndY, density);
     }
-    y = measureOrcamentoMachineTableHeight(doc, group.linhas, y);
+    y = measureOrcamentoMachineTableHeight(doc, group.linhas, y, density);
     if (groupIndex < groups.length - 1) {
-      y = measureOrcamentoEquipamentoSeparator(y);
+      y = measureOrcamentoEquipamentoSeparator(y, density);
     }
   });
 
-  return y + 2;
+  return y + density.sectionTail;
 }
 
-function drawOrcamentoMaquinaSections(doc, fill, startY, maxEndY = CONTENT_MAX_Y) {
+function drawOrcamentoMaquinaSections(
+  doc,
+  fill,
+  startY,
+  maxEndY = CONTENT_MAX_Y,
+  density = ORC_GENERIC_DENSITY.normal,
+) {
   const campos = normalizeEquipamentoCampos(fill.equipamento_campos);
   const groups = groupOrcamentoLinhasByEquipamento(fill.linhas, fill.maquinas, campos);
   const { blocks } = resolveOrcamentoEquipamentoPdfBlocks(fill);
@@ -762,62 +876,47 @@ function drawOrcamentoMaquinaSections(doc, fill, startY, maxEndY = CONTENT_MAX_Y
   groups.forEach((group, groupIndex) => {
     const block = blocks.find((row) => row.index === group.equipamentoIndex) || blocks[groupIndex];
     const equipRows = resolveMaquinaEquipRows(block, fill);
-    const includeSeparator = groupIndex < groups.length - 1;
-    y = ensureOrcamentoFlowSpace(
-      doc,
-      y,
-      estimateOrcamentoMachineGroupHeight(doc, equipRows, group.linhas, { includeSeparator }),
-    );
-
-    const flowMaxY = getOrcamentoFlowMaxY(doc);
     if (equipRows.length) {
-      y = drawHorizontalEquipFields(doc, equipRows, y, flowMaxY);
+      y = drawHorizontalEquipFields(doc, equipRows, y, maxEndY, density);
     }
-    y = drawOrcamentoMachineTableSection(doc, group.linhas, y);
-    if (includeSeparator && y + 12 <= flowMaxY) {
-      y = drawOrcamentoEquipamentoSeparator(doc, y);
+    y = drawOrcamentoMachineTableSection(doc, group.linhas, y, density);
+    if (groupIndex < groups.length - 1) {
+      y = drawOrcamentoEquipamentoSeparator(doc, y, density);
     }
   });
 
-  return y + 2;
+  return y + density.sectionTail;
 }
 
-function measureOrcamentoObservacoesHeight(doc, fill, startY, maxEndY = CONTENT_MAX_Y) {
+function measureOrcamentoObservacoesHeight(
+  doc,
+  fill,
+  startY,
+  maxEndY = CONTENT_MAX_Y,
+  density = ORC_GENERIC_DENSITY.normal,
+) {
   const text = String(fill.observacoes_cliente || '').trim();
   if (!text || text === '—') return startY;
-  const lineStep = 4.2;
-  let y = startY + 4;
-  if (y + 5 > maxEndY) return startY;
-  y += 5;
+  let y = startY + density.obsHeadGap;
+  if (y + density.obsTitleStep > maxEndY) return startY;
+  y += density.obsTitleStep;
   pdfSetFont(doc, 'normal');
   pdfSplitText(doc, text, CONTENT_W).forEach((line) => {
-    if (y + lineStep > maxEndY) return;
-    y += lineStep;
+    if (y + density.obsLineStep > maxEndY) return;
+    y += density.obsLineStep;
   });
   return y + 2;
 }
 
 export function planOrcamentoGenericPageLayout(doc, fill, bodyStartY) {
-  pdfSetFont(doc, 'normal');
-  doc.setFontSize(PDF_FONT_BODY);
-
-  const intro = resolveOrcamentoTextoIntroForPdf(fill.maquinas, fill.texto_intro);
-  let y = bodyStartY;
-  pdfSplitText(doc, intro, CONTENT_W).forEach(() => {
-    y = advanceBodyY(y);
-  });
-  y = advanceBodyY(y, 4);
-  const sectionsEndY = measureOrcamentoMaquinaSectionsHeight(doc, fill, y);
-  const contentEndY = measureOrcamentoObservacoesHeight(doc, fill, sectionsEndY);
+  const layout = resolveOrcamentoGenericLayout(doc, fill, bodyStartY);
   const tableLayout = computeOrcamentoTableLayout(fill.linhas, fill.maquinas, {
-    contentEndY,
+    contentEndY: layout.contentEndY,
     equipamentoCampos: fill.equipamento_campos,
   });
 
   return {
-    intro,
-    sectionsEndY,
-    contentEndY,
+    ...layout,
     tableLayout,
   };
 }
@@ -859,16 +958,17 @@ function drawTemplateMaquinaIdentBlocks(doc, fill, startY, options = {}) {
 function drawOrcamentoObservacoesCliente(doc, fill, startY, options = {}) {
   const text = String(fill.observacoes_cliente || '').trim();
   if (!text || text === '—') return startY;
+  const density = options.density || ORC_GENERIC_DENSITY.normal;
   const maxEndY = Number.isFinite(options.maxEndY) ? options.maxEndY : CONTENT_MAX_Y;
-  const lineStep = options.lineStep ?? 4.2;
-  let y = startY + 4;
-  if (y + 5 > maxEndY) return startY;
+  const lineStep = options.lineStep ?? density.obsLineStep;
+  let y = startY + density.obsHeadGap;
+  if (y + density.obsTitleStep > maxEndY) return startY;
 
   pdfSetFont(doc, 'bold');
   doc.setFontSize(PDF_FONT_BODY);
   doc.setTextColor(...PDF_COLOR_TEXT_DARK);
   doc.text('Observações:', MARGIN, y);
-  y += 5;
+  y += density.obsTitleStep;
 
   pdfSetFont(doc, 'normal');
   pdfSplitText(doc, text, CONTENT_W).forEach((line) => {
@@ -1210,24 +1310,24 @@ export async function renderOrcamentoPDF(report) {
   const legalText = await loadLegalText();
 
   let y = drawOrcamentoLetterhead(doc, fill);
+  const layout = resolveOrcamentoGenericLayout(doc, fill, y);
+  const { density } = layout;
 
   pdfSetFont(doc, 'normal');
   doc.setFontSize(PDF_FONT_BODY);
-  const intro = resolveOrcamentoTextoIntroForPdf(fill.maquinas, fill.texto_intro);
-  pdfSplitText(doc, intro, CONTENT_W).forEach((line) => {
-    if (!canDrawBodyLine(y)) return;
+  pdfSplitText(doc, layout.intro, CONTENT_W).forEach((line) => {
     doc.text(line, MARGIN, y);
-    y = advanceBodyY(y);
+    y += density.introStep;
   });
-  y = advanceBodyY(y, 4);
+  y += density.introGap;
 
-  y = drawOrcamentoMaquinaSections(doc, fill, y, CONTENT_MAX_Y);
+  y = drawOrcamentoMaquinaSections(doc, fill, y, ORC_GENERIC_BODY_MAX_Y, density);
 
-  y = drawOrcamentoObservacoesCliente(doc, fill, y, {
-    maxEndY: getOrcamentoFlowMaxY(doc),
+  drawOrcamentoObservacoesCliente(doc, fill, y, {
+    maxEndY: ORC_GENERIC_BODY_MAX_Y,
+    density,
   });
 
-  doc.setPage(1);
   drawOrcamentoFooter(doc, fill);
 
   doc.setPage(1);
