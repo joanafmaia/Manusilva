@@ -124,9 +124,6 @@ const ORC_GENERIC_DENSITY = {
     obsTitleStep: 5,
   },
   compact: {
-    tableRowH: 5.5,
-    tableFontSize: 8,
-    tableCellPad: 3.6,
     equipLineStep: 4,
     equipTail: 2,
     separatorBefore: 2,
@@ -139,9 +136,6 @@ const ORC_GENERIC_DENSITY = {
     obsTitleStep: 4,
   },
   tight: {
-    tableRowH: 5,
-    tableFontSize: 7.5,
-    tableCellPad: 3.1,
     equipLineStep: 3.5,
     equipTail: 1.5,
     separatorBefore: 1.5,
@@ -159,8 +153,19 @@ const ORC_GENERIC_BODY_MAX_Y = FOOTER_TOP - 2;
 
 let legalTextCache = null;
 
+function withNormalTableMetrics(density = {}) {
+  const normal = ORC_GENERIC_DENSITY.normal;
+  return {
+    ...normal,
+    ...density,
+    tableRowH: normal.tableRowH,
+    tableFontSize: normal.tableFontSize,
+    tableCellPad: normal.tableCellPad,
+  };
+}
+
 function getOrcamentoGenericDensityProfile(id = 'normal') {
-  return ORC_GENERIC_DENSITY[id] || ORC_GENERIC_DENSITY.normal;
+  return withNormalTableMetrics(ORC_GENERIC_DENSITY[id] || ORC_GENERIC_DENSITY.normal);
 }
 
 function measureOrcamentoIntroHeight(doc, intro, startY, density = ORC_GENERIC_DENSITY.normal) {

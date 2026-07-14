@@ -76,7 +76,7 @@ describe('pdf-orcamento layout', () => {
     assert.equal(filterOrcamentoPdfGroupLinhas(groups[1].linhas).length, 5);
   });
 
-  it('reserva altura para tabela com várias linhas por equipamento', () => {
+  it('perfil compacto comprime espaços mas mantém linhas da tabela iguais', () => {
     const linhas = Array.from({ length: 5 }, (_, index) => ({
       descricao: `Artigo ${index + 1}`,
       qtd: '1',
@@ -85,7 +85,9 @@ describe('pdf-orcamento layout', () => {
     }));
     const normalH = estimateOrcamentoMachineGroupBlockHeight(linhas, 4, 'normal');
     const compactH = estimateOrcamentoMachineGroupBlockHeight(linhas, 4, 'compact');
-    assert.ok(normalH > compactH, 'perfil compacto ocupa menos altura');
-    assert.ok(compactH >= 5.5 * (1 + 5) + 6);
+    assert.ok(compactH < normalH, 'perfil compacto ocupa menos altura nos espaços');
+    assert.equal(normalH - compactH, 3, 'só os espaços do equipamento ficam mais compactos');
+    assert.equal(normalH, 13 + 6.5 * 6);
+    assert.equal(compactH, 10 + 6.5 * 6);
   });
 });
