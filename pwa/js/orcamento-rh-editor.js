@@ -760,7 +760,8 @@ export function bindOrcamentoEditor(container, { report, onUpdated, onSent, onTi
     const templateMode = isBateriaTemplate ? 'bateria' : 'maquina';
     const refreshTemplate = () => refreshTemplateTotals(root, currentReport);
     const onTemplateEquipChange = () => {
-      syncTemplateEquipValoresList(root, templateMode, getReportOrcamentoMeta(currentReport));
+      const snapshot = readTemplateMaquinasFromDom(root, templateMode);
+      syncTemplateEquipValoresList(root, templateMode, snapshot);
       refreshTemplate();
     };
     if (isMaquinaTemplate) {
@@ -768,14 +769,13 @@ export function bindOrcamentoEditor(container, { report, onUpdated, onSent, onTi
     } else {
       bindTemplateBateriasValoresSection(root, { onChange: onTemplateEquipChange });
     }
-    root
-      .querySelectorAll(
-        '[data-orc-template-equip-valores] [data-orc-field], [data-orc-field="valorDeslocacao"], [data-orc-field="formaPagamento"], [data-orc-field="validadeOrcamento"], [data-orc-field="prazoEntrega"]',
-      )
-      .forEach((el) => {
-        el.addEventListener('input', refreshTemplate);
-        el.addEventListener('change', refreshTemplate);
-      });
+    const templateFieldSelector =
+      '[data-orc-template-equip-valores] [data-orc-field], [data-orc-field="valorDeslocacao"], [data-orc-field="formaPagamento"], [data-orc-field="validadeOrcamento"], [data-orc-field="prazoEntrega"]';
+    const onTemplateFieldChange = (e) => {
+      if (e.target.matches(templateFieldSelector)) refreshTemplate();
+    };
+    root.addEventListener('input', onTemplateFieldChange);
+    root.addEventListener('change', onTemplateFieldChange);
     refreshTemplate();
   } else {
     const syncEquipColumn = () => syncOrcamentoLinhaEquipamentoColumn(root);
