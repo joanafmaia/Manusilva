@@ -450,6 +450,7 @@ function drawOrcamentoTable(doc, linhas, startY, { maquinas = [], equipamentoCam
     doc.text(pdfSafeText(cells[2]), colX[3] - 2, y, { align: 'right' });
     doc.text(pdfSafeText(cells[3]), colX[4] - 1, y, { align: 'right' });
     doc.setDrawColor(203, 213, 225);
+    doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
     doc.line(MARGIN, y + 1.5, MARGIN + CONTENT_W, y + 1.5);
     return y + ORC_TABLE_ROW_H;
   };
@@ -463,6 +464,7 @@ function drawOrcamentoTable(doc, linhas, startY, { maquinas = [], equipamentoCam
     doc.setTextColor(...PDF_COLOR_TEXT_DARK);
     doc.text(fitTableCellText(doc, label, CONTENT_W - 4), MARGIN + 1, y);
     doc.setDrawColor(203, 213, 225);
+    doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
     doc.line(MARGIN, y + 1.5, MARGIN + CONTENT_W, y + 1.5);
     return y + ORC_TABLE_ROW_H;
   };
@@ -659,6 +661,7 @@ function drawOrcamentoEquipamentoSeparator(doc, y, density = ORC_GENERIC_DENSITY
   doc.setDrawColor(100, 116, 139);
   doc.setLineWidth(0.65);
   doc.line(MARGIN, lineY, MARGIN + CONTENT_W, lineY);
+  doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
   return lineY + density.separatorAfter;
 }
 
@@ -709,6 +712,7 @@ function createOrcamentoTableRowDrawer(
     doc.text(pdfSafeText(cells[2]), colX[3] - 2, y, { align: 'right' });
     doc.text(pdfSafeText(cells[3]), colX[4] - 1, y, { align: 'right' });
     doc.setDrawColor(203, 213, 225);
+    doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
     doc.line(MARGIN, y + 1.5, MARGIN + CONTENT_W, y + 1.5);
     y += rowH;
     return y;
