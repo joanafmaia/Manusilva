@@ -4,7 +4,8 @@
  */
 
 const { buildInitialPassword } = require('../lib/auth-password');
-const { SUPABASE_URL, requireRhUser } = require('../lib/supabase-auth');
+const { requireRhUser } = require('../lib/supabase-auth');
+const { getSupabaseUrl } = require('../lib/supabase-env');
 
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -44,7 +45,7 @@ async function listAuthTechnicians() {
     throw err;
   }
 
-  const res = await fetch(`${SUPABASE_URL}/auth/v1/admin/users?page=1&per_page=1000`, {
+  const res = await fetch(`${getSupabaseUrl()}/auth/v1/admin/users?page=1&per_page=1000`, {
     method: 'GET',
     headers: {
       apikey: SERVICE_ROLE_KEY,
@@ -79,7 +80,7 @@ async function createAuthTechnician({ email, nome, technicianId, telemovel, nif 
   const password = buildInitialPassword(nome);
   const normalizedEmail = String(email).trim().toLowerCase();
 
-  const res = await fetch(`${SUPABASE_URL}/auth/v1/admin/users`, {
+  const res = await fetch(`${getSupabaseUrl()}/auth/v1/admin/users`, {
     method: 'POST',
     headers: {
       apikey: SERVICE_ROLE_KEY,
