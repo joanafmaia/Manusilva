@@ -997,6 +997,9 @@ function drawManutencaoMaquinaFooter(doc, fill) {
     y += 1;
   });
 
+  y = drawOrcamentoIvaTotals(doc, fill, y + 1, footerMaxY);
+  y += 1;
+
   pdfSetFont(doc, 'normal');
   const blocks = [
     `Prazo de Entrega: ${pdfSafeText(formatPrazoEntregaForPdf(fill.prazo_entrega))}`,

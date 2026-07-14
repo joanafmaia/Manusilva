@@ -98,6 +98,10 @@ describe('orcamento-templates — manutenção máquinas', () => {
     assert.equal(precoLinhas[0], 'Manutenção geral a máquina Toyota – 350,00 €');
     assert.equal(precoLinhas[1], 'Inspeção segundo o DL50/2005 – 40,00 €');
     assert.equal(precoLinhas[2], 'Deslocação – 25,00 €');
+    const totals = computeOrcamentoTotals(meta.linhas, meta);
+    assert.equal(formatEuro(totals.subtotal), '415,00');
+    assert.equal(formatEuro(totals.iva), '95,45');
+    assert.equal(formatEuro(totals.total), '510,45');
   });
 
   it('omite inspeção DL50 quando não selecionada', () => {
