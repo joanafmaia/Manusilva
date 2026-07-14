@@ -77,6 +77,7 @@ const URGENT_DAYS = 3;
 const DEFAULT_ESTIMATE_EUR = 120;
 
 const VENCIMENTO_ALERT_DAYS = 7;
+const INVOICES_LIST_PAGE_SIZE = 25;
 
 const ESTIMATE_EUR_BY_SERVICE = {
   folha_intervencao_avarias: 95,
@@ -100,8 +101,10 @@ const billingFilters = {
   to: '',
   clientId: '',
   clientNome: '',
-  recebimentoStatus: 'all',
+  recebimentoStatus: 'pendente',
 };
+
+let invoicesListVisibleCount = INVOICES_LIST_PAGE_SIZE;
 
 let highlightReportId = null;
 let highlightServicoId = null;
@@ -403,7 +406,7 @@ function invoiceDateOfEntity(item) {
   return invoiceDateOf(item.entity);
 }
 
-function invoiceMatchesFilters(item) {
+function invoiceMatchesPeriodAndClient(item) {
   const { from, to } = getPeriodRange();
   const date = invoiceDateOfEntity(item);
   if (from && (!date || date < from)) return false;
@@ -412,6 +415,10 @@ function invoiceMatchesFilters(item) {
   if (billingFilters.clientId && String(clientId) !== String(billingFilters.clientId)) {
     return false;
   }
+  return true;
+}
+
+function invoiceMatchesRecebimentoFilter(item) {
   if (billingFilters.recebimentoStatus === 'pendente' && item.entity.statusRecebimento !== 'pendente') {
     return false;
   }
@@ -419,6 +426,19 @@ function invoiceMatchesFilters(item) {
     return false;
   }
   return true;
+}
+
+function invoiceMatchesFilters(item) {
+  return invoiceMatchesPeriodAndClient(item) && invoiceMatchesRecebimentoFilter(item);
+}
+
+function getInvoiceTabCounts() {
+  const base = getAllInvoicedEntities().filter(invoiceMatchesPeriodAndClient);
+  return {
+    pendente: base.filter((item) => item.entity.statusRecebimento === 'pendente').length,
+    pago: base.filter((item) => item.entity.statusRecebimento === 'pago').length,
+    all: base.length,
+  };
 }
 
 /** Faturas dentro dos filtros ativos — mais recentes primeiro. */
@@ -761,16 +781,26 @@ function resolveInvoiceTipoLabel(item) {
 }
 
 /** Pendentes primeiro (vencimento mais antigo); recebidas por data de emissão. */
+function pendingInvoiceUrgencyRank(row) {
+  if (row.pago) return 9;
+  if (row.vencimentoUrg === 'overdue') return 0;
+  if (row.vencimentoUrg === 'soon') return 1;
+  if (row.vencimentoUrg === 'ok') return 2;
+  return 3;
+}
+
 function sortInvoiceRowsForDisplay(rows) {
   return [...rows].sort((a, b) => {
     if (a.pago !== b.pago) return a.pago ? 1 : -1;
     if (!a.pago) {
+      const urgencyDiff = pendingInvoiceUrgencyRank(a) - pendingInvoiceUrgencyRank(b);
+      if (urgencyDiff !== 0) return urgencyDiff;
       const va = String(a.entity.dataVencimento || a.entity.dataFatura || '');
       const vb = String(b.entity.dataVencimento || b.entity.dataFatura || '');
       return va.localeCompare(vb);
     }
-    return invoiceDateOfEntity({ kind: a.kind, entity: a.entity }).localeCompare(
-      invoiceDateOfEntity({ kind: b.kind, entity: b.entity }),
+    return invoiceDateOfEntity({ kind: b.kind, entity: b.entity }).localeCompare(
+      invoiceDateOfEntity({ kind: a.kind, entity: a.entity }),
     );
   });
 }
@@ -977,57 +1007,94 @@ function renderInvoiceRow(row, acumulado, showAcum) {
   `;
 }
 
+function renderInvoicesViewTabs(counts) {
+  const cur = billingFilters.recebimentoStatus;
+  const tab = (value, label, count) =>
+    `<button type="button" class="faturacao-invoices-tab${cur === value ? ' is-active' : ''}" data-invoices-tab="${value}" role="tab" aria-selected="${cur === value}">${escapeHtml(label)} <span class="faturacao-invoices-tab-count">${count}</span></button>`;
+
+  return `
+    <div class="faturacao-invoices-tabs" role="tablist" aria-label="Filtrar faturas emitidas">
+      ${tab('pendente', 'Por receber', counts.pendente)}
+      ${tab('pago', 'Recebidas', counts.pago)}
+      ${tab('all', 'Todas', counts.all)}
+    </div>
+  `;
+}
+
+function renderInvoicesTable(invoiceRows, invoices, clientActive) {
+  let cumulativeByReport = null;
+  if (clientActive) {
+    cumulativeByReport = new Map();
+    let running = 0;
+    [...invoices]
+      .sort((a, b) => invoiceDateOfEntity(a).localeCompare(invoiceDateOfEntity(b)))
+      .forEach((item) => {
+        running += Number(item.entity.valorFaturado) || 0;
+        const key = `${item.kind}:${item.entity.id}`;
+        cumulativeByReport.set(key, running);
+      });
+  }
+
+  const scrollClass =
+    invoiceRows.length > 8 ? ' faturacao-table-wrap--scroll-y' : '';
+
+  return `
+    <div class="faturacao-table-wrap rh-table-scroll${scrollClass}">
+      <table class="rh-data-table rh-data-table--compact faturacao-history-table faturacao-table faturacao-table--compact faturacao-table--invoices">
+        <thead>
+          <tr>
+            <th scope="col">Emissão</th>
+            <th scope="col">Cliente</th>
+            <th scope="col">Visita / Relatório</th>
+            <th scope="col">Fatura</th>
+            <th scope="col">Valor</th>
+            <th scope="col">Vencimento</th>
+            ${clientActive ? '<th scope="col">Acumulado</th>' : ''}
+            <th scope="col">Estado</th>
+            <th scope="col" class="faturacao-col-action">Ação</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${invoiceRows
+            .map((row) =>
+              renderInvoiceRow(
+                row,
+                cumulativeByReport ? cumulativeByReport.get(`${row.kind}:${row.entity.id}`) : null,
+                clientActive,
+              ),
+            )
+            .join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
 function renderInvoicesSection(invoices = getFilteredInvoices()) {
   const clientActive = Boolean(billingFilters.clientId);
-  const invoiceRows = sortInvoiceRowsForDisplay(buildInvoiceRows(invoices));
-  const pendingCount = invoiceRows.filter((row) => !row.pago).length;
+  const tabCounts = getInvoiceTabCounts();
+  const allInvoiceRows = sortInvoiceRowsForDisplay(buildInvoiceRows(invoices));
+  const showAllPending = billingFilters.recebimentoStatus === 'pendente';
+  const usePagination = !showAllPending && allInvoiceRows.length > INVOICES_LIST_PAGE_SIZE;
+  const invoiceRows = usePagination
+    ? allInvoiceRows.slice(0, invoicesListVisibleCount)
+    : allInvoiceRows;
+  const pendingCount = tabCounts.pendente;
+  const remaining = allInvoiceRows.length - invoiceRows.length;
 
   let rowsHtml = '<p class="text-muted faturacao-empty">Sem faturas emitidas nos filtros selecionados.</p>';
-  let cumulativeByReport = null;
 
   if (invoiceRows.length) {
-    if (clientActive) {
-      cumulativeByReport = new Map();
-      let running = 0;
-      [...invoices]
-        .sort((a, b) => invoiceDateOfEntity(a).localeCompare(invoiceDateOfEntity(b)))
-        .forEach((item) => {
-          running += Number(item.entity.valorFaturado) || 0;
-          const key = `${item.kind}:${item.entity.id}`;
-          cumulativeByReport.set(key, running);
-        });
+    rowsHtml = renderInvoicesTable(invoiceRows, invoices, clientActive);
+    if (usePagination && remaining > 0) {
+      rowsHtml += `
+        <div class="faturacao-invoices-pagination">
+          <button type="button" class="btn-secondary btn-sm faturacao-invoices-load-more" data-invoices-load-more>
+            Carregar mais (${remaining} restantes)
+          </button>
+        </div>
+      `;
     }
-
-    rowsHtml = `
-      <div class="faturacao-table-wrap rh-table-scroll">
-        <table class="rh-data-table rh-data-table--compact faturacao-history-table faturacao-table faturacao-table--compact faturacao-table--invoices">
-          <thead>
-            <tr>
-              <th scope="col">Emissão</th>
-              <th scope="col">Cliente</th>
-              <th scope="col">Visita / Relatório</th>
-              <th scope="col">Fatura</th>
-              <th scope="col">Valor</th>
-              <th scope="col">Vencimento</th>
-              ${clientActive ? '<th scope="col">Acumulado</th>' : ''}
-              <th scope="col">Estado</th>
-              <th scope="col" class="faturacao-col-action">Ação</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${invoiceRows
-              .map((row) =>
-                renderInvoiceRow(
-                  row,
-                  cumulativeByReport ? cumulativeByReport.get(`${row.kind}:${row.entity.id}`) : null,
-                  clientActive,
-                ),
-              )
-              .join('')}
-          </tbody>
-        </table>
-      </div>
-    `;
   }
 
   const total = invoices.reduce((sum, item) => sum + (Number(item.entity.valorFaturado) || 0), 0);
@@ -1036,13 +1103,18 @@ function renderInvoicesSection(invoices = getFilteredInvoices()) {
       ? `<p class="faturacao-history-total">Renda Total — ${escapeHtml(billingFilters.clientNome || 'cliente selecionado')}: <strong>${escapeHtml(formatCurrencyEur(total))}</strong></p>`
       : '';
   const pendingHint =
-    pendingCount > 0
-      ? `<p class="text-muted faturacao-invoices-lead">${pendingCount === 1 ? '1 fatura por receber' : `${pendingCount} faturas por receber`} — use «Recebido» quando o pagamento entrar.</p>`
-      : '';
+    billingFilters.recebimentoStatus === 'pendente' && pendingCount > 0
+      ? `<p class="text-muted faturacao-invoices-lead">${pendingCount === 1 ? '1 fatura por receber' : `${pendingCount} faturas por receber`} — use «Recebido» quando o pagamento entrar. Vencidas e a vencer aparecem primeiro.</p>`
+      : billingFilters.recebimentoStatus === 'pago'
+        ? `<p class="text-muted faturacao-invoices-lead">Histórico de faturas já recebidas — carregue mais linhas se precisar de consultar períodos antigos.</p>`
+        : '';
 
   return `
     <section class="faturacao-invoices-section rh-section glass-card" aria-label="Faturas emitidas">
-      <h3 class="ms-h2 faturacao-section-title">Faturas emitidas <span class="badge-count">${invoices.length}</span></h3>
+      <div class="faturacao-invoices-head">
+        <h3 class="ms-h2 faturacao-section-title">Faturas emitidas <span class="badge-count">${allInvoiceRows.length}</span></h3>
+        ${renderInvoicesViewTabs(tabCounts)}
+      </div>
       ${pendingHint}
       ${rendaTotal}
       ${rowsHtml}
@@ -1263,7 +1335,40 @@ async function applyBillingFilters() {
   replaceMountedSection('.faturacao-invoices-section', renderInvoicesSection(invoices));
   bindHistoryDetailActions();
   bindConfirmPaymentActions();
+  bindInvoicesSectionActions();
   await updateChartData(metrics);
+}
+
+function resetInvoicesListPagination() {
+  invoicesListVisibleCount = INVOICES_LIST_PAGE_SIZE;
+}
+
+function setInvoicesRecebimentoFilter(status) {
+  billingFilters.recebimentoStatus = status;
+  resetInvoicesListPagination();
+  const recebimentoSel = mountRoot?.querySelector('#faturacao-recebimento');
+  if (recebimentoSel && recebimentoSel.value !== status) {
+    recebimentoSel.value = status;
+  }
+}
+
+function bindInvoicesSectionActions() {
+  const root = mountRoot;
+  if (!root) return;
+
+  root.querySelectorAll('[data-invoices-tab]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const status = btn.getAttribute('data-invoices-tab') || 'pendente';
+      if (status === billingFilters.recebimentoStatus) return;
+      setInvoicesRecebimentoFilter(status);
+      applyBillingFilters().catch(console.error);
+    });
+  });
+
+  root.querySelector('[data-invoices-load-more]')?.addEventListener('click', () => {
+    invoicesListVisibleCount += INVOICES_LIST_PAGE_SIZE;
+    applyBillingFilters().catch(console.error);
+  });
 }
 
 function bindFilterEvents() {
@@ -1275,11 +1380,13 @@ function bindFilterEvents() {
     billingFilters.period = periodSel.value;
     const customWrap = root.querySelector('.faturacao-filter-custom');
     if (customWrap) customWrap.hidden = billingFilters.period !== 'custom';
+    resetInvoicesListPagination();
     applyBillingFilters().catch(console.error);
   });
 
   root.querySelector('#faturacao-recebimento')?.addEventListener('change', (e) => {
-    billingFilters.recebimentoStatus = e.target.value || 'all';
+    billingFilters.recebimentoStatus = e.target.value || 'pendente';
+    resetInvoicesListPagination();
     applyBillingFilters().catch(console.error);
   });
 
@@ -1301,10 +1408,12 @@ function bindFilterEvents() {
 
   root.querySelector('#faturacao-from')?.addEventListener('change', (e) => {
     billingFilters.from = e.target.value || '';
+    resetInvoicesListPagination();
     applyBillingFilters().catch(console.error);
   });
   root.querySelector('#faturacao-to')?.addEventListener('change', (e) => {
     billingFilters.to = e.target.value || '';
+    resetInvoicesListPagination();
     applyBillingFilters().catch(console.error);
   });
 
@@ -1317,6 +1426,7 @@ function bindFilterEvents() {
     if (id === billingFilters.clientId) return;
     billingFilters.clientId = id;
     billingFilters.clientNome = id ? nome : '';
+    resetInvoicesListPagination();
     applyBillingFilters().catch(console.error);
   };
 
@@ -2300,6 +2410,7 @@ function bindTableActions() {
   bindBillingRowActionButtons();
   bindConfirmPaymentActions();
   bindHistoryDetailActions();
+  bindInvoicesSectionActions();
 }
 
 function csvEscape(value) {

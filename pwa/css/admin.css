@@ -3965,6 +3965,79 @@ body .admin-rh-page .btn-primary, body .admin-rh-page .btn-secondary, body .admi
 .faturacao-invoices-section {
   padding: 1rem 1.15rem;
 }
+.faturacao-invoices-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem 1rem;
+  margin-bottom: 0.35rem;
+}
+.faturacao-invoices-head .faturacao-section-title {
+  margin: 0;
+}
+.faturacao-invoices-tabs {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  padding: 0.2rem;
+  border-radius: 0.55rem;
+  background: var(--ms-surface-muted, rgba(148, 163, 184, 0.12));
+}
+.faturacao-invoices-tab {
+  border: 0;
+  background: transparent;
+  color: var(--ms-text-muted, #64748b);
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.35rem 0.65rem;
+  border-radius: 0.45rem;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.faturacao-invoices-tab:hover {
+  color: var(--ms-text-700, #334155);
+}
+.faturacao-invoices-tab.is-active {
+  background: var(--ms-surface, #fff);
+  color: var(--ms-primary, #1e4d72);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+.faturacao-invoices-tab-count {
+  display: inline-flex;
+  min-width: 1.15rem;
+  justify-content: center;
+  margin-left: 0.15rem;
+  padding: 0.05rem 0.35rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  background: rgba(30, 77, 114, 0.1);
+}
+.faturacao-invoices-tab.is-active .faturacao-invoices-tab-count {
+  background: rgba(30, 77, 114, 0.14);
+}
+.faturacao-table-wrap--scroll-y {
+  max-height: min(28rem, 52vh);
+  overflow-y: auto;
+  overflow-x: auto;
+  border: 1px solid var(--ms-border, rgba(148, 163, 184, 0.35));
+  border-radius: 0.55rem;
+}
+.faturacao-table-wrap--scroll-y .faturacao-table--invoices thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--ms-table-head-bg, var(--surface-muted));
+  box-shadow: 0 1px 0 var(--ms-border-md);
+}
+.faturacao-invoices-pagination {
+  display: flex;
+  justify-content: center;
+  margin-top: 0.85rem;
+}
+.faturacao-invoices-load-more {
+  min-width: 12rem;
+}
 .faturacao-invoices-lead {
   margin: -0.35rem 0 0.65rem;
   font-size: 0.8rem;
