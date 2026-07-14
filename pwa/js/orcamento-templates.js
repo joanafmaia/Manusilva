@@ -177,3 +177,215 @@ export function renderManutencaoBateriaTemplatePreview() {
       </div>
     </section>`;
 }
+
+/* ─── Manutenção Máquinas (empilhadores) ─── */
+
+export const MANUTENCAO_MAQUINA_VALOR_INSPECAO_DL50_DEFAULT = 40;
+export const MANUTENCAO_MAQUINA_PDF_SUBTITULO = 'MANUTENÇÃO MÁQUINAS';
+
+export const MANUTENCAO_MAQUINA_INTRO =
+  'Vimos por este meio enviar a nossa melhor proposta para a manutenção da vossa máquina:';
+
+export const MANUTENCAO_MAQUINA_PLANO_TITULO = 'PLANO DE MANUTENÇÃO AOS EMPILHADORES:';
+
+export const MANUTENCAO_MAQUINA_PLANO_DETALHE = 'Anual ou as 500 horas';
+
+export const MANUTENCAO_MAQUINA_ESPECIFICACAO_TITULO = 'ESPECIFICAÇÃO DOS SERVIÇOS:';
+
+export const MANUTENCAO_MAQUINA_TRABALHOS_INTRO =
+  'Os trabalhos a efetuar ao empilhador em cada uma das visitas correspondem:';
+
+export const MANUTENCAO_MAQUINA_TRABALHOS = [
+  'Revisão do sistema;',
+  'Verificação do estado das rodas;',
+  'Verificação do sistema hidráulico;',
+  'Verificação do sistema de elevação;',
+  'Limpeza;',
+  'Lubrificação de todo o sistema de torre e eixos;',
+  'Colocação de massas;',
+  'Substituição dos óleos;',
+  'Substituição de filtros (caso a máquina gaste);',
+  'Verificação de garfos;',
+  'Verificação do estado do banco;',
+  'Verificação de fuga de óleos;',
+  'Verificação de rolamentos da torre;',
+  'Verificação de correntes;',
+  'Verificação de faróis e pirilampo;',
+  'Reapertos;',
+  'Afinações;',
+  'Mão-de-obra;',
+];
+
+export function isManutencaoMaquinaTipo(value) {
+  return String(value || '').trim() === ORCAMENTO_TIPO_PROPOSTA.MANUTENCAO_MAQUINA;
+}
+
+export function isManutencaoMaquinaOrcamento(report) {
+  return isManutencaoMaquinaTipo(getOrcamentoTipoProposta(report));
+}
+
+export function isOrcamentoPropostaTemplateTipo(value) {
+  return isManutencaoBateriaTipo(value) || isManutencaoMaquinaTipo(value);
+}
+
+export function resolveOrcamentoTemplateMode(tipoOrReport) {
+  if (typeof tipoOrReport === 'object' && tipoOrReport !== null) {
+    return resolveOrcamentoTemplateMode(getOrcamentoTipoProposta(tipoOrReport));
+  }
+  const tipo = String(tipoOrReport || '').trim();
+  if (isManutencaoBateriaTipo(tipo)) return 'manutencao_bateria';
+  if (isManutencaoMaquinaTipo(tipo)) return 'manutencao_maquina';
+  return null;
+}
+
+export function suggestMaquinaManutencaoNome(cabecalho = {}) {
+  const marca = String(cabecalho.marca || '').trim();
+  const modelo = String(cabecalho.modelo || '').trim();
+  const tipo = String(cabecalho.tipo || '').trim();
+  return [marca, modelo, tipo].filter(Boolean).join(' ').trim();
+}
+
+export function resolveMaquinaManutencaoNome(meta = {}, cabecalho = {}) {
+  const saved = String(meta.maquinaManutencaoNome || '').trim();
+  if (saved) return saved;
+  const suggested = suggestMaquinaManutencaoNome({ ...cabecalho, ...meta });
+  return suggested || '—';
+}
+
+export function resolveManutencaoMaquinaValorGeral(meta = {}) {
+  return parseOrcamentoNumber(meta.valorManutencaoGeral);
+}
+
+export function resolveIncluirInspecaoDl50(meta = {}) {
+  if (meta.incluirInspecaoDl50 === true || meta.incluirInspecaoDl50 === 'true') return true;
+  if (meta.incluirInspecaoDl50 === false || meta.incluirInspecaoDl50 === 'false') return false;
+  return Boolean(meta.incluirInspecaoDl50);
+}
+
+export function resolveValorInspecaoDl50(meta = {}) {
+  const parsed = parseOrcamentoNumber(meta.valorInspecaoDl50);
+  if (parsed > 0) return parsed;
+  return MANUTENCAO_MAQUINA_VALOR_INSPECAO_DL50_DEFAULT;
+}
+
+export function resolveValorDeslocacaoMaquina(meta = {}) {
+  return parseOrcamentoNumber(meta.valorDeslocacao);
+}
+
+function buildTemplateLinha(descricao, valor) {
+  const precoUnit = formatEuro(valor);
+  const linha = { descricao, qtd: '1', precoUnit, equipamentoIndex: 0 };
+  const totalNum = computeLinhaTotal(linha);
+  return { ...linha, total: totalNum > 0 ? formatEuro(totalNum) : '' };
+}
+
+export function buildManutencaoMaquinaLinhas(meta = {}, cabecalho = {}) {
+  const linhas = [];
+  const nome = resolveMaquinaManutencaoNome(meta, cabecalho);
+  const valorGeral = resolveManutencaoMaquinaValorGeral(meta);
+  if (valorGeral > 0) {
+    linhas.push(buildTemplateLinha(`Manutenção geral a máquina ${nome}`, valorGeral));
+  }
+  if (resolveIncluirInspecaoDl50(meta)) {
+    linhas.push(
+      buildTemplateLinha('Inspeção segundo o DL50/2005', resolveValorInspecaoDl50(meta)),
+    );
+  }
+  const deslocacao = resolveValorDeslocacaoMaquina(meta);
+  if (deslocacao > 0) {
+    linhas.push(buildTemplateLinha('Deslocação', deslocacao));
+  }
+  return linhas;
+}
+
+export function formatManutencaoMaquinaPrecoLinhas(meta = {}, cabecalho = {}) {
+  const nome = resolveMaquinaManutencaoNome(meta, cabecalho);
+  const lines = [];
+  const valorGeral = resolveManutencaoMaquinaValorGeral(meta);
+  lines.push(
+    valorGeral > 0
+      ? `Manutenção geral a máquina ${nome} – ${formatEuro(valorGeral)} €`
+      : `Manutenção geral a máquina ${nome} – €`,
+  );
+  if (resolveIncluirInspecaoDl50(meta)) {
+    lines.push(
+      `Inspeção segundo o DL50/2005 – ${formatEuro(resolveValorInspecaoDl50(meta))} €`,
+    );
+  }
+  const deslocacao = resolveValorDeslocacaoMaquina(meta);
+  lines.push(
+    deslocacao > 0 ? `Deslocação – ${formatEuro(deslocacao)} €` : 'Deslocação – €',
+  );
+  return lines;
+}
+
+export function applyManutencaoMaquinaTemplateMeta(meta = {}, report = null) {
+  const maquinaManutencaoNome = resolveMaquinaManutencaoNome(meta);
+  const incluirInspecaoDl50 = resolveIncluirInspecaoDl50(meta);
+  const valorInspecaoDl50 = String(meta.valorInspecaoDl50 || '').trim()
+    ? formatEuro(resolveValorInspecaoDl50(meta))
+    : formatEuro(MANUTENCAO_MAQUINA_VALOR_INSPECAO_DL50_DEFAULT);
+  const valorManutencaoGeral = String(meta.valorManutencaoGeral || '').trim()
+    ? formatEuro(resolveManutencaoMaquinaValorGeral(meta))
+    : '';
+  const valorDeslocacao = String(meta.valorDeslocacao || '').trim()
+    ? formatEuro(resolveValorDeslocacaoMaquina(meta))
+    : '';
+
+  const working = {
+    ...meta,
+    maquinaManutencaoNome,
+    incluirInspecaoDl50,
+    valorInspecaoDl50,
+    valorManutencaoGeral,
+    valorDeslocacao,
+  };
+
+  const linhas = buildManutencaoMaquinaLinhas(working);
+
+  return {
+    ...working,
+    tipoProposta: ORCAMENTO_TIPO_PROPOSTA.MANUTENCAO_MAQUINA,
+    textoIntro: MANUTENCAO_MAQUINA_INTRO,
+    observacoesCliente: '',
+    taxasSaida: [],
+    taxaSaida: '',
+    prazoEntrega: String(meta.prazoEntrega || '').trim(),
+    formaPagamento: String(meta.formaPagamento || '').trim() || ORCAMENTO_FORMA_PAGAMENTO_DEFAULT,
+    validadeOrcamento: String(meta.validadeOrcamento || '').trim() || ORCAMENTO_VALIDADE_DEFAULT,
+    linhas: linhas.length ? linhas : [emptyOrcamentoLinhaTemplate()],
+  };
+}
+
+function emptyOrcamentoLinhaTemplate() {
+  return { descricao: '', qtd: '1', precoUnit: '', total: '', equipamentoIndex: 0 };
+}
+
+export function renderManutencaoMaquinaTemplatePreview() {
+  const trabalhos = MANUTENCAO_MAQUINA_TRABALHOS.map((item) => `<li>${item}</li>`).join('');
+  return `
+    <section class="review-orc-template-preview" aria-label="Texto fixo da proposta">
+      <h4 class="review-orc-cabecalho__title">Texto da proposta (fixo no PDF)</h4>
+      <div class="review-orc-template-preview__body">
+        <p>${MANUTENCAO_MAQUINA_INTRO}</p>
+        <p><strong>${MANUTENCAO_MAQUINA_PLANO_TITULO}</strong></p>
+        <p>– ${MANUTENCAO_MAQUINA_PLANO_DETALHE}</p>
+        <p><strong>${MANUTENCAO_MAQUINA_ESPECIFICACAO_TITULO}</strong></p>
+        <p>${MANUTENCAO_MAQUINA_TRABALHOS_INTRO}</p>
+        <ul>${trabalhos}</ul>
+      </div>
+    </section>`;
+}
+
+export function renderManutencaoMaquinaPrecoPreviewHtml(meta = {}, cabecalho = {}) {
+  return formatManutencaoMaquinaPrecoLinhas(meta, cabecalho)
+    .map((line) => `<p><strong>${line}</strong></p>`)
+    .join('');
+}
+
+export function applyOrcamentoTemplateMeta(meta = {}, report = null) {
+  const tipo = meta.tipoProposta || (report ? getOrcamentoTipoProposta(report) : '');
+  if (isManutencaoBateriaTipo(tipo)) return applyManutencaoBateriaTemplateMeta(meta, report);
+  if (isManutencaoMaquinaTipo(tipo)) return applyManutencaoMaquinaTemplateMeta(meta, report);
+  return meta;
+}

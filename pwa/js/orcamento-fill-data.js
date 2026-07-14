@@ -22,8 +22,13 @@ import { normalizeEquipamentoCampos, suggestEquipamentoCampos } from './orcament
 import {
   MANUTENCAO_BATERIA_INTRO,
   MANUTENCAO_BATERIA_PDF_SUBTITULO,
+  MANUTENCAO_MAQUINA_INTRO,
+  MANUTENCAO_MAQUINA_PDF_SUBTITULO,
   applyManutencaoBateriaTemplateMeta,
+  applyManutencaoMaquinaTemplateMeta,
   isManutencaoBateriaOrcamento,
+  isManutencaoMaquinaOrcamento,
+  resolveIncluirInspecaoDl50,
 } from './orcamento-templates.js';
 import { getOrcamentoTipoProposta } from './orcamento-tipo-proposta.js';
 
@@ -75,9 +80,13 @@ export function buildOrcamentoFillData(report, job = null) {
   const year = new Date().getFullYear();
   const orcamentoMetaRaw = getReportOrcamentoMeta(report);
   const isBateriaTemplate = isManutencaoBateriaOrcamento(report);
+  const isMaquinaTemplate = isManutencaoMaquinaOrcamento(report);
+  const isTemplate = isBateriaTemplate || isMaquinaTemplate;
   const orcamentoMeta = isBateriaTemplate
     ? applyManutencaoBateriaTemplateMeta(orcamentoMetaRaw || {}, report)
-    : orcamentoMetaRaw;
+    : isMaquinaTemplate
+      ? applyManutencaoMaquinaTemplateMeta(orcamentoMetaRaw || {}, report)
+      : orcamentoMetaRaw;
   const cabecalho = resolveOrcamentoCabecalho(report);
   const equipamentoCampos = normalizeEquipamentoCampos(
     orcamentoMeta?.equipamentoCampos ??
@@ -107,16 +116,14 @@ export function buildOrcamentoFillData(report, job = null) {
   });
 
   const linhas = normalizeOrcamentoLinhas(
-    isBateriaTemplate
+    isTemplate
       ? orcamentoMeta.linhas
       : orcamentoMeta?.linhas?.length
         ? orcamentoMeta.linhas
         : suggestOrcamentoLinhas(report),
     { machineCount: maquinasForPdf.length },
   );
-  const taxasSaidaLista = isBateriaTemplate
-    ? []
-    : normalizeTaxasSaida(orcamentoMeta);
+  const taxasSaidaLista = isTemplate ? [] : normalizeTaxasSaida(orcamentoMeta);
   const prazoEntrega = isBateriaTemplate ? '' : String(orcamentoMeta?.prazoEntrega || '').trim();
   const totals = computeOrcamentoTotals(linhas, orcamentoMeta);
 
@@ -132,11 +139,28 @@ export function buildOrcamentoFillData(report, job = null) {
     cliente_ac: display(cabecalho.clienteAc),
     orcamento_numero: orcamentoNumero,
     data_extenso: dataExtenso,
-    proposta_subtitulo: isBateriaTemplate ? MANUTENCAO_BATERIA_PDF_SUBTITULO : 'ORÇAMENTOS',
-    texto_intro: isBateriaTemplate ? MANUTENCAO_BATERIA_INTRO : display(cabecalho.textoIntro),
-    intro_servico: isBateriaTemplate ? MANUTENCAO_BATERIA_INTRO : display(cabecalho.textoIntro),
+    proposta_subtitulo: isBateriaTemplate
+      ? MANUTENCAO_BATERIA_PDF_SUBTITULO
+      : isMaquinaTemplate
+        ? MANUTENCAO_MAQUINA_PDF_SUBTITULO
+        : 'ORÇAMENTOS',
+    texto_intro: isBateriaTemplate
+      ? MANUTENCAO_BATERIA_INTRO
+      : isMaquinaTemplate
+        ? MANUTENCAO_MAQUINA_INTRO
+        : display(cabecalho.textoIntro),
+    intro_servico: isBateriaTemplate
+      ? MANUTENCAO_BATERIA_INTRO
+      : isMaquinaTemplate
+        ? MANUTENCAO_MAQUINA_INTRO
+        : display(cabecalho.textoIntro),
     valor_manutencao_visita: orcamentoMeta?.valorManutencaoVisita || '',
     periodicidade_manutencao: orcamentoMeta?.periodicidadeManutencao || '',
+    maquina_manutencao_nome: orcamentoMeta?.maquinaManutencaoNome || '',
+    valor_manutencao_geral: orcamentoMeta?.valorManutencaoGeral || '',
+    incluir_inspecao_dl50: resolveIncluirInspecaoDl50(orcamentoMeta),
+    valor_inspecao_dl50: orcamentoMeta?.valorInspecaoDl50 || '',
+    valor_deslocacao: orcamentoMeta?.valorDeslocacao || '',
     tipo_proposta: getOrcamentoTipoProposta(report),
     maquina:
       maquinasForPdf.length > 1
@@ -161,8 +185,12 @@ export function buildOrcamentoFillData(report, job = null) {
           ? formatEuro(taxasSaidaLista[0])
           : taxasSaidaLista.map((value) => formatEuro(value)).join(' + '),
     prazo_entrega: prazoEntrega || '—',
-    forma_pagamento: display(cabecalho.formaPagamento),
-    validade_orcamento: display(cabecalho.validadeOrcamento),
+    forma_pagamento: display(
+      isTemplate ? orcamentoMeta?.formaPagamento : cabecalho.formaPagamento,
+    ),
+    validade_orcamento: display(
+      isTemplate ? orcamentoMeta?.validadeOrcamento : cabecalho.validadeOrcamento,
+    ),
     subtotal: formatEuro(totals.subtotal),
     iva: formatEuro(totals.iva),
     total_geral: formatEuro(totals.total),

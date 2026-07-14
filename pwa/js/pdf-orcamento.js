@@ -58,8 +58,16 @@ import {
   MANUTENCAO_BATERIA_PARAGRAFOS,
   MANUTENCAO_BATERIA_TRABALHOS,
   MANUTENCAO_BATERIA_TRABALHOS_INTRO,
+  MANUTENCAO_MAQUINA_ESPECIFICACAO_TITULO,
+  MANUTENCAO_MAQUINA_INTRO,
+  MANUTENCAO_MAQUINA_PLANO_DETALHE,
+  MANUTENCAO_MAQUINA_PLANO_TITULO,
+  MANUTENCAO_MAQUINA_TRABALHOS,
+  MANUTENCAO_MAQUINA_TRABALHOS_INTRO,
   formatLinhaValorManutencaoBateria,
+  formatManutencaoMaquinaPrecoLinhas,
   isManutencaoBateriaOrcamento,
+  isManutencaoMaquinaOrcamento,
 } from './orcamento-templates.js';
 
 const MARGIN = PDF_MARGIN;
@@ -660,6 +668,96 @@ function drawManutencaoBateriaFooter(doc, fill, startY) {
   return y;
 }
 
+function drawManutencaoMaquinaFooter(doc, fill, startY) {
+  let y = startY + 6;
+  pdfSetFont(doc, 'normal');
+  doc.setFontSize(PDF_FONT_BODY);
+  doc.setTextColor(...PDF_COLOR_TEXT_DARK);
+
+  const precoLinhas = formatManutencaoMaquinaPrecoLinhas({
+    maquinaManutencaoNome: fill.maquina_manutencao_nome,
+    valorManutencaoGeral: fill.valor_manutencao_geral,
+    incluirInspecaoDl50: fill.incluir_inspecao_dl50,
+    valorInspecaoDl50: fill.valor_inspecao_dl50,
+    valorDeslocacao: fill.valor_deslocacao,
+  });
+
+  precoLinhas.forEach((line) => {
+    pdfSetFont(doc, 'bold');
+    pdfSplitText(doc, line, CONTENT_W).forEach((textLine) => {
+      if (y > FOOTER_TOP - 8) return;
+      doc.text(textLine, MARGIN, y);
+      y += 5;
+    });
+    y += 1;
+  });
+
+  pdfSetFont(doc, 'normal');
+  const blocks = [
+    `Prazo de Entrega: ${fill.prazo_entrega === '—' ? '—' : pdfSafeText(fill.prazo_entrega)}`,
+    `Forma de Pagamento: ${pdfSafeText(fill.forma_pagamento)}`,
+    `Validade do orçamento – ${pdfSafeText(fill.validade_orcamento)}`,
+  ];
+
+  blocks.forEach((text) => {
+    pdfSplitText(doc, text, CONTENT_W).forEach((line) => {
+      if (y > FOOTER_TOP - 6) return;
+      doc.text(line, MARGIN, y);
+      y += 4.8;
+    });
+    y += 1.5;
+  });
+
+  return y;
+}
+
+async function renderManutencaoMaquinaOrcamentoPDF(doc, report, job) {
+  const fill = buildOrcamentoFillData(report, job);
+  const legalText = await loadLegalText();
+
+  let y = drawOrcamentoLetterhead(doc, fill);
+
+  pdfSetFont(doc, 'normal');
+  doc.setFontSize(PDF_FONT_BODY);
+  y = drawOrcamentoBodyParagraphs(doc, [MANUTENCAO_MAQUINA_INTRO], y);
+  y += 3;
+
+  pdfSetFont(doc, 'bold');
+  if (canDrawBodyLine(y)) {
+    doc.text(MANUTENCAO_MAQUINA_PLANO_TITULO, MARGIN, y);
+    y = advanceBodyY(y, 6);
+  }
+  pdfSetFont(doc, 'normal');
+  if (canDrawBodyLine(y)) {
+    doc.text(`– ${MANUTENCAO_MAQUINA_PLANO_DETALHE}`, MARGIN, y);
+    y = advanceBodyY(y, 6);
+  }
+
+  pdfSetFont(doc, 'bold');
+  if (canDrawBodyLine(y)) {
+    doc.text(MANUTENCAO_MAQUINA_ESPECIFICACAO_TITULO, MARGIN, y);
+    y = advanceBodyY(y, 6);
+  }
+
+  pdfSetFont(doc, 'normal');
+  y = drawOrcamentoBodyParagraphs(doc, [MANUTENCAO_MAQUINA_TRABALHOS_INTRO], y, { lineStep: 4.5 });
+  y = drawOrcamentoBulletList(doc, MANUTENCAO_MAQUINA_TRABALHOS, y, { maxEndY: FOOTER_TOP - 28 });
+
+  drawManutencaoMaquinaFooter(doc, fill, Math.min(y + 4, FOOTER_TOP - 48));
+
+  doc.setPage(1);
+  drawClientApprovalBox(doc);
+
+  if (legalText) {
+    drawLegalPage(doc, legalText);
+  }
+
+  stampMs015DocumentRefAllPages(doc);
+  await stampOrcamentoCertificacaoSelosAllPages(doc);
+
+  return doc;
+}
+
 async function renderManutencaoBateriaOrcamentoPDF(doc, report, job) {
   const fill = buildOrcamentoFillData(report, job);
   const legalText = await loadLegalText();
@@ -713,6 +811,10 @@ export async function renderOrcamentoPDF(report) {
 
   if (isManutencaoBateriaOrcamento(report)) {
     return renderManutencaoBateriaOrcamentoPDF(doc, report, job);
+  }
+
+  if (isManutencaoMaquinaOrcamento(report)) {
+    return renderManutencaoMaquinaOrcamentoPDF(doc, report, job);
   }
 
   const fill = buildOrcamentoFillData(report, job);

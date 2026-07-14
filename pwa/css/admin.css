@@ -3101,6 +3101,16 @@
   margin: 0.55rem 0 0;
   font-size: 0.85rem;
 }
+.review-orc-field--checkbox {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.review-orc-field--checkbox .review-orc-checkbox {
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--ms-primary, #1e4d72);
+}
 .review-orc-field--full {
   grid-column: 1 / -1;
 }
