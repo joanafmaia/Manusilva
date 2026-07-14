@@ -3,9 +3,9 @@
  * Requer SUPABASE_SERVICE_ROLE_KEY nas variáveis de ambiente da Vercel.
  */
 
-const { buildInitialPassword } = require('../lib/auth-password');
-const { requireRhUser } = require('../lib/supabase-auth');
-const { getSupabaseUrl } = require('../lib/supabase-env');
+const { buildInitialPassword } = require('../../server-lib/auth-password');
+const { requireRhUser } = require('../../server-lib/supabase-auth');
+const { getSupabaseUrl } = require('../../server-lib/supabase-env');
 
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 

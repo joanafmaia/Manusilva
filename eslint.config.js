@@ -7,7 +7,7 @@ export default [
   },
   js.configs.recommended,
   {
-    files: ['pwa/js/**/*.js', 'pwa/api/**/*.js'],
+    files: ['pwa/js/**/*.js', 'pwa/api/**/*.js', 'pwa/server-lib/**/*.js'],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: 'module',
@@ -22,7 +22,7 @@ export default [
     },
   },
   {
-    files: ['pwa/api/**/*.js'],
+    files: ['pwa/api/**/*.js', 'pwa/server-lib/**/*.js'],
     languageOptions: {
       sourceType: 'commonjs',
       globals: {

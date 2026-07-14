@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
-const { isRecipientAllowed } = require('../api/lib/email-recipient-policy.js');
+const { isRecipientAllowed } = require('../server-lib/email-recipient-policy.js');
 
 describe('email-recipient-policy', () => {
   const corpDomains = new Set(['empresa.pt']);

@@ -11,7 +11,7 @@ import { FILIPA_LEGACY_AUTH_EMAIL, UTILIZADORES } from '../js/mock_data.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const jsonPath = path.join(__dirname, '../shared/rh-admin-config.json');
-const apiAuthRolesPath = path.join(__dirname, '../api/lib/auth-roles.js');
+const apiAuthRolesPath = path.join(__dirname, '../server-lib/auth-roles.js');
 const authRolesPath = path.join(__dirname, '../js/auth-roles-core.js');
 
 const RH_CONFIG_START = '// >>> RH_CONFIG_START (npm run sync:rh-config)';

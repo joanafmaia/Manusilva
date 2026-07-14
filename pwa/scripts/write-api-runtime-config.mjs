@@ -1,6 +1,6 @@
 /**
  * Gera config pública para rotas API (Supabase URL + anon key).
- * Ficheiro versionado em api/lib — a Vercel não inclui ficheiros do .gitignore no deploy.
+ * Ficheiro versionado em server-lib — a Vercel não inclui ficheiros do .gitignore no deploy.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const clientPath = path.join(__dirname, '../js/supabase-client.js');
-const outPath = path.join(__dirname, '../api/lib/supabase-public-config.js');
+const outPath = path.join(__dirname, '../server-lib/supabase-public-config.js');
 
 function readFromClientSource() {
   const src = fs.readFileSync(clientPath, 'utf8');

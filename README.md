@@ -87,4 +87,4 @@ A **020** é obrigatória para o modelo serviço/visita. Copia faturação legad
 
 ## Deploy
 
-A PWA e a API de e-mail deployam a partir de `pwa/` (Vercel). Variáveis de ambiente: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `EMAIL_USER`, `EMAIL_PASS`, etc. (ver `pwa/api/lib/supabase-env.js` e `pwa/api/enviar-email.js`).
+A PWA e a API de e-mail deployam a partir de `pwa/` (Vercel). Variáveis de ambiente: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `EMAIL_USER`, `EMAIL_PASS`, etc. (ver `pwa/server-lib/supabase-env.js` e `pwa/api/enviar-email.js`).

@@ -3,8 +3,8 @@
  * Regista avaliação do cliente (link no e-mail) e devolve página HTML.
  */
 
-const { verifyAvaliacaoToken, getAppBaseUrl } = require('./lib/avaliacao-token');
-const { serviceGet, servicePost, hasServiceRoleKey } = require('./lib/supabase-service');
+const { verifyAvaliacaoToken, getAppBaseUrl } = require('../server-lib/avaliacao-token');
+const { serviceGet, servicePost, hasServiceRoleKey } = require('../server-lib/supabase-service');
 
 const SCORE_META = {
   1: { emoji: '😞', label: 'Insatisfeito', color: '#dc2626' },

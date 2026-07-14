@@ -20,7 +20,7 @@ Joana e Filipa são **RH e Administração**. Devem ter acesso total sem bloquei
 
 ## Código
 
-- Verificações: `pwa/js/auth-roles.js` e `pwa/api/lib/auth-roles.js`
+- Verificações: `pwa/js/auth-roles.js` e `pwa/server-lib/auth-roles.js`
 - API clientes: `isRhOrAdminAuthUser`, não apenas `role === 'RH'`
 - RLS Postgres: função `public.is_rh_admin()`
 

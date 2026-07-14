@@ -10,7 +10,7 @@ const enviarEmailSrc = fs.readFileSync(
   'utf8',
 );
 const supabaseEnvSrc = fs.readFileSync(
-  path.join(__dirname, '../api/lib/supabase-env.js'),
+  path.join(__dirname, '../server-lib/supabase-env.js'),
   'utf8',
 );
 

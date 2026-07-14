@@ -1,19 +1,19 @@
 const nodemailer = require('nodemailer');
-const { isRhOrAdminAuthUser } = require('./lib/auth-roles');
+const { isRhOrAdminAuthUser } = require('../server-lib/auth-roles');
 const {
   extractEmailDomain,
   isFreeEmailDomain,
   isRecipientAllowed,
   isValidEmailAddress,
   normalizeEmail,
-} = require('./lib/email-recipient-policy');
-const { createAvaliacaoToken, getAppBaseUrl } = require('./lib/avaliacao-token');
-const { serviceGet, hasServiceRoleKey } = require('./lib/supabase-service');
+} = require('../server-lib/email-recipient-policy');
+const { createAvaliacaoToken, getAppBaseUrl } = require('../server-lib/avaliacao-token');
+const { serviceGet, hasServiceRoleKey } = require('../server-lib/supabase-service');
 const {
   formatInterventionDatePt,
   resolveReportInterventionDatePt,
-} = require('./lib/report-intervention-date');
-const { getBearerToken, getAuthenticatedUser } = require('./lib/supabase-auth');
+} = require('../server-lib/report-intervention-date');
+const { getBearerToken, getAuthenticatedUser } = require('../server-lib/supabase-auth');
 
 const SMTP_HOST = process.env.SMTP_HOST;
 const SMTP_PORT = Number(process.env.SMTP_PORT || 465);
@@ -32,7 +32,7 @@ const CONTACT_PHONE = process.env.COMPANY_PHONE || '+351 229 811 990';
 const CONTACT_WEBSITE = process.env.COMPANY_WEBSITE || 'www.manusilva.pt';
 
 async function supabaseGet(path, token) {
-  const { getSupabaseUrl, getSupabaseAnonKey } = require('./lib/supabase-env');
+  const { getSupabaseUrl, getSupabaseAnonKey } = require('../server-lib/supabase-env');
   const res = await fetch(`${getSupabaseUrl()}${path}`, {
     headers: {
       apikey: getSupabaseAnonKey(),
@@ -390,7 +390,7 @@ function isSafeHttpUrl(value) {
 
     const host = url.hostname.toLowerCase();
     try {
-      const { getSupabaseUrl } = require('./lib/supabase-env');
+      const { getSupabaseUrl } = require('../server-lib/supabase-env');
       const projectHost = new URL(getSupabaseUrl()).hostname.toLowerCase();
       if (host === projectHost) return true;
     } catch {

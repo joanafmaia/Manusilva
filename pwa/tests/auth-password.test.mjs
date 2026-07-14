@@ -11,7 +11,7 @@ import {
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const apiAuthPasswordSrc = fs.readFileSync(
-  path.join(__dirname, '../api/lib/auth-password.js'),
+  path.join(__dirname, '../server-lib/auth-password.js'),
   'utf8',
 );
 

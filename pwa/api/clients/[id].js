@@ -2,12 +2,12 @@
  * PUT /api/clients/[id] — atualiza dados cadastrais (requer JWT Supabase de RH).
  */
 
-const { getSupabaseUrl, getSupabaseAnonKey } = require('../lib/supabase-env');
+const { getSupabaseUrl, getSupabaseAnonKey } = require('../../server-lib/supabase-env');
 
 const SUPABASE_URL = getSupabaseUrl();
 const SUPABASE_KEY = getSupabaseAnonKey();
 
-const { isRhOrAdminAuthUser } = require('../lib/auth-roles');
+const { isRhOrAdminAuthUser } = require('../../server-lib/auth-roles');
 
 const ALLOWED_FIELDS = [
   'email',
