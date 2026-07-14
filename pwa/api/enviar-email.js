@@ -1,5 +1,12 @@
 const nodemailer = require('nodemailer');
 const { isRhOrAdminAuthUser } = require('./lib/auth-roles');
+const {
+  extractEmailDomain,
+  isFreeEmailDomain,
+  isRecipientAllowed,
+  isValidEmailAddress,
+  normalizeEmail,
+} = require('./lib/email-recipient-policy');
 const { createAvaliacaoToken, getAppBaseUrl } = require('./lib/avaliacao-token');
 const { serviceGet, hasServiceRoleKey } = require('./lib/supabase-service');
 const {
@@ -17,27 +24,6 @@ const EMAIL_PASS = process.env.EMAIL_PASS;
 const MAX_PDF_BYTES = 3 * 1024 * 1024;
 /** Limite conservador do string base64 (~4/3 do binário + padding). */
 const MAX_PDF_BASE64_LEN = Math.ceil((MAX_PDF_BYTES / 3) * 4) + 8;
-
-const FREE_EMAIL_DOMAINS = new Set([
-  'gmail.com',
-  'googlemail.com',
-  'hotmail.com',
-  'hotmail.co.uk',
-  'outlook.com',
-  'outlook.pt',
-  'live.com',
-  'live.pt',
-  'msn.com',
-  'yahoo.com',
-  'yahoo.com.br',
-  'icloud.com',
-  'me.com',
-  'sapo.pt',
-  'mail.ru',
-  'protonmail.com',
-  'proton.me',
-  'aol.com',
-]);
 
 /** Rodapé dos e-mails (alinhado com COMPANY em mock_data.js / PDFs) */
 const CONTACT_EMAIL =
@@ -60,26 +46,6 @@ async function supabaseGet(path, token) {
     throw err;
   }
   return res.json();
-}
-
-function normalizeEmail(email) {
-  return String(email ?? '').trim().toLowerCase();
-}
-
-function isValidEmailAddress(email) {
-  const v = normalizeEmail(email);
-  if (!v) return false;
-  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v);
-}
-
-function extractEmailDomain(email) {
-  const norm = normalizeEmail(email);
-  const at = norm.lastIndexOf('@');
-  return at >= 0 ? norm.slice(at + 1) : '';
-}
-
-function isFreeEmailDomain(domain) {
-  return FREE_EMAIL_DOMAINS.has(String(domain || '').toLowerCase());
 }
 
 async function fetchReportForEmail(reportId, token, tipoRelatorio) {
@@ -134,28 +100,6 @@ function parseEmailRecipients(raw) {
     out.push(norm);
   }
   return out;
-}
-
-/**
- * Destinatário permitido se:
- * - coincide com o e-mail registado no cliente do relatório aprovado, ou
- * - pertence ao mesmo domínio corporativo desse cliente e o domínio existe na base de clientes.
- */
-function isRecipientAllowed(to, registeredEmail, clientDomains) {
-  const toNorm = normalizeEmail(to);
-  if (!isValidEmailAddress(toNorm)) return false;
-
-  const regNorm = normalizeEmail(registeredEmail);
-  if (regNorm && toNorm === regNorm) return true;
-
-  if (!regNorm) return false;
-
-  const toDomain = extractEmailDomain(toNorm);
-  const regDomain = extractEmailDomain(regNorm);
-  if (!toDomain || !regDomain || toDomain !== regDomain) return false;
-  if (isFreeEmailDomain(toDomain)) return false;
-
-  return clientDomains.has(toDomain);
 }
 
 /** Tamanho máximo combinado de todos os anexos PDF (evita timeouts na Vercel). */
@@ -704,13 +648,16 @@ module.exports = async function handler(req, res) {
 
     const registeredEmail = await fetchClienteEmail(report.cliente_id, token);
     const clientDomains = await fetchClientEmailDomains(token);
+    const allowManualRecipients = tipoRelatorio === 'orcamento';
 
     for (const recipient of recipients) {
-      if (!isRecipientAllowed(recipient, registeredEmail, clientDomains)) {
+      if (!isRecipientAllowed(recipient, registeredEmail, clientDomains, { allowManualRecipients })) {
         return res.status(403).json({
-          error: registeredEmail
-            ? `Destinatário não autorizado: ${recipient}. Use o e-mail do cliente ou outro endereço do mesmo domínio corporativo registado na base de clientes.`
-            : `Destinatário não autorizado: ${recipient}.`,
+          error: allowManualRecipients
+            ? `Destinatário inválido: ${recipient}.`
+            : registeredEmail
+              ? `Destinatário não autorizado: ${recipient}. Use o e-mail do cliente ou outro endereço do mesmo domínio corporativo registado na base de clientes.`
+              : `Destinatário não autorizado: ${recipient}.`,
         });
       }
     }
