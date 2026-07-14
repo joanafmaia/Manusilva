@@ -576,11 +576,11 @@ function buildHorizontalEquipLines(doc, equipRows, maxWidth = CONTENT_W) {
   equipRows.forEach(([label, value]) => {
     const safeLabel = pdfSafeText(String(label || '').trim() || '—');
     const safeValue = pdfSafeText(String(value || '').trim() || '—');
-    pdfSetFont(doc, 'normal');
+    pdfSetFont(doc, 'bold');
     doc.setFontSize(PDF_FONT_BODY);
     const prefix = `${safeLabel}: `;
     const prefixW = doc.getTextWidth(prefix);
-    pdfSetFont(doc, 'bold');
+    pdfSetFont(doc, 'normal');
     const valueW = doc.getTextWidth(safeValue);
     const segmentW = prefixW + valueW;
     const gap = currentLine.length ? ORC_EQUIP_FIELD_GAP : 0;
@@ -621,11 +621,11 @@ function drawHorizontalEquipFields(doc, equipRows, startY, maxEndY = CONTENT_MAX
     let x = MARGIN;
     segments.forEach((segment, index) => {
       if (index > 0) x += ORC_EQUIP_FIELD_GAP;
-      pdfSetFont(doc, 'normal');
+      pdfSetFont(doc, 'bold');
       const prefix = `${segment.label}: `;
       doc.text(prefix, x, y);
       x += segment.prefixW;
-      pdfSetFont(doc, 'bold');
+      pdfSetFont(doc, 'normal');
       doc.text(segment.value, x, y);
       x += segment.valueW;
     });
