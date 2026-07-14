@@ -12,6 +12,7 @@ import {
 } from './orcamento-equipamento-campos.js';
 import {
   computeLinhaTotal,
+  emptyOrcamentoLinha,
   formatEuro,
   normalizeEquipamentoIndex,
   normalizeOrcamentoLinhas,
@@ -180,10 +181,18 @@ export function filterOrcamentoTableLinhas(linhas, maquinas = []) {
     : [{ descricao: '—', qtd: '1', precoUnit: '', total: '', equipamentoIndex: 0 }];
 }
 
-export function groupOrcamentoLinhasByEquipamento(linhas, maquinas = [], campos = null) {
+export function groupOrcamentoLinhasByEquipamento(linhas, maquinas = [], campos = null, options = {}) {
+  const { preserveEmptyLines = false } = options;
   const list = normalizeOrcamentoMaquinasList(maquinas, campos);
   const machineCount = Math.max(list.length, 1);
-  const rows = filterOrcamentoTableLinhas(linhas, list);
+  const rows = preserveEmptyLines
+    ? (() => {
+        const normalized = normalizeOrcamentoLinhas(linhas, { machineCount });
+        return normalized.length
+          ? normalized
+          : [{ ...emptyOrcamentoLinha(), equipamentoIndex: 0 }];
+      })()
+    : filterOrcamentoTableLinhas(linhas, list);
 
   if (!shouldGroupOrcamentoLinhasByEquipamento(list, campos)) {
     return [
@@ -199,20 +208,19 @@ export function groupOrcamentoLinhasByEquipamento(linhas, maquinas = [], campos 
     const machineLines = rows.filter(
       (row) => normalizeEquipamentoIndex(row.equipamentoIndex, machineCount) === index,
     );
+    const fallbackLine = preserveEmptyLines
+      ? { ...emptyOrcamentoLinha(), equipamentoIndex: index }
+      : {
+          descricao: '—',
+          qtd: '1',
+          precoUnit: '',
+          total: '',
+          equipamentoIndex: index,
+        };
     return {
       equipamentoIndex: index,
       label: formatOrcamentoMaquinaLabel(machine, index, campos),
-      linhas: machineLines.length
-        ? machineLines
-        : [
-            {
-              descricao: '—',
-              qtd: '1',
-              precoUnit: '',
-              total: '',
-              equipamentoIndex: index,
-            },
-          ],
+      linhas: machineLines.length ? machineLines : [fallbackLine],
     };
   });
 }
@@ -289,7 +297,9 @@ export function renderOrcamentoLinhaRow(row, index, options = {}) {
 
 export function renderOrcamentoLinhasTableBody(linhas = [], maquinas = [], campos = null) {
   const fields = normalizeEquipamentoCampos(campos);
-  const groups = groupOrcamentoLinhasByEquipamento(linhas, maquinas, fields);
+  const groups = groupOrcamentoLinhasByEquipamento(linhas, maquinas, fields, {
+    preserveEmptyLines: true,
+  });
   const grouped = shouldGroupOrcamentoLinhasByEquipamento(maquinas, fields);
   const colSpan = 5;
 

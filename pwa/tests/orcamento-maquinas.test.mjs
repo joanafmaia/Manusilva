@@ -178,4 +178,24 @@ describe('orcamento-maquinas', () => {
     assert.equal(groups.length, 1);
     assert.doesNotMatch(renderOrcamentoLinhasTableBody(linhas, maquinas), /data-orc-equip-group/);
   });
+
+  it('preserva linhas vazias no editor ao adicionar linha', () => {
+    const maquinas = [{ marca: 'Toyota', modelo: 'A' }];
+    const linhas = [
+      { descricao: '', qtd: '1', precoUnit: '', equipamentoIndex: 0 },
+      { descricao: '', qtd: '1', precoUnit: '', equipamentoIndex: 0 },
+      { descricao: '', qtd: '1', precoUnit: '', equipamentoIndex: 0 },
+      { descricao: '', qtd: '1', precoUnit: '', equipamentoIndex: 0 },
+    ];
+    const html = renderOrcamentoLinhasTableBody(linhas, maquinas);
+    assert.equal((html.match(/data-orcamento-linha/g) || []).length, 4);
+  });
+
+  it('agrupa para PDF sem linhas vazias', () => {
+    const maquinas = [{ marca: 'Toyota', modelo: 'A' }];
+    const linhas = [{ descricao: '', qtd: '1', precoUnit: '', equipamentoIndex: 0 }];
+    const groups = groupOrcamentoLinhasByEquipamento(linhas, maquinas);
+    assert.equal(groups[0].linhas.length, 1);
+    assert.equal(groups[0].linhas[0].descricao, '—');
+  });
 });
