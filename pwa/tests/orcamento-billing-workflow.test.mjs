@@ -7,6 +7,7 @@ import {
   isPendingOrcamentoBilling,
   getPendingOrcamentoBillingReports,
   resolveOrcamentoBillingTotal,
+  shouldRepairOrcamentoBilling,
 } from '../js/orcamento-billing-workflow.js';
 import { isPendingBilling } from '../js/billing-workflow.js';
 import { STANDALONE_ORCAMENTO_ORIGEM, STANDALONE_ORCAMENTO_SERVICE_TYPE } from '../js/orcamento-standalone.js';
@@ -80,6 +81,19 @@ describe('orcamento-billing-workflow', () => {
       },
     });
     assert.equal(isPendingOrcamentoBilling(report), true);
+  });
+
+  it('shouldRepairOrcamentoBilling — aceite com dispensado legado (migração 021)', () => {
+    const report = propostaAceite({
+      faturacaoStatus: 'dispensado',
+      data: {
+        ...propostaAceite().data,
+        faturacaoOrigem: null,
+        faturacaoValorSugerido: null,
+      },
+    });
+    assert.equal(shouldRepairOrcamentoBilling(report), true);
+    assert.equal(isPendingOrcamentoBilling(report), false);
   });
 
   it('isPendingBilling — exclui propostas RH (mesmo com pendente)', () => {

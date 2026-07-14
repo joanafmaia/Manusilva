@@ -57,8 +57,9 @@ export function shouldRepairOrcamentoBilling(report) {
   if (reportIsFolhaObraOrcamento(report)) return false;
   if (!reportIsStandaloneOrcamento(report) && !reportHasPedidoOrcamento(report)) return false;
   const fs = report.faturacaoStatus;
-  if (fs === 'faturado' || fs === 'dispensado' || fs === 'via_servico') return false;
+  if (fs === 'faturado' || fs === 'via_servico') return false;
   if (fs === 'pendente' && report.data?.faturacaoOrigem === 'orcamento_aceite') return false;
+  // Inclui «dispensado» legado (migração 021) e «aguarda_aceite_orcamento» após aceite do cliente.
   return true;
 }
 

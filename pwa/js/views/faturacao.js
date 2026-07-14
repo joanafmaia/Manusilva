@@ -520,9 +520,8 @@ function billingItemMatchesClientFilter(item, filterClientId) {
   if (item.kind === 'orcamento' && item.report) {
     const filterClient = getClient(filterClientId);
     const filterName = getClientName(filterClient).trim().toLowerCase();
-    const reportName = getClientName(getClient(item.report.clientId), item.report.data?.values || {})
-      .trim()
-      .toLowerCase();
+    const values = item.report.data?.values || {};
+    const reportName = getClientName(getClient(item.report.clientId), values).trim().toLowerCase();
     if (filterName && reportName && filterName === reportName) return true;
   }
 
