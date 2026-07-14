@@ -16,6 +16,7 @@ import {
 } from './servicos-db.js';
 import { deleteRelatoriosByServico } from './relatorios-db.js';
 import { deleteTrabalho, ensureJobsLoaded } from './trabalhos-db.js';
+import { getReportsForServico } from './servicos-panel-utils.js';
 
 /**
  * RH cria um serviço (visita) — sem tipo de relatório fixo.
@@ -83,7 +84,18 @@ export async function rescheduleServico(servicoId, newDate) {
   }
 }
 
-export async function deleteServico(servicoId) {
+export async function deleteServico(servicoId, options = {}) {
+  const { force = false } = options;
+  const linkedReports = getReportsForServico(servicoId);
+  if (linkedReports.length && !force) {
+    showToast(
+      'Esta visita tem relatórios do técnico. Confirme a eliminação no calendário (escreva ELIMINAR).',
+      'error',
+      9000,
+    );
+    return false;
+  }
+
   try {
     await deleteRelatoriosByServico(servicoId);
     try {

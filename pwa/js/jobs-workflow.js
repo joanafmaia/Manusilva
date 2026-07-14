@@ -13,7 +13,7 @@ import {
   patchTrabalho,
   formatTrabalhosError,
 } from './trabalhos-db.js';
-import { deleteRelatoriosByTrabalho } from './relatorios-db.js';
+import { deleteRelatoriosByTrabalho, getCanonicalReportForJob } from './relatorios-db.js';
 
 export async function assignJob(jobData) {
   try {
@@ -74,7 +74,18 @@ export async function rescheduleJob(jobId, newDate) {
   }
 }
 
-export async function deleteJob(jobId) {
+export async function deleteJob(jobId, options = {}) {
+  const { force = false } = options;
+  const linkedReport = getCanonicalReportForJob(jobId);
+  if (linkedReport && !force) {
+    showToast(
+      'Este trabalho tem relatório do técnico. Confirme a eliminação no calendário (escreva ELIMINAR).',
+      'error',
+      9000,
+    );
+    return false;
+  }
+
   try {
     await deleteRelatoriosByTrabalho(jobId);
     await deleteTrabalho(jobId);

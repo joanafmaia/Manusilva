@@ -88,8 +88,11 @@ import {
   getCalendarItemReport,
   getCalendarItemReports,
   getCalendarItemSubtitle,
+  getRhCalendarVisitDeleteGuard,
   getServicoActiveReports,
+  isRhVisitDeleteConfirmWord,
   isServicoMultiReportVisit,
+  rhReportStatusLine,
   resolveServicoIdForReport,
   servicoToCalendarItem,
 } from './servicos-panel-utils.js';
@@ -1134,13 +1137,8 @@ function renderAgendaListItem(job) {
   const avaliacaoHtml = avaliacao
     ? `<span class="agenda-list-avaliacao" title="${escapeHtml(avaliacao.label)}" aria-label="Avaliação: ${escapeHtml(avaliacao.label)}">${avaliacao.emoji}</span>`
     : '';
-
-  return `
-    <div class="agenda-swipe-row" data-job-id="${job.id}">
-      <div class="agenda-swipe-actions" aria-hidden="true">
-        <button type="button" class="agenda-swipe-delete" data-delete-job="${job.id}">Eliminar</button>
-      </div>
-      <div class="agenda-swipe-track">
+  const deleteGuard = getRhCalendarVisitDeleteGuard(job);
+  const listItemHtml = `
         <button type="button" class="agenda-list-item ${stateClass}" data-job-id="${job.id}" style="--tech-color:${tech?.color || '#3b82f6'}">
           <div class="agenda-list-top">
             ${renderWorkStateBadge(job, report)}
@@ -1148,7 +1146,19 @@ function renderAgendaListItem(job) {
           </div>
           <p class="agenda-list-client">${escapeHtml(client?.name || 'Cliente')}</p>
           <p class="agenda-list-meta">${escapeHtml(subtitle)} · ${escapeHtml(techLabel)}${escapeHtml(serial)}</p>
-        </button>
+        </button>`;
+
+  if (deleteGuard.hasReports) {
+    return `<div class="agenda-list-row agenda-list-row--no-delete" data-job-id="${job.id}">${listItemHtml}</div>`;
+  }
+
+  return `
+    <div class="agenda-swipe-row" data-job-id="${job.id}">
+      <div class="agenda-swipe-actions" aria-hidden="true">
+        <button type="button" class="agenda-swipe-delete" data-delete-job="${job.id}">Eliminar</button>
+      </div>
+      <div class="agenda-swipe-track">
+        ${listItemHtml}
       </div>
     </div>
   `;
@@ -1687,21 +1697,12 @@ function resolveCalendarItemById(id) {
   return getJob(id);
 }
 
-function reportStatusLine(report) {
-  if (!report) return 'Sem relatório iniciado';
-  if (report.status === 'draft') return 'Rascunho guardado pelo técnico';
-  if (report.status === 'pending_review') return 'Aguarda aprovação (RH)';
-  if (report.status === 'approved') return 'Relatório aprovado';
-  if (report.status === 'rejected') return 'Rejeitado — correção pedida';
-  return `Relatório: ${report.status}`;
-}
-
 function buildJobDetailContent(job) {
   const techLabel = getJobTechnicianLabel(job.technicianId);
   const client = getClient(job.clientId);
   const service = getServiceType(job.serviceType);
   const report = getReportForJob(job.id);
-  const reportLine = reportStatusLine(report);
+  const reportLine = rhReportStatusLine(report);
 
   const rejectionBlock =
     job.status === 'rejected' && job.rejectionNote
@@ -1737,7 +1738,7 @@ function buildCalendarItemDetailContent(item) {
             job?.numeroOrdem != null
               ? ` · OP-2026-${String(job.numeroOrdem).padStart(2, '0')}`
               : '';
-          return `<li>${serviceIconHtml(st, 'ms-icon')} ${escapeHtml(st?.label || r.serviceType || 'Relatório')}${escapeHtml(op)} — ${escapeHtml(reportStatusLine(r))}</li>`;
+          return `<li>${serviceIconHtml(st, 'ms-icon')} ${escapeHtml(st?.label || r.serviceType || 'Relatório')}${escapeHtml(op)} — ${escapeHtml(rhReportStatusLine(r))}</li>`;
         })
         .join('')}</ul>`
     : '<p class="text-muted" style="margin:0">Ainda sem relatórios — o técnico adiciona no tablet.</p>';
@@ -1779,6 +1780,7 @@ function openJobDetailModal(jobId) {
   const reports = getCalendarItemReports(item);
   const pendingReport = reports.find((r) => r.status === 'pending_review');
   const report = item.isServico ? pendingReport || getCalendarItemReport(item) : getReportForJob(item.id);
+  const deleteGuard = getRhCalendarVisitDeleteGuard(item);
   const modalTitle = item.isServico
     ? `${client?.name || 'Visita'} — ${formatDateLong(item.date)}`
     : `${getServiceType(item.serviceType)?.label || 'Serviço'} — ${client?.name || 'Serviço'} — ${formatDateLong(item.date)}`;
@@ -1788,10 +1790,14 @@ function openJobDetailModal(jobId) {
       ? `<button type="button" class="btn-primary" id="job-detail-review">${reports.filter((r) => r.status === 'pending_review').length > 1 ? 'Rever relatórios' : 'Rever relatório'}</button>`
       : '';
 
+  const deleteBtn = deleteGuard.hasReports
+    ? `<button type="button" class="btn-danger" id="job-detail-delete" title="Eliminar visita e todos os relatórios (confirmação extra)">Eliminar visita…</button>`
+    : `<button type="button" class="btn-danger" id="job-detail-delete">Eliminar</button>`;
+
   const actions = `
     <button type="button" class="btn-ghost" id="job-detail-close">Fechar</button>
     <button type="button" class="btn-secondary" id="job-detail-reschedule">Alterar data</button>
-    <button type="button" class="btn-danger" id="job-detail-delete">Eliminar</button>
+    ${deleteBtn}
     ${reviewBtn}
   `;
 
@@ -1884,33 +1890,93 @@ function confirmDeleteJob(jobId) {
   const item = resolveCalendarItemById(jobId);
   if (!item) return;
 
-  const reports = getCalendarItemReports(item);
-  const report = item.isServico ? getCalendarItemReport(item) : getReportForJob(jobId);
+  const deleteGuard = getRhCalendarVisitDeleteGuard(item);
+  const reports = deleteGuard.reports;
   const client = getClient(item.clientId);
-  let extra = '';
-  if (item.isServico && reports.length) {
-    extra = `<p class="text-muted" style="margin-top:0.5rem;font-size:0.8125rem">Serão removidos ${reports.length} relatório(s) associado(s) a este serviço.</p>`;
-  } else if (report) {
-    extra = '<p class="text-muted" style="margin-top:0.5rem;font-size:0.8125rem">O relatório associado a este trabalho também será removido.</p>';
+  const clientLabel = client?.name || 'este cliente';
+  const dateLabel = formatDateLong(item.date);
+
+  if (!deleteGuard.hasReports) {
+    const content = `
+      <p>Tem a certeza que deseja eliminar o serviço atribuído a <strong>${escapeHtml(clientLabel)}</strong> (${escapeHtml(dateLabel)})?</p>
+      <p class="text-muted" style="margin-top:0.5rem;font-size:0.8125rem">Ainda não há relatórios nesta visita.</p>
+    `;
+    const actions = `
+      <button type="button" class="btn-ghost" id="cancel-delete-job">Cancelar</button>
+      <button type="button" class="btn-danger" id="confirm-delete-job">Eliminar</button>
+    `;
+    const overlay = openModal('Eliminar serviço', content, actions);
+    overlay.querySelector('#cancel-delete-job')?.addEventListener('click', closeModal);
+    overlay.querySelector('#confirm-delete-job')?.addEventListener('click', async () => {
+      const ok = item.isServico ? await deleteServico(jobId) : await deleteJob(jobId);
+      if (ok) {
+        closeModal();
+        renderCalendar();
+      }
+    });
+    return;
   }
 
+  const reportsList = reports
+    .map((r) => {
+      const st = getServiceType(r.serviceType);
+      const job = r.jobId ? getJob(r.jobId) : null;
+      const op =
+        job?.numeroOrdem != null
+          ? ` · OP-2026-${String(job.numeroOrdem).padStart(2, '0')}`
+          : '';
+      return `<li><strong>${escapeHtml(st?.label || r.serviceType || 'Relatório')}${escapeHtml(op)}</strong> — ${escapeHtml(rhReportStatusLine(r))}</li>`;
+    })
+    .join('');
+
   const content = `
-    <p>Tem a certeza que deseja eliminar o serviço atribuído a <strong>${escapeHtml(client?.name || 'este cliente')}</strong> (${escapeHtml(formatDateLong(item.date))})?</p>
-    ${extra}
+    <div class="job-detail-rejection" style="margin-bottom:1rem">
+      <strong>Esta visita tem trabalho do técnico.</strong>
+      <p style="margin:0.35rem 0 0">Eliminar apaga <strong>permanentemente</strong> os relatórios abaixo. O técnico perde o trabalho guardado no tablet.</p>
+    </div>
+    <p>Visita: <strong>${escapeHtml(clientLabel)}</strong> (${escapeHtml(dateLabel)})</p>
+    <ul class="job-detail-reports" style="margin:0.75rem 0;padding-left:1.1rem">${reportsList}</ul>
+    <p class="text-muted" style="font-size:0.8125rem;margin-bottom:0.5rem">
+      Para confirmar, escreva <strong>${escapeHtml(deleteGuard.confirmWord)}</strong> (maiúsculas):
+    </p>
+    <div class="form-group" style="margin:0">
+      <input type="text" class="form-input" id="confirm-delete-typed" autocomplete="off" spellcheck="false" placeholder="${escapeHtml(deleteGuard.confirmWord)}">
+    </div>
   `;
 
   const actions = `
     <button type="button" class="btn-ghost" id="cancel-delete-job">Cancelar</button>
-    <button type="button" class="btn-danger" id="confirm-delete-job">Eliminar</button>
+    <button type="button" class="btn-danger" id="confirm-delete-job" disabled>Eliminar visita e relatórios</button>
   `;
 
-  const overlay = openModal('Eliminar serviço', content, actions);
+  const overlay = openModal('Eliminar visita com relatórios', content, actions);
+  const typedInput = overlay.querySelector('#confirm-delete-typed');
+  const confirmBtn = overlay.querySelector('#confirm-delete-job');
+
+  const syncConfirmEnabled = () => {
+    if (!confirmBtn || !typedInput) return;
+    confirmBtn.disabled = !isRhVisitDeleteConfirmWord(typedInput.value);
+  };
+  typedInput?.addEventListener('input', syncConfirmEnabled);
+
   overlay.querySelector('#cancel-delete-job')?.addEventListener('click', closeModal);
   overlay.querySelector('#confirm-delete-job')?.addEventListener('click', async () => {
-    const ok = item.isServico ? await deleteServico(jobId) : await deleteJob(jobId);
+    if (!isRhVisitDeleteConfirmWord(typedInput?.value)) {
+      showToast(`Escreva ${deleteGuard.confirmWord} para confirmar.`, 'error');
+      return;
+    }
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = 'A eliminar…';
+    const ok = item.isServico
+      ? await deleteServico(jobId, { force: true })
+      : await deleteJob(jobId, { force: true });
     if (ok) {
       closeModal();
       renderCalendar();
+    } else {
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = 'Eliminar visita e relatórios';
+      syncConfirmEnabled();
     }
   });
 }

@@ -71,6 +71,23 @@ describe('servicos-panel-utils — técnico', () => {
     assert.equal(canRemoveServicoReport({ status: 'rejected' }), false);
   });
 
+  it('getRhCalendarVisitDeleteGuard — exige confirmação quando há relatórios', async () => {
+    const {
+      getRhCalendarVisitDeleteGuard,
+      isRhVisitDeleteConfirmWord,
+      RH_VISIT_DELETE_CONFIRM_WORD,
+      servicoToCalendarItem,
+    } = await import('../js/servicos-panel-utils.js');
+    const servicosDb = await import('../js/servicos-db.js');
+    const item = servicoToCalendarItem(servicosDb.getServico('svc-1'));
+    const guard = getRhCalendarVisitDeleteGuard(item);
+    assert.equal(guard.hasReports, true);
+    assert.equal(guard.reports.length, 1);
+    assert.equal(guard.confirmWord, RH_VISIT_DELETE_CONFIRM_WORD);
+    assert.equal(isRhVisitDeleteConfirmWord('eliminar'), true);
+    assert.equal(isRhVisitDeleteConfirmWord('apagar'), false);
+  });
+
   it('getReportsForServico — ignora relatórios eliminados localmente', async () => {
     const store = new Map();
     globalThis.localStorage = globalThis.localStorage || {
@@ -83,5 +100,17 @@ describe('servicos-panel-utils — técnico', () => {
     markReportLocallyDeleted({ id: 'r1' });
     const { getReportsForServico } = await import('../js/servicos-panel-utils.js');
     assert.equal(getReportsForServico('svc-1').length, 0);
+  });
+
+  it('getRhCalendarVisitDeleteGuard — visita sem relatórios pode eliminar-se', async () => {
+    const { getRhCalendarVisitDeleteGuard, servicoToCalendarItem } = await import(
+      '../js/servicos-panel-utils.js'
+    );
+    const servicosDb = await import('../js/servicos-db.js');
+    const relatoriosDb = await import('../js/relatorios-db.js');
+    relatoriosDb.invalidateReportsCache();
+    const item = servicoToCalendarItem(servicosDb.getServico('svc-1'));
+    const guard = getRhCalendarVisitDeleteGuard(item);
+    assert.equal(guard.hasReports, false);
   });
 });

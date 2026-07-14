@@ -413,6 +413,35 @@ export function getAvailableServiceTypesForServico(servicoId, allTypes = []) {
   return allTypes.filter((t) => t?.id);
 }
 
+/** Etiqueta de estado do relatório no painel RH / calendário. */
+export function rhReportStatusLine(report) {
+  if (!report) return 'Sem relatório iniciado';
+  if (report.status === 'draft') return 'Rascunho no tablet do técnico';
+  if (report.status === 'pending_review') return 'Aguarda aprovação (RH)';
+  if (report.status === 'approved') return 'Relatório aprovado';
+  if (report.status === 'rejected') return 'Rejeitado — correção pedida';
+  return `Relatório: ${report.status}`;
+}
+
+export const RH_VISIT_DELETE_CONFIRM_WORD = 'ELIMINAR';
+
+/**
+ * Proteção contra eliminação acidental de visitas com trabalho do técnico (calendário RH).
+ * @param {object|null|undefined} item — item do calendário (visita ou trabalho legado)
+ */
+export function getRhCalendarVisitDeleteGuard(item) {
+  const reports = getCalendarItemReports(item);
+  return {
+    reports,
+    hasReports: reports.length > 0,
+    confirmWord: RH_VISIT_DELETE_CONFIRM_WORD,
+  };
+}
+
+export function isRhVisitDeleteConfirmWord(value) {
+  return String(value || '').trim().toUpperCase() === RH_VISIT_DELETE_CONFIRM_WORD;
+}
+
 /** Rascunhos ainda não submetidos à RH podem ser removidos pelo técnico. */
 export function canRemoveServicoReport(report) {
   return report?.status === 'draft';
