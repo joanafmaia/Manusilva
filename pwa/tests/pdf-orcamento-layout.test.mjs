@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { computeOrcamentoTableLayout, normalizeLegalParagraphs } from '../js/pdf-orcamento.js';
+import { computeOrcamentoTableLayout, formatOrcamentoPdfMoneyCell, formatPrazoEntregaForPdf, normalizeLegalParagraphs } from '../js/pdf-orcamento.js';
 
 describe('pdf-orcamento layout', () => {
   it('ancora a tabela acima do rodapé fixo mesmo com muitas linhas vazias', () => {
@@ -14,11 +14,11 @@ describe('pdf-orcamento layout', () => {
     assert.ok(layout.anchoredStartY + layout.blockH < 189);
   });
 
-  it('posiciona a tabela após o equipamento quando há pouco conteúdo', () => {
+  it('posiciona a tabela após o equipamento quando o conteúdo empurra o fluxo', () => {
     const linhas = [{ descricao: 'Roda de Tração', qtd: '1', precoUnit: '145' }];
-    const layout = computeOrcamentoTableLayout(linhas, [], { contentEndY: 102 });
-    assert.ok(layout.startY < layout.anchoredStartY, 'tabela deve seguir o fluxo do conteúdo');
-    assert.ok(layout.startY >= 105);
+    const layout = computeOrcamentoTableLayout(linhas, [], { contentEndY: 165 });
+    assert.ok(layout.startY >= 168);
+    assert.ok(layout.startY > layout.anchoredStartY, 'tabela deve seguir o fluxo do conteúdo');
   });
 
   it('mantém pelo menos uma linha quando não há artigos', () => {
@@ -34,5 +34,23 @@ describe('pdf-orcamento layout', () => {
     assert.ok(paras.some((p) => /^III – Deveres do Cliente$/i.test(p)));
     assert.ok(paras.some((p) => /^O cliente obriga-se a:$/i.test(p)));
     assert.ok(paras.some((p) => /^a\)/.test(p)));
+  });
+
+  it('formata prazo de entrega só numérico com dias úteis', () => {
+    assert.equal(formatPrazoEntregaForPdf('5'), '5 dias úteis');
+    assert.equal(formatPrazoEntregaForPdf('5 dias'), '5 dias');
+    assert.equal(formatPrazoEntregaForPdf('—'), '—');
+  });
+
+  it('formata células monetárias da tabela com €', () => {
+    assert.equal(formatOrcamentoPdfMoneyCell('300,00'), '300,00 €');
+    assert.equal(formatOrcamentoPdfMoneyCell('12,00 €'), '12,00 €');
+    assert.equal(formatOrcamentoPdfMoneyCell(''), '');
+  });
+
+  it('remove pontuação duplicada no texto legal', () => {
+    const paras = normalizeLegalParagraphs('Serviços da Manusilva. . Outro parágrafo.');
+    assert.ok(paras.some((p) => /Manusilva\.\s*Outro/.test(p) || p.includes('Manusilva.')));
+    assert.equal(paras.join(' ').includes('. .'), false);
   });
 });

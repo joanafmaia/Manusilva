@@ -340,8 +340,8 @@ function drawOrcamentoTable(doc, linhas, startY, { maquinas = [], equipamentoCam
           [
             row.descricao || '—',
             row.qtd || '1',
-            row.precoUnit ? formatEuro(row.precoUnit) : '',
-            total,
+            row.precoUnit ? formatOrcamentoPdfMoneyCell(formatEuro(row.precoUnit)) : '',
+            formatOrcamentoPdfMoneyCell(total),
           ],
           {},
         );
@@ -359,8 +359,8 @@ function drawOrcamentoTable(doc, linhas, startY, { maquinas = [], equipamentoCam
     y = drawRow([
       row.descricao || '—',
       row.qtd || '1',
-      row.precoUnit ? formatEuro(row.precoUnit) : '',
-      total,
+      row.precoUnit ? formatOrcamentoPdfMoneyCell(formatEuro(row.precoUnit)) : '',
+      formatOrcamentoPdfMoneyCell(total),
     ]);
   });
   return y + 4;
@@ -422,6 +422,7 @@ export function normalizeLegalParagraphs(raw) {
   text = text.replace(/([.;:])\s*([a-e]\))/gi, '$1\n$2');
   text = text.replace(/([a-e]\))\s*/gi, '$1 ');
   text = text.replace(/([a-záéíóúãõç])([A-ZÁÉÍÓÚ])/g, '$1 $2');
+  text = text.replace(/\.\s+\./g, '.');
   text = text.replace(/;\s*/g, ';\n');
   return text
     .split(/\n+/)
@@ -511,15 +512,34 @@ export function resolveOrcamentoEquipamentoPdfBlocks(fill = {}) {
 }
 
 function drawOrcamentoEquipamentoSeparator(doc, y) {
-  const lineY = y + 2;
-  doc.setDrawColor(148, 163, 184);
-  doc.setLineWidth(0.5);
+  y += 3;
+  const lineY = y + 1;
+  doc.setDrawColor(100, 116, 139);
+  doc.setLineWidth(0.65);
   doc.line(MARGIN, lineY, MARGIN + CONTENT_W, lineY);
-  return lineY + 5;
+  return lineY + 7;
 }
 
 function measureOrcamentoEquipamentoSeparator(y) {
-  return y + 2 + 5;
+  return y + 3 + 1 + 7;
+}
+
+/** Valor monetário na tabela do PDF — sempre com símbolo €. */
+export function formatOrcamentoPdfMoneyCell(value) {
+  const text = String(value ?? '').trim();
+  if (!text || text === '—') return '';
+  const amount = pdfSafeText(text.replace(/\s*€\s*$/i, '').trim());
+  if (!amount) return '';
+  return `${amount} €`;
+}
+
+/** Prazo de entrega — acrescenta unidade quando só há número. */
+export function formatPrazoEntregaForPdf(value) {
+  const text = String(value ?? '').trim();
+  if (!text || text === '—') return '—';
+  if (/dias?(\s+úteis)?/i.test(text)) return text;
+  if (/^\d+$/.test(text)) return `${text} dias úteis`;
+  return text;
 }
 
 function createOrcamentoTableRowDrawer(doc, startY) {
@@ -637,8 +657,8 @@ function drawOrcamentoMachineTableSection(doc, linhas, startY) {
       [
         row.descricao || '—',
         row.qtd || '1',
-        row.precoUnit ? formatEuro(row.precoUnit) : '',
-        total,
+        row.precoUnit ? formatOrcamentoPdfMoneyCell(formatEuro(row.precoUnit)) : '',
+        formatOrcamentoPdfMoneyCell(total),
       ],
       {},
     );
@@ -691,7 +711,7 @@ function drawOrcamentoMaquinaSections(doc, fill, startY, maxEndY = CONTENT_MAX_Y
       y = drawHorizontalEquipFields(doc, equipRows, y, maxEndY);
     }
     y = drawOrcamentoMachineTableSection(doc, group.linhas, y);
-    if (groupIndex < groups.length - 1 && y + 8 <= maxEndY) {
+    if (groupIndex < groups.length - 1 && y + 12 <= maxEndY) {
       y = drawOrcamentoEquipamentoSeparator(doc, y);
     }
   });
@@ -703,7 +723,7 @@ function measureOrcamentoObservacoesHeight(doc, fill, startY, maxEndY = CONTENT_
   const text = String(fill.observacoes_cliente || '').trim();
   if (!text || text === '—') return startY;
   const lineStep = 4.2;
-  let y = startY;
+  let y = startY + 4;
   if (y + 5 > maxEndY) return startY;
   y += 5;
   pdfSetFont(doc, 'normal');
@@ -778,7 +798,7 @@ function drawOrcamentoObservacoesCliente(doc, fill, startY, options = {}) {
   if (!text || text === '—') return startY;
   const maxEndY = Number.isFinite(options.maxEndY) ? options.maxEndY : CONTENT_MAX_Y;
   const lineStep = options.lineStep ?? 4.2;
-  let y = startY;
+  let y = startY + 4;
   if (y + 5 > maxEndY) return startY;
 
   pdfSetFont(doc, 'bold');
@@ -825,10 +845,7 @@ function drawOrcamentoFooter(doc, fill) {
   };
 
   drawTaxasSaida();
-  drawLabelValue(
-    'Prazo de Entrega: ',
-    fill.prazo_entrega === '—' ? '—' : fill.prazo_entrega,
-  );
+  drawLabelValue('Prazo de Entrega: ', formatPrazoEntregaForPdf(fill.prazo_entrega));
   drawLabelValue('Forma de Pagamento: ', fill.forma_pagamento);
   drawLabelValue('Validade do orçamento – ', fill.validade_orcamento);
 
@@ -968,7 +985,7 @@ function drawManutencaoMaquinaFooter(doc, fill) {
 
   pdfSetFont(doc, 'normal');
   const blocks = [
-    `Prazo de Entrega: ${fill.prazo_entrega === '—' ? '—' : pdfSafeText(fill.prazo_entrega)}`,
+    `Prazo de Entrega: ${pdfSafeText(formatPrazoEntregaForPdf(fill.prazo_entrega))}`,
     `Forma de Pagamento: ${pdfSafeText(fill.forma_pagamento)}`,
     `Validade do orçamento – ${pdfSafeText(fill.validade_orcamento)}`,
   ];
