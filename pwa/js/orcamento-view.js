@@ -30,20 +30,29 @@ export function renderOrcamentoMetaBar(report, { client, job, tech } = {}) {
  */
 export function mountOrcamentoEditorView(root, report, options = {}) {
   const client = options.client ?? getClient(report?.clientId);
-  root.innerHTML = `
-    ${renderOrcamentoMetaBar(report, { client })}
-    ${renderOrcamentoEditor(report, { client })}
-  `;
+  let currentReport = report;
 
-  bindOrcamentoEditor(root, {
-    report,
-    onUpdated: (updated) => {
-      options.onUpdated?.(updated);
-      const num = updated.data?.orcamento?.numeroFormatado;
-      if (num) options.onNumeroChange?.(num);
-    },
-    onSent: options.onSent,
-  });
+  const render = (activeReport) => {
+    currentReport = activeReport;
+    root.innerHTML = `
+      ${renderOrcamentoMetaBar(activeReport, { client })}
+      ${renderOrcamentoEditor(activeReport, { client })}
+    `;
+
+    bindOrcamentoEditor(root, {
+      report: activeReport,
+      onUpdated: (updated) => {
+        currentReport = updated;
+        options.onUpdated?.(updated);
+        const num = updated.data?.orcamento?.numeroFormatado;
+        if (num) options.onNumeroChange?.(num);
+      },
+      onSent: options.onSent,
+      onTipoChange: (nextReport) => render(nextReport),
+    });
+  };
+
+  render(currentReport);
 }
 
 export function resolveOrcamentoTitleNumero(report) {

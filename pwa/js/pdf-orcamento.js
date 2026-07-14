@@ -6,8 +6,6 @@
 
 import { COMPANY } from './mock_data.js';
 import { getJob } from './app.js';
-import { isLogoConfigured, getPdfLogoFormat } from './brand-ui.js';
-import MANUSILVA_LOGO from './logo_data.js';
 import { buildOrcamentoFillData } from './orcamento-fill-data.js';
 import {
   formatOrcamentoMaquinaPdfTableLabel,
@@ -50,6 +48,19 @@ import {
 } from './pdf-design-system.js';
 import { loadJsPDF } from './pdf-report.js';
 import { stampOrcamentoCertificacaoSelosAllPages } from './pdf-orcamento-certificacao.js';
+import { isLogoConfigured, getPdfLogoFormat } from './brand-ui.js';
+import MANUSILVA_LOGO from './logo_data.js';
+import {
+  MANUTENCAO_BATERIA_ESPECIFICACAO_TITULO,
+  MANUTENCAO_BATERIA_INTRO,
+  MANUTENCAO_BATERIA_MO_OBS,
+  MANUTENCAO_BATERIA_NOTA_PECAS,
+  MANUTENCAO_BATERIA_PARAGRAFOS,
+  MANUTENCAO_BATERIA_TRABALHOS,
+  MANUTENCAO_BATERIA_TRABALHOS_INTRO,
+  formatLinhaValorManutencaoBateria,
+  isManutencaoBateriaOrcamento,
+} from './orcamento-templates.js';
 
 const MARGIN = PDF_MARGIN;
 const CONTENT_W = PDF_CONTENT_W;
@@ -180,7 +191,8 @@ function drawOrcamentoLetterhead(doc, fill) {
   doc.setTextColor(...PDF_COLOR_TEXT_DARK);
   doc.text('PROPOSTA COMERCIAL', rightCenterX, ty, { align: 'center' });
   ty += 6;
-  doc.text('ORÇAMENTOS', rightCenterX, ty, { align: 'center' });
+  const subtitulo = String(fill.proposta_subtitulo || 'ORÇAMENTOS').trim() || 'ORÇAMENTOS';
+  doc.text(subtitulo, rightCenterX, ty, { align: 'center' });
   ty += 11;
 
   const clienteLabel = pdfSafeText(fill.cliente_nome).toUpperCase();
@@ -558,6 +570,135 @@ function drawOrcamentoFooter(doc, fill) {
   pdfSetFont(doc, 'normal');
 }
 
+function drawOrcamentoBodyParagraphs(doc, paragraphs, startY, options = {}) {
+  const maxEndY = Number.isFinite(options.maxEndY) ? options.maxEndY : CONTENT_MAX_Y;
+  const lineStep = options.lineStep ?? 4.8;
+  let y = startY;
+
+  pdfSetFont(doc, 'normal');
+  doc.setFontSize(PDF_FONT_BODY);
+  doc.setTextColor(...PDF_COLOR_TEXT_DARK);
+
+  paragraphs.forEach((paragraph) => {
+    const text = String(paragraph || '').trim();
+    if (!text) return;
+    pdfSplitText(doc, text, CONTENT_W).forEach((line) => {
+      if (y + lineStep > maxEndY) return;
+      doc.text(line, MARGIN, y);
+      y += lineStep;
+    });
+    y += 2;
+  });
+
+  return y;
+}
+
+function drawOrcamentoBulletList(doc, items, startY, options = {}) {
+  const maxEndY = Number.isFinite(options.maxEndY) ? options.maxEndY : CONTENT_MAX_Y;
+  const lineStep = options.lineStep ?? 4.5;
+  const bulletIndent = 5;
+  const textWidth = CONTENT_W - bulletIndent;
+  let y = startY;
+
+  pdfSetFont(doc, 'normal');
+  doc.setFontSize(PDF_FONT_BODY);
+  doc.setTextColor(...PDF_COLOR_TEXT_DARK);
+
+  items.forEach((item) => {
+    const text = String(item || '').trim();
+    if (!text) return;
+    if (y + lineStep > maxEndY) return;
+    doc.text('•', MARGIN + 1, y);
+    pdfSplitText(doc, text, textWidth).forEach((line, lineIndex) => {
+      if (lineIndex > 0) {
+        y += lineStep;
+        if (y + lineStep > maxEndY) return;
+      }
+      doc.text(line, MARGIN + bulletIndent, y);
+    });
+    y += lineStep + 0.5;
+  });
+
+  return y;
+}
+
+function drawManutencaoBateriaFooter(doc, fill, startY) {
+  let y = startY + 6;
+  pdfSetFont(doc, 'normal');
+  doc.setFontSize(PDF_FONT_BODY);
+  doc.setTextColor(...PDF_COLOR_TEXT_DARK);
+
+  const valorLine = formatLinhaValorManutencaoBateria({
+    valorManutencaoVisita: fill.valor_manutencao_visita,
+    periodicidadeManutencao: fill.periodicidade_manutencao,
+  });
+
+  pdfSetFont(doc, 'bold');
+  pdfSplitText(doc, valorLine, CONTENT_W).forEach((line) => {
+    if (y > FOOTER_TOP - 8) return;
+    doc.text(line, MARGIN, y);
+    y += 5;
+  });
+
+  pdfSetFont(doc, 'normal');
+  const blocks = [
+    MANUTENCAO_BATERIA_MO_OBS,
+    `Forma de Pagamento: ${pdfSafeText(fill.forma_pagamento)}`,
+    `Validade do orçamento – ${pdfSafeText(fill.validade_orcamento)}`,
+    MANUTENCAO_BATERIA_NOTA_PECAS,
+  ];
+
+  blocks.forEach((text) => {
+    pdfSplitText(doc, text, CONTENT_W).forEach((line) => {
+      if (y > FOOTER_TOP - 6) return;
+      doc.text(line, MARGIN, y);
+      y += 4.8;
+    });
+    y += 1.5;
+  });
+
+  return y;
+}
+
+async function renderManutencaoBateriaOrcamentoPDF(doc, report, job) {
+  const fill = buildOrcamentoFillData(report, job);
+  const legalText = await loadLegalText();
+
+  let y = drawOrcamentoLetterhead(doc, fill);
+
+  pdfSetFont(doc, 'normal');
+  doc.setFontSize(PDF_FONT_BODY);
+  y = drawOrcamentoBodyParagraphs(doc, [MANUTENCAO_BATERIA_INTRO], y);
+  y += 3;
+
+  pdfSetFont(doc, 'bold');
+  doc.setFontSize(PDF_FONT_BODY);
+  if (canDrawBodyLine(y)) {
+    doc.text(MANUTENCAO_BATERIA_ESPECIFICACAO_TITULO, MARGIN, y);
+    y = advanceBodyY(y, 6);
+  }
+
+  pdfSetFont(doc, 'normal');
+  y = drawOrcamentoBodyParagraphs(doc, [MANUTENCAO_BATERIA_TRABALHOS_INTRO], y, { lineStep: 4.5 });
+  y = drawOrcamentoBulletList(doc, MANUTENCAO_BATERIA_TRABALHOS, y);
+  y += 2;
+  y = drawOrcamentoBodyParagraphs(doc, MANUTENCAO_BATERIA_PARAGRAFOS, y, { lineStep: 4.5, maxEndY: FOOTER_TOP - 12 });
+
+  drawManutencaoBateriaFooter(doc, fill, Math.min(y, FOOTER_TOP - 42));
+
+  doc.setPage(1);
+  drawClientApprovalBox(doc);
+
+  if (legalText) {
+    drawLegalPage(doc, legalText);
+  }
+
+  stampMs015DocumentRefAllPages(doc);
+  await stampOrcamentoCertificacaoSelosAllPages(doc);
+
+  return doc;
+}
+
 /**
  * @param {object} report
  * @returns {Promise<import('jspdf').jsPDF>}
@@ -569,6 +710,11 @@ export async function renderOrcamentoPDF(report) {
   pdfSetFont(doc, 'normal');
 
   const job = report?.jobId ? getJob(report.jobId) : null;
+
+  if (isManutencaoBateriaOrcamento(report)) {
+    return renderManutencaoBateriaOrcamentoPDF(doc, report, job);
+  }
+
   const fill = buildOrcamentoFillData(report, job);
   const legalText = await loadLegalText();
 

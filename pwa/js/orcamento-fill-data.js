@@ -19,6 +19,13 @@ import {
   normalizeOrcamentoMaquinasList,
 } from './orcamento-maquinas.js';
 import { normalizeEquipamentoCampos, suggestEquipamentoCampos } from './orcamento-equipamento-campos.js';
+import {
+  MANUTENCAO_BATERIA_INTRO,
+  MANUTENCAO_BATERIA_PDF_SUBTITULO,
+  applyManutencaoBateriaTemplateMeta,
+  isManutencaoBateriaOrcamento,
+} from './orcamento-templates.js';
+import { getOrcamentoTipoProposta } from './orcamento-tipo-proposta.js';
 
 const MESES_PT = [
   'Janeiro',
@@ -66,7 +73,11 @@ export function resolveOrcamentoDocumentDate(report) {
 export function buildOrcamentoFillData(report, job = null) {
   const resolvedJob = job || (report?.jobId ? getJob(report.jobId) : null);
   const year = new Date().getFullYear();
-  const orcamentoMeta = getReportOrcamentoMeta(report);
+  const orcamentoMetaRaw = getReportOrcamentoMeta(report);
+  const isBateriaTemplate = isManutencaoBateriaOrcamento(report);
+  const orcamentoMeta = isBateriaTemplate
+    ? applyManutencaoBateriaTemplateMeta(orcamentoMetaRaw || {}, report)
+    : orcamentoMetaRaw;
   const cabecalho = resolveOrcamentoCabecalho(report);
   const equipamentoCampos = normalizeEquipamentoCampos(
     orcamentoMeta?.equipamentoCampos ??
@@ -96,11 +107,17 @@ export function buildOrcamentoFillData(report, job = null) {
   });
 
   const linhas = normalizeOrcamentoLinhas(
-    orcamentoMeta?.linhas?.length ? orcamentoMeta.linhas : suggestOrcamentoLinhas(report),
+    isBateriaTemplate
+      ? orcamentoMeta.linhas
+      : orcamentoMeta?.linhas?.length
+        ? orcamentoMeta.linhas
+        : suggestOrcamentoLinhas(report),
     { machineCount: maquinasForPdf.length },
   );
-  const taxasSaidaLista = normalizeTaxasSaida(orcamentoMeta);
-  const prazoEntrega = String(orcamentoMeta?.prazoEntrega || '').trim();
+  const taxasSaidaLista = isBateriaTemplate
+    ? []
+    : normalizeTaxasSaida(orcamentoMeta);
+  const prazoEntrega = isBateriaTemplate ? '' : String(orcamentoMeta?.prazoEntrega || '').trim();
   const totals = computeOrcamentoTotals(linhas, orcamentoMeta);
 
   const dataExtenso = formatOrcamentoDateLong(resolveOrcamentoDocumentDate(report));
@@ -115,8 +132,12 @@ export function buildOrcamentoFillData(report, job = null) {
     cliente_ac: display(cabecalho.clienteAc),
     orcamento_numero: orcamentoNumero,
     data_extenso: dataExtenso,
-    texto_intro: display(cabecalho.textoIntro),
-    intro_servico: display(cabecalho.textoIntro),
+    proposta_subtitulo: isBateriaTemplate ? MANUTENCAO_BATERIA_PDF_SUBTITULO : 'ORÇAMENTOS',
+    texto_intro: isBateriaTemplate ? MANUTENCAO_BATERIA_INTRO : display(cabecalho.textoIntro),
+    intro_servico: isBateriaTemplate ? MANUTENCAO_BATERIA_INTRO : display(cabecalho.textoIntro),
+    valor_manutencao_visita: orcamentoMeta?.valorManutencaoVisita || '',
+    periodicidade_manutencao: orcamentoMeta?.periodicidadeManutencao || '',
+    tipo_proposta: getOrcamentoTipoProposta(report),
     maquina:
       maquinasForPdf.length > 1
         ? formatOrcamentoMaquinasDocxText(maquinasForPdf, equipamentoCampos)

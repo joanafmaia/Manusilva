@@ -11,6 +11,10 @@ import {
   normalizeOrcamentoMaquinasList,
 } from './orcamento-maquinas.js';
 import { suggestOrcamentoTipoProposta, normalizeOrcamentoTipoProposta } from './orcamento-tipo-proposta.js';
+import {
+  applyManutencaoBateriaTemplateMeta,
+  isManutencaoBateriaTipo,
+} from './orcamento-templates.js';
 
 const IVA_RATE = 0.23;
 const MIN_LINHAS_VAZIAS = 3;
@@ -256,7 +260,7 @@ export function buildOrcamentoMetaDraft(report, numeroReservado = null) {
   const cabecalho = resolveOrcamentoCabecalho(report);
   const tipoProposta = normalizeOrcamentoTipoProposta(existing?.tipoProposta, report);
 
-  return {
+  const draft = {
     numeroSequencial: sequencial,
     ano,
     numeroFormatado:
@@ -272,40 +276,69 @@ export function buildOrcamentoMetaDraft(report, numeroReservado = null) {
     subtotal: formatEuro(totals.subtotal),
     iva: formatEuro(totals.iva),
     total: formatEuro(totals.total),
+    periodicidadeManutencao: existing?.periodicidadeManutencao,
+    valorManutencaoVisita: existing?.valorManutencaoVisita,
   };
+
+  if (isManutencaoBateriaTipo(tipoProposta)) {
+    const templated = applyManutencaoBateriaTemplateMeta(draft, report);
+    const templateTotals = computeOrcamentoTotals(templated.linhas, templated);
+    return {
+      ...templated,
+      subtotal: formatEuro(templateTotals.subtotal),
+      iva: formatEuro(templateTotals.iva),
+      total: formatEuro(templateTotals.total),
+    };
+  }
+
+  return draft;
 }
 
 export function readOrcamentoFormFromDom(root, report) {
-  const linhas = [];
-  root?.querySelectorAll('[data-orcamento-linha]').forEach((row) => {
-    const descricao = row.querySelector('[data-orc-field="descricao"]')?.value?.trim() || '';
-    const qtd = row.querySelector('[data-orc-field="qtd"]')?.value?.trim() || '1';
-    const precoUnit = row.querySelector('[data-orc-field="precoUnit"]')?.value?.trim() || '';
-    const equipamentoRaw = row.querySelector('[data-orc-field="equipamentoIndex"]')?.value;
-    const total = computeLinhaTotal({ qtd, precoUnit });
-    linhas.push({
-      descricao,
-      qtd,
-      precoUnit,
-      total: total > 0 ? formatEuro(total) : '',
-      equipamentoIndex: equipamentoRaw != null && equipamentoRaw !== '' ? Number(equipamentoRaw) : 0,
-    });
-  });
-
-  const taxaSlots = readTaxasSaidaFromDom(root);
-  const { taxasSaida, taxaSaida } = formatTaxasSaidaMetaFromSlots(taxaSlots);
-  const prazoEntrega = root.querySelector('[data-orc-field="prazoEntrega"]')?.value?.trim() || '';
-  const emailDestinatario =
-    root.querySelector('[data-orc-field="emailDestinatario"]')?.value?.trim() || '';
-  const cabecalho = readOrcamentoCabecalhoFromDom(root, report);
-  const machineCount = Math.max(1, cabecalho.maquinas?.length || 1);
-  const totals = computeOrcamentoTotals(linhas, taxaSlots);
   const existing = getReportOrcamentoMeta(report) || {};
   const domMeta = getReportOrcamentoMetaFromDom(root);
   const tipoRaw = root.querySelector('[data-orc-field="tipoProposta"]')?.value?.trim() || '';
   const tipoProposta = normalizeOrcamentoTipoProposta(tipoRaw || existing.tipoProposta, report);
+  const isBateriaTemplate = root?.dataset?.orcTemplate === 'manutencao_bateria' || isManutencaoBateriaTipo(tipoProposta);
 
-  return {
+  let linhas = [];
+  if (!isBateriaTemplate) {
+    root?.querySelectorAll('[data-orcamento-linha]').forEach((row) => {
+      const descricao = row.querySelector('[data-orc-field="descricao"]')?.value?.trim() || '';
+      const qtd = row.querySelector('[data-orc-field="qtd"]')?.value?.trim() || '1';
+      const precoUnit = row.querySelector('[data-orc-field="precoUnit"]')?.value?.trim() || '';
+      const equipamentoRaw = row.querySelector('[data-orc-field="equipamentoIndex"]')?.value;
+      const total = computeLinhaTotal({ qtd, precoUnit });
+      linhas.push({
+        descricao,
+        qtd,
+        precoUnit,
+        total: total > 0 ? formatEuro(total) : '',
+        equipamentoIndex: equipamentoRaw != null && equipamentoRaw !== '' ? Number(equipamentoRaw) : 0,
+      });
+    });
+  }
+
+  const taxaSlots = isBateriaTemplate ? [] : readTaxasSaidaFromDom(root);
+  const { taxasSaida, taxaSaida } = formatTaxasSaidaMetaFromSlots(taxaSlots);
+  const prazoEntrega = isBateriaTemplate
+    ? ''
+    : root.querySelector('[data-orc-field="prazoEntrega"]')?.value?.trim() || '';
+  const emailDestinatario =
+    root.querySelector('[data-orc-field="emailDestinatario"]')?.value?.trim() || '';
+  const cabecalho = readOrcamentoCabecalhoFromDom(root, report);
+  const machineCount = Math.max(1, cabecalho.maquinas?.length || 1);
+
+  const valorManutencaoVisita =
+    root.querySelector('[data-orc-field="valorManutencaoVisita"]')?.value?.trim() ||
+    existing.valorManutencaoVisita ||
+    '';
+  const periodicidadeManutencao =
+    root.querySelector('[data-orc-field="periodicidadeManutencao"]')?.value?.trim() ||
+    existing.periodicidadeManutencao ||
+    '';
+
+  let meta = {
     ...existing,
     ...domMeta,
     ...cabecalho,
@@ -314,11 +347,30 @@ export function readOrcamentoFormFromDom(root, report) {
     taxasSaida,
     taxaSaida,
     prazoEntrega,
+    valorManutencaoVisita,
+    periodicidadeManutencao,
+    atualizadoEm: new Date().toISOString(),
+  };
+
+  if (isBateriaTemplate) {
+    meta = applyManutencaoBateriaTemplateMeta(meta, report);
+    const totals = computeOrcamentoTotals(meta.linhas, meta);
+    return {
+      ...meta,
+      linhas: meta.linhas,
+      subtotal: formatEuro(totals.subtotal),
+      iva: formatEuro(totals.iva),
+      total: formatEuro(totals.total),
+    };
+  }
+
+  const totals = computeOrcamentoTotals(linhas, taxaSlots);
+  return {
+    ...meta,
     linhas: normalizeOrcamentoLinhas(linhas, { machineCount }),
     subtotal: formatEuro(totals.subtotal),
     iva: formatEuro(totals.iva),
     total: formatEuro(totals.total),
-    atualizadoEm: new Date().toISOString(),
   };
 }
 
