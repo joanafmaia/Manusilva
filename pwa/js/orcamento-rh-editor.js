@@ -34,12 +34,13 @@ import {
   renderOrcamentoTipoPropostaSelect,
 } from './orcamento-tipo-proposta.js';
 import {
+  buildManutencaoBateriaPeriodicidadeParagrafo,
   formatLinhaValorManutencaoBateria,
   formatValorManutencaoBateriaInput,
   isManutencaoBateriaTipo,
   isManutencaoMaquinaTipo,
   MANUTENCAO_MAQUINA_VALOR_INSPECAO_DL50_DEFAULT,
-  renderManutencaoBateriaPeriodicidadeSelect,
+  renderManutencaoBateriaPeriodicidadeInput,
   renderManutencaoBateriaTemplatePreview,
   renderManutencaoMaquinaPrecoPreviewHtml,
   renderManutencaoMaquinaTemplatePreview,
@@ -209,6 +210,9 @@ function refreshTemplateTotals(root, report = null) {
     root.querySelector('[data-orc-valor-linha-preview]')?.replaceChildren(
       document.createTextNode(formatLinhaValorManutencaoBateria(meta)),
     );
+    root.querySelector('[data-orc-periodicidade-paragrafo-preview]')?.replaceChildren(
+      document.createTextNode(buildManutencaoBateriaPeriodicidadeParagrafo(meta.periodicidadeManutencao)),
+    );
   }
   root.querySelector('[data-orc-subtotal]')?.replaceChildren(
     document.createTextNode(`${meta.subtotal} €`),
@@ -257,12 +261,12 @@ function renderManutencaoBateriaOrcamentoEditor(report, ctx) {
         </div>
       </section>
 
-      ${renderManutencaoBateriaTemplatePreview()}
+      ${renderManutencaoBateriaTemplatePreview(meta.periodicidadeManutencao)}
 
       <section class="review-orc-template-fields" aria-label="Valores editáveis">
         <h4 class="review-orc-cabecalho__title">Valores da proposta</h4>
         <div class="review-orc-cabecalho__grid">
-          ${renderManutencaoBateriaPeriodicidadeSelect(meta.periodicidadeManutencao)}
+          ${renderManutencaoBateriaPeriodicidadeInput(meta.periodicidadeManutencao)}
           <label class="review-orc-field">
             <span>Valor por visita (€)</span>
             <input type="text" class="review-orc-input review-orc-input--money" data-orc-field="valorManutencaoVisita" value="${valorVisita}" inputmode="decimal" placeholder="85,00" />

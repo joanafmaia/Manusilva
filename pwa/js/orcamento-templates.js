@@ -47,11 +47,25 @@ export const MANUTENCAO_BATERIA_TRABALHOS = [
   'Fazer teste do enchimento automático.',
 ];
 
-export const MANUTENCAO_BATERIA_PARAGRAFOS = [
+export const MANUTENCAO_BATERIA_PARAGRAFOS_FIXOS = [
   'Efetuando este trabalho nas baterias, as baterias tem uma autonomia mais elevada e uma duração de vida mais prolongada.',
   'Este procedimento de trabalho, evita a passagem de correntes aos chassis das máquinas.',
-  'Estes trabalhos mantém as baterias limpas e secas (que é como tem que andar) e a periodicidade para um bom funcionamento da bateria será a manutenção mensal; de 2 em 2 meses ou de 3 em 3 meses.',
 ];
+
+/** @deprecated usar MANUTENCAO_BATERIA_PARAGRAFOS_FIXOS + buildManutencaoBateriaPeriodicidadeParagrafo */
+export const MANUTENCAO_BATERIA_PARAGRAFOS = MANUTENCAO_BATERIA_PARAGRAFOS_FIXOS;
+
+export function buildManutencaoBateriaPeriodicidadeParagrafo(periodicidadeValue) {
+  const label = formatPeriodicidadeManutencaoBateria(periodicidadeValue);
+  return `Estes trabalhos mantém as baterias limpas e secas (que é como tem que andar) e a periodicidade para um bom funcionamento da bateria será a manutenção ${label}.`;
+}
+
+export function buildManutencaoBateriaParagrafos(periodicidadeValue) {
+  return [
+    ...MANUTENCAO_BATERIA_PARAGRAFOS_FIXOS,
+    buildManutencaoBateriaPeriodicidadeParagrafo(periodicidadeValue),
+  ];
+}
 
 export const MANUTENCAO_BATERIA_MO_OBS = 'Este valor já tem mão-de-obra incluída.';
 
@@ -69,15 +83,27 @@ export function isManutencaoBateriaOrcamento(report) {
 }
 
 export function resolvePeriodicidadeManutencaoBateria(value) {
-  const key = String(value || '').trim();
-  const found = MANUTENCAO_BATERIA_PERIODICIDADE_OPCOES.find((opt) => opt.value === key);
-  return found?.value || MANUTENCAO_BATERIA_PERIODICIDADE_DEFAULT;
+  const raw = String(value || '').trim();
+  if (!raw) return MANUTENCAO_BATERIA_PERIODICIDADE_DEFAULT;
+  const byKey = MANUTENCAO_BATERIA_PERIODICIDADE_OPCOES.find((opt) => opt.value === raw);
+  if (byKey) return byKey.value;
+  const byLabel = MANUTENCAO_BATERIA_PERIODICIDADE_OPCOES.find(
+    (opt) => opt.label.toLowerCase() === raw.toLowerCase(),
+  );
+  if (byLabel) return byLabel.label;
+  return raw;
 }
 
 export function formatPeriodicidadeManutencaoBateria(value) {
-  const key = resolvePeriodicidadeManutencaoBateria(value);
-  const found = MANUTENCAO_BATERIA_PERIODICIDADE_OPCOES.find((opt) => opt.value === key);
-  return found?.label || 'de 3 em 3 meses';
+  const resolved = resolvePeriodicidadeManutencaoBateria(value);
+  const byKey = MANUTENCAO_BATERIA_PERIODICIDADE_OPCOES.find((opt) => opt.value === resolved);
+  if (byKey) return byKey.label;
+  if (resolved) return resolved;
+  return 'de 3 em 3 meses';
+}
+
+export function periodicidadeManutencaoBateriaInputValue(value) {
+  return formatPeriodicidadeManutencaoBateria(value);
 }
 
 export function resolveManutencaoBateriaValor(meta = {}) {
@@ -148,22 +174,35 @@ export function resolveManutencaoBateriaMetaFromReport(report) {
   return applyManutencaoBateriaTemplateMeta(meta, report);
 }
 
-export function renderManutencaoBateriaPeriodicidadeSelect(value) {
-  const current = resolvePeriodicidadeManutencaoBateria(value);
+export function renderManutencaoBateriaPeriodicidadeInput(value) {
+  const current = periodicidadeManutencaoBateriaInputValue(value);
+  const datalistId = 'periodicidadeManutencaoOpcoes';
   const options = MANUTENCAO_BATERIA_PERIODICIDADE_OPCOES.map(
-    ({ value: v, label }) =>
-      `<option value="${v}"${v === current ? ' selected' : ''}>${label}</option>`,
+    ({ label }) => `<option value="${label}"></option>`,
   ).join('');
   return `
     <label class="review-orc-field">
       <span>Periodicidade da visita</span>
-      <select class="review-orc-input" data-orc-field="periodicidadeManutencao">${options}</select>
+      <input
+        type="text"
+        class="review-orc-input"
+        data-orc-field="periodicidadeManutencao"
+        list="${datalistId}"
+        value="${current.replace(/"/g, '&quot;')}"
+        placeholder="de 3 em 3 meses"
+      />
+      <datalist id="${datalistId}">${options}</datalist>
+      <span class="review-orc-field-hint text-muted">Ex.: mensal, de 2 em 2 meses, de 3 em 3 meses — ou outro intervalo.</span>
     </label>`;
 }
 
-export function renderManutencaoBateriaTemplatePreview() {
+/** @deprecated usar renderManutencaoBateriaPeriodicidadeInput */
+export function renderManutencaoBateriaPeriodicidadeSelect(value) {
+  return renderManutencaoBateriaPeriodicidadeInput(value);
+}
+
+export function renderManutencaoBateriaTemplatePreview(periodicidadeValue = '') {
   const trabalhos = MANUTENCAO_BATERIA_TRABALHOS.map((item) => `<li>${item}</li>`).join('');
-  const paragrafos = MANUTENCAO_BATERIA_PARAGRAFOS.map((p) => `<p>${p}</p>`).join('');
   return `
     <section class="review-orc-template-preview" aria-label="Texto fixo da proposta">
       <h4 class="review-orc-cabecalho__title">Texto da proposta (fixo no PDF)</h4>
@@ -172,7 +211,8 @@ export function renderManutencaoBateriaTemplatePreview() {
         <p><strong>${MANUTENCAO_BATERIA_ESPECIFICACAO_TITULO}</strong></p>
         <p>${MANUTENCAO_BATERIA_TRABALHOS_INTRO}</p>
         <ul>${trabalhos}</ul>
-        ${paragrafos}
+        ${MANUTENCAO_BATERIA_PARAGRAFOS_FIXOS.map((p) => `<p>${p}</p>`).join('')}
+        <p data-orc-periodicidade-paragrafo-preview>${buildManutencaoBateriaPeriodicidadeParagrafo(periodicidadeValue)}</p>
         <p class="text-muted">${MANUTENCAO_BATERIA_NOTA_PECAS}</p>
       </div>
     </section>`;

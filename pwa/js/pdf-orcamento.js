@@ -55,9 +55,9 @@ import {
   MANUTENCAO_BATERIA_INTRO,
   MANUTENCAO_BATERIA_MO_OBS,
   MANUTENCAO_BATERIA_NOTA_PECAS,
-  MANUTENCAO_BATERIA_PARAGRAFOS,
   MANUTENCAO_BATERIA_TRABALHOS,
   MANUTENCAO_BATERIA_TRABALHOS_INTRO,
+  buildManutencaoBateriaParagrafos,
   MANUTENCAO_MAQUINA_ESPECIFICACAO_TITULO,
   MANUTENCAO_MAQUINA_INTRO,
   MANUTENCAO_MAQUINA_PLANO_DETALHE,
@@ -82,6 +82,9 @@ const APPROVAL_TOP = PAGE_BOTTOM - APPROVAL_BOX_H - 6;
 /** Zona fixa para taxa, prazo e totais — o total nunca fica cortado. */
 const FOOTER_BLOCK_H = 40;
 const FOOTER_TOP = APPROVAL_TOP - FOOTER_BLOCK_H;
+/** Zona do corpo da proposta baterias — acima do bloco fixo de valores/pagamento. */
+const BATERIA_FOOTER_ANCHOR_Y = FOOTER_TOP - FOOTER_BLOCK_H + 2;
+const BATERIA_BODY_MAX_Y = BATERIA_FOOTER_ANCHOR_Y - 6;
 const CONTENT_MAX_Y = FOOTER_TOP - 6;
 
 const ORC_TABLE_ROW_H = 6.5;
@@ -630,8 +633,9 @@ function drawOrcamentoBulletList(doc, items, startY, options = {}) {
   return y;
 }
 
-function drawManutencaoBateriaFooter(doc, fill, startY) {
-  let y = startY + 6;
+function drawManutencaoBateriaFooter(doc, fill) {
+  let y = BATERIA_FOOTER_ANCHOR_Y;
+  const footerMaxY = APPROVAL_TOP - 6;
   pdfSetFont(doc, 'normal');
   doc.setFontSize(PDF_FONT_BODY);
   doc.setTextColor(...PDF_COLOR_TEXT_DARK);
@@ -643,7 +647,7 @@ function drawManutencaoBateriaFooter(doc, fill, startY) {
 
   pdfSetFont(doc, 'bold');
   pdfSplitText(doc, valorLine, CONTENT_W).forEach((line) => {
-    if (y > FOOTER_TOP - 8) return;
+    if (y > footerMaxY) return;
     doc.text(line, MARGIN, y);
     y += 5;
   });
@@ -658,7 +662,7 @@ function drawManutencaoBateriaFooter(doc, fill, startY) {
 
   blocks.forEach((text) => {
     pdfSplitText(doc, text, CONTENT_W).forEach((line) => {
-      if (y > FOOTER_TOP - 6) return;
+      if (y > footerMaxY) return;
       doc.text(line, MARGIN, y);
       y += 4.8;
     });
@@ -761,28 +765,37 @@ async function renderManutencaoMaquinaOrcamentoPDF(doc, report, job) {
 async function renderManutencaoBateriaOrcamentoPDF(doc, report, job) {
   const fill = buildOrcamentoFillData(report, job);
   const legalText = await loadLegalText();
+  const paragrafos = buildManutencaoBateriaParagrafos(fill.periodicidade_manutencao);
 
   let y = drawOrcamentoLetterhead(doc, fill);
 
   pdfSetFont(doc, 'normal');
   doc.setFontSize(PDF_FONT_BODY);
-  y = drawOrcamentoBodyParagraphs(doc, [MANUTENCAO_BATERIA_INTRO], y);
+  y = drawOrcamentoBodyParagraphs(doc, [MANUTENCAO_BATERIA_INTRO], y, { maxEndY: BATERIA_BODY_MAX_Y });
   y += 3;
 
   pdfSetFont(doc, 'bold');
   doc.setFontSize(PDF_FONT_BODY);
-  if (canDrawBodyLine(y)) {
+  if (canDrawContentLine(y, 6) && y + 6 <= BATERIA_BODY_MAX_Y) {
     doc.text(MANUTENCAO_BATERIA_ESPECIFICACAO_TITULO, MARGIN, y);
-    y = advanceBodyY(y, 6);
+    y = advanceContentY(y, 6);
   }
 
   pdfSetFont(doc, 'normal');
-  y = drawOrcamentoBodyParagraphs(doc, [MANUTENCAO_BATERIA_TRABALHOS_INTRO], y, { lineStep: 4.5 });
-  y = drawOrcamentoBulletList(doc, MANUTENCAO_BATERIA_TRABALHOS, y);
+  y = drawOrcamentoBodyParagraphs(doc, [MANUTENCAO_BATERIA_TRABALHOS_INTRO], y, {
+    lineStep: 4.5,
+    maxEndY: BATERIA_BODY_MAX_Y,
+  });
+  y = drawOrcamentoBulletList(doc, MANUTENCAO_BATERIA_TRABALHOS, y, {
+    maxEndY: BATERIA_BODY_MAX_Y,
+  });
   y += 2;
-  y = drawOrcamentoBodyParagraphs(doc, MANUTENCAO_BATERIA_PARAGRAFOS, y, { lineStep: 4.5, maxEndY: FOOTER_TOP - 12 });
+  y = drawOrcamentoBodyParagraphs(doc, paragrafos, y, {
+    lineStep: 4.5,
+    maxEndY: BATERIA_BODY_MAX_Y,
+  });
 
-  drawManutencaoBateriaFooter(doc, fill, Math.min(y, FOOTER_TOP - 42));
+  drawManutencaoBateriaFooter(doc, fill);
 
   doc.setPage(1);
   drawClientApprovalBox(doc);

@@ -6,6 +6,7 @@ import {
   applyManutencaoBateriaTemplateMeta,
   applyManutencaoMaquinaTemplateMeta,
   buildManutencaoBateriaLinha,
+  buildManutencaoBateriaPeriodicidadeParagrafo,
   formatLinhaValorManutencaoBateria,
   formatManutencaoMaquinaPrecoLinhas,
   MANUTENCAO_BATERIA_INTRO,
@@ -34,6 +35,19 @@ describe('orcamento-templates — manutenção baterias', () => {
     });
     assert.equal(linha.precoUnit, '120,00');
     assert.match(linha.descricao, /mensal/);
+    assert.match(
+      formatLinhaValorManutencaoBateria({ valorManutencaoVisita: '120', periodicidadeManutencao: 'mensal' }),
+      /bateria mensal fica/,
+    );
+  });
+
+  it('usa periodicidade livre no parágrafo e na linha de valor', () => {
+    const texto = buildManutencaoBateriaPeriodicidadeParagrafo('semestral');
+    assert.match(texto, /manutenção semestral\./);
+    assert.match(
+      formatLinhaValorManutencaoBateria({ periodicidadeManutencao: 'semestral' }),
+      /bateria semestral fica/,
+    );
   });
 });
 
