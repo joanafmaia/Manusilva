@@ -7,6 +7,7 @@ import { escapeHtml } from './html-utils.js';
 import {
   normalizeEquipamentoCampos,
   nextEquipamentoCampoKey,
+  readMaquinaCamposFromCard,
   readOrcamentoEquipamentoCamposFromDom,
 } from './orcamento-equipamento-campos.js';
 import {
@@ -36,20 +37,29 @@ const ORCAMENTO_MAQUINA_TEMPLATE_EXTRA_KEYS = [
   'valorInspecaoDl50',
 ];
 
+export function resolveMaquinaFieldDefs(row = {}, fallbackCampos = null) {
+  if (Array.isArray(row?.campos) && row.campos.length) {
+    return normalizeEquipamentoCampos(row.campos);
+  }
+  return normalizeEquipamentoCampos(fallbackCampos);
+}
+
 export function emptyOrcamentoMaquina(campos = null) {
   const fields = normalizeEquipamentoCampos(campos);
-  return Object.fromEntries(fields.map(({ key }) => [key, '']));
+  const row = Object.fromEntries(fields.map(({ key }) => [key, '']));
+  row.campos = fields.map((field) => ({ ...field }));
+  return row;
 }
 
 export function hasOrcamentoMaquinaData(row, campos = null) {
-  const fields = normalizeEquipamentoCampos(campos);
+  const fields = resolveMaquinaFieldDefs(row, campos);
   const m = normalizeOrcamentoMaquina(row, fields);
   return fields.some(({ key }) => Boolean(String(m[key] ?? '').trim()));
 }
 
 export function normalizeOrcamentoMaquina(raw = {}, campos = null) {
-  const fields = normalizeEquipamentoCampos(campos);
-  const base = Object.fromEntries(fields.map(({ key }) => [key, readMaquinaFieldValue(raw, key)]));
+  const fieldDefs = resolveMaquinaFieldDefs(raw, campos);
+  const base = Object.fromEntries(fieldDefs.map(({ key }) => [key, readMaquinaFieldValue(raw, key)]));
   ORCAMENTO_MAQUINA_TEMPLATE_EXTRA_KEYS.forEach((key) => {
     if (raw == null || typeof raw !== 'object') return;
     if (key === 'incluirInspecaoDl50') {
@@ -59,6 +69,7 @@ export function normalizeOrcamentoMaquina(raw = {}, campos = null) {
     const value = String(raw[key] ?? '').trim();
     if (value) base[key] = value;
   });
+  base.campos = fieldDefs.map((field) => ({ ...field }));
   return base;
 }
 
@@ -75,10 +86,24 @@ function joinParts(parts, separator = ' / ') {
 }
 
 export function formatOrcamentoMaquinaLabel(row, index = 0, campos = null) {
-  const fields = normalizeEquipamentoCampos(campos);
-  const m = normalizeOrcamentoMaquina(row, fields);
-  const label = joinParts(fields.map(({ key }) => m[key]).filter((v) => String(v).trim()).slice(0, 3));
+  const m = normalizeOrcamentoMaquina(row, campos);
+  const fields = resolveMaquinaFieldDefs(m, campos);
+  const equipField =
+    fields.find((field) => /equipamento/i.test(field.label)) || fields[0] || null;
+  const equipValue = equipField ? String(m[equipField.key] ?? '').trim() : '';
+  if (equipValue) return equipValue;
+  const label = joinParts(
+    fields.map(({ key }) => m[key]).filter((value) => String(value).trim()).slice(0, 2),
+  );
   return label || `Equipamento ${index + 1}`;
+}
+
+export function collectMaquinaPdfFieldRows(machine, campos = null) {
+  const m = normalizeOrcamentoMaquina(machine, campos);
+  const fields = resolveMaquinaFieldDefs(m, campos);
+  return fields
+    .map(({ key, label }) => [label, m[key]])
+    .filter(([, value]) => String(value || '').trim());
 }
 
 export function formatOrcamentoMaquinaMatricula(row, campos = null) {
@@ -98,8 +123,8 @@ export function formatOrcamentoMaquinaPdfTableLabel(index = 0) {
 }
 
 export function formatOrcamentoMaquinaCompactLine(row, index = 0, campos = null) {
-  const fields = normalizeEquipamentoCampos(campos);
-  const m = normalizeOrcamentoMaquina(row, fields);
+  const m = normalizeOrcamentoMaquina(row, campos);
+  const fields = resolveMaquinaFieldDefs(m, campos);
   const pairs = fields
     .map(({ key, label }) => {
       const value = String(m[key] ?? '').trim();
@@ -150,16 +175,15 @@ export function filterOrcamentoTableLinhas(linhas, maquinas = []) {
 }
 
 export function groupOrcamentoLinhasByEquipamento(linhas, maquinas = [], campos = null) {
-  const fields = normalizeEquipamentoCampos(campos);
-  const list = normalizeOrcamentoMaquinasList(maquinas, fields);
+  const list = normalizeOrcamentoMaquinasList(maquinas, campos);
   const machineCount = Math.max(list.length, 1);
   const rows = filterOrcamentoTableLinhas(linhas, list);
 
-  if (!shouldGroupOrcamentoLinhasByEquipamento(list, fields)) {
+  if (!shouldGroupOrcamentoLinhasByEquipamento(list, campos)) {
     return [
       {
         equipamentoIndex: 0,
-        label: formatOrcamentoMaquinaLabel(list[0] || {}, 0, fields),
+        label: formatOrcamentoMaquinaLabel(list[0] || {}, 0, campos),
         linhas: rows,
       },
     ];
@@ -171,7 +195,7 @@ export function groupOrcamentoLinhasByEquipamento(linhas, maquinas = [], campos 
     );
     return {
       equipamentoIndex: index,
-      label: formatOrcamentoMaquinaLabel(machine, index, fields),
+      label: formatOrcamentoMaquinaLabel(machine, index, campos),
       linhas: machineLines.length
         ? machineLines
         : [
@@ -318,13 +342,11 @@ export function rebuildOrcamentoLinhasTable(root, linhas = null) {
 
 /** Atualiza só os títulos das secções agrupadas (sem reconstruir a tabela). */
 export function syncOrcamentoGroupedEquipHeaders(root) {
-  const campos = readOrcamentoEquipamentoCamposFromDom(root);
-  const maquinas = readOrcamentoMaquinasFromDom(root, campos);
-  if (!shouldGroupOrcamentoLinhasByEquipamento(maquinas, campos)) return;
-  const fields = normalizeEquipamentoCampos(campos);
+  const maquinas = readOrcamentoMaquinasFromDom(root);
+  if (!shouldGroupOrcamentoLinhasByEquipamento(maquinas)) return;
   root?.querySelectorAll('[data-orc-equip-group]').forEach((row) => {
     const index = Number(row.dataset.orcEquipGroup) || 0;
-    const label = formatOrcamentoMaquinaLabel(maquinas[index] || {}, index, fields);
+    const label = formatOrcamentoMaquinaLabel(maquinas[index] || {}, index);
     const title = row.querySelector('.review-orc-equip-group__title');
     if (title) title.textContent = label;
   });
@@ -360,52 +382,33 @@ export function syncLegacyMaquinaFieldsFromList(maquinas = [], campos = null) {
 }
 
 export function formatOrcamentoMaquinasDocxText(maquinas = [], campos = null) {
-  const fields = normalizeEquipamentoCampos(campos);
-  const rows = normalizeOrcamentoMaquinasList(maquinas, fields).filter((row) =>
-    hasOrcamentoMaquinaData(row, fields),
+  const rows = normalizeOrcamentoMaquinasList(maquinas, campos).filter((row) =>
+    hasOrcamentoMaquinaData(row, campos),
   );
   if (!rows.length) return '—';
   if (rows.length === 1) {
-    return formatOrcamentoMaquinaLabel(rows[0], 0, fields);
+    return formatOrcamentoMaquinaCompactLine(rows[0], 0, campos);
   }
   return rows
-    .map((row, index) => {
-      const label = formatOrcamentoMaquinaLabel(row, index, fields);
-      const matricula = formatOrcamentoMaquinaMatricula(row, fields);
-      return `${index + 1}. ${label} — ${LABEL_N_INTERNO}: ${matricula}`;
-    })
+    .map((row, index) => `${index + 1}. ${formatOrcamentoMaquinaCompactLine(row, index, campos)}`)
     .join('\n');
 }
 
-function renderMaquinaFieldRow({ key, label }, value, { isSchemaCard, canRemoveCampo }) {
-  const labelCell = isSchemaCard
-    ? `<input
+function renderMaquinaFieldRow({ key, label }, value, { canRemoveCampo }) {
+  const removeBtn = canRemoveCampo
+    ? `<button type="button" class="btn-icon review-orc-maquina-campo-remove" title="Remover campo" aria-label="Remover campo">×</button>`
+    : '<span class="review-orc-maquina-field__action-spacer" aria-hidden="true"></span>';
+
+  return `
+    <div class="review-orc-maquina-field" data-orc-maquina-campo data-campo-key="${escapeHtml(key)}">
+      <input
         type="text"
         class="review-orc-input review-orc-maquina-campo-label"
         data-orc-campo-label
         value="${escapeHtml(label)}"
         placeholder="Campo"
         aria-label="Nome do campo"
-      />`
-    : `<input
-        type="text"
-        class="review-orc-input review-orc-maquina-campo-label review-orc-maquina-campo-label--readonly"
-        data-orc-maquina-label-for="${escapeHtml(key)}"
-        value="${escapeHtml(label)}"
-        readonly
-        tabindex="-1"
-        aria-readonly="true"
-        aria-label="${escapeHtml(label)}"
-      />`;
-
-  const removeBtn =
-    isSchemaCard && canRemoveCampo
-      ? `<button type="button" class="btn-icon review-orc-maquina-campo-remove" title="Remover campo" aria-label="Remover campo">×</button>`
-      : '<span class="review-orc-maquina-field__action-spacer" aria-hidden="true"></span>';
-
-  return `
-    <div class="review-orc-maquina-field" data-orc-maquina-campo data-campo-key="${escapeHtml(key)}">
-      ${labelCell}
+      />
       <input
         type="text"
         class="review-orc-input review-orc-maquina-field__value"
@@ -418,15 +421,13 @@ function renderMaquinaFieldRow({ key, label }, value, { isSchemaCard, canRemoveC
     </div>`;
 }
 
-function renderMaquinaCard(row, index, campos, { canRemoveMachine, campoCount }) {
-  const fields = normalizeEquipamentoCampos(campos);
-  const m = normalizeOrcamentoMaquina(row, fields);
-  const isSchemaCard = index === 0;
-  const inputs = fields
+function renderMaquinaCard(row, index, fallbackCampos, { canRemoveMachine }) {
+  const fieldDefs = resolveMaquinaFieldDefs(row, fallbackCampos);
+  const m = normalizeOrcamentoMaquina(row, fieldDefs);
+  const inputs = fieldDefs
     .map((campo) =>
       renderMaquinaFieldRow(campo, m[campo.key], {
-        isSchemaCard,
-        canRemoveCampo: campoCount > 1,
+        canRemoveCampo: fieldDefs.length > 1,
       }),
     )
     .join('');
@@ -435,11 +436,14 @@ function renderMaquinaCard(row, index, campos, { canRemoveMachine, campoCount })
     <article class="review-orc-maquina" data-orcamento-maquina data-index="${index}">
       <div class="review-orc-maquina__head">
         <strong class="review-orc-maquina__title">Equipamento ${index + 1}</strong>
-        ${
-          canRemoveMachine
-            ? `<button type="button" class="btn-icon review-orc-maquina-remove" title="Remover equipamento" aria-label="Remover equipamento">×</button>`
-            : ''
-        }
+        <div class="review-orc-maquina__head-actions">
+          <button type="button" class="btn-outline btn-sm" data-orc-add-campo-maquina>+ Campo</button>
+          ${
+            canRemoveMachine
+              ? `<button type="button" class="btn-icon review-orc-maquina-remove" title="Remover equipamento" aria-label="Remover equipamento">×</button>`
+              : ''
+          }
+        </div>
       </div>
       <div class="review-orc-maquina__fields">
         ${inputs}
@@ -447,32 +451,15 @@ function renderMaquinaCard(row, index, campos, { canRemoveMachine, campoCount })
     </article>`;
 }
 
-function renderMaquinasList(maquinas, campos) {
-  const fields = normalizeEquipamentoCampos(campos);
-  const rows = normalizeOrcamentoMaquinasList(maquinas, fields);
-  const list = rows.length ? rows : [emptyOrcamentoMaquina(fields)];
+function renderMaquinasList(maquinas, fallbackCampos) {
+  const list = maquinas?.length ? maquinas : [emptyOrcamentoMaquina(fallbackCampos)];
   return list
     .map((row, index) =>
-      renderMaquinaCard(row, index, fields, {
+      renderMaquinaCard(row, index, fallbackCampos, {
         canRemoveMachine: list.length > 1,
-        campoCount: fields.length,
       }),
     )
     .join('');
-}
-
-function syncMaquinaFieldLabels(root, campos) {
-  const fields = normalizeEquipamentoCampos(campos);
-  fields.forEach(({ key, label }) => {
-    root.querySelectorAll(`[data-orc-maquina-label-for="${key}"]`).forEach((el) => {
-      if (el instanceof HTMLInputElement) el.value = label;
-      else el.textContent = label;
-    });
-    root.querySelectorAll(`[data-orc-maquina-field="${key}"]`).forEach((input) => {
-      input.placeholder = label;
-      input.setAttribute('aria-label', label);
-    });
-  });
 }
 
 export function renderOrcamentoMaquinasSection(maquinas = [], equipamentoCampos = null) {
@@ -481,32 +468,32 @@ export function renderOrcamentoMaquinasSection(maquinas = [], equipamentoCampos 
     <section class="review-orc-maquinas" aria-label="Equipamentos da proposta">
       <div class="review-orc-maquinas__head">
         <h4 class="review-orc-cabecalho__title">Equipamentos</h4>
-        <span class="review-orc-field-hint text-muted">Nomes dos campos no 1.º equipamento; valores em cada máquina.</span>
+        <span class="review-orc-field-hint text-muted">Cada máquina pode ter títulos e campos diferentes (ex.: Equipamento, Material).</span>
       </div>
       <div class="review-orc-maquinas__list" id="review-orc-maquinas-list">
         ${renderMaquinasList(maquinas, campos)}
       </div>
       <div class="review-orc-maquinas__actions">
-        <button type="button" class="btn-outline btn-touch" id="review-orc-add-campo">+ Adicionar campo</button>
         <button type="button" class="btn-outline btn-touch review-orc-maquinas-add" id="review-orc-add-maquina">+ Adicionar máquina</button>
       </div>
     </section>`;
 }
 
 export function readOrcamentoMaquinasFromDom(root, campos = null) {
-  const fields = normalizeEquipamentoCampos(campos ?? readOrcamentoEquipamentoCamposFromDom(root));
+  const fallback = normalizeEquipamentoCampos(campos ?? readOrcamentoEquipamentoCamposFromDom(root));
   const list = root?.querySelector('#review-orc-maquinas-list');
-  if (!list) return [emptyOrcamentoMaquina(fields)];
+  if (!list) return [emptyOrcamentoMaquina(fallback)];
   const rows = [];
   list.querySelectorAll('[data-orcamento-maquina]').forEach((card) => {
+    const cardCampos = readMaquinaCamposFromCard(card);
     const values = {};
-    fields.forEach(({ key }) => {
+    cardCampos.forEach(({ key }) => {
       values[key] =
         card.querySelector(`[data-orc-maquina-field="${key}"]`)?.value?.trim() || '';
     });
-    rows.push(normalizeOrcamentoMaquina(values, fields));
+    rows.push(normalizeOrcamentoMaquina({ ...values, campos: cardCampos }, cardCampos));
   });
-  return rows.length ? rows : [emptyOrcamentoMaquina(fields)];
+  return rows.length ? rows : [emptyOrcamentoMaquina(fallback)];
 }
 
 export { readOrcamentoEquipamentoCamposFromDom };
@@ -514,7 +501,6 @@ export { readOrcamentoEquipamentoCamposFromDom };
 export function bindOrcamentoMaquinasSection(root, { onChange, onFieldChange } = {}) {
   const list = root?.querySelector('#review-orc-maquinas-list');
   const addMaquinaBtn = root?.querySelector('#review-orc-add-maquina');
-  const addCampoBtn = root?.querySelector('#review-orc-add-campo');
   if (!list || !addMaquinaBtn) return;
 
   const notifyStructure = () => onChange?.();
@@ -532,42 +518,56 @@ export function bindOrcamentoMaquinasSection(root, { onChange, onFieldChange } =
   };
 
   const rerenderMaquinas = () => {
-    const campos = readOrcamentoEquipamentoCamposFromDom(root);
-    const maquinas = readOrcamentoMaquinasFromDom(root, campos);
-    list.innerHTML = renderMaquinasList(maquinas, campos);
+    const maquinas = readOrcamentoMaquinasFromDom(root);
+    const fallback = maquinas[0]?.campos || readOrcamentoEquipamentoCamposFromDom(root);
+    list.innerHTML = renderMaquinasList(maquinas, fallback);
     renumber();
-    syncMaquinaFieldLabels(root, campos);
     notifyStructure();
   };
 
-  addCampoBtn?.addEventListener('click', () => {
-    const campos = readOrcamentoEquipamentoCamposFromDom(root);
-    const key = nextEquipamentoCampoKey(campos);
-    const maquinas = readOrcamentoMaquinasFromDom(root, campos);
-    maquinas.forEach((row) => {
-      row[key] = '';
-    });
-    const nextCampos = [...campos, { key, label: 'Novo campo' }];
-    list.innerHTML = renderMaquinasList(maquinas, nextCampos);
-    renumber();
-    syncMaquinaFieldLabels(root, nextCampos);
-    notifyStructure();
-  });
-
   list.addEventListener('click', (e) => {
+    const addCampoBtn = e.target.closest('[data-orc-add-campo-maquina]');
+    if (addCampoBtn) {
+      const card = addCampoBtn.closest('[data-orcamento-maquina]');
+      if (!card) return;
+      const maquinas = readOrcamentoMaquinasFromDom(root);
+      const index = Number(card.dataset.index) || 0;
+      const row = maquinas[index] || emptyOrcamentoMaquina();
+      const campos = resolveMaquinaFieldDefs(row);
+      const key = nextEquipamentoCampoKey(campos);
+      row[key] = '';
+      row.campos = [...campos, { key, label: 'Novo campo' }];
+      maquinas[index] = row;
+      const fallback = maquinas[0]?.campos || readOrcamentoEquipamentoCamposFromDom(root);
+      list.innerHTML = renderMaquinasList(maquinas, fallback);
+      renumber();
+      list
+        .querySelector(
+          `[data-orcamento-maquina][data-index="${index}"] [data-orc-maquina-field="${key}"]`,
+        )
+        ?.focus();
+      notifyStructure();
+      return;
+    }
+
     const campoBtn = e.target.closest('.review-orc-maquina-campo-remove');
     if (campoBtn) {
-      const row = campoBtn.closest('[data-orc-maquina-campo]');
-      const firstCard = list.querySelector('[data-orcamento-maquina]');
-      if (!row || !firstCard?.contains(row)) return;
-      const campos = readOrcamentoEquipamentoCamposFromDom(root);
+      const fieldRow = campoBtn.closest('[data-orc-maquina-campo]');
+      const card = campoBtn.closest('[data-orcamento-maquina]');
+      if (!fieldRow || !card) return;
+      const maquinas = readOrcamentoMaquinasFromDom(root);
+      const index = Number(card.dataset.index) || 0;
+      const row = maquinas[index];
+      if (!row) return;
+      const campos = resolveMaquinaFieldDefs(row);
       if (campos.length <= 1) return;
-      const key = row.dataset.campoKey;
-      const nextCampos = campos.filter((c) => c.key !== key);
-      const maquinas = readOrcamentoMaquinasFromDom(root, campos);
-      list.innerHTML = renderMaquinasList(maquinas, nextCampos);
+      const key = fieldRow.dataset.campoKey;
+      row.campos = campos.filter((campo) => campo.key !== key);
+      delete row[key];
+      maquinas[index] = row;
+      const fallback = maquinas[0]?.campos || readOrcamentoEquipamentoCamposFromDom(root);
+      list.innerHTML = renderMaquinasList(maquinas, fallback);
       renumber();
-      syncMaquinaFieldLabels(root, nextCampos);
       notifyStructure();
       return;
     }
@@ -589,25 +589,19 @@ export function bindOrcamentoMaquinasSection(root, { onChange, onFieldChange } =
   });
 
   list.addEventListener('input', (e) => {
-    if (e.target.matches('[data-orc-campo-label]')) {
-      const campos = readOrcamentoEquipamentoCamposFromDom(root);
-      syncMaquinaFieldLabels(root, campos);
-      return;
-    }
-    if (e.target.matches('[data-orc-maquina-field]')) notifyField();
+    if (e.target.matches('[data-orc-campo-label], [data-orc-maquina-field]')) notifyField();
   });
 
   addMaquinaBtn.addEventListener('click', () => {
-    const campos = readOrcamentoEquipamentoCamposFromDom(root);
-    const maquinas = readOrcamentoMaquinasFromDom(root, campos);
-    maquinas.push(emptyOrcamentoMaquina(campos));
-    list.innerHTML = renderMaquinasList(maquinas, campos);
+    const maquinas = readOrcamentoMaquinasFromDom(root);
+    const templateCampos = maquinas[0]?.campos?.map((field) => ({ ...field }));
+    maquinas.push(emptyOrcamentoMaquina(templateCampos));
+    const fallback = maquinas[0]?.campos || readOrcamentoEquipamentoCamposFromDom(root);
+    list.innerHTML = renderMaquinasList(maquinas, fallback);
     renumber();
-    syncMaquinaFieldLabels(root, campos);
     const cards = list.querySelectorAll('[data-orcamento-maquina]');
     const lastCard = cards[cards.length - 1];
-    const firstInput = lastCard?.querySelector('[data-orc-maquina-field]');
-    firstInput?.focus();
+    lastCard?.querySelector('[data-orc-maquina-field]')?.focus();
     notifyStructure();
   });
 }

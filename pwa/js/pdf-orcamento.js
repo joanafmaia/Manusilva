@@ -8,12 +8,14 @@ import { COMPANY } from './mock_data.js';
 import { getJob } from './app.js';
 import { buildOrcamentoFillData } from './orcamento-fill-data.js';
 import {
+  collectMaquinaPdfFieldRows,
   formatOrcamentoMaquinaPdfTableLabel,
   formatOrcamentoMaquinaLabel,
   formatOrcamentoMaquinaMatricula,
   groupOrcamentoLinhasByEquipamento,
   hasOrcamentoMaquinaData,
   normalizeOrcamentoMaquina,
+  resolveMaquinaFieldDefs,
   shouldGroupOrcamentoLinhasByEquipamento,
   countOrcamentoGroupedTableRows,
   filterOrcamentoTableLinhas,
@@ -465,36 +467,53 @@ function drawLegalPage(doc, legalText) {
 }
 
 export function resolveOrcamentoEquipamentoPdfBlocks(fill = {}) {
-  const campos = normalizeEquipamentoCampos(fill.equipamento_campos);
+  const fallbackCampos = normalizeEquipamentoCampos(fill.equipamento_campos);
   const allMaquinas = Array.isArray(fill.maquinas) ? fill.maquinas : [];
   const blocks = allMaquinas
-    .map((row, index) => ({
-      index,
-      machine: normalizeOrcamentoMaquina(row, campos),
-    }))
-    .filter(({ machine }) => hasOrcamentoMaquinaData(machine, campos));
+    .map((row, index) => {
+      const machine = normalizeOrcamentoMaquina(row, fallbackCampos);
+      const campos = resolveMaquinaFieldDefs(machine, fallbackCampos);
+      return {
+        index,
+        machine,
+        campos,
+        rows: collectMaquinaPdfFieldRows(machine, fallbackCampos),
+      };
+    })
+    .filter(({ rows }) => rows.length > 0);
 
-  if (blocks.length) return { campos, blocks };
+  if (blocks.length) return { blocks };
+
+  const machine = normalizeOrcamentoMaquina(
+    {
+      marca: fill.marca,
+      modelo: fill.modelo,
+      tipo: fill.tipo,
+      numeroSerie: fill.numero_serie,
+      numeroInterno: fill.numero_interno,
+      maquina: fill.maquina,
+    },
+    fallbackCampos,
+  );
 
   return {
-    campos,
     blocks: [
       {
         index: 0,
-        machine: normalizeOrcamentoMaquina(
-          {
-            marca: fill.marca,
-            modelo: fill.modelo,
-            tipo: fill.tipo,
-            numeroSerie: fill.numero_serie,
-            numeroInterno: fill.numero_interno,
-            maquina: fill.maquina,
-          },
-          campos,
-        ),
+        machine,
+        campos: resolveMaquinaFieldDefs(machine, fallbackCampos),
+        rows: collectMaquinaPdfFieldRows(machine, fallbackCampos),
       },
     ],
   };
+}
+
+function drawOrcamentoEquipamentoSeparator(doc, y) {
+  const lineY = y + 1.5;
+  doc.setDrawColor(148, 163, 184);
+  doc.setLineWidth(0.35);
+  doc.line(MARGIN, lineY, MARGIN + CONTENT_W, lineY);
+  return lineY + 4;
 }
 
 function drawOrcamentoEquipamentoBlocks(doc, fill, startY, options = {}) {
@@ -502,32 +521,24 @@ function drawOrcamentoEquipamentoBlocks(doc, fill, startY, options = {}) {
   const canEquipLine = (y, step = 5) => y + step <= maxEndY;
   const advanceEquipY = (y, step = 5) => (canEquipLine(y, step) ? y + step : y);
   let y = startY;
-  const { campos, blocks } = resolveOrcamentoEquipamentoPdfBlocks(fill);
-  const multi = blocks.length > 1;
+  const { blocks } = resolveOrcamentoEquipamentoPdfBlocks(fill);
 
-  blocks.forEach(({ machine, index }, blockIndex) => {
-    if (!hasOrcamentoMaquinaData(machine, campos) && fill.maquina === '—') return;
+  blocks.forEach((block, blockIndex) => {
+    const equipRows = block.rows?.length
+      ? block.rows
+      : collectMaquinaPdfFieldRows(block.machine, fill.equipamento_campos);
 
-    const equipRows = campos
-      .map(({ key, label }) => [label, machine[key]])
-      .filter(([, value]) => String(value || '').trim());
+    if (!equipRows.length && fill.maquina === '—') return;
 
-    if (!equipRows.length) {
-      const label = formatOrcamentoMaquinaLabel(machine, index, campos);
-      const matricula = formatOrcamentoMaquinaMatricula(machine, campos);
-      equipRows.push([LABEL_MAQUINA, label], [LABEL_MATRICULA, matricula]);
-    }
+    const rowsToDraw =
+      equipRows.length > 0
+        ? equipRows
+        : [
+            [LABEL_MAQUINA, formatOrcamentoMaquinaLabel(block.machine, block.index, block.campos)],
+            [LABEL_MATRICULA, formatOrcamentoMaquinaMatricula(block.machine, block.campos)],
+          ];
 
-    if (multi) {
-      if (!canEquipLine(y, 8)) return;
-      pdfSetFont(doc, 'bold');
-      doc.setFontSize(PDF_FONT_BODY);
-      doc.setTextColor(...PDF_COLOR_TEXT_DARK);
-      doc.text(`Equipamento ${index + 1}:`, MARGIN, y);
-      y = advanceEquipY(y, 6);
-    }
-
-    equipRows.forEach(([label, value]) => {
+    rowsToDraw.forEach(([label, value]) => {
       if (!canEquipLine(y)) return;
       pdfSetFont(doc, 'bold');
       const prefix = `${label}: `;
@@ -545,7 +556,9 @@ function drawOrcamentoEquipamentoBlocks(doc, fill, startY, options = {}) {
       y = advanceEquipY(y, 5.5);
     });
 
-    if (blockIndex < blocks.length - 1) y = advanceEquipY(y, 2);
+    if (blockIndex < blocks.length - 1 && canEquipLine(y, 6)) {
+      y = drawOrcamentoEquipamentoSeparator(doc, y);
+    }
   });
 
   return advanceEquipY(y, 4);

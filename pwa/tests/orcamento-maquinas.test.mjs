@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  collectMaquinaPdfFieldRows,
   countOrcamentoGroupedTableRows,
   formatOrcamentoMaquinasDocxText,
   groupOrcamentoLinhasByEquipamento,
@@ -61,7 +62,28 @@ describe('orcamento-maquinas', () => {
     assert.match(formatOrcamentoMaquinasDocxText([
       { marca: 'Toyota', modelo: 'A', numeroInterno: 'M1' },
       { marca: 'Linde', modelo: 'B', numeroInterno: 'M2' },
-    ], campos), /1\. Toyota \/ A/);
+    ], campos), /1\. Marca: Toyota — Modelo: A/);
+  });
+
+  it('mantém campos e rótulos por máquina', () => {
+    const row = normalizeOrcamentoMaquina(
+      {
+        marca: 'Toyota',
+        campo_2: '24V',
+        campos: [
+          { key: 'marca', label: 'Equipamento' },
+          { key: 'campo_2', label: 'Tensão' },
+        ],
+      },
+      [{ key: 'marca', label: 'Marca' }, { key: 'modelo', label: 'Modelo' }],
+    );
+    assert.equal(row.campos[0].label, 'Equipamento');
+    assert.equal(row.campos[1].label, 'Tensão');
+    const pdfRows = collectMaquinaPdfFieldRows(row);
+    assert.deepEqual(pdfRows, [
+      ['Equipamento', 'Toyota'],
+      ['Tensão', '24V'],
+    ]);
   });
 
   it('aceita campos personalizados por orçamento', () => {

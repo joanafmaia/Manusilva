@@ -90,7 +90,7 @@ export function buildOrcamentoFillData(report, job = null) {
       ? applyManutencaoMaquinaTemplateMeta(orcamentoMetaRaw || {}, report)
       : orcamentoMetaRaw;
   const cabecalho = resolveOrcamentoCabecalho(report);
-  const equipamentoCampos = normalizeEquipamentoCampos(
+  const equipamentoCamposFallback = normalizeEquipamentoCampos(
     orcamentoMeta?.equipamentoCampos ??
       cabecalho.equipamentoCampos ??
       suggestEquipamentoCampos(report),
@@ -99,7 +99,13 @@ export function buildOrcamentoFillData(report, job = null) {
     Array.isArray(orcamentoMeta?.maquinas) && orcamentoMeta.maquinas.length
       ? orcamentoMeta.maquinas
       : cabecalho.maquinas || suggestOrcamentoMaquinas(report);
-  const maquinasNormalized = normalizeOrcamentoMaquinasList(maquinasRaw, equipamentoCampos);
+  const maquinasNormalized = normalizeOrcamentoMaquinasList(maquinasRaw, equipamentoCamposFallback);
+  const equipamentoCampos = normalizeEquipamentoCampos(
+    orcamentoMeta?.equipamentoCampos ??
+      maquinasNormalized[0]?.campos ??
+      cabecalho.equipamentoCampos ??
+      suggestEquipamentoCampos(report),
+  );
   const maquinasForPdf = maquinasNormalized.length
     ? maquinasNormalized
     : normalizeOrcamentoMaquinasList(suggestOrcamentoMaquinas(report), equipamentoCampos);

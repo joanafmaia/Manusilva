@@ -3068,6 +3068,11 @@
   gap: 0.5rem;
   margin-bottom: 0.55rem;
 }
+.review-orc-maquina__head-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
 .review-orc-maquina__title {
   font-size: 0.88rem;
 }

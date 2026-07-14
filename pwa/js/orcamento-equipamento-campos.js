@@ -48,20 +48,21 @@ export function nextEquipamentoCampoKey(campos = []) {
   return `campo_${n}`;
 }
 
-/** Lê rótulos do primeiro equipamento (definem o schema da proposta). */
-export function readOrcamentoEquipamentoCamposFromDom(root) {
-  const firstCard = root?.querySelector('[data-orcamento-maquina]');
-  if (!firstCard) return normalizeEquipamentoCampos();
+/** Lê rótulos editáveis de um cartão de equipamento. */
+export function readMaquinaCamposFromCard(card) {
+  if (!card) return normalizeEquipamentoCampos();
   const rows = [];
-  firstCard.querySelectorAll('[data-orc-maquina-campo]').forEach((row) => {
+  card.querySelectorAll('[data-orc-maquina-campo]').forEach((row) => {
     const key = row.dataset.campoKey || '';
-    const label =
-      row.querySelector('[data-orc-campo-label]')?.value?.trim() ||
-      row.querySelector('[data-orc-maquina-label-for]')?.value?.trim() ||
-      row.querySelector('[data-orc-maquina-label-for]')?.textContent?.trim() ||
-      '';
+    const label = row.querySelector('[data-orc-campo-label]')?.value?.trim() || '';
     const normalized = normalizeEquipamentoCampo({ key, label });
     if (normalized) rows.push(normalized);
   });
   return normalizeEquipamentoCampos(rows);
+}
+
+/** Lê rótulos do primeiro equipamento (legado / fallback). */
+export function readOrcamentoEquipamentoCamposFromDom(root) {
+  const firstCard = root?.querySelector('[data-orcamento-maquina]');
+  return readMaquinaCamposFromCard(firstCard);
 }

@@ -61,6 +61,39 @@ describe('resolveOrcamentoEquipamentoPdfBlocks', () => {
     assert.equal(blocks.blocks[1].machine.marca, 'Toyota');
     assert.equal(blocks.blocks[1].machine.numeroInterno, 'M2');
   });
+
+  it('PDF com rótulos e campos diferentes em cada equipamento', () => {
+    const fill = {
+      maquinas: [
+        {
+          marca: 'Linde',
+          modelo: 'Chumbo',
+          campos: [
+            { key: 'marca', label: 'Equipamento' },
+            { key: 'modelo', label: 'Material' },
+          ],
+        },
+        {
+          marca: 'Toyota',
+          campo_2: '24V',
+          campos: [
+            { key: 'marca', label: 'Equipamento' },
+            { key: 'campo_2', label: 'Tensão' },
+          ],
+        },
+      ],
+    };
+    const { blocks } = resolveOrcamentoEquipamentoPdfBlocks(fill);
+    assert.equal(blocks.length, 2);
+    assert.deepEqual(blocks[0].rows, [
+      ['Equipamento', 'Linde'],
+      ['Material', 'Chumbo'],
+    ]);
+    assert.deepEqual(blocks[1].rows, [
+      ['Equipamento', 'Toyota'],
+      ['Tensão', '24V'],
+    ]);
+  });
 });
 
 describe('computeOrcamentoTableLayout', () => {
