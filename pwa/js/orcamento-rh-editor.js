@@ -221,11 +221,11 @@ export function renderOrcamentoEditor(report, { client } = {}) {
   const apoioOrcamentoField = isStandalone
     ? ''
     : `
-        <label class="review-orc-field review-orc-field--full">
+        <div class="review-orc-field review-orc-field--full review-orc-field--readonly">
           <span>Apoio do orçamento</span>
-          <textarea class="review-orc-input review-orc-textarea" data-orc-field="observacoesTecnico" rows="3" placeholder="O que é necessário (relatório técnico)">${escapeHtml(cab.observacoesTecnico)}</textarea>
-          <span class="review-orc-field-hint text-muted">Preenchido a partir de «O que é necessário» no relatório — apoio interno à faturação, não incluído no PDF da proposta.</span>
-        </label>`;
+          <p class="review-orc-readonly review-orc-readonly--multiline" aria-readonly="true">${escapeHtml(cab.observacoesTecnico) || '—'}</p>
+          <span class="review-orc-field-hint text-muted">Vem do técnico («O que é necessário» no relatório). Apoio interno à faturação — não editável aqui e não entra no PDF. Para notas ao cliente, use «Observações ao cliente» abaixo.</span>
+        </div>`;
 
   return `
     <div class="review-orcamento-editor" id="orcamento-editor">

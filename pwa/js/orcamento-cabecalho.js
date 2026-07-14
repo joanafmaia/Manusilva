@@ -330,7 +330,9 @@ export function resolveOrcamentoCabecalho(report) {
       numeroInterno: picked.numeroInterno || legacy.numeroInterno,
       formaPagamento: picked.formaPagamento || ORCAMENTO_FORMA_PAGAMENTO_DEFAULT,
       validadeOrcamento: picked.validadeOrcamento || ORCAMENTO_VALIDADE_DEFAULT,
-      observacoesTecnico: reportIsStandaloneOrcamento(report) ? '' : picked.observacoesTecnico,
+      observacoesTecnico: reportIsStandaloneOrcamento(report)
+        ? ''
+        : resolveReportObservacoesTecnico(report),
     },
     maquinas,
   );
@@ -356,7 +358,9 @@ export function readOrcamentoCabecalhoFromDom(root, report) {
       tipo: legacy.tipo,
       numeroSerie: legacy.numeroSerie,
       numeroInterno: legacy.numeroInterno,
-      observacoesTecnico: reportIsStandaloneOrcamento(report) ? '' : read('observacoesTecnico'),
+      observacoesTecnico: reportIsStandaloneOrcamento(report)
+        ? ''
+        : resolveReportObservacoesTecnico(report),
       observacoesCliente: read('observacoesCliente'),
       textoIntro: read('textoIntro') || suggestOrcamentoTextoIntro(report, maquinas.length || 1),
       formaPagamento: read('formaPagamento') || ORCAMENTO_FORMA_PAGAMENTO_DEFAULT,

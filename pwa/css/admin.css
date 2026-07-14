@@ -3088,6 +3088,11 @@
   line-height: 1.35;
   color: var(--text-primary, #0f172a);
 }
+.review-orc-readonly--multiline {
+  font-weight: 400;
+  white-space: pre-wrap;
+  min-height: 4.5rem;
+}
 .review-orc-field--email {
   margin-bottom: 0.75rem;
 }
