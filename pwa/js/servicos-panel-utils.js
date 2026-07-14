@@ -4,6 +4,12 @@
 
 import { getAllJobs, getJob, getServiceType, getJobTechnicianLabel, getTechnician, jobAssignedToTechnician } from './entity-lookups.js';
 import { sameEntityId } from './entity-id.js';
+import { reportIsFolhaObraOrcamento } from './folha-obra-orcamento.js';
+import {
+  reportIsStandaloneOrcamento,
+  STANDALONE_ORCAMENTO_SERVICE_TYPE,
+  STANDALONE_ORCAMENTO_TECH_ID,
+} from './orcamento-standalone.js';
 import { filterOutLocallyDeletedReports } from './report-deleted-local.js';
 import { getReportsSnapshot, getCanonicalReportForJob, getReportsSnapshotByServicoId } from './relatorios-db.js';
 import { getServico, getServicosSnapshot } from './servicos-db.js';
@@ -343,6 +349,37 @@ function collectCalendarHiddenJobIds(servicoIds) {
   return hidden;
 }
 
+/** Propostas MS.015 do RH (sem visita técnica) não devem aparecer no calendário. */
+export function reportExcludedFromAdminCalendar(report) {
+  if (!report) return false;
+  if (reportIsStandaloneOrcamento(report)) return true;
+  if (reportIsFolhaObraOrcamento(report)) return true;
+  return false;
+}
+
+export function calendarItemExcludedFromAdminCalendar(item) {
+  if (!item) return false;
+
+  if (item.isServico) {
+    const reports = getReportsForServico(item.id);
+    return reports.length > 0 && reports.every(reportExcludedFromAdminCalendar);
+  }
+
+  const report = getCalendarItemReport(item);
+  if (reportExcludedFromAdminCalendar(report)) return true;
+
+  if (String(item.serviceType || '') === STANDALONE_ORCAMENTO_SERVICE_TYPE) return true;
+  if (
+    String(item.technicianId || '') === STANDALONE_ORCAMENTO_TECH_ID &&
+    !report &&
+    !item.isServico
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
 /**
  * Lista para o calendário RH: serviços (novo modelo) + trabalhos legados sem serviço.
  */
@@ -352,7 +389,7 @@ export function getAdminCalendarItems() {
   const hiddenJobIds = collectCalendarHiddenJobIds(servicoIds);
   const fromServicos = servicos.map(servicoToCalendarItem);
   const legacyJobs = getAllJobs().filter((j) => !hiddenJobIds.has(String(j.id)));
-  return [...fromServicos, ...legacyJobs];
+  return [...fromServicos, ...legacyJobs].filter((item) => !calendarItemExcludedFromAdminCalendar(item));
 }
 
 export function getCalendarItemReport(item) {

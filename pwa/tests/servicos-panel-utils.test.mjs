@@ -351,6 +351,66 @@ describe('servicos-panel-utils', () => {
     assert.equal(getApprovedReportsForServico('svc-legacy-fallback').length, 1);
   });
 
+  it('getAdminCalendarItems — exclui propostas MS.015 criadas pelo RH', async () => {
+    const trabalhosDb = await import('../js/trabalhos-db.js');
+    const relatoriosDb = await import('../js/relatorios-db.js');
+    trabalhosDb.mergeJobFromRealtime({
+      id: 'job-orc-rh',
+      cliente_id: 99,
+      data: '2026-07-10',
+      tecnico_id: 'rh-admin',
+      tipo_servico: 'proposta_ms015_rh',
+      estado: 'completed',
+      numero_ordem: 324,
+    });
+    relatoriosDb.mergeReportInCache({
+      id: 'r-orc-rh',
+      jobId: 'job-orc-rh',
+      servicoId: '',
+      serviceType: 'proposta_ms015_rh',
+      status: 'approved',
+      clientId: '99',
+      technicianId: 'rh-admin',
+      data: {
+        orcamentoOrigem: 'rh_standalone',
+        orcamento: { tipoProposta: 'generico' },
+        values: { cliente: 'Cliente Teste' },
+      },
+    });
+    const { getAdminCalendarItems } = await import('../js/servicos-panel-utils.js');
+    const ids = getAdminCalendarItems().map((i) => i.id);
+    assert.ok(!ids.includes('job-orc-rh'));
+  });
+
+  it('getAdminCalendarItems — mantém visita técnica com pedido de orçamento', async () => {
+    const trabalhosDb = await import('../js/trabalhos-db.js');
+    const relatoriosDb = await import('../js/relatorios-db.js');
+    trabalhosDb.mergeJobFromRealtime({
+      id: 'job-pedido-orc',
+      cliente_id: 15,
+      data: '2026-07-11',
+      tecnico_id: 'Hugo',
+      tipo_servico: 'folha_intervencao_avarias',
+      estado: 'completed',
+    });
+    relatoriosDb.mergeReportInCache({
+      id: 'r-pedido-orc',
+      jobId: 'job-pedido-orc',
+      servicoId: '',
+      serviceType: 'folha_intervencao_avarias',
+      status: 'approved',
+      clientId: '15',
+      technicianId: 'Hugo',
+      data: {
+        values: { pedido_orcamento: 'Sim', detalhe_pedido_orcamento: 'Substituir bateria' },
+        orcamento: {},
+      },
+    });
+    const { getAdminCalendarItems } = await import('../js/servicos-panel-utils.js');
+    const ids = getAdminCalendarItems().map((i) => i.id);
+    assert.ok(ids.includes('job-pedido-orc'));
+  });
+
   it('getReportsForServico — por servico_id', async () => {
     const { getReportsForServico } = await import('../js/servicos-panel-utils.js');
     const reports = getReportsForServico('svc-1');
