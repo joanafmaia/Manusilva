@@ -13,6 +13,11 @@ import { getClientFromCatalog } from './clients-catalog.js';
 import { openOrcamentoPage } from './orcamento-modal.js';
 import { deleteRelatorioById, upsertRelatorio } from './relatorios-db.js';
 import { deleteTrabalho } from './trabalhos-db.js';
+import {
+  ORCAMENTO_TIPO_PROPOSTA,
+  ORCAMENTO_TIPO_PROPOSTA_OPTIONS,
+  normalizeOrcamentoTipoProposta,
+} from './orcamento-tipo-proposta.js';
 
 export const STANDALONE_ORCAMENTO_SERVICE_TYPE = 'proposta_ms015_rh';
 export const STANDALONE_ORCAMENTO_ORIGEM = 'rh_standalone';
@@ -31,12 +36,13 @@ function clientDisplayName(clientId, clientRecord = null) {
   return String(client?.name || client?.Nome || '').trim();
 }
 
-function buildStandaloneReportDraft({ clientId, clientRecord }) {
+function buildStandaloneReportDraft({ clientId, clientRecord, tipoProposta }) {
   const nome = clientDisplayName(clientId, clientRecord);
   if (!nome) {
     throw new Error('Cliente inválido.');
   }
 
+  const tipo = normalizeOrcamentoTipoProposta(tipoProposta);
   const now = new Date().toISOString();
   return {
     clientId: String(clientId),
@@ -53,18 +59,20 @@ function buildStandaloneReportDraft({ clientId, clientRecord }) {
         cliente: nome,
       },
       orcamentoOrigem: STANDALONE_ORCAMENTO_ORIGEM,
-      orcamento: null,
+      orcamento: {
+        tipoProposta: tipo,
+      },
     },
   };
 }
 
 /** Cria relatório mínimo + trabalho (OP) e abre o editor MS.015. */
-export async function createStandaloneOrcamentoReport({ clientId, clientRecord = null }) {
+export async function createStandaloneOrcamentoReport({ clientId, clientRecord = null, tipoProposta }) {
   const id = String(clientId ?? '').trim();
   if (!id) throw new Error('Selecione um cliente.');
 
   const record = clientRecord || getClientFromCatalog(id);
-  const report = buildStandaloneReportDraft({ clientId: id, clientRecord: record });
+  const report = buildStandaloneReportDraft({ clientId: id, clientRecord: record, tipoProposta });
   const saved = await upsertRelatorio(report);
   if (!saved?.id) {
     throw new Error('Não foi possível criar a proposta.');
@@ -122,6 +130,16 @@ export function openNovaPropostaModal({ onCreated } = {}) {
         value: '',
         selectedId: '',
       })}
+      <label class="review-orc-field">
+        <span>Tipo</span>
+        <select class="form-input" id="nova-proposta-tipo" data-nova-proposta-tipo required>
+          ${ORCAMENTO_TIPO_PROPOSTA_OPTIONS.map(
+            ({ value, label }) =>
+              `<option value="${value}"${value === ORCAMENTO_TIPO_PROPOSTA.ORCAMENTO ? ' selected' : ''}>${label}</option>`,
+          ).join('')}
+        </select>
+        <span class="review-orc-field-hint text-muted">Classificação para relatórios e exportação anual.</span>
+      </label>
     </form>`;
 
   const actions = `
@@ -152,7 +170,10 @@ export function openNovaPropostaModal({ onCreated } = {}) {
 
     try {
       const clientRecord = getClientFromCatalog(clientId);
-      const report = await createStandaloneOrcamentoReport({ clientId, clientRecord });
+      const tipoProposta =
+        overlay.querySelector('[data-nova-proposta-tipo]')?.value?.trim() ||
+        ORCAMENTO_TIPO_PROPOSTA.ORCAMENTO;
+      const report = await createStandaloneOrcamentoReport({ clientId, clientRecord, tipoProposta });
       closeModal();
       onCreated?.(report);
       openOrcamentoPage(report);

@@ -29,6 +29,13 @@ import {
   reportOrcamentoQueueLabel,
 } from '../orcamento-standalone.js';
 import { getReportOrcamentoMeta } from '../orcamento-linhas.js';
+import {
+  formatOrcamentoTipoPropostaLabel,
+  getOrcamentoTipoProposta,
+  ORCAMENTO_TIPO_PROPOSTA_OPTIONS,
+  resolveOrcamentoReferenceYear,
+} from '../orcamento-tipo-proposta.js';
+import { buildOrcamentoAuditSummary, downloadOrcamentoAuditCsv } from '../orcamento-audit.js';
 import { dedupeReportsForDisplay } from '../relatorios-db.js';
 import {
   orcamentoAguardaRespostaCliente,
@@ -47,8 +54,21 @@ import { getSession } from '../session.js';
 
 let mountRoot = null;
 let activeFilter = 'todas';
+let tipoFilter = 'all';
 let searchQuery = '';
+let exportYear = String(new Date().getFullYear());
+let exportTipoFilter = 'all';
+let exportEstadoFilter = 'all';
 let highlightReportId = null;
+
+const EXPORT_ESTADO_OPTIONS = [
+  { value: 'all', label: 'Todos os estados' },
+  { value: 'por_preparar', label: 'Por preparar' },
+  { value: 'guardada', label: 'Guardadas' },
+  { value: 'enviada', label: 'Enviadas (aguardam resposta)' },
+  { value: 'aceite', label: 'Aceites' },
+  { value: 'recusada', label: 'Recusadas' },
+];
 
 function listOrcamentoReports() {
   return dedupeReportsForDisplay(
@@ -70,6 +90,10 @@ function filterOrcamentoReports(reports) {
     rows = rows.filter((report) => resolveOrcamentoWorkflowStatus(report) === activeFilter);
   }
 
+  if (tipoFilter && tipoFilter !== 'all') {
+    rows = rows.filter((report) => getOrcamentoTipoProposta(report) === tipoFilter);
+  }
+
   const q = searchQuery.trim().toLowerCase();
   if (!q) return rows;
 
@@ -79,7 +103,8 @@ function filterOrcamentoReports(reports) {
     const clientName = String(client?.name || client?.Nome || '').toLowerCase();
     const op = formatOrdemLabel(job).toLowerCase();
     const numero = String(getReportOrcamentoMeta(report)?.numeroFormatado || '').toLowerCase();
-    return clientName.includes(q) || op.includes(q) || numero.includes(q);
+    const tipo = formatOrcamentoTipoPropostaLabel(getOrcamentoTipoProposta(report)).toLowerCase();
+    return clientName.includes(q) || op.includes(q) || numero.includes(q) || tipo.includes(q);
   });
 }
 
@@ -188,6 +213,7 @@ function renderTableRow(report) {
   const podeMarcarResposta = Boolean(meta?.enviadoEm);
   const highlighted = highlightReportId && report.id === highlightReportId;
   const clientName = client?.name || client?.Nome || '—';
+  const tipoLabel = formatOrcamentoTipoPropostaLabel(getOrcamentoTipoProposta(report));
 
   return `
     <tr class="rh-data-table-row orcamentos-row${highlighted ? ' orcamentos-row--highlight' : ''}" data-report-id="${escapeHtml(report.id)}">
@@ -196,6 +222,7 @@ function renderTableRow(report) {
         <span class="rh-cell-client-name">${escapeHtml(clientName)}</span>
         <span class="orcamentos-row__sub">${escapeHtml(service?.label || report.serviceType || '—')}</span>
       </td>
+      <td class="rh-cell-muted">${escapeHtml(tipoLabel)}</td>
       <td class="rh-cell-muted">${escapeHtml(reportStatusLabel(report))}</td>
       <td class="rh-cell-muted">
         <span class="orcamentos-status ${resolveOrcamentoWorkflowClass(workflow)}">${escapeHtml(resolveOrcamentoWorkflowLabel(workflow))}</span>
@@ -253,10 +280,114 @@ function renderTableRow(report) {
     </tr>`;
 }
 
+function resolveExportYearOptions(reports) {
+  const years = new Set([Number(exportYear) || new Date().getFullYear()]);
+  for (const report of reports) {
+    const y = resolveOrcamentoReferenceYear(report);
+    if (y) years.add(y);
+  }
+  return [...years].sort((a, b) => b - a);
+}
+
+function renderTipoFilterSelect(id, value, label) {
+  const options = [
+    `<option value="all"${value === 'all' ? ' selected' : ''}>Todos os tipos</option>`,
+    ...ORCAMENTO_TIPO_PROPOSTA_OPTIONS.map(
+      ({ value: v, label: l }) =>
+        `<option value="${escapeHtml(v)}"${value === v ? ' selected' : ''}>${escapeHtml(l)}</option>`,
+    ),
+  ].join('');
+  return `
+    <label class="orcamentos-toolbar__field">
+      <span class="orcamentos-toolbar__label">${escapeHtml(label)}</span>
+      <select class="form-input" id="${escapeHtml(id)}">${options}</select>
+    </label>`;
+}
+
+function renderEstadoFilterSelect(id, value, label) {
+  const options = EXPORT_ESTADO_OPTIONS.map(
+    ({ value: v, label: l }) =>
+      `<option value="${escapeHtml(v)}"${value === v ? ' selected' : ''}>${escapeHtml(l)}</option>`,
+  ).join('');
+  return `
+    <label class="orcamentos-toolbar__field">
+      <span class="orcamentos-toolbar__label">${escapeHtml(label)}</span>
+      <select class="form-input" id="${escapeHtml(id)}">${options}</select>
+    </label>`;
+}
+
+async function exportOrcamentoAuditPdf() {
+  const all = listOrcamentoReports();
+  const summary = buildOrcamentoAuditSummary(all, {
+    year: exportYear,
+    tipoFilter: exportTipoFilter,
+    estadoFilter: exportEstadoFilter,
+  });
+
+  if (!summary.metrics.proposalCount) {
+    showToast('Não há propostas guardadas para exportar com estes filtros.', 'info');
+    return;
+  }
+
+  const btn = mountRoot?.querySelector('#orcamentos-export-pdf');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'A gerar PDF…';
+  }
+
+  try {
+    const { generateOrcamentoAuditPdfBlob } = await import('../pdf-orcamento-audit.js');
+    const { downloadPdfBlob } = await import('../pdf-preview.js');
+    const { blob, filename } = await generateOrcamentoAuditPdfBlob({
+      summary,
+      rows: summary.rows,
+      year: exportYear,
+      tipoFilter: exportTipoFilter,
+      estadoFilter: exportEstadoFilter,
+    });
+    downloadPdfBlob(blob, filename);
+    showToast('PDF de propostas exportado.', 'success', 4000);
+  } catch (err) {
+    console.error('[Orçamentos] PDF anual:', err);
+    showToast(err?.message || 'Não foi possível gerar o PDF.', 'error');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = 'Exportar PDF';
+    }
+  }
+}
+
+function exportOrcamentoAuditCsv() {
+  const all = listOrcamentoReports();
+  const summary = buildOrcamentoAuditSummary(all, {
+    year: exportYear,
+    tipoFilter: exportTipoFilter,
+    estadoFilter: exportEstadoFilter,
+  });
+
+  if (!summary.metrics.proposalCount) {
+    showToast('Não há propostas para exportar com estes filtros.', 'info');
+    return;
+  }
+
+  downloadOrcamentoAuditCsv(summary.rows, {
+    year: exportYear,
+    tipoFilter: exportTipoFilter,
+    estadoFilter: exportEstadoFilter,
+  });
+  showToast(
+    `${summary.metrics.proposalCount} proposta(s) exportada(s) para Excel (CSV).`,
+    'success',
+    5000,
+  );
+}
+
 function renderPanel() {
   const all = listOrcamentoReports();
   const counts = countByWorkflow(all);
   const rows = filterOrcamentoReports(all);
+  const yearOptions = resolveExportYearOptions(all);
 
   return `
     <div class="orcamentos-panel rh-admin-panel">
@@ -280,11 +411,34 @@ function renderPanel() {
           type="search"
           class="form-input orcamentos-search"
           id="orcamentos-search"
-          placeholder="Pesquisar cliente, OP ou nº orçamento…"
+          placeholder="Pesquisar cliente, OP, tipo ou nº orçamento…"
           value="${escapeHtml(searchQuery)}"
           autocomplete="off"
           aria-label="Pesquisar orçamentos"
         />
+        ${renderTipoFilterSelect('orcamentos-tipo-filter', tipoFilter, 'Tipo')}
+      </div>
+
+      <div class="orcamentos-export-bar">
+        <label class="orcamentos-toolbar__field">
+          <span class="orcamentos-toolbar__label">Ano (exportação)</span>
+          <select class="form-input" id="orcamentos-export-year">
+            ${yearOptions
+              .map(
+                (y) =>
+                  `<option value="${y}"${String(exportYear) === String(y) ? ' selected' : ''}>${y}</option>`,
+              )
+              .join('')}
+          </select>
+        </label>
+        ${renderTipoFilterSelect('orcamentos-export-tipo', exportTipoFilter, 'Tipo')}
+        ${renderEstadoFilterSelect('orcamentos-export-estado', exportEstadoFilter, 'Estado / resposta')}
+        <button type="button" class="btn-outline btn-touch" id="orcamentos-export-csv">
+          Exportar Excel (CSV)
+        </button>
+        <button type="button" class="btn-outline btn-touch" id="orcamentos-export-pdf">
+          Exportar PDF
+        </button>
       </div>
 
       ${
@@ -297,6 +451,7 @@ function renderPanel() {
               <tr>
                 <th>OP</th>
                 <th>Cliente</th>
+                <th>Tipo</th>
                 <th>Relatório</th>
                 <th>Proposta</th>
                 <th>Pedido</th>
@@ -442,6 +597,18 @@ function bindPanelEvents() {
         return;
       }
       openOrcamentoStorageUrl(url);
+      return;
+    }
+
+    const exportBtn = e.target.closest('#orcamentos-export-pdf');
+    if (exportBtn) {
+      void exportOrcamentoAuditPdf();
+      return;
+    }
+
+    const exportCsvBtn = e.target.closest('#orcamentos-export-csv');
+    if (exportCsvBtn) {
+      exportOrcamentoAuditCsv();
     }
   });
 
@@ -449,6 +616,30 @@ function bindPanelEvents() {
     if (e.target.id !== 'orcamentos-search') return;
     searchQuery = e.target.value || '';
     refreshOrcamentosPanel().catch(console.error);
+  });
+
+  mountRoot.addEventListener('change', (e) => {
+    const target = e.target;
+    if (!(target instanceof HTMLSelectElement)) return;
+    if (target.id === 'orcamentos-tipo-filter') {
+      tipoFilter = target.value || 'all';
+      refreshOrcamentosPanel().catch(console.error);
+      return;
+    }
+    if (target.id === 'orcamentos-export-year') {
+      exportYear = target.value || String(new Date().getFullYear());
+      refreshOrcamentosPanel().catch(console.error);
+      return;
+    }
+    if (target.id === 'orcamentos-export-tipo') {
+      exportTipoFilter = target.value || 'all';
+      refreshOrcamentosPanel().catch(console.error);
+      return;
+    }
+    if (target.id === 'orcamentos-export-estado') {
+      exportEstadoFilter = target.value || 'all';
+      refreshOrcamentosPanel().catch(console.error);
+    }
   });
 }
 

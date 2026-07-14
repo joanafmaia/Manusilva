@@ -29,6 +29,11 @@ import {
   openOrcamentoStorageUrl,
 } from './pedido-orcamento.js';
 import {
+  formatOrcamentoTipoPropostaLabel,
+  getOrcamentoTipoProposta,
+  renderOrcamentoTipoPropostaSelect,
+} from './orcamento-tipo-proposta.js';
+import {
   exitOrcamentoPageAfterSend,
   isOrcamentoDedicatedPage,
 } from './orcamento-modal.js';
@@ -166,6 +171,7 @@ function renderOrcamentoSentSummary(report, { client } = {}) {
         Não é possível alterá-la — use a lista de orçamentos para consultar o PDF ou registar a resposta.
       </p>
       <dl class="review-orcamento-sent-meta">
+        <div><dt>Tipo</dt><dd>${escapeHtml(formatOrcamentoTipoPropostaLabel(getOrcamentoTipoProposta(report)))}</dd></div>
         <div><dt>Estado</dt><dd><span class="orcamentos-status ${resolveOrcamentoWorkflowClass(workflow)}">${escapeHtml(resolveOrcamentoWorkflowLabel(workflow))}</span></dd></div>
         <div><dt>Enviada para</dt><dd>${email}</dd></div>
       </dl>
@@ -221,6 +227,7 @@ export function renderOrcamentoEditor(report, { client } = {}) {
       <section class="review-orc-cabecalho" aria-label="Dados da proposta comercial">
         <h4 class="review-orc-cabecalho__title">Dados da proposta</h4>
         <div class="review-orc-cabecalho__grid">
+          ${renderOrcamentoTipoPropostaSelect(getOrcamentoTipoProposta(report))}
           <div class="review-orc-field review-orc-field--readonly">
             <span>Para (cliente)</span>
             <p class="review-orc-readonly" aria-readonly="true">${escapeHtml(cab.clienteNome) || '—'}</p>

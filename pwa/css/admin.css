@@ -4436,7 +4436,30 @@ body .admin-rh-page .btn-primary, body .admin-rh-page .btn-secondary, body .admi
 }
 .orcamentos-toolbar {
   display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
   gap: 0.65rem;
+}
+.orcamentos-toolbar__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 11rem;
+}
+.orcamentos-toolbar__label {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+.orcamentos-export-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.65rem;
+  margin-top: 0.5rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--border-subtle, #e5e7eb);
+  border-radius: 0.5rem;
+  background: var(--surface-muted, #f8fafc);
 }
 .orcamentos-search {
   max-width: 24rem;

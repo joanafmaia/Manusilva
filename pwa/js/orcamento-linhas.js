@@ -10,6 +10,7 @@ import {
   hasOrcamentoMaquinaData,
   normalizeOrcamentoMaquinasList,
 } from './orcamento-maquinas.js';
+import { suggestOrcamentoTipoProposta, normalizeOrcamentoTipoProposta } from './orcamento-tipo-proposta.js';
 
 const IVA_RATE = 0.23;
 const MIN_LINHAS_VAZIAS = 3;
@@ -253,12 +254,14 @@ export function buildOrcamentoMetaDraft(report, numeroReservado = null) {
   const prazoEntrega = existing?.prazoEntrega ?? '';
   const totals = computeOrcamentoTotals(linhas, existing || taxasSaida);
   const cabecalho = resolveOrcamentoCabecalho(report);
+  const tipoProposta = normalizeOrcamentoTipoProposta(existing?.tipoProposta, report);
 
   return {
     numeroSequencial: sequencial,
     ano,
     numeroFormatado:
       sequencial != null ? formatOrcamentoNumeroLabel(sequencial, ano) : existing?.numeroFormatado || null,
+    tipoProposta,
     emailDestinatario: existing?.emailDestinatario ?? '',
     ...cabecalho,
     maquinas: cabecalho.maquinas,
@@ -299,11 +302,14 @@ export function readOrcamentoFormFromDom(root, report) {
   const totals = computeOrcamentoTotals(linhas, taxaSlots);
   const existing = getReportOrcamentoMeta(report) || {};
   const domMeta = getReportOrcamentoMetaFromDom(root);
+  const tipoRaw = root.querySelector('[data-orc-field="tipoProposta"]')?.value?.trim() || '';
+  const tipoProposta = normalizeOrcamentoTipoProposta(tipoRaw || existing.tipoProposta, report);
 
   return {
     ...existing,
     ...domMeta,
     ...cabecalho,
+    tipoProposta,
     emailDestinatario,
     taxasSaida,
     taxaSaida,

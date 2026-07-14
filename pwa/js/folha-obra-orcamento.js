@@ -118,7 +118,9 @@ function buildFolhaObraOrcamentoDraft(folha) {
       orcamentoOrigem: FOLHA_OBRA_ORCAMENTO_ORIGEM,
       folhaObraId: folha.id,
       folhaObraEtq: folha.etq || '',
-      orcamento: null,
+      orcamento: {
+        tipoProposta: 'orcamento',
+      },
     },
   };
 }
