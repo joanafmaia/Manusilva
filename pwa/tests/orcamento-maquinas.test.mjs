@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   collectMaquinaPdfFieldRows,
   countOrcamentoGroupedTableRows,
+  formatMaquinaPdfHorizontalText,
   formatOrcamentoMaquinasDocxText,
   groupOrcamentoLinhasByEquipamento,
   hasOrcamentoMaquinaData,
@@ -63,6 +64,14 @@ describe('orcamento-maquinas', () => {
       { marca: 'Toyota', modelo: 'A', numeroInterno: 'M1' },
       { marca: 'Linde', modelo: 'B', numeroInterno: 'M2' },
     ], campos), /1\. Marca: Toyota — Modelo: A/);
+  });
+
+  it('formata campos em linha horizontal para o PDF', () => {
+    const text = formatMaquinaPdfHorizontalText([
+      ['Marca', 'Toyota'],
+      ['Modelo', '8FB'],
+    ]);
+    assert.match(text, /Marca: Toyota\s+Modelo: 8FB/);
   });
 
   it('mantém campos e rótulos por máquina', () => {

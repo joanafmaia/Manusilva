@@ -135,6 +135,12 @@ export function formatOrcamentoMaquinaCompactLine(row, index = 0, campos = null)
   return pairs.join(' — ') || formatOrcamentoMaquinaLabel(row, index, campos);
 }
 
+export function formatMaquinaPdfHorizontalText(rows = []) {
+  return rows
+    .map(([label, value]) => `${label}: ${String(value || '').trim() || '—'}`)
+    .join('    ');
+}
+
 export function renderOrcamentoEquipamentoSelect(maquinas = [], selectedIndex = 0, campos = null) {
   const fields = normalizeEquipamentoCampos(campos);
   const list = normalizeOrcamentoMaquinasList(maquinas, fields);
@@ -209,6 +215,17 @@ export function groupOrcamentoLinhasByEquipamento(linhas, maquinas = [], campos 
           ],
     };
   });
+}
+
+export function filterOrcamentoPdfGroupLinhas(linhas = []) {
+  const rows = Array.isArray(linhas) ? linhas : [];
+  const real = rows.filter(
+    (row) =>
+      String(row?.descricao || '').trim() ||
+      String(row?.precoUnit || '').trim() ||
+      String(row?.qtd || '1').trim() !== '1',
+  );
+  return real.length ? real : rows;
 }
 
 export function countOrcamentoGroupedTableRows(linhas, maquinas = [], campos = null) {

@@ -10,6 +10,8 @@ import { buildOrcamentoFillData } from './orcamento-fill-data.js';
 import { resolveOrcamentoTextoIntroForPdf } from './orcamento-cabecalho.js';
 import {
   collectMaquinaPdfFieldRows,
+  filterOrcamentoPdfGroupLinhas,
+  formatMaquinaPdfHorizontalText,
   formatOrcamentoMaquinaPdfTableLabel,
   formatOrcamentoMaquinaLabel,
   formatOrcamentoMaquinaMatricula,
@@ -102,6 +104,7 @@ const CONTENT_MAX_Y = FOOTER_TOP - 6;
 
 const ORC_TABLE_ROW_H = 6.5;
 const ORC_TABLE_GAP_ABOVE_FOOTER = 3;
+const ORC_TABLE_COL_X = [MARGIN, MARGIN + 98, MARGIN + 112, MARGIN + 148, MARGIN + CONTENT_W];
 
 let legalTextCache = null;
 
@@ -470,8 +473,7 @@ function drawLegalPage(doc, legalText) {
 export function resolveOrcamentoEquipamentoPdfBlocks(fill = {}) {
   const fallbackCampos = normalizeEquipamentoCampos(fill.equipamento_campos);
   const allMaquinas = Array.isArray(fill.maquinas) ? fill.maquinas : [];
-  const blocks = allMaquinas
-    .map((row, index) => {
+  const blocks = allMaquinas.map((row, index) => {
       const machine = normalizeOrcamentoMaquina(row, fallbackCampos);
       const campos = resolveMaquinaFieldDefs(machine, fallbackCampos);
       return {
@@ -480,8 +482,7 @@ export function resolveOrcamentoEquipamentoPdfBlocks(fill = {}) {
         campos,
         rows: collectMaquinaPdfFieldRows(machine, fallbackCampos),
       };
-    })
-    .filter(({ rows }) => rows.length > 0);
+    });
 
   if (blocks.length) return { blocks };
 
@@ -521,49 +522,142 @@ function measureOrcamentoEquipamentoSeparator(y) {
   return y + 2 + 5;
 }
 
-function measureOrcamentoEquipamentoBlocksHeight(doc, fill, startY, maxEndY = CONTENT_MAX_Y) {
-  const canEquipLine = (y, step = 5) => y + step <= maxEndY;
-  const advanceEquipY = (y, step = 5) => (canEquipLine(y, step) ? y + step : y);
+function createOrcamentoTableRowDrawer(doc, startY) {
   let y = startY;
+  const colX = ORC_TABLE_COL_X;
+
+  const drawRow = (cells, { bold = false, fill = false } = {}) => {
+    if (!canDrawTableLine(y, ORC_TABLE_ROW_H + 2)) return y;
+    if (fill) {
+      doc.setFillColor(241, 245, 249);
+      doc.rect(MARGIN, y - 4.2, CONTENT_W, ORC_TABLE_ROW_H, 'F');
+    }
+    pdfSetFont(doc, bold ? 'bold' : 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(...PDF_COLOR_TEXT_DARK);
+    doc.text(fitTableCellText(doc, cells[0], colX[1] - colX[0] - 3), colX[0] + 1, y);
+    doc.text(pdfSafeText(cells[1]), colX[2] - 2, y, { align: 'right' });
+    doc.text(pdfSafeText(cells[2]), colX[3] - 2, y, { align: 'right' });
+    doc.text(pdfSafeText(cells[3]), colX[4] - 1, y, { align: 'right' });
+    doc.setDrawColor(203, 213, 225);
+    doc.line(MARGIN, y + 1.5, MARGIN + CONTENT_W, y + 1.5);
+    y += ORC_TABLE_ROW_H;
+    return y;
+  };
+
+  return { drawRow };
+}
+
+function measureHorizontalEquipFieldsHeight(doc, equipRows, startY, maxEndY = CONTENT_MAX_Y) {
+  if (!equipRows.length) return startY;
+  let y = startY;
+  const text = formatMaquinaPdfHorizontalText(equipRows);
+  pdfSetFont(doc, 'normal');
+  doc.setFontSize(PDF_FONT_BODY);
+  pdfSplitText(doc, pdfSafeText(text), CONTENT_W).forEach(() => {
+    if (y + 5 > maxEndY) return;
+    y += 5;
+  });
+  return y + 3;
+}
+
+function drawHorizontalEquipFields(doc, equipRows, startY, maxEndY = CONTENT_MAX_Y) {
+  if (!equipRows.length) return startY;
+  let y = startY;
+  const text = formatMaquinaPdfHorizontalText(equipRows);
+  pdfSetFont(doc, 'normal');
+  doc.setFontSize(PDF_FONT_BODY);
+  doc.setTextColor(...PDF_COLOR_TEXT_DARK);
+  pdfSplitText(doc, pdfSafeText(text), CONTENT_W).forEach((line) => {
+    if (y + 5 > maxEndY) return;
+    doc.text(line, MARGIN, y);
+    y += 5;
+  });
+  return y + 3;
+}
+
+function measureOrcamentoMachineTableHeight(doc, linhas, startY) {
+  const rows = filterOrcamentoPdfGroupLinhas(linhas);
+  let y = startY;
+  y += ORC_TABLE_ROW_H;
+  y += rows.length * ORC_TABLE_ROW_H;
+  return y + 4;
+}
+
+function drawOrcamentoMachineTableSection(doc, linhas, startY) {
+  const rows = filterOrcamentoPdfGroupLinhas(linhas);
+  const { drawRow } = createOrcamentoTableRowDrawer(doc, startY);
+  let y = drawRow(['Na reparação precisa', 'Qtd.', 'Preço Unit.', 'Total'], {
+    bold: true,
+    fill: true,
+  });
+  rows.forEach((row) => {
+    const total =
+      row.total || (computeLinhaTotal(row) > 0 ? formatEuro(computeLinhaTotal(row)) : '');
+    y = drawRow(
+      [
+        row.descricao || '—',
+        row.qtd || '1',
+        row.precoUnit ? formatEuro(row.precoUnit) : '',
+        total,
+      ],
+      {},
+    );
+  });
+  return y + 4;
+}
+
+function resolveMaquinaEquipRows(block, fill) {
+  if (block?.rows?.length) return block.rows;
+  if (!block) return [];
+  const rows = collectMaquinaPdfFieldRows(block.machine, fill.equipamento_campos);
+  if (rows.length) return rows;
+  return [
+    [LABEL_MAQUINA, formatOrcamentoMaquinaLabel(block.machine, block.index, block.campos)],
+    [LABEL_MATRICULA, formatOrcamentoMaquinaMatricula(block.machine, block.campos)],
+  ];
+}
+
+function measureOrcamentoMaquinaSectionsHeight(doc, fill, startY, maxEndY = CONTENT_MAX_Y) {
+  const campos = normalizeEquipamentoCampos(fill.equipamento_campos);
+  const groups = groupOrcamentoLinhasByEquipamento(fill.linhas, fill.maquinas, campos);
   const { blocks } = resolveOrcamentoEquipamentoPdfBlocks(fill);
+  let y = startY;
 
-  blocks.forEach((block, blockIndex) => {
-    const equipRows = block.rows?.length
-      ? block.rows
-      : collectMaquinaPdfFieldRows(block.machine, fill.equipamento_campos);
-
-    if (!equipRows.length && fill.maquina === '—') return;
-
-    const rowsToDraw =
-      equipRows.length > 0
-        ? equipRows
-        : [
-            [LABEL_MAQUINA, formatOrcamentoMaquinaLabel(block.machine, block.index, block.campos)],
-            [LABEL_MATRICULA, formatOrcamentoMaquinaMatricula(block.machine, block.campos)],
-          ];
-
-    rowsToDraw.forEach(([label, value]) => {
-      if (!canEquipLine(y)) return;
-      pdfSetFont(doc, 'bold');
-      const prefix = `${label}: `;
-      const prefixW = doc.getTextWidth(prefix);
-      pdfSetFont(doc, 'normal');
-      const valueLines = pdfSplitText(doc, pdfSafeText(value || '—'), Math.max(12, CONTENT_W - prefixW));
-      valueLines.forEach((line, lineIndex) => {
-        if (lineIndex > 0) {
-          y = advanceEquipY(y, 5.5);
-          if (!canEquipLine(y)) return;
-        }
-      });
-      y = advanceEquipY(y, 5.5);
-    });
-
-    if (blockIndex < blocks.length - 1 && canEquipLine(y, 6)) {
+  groups.forEach((group, groupIndex) => {
+    const block = blocks.find((row) => row.index === group.equipamentoIndex) || blocks[groupIndex];
+    const equipRows = resolveMaquinaEquipRows(block, fill);
+    if (equipRows.length) {
+      y = measureHorizontalEquipFieldsHeight(doc, equipRows, y, maxEndY);
+    }
+    y = measureOrcamentoMachineTableHeight(doc, group.linhas, y);
+    if (groupIndex < groups.length - 1) {
       y = measureOrcamentoEquipamentoSeparator(y);
     }
   });
 
-  return advanceEquipY(y, 4);
+  return y + 2;
+}
+
+function drawOrcamentoMaquinaSections(doc, fill, startY, maxEndY = CONTENT_MAX_Y) {
+  const campos = normalizeEquipamentoCampos(fill.equipamento_campos);
+  const groups = groupOrcamentoLinhasByEquipamento(fill.linhas, fill.maquinas, campos);
+  const { blocks } = resolveOrcamentoEquipamentoPdfBlocks(fill);
+  let y = startY;
+
+  groups.forEach((group, groupIndex) => {
+    const block = blocks.find((row) => row.index === group.equipamentoIndex) || blocks[groupIndex];
+    const equipRows = resolveMaquinaEquipRows(block, fill);
+    if (equipRows.length) {
+      y = drawHorizontalEquipFields(doc, equipRows, y, maxEndY);
+    }
+    y = drawOrcamentoMachineTableSection(doc, group.linhas, y);
+    if (groupIndex < groups.length - 1 && y + 8 <= maxEndY) {
+      y = drawOrcamentoEquipamentoSeparator(doc, y);
+    }
+  });
+
+  return y + 2;
 }
 
 function measureOrcamentoObservacoesHeight(doc, fill, startY, maxEndY = CONTENT_MAX_Y) {
@@ -591,70 +685,18 @@ export function planOrcamentoGenericPageLayout(doc, fill, bodyStartY) {
     y = advanceBodyY(y);
   });
   y = advanceBodyY(y, 4);
-
-  const equipStartY = y;
-  const equipEndY = measureOrcamentoEquipamentoBlocksHeight(doc, fill, equipStartY);
-  const obsEndY = measureOrcamentoObservacoesHeight(doc, fill, equipEndY);
+  y = measureOrcamentoObservacoesHeight(doc, fill, y);
+  const sectionsEndY = measureOrcamentoMaquinaSectionsHeight(doc, fill, y);
   const tableLayout = computeOrcamentoTableLayout(fill.linhas, fill.maquinas, {
-    contentEndY: obsEndY,
+    contentEndY: sectionsEndY,
     equipamentoCampos: fill.equipamento_campos,
   });
-  const middleMaxY = Math.max(equipStartY, tableLayout.startY - ORC_TABLE_GAP_ABOVE_FOOTER);
 
   return {
     intro,
-    equipStartY,
-    middleMaxY,
+    sectionsEndY,
     tableLayout,
   };
-}
-
-function drawOrcamentoEquipamentoBlocks(doc, fill, startY, options = {}) {
-  const maxEndY = Number.isFinite(options.maxEndY) ? options.maxEndY : CONTENT_MAX_Y;
-  const canEquipLine = (y, step = 5) => y + step <= maxEndY;
-  const advanceEquipY = (y, step = 5) => (canEquipLine(y, step) ? y + step : y);
-  let y = startY;
-  const { blocks } = resolveOrcamentoEquipamentoPdfBlocks(fill);
-
-  blocks.forEach((block, blockIndex) => {
-    const equipRows = block.rows?.length
-      ? block.rows
-      : collectMaquinaPdfFieldRows(block.machine, fill.equipamento_campos);
-
-    if (!equipRows.length && fill.maquina === '—') return;
-
-    const rowsToDraw =
-      equipRows.length > 0
-        ? equipRows
-        : [
-            [LABEL_MAQUINA, formatOrcamentoMaquinaLabel(block.machine, block.index, block.campos)],
-            [LABEL_MATRICULA, formatOrcamentoMaquinaMatricula(block.machine, block.campos)],
-          ];
-
-    rowsToDraw.forEach(([label, value]) => {
-      if (!canEquipLine(y)) return;
-      pdfSetFont(doc, 'bold');
-      const prefix = `${label}: `;
-      doc.text(prefix, MARGIN, y);
-      const prefixW = doc.getTextWidth(prefix);
-      pdfSetFont(doc, 'normal');
-      const valueLines = pdfSplitText(doc, pdfSafeText(value || '—'), Math.max(12, CONTENT_W - prefixW));
-      valueLines.forEach((line, lineIndex) => {
-        if (lineIndex > 0) {
-          y = advanceEquipY(y, 5.5);
-          if (!canEquipLine(y)) return;
-        }
-        doc.text(line, MARGIN + (lineIndex === 0 ? prefixW : 0), y);
-      });
-      y = advanceEquipY(y, 5.5);
-    });
-
-    if (blockIndex < blocks.length - 1 && canEquipLine(y, 6)) {
-      y = drawOrcamentoEquipamentoSeparator(doc, y);
-    }
-  });
-
-  return advanceEquipY(y, 4);
 }
 
 function drawTemplateMaquinaIdentBlocks(doc, fill, startY, options = {}) {
@@ -1034,27 +1076,19 @@ export async function renderOrcamentoPDF(report) {
 
   pdfSetFont(doc, 'normal');
   doc.setFontSize(PDF_FONT_BODY);
-  const pagePlan = planOrcamentoGenericPageLayout(doc, fill, y);
-  pdfSplitText(doc, pagePlan.intro, CONTENT_W).forEach((line) => {
+  const intro = resolveOrcamentoTextoIntroForPdf(fill.maquinas, fill.texto_intro);
+  pdfSplitText(doc, intro, CONTENT_W).forEach((line) => {
     if (!canDrawBodyLine(y)) return;
     doc.text(line, MARGIN, y);
     y = advanceBodyY(y);
   });
   y = advanceBodyY(y, 4);
 
-  if (canDrawBodyLine(y, 12)) {
-    y = drawOrcamentoEquipamentoBlocks(doc, fill, y, { maxEndY: pagePlan.middleMaxY });
-  }
-
   y = drawOrcamentoObservacoesCliente(doc, fill, y, {
-    maxEndY: pagePlan.middleMaxY,
+    maxEndY: CONTENT_MAX_Y,
   });
 
-  y = drawOrcamentoTable(doc, fill.linhas, pagePlan.tableLayout.startY, {
-    maquinas: fill.maquinas,
-    equipamentoCampos: fill.equipamento_campos,
-    layout: pagePlan.tableLayout,
-  });
+  drawOrcamentoMaquinaSections(doc, fill, y, CONTENT_MAX_Y);
 
   drawOrcamentoFooter(doc, fill);
 

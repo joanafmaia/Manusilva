@@ -8,6 +8,7 @@ import {
   computeOrcamentoTableLayout,
   resolveOrcamentoEquipamentoPdfBlocks,
 } from '../js/pdf-orcamento.js';
+import { groupOrcamentoLinhasByEquipamento } from '../js/orcamento-maquinas.js';
 
 describe('resolveOrcamentoDocumentDate', () => {
   it('usa enviadoEm quando a proposta já foi enviada', () => {
@@ -93,6 +94,27 @@ describe('resolveOrcamentoEquipamentoPdfBlocks', () => {
       ['Equipamento', 'Toyota'],
       ['Tensão', '24V'],
     ]);
+  });
+
+  it('inclui todos os equipamentos mesmo sem campos preenchidos', () => {
+    const fill = {
+      maquinas: [{ marca: 'A' }, { marca: '' }],
+    };
+    const { blocks } = resolveOrcamentoEquipamentoPdfBlocks(fill);
+    assert.equal(blocks.length, 2);
+  });
+
+  it('agrupa linhas do equipamento 2 no PDF', () => {
+    const fill = {
+      maquinas: [{ marca: 'filipa' }, { marca: 'joana' }],
+      linhas: [
+        { descricao: 'Bateria', qtd: '2', precoUnit: '300', equipamentoIndex: 0 },
+        { descricao: 'Correia', qtd: '1', precoUnit: '50', equipamentoIndex: 1 },
+      ],
+    };
+    const groups = groupOrcamentoLinhasByEquipamento(fill.linhas, fill.maquinas);
+    assert.equal(groups.length, 2);
+    assert.equal(groups[1].linhas[0].descricao, 'Correia');
   });
 });
 
