@@ -281,6 +281,8 @@ export function resolveManutencaoMaquinaIntro(meta = {}, cabecalho = {}) {
   return count > 1 ? MANUTENCAO_MAQUINA_INTRO_PLURAL : MANUTENCAO_MAQUINA_INTRO;
 }
 
+export const MANUTENCAO_MAQUINA_PRECO_LABEL = 'Manutenção Geral';
+
 export const MANUTENCAO_MAQUINA_PLANO_TITULO = 'PLANO DE MANUTENÇÃO AOS EMPILHADORES:';
 
 export const MANUTENCAO_MAQUINA_PLANO_DETALHE = 'Anual ou as 500 horas';
@@ -391,7 +393,7 @@ export function buildManutencaoMaquinaLinhas(meta = {}, cabecalho = {}) {
     const nome = resolveMaquinaTemplateNome(row, index, meta, cabecalho);
     const valorGeral = resolveEquipamentoValorGeral(row);
     if (valorGeral > 0) {
-      linhas.push(buildTemplateLinha(`Manutenção geral a máquina ${nome}`, valorGeral, index));
+      linhas.push(buildTemplateLinha(MANUTENCAO_MAQUINA_PRECO_LABEL, valorGeral, index));
     }
     if (resolveEquipamentoIncluirDl50(row)) {
       const dl50Desc =
@@ -418,8 +420,8 @@ export function formatManutencaoMaquinaPrecoLinhas(meta = {}, cabecalho = {}) {
     const valorGeral = resolveEquipamentoValorGeral(row);
     lines.push(
       valorGeral > 0
-        ? `Manutenção geral a máquina ${nome} – ${formatEuro(valorGeral)} €`
-        : `Manutenção geral a máquina ${nome} – €`,
+        ? `${MANUTENCAO_MAQUINA_PRECO_LABEL} – ${formatEuro(valorGeral)} €`
+        : `${MANUTENCAO_MAQUINA_PRECO_LABEL} – €`,
     );
     if (resolveEquipamentoIncluirDl50(row)) {
       const dl50Line =

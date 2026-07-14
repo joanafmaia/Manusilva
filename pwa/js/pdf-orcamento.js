@@ -932,16 +932,29 @@ export function planOrcamentoGenericPageLayout(doc, fill, bodyStartY) {
 
 function drawTemplateMaquinaIdentBlocks(doc, fill, startY, options = {}) {
   const maxEndY = Number.isFinite(options.maxEndY) ? options.maxEndY : CONTENT_MAX_Y;
+  const compact = Boolean(options.compact);
   const canLine = (y, step = 5) => y + step <= maxEndY;
   const advanceY = (y, step = 5) => (canLine(y, step) ? y + step : y);
   let y = startY;
 
-  const nomes = (fill.maquinas || [])
-    .map((row) => String(row.maquinaManutencaoNome || row.marca || '').trim())
-    .filter(Boolean);
-  if (!nomes.length) {
-    const legacy = String(fill.maquina_manutencao_nome || fill.maquina || '').trim();
-    if (legacy && legacy !== '—') nomes.push(legacy);
+  const nomes = collectTemplateMaquinaNomes(fill);
+  if (!nomes.length) return advanceY(y, 4);
+
+  if (compact) {
+    if (!canLine(y)) return y;
+    pdfSetFont(doc, 'bold');
+    doc.text('Máquinas:', MARGIN, y);
+    y = advanceY(y, 4.8);
+    pdfSetFont(doc, 'normal');
+    const numbered = nomes.map((nome, index) => `${index + 1}. ${nome}`).join('   ');
+    pdfSplitText(doc, pdfSafeText(numbered), CONTENT_W).forEach((line, lineIndex) => {
+      if (lineIndex > 0) {
+        y = advanceY(y, 4.2);
+        if (!canLine(y)) return;
+      }
+      doc.text(line, MARGIN, y);
+    });
+    return advanceY(y, 4);
   }
 
   nomes.forEach((nome, index) => {
@@ -1107,6 +1120,76 @@ function templateMetaFromFill(fill = {}) {
   };
 }
 
+function collectTemplateMaquinaNomes(fill = {}) {
+  const nomes = (fill.maquinas || [])
+    .map((row) => String(row.maquinaManutencaoNome || row.marca || '').trim())
+    .filter(Boolean);
+  if (!nomes.length) {
+    const legacy = String(fill.maquina_manutencao_nome || fill.maquina || '').trim();
+    if (legacy && legacy !== '—') nomes.push(legacy);
+  }
+  return nomes;
+}
+
+function resolveManutencaoMaquinaPdfLayout(fill = {}) {
+  const meta = templateMetaFromFill(fill);
+  const precoLinhas = formatManutencaoMaquinaPrecoLinhas(meta, meta);
+  const machineCount = Math.max(collectTemplateMaquinaNomes(fill).length, 1);
+  const twoColumnPrices = precoLinhas.length > 6;
+  const priceLineStep = twoColumnPrices ? 4.1 : precoLinhas.length > 4 ? 4.5 : 5;
+  const priceRows = twoColumnPrices ? Math.ceil(precoLinhas.length / 2) : precoLinhas.length;
+  const footerHeight = priceRows * (priceLineStep + 0.5) + 18 + 22;
+  const footerStartY = Math.min(MAQUINA_FOOTER_ANCHOR_Y, PROPOSTA_FOOTER_MAX_Y - footerHeight);
+  const bodyMaxY = footerStartY - 3;
+  const bulletLineStep =
+    machineCount >= 6 ? 2.8 : machineCount >= 4 ? 3 : MAQUINA_BULLET_LINE_STEP;
+
+  return {
+    bodyMaxY,
+    footerStartY,
+    footerMaxY: PROPOSTA_FOOTER_MAX_Y,
+    precoLinhas,
+    twoColumnPrices,
+    priceLineStep,
+    bulletLineStep,
+    compactMachines: machineCount >= 4,
+  };
+}
+
+function drawManutencaoMaquinaPrecoLines(doc, precoLinhas, startY, maxY, options = {}) {
+  const twoColumn = Boolean(options.twoColumn);
+  const lineStep = options.lineStep ?? 5;
+  const colGap = 4;
+  const colW = twoColumn ? (CONTENT_W - colGap) / 2 : CONTENT_W;
+  let y = startY;
+
+  pdfSetFont(doc, 'bold');
+  if (twoColumn) {
+    const half = Math.ceil(precoLinhas.length / 2);
+    for (let row = 0; row < half; row += 1) {
+      if (y > maxY) break;
+      const left = precoLinhas[row];
+      const right = precoLinhas[row + half];
+      doc.text(pdfSafeText(left), MARGIN, y, { maxWidth: colW });
+      if (right) {
+        doc.text(pdfSafeText(right), MARGIN + colW + colGap, y, { maxWidth: colW });
+      }
+      y += lineStep;
+    }
+    return y + 1;
+  }
+
+  precoLinhas.forEach((line) => {
+    pdfSplitText(doc, line, CONTENT_W).forEach((textLine) => {
+      if (y > maxY) return;
+      doc.text(textLine, MARGIN, y);
+      y += lineStep;
+    });
+    y += 1;
+  });
+  return y;
+}
+
 function drawManutencaoBateriaFooter(doc, fill) {
   let y = BATERIA_FOOTER_ANCHOR_Y;
   const footerMaxY = PROPOSTA_FOOTER_MAX_Y;
@@ -1150,23 +1233,20 @@ function drawManutencaoBateriaFooter(doc, fill) {
   return y;
 }
 
-function drawManutencaoMaquinaFooter(doc, fill) {
-  let y = MAQUINA_FOOTER_ANCHOR_Y;
-  const footerMaxY = PROPOSTA_FOOTER_MAX_Y;
+function drawManutencaoMaquinaFooter(doc, fill, layout = {}) {
+  let y = layout.footerStartY ?? MAQUINA_FOOTER_ANCHOR_Y;
+  const footerMaxY = layout.footerMaxY ?? PROPOSTA_FOOTER_MAX_Y;
   pdfSetFont(doc, 'normal');
   doc.setFontSize(PDF_FONT_BODY);
   doc.setTextColor(...PDF_COLOR_TEXT_DARK);
 
-  const precoLinhas = formatManutencaoMaquinaPrecoLinhas(templateMetaFromFill(fill), templateMetaFromFill(fill));
+  const precoLinhas =
+    layout.precoLinhas ||
+    formatManutencaoMaquinaPrecoLinhas(templateMetaFromFill(fill), templateMetaFromFill(fill));
 
-  precoLinhas.forEach((line) => {
-    pdfSetFont(doc, 'bold');
-    pdfSplitText(doc, line, CONTENT_W).forEach((textLine) => {
-      if (y > footerMaxY) return;
-      doc.text(textLine, MARGIN, y);
-      y += 5;
-    });
-    y += 1;
+  y = drawManutencaoMaquinaPrecoLines(doc, precoLinhas, y, footerMaxY, {
+    twoColumn: layout.twoColumnPrices,
+    lineStep: layout.priceLineStep,
   });
 
   y = drawOrcamentoIvaTotals(doc, fill, y + 1, footerMaxY);
@@ -1194,29 +1274,34 @@ function drawManutencaoMaquinaFooter(doc, fill) {
 async function renderManutencaoMaquinaOrcamentoPDF(doc, report, job) {
   const fill = buildOrcamentoFillData(report, job);
   const legalText = await loadLegalText();
+  const layout = resolveManutencaoMaquinaPdfLayout(fill);
+  const bodyMaxY = layout.bodyMaxY;
 
   let y = drawOrcamentoLetterhead(doc, fill);
 
   pdfSetFont(doc, 'normal');
   doc.setFontSize(PDF_FONT_BODY);
-  y = drawOrcamentoBodyParagraphs(doc, [fill.texto_intro || MANUTENCAO_MAQUINA_INTRO], y, { maxEndY: MAQUINA_BODY_MAX_Y });
+  y = drawOrcamentoBodyParagraphs(doc, [fill.texto_intro || MANUTENCAO_MAQUINA_INTRO], y, { maxEndY: bodyMaxY });
   y += 2;
-  y = drawTemplateMaquinaIdentBlocks(doc, fill, y, { maxEndY: MAQUINA_BODY_MAX_Y });
+  y = drawTemplateMaquinaIdentBlocks(doc, fill, y, {
+    maxEndY: bodyMaxY,
+    compact: layout.compactMachines,
+  });
   y += 2;
 
   pdfSetFont(doc, 'bold');
-  if (canDrawContentLine(y, 5) && y + 5 <= MAQUINA_BODY_MAX_Y) {
+  if (canDrawContentLine(y, 5) && y + 5 <= bodyMaxY) {
     doc.text(MANUTENCAO_MAQUINA_PLANO_TITULO, MARGIN, y);
     y = advanceContentY(y, 5);
   }
   pdfSetFont(doc, 'normal');
-  if (canDrawContentLine(y, 5) && y + 5 <= MAQUINA_BODY_MAX_Y) {
+  if (canDrawContentLine(y, 5) && y + 5 <= bodyMaxY) {
     doc.text(`– ${MANUTENCAO_MAQUINA_PLANO_DETALHE}`, MARGIN, y);
     y = advanceContentY(y, 5);
   }
 
   pdfSetFont(doc, 'bold');
-  if (canDrawContentLine(y, 5) && y + 5 <= MAQUINA_BODY_MAX_Y) {
+  if (canDrawContentLine(y, 5) && y + 5 <= bodyMaxY) {
     doc.text(MANUTENCAO_MAQUINA_ESPECIFICACAO_TITULO, MARGIN, y);
     y = advanceContentY(y, 5);
   }
@@ -1224,14 +1309,14 @@ async function renderManutencaoMaquinaOrcamentoPDF(doc, report, job) {
   pdfSetFont(doc, 'normal');
   y = drawOrcamentoBodyParagraphs(doc, [MANUTENCAO_MAQUINA_TRABALHOS_INTRO], y, {
     lineStep: 4.2,
-    maxEndY: MAQUINA_BODY_MAX_Y,
+    maxEndY: bodyMaxY,
   });
   y = drawOrcamentoBulletList(doc, MANUTENCAO_MAQUINA_TRABALHOS, y, {
-    lineStep: MAQUINA_BULLET_LINE_STEP,
-    maxEndY: MAQUINA_BODY_MAX_Y,
+    lineStep: layout.bulletLineStep,
+    maxEndY: bodyMaxY,
   });
 
-  drawManutencaoMaquinaFooter(doc, fill);
+  drawManutencaoMaquinaFooter(doc, fill, layout);
 
   doc.setPage(1);
   drawClientApprovalBox(doc);

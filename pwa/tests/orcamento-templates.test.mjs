@@ -14,6 +14,7 @@ import {
   formatManutencaoMaquinaPrecoLinhas,
   MANUTENCAO_BATERIA_INTRO,
   MANUTENCAO_MAQUINA_INTRO,
+  MANUTENCAO_MAQUINA_PRECO_LABEL,
 } from '../js/orcamento-templates.js';
 
 describe('orcamento-templates — manutenção baterias', () => {
@@ -91,11 +92,11 @@ describe('orcamento-templates — manutenção máquinas', () => {
     });
     assert.equal(meta.textoIntro, MANUTENCAO_MAQUINA_INTRO);
     assert.equal(meta.linhas.length, 3);
-    assert.match(meta.linhas[0].descricao, /Toyota/);
+    assert.equal(meta.linhas[0].descricao, MANUTENCAO_MAQUINA_PRECO_LABEL);
     assert.equal(meta.linhas[1].descricao, 'Inspeção segundo o DL50/2005');
     assert.equal(meta.linhas[1].precoUnit, '40,00');
     const precoLinhas = formatManutencaoMaquinaPrecoLinhas(meta);
-    assert.equal(precoLinhas[0], 'Manutenção geral a máquina Toyota – 350,00 €');
+    assert.equal(precoLinhas[0], 'Manutenção Geral – 350,00 €');
     assert.equal(precoLinhas[1], 'Inspeção segundo o DL50/2005 – 40,00 €');
     assert.equal(precoLinhas[2], 'Deslocação – 25,00 €');
     const totals = computeOrcamentoTotals(meta.linhas, meta);
@@ -132,8 +133,9 @@ describe('orcamento-templates — manutenção máquinas', () => {
     assert.equal(meta.linhas.length, 4);
     const precoLinhas = formatManutencaoMaquinaPrecoLinhas(meta, meta);
     assert.equal(precoLinhas.length, 4);
-    assert.match(precoLinhas[0], /Toyota/);
-    assert.match(precoLinhas[2], /Linde/);
+    assert.equal(precoLinhas[0], 'Manutenção Geral – 350,00 €');
+    assert.equal(precoLinhas[2], 'Manutenção Geral – 200,00 €');
+    assert.match(precoLinhas[1], /DL50/);
     assert.match(precoLinhas[3], /Deslocação/);
   });
 });
