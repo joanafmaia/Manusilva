@@ -47,6 +47,10 @@ import {
   resolveOrcamentoBillingTotal,
 } from '../orcamento-billing-workflow.js';
 import { getReportOrcamentoMeta } from '../orcamento-linhas.js';
+import {
+  formatOrcamentoTipoPropostaLabel,
+  getOrcamentoTipoProposta,
+} from '../orcamento-tipo-proposta.js';
 import { getReportOrcamentoPdfUrl } from '../pedido-orcamento.js';
 import { renderClientCombobox, bindClientComboboxes } from '../client-combobox.js';
 import { formatOrdemLabel, formatOpLabel } from '../report-review-ui.js';
@@ -542,6 +546,10 @@ function resolveClientMeta(clientId) {
   return { client, nome, nif };
 }
 
+function formatOrcamentoBillingDetail(report) {
+  return formatOrcamentoTipoPropostaLabel(getOrcamentoTipoProposta(report));
+}
+
 function formatOrcamentoOrdemLabel(report) {
   const meta = getReportOrcamentoMeta(report);
   return meta?.numeroFormatado ? `Proposta nº ${meta.numeroFormatado}` : 'Proposta MS.015';
@@ -623,7 +631,7 @@ function buildBillingRowsFromItems(items) {
         ...meta,
         nome,
         ordem: formatOrcamentoOrdemLabel(report),
-        detail: 'Proposta comercial MS.015',
+        detail: formatOrcamentoBillingDetail(report),
         approvedLabel: formatHistoryDate(String(aceiteEm).split('T')[0]),
         urgent: isBillingUrgent(report),
         estimate: resolveOrcamentoBillingTotal(report),
@@ -734,7 +742,7 @@ function resolveInvoiceTrabalhoLabel(item) {
   if (item.kind === 'report' && reportIsStandaloneOrcamento(entity)) {
     return {
       ordem: formatOrcamentoOrdemLabel(entity),
-      detail: 'Proposta comercial MS.015',
+      detail: formatOrcamentoBillingDetail(entity),
     };
   }
   const job = entity.jobId ? getJob(entity.jobId) : null;
