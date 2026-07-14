@@ -40,13 +40,17 @@ import {
   resolvePrimaryBillingReportId,
   revertReportInvoice,
 } from '../billing-workflow.js';
-import { isPendingOrcamentoBilling } from '../orcamento-billing-workflow.js';
+import { getClientName } from '../client-display.js';
+import {
+  isPendingOrcamentoBilling,
+  repairOrcamentoAceiteBillingQueue,
+  resolveOrcamentoBillingTotal,
+} from '../orcamento-billing-workflow.js';
 import { getReportOrcamentoMeta } from '../orcamento-linhas.js';
 import { getReportOrcamentoPdfUrl } from '../pedido-orcamento.js';
 import { renderClientCombobox, bindClientComboboxes } from '../client-combobox.js';
 import { formatOrdemLabel, formatOpLabel } from '../report-review-ui.js';
 import { reportIsStandaloneOrcamento } from '../orcamento-standalone.js';
-import { resolveOrcamentoBillingTotal } from '../orcamento-billing-workflow.js';
 import { STATUS_RECEBIMENTO_OPCOES, labelStatusRecebimento } from '../billing-constants.js';
 import {
   formatFolhaObraOrdemLabel,
@@ -503,6 +507,35 @@ function computeFilteredMetrics(invoices = getFilteredInvoices()) {
   return { totalFaturado, totalRecebido, totalDivida };
 }
 
+function billingItemMatchesClientFilter(item, filterClientId) {
+  if (!filterClientId) return true;
+
+  let itemClientId = '';
+  if (item.kind === 'servico') itemClientId = item.servico?.clientId;
+  else if (item.kind === 'folha_obra') itemClientId = item.folha?.clientId;
+  else itemClientId = item.report?.clientId;
+
+  if (String(itemClientId) === String(filterClientId)) return true;
+
+  if (item.kind === 'orcamento' && item.report) {
+    const filterClient = getClient(filterClientId);
+    const filterName = getClientName(filterClient).trim().toLowerCase();
+    const reportName = getClientName(getClient(item.report.clientId), item.report.data?.values || {})
+      .trim()
+      .toLowerCase();
+    if (filterName && reportName && filterName === reportName) return true;
+  }
+
+  return false;
+}
+
+function filterBillingItemsByClient(billingItems) {
+  if (!billingFilters.clientId) return billingItems;
+  return billingItems.filter((item) =>
+    billingItemMatchesClientFilter(item, billingFilters.clientId),
+  );
+}
+
 function resolveClientMeta(clientId) {
   const client = getClient(clientId);
   const nome = client?.name || client?.Nome || client?.nome || '—';
@@ -582,12 +615,14 @@ function buildBillingRowsFromItems(items) {
     if (item.kind === 'orcamento') {
       const report = item.report;
       const meta = resolveClientMeta(report.clientId);
+      const nome = getClientName(meta.client, report.data?.values || {}) || meta.nome;
       const orcamentoMeta = getReportOrcamentoMeta(report);
       const aceiteEm = orcamentoMeta?.respostaClienteEm || report.approvedAt || '';
       return {
         kind: 'orcamento',
         report,
         ...meta,
+        nome,
         ordem: formatOrcamentoOrdemLabel(report),
         detail: 'Proposta comercial MS.015',
         approvedLabel: formatHistoryDate(String(aceiteEm).split('T')[0]),
@@ -1202,17 +1237,7 @@ async function softRefreshFaturacaoPanel() {
   const invoices = getFilteredInvoices();
   const metrics = computeFilteredMetrics(invoices);
   let billingItems = getPendingBillingItems();
-  if (billingFilters.clientId) {
-    billingItems = billingItems.filter((item) => {
-      const clientId =
-        item.kind === 'servico'
-          ? item.servico.clientId
-          : item.kind === 'folha_obra'
-            ? item.folha.clientId
-            : item.report?.clientId;
-      return String(clientId) === String(billingFilters.clientId);
-    });
-  }
+  billingItems = filterBillingItemsByClient(billingItems);
   const billingRows = buildBillingRowsFromItems(billingItems);
 
   replaceMountedSection('.faturacao-kpis', renderKpis(metrics));
@@ -2411,17 +2436,7 @@ function renderPanel() {
   const invoices = getFilteredInvoices();
   const metrics = computeFilteredMetrics(invoices);
   let billingItems = getPendingBillingItems();
-  if (billingFilters.clientId) {
-    billingItems = billingItems.filter((item) => {
-      const clientId =
-        item.kind === 'servico'
-          ? item.servico.clientId
-          : item.kind === 'folha_obra'
-            ? item.folha.clientId
-            : item.report?.clientId;
-      return String(clientId) === String(billingFilters.clientId);
-    });
-  }
+  billingItems = filterBillingItemsByClient(billingItems);
   const billingRows = buildBillingRowsFromItems(billingItems);
 
   return `
@@ -2455,6 +2470,7 @@ export async function refreshFaturacaoPanel(options = {}) {
       ensureServicosLoadedSafe(true),
       ensureFaturasManuaisLoadedSafe(true),
     ]);
+    await repairOrcamentoAceiteBillingQueue();
   }
 
   const canSoftRefresh =

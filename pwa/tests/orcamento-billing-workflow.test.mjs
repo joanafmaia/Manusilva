@@ -70,6 +70,18 @@ describe('orcamento-billing-workflow', () => {
     assert.equal(isPendingOrcamentoBilling(report), false);
   });
 
+  it('isPendingOrcamentoBilling — pedido técnico aceite entra na fila', () => {
+    const report = propostaAceite({
+      serviceType: 'reparacao_avarias_bateria',
+      data: {
+        values: { pedido_orcamento: 'Sim', detalhe_pedido_orcamento: 'Bateria' },
+        orcamento: propostaAceite().data.orcamento,
+        orcamentoOrigem: null,
+      },
+    });
+    assert.equal(isPendingOrcamentoBilling(report), true);
+  });
+
   it('isPendingBilling — exclui propostas RH (mesmo com pendente)', () => {
     assert.equal(isPendingBilling(propostaAceite()), false);
   });

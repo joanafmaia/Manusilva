@@ -7,7 +7,7 @@ import {
   getReportOrcamentoMeta,
 } from './orcamento-linhas.js';
 import { ORCAMENTO_RESPOSTA } from './orcamento-workflow.js';
-import { reportIsRhOrcamento, reportIsStandaloneOrcamento } from './pedido-orcamento.js';
+import { reportHasPedidoOrcamento, reportIsRhOrcamento, reportIsStandaloneOrcamento } from './pedido-orcamento.js';
 import { reportIsFolhaObraOrcamento } from './folha-obra-orcamento.js';
 import {
   dedupeReportsForDisplay,
@@ -37,15 +37,42 @@ export function isOrcamentoClienteAceite(report) {
   return String(meta.respostaCliente || '').trim().toLowerCase() === ORCAMENTO_RESPOSTA.ACEITE;
 }
 
-/** Proposta comercial aceite pelo cliente (só standalone — não relatório técnico com pedido de orçamento). */
+/** Proposta comercial aceite pelo cliente (standalone ou pedido técnico com MS.015). */
 export function isPendingOrcamentoBilling(report) {
   if (reportIsFolhaObraOrcamento(report)) return false;
-  if (!reportIsStandaloneOrcamento(report)) return false;
   if (!isOrcamentoClienteAceite(report)) return false;
+
+  const isCommercialQueue =
+    reportIsStandaloneOrcamento(report) || reportHasPedidoOrcamento(report);
+  if (!isCommercialQueue) return false;
 
   const fs = report.faturacaoStatus;
   if (fs === 'faturado' || fs === 'dispensado' || fs === 'via_servico') return false;
   return fs === 'pendente' || !fs || fs === FATURACAO_AGUARDA_ACEITE_ORCAMENTO;
+}
+
+/** Aceite registado mas faturacao_status ainda não sincronizado (reparar na abertura de Faturação). */
+export function shouldRepairOrcamentoBilling(report) {
+  if (!isOrcamentoClienteAceite(report)) return false;
+  if (reportIsFolhaObraOrcamento(report)) return false;
+  if (!reportIsStandaloneOrcamento(report) && !reportHasPedidoOrcamento(report)) return false;
+  const fs = report.faturacaoStatus;
+  if (fs === 'faturado' || fs === 'dispensado' || fs === 'via_servico') return false;
+  if (fs === 'pendente' && report.data?.faturacaoOrigem === 'orcamento_aceite') return false;
+  return true;
+}
+
+/** Sincroniza propostas aceites que ficaram sem `faturacao_status = pendente`. */
+export async function repairOrcamentoAceiteBillingQueue() {
+  const candidates = getReportsSnapshot().filter(shouldRepairOrcamentoBilling);
+  if (!candidates.length) return 0;
+
+  let repaired = 0;
+  for (const report of candidates) {
+    const saved = await markOrcamentoAceitePendingBilling(report.id);
+    if (saved) repaired += 1;
+  }
+  return repaired;
 }
 
 export function getPendingOrcamentoBillingReports() {
