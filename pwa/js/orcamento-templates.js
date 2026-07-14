@@ -16,6 +16,16 @@ import {
   ORCAMENTO_TIPO_PROPOSTA,
   getOrcamentoTipoProposta,
 } from './orcamento-tipo-proposta.js';
+import {
+  countTemplateEquipamentosComDados,
+  formatTemplateMaquinaNome,
+  resolveEquipamentoIncluirDl50,
+  resolveEquipamentoValorGeral,
+  resolveEquipamentoValorInspecaoDl50,
+  resolveEquipamentoValorVisita,
+  resolveTemplateEquipamentos,
+  syncLegacyTemplateFieldsFromMaquinas,
+} from './orcamento-template-equipamentos.js';
 
 export const MANUTENCAO_BATERIA_VALOR_DEFAULT = 85;
 export const MANUTENCAO_BATERIA_PERIODICIDADE_DEFAULT = '3_em_3';
@@ -60,11 +70,24 @@ export function buildManutencaoBateriaPeriodicidadeParagrafo(periodicidadeValue)
   return `Estes trabalhos mantém as baterias limpas e secas (que é como tem que andar) e a periodicidade para um bom funcionamento da bateria será a manutenção ${label}.`;
 }
 
-export function buildManutencaoBateriaParagrafos(periodicidadeValue) {
-  return [
-    ...MANUTENCAO_BATERIA_PARAGRAFOS_FIXOS,
-    buildManutencaoBateriaPeriodicidadeParagrafo(periodicidadeValue),
-  ];
+export function buildManutencaoBateriaParagrafos(metaOrPeriodicidade = {}, cabecalho = {}) {
+  const equipamentos = resolveTemplateEquipamentos(
+    typeof metaOrPeriodicidade === 'object' ? metaOrPeriodicidade : {},
+    cabecalho,
+    'bateria',
+  );
+  let paragrafoPeriodicidade;
+  if (equipamentos.length > 1) {
+    paragrafoPeriodicidade =
+      'Estes trabalhos mantém as baterias limpas e secas (que é como tem que andar). A periodicidade de manutenção de cada bateria está indicada nos valores abaixo.';
+  } else {
+    const periodicidade =
+      typeof metaOrPeriodicidade === 'string'
+        ? metaOrPeriodicidade
+        : equipamentos[0]?.periodicidadeManutencao;
+    paragrafoPeriodicidade = buildManutencaoBateriaPeriodicidadeParagrafo(periodicidade);
+  }
+  return [...MANUTENCAO_BATERIA_PARAGRAFOS_FIXOS, paragrafoPeriodicidade];
 }
 
 export const MANUTENCAO_BATERIA_MO_OBS = 'Este valor já tem mão-de-obra incluída.';
@@ -116,21 +139,37 @@ export function formatValorManutencaoBateriaInput(meta = {}) {
   return formatEuro(resolveManutencaoBateriaValor(meta));
 }
 
-export function formatLinhaValorManutencaoBateria(meta = {}) {
-  const valor = formatValorManutencaoBateriaInput(meta);
-  const periodicidade = formatPeriodicidadeManutencaoBateria(meta.periodicidadeManutencao);
-  return `Valor de manutenção por visita para a bateria ${periodicidade} fica – ${valor} €`;
+export function formatLinhasValorManutencaoBateria(meta = {}, cabecalho = {}) {
+  const equipamentos = resolveTemplateEquipamentos(meta, cabecalho, 'bateria');
+  return equipamentos.map((row, index) => {
+    const valor = formatEuro(resolveEquipamentoValorVisita(row));
+    const periodicidade = formatPeriodicidadeManutencaoBateria(row.periodicidadeManutencao);
+    if (equipamentos.length > 1) {
+      return `Valor de manutenção por visita para a bateria ${index + 1} (${periodicidade}) fica – ${valor} €`;
+    }
+    return `Valor de manutenção por visita para a bateria ${periodicidade} fica – ${valor} €`;
+  });
 }
 
-export function buildManutencaoBateriaLinha(meta = {}) {
-  const valor = resolveManutencaoBateriaValor(meta);
-  const periodicidade = formatPeriodicidadeManutencaoBateria(meta.periodicidadeManutencao);
+export function formatLinhaValorManutencaoBateria(meta = {}, cabecalho = {}) {
+  const linhas = formatLinhasValorManutencaoBateria(meta, cabecalho);
+  return linhas[0] || '';
+}
+
+function buildManutencaoBateriaLinhaForEquip(row, index, meta = {}, cabecalho = {}) {
+  const equipamentos = resolveTemplateEquipamentos(meta, cabecalho, 'bateria');
+  const valor = resolveEquipamentoValorVisita(row);
+  const periodicidade = formatPeriodicidadeManutencaoBateria(row.periodicidadeManutencao);
   const precoUnit = formatEuro(valor);
+  const descricao =
+    equipamentos.length > 1
+      ? `Manutenção de bateria ${index + 1} por visita (${periodicidade})`
+      : `Manutenção de baterias por visita (${periodicidade})`;
   const linha = {
-    descricao: `Manutenção de baterias por visita (${periodicidade})`,
+    descricao,
     qtd: '1',
     precoUnit,
-    equipamentoIndex: 0,
+    equipamentoIndex: index,
   };
   const totalNum = computeLinhaTotal(linha);
   return {
@@ -139,33 +178,39 @@ export function buildManutencaoBateriaLinha(meta = {}) {
   };
 }
 
-/** Preenche meta com texto fixo e linha única para faturação. */
+export function buildManutencaoBateriaLinhas(meta = {}, cabecalho = {}) {
+  const equipamentos = resolveTemplateEquipamentos(meta, cabecalho, 'bateria');
+  return equipamentos.map((row, index) =>
+    buildManutencaoBateriaLinhaForEquip(row, index, meta, cabecalho),
+  );
+}
+
+/** Preenche meta com texto fixo e linhas por bateria para faturação. */
 export function applyManutencaoBateriaTemplateMeta(meta = {}, report = null) {
-  const periodicidade = resolvePeriodicidadeManutencaoBateria(meta.periodicidadeManutencao);
-  const valorManutencaoVisita = formatValorManutencaoBateriaInput({
-    ...meta,
-    periodicidadeManutencao: periodicidade,
-  });
-  const linha = buildManutencaoBateriaLinha({
-    ...meta,
-    periodicidadeManutencao: periodicidade,
-    valorManutencaoVisita,
-  });
+  const synced = syncLegacyTemplateFieldsFromMaquinas(meta, 'bateria');
+  const equipamentos = resolveTemplateEquipamentos(synced, synced, 'bateria');
+  const linhas = buildManutencaoBateriaLinhas(synced, synced);
+  const first = equipamentos[0] || {};
 
   return {
-    ...meta,
+    ...synced,
     tipoProposta: ORCAMENTO_TIPO_PROPOSTA.MANUTENCAO_BATERIA,
     textoIntro: MANUTENCAO_BATERIA_INTRO,
     observacoesCliente: '',
-    periodicidadeManutencao: periodicidade,
-    valorManutencaoVisita,
+    periodicidadeManutencao: first.periodicidadeManutencao,
+    valorManutencaoVisita: first.valorManutencaoVisita || formatValorManutencaoBateriaInput(first),
     prazoEntrega: '',
     taxasSaida: [],
     taxaSaida: '',
-    formaPagamento: String(meta.formaPagamento || '').trim() || ORCAMENTO_FORMA_PAGAMENTO_DEFAULT,
-    validadeOrcamento: String(meta.validadeOrcamento || '').trim() || ORCAMENTO_VALIDADE_DEFAULT,
-    linhas: [linha],
+    formaPagamento: String(synced.formaPagamento || '').trim() || ORCAMENTO_FORMA_PAGAMENTO_DEFAULT,
+    validadeOrcamento: String(synced.validadeOrcamento || '').trim() || ORCAMENTO_VALIDADE_DEFAULT,
+    linhas: linhas.length ? linhas : [buildManutencaoBateriaLinhaForEquip(first, 0, synced, synced)],
   };
+}
+
+/** @deprecated usar buildManutencaoBateriaLinhas */
+export function buildManutencaoBateriaLinha(meta = {}) {
+  return buildManutencaoBateriaLinhaForEquip(meta, 0, meta, meta);
 }
 
 export function resolveManutencaoBateriaMetaFromReport(report) {
@@ -201,8 +246,10 @@ export function renderManutencaoBateriaPeriodicidadeSelect(value) {
   return renderManutencaoBateriaPeriodicidadeInput(value);
 }
 
-export function renderManutencaoBateriaTemplatePreview(periodicidadeValue = '') {
+export function renderManutencaoBateriaTemplatePreview(meta = {}) {
   const trabalhos = MANUTENCAO_BATERIA_TRABALHOS.map((item) => `<li>${item}</li>`).join('');
+  const paragrafos = buildManutencaoBateriaParagrafos(meta, meta);
+  const periodicidadeParagrafo = paragrafos[paragrafos.length - 1] || '';
   return `
     <section class="review-orc-template-preview" aria-label="Texto fixo da proposta">
       <h4 class="review-orc-cabecalho__title">Texto da proposta (fixo no PDF)</h4>
@@ -212,7 +259,7 @@ export function renderManutencaoBateriaTemplatePreview(periodicidadeValue = '') 
         <p>${MANUTENCAO_BATERIA_TRABALHOS_INTRO}</p>
         <ul>${trabalhos}</ul>
         ${MANUTENCAO_BATERIA_PARAGRAFOS_FIXOS.map((p) => `<p>${p}</p>`).join('')}
-        <p data-orc-periodicidade-paragrafo-preview>${buildManutencaoBateriaPeriodicidadeParagrafo(periodicidadeValue)}</p>
+        <p data-orc-periodicidade-paragrafo-preview>${periodicidadeParagrafo}</p>
         <p class="text-muted">${MANUTENCAO_BATERIA_NOTA_PECAS}</p>
       </div>
     </section>`;
@@ -225,6 +272,14 @@ export const MANUTENCAO_MAQUINA_PDF_SUBTITULO = 'MANUTENÇÃO MÁQUINAS';
 
 export const MANUTENCAO_MAQUINA_INTRO =
   'Vimos por este meio enviar a nossa melhor proposta para a manutenção da vossa máquina:';
+
+export const MANUTENCAO_MAQUINA_INTRO_PLURAL =
+  'Vimos por este meio enviar a nossa melhor proposta para a manutenção das vossas máquinas:';
+
+export function resolveManutencaoMaquinaIntro(meta = {}, cabecalho = {}) {
+  const count = countTemplateEquipamentosComDados(meta, cabecalho, 'maquina');
+  return count > 1 ? MANUTENCAO_MAQUINA_INTRO_PLURAL : MANUTENCAO_MAQUINA_INTRO;
+}
 
 export const MANUTENCAO_MAQUINA_PLANO_TITULO = 'PLANO DE MANUTENÇÃO AOS EMPILHADORES:';
 
@@ -312,46 +367,68 @@ export function resolveValorDeslocacaoMaquina(meta = {}) {
   return parseOrcamentoNumber(meta.valorDeslocacao);
 }
 
-function buildTemplateLinha(descricao, valor) {
+function resolveMaquinaTemplateNome(row, index, meta = {}, cabecalho = {}) {
+  const nome = formatTemplateMaquinaNome(row, index);
+  if (!/^Máquina \d+$/.test(nome)) return nome;
+  if (index === 0) {
+    const legacy = resolveMaquinaManutencaoNome(meta, cabecalho);
+    if (legacy && legacy !== '—') return legacy;
+  }
+  return nome;
+}
+
+function buildTemplateLinha(descricao, valor, equipamentoIndex = 0) {
   const precoUnit = formatEuro(valor);
-  const linha = { descricao, qtd: '1', precoUnit, equipamentoIndex: 0 };
+  const linha = { descricao, qtd: '1', precoUnit, equipamentoIndex };
   const totalNum = computeLinhaTotal(linha);
   return { ...linha, total: totalNum > 0 ? formatEuro(totalNum) : '' };
 }
 
 export function buildManutencaoMaquinaLinhas(meta = {}, cabecalho = {}) {
+  const equipamentos = resolveTemplateEquipamentos(meta, cabecalho, 'maquina');
   const linhas = [];
-  const nome = resolveMaquinaManutencaoNome(meta, cabecalho);
-  const valorGeral = resolveManutencaoMaquinaValorGeral(meta);
-  if (valorGeral > 0) {
-    linhas.push(buildTemplateLinha(`Manutenção geral a máquina ${nome}`, valorGeral));
-  }
-  if (resolveIncluirInspecaoDl50(meta)) {
-    linhas.push(
-      buildTemplateLinha('Inspeção segundo o DL50/2005', resolveValorInspecaoDl50(meta)),
-    );
-  }
+  equipamentos.forEach((row, index) => {
+    const nome = resolveMaquinaTemplateNome(row, index, meta, cabecalho);
+    const valorGeral = resolveEquipamentoValorGeral(row);
+    if (valorGeral > 0) {
+      linhas.push(buildTemplateLinha(`Manutenção geral a máquina ${nome}`, valorGeral, index));
+    }
+    if (resolveEquipamentoIncluirDl50(row)) {
+      const dl50Desc =
+        equipamentos.length > 1
+          ? `Inspeção segundo o DL50/2005 (${nome})`
+          : 'Inspeção segundo o DL50/2005';
+      linhas.push(
+        buildTemplateLinha(dl50Desc, resolveEquipamentoValorInspecaoDl50(row), index),
+      );
+    }
+  });
   const deslocacao = resolveValorDeslocacaoMaquina(meta);
   if (deslocacao > 0) {
-    linhas.push(buildTemplateLinha('Deslocação', deslocacao));
+    linhas.push(buildTemplateLinha('Deslocação', deslocacao, 0));
   }
   return linhas;
 }
 
 export function formatManutencaoMaquinaPrecoLinhas(meta = {}, cabecalho = {}) {
-  const nome = resolveMaquinaManutencaoNome(meta, cabecalho);
+  const equipamentos = resolveTemplateEquipamentos(meta, cabecalho, 'maquina');
   const lines = [];
-  const valorGeral = resolveManutencaoMaquinaValorGeral(meta);
-  lines.push(
-    valorGeral > 0
-      ? `Manutenção geral a máquina ${nome} – ${formatEuro(valorGeral)} €`
-      : `Manutenção geral a máquina ${nome} – €`,
-  );
-  if (resolveIncluirInspecaoDl50(meta)) {
+  equipamentos.forEach((row, index) => {
+    const nome = resolveMaquinaTemplateNome(row, index, meta, cabecalho);
+    const valorGeral = resolveEquipamentoValorGeral(row);
     lines.push(
-      `Inspeção segundo o DL50/2005 – ${formatEuro(resolveValorInspecaoDl50(meta))} €`,
+      valorGeral > 0
+        ? `Manutenção geral a máquina ${nome} – ${formatEuro(valorGeral)} €`
+        : `Manutenção geral a máquina ${nome} – €`,
     );
-  }
+    if (resolveEquipamentoIncluirDl50(row)) {
+      const dl50Line =
+        equipamentos.length > 1
+          ? `Inspeção segundo o DL50/2005 (${nome}) – ${formatEuro(resolveEquipamentoValorInspecaoDl50(row))} €`
+          : `Inspeção segundo o DL50/2005 – ${formatEuro(resolveEquipamentoValorInspecaoDl50(row))} €`;
+      lines.push(dl50Line);
+    }
+  });
   const deslocacao = resolveValorDeslocacaoMaquina(meta);
   lines.push(
     deslocacao > 0 ? `Deslocação – ${formatEuro(deslocacao)} €` : 'Deslocação – €',
@@ -360,39 +437,30 @@ export function formatManutencaoMaquinaPrecoLinhas(meta = {}, cabecalho = {}) {
 }
 
 export function applyManutencaoMaquinaTemplateMeta(meta = {}, report = null) {
-  const maquinaManutencaoNome = resolveMaquinaManutencaoNome(meta);
-  const incluirInspecaoDl50 = resolveIncluirInspecaoDl50(meta);
-  const valorInspecaoDl50 = String(meta.valorInspecaoDl50 || '').trim()
-    ? formatEuro(resolveValorInspecaoDl50(meta))
-    : formatEuro(MANUTENCAO_MAQUINA_VALOR_INSPECAO_DL50_DEFAULT);
-  const valorManutencaoGeral = String(meta.valorManutencaoGeral || '').trim()
-    ? formatEuro(resolveManutencaoMaquinaValorGeral(meta))
+  const synced = syncLegacyTemplateFieldsFromMaquinas(meta, 'maquina');
+  const equipamentos = resolveTemplateEquipamentos(synced, synced, 'maquina');
+  const first = equipamentos[0] || {};
+  const valorDeslocacao = String(synced.valorDeslocacao || '').trim()
+    ? formatEuro(resolveValorDeslocacaoMaquina(synced))
     : '';
-  const valorDeslocacao = String(meta.valorDeslocacao || '').trim()
-    ? formatEuro(resolveValorDeslocacaoMaquina(meta))
-    : '';
-
-  const working = {
-    ...meta,
-    maquinaManutencaoNome,
-    incluirInspecaoDl50,
-    valorInspecaoDl50,
-    valorManutencaoGeral,
-    valorDeslocacao,
-  };
-
-  const linhas = buildManutencaoMaquinaLinhas(working);
+  const linhas = buildManutencaoMaquinaLinhas(synced, synced);
 
   return {
-    ...working,
+    ...synced,
     tipoProposta: ORCAMENTO_TIPO_PROPOSTA.MANUTENCAO_MAQUINA,
-    textoIntro: MANUTENCAO_MAQUINA_INTRO,
+    textoIntro: resolveManutencaoMaquinaIntro(synced, synced),
     observacoesCliente: '',
     taxasSaida: [],
     taxaSaida: '',
-    prazoEntrega: String(meta.prazoEntrega || '').trim(),
-    formaPagamento: String(meta.formaPagamento || '').trim() || ORCAMENTO_FORMA_PAGAMENTO_DEFAULT,
-    validadeOrcamento: String(meta.validadeOrcamento || '').trim() || ORCAMENTO_VALIDADE_DEFAULT,
+    prazoEntrega: String(synced.prazoEntrega || '').trim(),
+    formaPagamento: String(synced.formaPagamento || '').trim() || ORCAMENTO_FORMA_PAGAMENTO_DEFAULT,
+    validadeOrcamento: String(synced.validadeOrcamento || '').trim() || ORCAMENTO_VALIDADE_DEFAULT,
+    valorDeslocacao,
+    maquinaManutencaoNome:
+      String(synced.maquinaManutencaoNome || '').trim() || formatTemplateMaquinaNome(first, 0),
+    valorManutencaoGeral: first.valorManutencaoGeral || '',
+    incluirInspecaoDl50: first.incluirInspecaoDl50 ?? false,
+    valorInspecaoDl50: first.valorInspecaoDl50 || formatEuro(MANUTENCAO_MAQUINA_VALOR_INSPECAO_DL50_DEFAULT),
     linhas: linhas.length ? linhas : [emptyOrcamentoLinhaTemplate()],
   };
 }

@@ -6,8 +6,10 @@ import {
   applyManutencaoBateriaTemplateMeta,
   applyManutencaoMaquinaTemplateMeta,
   buildManutencaoBateriaLinha,
+  buildManutencaoBateriaLinhas,
   buildManutencaoBateriaPeriodicidadeParagrafo,
   formatLinhaValorManutencaoBateria,
+  formatLinhasValorManutencaoBateria,
   formatManutencaoMaquinaPrecoLinhas,
   MANUTENCAO_BATERIA_INTRO,
   MANUTENCAO_MAQUINA_INTRO,
@@ -20,7 +22,7 @@ describe('orcamento-templates — manutenção baterias', () => {
     });
     assert.equal(meta.textoIntro, MANUTENCAO_BATERIA_INTRO);
     assert.equal(meta.linhas.length, 1);
-    assert.match(meta.linhas[0].descricao, /Manutenção de baterias por visita/);
+    assert.match(meta.linhas[0].descricao, /Manutenção de bateria/);
     assert.equal(meta.linhas[0].precoUnit, '85,00');
     assert.equal(
       formatLinhaValorManutencaoBateria(meta),
@@ -39,6 +41,21 @@ describe('orcamento-templates — manutenção baterias', () => {
       formatLinhaValorManutencaoBateria({ valorManutencaoVisita: '120', periodicidadeManutencao: 'mensal' }),
       /bateria mensal fica/,
     );
+  });
+
+  it('suporta várias baterias com periodicidade e valor distintos', () => {
+    const meta = {
+      maquinas: [
+        { periodicidadeManutencao: 'mensal', valorManutencaoVisita: '90' },
+        { periodicidadeManutencao: 'de 3 em 3 meses', valorManutencaoVisita: '75' },
+      ],
+    };
+    const linhas = buildManutencaoBateriaLinhas(meta, meta);
+    assert.equal(linhas.length, 2);
+    const pdfLinhas = formatLinhasValorManutencaoBateria(meta, meta);
+    assert.equal(pdfLinhas.length, 2);
+    assert.match(pdfLinhas[0], /mensal/);
+    assert.match(pdfLinhas[1], /de 3 em 3 meses/);
   });
 
   it('usa periodicidade livre no parágrafo e na linha de valor', () => {
@@ -80,5 +97,27 @@ describe('orcamento-templates — manutenção máquinas', () => {
     });
     assert.equal(meta.linhas.length, 1);
     assert.equal(formatManutencaoMaquinaPrecoLinhas(meta).length, 2);
+  });
+
+  it('suporta várias máquinas com deslocação única', () => {
+    const meta = applyManutencaoMaquinaTemplateMeta({
+      tipoProposta: ORCAMENTO_TIPO_PROPOSTA.MANUTENCAO_MAQUINA,
+      valorDeslocacao: '30',
+      maquinas: [
+        {
+          maquinaManutencaoNome: 'Toyota',
+          valorManutencaoGeral: '350',
+          incluirInspecaoDl50: true,
+          valorInspecaoDl50: '40',
+        },
+        { maquinaManutencaoNome: 'Linde', valorManutencaoGeral: '200', incluirInspecaoDl50: false },
+      ],
+    });
+    assert.equal(meta.linhas.length, 4);
+    const precoLinhas = formatManutencaoMaquinaPrecoLinhas(meta, meta);
+    assert.equal(precoLinhas.length, 4);
+    assert.match(precoLinhas[0], /Toyota/);
+    assert.match(precoLinhas[2], /Linde/);
+    assert.match(precoLinhas[3], /Deslocação/);
   });
 });

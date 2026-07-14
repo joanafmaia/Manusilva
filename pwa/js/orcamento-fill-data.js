@@ -29,7 +29,9 @@ import {
   isManutencaoBateriaOrcamento,
   isManutencaoMaquinaOrcamento,
   resolveIncluirInspecaoDl50,
+  resolveManutencaoMaquinaIntro,
 } from './orcamento-templates.js';
+import { hasTemplateMaquinaIdentData } from './orcamento-template-equipamentos.js';
 import { getOrcamentoTipoProposta } from './orcamento-tipo-proposta.js';
 
 const MESES_PT = [
@@ -98,15 +100,17 @@ export function buildOrcamentoFillData(report, job = null) {
       ? orcamentoMeta.maquinas
       : cabecalho.maquinas || suggestOrcamentoMaquinas(report);
   const maquinasNormalized = normalizeOrcamentoMaquinasList(maquinasRaw, equipamentoCampos);
-  const maquinasWithData = maquinasNormalized.filter((row) =>
-    hasOrcamentoMaquinaData(row, equipamentoCampos),
-  );
+  const maquinasWithData = isMaquinaTemplate
+    ? maquinasNormalized.filter((row) => hasTemplateMaquinaIdentData(row))
+    : maquinasNormalized.filter((row) => hasOrcamentoMaquinaData(row, equipamentoCampos));
   const maquinasForPdf = maquinasWithData.length ? maquinasWithData : maquinasNormalized;
   const firstMachine = maquinasForPdf[0] || {};
-  const legacyMaquina = [firstMachine.marca, firstMachine.modelo, firstMachine.tipo]
-    .map((value) => String(value || '').trim())
-    .filter(Boolean)
-    .join(' / ');
+  const legacyMaquina = isMaquinaTemplate
+    ? String(firstMachine.maquinaManutencaoNome || orcamentoMeta?.maquinaManutencaoNome || '').trim()
+    : [firstMachine.marca, firstMachine.modelo, firstMachine.tipo]
+        .map((value) => String(value || '').trim())
+        .filter(Boolean)
+        .join(' / ');
   const legacyMatricula = firstMachine.numeroInterno || firstMachine.numeroSerie || '';
   const observacoesCliente = String(cabecalho.observacoesCliente || '').trim();
 
@@ -147,12 +151,14 @@ export function buildOrcamentoFillData(report, job = null) {
     texto_intro: isBateriaTemplate
       ? MANUTENCAO_BATERIA_INTRO
       : isMaquinaTemplate
-        ? MANUTENCAO_MAQUINA_INTRO
+        ? orcamentoMeta?.textoIntro ||
+          resolveManutencaoMaquinaIntro(orcamentoMeta, cabecalho)
         : display(cabecalho.textoIntro),
     intro_servico: isBateriaTemplate
       ? MANUTENCAO_BATERIA_INTRO
       : isMaquinaTemplate
-        ? MANUTENCAO_MAQUINA_INTRO
+        ? orcamentoMeta?.textoIntro ||
+          resolveManutencaoMaquinaIntro(orcamentoMeta, cabecalho)
         : display(cabecalho.textoIntro),
     valor_manutencao_visita: orcamentoMeta?.valorManutencaoVisita || '',
     periodicidade_manutencao: orcamentoMeta?.periodicidadeManutencao || '',

@@ -64,7 +64,7 @@ import {
   MANUTENCAO_MAQUINA_PLANO_TITULO,
   MANUTENCAO_MAQUINA_TRABALHOS,
   MANUTENCAO_MAQUINA_TRABALHOS_INTRO,
-  formatLinhaValorManutencaoBateria,
+  formatLinhasValorManutencaoBateria,
   formatManutencaoMaquinaPrecoLinhas,
   isManutencaoBateriaOrcamento,
   isManutencaoMaquinaOrcamento,
@@ -519,6 +519,40 @@ function drawOrcamentoEquipamentoBlocks(doc, fill, startY, options = {}) {
   return advanceEquipY(y, 4);
 }
 
+function drawTemplateMaquinaIdentBlocks(doc, fill, startY, options = {}) {
+  const maxEndY = Number.isFinite(options.maxEndY) ? options.maxEndY : CONTENT_MAX_Y;
+  const canLine = (y, step = 5) => y + step <= maxEndY;
+  const advanceY = (y, step = 5) => (canLine(y, step) ? y + step : y);
+  let y = startY;
+
+  const nomes = (fill.maquinas || [])
+    .map((row) => String(row.maquinaManutencaoNome || row.marca || '').trim())
+    .filter(Boolean);
+  if (!nomes.length) {
+    const legacy = String(fill.maquina_manutencao_nome || fill.maquina || '').trim();
+    if (legacy && legacy !== '—') nomes.push(legacy);
+  }
+
+  nomes.forEach((nome, index) => {
+    if (!canLine(y)) return;
+    pdfSetFont(doc, 'bold');
+    const prefix = nomes.length > 1 ? `Máquina ${index + 1}: ` : 'Máquina: ';
+    doc.text(prefix, MARGIN, y);
+    const prefixW = doc.getTextWidth(prefix);
+    pdfSetFont(doc, 'normal');
+    pdfSplitText(doc, pdfSafeText(nome), Math.max(12, CONTENT_W - prefixW)).forEach((line, lineIndex) => {
+      if (lineIndex > 0) {
+        y = advanceY(y, 5.5);
+        if (!canLine(y)) return;
+      }
+      doc.text(line, MARGIN + (lineIndex === 0 ? prefixW : 0), y);
+    });
+    y = advanceY(y, 5.5);
+  });
+
+  return advanceY(y, 4);
+}
+
 function drawOrcamentoObservacoesCliente(doc, fill, startY, options = {}) {
   const text = String(fill.observacoes_cliente || '').trim();
   if (!text || text === '—') return startY;
@@ -639,6 +673,20 @@ function drawOrcamentoBulletList(doc, items, startY, options = {}) {
   return y;
 }
 
+function templateMetaFromFill(fill = {}) {
+  return {
+    maquinas: fill.maquinas || [],
+    equipamentoCampos: fill.equipamento_campos,
+    periodicidadeManutencao: fill.periodicidade_manutencao,
+    valorManutencaoVisita: fill.valor_manutencao_visita,
+    valorManutencaoGeral: fill.valor_manutencao_geral,
+    incluirInspecaoDl50: fill.incluir_inspecao_dl50,
+    valorInspecaoDl50: fill.valor_inspecao_dl50,
+    valorDeslocacao: fill.valor_deslocacao,
+    maquinaManutencaoNome: fill.maquina_manutencao_nome,
+  };
+}
+
 function drawManutencaoBateriaFooter(doc, fill) {
   let y = BATERIA_FOOTER_ANCHOR_Y;
   const footerMaxY = PROPOSTA_FOOTER_MAX_Y;
@@ -646,16 +694,17 @@ function drawManutencaoBateriaFooter(doc, fill) {
   doc.setFontSize(PDF_FONT_BODY);
   doc.setTextColor(...PDF_COLOR_TEXT_DARK);
 
-  const valorLine = formatLinhaValorManutencaoBateria({
-    valorManutencaoVisita: fill.valor_manutencao_visita,
-    periodicidadeManutencao: fill.periodicidade_manutencao,
-  });
+  const meta = templateMetaFromFill(fill);
+  const valorLinhas = formatLinhasValorManutencaoBateria(meta, meta);
 
   pdfSetFont(doc, 'bold');
-  pdfSplitText(doc, valorLine, CONTENT_W).forEach((line) => {
-    if (y > footerMaxY) return;
-    doc.text(line, MARGIN, y);
-    y += 5;
+  valorLinhas.forEach((valorLine) => {
+    pdfSplitText(doc, valorLine, CONTENT_W).forEach((line) => {
+      if (y > footerMaxY) return;
+      doc.text(line, MARGIN, y);
+      y += 5;
+    });
+    y += 1;
   });
 
   pdfSetFont(doc, 'normal');
@@ -685,13 +734,7 @@ function drawManutencaoMaquinaFooter(doc, fill) {
   doc.setFontSize(PDF_FONT_BODY);
   doc.setTextColor(...PDF_COLOR_TEXT_DARK);
 
-  const precoLinhas = formatManutencaoMaquinaPrecoLinhas({
-    maquinaManutencaoNome: fill.maquina_manutencao_nome,
-    valorManutencaoGeral: fill.valor_manutencao_geral,
-    incluirInspecaoDl50: fill.incluir_inspecao_dl50,
-    valorInspecaoDl50: fill.valor_inspecao_dl50,
-    valorDeslocacao: fill.valor_deslocacao,
-  });
+  const precoLinhas = formatManutencaoMaquinaPrecoLinhas(templateMetaFromFill(fill), templateMetaFromFill(fill));
 
   precoLinhas.forEach((line) => {
     pdfSetFont(doc, 'bold');
@@ -730,7 +773,9 @@ async function renderManutencaoMaquinaOrcamentoPDF(doc, report, job) {
 
   pdfSetFont(doc, 'normal');
   doc.setFontSize(PDF_FONT_BODY);
-  y = drawOrcamentoBodyParagraphs(doc, [MANUTENCAO_MAQUINA_INTRO], y, { maxEndY: MAQUINA_BODY_MAX_Y });
+  y = drawOrcamentoBodyParagraphs(doc, [fill.texto_intro || MANUTENCAO_MAQUINA_INTRO], y, { maxEndY: MAQUINA_BODY_MAX_Y });
+  y += 2;
+  y = drawTemplateMaquinaIdentBlocks(doc, fill, y, { maxEndY: MAQUINA_BODY_MAX_Y });
   y += 2;
 
   pdfSetFont(doc, 'bold');
@@ -778,14 +823,15 @@ async function renderManutencaoMaquinaOrcamentoPDF(doc, report, job) {
 async function renderManutencaoBateriaOrcamentoPDF(doc, report, job) {
   const fill = buildOrcamentoFillData(report, job);
   const legalText = await loadLegalText();
-  const paragrafos = buildManutencaoBateriaParagrafos(fill.periodicidade_manutencao);
+  const meta = templateMetaFromFill(fill);
+  const paragrafos = buildManutencaoBateriaParagrafos(meta, meta);
 
   let y = drawOrcamentoLetterhead(doc, fill);
 
   pdfSetFont(doc, 'normal');
   doc.setFontSize(PDF_FONT_BODY);
   y = drawOrcamentoBodyParagraphs(doc, [MANUTENCAO_BATERIA_INTRO], y, { maxEndY: BATERIA_BODY_MAX_Y });
-  y += 3;
+  y += 2;
 
   pdfSetFont(doc, 'bold');
   doc.setFontSize(PDF_FONT_BODY);

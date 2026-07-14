@@ -34,18 +34,23 @@ import {
   renderOrcamentoTipoPropostaSelect,
 } from './orcamento-tipo-proposta.js';
 import {
-  buildManutencaoBateriaPeriodicidadeParagrafo,
-  formatLinhaValorManutencaoBateria,
-  formatValorManutencaoBateriaInput,
+  buildManutencaoBateriaParagrafos,
+  formatLinhasValorManutencaoBateria,
   isManutencaoBateriaTipo,
   isManutencaoMaquinaTipo,
-  MANUTENCAO_MAQUINA_VALOR_INSPECAO_DL50_DEFAULT,
-  renderManutencaoBateriaPeriodicidadeInput,
   renderManutencaoBateriaTemplatePreview,
   renderManutencaoMaquinaPrecoPreviewHtml,
   renderManutencaoMaquinaTemplatePreview,
-  suggestMaquinaManutencaoNome,
 } from './orcamento-templates.js';
+import {
+  bindTemplateBateriasValoresSection,
+  bindTemplateMaquinasIdentSection,
+  readTemplateMaquinasFromDom,
+  renderTemplateEquipValoresSection,
+  renderTemplateMaquinasIdentificacaoSection,
+  resolveTemplateEquipamentos,
+  syncTemplateEquipValoresList,
+} from './orcamento-template-equipamentos.js';
 import {
   exitOrcamentoPageAfterSend,
   isOrcamentoDedicatedPage,
@@ -207,11 +212,15 @@ function refreshTemplateTotals(root, report = null) {
       preview.innerHTML = renderManutencaoMaquinaPrecoPreviewHtml(meta);
     }
   } else {
-    root.querySelector('[data-orc-valor-linha-preview]')?.replaceChildren(
-      document.createTextNode(formatLinhaValorManutencaoBateria(meta)),
-    );
+    const preview = root.querySelector('[data-orc-valor-linha-preview]');
+    if (preview) {
+      preview.innerHTML = formatLinhasValorManutencaoBateria(meta, meta)
+        .map((line) => `<p><strong>${escapeHtml(line)}</strong></p>`)
+        .join('');
+    }
+    const paragrafos = buildManutencaoBateriaParagrafos(meta, meta);
     root.querySelector('[data-orc-periodicidade-paragrafo-preview]')?.replaceChildren(
-      document.createTextNode(buildManutencaoBateriaPeriodicidadeParagrafo(meta.periodicidadeManutencao)),
+      document.createTextNode(paragrafos[paragrafos.length - 1] || ''),
     );
   }
   root.querySelector('[data-orc-subtotal]')?.replaceChildren(
@@ -235,7 +244,8 @@ function renderManutencaoBateriaOrcamentoEditor(report, ctx) {
     clienteField,
     totals,
   } = ctx;
-  const valorVisita = escapeHtml(meta.valorManutencaoVisita || formatValorManutencaoBateriaInput(meta));
+
+  const equipamentos = resolveTemplateEquipamentos(meta, cab, 'bateria');
 
   return `
     <div class="review-orcamento-editor review-orcamento-editor--template" id="orcamento-editor" data-orc-template="manutencao_bateria">
@@ -261,17 +271,13 @@ function renderManutencaoBateriaOrcamentoEditor(report, ctx) {
         </div>
       </section>
 
-      ${renderManutencaoBateriaTemplatePreview(meta.periodicidadeManutencao)}
+      ${renderManutencaoBateriaTemplatePreview(meta)}
 
-      <section class="review-orc-template-fields" aria-label="Valores editáveis">
-        <h4 class="review-orc-cabecalho__title">Valores da proposta</h4>
+      ${renderTemplateEquipValoresSection(equipamentos, [], meta, 'bateria')}
+
+      <section class="review-orc-template-fields" aria-label="Condições da proposta">
+        <h4 class="review-orc-cabecalho__title">Condições</h4>
         <div class="review-orc-cabecalho__grid">
-          ${renderManutencaoBateriaPeriodicidadeInput(meta.periodicidadeManutencao)}
-          <label class="review-orc-field">
-            <span>Valor por visita (€)</span>
-            <input type="text" class="review-orc-input review-orc-input--money" data-orc-field="valorManutencaoVisita" value="${valorVisita}" inputmode="decimal" placeholder="85,00" />
-            <span class="review-orc-field-hint text-muted">Predefinição: 85 € (mão-de-obra incluída).</span>
-          </label>
           <label class="review-orc-field">
             <span>Forma de pagamento</span>
             <input type="text" class="review-orc-input" data-orc-field="formaPagamento" value="${escapeHtml(cab.formaPagamento)}" placeholder="Pronto Pagamento" />
@@ -281,7 +287,11 @@ function renderManutencaoBateriaOrcamentoEditor(report, ctx) {
             <input type="text" class="review-orc-input" data-orc-field="validadeOrcamento" value="${escapeHtml(cab.validadeOrcamento)}" placeholder="10 Dias" />
           </label>
         </div>
-        <p class="review-orc-template-valor-preview"><strong data-orc-valor-linha-preview>${escapeHtml(formatLinhaValorManutencaoBateria(meta))}</strong></p>
+        <div class="review-orc-template-valor-preview" data-orc-valor-linha-preview>
+          ${formatLinhasValorManutencaoBateria(meta, cab)
+            .map((line) => `<p><strong>${escapeHtml(line)}</strong></p>`)
+            .join('')}
+        </div>
       </section>
 
       <label class="review-orc-field review-orc-field--email">
@@ -310,7 +320,7 @@ function renderManutencaoBateriaOrcamentoEditor(report, ctx) {
         <button type="button" class="btn-outline btn-touch" id="orcamento-pdf">Ver PDF da proposta</button>
         <button type="button" class="btn-success btn-touch" id="orcamento-send-email">Enviar proposta por e-mail</button>
       </div>
-      <p class="text-muted review-orcamento-editor__hint">O PDF usa o texto fixo da Manutenção Baterias — só precisa de indicar o valor e a periodicidade.</p>
+      <p class="text-muted review-orcamento-editor__hint">O PDF usa o texto fixo da Manutenção Baterias — indique periodicidade e valor por visita.</p>
     </div>`;
 }
 
@@ -324,15 +334,8 @@ function renderManutencaoMaquinaOrcamentoEditor(report, ctx) {
     clienteField,
     totals,
   } = ctx;
-  const maquinaNome = escapeHtml(
-    meta.maquinaManutencaoNome || suggestMaquinaManutencaoNome(cab) || '',
-  );
-  const valorGeral = escapeHtml(meta.valorManutencaoGeral || '');
-  const valorInspecao = escapeHtml(
-    meta.valorInspecaoDl50 || formatEuro(MANUTENCAO_MAQUINA_VALOR_INSPECAO_DL50_DEFAULT),
-  );
+  const equipamentos = resolveTemplateEquipamentos(meta, cab, 'maquina');
   const valorDeslocacao = escapeHtml(meta.valorDeslocacao || '');
-  const incluirDl50 = meta.incluirInspecaoDl50 ? ' checked' : '';
   const prazoEntrega = escapeHtml(meta.prazoEntrega || '');
 
   return `
@@ -361,29 +364,15 @@ function renderManutencaoMaquinaOrcamentoEditor(report, ctx) {
 
       ${renderManutencaoMaquinaTemplatePreview()}
 
-      <section class="review-orc-template-fields" aria-label="Valores editáveis">
-        <h4 class="review-orc-cabecalho__title">Valores da proposta</h4>
+      ${renderTemplateMaquinasIdentificacaoSection(equipamentos, meta)}
+
+      ${renderTemplateEquipValoresSection(equipamentos, [], meta, 'maquina')}
+
+      <section class="review-orc-template-fields" aria-label="Condições da proposta">
+        <h4 class="review-orc-cabecalho__title">Condições</h4>
         <div class="review-orc-cabecalho__grid">
           <label class="review-orc-field">
-            <span>Máquina (marca / modelo)</span>
-            <input type="text" class="review-orc-input" data-orc-field="maquinaManutencaoNome" value="${maquinaNome}" placeholder="ex.: Toyota 8FBMT16" />
-            <span class="review-orc-field-hint text-muted">Aparece na linha «Manutenção geral a máquina …».</span>
-          </label>
-          <label class="review-orc-field">
-            <span>Manutenção geral (€)</span>
-            <input type="text" class="review-orc-input review-orc-input--money" data-orc-field="valorManutencaoGeral" value="${valorGeral}" inputmode="decimal" placeholder="0,00" />
-          </label>
-          <label class="review-orc-field review-orc-field--checkbox">
-            <span>Incluir inspeção DL50/2005</span>
-            <input type="checkbox" class="review-orc-checkbox" data-orc-field="incluirInspecaoDl50"${incluirDl50} />
-            <span class="review-orc-field-hint text-muted">Opcional — o cliente pode querer ou não.</span>
-          </label>
-          <label class="review-orc-field">
-            <span>Valor inspeção DL50/2005 (€)</span>
-            <input type="text" class="review-orc-input review-orc-input--money" data-orc-field="valorInspecaoDl50" value="${valorInspecao}" inputmode="decimal" placeholder="40,00" />
-          </label>
-          <label class="review-orc-field">
-            <span>Deslocação (€)</span>
+            <span>Deslocação (€) — única para a proposta</span>
             <input type="text" class="review-orc-input review-orc-input--money" data-orc-field="valorDeslocacao" value="${valorDeslocacao}" inputmode="decimal" placeholder="0,00" />
           </label>
           <label class="review-orc-field">
@@ -430,7 +419,7 @@ function renderManutencaoMaquinaOrcamentoEditor(report, ctx) {
         <button type="button" class="btn-outline btn-touch" id="orcamento-pdf">Ver PDF da proposta</button>
         <button type="button" class="btn-success btn-touch" id="orcamento-send-email">Enviar proposta por e-mail</button>
       </div>
-      <p class="text-muted review-orcamento-editor__hint">O PDF usa o texto fixo de Manutenção Máquina — preencha máquina, valores e condições.</p>
+      <p class="text-muted review-orcamento-editor__hint">Identifique cada máquina, preços por máquina e uma deslocação única para a proposta.</p>
     </div>`;
 }
 
@@ -768,10 +757,20 @@ export function bindOrcamentoEditor(container, { report, onUpdated, onSent, onTi
   const isMaquinaTemplate = root.dataset.orcTemplate === 'manutencao_maquina';
 
   if (isBateriaTemplate || isMaquinaTemplate) {
+    const templateMode = isBateriaTemplate ? 'bateria' : 'maquina';
     const refreshTemplate = () => refreshTemplateTotals(root, currentReport);
+    const onTemplateEquipChange = () => {
+      syncTemplateEquipValoresList(root, templateMode, getReportOrcamentoMeta(currentReport));
+      refreshTemplate();
+    };
+    if (isMaquinaTemplate) {
+      bindTemplateMaquinasIdentSection(root, { onChange: onTemplateEquipChange });
+    } else {
+      bindTemplateBateriasValoresSection(root, { onChange: onTemplateEquipChange });
+    }
     root
       .querySelectorAll(
-        '[data-orc-field="valorManutencaoVisita"], [data-orc-field="periodicidadeManutencao"], [data-orc-field="maquinaManutencaoNome"], [data-orc-field="valorManutencaoGeral"], [data-orc-field="valorInspecaoDl50"], [data-orc-field="valorDeslocacao"], [data-orc-field="incluirInspecaoDl50"]',
+        '[data-orc-template-equip-valores] [data-orc-field], [data-orc-field="valorDeslocacao"], [data-orc-field="formaPagamento"], [data-orc-field="validadeOrcamento"], [data-orc-field="prazoEntrega"]',
       )
       .forEach((el) => {
         el.addEventListener('input', refreshTemplate);

@@ -20,6 +20,16 @@ function readMaquinaFieldValue(raw, key) {
   return '';
 }
 
+/** Campos extra das propostas template (baterias / máquinas) preservados em cada equipamento. */
+const ORCAMENTO_MAQUINA_TEMPLATE_EXTRA_KEYS = [
+  'maquinaManutencaoNome',
+  'periodicidadeManutencao',
+  'valorManutencaoVisita',
+  'valorManutencaoGeral',
+  'incluirInspecaoDl50',
+  'valorInspecaoDl50',
+];
+
 export function emptyOrcamentoMaquina(campos = null) {
   const fields = normalizeEquipamentoCampos(campos);
   return Object.fromEntries(fields.map(({ key }) => [key, '']));
@@ -33,7 +43,17 @@ export function hasOrcamentoMaquinaData(row, campos = null) {
 
 export function normalizeOrcamentoMaquina(raw = {}, campos = null) {
   const fields = normalizeEquipamentoCampos(campos);
-  return Object.fromEntries(fields.map(({ key }) => [key, readMaquinaFieldValue(raw, key)]));
+  const base = Object.fromEntries(fields.map(({ key }) => [key, readMaquinaFieldValue(raw, key)]));
+  ORCAMENTO_MAQUINA_TEMPLATE_EXTRA_KEYS.forEach((key) => {
+    if (raw == null || typeof raw !== 'object') return;
+    if (key === 'incluirInspecaoDl50') {
+      if (raw.incluirInspecaoDl50 != null) base.incluirInspecaoDl50 = raw.incluirInspecaoDl50;
+      return;
+    }
+    const value = String(raw[key] ?? '').trim();
+    if (value) base[key] = value;
+  });
+  return base;
 }
 
 export function normalizeOrcamentoMaquinasList(raw, campos = null) {

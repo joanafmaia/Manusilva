@@ -19,6 +19,7 @@ import {
   resolveOrcamentoTemplateMode,
   suggestMaquinaManutencaoNome,
 } from './orcamento-templates.js';
+import { readTemplateMaquinasFromDom } from './orcamento-template-equipamentos.js';
 
 const IVA_RATE = 0.23;
 const MIN_LINHAS_VAZIAS = 3;
@@ -353,28 +354,6 @@ export function readOrcamentoFormFromDom(root, report) {
   const cabecalho = readOrcamentoCabecalhoFromDom(root, report);
   const machineCount = Math.max(1, cabecalho.maquinas?.length || 1);
 
-  const valorManutencaoVisita =
-    root.querySelector('[data-orc-field="valorManutencaoVisita"]')?.value?.trim() ||
-    existing.valorManutencaoVisita ||
-    '';
-  const periodicidadeManutencao =
-    root.querySelector('[data-orc-field="periodicidadeManutencao"]')?.value?.trim() ||
-    existing.periodicidadeManutencao ||
-    '';
-
-  const maquinaManutencaoNome =
-    root.querySelector('[data-orc-field="maquinaManutencaoNome"]')?.value?.trim() ||
-    existing.maquinaManutencaoNome ||
-    '';
-  const valorManutencaoGeral =
-    root.querySelector('[data-orc-field="valorManutencaoGeral"]')?.value?.trim() ||
-    existing.valorManutencaoGeral ||
-    '';
-  const incluirInspecaoDl50 = root.querySelector('[data-orc-field="incluirInspecaoDl50"]')?.checked ?? false;
-  const valorInspecaoDl50 =
-    root.querySelector('[data-orc-field="valorInspecaoDl50"]')?.value?.trim() ||
-    existing.valorInspecaoDl50 ||
-    '';
   const valorDeslocacao =
     root.querySelector('[data-orc-field="valorDeslocacao"]')?.value?.trim() ||
     existing.valorDeslocacao ||
@@ -389,18 +368,16 @@ export function readOrcamentoFormFromDom(root, report) {
     taxasSaida,
     taxaSaida,
     prazoEntrega,
-    valorManutencaoVisita,
-    periodicidadeManutencao,
-    maquinaManutencaoNome,
-    valorManutencaoGeral,
-    incluirInspecaoDl50,
-    valorInspecaoDl50,
     valorDeslocacao,
     atualizadoEm: new Date().toISOString(),
   };
 
   if (templateMode === 'manutencao_bateria') {
-    meta = applyManutencaoBateriaTemplateMeta(meta, report);
+    const { campos, maquinas } = readTemplateMaquinasFromDom(root, 'bateria', meta);
+    meta = applyManutencaoBateriaTemplateMeta(
+      { ...meta, maquinas, equipamentoCampos: campos },
+      report,
+    );
     const totals = computeOrcamentoTotals(meta.linhas, meta);
     return {
       ...meta,
@@ -412,7 +389,11 @@ export function readOrcamentoFormFromDom(root, report) {
   }
 
   if (templateMode === 'manutencao_maquina') {
-    meta = applyManutencaoMaquinaTemplateMeta(meta, report);
+    const { campos, maquinas } = readTemplateMaquinasFromDom(root, 'maquina', meta);
+    meta = applyManutencaoMaquinaTemplateMeta(
+      { ...meta, maquinas, equipamentoCampos: campos },
+      report,
+    );
     const totals = computeOrcamentoTotals(meta.linhas, meta);
     return {
       ...meta,
