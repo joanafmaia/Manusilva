@@ -605,32 +605,38 @@ function refreshLineTotals(root, report = null) {
   );
 }
 
-function bindLinhaEvents(root, report) {
-  const tbody = root.querySelector('#review-orc-linhas-body');
-  if (!tbody) return;
-
+function refreshOrcamentoLinhaCatalog(root, report) {
   const onCatalogChange = () => refreshLineTotals(root, report);
+  bindOrcamentoCatalogoComboboxes(root, { onChange: onCatalogChange });
+}
 
-  const bindCatalog = () => {
-    bindOrcamentoCatalogoComboboxes(root, { onChange: onCatalogChange });
-  };
+function bindLinhaEvents(root, report) {
+  if (!root.querySelector('#review-orc-linhas-body')) return;
 
-  bindCatalog();
+  refreshOrcamentoLinhaCatalog(root, report);
 
-  tbody.addEventListener('input', (e) => {
+  if (root.dataset.orcLinhasBound === '1') return;
+  root.dataset.orcLinhasBound = '1';
+
+  root.addEventListener('input', (e) => {
+    if (!e.target.closest('#review-orc-linhas-body')) return;
     if (e.target.matches('[data-orc-field]')) refreshLineTotals(root, report);
   });
 
-  tbody.addEventListener('change', (e) => {
+  root.addEventListener('change', (e) => {
+    if (!e.target.closest('#review-orc-linhas-body')) return;
     if (e.target.matches('[data-orc-field="equipamentoIndex"]')) {
       const tr = e.target.closest('[data-orcamento-linha]');
       if (tr) tr.dataset.equipamentoIndex = e.target.value;
     }
   });
 
-  tbody.addEventListener('click', (e) => {
+  root.addEventListener('click', (e) => {
+    const tbody = root.querySelector('#review-orc-linhas-body');
+    if (!tbody) return;
+
     const addEquipBtn = e.target.closest('[data-orc-add-linha-equip]');
-    if (addEquipBtn) {
+    if (addEquipBtn && tbody.contains(addEquipBtn)) {
       const maquinas = readOrcamentoMaquinasFromDom(root);
       const equipIndex = Number(addEquipBtn.dataset.orcAddLinhaEquip) || 0;
       const groupLines = [
@@ -651,39 +657,41 @@ function bindLinhaEvents(root, report) {
           maquinas,
         }),
       );
-      bindCatalog();
+      refreshOrcamentoLinhaCatalog(root, report);
       refreshLineTotals(root, report);
       return;
     }
 
-    const btn = e.target.closest('.review-orc-remove');
-    if (!btn) return;
-    const row = btn.closest('[data-orcamento-linha]');
-    if (!row) return;
-    const rows = tbody.querySelectorAll('[data-orcamento-linha]');
-    if (rows.length <= 1) {
-      row.querySelectorAll('input').forEach((input) => {
-        input.value = input.dataset.orcField === 'qtd' ? '1' : '';
-      });
-      row.querySelectorAll('select').forEach((select) => {
-        select.value = '0';
-      });
-    } else {
-      row.remove();
+    const removeBtn = e.target.closest('.review-orc-remove');
+    if (removeBtn && tbody.contains(removeBtn)) {
+      const row = removeBtn.closest('[data-orcamento-linha]');
+      if (!row) return;
+      const rows = tbody.querySelectorAll('[data-orcamento-linha]');
+      if (rows.length <= 1) {
+        row.querySelectorAll('input').forEach((input) => {
+          input.value = input.dataset.orcField === 'qtd' ? '1' : '';
+        });
+        row.querySelectorAll('select').forEach((select) => {
+          select.value = '0';
+        });
+      } else {
+        row.remove();
+      }
+      refreshLineTotals(root, report);
+      return;
     }
-    refreshLineTotals(root, report);
-  });
 
-  root.querySelector('#review-orc-add-linha')?.addEventListener('click', () => {
-    const maquinas = readOrcamentoMaquinasFromDom(root);
-    const index = tbody.querySelectorAll('[data-orcamento-linha]').length;
-    tbody.insertAdjacentHTML(
-      'beforeend',
-      renderOrcamentoLinhaRow(emptyOrcamentoLinha(), index, { maquinas }),
-    );
-    syncOrcamentoLinhaEquipamentoColumn(root);
-    bindCatalog();
-    refreshLineTotals(root, report);
+    if (e.target.closest('#review-orc-add-linha')) {
+      const maquinas = readOrcamentoMaquinasFromDom(root);
+      const index = tbody.querySelectorAll('[data-orcamento-linha]').length;
+      tbody.insertAdjacentHTML(
+        'beforeend',
+        renderOrcamentoLinhaRow(emptyOrcamentoLinha(), index, { maquinas }),
+      );
+      syncOrcamentoLinhaEquipamentoColumn(root);
+      refreshOrcamentoLinhaCatalog(root, report);
+      refreshLineTotals(root, report);
+    }
   });
 
   root.querySelectorAll('[data-orc-field="taxaSaida"]').forEach((input) => {
@@ -800,7 +808,11 @@ export function bindOrcamentoEditor(container, { report, onUpdated, onSaved, onS
     root.addEventListener('change', onTemplateFieldChange);
     refreshTemplate();
   } else {
-    const syncEquipStructure = () => syncOrcamentoLinhaEquipamentoColumn(root);
+    const syncEquipStructure = () => {
+      syncOrcamentoLinhaEquipamentoColumn(root);
+      refreshOrcamentoLinhaCatalog(root, currentReport);
+      refreshLineTotals(root, currentReport);
+    };
     const syncEquipFieldValue = () => syncOrcamentoGroupedEquipHeaders(root);
     bindLinhaEvents(root, currentReport);
     bindOrcamentoMaquinasSection(root, {
