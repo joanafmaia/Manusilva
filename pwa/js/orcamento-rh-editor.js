@@ -82,6 +82,7 @@ function finishOrcamentoEditingAndReturn({ onSaved, onSent, saved, action }) {
   }
 }
 
+function defaultOrcamentoEmail(report, _client) {
   const meta = getReportOrcamentoMeta(report);
   if (meta?.emailDestinatario) return String(meta.emailDestinatario).trim();
   return '';
