@@ -9,6 +9,7 @@ import {
   normalizeLegalParagraphs,
   resolveManutencaoMaquinaPdfFooterLayout,
   resolveManutencaoMaquinaBulletsLayout,
+  resolveManutencaoMaquinaFooterTypography,
   resolveManutencaoMaquinaPdfLayout,
 } from '../js/pdf-orcamento.js';
 import {
@@ -129,5 +130,17 @@ describe('pdf-orcamento layout', () => {
       `rodapé com tabela compacta (${footer.footerHeight}mm estimados)`,
     );
     assert.ok(estimateMaquinaBodyBeforeBullets(7) < 50, 'corpo sem bloco duplicado de máquinas');
+  });
+
+  it('escolhe tipografia maior quando o rodapé tem espaço vertical', () => {
+    const table = {
+      rows: Array.from({ length: 7 }, () => ({})),
+      deslocacao: '123,00 €',
+    };
+    const compact = resolveManutencaoMaquinaFooterTypography(62, table);
+    const roomy = resolveManutencaoMaquinaFooterTypography(82, table);
+    assert.ok(roomy.tableFontSize >= compact.tableFontSize);
+    assert.ok(roomy.tableRowH >= compact.tableRowH);
+    assert.ok(roomy.totalsLineStep >= compact.totalsLineStep);
   });
 });
