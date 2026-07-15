@@ -88,10 +88,56 @@ export function resolveReportObservacoesTecnico(report) {
 }
 
 /** Sugere máquinas a partir do relatório técnico ou meta RH guardada. */
+function hasSavedTemplateMaquinaRow(row = {}) {
+  if (!row || typeof row !== 'object') return false;
+  if (String(row.maquinaManutencaoNome || '').trim()) return true;
+  if (String(row.valorManutencaoGeral ?? '').trim()) return true;
+  if (row.incluirInspecaoDl50 === true || row.incluirInspecaoDl50 === 'true') return true;
+  return false;
+}
+
+/** Campos do cabeçalho que não devem sobrepor meta guardada de templates MS.015. */
+const TEMPLATE_META_OVERRIDE_KEYS = [
+  'maquinas',
+  'equipamentoCampos',
+  'maquinaManutencaoNome',
+  'valorManutencaoGeral',
+  'incluirInspecaoDl50',
+  'valorInspecaoDl50',
+  'periodicidadeManutencao',
+  'valorManutencaoVisita',
+  'linhas',
+  'tipoProposta',
+  'textoIntro',
+  'valorDeslocacao',
+  'prazoEntrega',
+  'subtotal',
+  'iva',
+  'total',
+  'numeroSequencial',
+  'ano',
+  'numeroFormatado',
+  'atualizadoEm',
+  'enviadoEm',
+];
+
+/** Junta cabeçalho do relatório com meta RH — em templates, a meta guardada prevalece. */
+export function mergeOrcamentoMetaWithCabecalho(rawMeta = {}, cab = {}, { template = false } = {}) {
+  if (!template) return { ...rawMeta, ...cab };
+  const cabCore = { ...cab };
+  TEMPLATE_META_OVERRIDE_KEYS.forEach((key) => {
+    delete cabCore[key];
+  });
+  return { ...cabCore, ...rawMeta };
+}
+
 export function suggestOrcamentoMaquinas(report) {
   const meta = readOrcamentoMeta(report);
   const campos = suggestEquipamentoCampos(report);
   if (Array.isArray(meta.maquinas) && meta.maquinas.length) {
+    if (meta.maquinas.some(hasSavedTemplateMaquinaRow)) {
+      return meta.maquinas;
+    }
     const saved = normalizeOrcamentoMaquinasList(meta.maquinas, campos);
     if (saved.some((row) => hasOrcamentoMaquinaData(row, campos))) return saved;
   }

@@ -3,8 +3,10 @@ import assert from 'node:assert/strict';
 import {
   ORCAMENTO_TEXTO_INTRO_PLURAL,
   ORCAMENTO_TEXTO_INTRO_SINGULAR,
+  mergeOrcamentoMetaWithCabecalho,
   resolveOrcamentoTextoIntroForPdf,
   resolveReportObservacoesTecnico,
+  suggestOrcamentoMaquinas,
   suggestOrcamentoTextoIntro,
 } from '../js/orcamento-cabecalho.js';
 
@@ -88,5 +90,41 @@ describe('resolveReportObservacoesTecnico', () => {
       },
     };
     assert.equal(resolveReportObservacoesTecnico(report), 'Máquina deixada operacional');
+  });
+});
+
+describe('suggestOrcamentoMaquinas — template manutenção máquinas', () => {
+  it('mantém várias máquinas guardadas com maquinaManutencaoNome', () => {
+    const maquinas = Array.from({ length: 4 }, (_, i) => ({
+      maquinaManutencaoNome: `Máquina ${i + 1}`,
+      valorManutencaoGeral: '100',
+    }));
+    const report = {
+      serviceType: 'folha_intervencao_avarias',
+      data: { orcamento: { maquinas } },
+    };
+    assert.equal(suggestOrcamentoMaquinas(report).length, 4);
+  });
+});
+
+describe('mergeOrcamentoMetaWithCabecalho', () => {
+  it('não deixa o cabeçalho do relatório sobrepor maquinas guardadas', () => {
+    const rawMeta = {
+      maquinas: [
+        { maquinaManutencaoNome: 'Toyota', valorManutencaoGeral: '100' },
+        { maquinaManutencaoNome: 'Linde', valorManutencaoGeral: '200' },
+      ],
+      valorDeslocacao: '30',
+    };
+    const cab = {
+      clienteAc: 'Exmos. Senhores',
+      maquinas: [{ marca: 'Do relatório' }],
+      formaPagamento: 'Pronto Pagamento',
+    };
+    const merged = mergeOrcamentoMetaWithCabecalho(rawMeta, cab, { template: true });
+    assert.equal(merged.maquinas.length, 2);
+    assert.equal(merged.maquinas[1].maquinaManutencaoNome, 'Linde');
+    assert.equal(merged.valorDeslocacao, '30');
+    assert.equal(merged.clienteAc, 'Exmos. Senhores');
   });
 });

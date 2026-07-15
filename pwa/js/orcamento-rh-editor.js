@@ -15,7 +15,7 @@ import {
   suggestOrcamentoLinhas,
   taxasSaidaSlotsFromMeta,
 } from './orcamento-linhas.js';
-import { resolveOrcamentoCabecalho } from './orcamento-cabecalho.js';
+import { mergeOrcamentoMetaWithCabecalho, resolveOrcamentoCabecalho } from './orcamento-cabecalho.js';
 import {
   bindOrcamentoMaquinasSection,
   readOrcamentoMaquinasFromDom,
@@ -416,10 +416,10 @@ export function renderOrcamentoEditor(report, { client } = {}) {
   const cab = resolveOrcamentoCabecalho(report);
   const rawMeta = getReportOrcamentoMeta(report) || buildOrcamentoMetaDraft(report);
   const meta = isManutencaoBateriaTipo(tipo)
-    ? applyManutencaoBateriaTemplateMeta({ ...rawMeta, ...cab }, report)
+    ? applyManutencaoBateriaTemplateMeta(mergeOrcamentoMetaWithCabecalho(rawMeta, cab, { template: true }), report)
     : isManutencaoMaquinaTipo(tipo)
-      ? applyManutencaoMaquinaTemplateMeta({ ...rawMeta, ...cab }, report)
-      : rawMeta;
+      ? applyManutencaoMaquinaTemplateMeta(mergeOrcamentoMetaWithCabecalho(rawMeta, cab, { template: true }), report)
+      : { ...rawMeta, ...cab };
   if (meta?.enviadoEm) {
     return renderOrcamentoSentSummary(report, { client });
   }
