@@ -139,8 +139,18 @@ describe('pdf-orcamento layout', () => {
     };
     const compact = resolveManutencaoMaquinaFooterTypography(62, table);
     const roomy = resolveManutencaoMaquinaFooterTypography(82, table);
-    assert.ok(roomy.tableFontSize >= compact.tableFontSize);
-    assert.ok(roomy.tableRowH >= compact.tableRowH);
-    assert.ok(roomy.totalsLineStep >= compact.totalsLineStep);
+    assert.ok(roomy.lineStep >= compact.lineStep);
+    assert.ok(roomy.fontSize >= compact.fontSize);
+  });
+
+  it('preenche o rodapé com passo de linha uniforme', () => {
+    const table = {
+      rows: Array.from({ length: 7 }, () => ({})),
+      deslocacao: '33,00 €',
+    };
+    const availableHeight = 80;
+    const typography = resolveManutencaoMaquinaFooterTypography(availableHeight, table);
+    const contentHeight = typography.separatorGap + typography.lineCount * typography.lineStep;
+    assert.ok(Math.abs(contentHeight - availableHeight) < 0.2);
   });
 });

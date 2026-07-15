@@ -111,6 +111,10 @@ const MAQUINA_PRECO_TABLE_HEADER_H = 4.8;
 const MAQUINA_PRECO_TABLE_FONT = 8;
 const MAQUINA_PRECO_TABLE_COL_MANUT = MARGIN + 108;
 const MAQUINA_PRECO_TABLE_COL_DL50 = MARGIN + 148;
+const MAQUINA_FOOTER_MONEY_X = MARGIN + CONTENT_W - 1;
+const MAQUINA_FOOTER_LINE_MIN = 4.6;
+const MAQUINA_FOOTER_LINE_MAX = 6.2;
+const MAQUINA_FOOTER_SEPARATOR_GAP = 4;
 const PROPOSTA_FOOTER_MAX_Y = APPROVAL_TOP - 6;
 const CONTENT_MAX_Y = FOOTER_TOP - 6;
 
@@ -861,25 +865,38 @@ function estimateMaquinaPrecoTableHeight(rowCount, compactFooter, rowH = MAQUINA
     rows: Array.from({ length: rowCount }, () => ({})),
     deslocacao: '—',
   };
-  const compactTypography = {
-    tableRowH: rowH,
-    totalsLineStep: compactFooter ? 4.8 : 5,
-    condLineStep: compactFooter ? 4.5 : 4.8,
-    condBlockGap: compactFooter ? 1.2 : 1.5,
-    totalsTopGap: compactFooter ? 2.5 : 3,
-    separatorGap: compactFooter ? 2.5 : 3,
-  };
-  return measureManutencaoMaquinaFooterContentHeight(table, compactTypography);
+  const lineCount = countManutencaoMaquinaFooterLines(table);
+  const lineStep = Math.max(
+    compactFooter ? MAQUINA_PRECO_TABLE_ROW_H_COMPACT : rowH,
+    MAQUINA_FOOTER_LINE_MIN,
+  );
+  return MAQUINA_FOOTER_SEPARATOR_GAP + lineCount * lineStep;
 }
 
-function maquinaPrecoTableRowBaseline(rowTop, rowH, fontSize) {
-  return rowTop + Math.min(rowH - 1.1, fontSize * 0.82 + 1.6);
+function manutencaoFooterRowTextY(rowTop, lineStep, fontSize) {
+  return rowTop + Math.min(lineStep - 1, fontSize * 0.85 + 1.2);
 }
 
 function formatOrcamentoPdfCurrency(value) {
   const raw = String(value ?? '').trim();
   if (!raw || raw === '—') return '—';
   return raw.includes('€') ? raw : `${raw} €`;
+}
+
+function countManutencaoMaquinaFooterLines(table = {}) {
+  const rowCount = table?.rows?.length ?? 0;
+  let lines = 1 + rowCount;
+  if (table?.deslocacao != null) lines += 1;
+  lines += 3;
+  lines += 3;
+  return lines;
+}
+
+function resolveManutencaoMaquinaFooterFontSize(lineStep) {
+  if (lineStep >= 5.4) return PDF_FONT_BODY;
+  if (lineStep >= 5) return 8.5;
+  if (lineStep >= 4.8) return MAQUINA_PRECO_TABLE_FONT;
+  return MAQUINA_BULLET_COMPACT_FONT;
 }
 
 function drawOrcamentoInlineLabelValue(doc, label, value, x, y) {
@@ -890,89 +907,57 @@ function drawOrcamentoInlineLabelValue(doc, label, value, x, y) {
   doc.text(pdfSafeText(value), x + prefixW, y);
 }
 
-function measureManutencaoMaquinaFooterContentHeight(table, typography = {}) {
-  const tableRowH = typography.tableRowH ?? MAQUINA_PRECO_TABLE_ROW_H;
-  const totalsLineStep = typography.totalsLineStep ?? 5;
-  const condLineStep = typography.condLineStep ?? 5;
-  const condBlockGap = typography.condBlockGap ?? 1.5;
-  const separatorGap = typography.separatorGap ?? 3;
-  const totalsTopGap = typography.totalsTopGap ?? 3;
-  const rowCount = table?.rows?.length ?? 0;
-
-  let h = separatorGap + tableRowH + rowCount * tableRowH;
-  if (table?.deslocacao != null) {
-    h += 1.5 + tableRowH;
-  }
-  h += totalsTopGap + totalsLineStep * 3 + condBlockGap + (condLineStep + condBlockGap) * 3;
-  return h;
+function drawOrcamentoMoneyRow(doc, label, value, y, options = {}) {
+  const moneyX = options.moneyX ?? MAQUINA_FOOTER_MONEY_X;
+  const bold = Boolean(options.bold);
+  pdfSetFont(doc, bold ? 'bold' : 'normal');
+  doc.text(label, MARGIN, y);
+  pdfSetFont(doc, bold ? 'bold' : 'normal');
+  doc.text(pdfSafeText(value), moneyX, y, { align: 'right' });
 }
 
-/** Escolhe tipografia do rodapé para preencher o espaço reservado sem sobreposições. */
-export function resolveManutencaoMaquinaFooterTypography(availableHeight, table = {}) {
-  const presets = [
-    {
-      tableFontSize: PDF_FONT_BODY,
-      tableRowH: 5.5,
-      totalsLineStep: 5.5,
-      condLineStep: 5.5,
-      condBlockGap: 2,
-      totalsTopGap: 3.5,
-      separatorGap: 3,
-    },
-    {
-      tableFontSize: 9,
-      tableRowH: 5,
-      totalsLineStep: 5,
-      condLineStep: 5,
-      condBlockGap: 1.5,
-      totalsTopGap: 3,
-      separatorGap: 3,
-    },
-    {
-      tableFontSize: MAQUINA_PRECO_TABLE_FONT,
-      tableRowH: MAQUINA_PRECO_TABLE_ROW_H,
-      totalsLineStep: 5,
-      condLineStep: 4.8,
-      condBlockGap: 1.5,
-      totalsTopGap: 3,
-      separatorGap: 3,
-    },
-    {
-      tableFontSize: MAQUINA_BULLET_COMPACT_FONT,
-      tableRowH: MAQUINA_PRECO_TABLE_ROW_H_COMPACT,
-      totalsLineStep: 4.8,
-      condLineStep: 4.5,
-      condBlockGap: 1.2,
-      totalsTopGap: 2.5,
-      separatorGap: 2.5,
-    },
-  ];
+function measureManutencaoMaquinaFooterContentHeight(table, typography = {}) {
+  const lineCount = typography.lineCount ?? countManutencaoMaquinaFooterLines(table);
+  const separatorGap = typography.separatorGap ?? MAQUINA_FOOTER_SEPARATOR_GAP;
+  const lineStep = typography.lineStep ?? MAQUINA_FOOTER_LINE_MIN;
+  return separatorGap + lineCount * lineStep;
+}
 
-  for (const preset of presets) {
-    if (measureManutencaoMaquinaFooterContentHeight(table, preset) <= availableHeight) {
-      return preset;
-    }
-  }
-  return presets[presets.length - 1];
+/** Distribui o espaço do rodapé com passo de linha uniforme. */
+export function resolveManutencaoMaquinaFooterTypography(availableHeight, table = {}) {
+  const lineCount = countManutencaoMaquinaFooterLines(table);
+  const separatorGap = MAQUINA_FOOTER_SEPARATOR_GAP;
+  const usable = Math.max(20, availableHeight - separatorGap);
+  const lineStep = Math.min(
+    MAQUINA_FOOTER_LINE_MAX,
+    Math.max(MAQUINA_FOOTER_LINE_MIN, usable / lineCount),
+  );
+
+  return {
+    lineStep,
+    fontSize: resolveManutencaoMaquinaFooterFontSize(lineStep),
+    separatorGap,
+    lineCount,
+  };
 }
 
 function drawManutencaoMaquinaPrecoTable(doc, table, startY, maxY, options = {}) {
   const fontSize = options.fontSize ?? MAQUINA_PRECO_TABLE_FONT;
-  const rowH = Math.max(options.rowH ?? MAQUINA_PRECO_TABLE_ROW_H, fontSize * 0.52);
+  const lineStep = options.lineStep ?? options.rowH ?? MAQUINA_PRECO_TABLE_ROW_H;
   const maquinaColW = MAQUINA_PRECO_TABLE_COL_MANUT - MARGIN - 2;
   let rowTop = startY;
 
   doc.setFontSize(fontSize);
   doc.setTextColor(...PDF_COLOR_TEXT_DARK);
   doc.setFillColor(241, 245, 249);
-  doc.rect(MARGIN, rowTop - 0.4, CONTENT_W, rowH, 'F');
+  doc.rect(MARGIN, rowTop - 0.4, CONTENT_W, lineStep, 'F');
 
   pdfSetFont(doc, 'bold');
-  const headerY = maquinaPrecoTableRowBaseline(rowTop, rowH, fontSize);
+  const headerY = manutencaoFooterRowTextY(rowTop, lineStep, fontSize);
   doc.text('Máquina', MARGIN + 1, headerY);
   doc.text('Manutenção Geral', MAQUINA_PRECO_TABLE_COL_MANUT, headerY, { align: 'right' });
-  doc.text('DL50', MARGIN + CONTENT_W - 1, headerY, { align: 'right' });
-  rowTop += rowH;
+  doc.text('DL50', MAQUINA_FOOTER_MONEY_X, headerY, { align: 'right' });
+  rowTop += lineStep;
 
   doc.setDrawColor(...PDF_TABLE_LINE);
   doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
@@ -980,21 +965,20 @@ function drawManutencaoMaquinaPrecoTable(doc, table, startY, maxY, options = {})
 
   pdfSetFont(doc, 'normal');
   (table.rows || []).forEach((row) => {
-    if (rowTop + rowH > maxY) return;
-    const textY = maquinaPrecoTableRowBaseline(rowTop, rowH, fontSize);
+    if (rowTop + lineStep > maxY) return;
+    const textY = manutencaoFooterRowTextY(rowTop, lineStep, fontSize);
     const maquinaText = fitTableCellText(doc, row.maquina, maquinaColW);
     doc.text(maquinaText, MARGIN + 1, textY);
     doc.text(pdfSafeText(row.manutencao), MAQUINA_PRECO_TABLE_COL_MANUT, textY, { align: 'right' });
-    doc.text(pdfSafeText(row.dl50), MARGIN + CONTENT_W - 1, textY, { align: 'right' });
-    rowTop += rowH;
+    doc.text(pdfSafeText(row.dl50), MAQUINA_FOOTER_MONEY_X, textY, { align: 'right' });
+    rowTop += lineStep;
     doc.line(MARGIN, rowTop, MARGIN + CONTENT_W, rowTop);
   });
 
-  if (table.deslocacao != null && rowTop <= maxY) {
-    rowTop += 1.5;
-    const deslocY = maquinaPrecoTableRowBaseline(rowTop, rowH, fontSize);
-    drawOrcamentoInlineLabelValue(doc, 'Deslocação: ', table.deslocacao, MARGIN + 1, deslocY);
-    rowTop += rowH;
+  if (table.deslocacao != null && rowTop + lineStep <= maxY) {
+    const textY = manutencaoFooterRowTextY(rowTop, lineStep, fontSize);
+    drawOrcamentoInlineLabelValue(doc, 'Deslocação: ', table.deslocacao, MARGIN + 1, textY);
+    rowTop += lineStep;
   }
 
   pdfSetFont(doc, 'normal');
@@ -1272,17 +1256,25 @@ function drawOrcamentoIvaTotals(doc, fill, startY, maxY = Infinity, options = {}
   let y = startY;
   const lineStep = options.lineStep ?? 5;
   const fontSize = options.fontSize ?? PDF_FONT_BODY;
-  const lines = [
-    { text: `Subtotal (s/ IVA): ${formatOrcamentoPdfCurrency(fill.subtotal)}`, bold: false },
-    { text: `IVA (23%): ${formatOrcamentoPdfCurrency(fill.iva)}`, bold: false },
-    { text: `Total: ${formatOrcamentoPdfCurrency(fill.total_geral)}`, bold: true },
+  const alignMoney = Boolean(options.alignMoney);
+  const rows = [
+    { label: 'Subtotal (s/ IVA):', value: formatOrcamentoPdfCurrency(fill.subtotal), bold: false },
+    { label: 'IVA (23%):', value: formatOrcamentoPdfCurrency(fill.iva), bold: false },
+    { label: 'Total:', value: formatOrcamentoPdfCurrency(fill.total_geral), bold: true },
   ];
 
   doc.setFontSize(fontSize);
-  lines.forEach(({ text, bold }) => {
+  rows.forEach(({ label, value, bold }) => {
     if (y > maxY) return;
-    pdfSetFont(doc, bold ? 'bold' : 'normal');
-    doc.text(text, MARGIN, y);
+    const textY = alignMoney
+      ? manutencaoFooterRowTextY(y, lineStep, fontSize)
+      : y;
+    if (alignMoney) {
+      drawOrcamentoMoneyRow(doc, label, value, textY, { bold });
+    } else {
+      pdfSetFont(doc, bold ? 'bold' : 'normal');
+      doc.text(`${label} ${value}`, MARGIN, textY);
+    }
     y += lineStep;
   });
   pdfSetFont(doc, 'normal');
@@ -1701,32 +1693,32 @@ function drawManutencaoMaquinaFooter(doc, fill, layout = {}) {
   const typography =
     layout.footerTypography ||
     resolveManutencaoMaquinaFooterTypography(availableHeight, precoTable);
-  const contentHeight = measureManutencaoMaquinaFooterContentHeight(precoTable, typography);
-  let y = Math.max(footerMinY, footerMaxY - contentHeight);
+
+  let y = footerMinY + typography.separatorGap;
 
   if (gapAbove >= 3 && y - gapAbove > MARGIN) {
     doc.setDrawColor(...PDF_TABLE_LINE);
     doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
-    const lineY = y - gapAbove + 1.5;
+    const lineY = y - typography.separatorGap + 1.5;
     doc.line(MARGIN, lineY, MARGIN + CONTENT_W, lineY);
   }
 
   pdfSetFont(doc, 'normal');
-  doc.setFontSize(typography.tableFontSize);
+  doc.setFontSize(typography.fontSize);
   doc.setTextColor(...PDF_COLOR_TEXT_DARK);
 
   y = drawManutencaoMaquinaPrecoTable(doc, precoTable, y, footerMaxY, {
-    fontSize: typography.tableFontSize,
-    rowH: typography.tableRowH,
+    fontSize: typography.fontSize,
+    lineStep: typography.lineStep,
   });
 
-  y = drawOrcamentoIvaTotals(doc, fill, y + typography.totalsTopGap, footerMaxY, {
-    lineStep: typography.totalsLineStep,
-    fontSize: typography.tableFontSize,
+  y = drawOrcamentoIvaTotals(doc, fill, y, footerMaxY, {
+    lineStep: typography.lineStep,
+    fontSize: typography.fontSize,
+    alignMoney: true,
   });
-  y += typography.condBlockGap;
 
-  doc.setFontSize(typography.tableFontSize);
+  doc.setFontSize(typography.fontSize);
   const blocks = [
     { label: 'Prazo de Entrega: ', value: formatPrazoEntregaForPdf(fill.prazo_entrega) },
     { label: 'Forma de Pagamento: ', value: fill.forma_pagamento },
@@ -1734,9 +1726,10 @@ function drawManutencaoMaquinaFooter(doc, fill, layout = {}) {
   ];
 
   blocks.forEach(({ label, value }) => {
-    if (y > footerMaxY) return;
-    drawOrcamentoInlineLabelValue(doc, label, value, MARGIN, y);
-    y += typography.condLineStep + typography.condBlockGap;
+    if (y + typography.lineStep > footerMaxY) return;
+    const textY = manutencaoFooterRowTextY(y, typography.lineStep, typography.fontSize);
+    drawOrcamentoInlineLabelValue(doc, label, value, MARGIN, textY);
+    y += typography.lineStep;
   });
 
   return y;
