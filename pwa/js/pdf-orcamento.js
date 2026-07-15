@@ -105,7 +105,8 @@ const MAQUINA_BULLET_COMPACT_FONT = 7.5;
 const MAQUINA_FOOTER_GAP_ABOVE = 5;
 const MAQUINA_PRECO_FIELD_GAP = 3;
 const MAQUINA_PRECO_LINE_TAIL = 0.35;
-const MAQUINA_PRECO_TABLE_ROW_H = 4.1;
+const MAQUINA_PRECO_TABLE_ROW_H = 4.2;
+const MAQUINA_PRECO_TABLE_ROW_H_COMPACT = 4;
 const MAQUINA_PRECO_TABLE_HEADER_H = 4.8;
 const MAQUINA_PRECO_TABLE_FONT = 8;
 const MAQUINA_PRECO_TABLE_COL_MANUT = MARGIN + 108;
@@ -861,51 +862,56 @@ function estimateMaquinaPrecoTableHeight(rowCount, compactFooter, rowH = MAQUINA
   return MAQUINA_PRECO_TABLE_HEADER_H + rows + 5.5 + 15 + condTail;
 }
 
+function maquinaPrecoTableRowBaseline(rowTop, rowH, fontSize) {
+  return rowTop + Math.min(rowH - 1.1, fontSize * 0.82 + 1.6);
+}
+
 function drawManutencaoMaquinaPrecoTable(doc, table, startY, maxY, options = {}) {
   const fontSize = options.fontSize ?? MAQUINA_PRECO_TABLE_FONT;
-  const rowH = options.rowH ?? MAQUINA_PRECO_TABLE_ROW_H;
+  const rowH = Math.max(options.rowH ?? MAQUINA_PRECO_TABLE_ROW_H, fontSize * 0.52);
   const maquinaColW = MAQUINA_PRECO_TABLE_COL_MANUT - MARGIN - 2;
-  let y = startY;
+  let rowTop = startY;
 
   doc.setFontSize(fontSize);
   doc.setTextColor(...PDF_COLOR_TEXT_DARK);
   doc.setFillColor(241, 245, 249);
-  doc.rect(MARGIN, y - 3.6, CONTENT_W, rowH + 0.8, 'F');
+  doc.rect(MARGIN, rowTop - 0.4, CONTENT_W, rowH, 'F');
 
   pdfSetFont(doc, 'bold');
-  doc.text('Máquina', MARGIN + 1, y);
-  doc.text('Manutenção Geral', MAQUINA_PRECO_TABLE_COL_MANUT, y, { align: 'right' });
-  doc.text('DL50', MARGIN + CONTENT_W - 1, y, { align: 'right' });
-  y += rowH;
+  const headerY = maquinaPrecoTableRowBaseline(rowTop, rowH, fontSize);
+  doc.text('Máquina', MARGIN + 1, headerY);
+  doc.text('Manutenção Geral', MAQUINA_PRECO_TABLE_COL_MANUT, headerY, { align: 'right' });
+  doc.text('DL50', MARGIN + CONTENT_W - 1, headerY, { align: 'right' });
+  rowTop += rowH;
 
   doc.setDrawColor(...PDF_TABLE_LINE);
   doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
-  doc.line(MARGIN, y - 1, MARGIN + CONTENT_W, y - 1);
+  doc.line(MARGIN, rowTop, MARGIN + CONTENT_W, rowTop);
 
   pdfSetFont(doc, 'normal');
   (table.rows || []).forEach((row) => {
-    if (y > maxY) return;
+    if (rowTop + rowH > maxY) return;
+    const textY = maquinaPrecoTableRowBaseline(rowTop, rowH, fontSize);
     const maquinaText = fitTableCellText(doc, row.maquina, maquinaColW);
-    doc.text(maquinaText, MARGIN + 1, y);
-    doc.text(pdfSafeText(row.manutencao), MAQUINA_PRECO_TABLE_COL_MANUT, y, { align: 'right' });
-    doc.text(pdfSafeText(row.dl50), MARGIN + CONTENT_W - 1, y, { align: 'right' });
-    doc.line(MARGIN, y + 1.3, MARGIN + CONTENT_W, y + 1.3);
-    y += rowH;
+    doc.text(maquinaText, MARGIN + 1, textY);
+    doc.text(pdfSafeText(row.manutencao), MAQUINA_PRECO_TABLE_COL_MANUT, textY, { align: 'right' });
+    doc.text(pdfSafeText(row.dl50), MARGIN + CONTENT_W - 1, textY, { align: 'right' });
+    rowTop += rowH;
+    doc.line(MARGIN, rowTop, MARGIN + CONTENT_W, rowTop);
   });
 
-  if (table.deslocacao != null) {
-    if (y <= maxY) {
-      y += 1.2;
-      pdfSetFont(doc, 'bold');
-      doc.text('Deslocação:', MARGIN + 1, y);
-      pdfSetFont(doc, 'normal');
-      doc.text(pdfSafeText(table.deslocacao), MARGIN + CONTENT_W - 1, y, { align: 'right' });
-      y += 4.5;
-    }
+  if (table.deslocacao != null && rowTop <= maxY) {
+    rowTop += 1.5;
+    const deslocY = maquinaPrecoTableRowBaseline(rowTop, rowH, fontSize);
+    pdfSetFont(doc, 'bold');
+    doc.text('Deslocação:', MARGIN + 1, deslocY);
+    pdfSetFont(doc, 'normal');
+    doc.text(pdfSafeText(table.deslocacao), MARGIN + CONTENT_W - 1, deslocY, { align: 'right' });
+    rowTop += rowH;
   }
 
   pdfSetFont(doc, 'normal');
-  return y;
+  return rowTop;
 }
 
 function drawManutencaoMaquinaPrecoEquipBlocks(doc, blocks, startY, maxY, options = {}) {
@@ -1251,6 +1257,48 @@ function drawOrcamentoBodyParagraphs(doc, paragraphs, startY, options = {}) {
   return y;
 }
 
+/** Lista em várias colunas — cada coluna desce de forma independente (bullets não partilham linha). */
+function drawOrcamentoBulletColumns(doc, items, startY, options = {}) {
+  const maxEndY = Number.isFinite(options.maxEndY) ? options.maxEndY : CONTENT_MAX_Y;
+  const lineStep = options.lineStep ?? 4.5;
+  const fontSize = options.fontSize ?? PDF_FONT_BODY;
+  const colCount = Math.max(2, Number(options.columns) || 2);
+  const colGap = colCount >= 3 ? 4 : 6;
+  const colW = (CONTENT_W - colGap * (colCount - 1)) / colCount;
+  const bulletIndent = colCount >= 3 ? 3.5 : 4;
+  const textW = Math.max(10, colW - bulletIndent - 1);
+  const itemGap = 0.3;
+  const perCol = Math.ceil(items.length / colCount);
+
+  pdfSetFont(doc, 'normal');
+  doc.setFontSize(fontSize);
+  doc.setTextColor(...PDF_COLOR_TEXT_DARK);
+
+  const columnEndYs = Array.from({ length: colCount }, (_, colIndex) => {
+    const x = MARGIN + colIndex * (colW + colGap);
+    const colItems = items.slice(colIndex * perCol, (colIndex + 1) * perCol);
+    let y = startY;
+
+    colItems.forEach((item) => {
+      const text = String(item || '').trim();
+      if (!text) return;
+      const lines = pdfSplitText(doc, pdfSafeText(text), textW);
+      const blockH = lines.length * lineStep;
+      if (y + blockH > maxEndY) return;
+      lines.forEach((line, lineIndex) => {
+        const lineY = y + lineIndex * lineStep;
+        if (lineIndex === 0) doc.text('•', x + 1, lineY);
+        doc.text(line, x + bulletIndent, lineY);
+      });
+      y += blockH + itemGap;
+    });
+
+    return y;
+  });
+
+  return Math.max(startY, ...columnEndYs);
+}
+
 function drawOrcamentoBulletList(doc, items, startY, options = {}) {
   const maxEndY = Number.isFinite(options.maxEndY) ? options.maxEndY : CONTENT_MAX_Y;
   const lineStep = options.lineStep ?? 4.5;
@@ -1266,73 +1314,12 @@ function drawOrcamentoBulletList(doc, items, startY, options = {}) {
 
   if (twoColumn) {
     const columns = Number(options.columns) || 2;
-    if (columns >= 3) {
-      const colCount = 3;
-      const rows = Math.ceil(items.length / colCount);
-      const colGap = 4;
-      const colW = (CONTENT_W - colGap * (colCount - 1)) / colCount;
-      const colBulletIndent = 3.5;
-      const colTextW = Math.max(10, colW - colBulletIndent - 1);
-
-      for (let row = 0; row < rows; row += 1) {
-        let rowLines = 1;
-        const colLines = [];
-        for (let col = 0; col < colCount; col += 1) {
-          const text = String(items[row + col * rows] || '').trim();
-          const lines = text ? pdfSplitText(doc, pdfSafeText(text), colTextW) : [];
-          colLines.push(lines);
-          rowLines = Math.max(rowLines, lines.length);
-        }
-        const rowHeight = rowLines * lineStep + 0.4;
-        if (y + rowHeight > maxEndY) break;
-
-        for (let lineIndex = 0; lineIndex < rowLines; lineIndex += 1) {
-          const lineY = y + lineIndex * lineStep;
-          for (let col = 0; col < colCount; col += 1) {
-            const line = colLines[col][lineIndex];
-            if (!line) continue;
-            const x = MARGIN + col * (colW + colGap);
-            if (lineIndex === 0) doc.text('•', x + 1, lineY);
-            doc.text(line, x + colBulletIndent, lineY);
-          }
-        }
-        y += rowHeight;
-      }
-      return y;
-    }
-
-    const half = Math.ceil(items.length / 2);
-    const colGap = 6;
-    const colW = (CONTENT_W - colGap) / 2;
-    const colBulletIndent = 4;
-    const colTextW = Math.max(12, colW - colBulletIndent - 1);
-
-    for (let row = 0; row < half; row += 1) {
-      const leftText = String(items[row] || '').trim();
-      const rightText = String(items[row + half] || '').trim();
-      const leftLines = leftText ? pdfSplitText(doc, pdfSafeText(leftText), colTextW) : [];
-      const rightLines = rightText ? pdfSplitText(doc, pdfSafeText(rightText), colTextW) : [];
-      const rowLines = Math.max(leftLines.length, rightLines.length, 1);
-      const rowHeight = rowLines * lineStep + 0.45;
-
-      if (y + rowHeight > maxEndY) break;
-
-      for (let lineIndex = 0; lineIndex < rowLines; lineIndex += 1) {
-        const lineY = y + lineIndex * lineStep;
-        if (leftLines[lineIndex]) {
-          const leftX = MARGIN;
-          if (lineIndex === 0) doc.text('•', leftX + 1, lineY);
-          doc.text(leftLines[lineIndex], leftX + colBulletIndent, lineY);
-        }
-        if (rightLines[lineIndex]) {
-          const rightX = MARGIN + colW + colGap;
-          if (lineIndex === 0) doc.text('•', rightX + 1, lineY);
-          doc.text(rightLines[lineIndex], rightX + colBulletIndent, lineY);
-        }
-      }
-      y += rowHeight;
-    }
-    return y;
+    return drawOrcamentoBulletColumns(doc, items, startY, {
+      maxEndY,
+      lineStep,
+      fontSize,
+      columns,
+    });
   }
 
   items.forEach((item) => {
@@ -1430,7 +1417,7 @@ export function resolveManutencaoMaquinaPdfFooterLayout(fill = {}) {
   const machineCount = Math.max(collectTemplateMaquinaNomes(fill).length, 1);
   const rowCount = precoTable.rows.length;
   const compactFooter = rowCount >= 6;
-  const priceRowH = machineCount >= 7 ? 3.5 : MAQUINA_PRECO_TABLE_ROW_H;
+  const priceRowH = machineCount >= 7 ? MAQUINA_PRECO_TABLE_ROW_H_COMPACT : MAQUINA_PRECO_TABLE_ROW_H;
   const priceFontSize = machineCount >= 7 ? MAQUINA_BULLET_COMPACT_FONT : MAQUINA_PRECO_TABLE_FONT;
   const footerHeight = estimateMaquinaPrecoTableHeight(rowCount, compactFooter, priceRowH);
 
@@ -1456,12 +1443,9 @@ export function resolveManutencaoMaquinaBulletsLayout(bulletStartY, footerLayout
   const bulletCount = MANUTENCAO_MAQUINA_TRABALHOS.length;
   const threeColumnBullets = machineCount >= 6;
   const twoColumnBullets = !threeColumnBullets && (machineCount >= 3 || bulletCount > 10);
-  const logicalRows = threeColumnBullets
-    ? Math.ceil(bulletCount / 3)
-    : twoColumnBullets
-      ? Math.ceil(bulletCount / 2)
-      : bulletCount;
   const bulletColumns = threeColumnBullets ? 3 : twoColumnBullets ? 2 : 1;
+  const perColumn = bulletColumns > 1 ? Math.ceil(bulletCount / bulletColumns) : bulletCount;
+  const logicalRows = bulletColumns > 1 ? perColumn + 1 : bulletCount;
 
   let priceLineStep = footerLayout.priceLineStep;
   let footerHeight = footerLayout.footerHeight;
