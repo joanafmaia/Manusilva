@@ -78,6 +78,7 @@ import {
   buildManutencaoMaquinaPrecoTable,
   isManutencaoBateriaOrcamento,
   isManutencaoMaquinaOrcamento,
+  MANUTENCAO_MAQUINA_DL50_COL_LABEL,
 } from './orcamento-templates.js';
 
 const MARGIN = PDF_MARGIN;
@@ -909,10 +910,11 @@ function drawOrcamentoInlineLabelValue(doc, label, value, x, y) {
 
 function drawOrcamentoMoneyRow(doc, label, value, y, options = {}) {
   const moneyX = options.moneyX ?? MAQUINA_FOOTER_MONEY_X;
-  const bold = Boolean(options.bold);
-  pdfSetFont(doc, bold ? 'bold' : 'normal');
+  const boldLabel = options.boldLabel !== false;
+  const boldValue = Boolean(options.boldValue);
+  pdfSetFont(doc, boldLabel ? 'bold' : 'normal');
   doc.text(label, MARGIN, y);
-  pdfSetFont(doc, bold ? 'bold' : 'normal');
+  pdfSetFont(doc, boldValue ? 'bold' : 'normal');
   doc.text(pdfSafeText(value), moneyX, y, { align: 'right' });
 }
 
@@ -956,7 +958,7 @@ function drawManutencaoMaquinaPrecoTable(doc, table, startY, maxY, options = {})
   const headerY = manutencaoFooterRowTextY(rowTop, lineStep, fontSize);
   doc.text('Máquina', MARGIN + 1, headerY);
   doc.text('Manutenção Geral', MAQUINA_PRECO_TABLE_COL_MANUT, headerY, { align: 'right' });
-  doc.text('DL50', MAQUINA_FOOTER_MONEY_X, headerY, { align: 'right' });
+  doc.text(MANUTENCAO_MAQUINA_DL50_COL_LABEL, MAQUINA_FOOTER_MONEY_X, headerY, { align: 'right' });
   rowTop += lineStep;
 
   doc.setDrawColor(...PDF_TABLE_LINE);
@@ -1258,21 +1260,21 @@ function drawOrcamentoIvaTotals(doc, fill, startY, maxY = Infinity, options = {}
   const fontSize = options.fontSize ?? PDF_FONT_BODY;
   const alignMoney = Boolean(options.alignMoney);
   const rows = [
-    { label: 'Subtotal (s/ IVA):', value: formatOrcamentoPdfCurrency(fill.subtotal), bold: false },
-    { label: 'IVA (23%):', value: formatOrcamentoPdfCurrency(fill.iva), bold: false },
-    { label: 'Total:', value: formatOrcamentoPdfCurrency(fill.total_geral), bold: true },
+    { label: 'Subtotal (s/ IVA):', value: formatOrcamentoPdfCurrency(fill.subtotal), boldValue: false },
+    { label: 'IVA (23%):', value: formatOrcamentoPdfCurrency(fill.iva), boldValue: false },
+    { label: 'Total:', value: formatOrcamentoPdfCurrency(fill.total_geral), boldValue: true },
   ];
 
   doc.setFontSize(fontSize);
-  rows.forEach(({ label, value, bold }) => {
+  rows.forEach(({ label, value, boldValue }) => {
     if (y > maxY) return;
     const textY = alignMoney
       ? manutencaoFooterRowTextY(y, lineStep, fontSize)
       : y;
     if (alignMoney) {
-      drawOrcamentoMoneyRow(doc, label, value, textY, { bold });
+      drawOrcamentoMoneyRow(doc, label, value, textY, { boldLabel: true, boldValue });
     } else {
-      pdfSetFont(doc, bold ? 'bold' : 'normal');
+      pdfSetFont(doc, boldValue ? 'bold' : 'normal');
       doc.text(`${label} ${value}`, MARGIN, textY);
     }
     y += lineStep;

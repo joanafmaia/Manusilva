@@ -8,6 +8,7 @@ import { formatEuro, parseOrcamentoNumber } from './orcamento-linhas.js';
 const BATERIA_VALOR_DEFAULT = 85;
 const BATERIA_PERIODICIDADE_DEFAULT = '3_em_3';
 const MAQUINA_INSPECAO_DL50_DEFAULT = 40;
+export const MANUTENCAO_MAQUINA_DL50_COL_LABEL = 'DL50/2005';
 
 /** Máximo de cartões de máquina na proposta Manutenção Máquina (PDF compacto até aqui). */
 export const MAX_TEMPLATE_MAQUINAS = 8;
@@ -337,7 +338,7 @@ function renderTemplateMaquinaCard(row, index, total) {
           <span>DL50/2005</span>
         </label>
         <label class="review-orc-field">
-          <span>Inspeção (€)</span>
+          <span>${MANUTENCAO_MAQUINA_DL50_COL_LABEL} (€)</span>
           <input type="text" class="review-orc-input review-orc-input--money" data-orc-field="valorInspecaoDl50" value="${valorInspecao}" inputmode="decimal" placeholder="40,00" />
         </label>
         ${renderTemplateRemoveButton('data-template-maquina-remove', total <= 1)}

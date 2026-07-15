@@ -27,6 +27,7 @@ import {
   resolveEquipamentoValorVisita,
   resolveTemplateEquipamentos,
   syncLegacyTemplateFieldsFromMaquinas,
+  MANUTENCAO_MAQUINA_DL50_COL_LABEL,
 } from './orcamento-template-equipamentos.js';
 
 export const MANUTENCAO_BATERIA_VALOR_DEFAULT = 85;
@@ -270,6 +271,7 @@ export function renderManutencaoBateriaTemplatePreview(meta = {}) {
 /* ─── Manutenção Máquinas (empilhadores) ─── */
 
 export const MANUTENCAO_MAQUINA_VALOR_INSPECAO_DL50_DEFAULT = 40;
+export { MANUTENCAO_MAQUINA_DL50_COL_LABEL } from './orcamento-template-equipamentos.js';
 export const MANUTENCAO_MAQUINA_PDF_SUBTITULO = 'MANUTENÇÃO MÁQUINAS';
 
 export const MANUTENCAO_MAQUINA_INTRO =
@@ -464,7 +466,7 @@ export function formatManutencaoMaquinaPrecoLinhas(meta = {}, cabecalho = {}) {
 }
 
 /**
- * Tabela de preços por equipamento — colunas Máquina | Manutenção Geral | DL50.
+ * Tabela de preços por equipamento — colunas Máquina | Manutenção Geral | DL50/2005.
  */
 export function buildManutencaoMaquinaPrecoTable(meta = {}, cabecalho = {}) {
   const equipamentos = resolveTemplateEquipamentos(meta, cabecalho, 'maquina');
@@ -514,7 +516,7 @@ export function buildManutencaoMaquinaPrecoEquipBlocks(meta = {}, cabecalho = {}
       segments.push(['Manutenção Geral', `${formatEuro(valorGeral)} €`]);
     }
     if (incluirDl50) {
-      segments.push(['Inspeção DL50', `${formatEuro(resolveEquipamentoValorInspecaoDl50(row))} €`]);
+      segments.push(['Inspeção DL50/2005', `${formatEuro(resolveEquipamentoValorInspecaoDl50(row))} €`]);
     }
     blocks.push(segments);
   });
@@ -611,7 +613,7 @@ export function renderManutencaoMaquinaPrecoPreviewHtml(meta = {}, cabecalho = {
         <tr>
           <th>Máquina</th>
           <th>Manutenção Geral</th>
-          <th>DL50</th>
+          <th>${MANUTENCAO_MAQUINA_DL50_COL_LABEL}</th>
         </tr>
       </thead>
       <tbody>${body}</tbody>
