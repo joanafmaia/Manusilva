@@ -463,6 +463,45 @@ export function formatManutencaoMaquinaPrecoLinhas(meta = {}, cabecalho = {}) {
   return lines;
 }
 
+/**
+ * Blocos de preço por equipamento — cada bloco é uma linha (ou poucas) com rótulos em negrito no PDF.
+ * Formato: [['Máquina 1', 'Toyota …'], ['Manutenção Geral', '300,00 €'], ['Inspeção DL50', '40,00 €']]
+ */
+export function buildManutencaoMaquinaPrecoEquipBlocks(meta = {}, cabecalho = {}) {
+  const equipamentos = resolveTemplateEquipamentos(meta, cabecalho, 'maquina');
+  const blocks = [];
+
+  equipamentos.forEach((row, index) => {
+    const nome = resolveMaquinaTemplateNome(row, index, meta, cabecalho);
+    const valorGeral = resolveEquipamentoValorGeral(row);
+    const incluirDl50 = resolveEquipamentoIncluirDl50(row);
+    if (valorGeral <= 0 && !incluirDl50) return;
+
+    const segments = [];
+    if (equipamentos.length > 1) {
+      segments.push([`Máquina ${index + 1}`, nome]);
+    } else {
+      segments.push(['Máquina', nome]);
+    }
+    if (valorGeral > 0) {
+      segments.push(['Manutenção Geral', `${formatEuro(valorGeral)} €`]);
+    }
+    if (incluirDl50) {
+      segments.push(['Inspeção DL50', `${formatEuro(resolveEquipamentoValorInspecaoDl50(row))} €`]);
+    }
+    blocks.push(segments);
+  });
+
+  const deslocacao = resolveValorDeslocacaoMaquina(meta);
+  if (deslocacao > 0) {
+    blocks.push([['Deslocação', `${formatEuro(deslocacao)} €`]]);
+  } else if (equipamentos.length) {
+    blocks.push([['Deslocação', '€']]);
+  }
+
+  return blocks;
+}
+
 export function applyManutencaoMaquinaTemplateMeta(meta = {}, report = null) {
   const synced = syncLegacyTemplateFieldsFromMaquinas(meta, 'maquina');
   const equipamentos = resolveTemplateEquipamentos(synced, synced, 'maquina');
@@ -499,7 +538,7 @@ function emptyOrcamentoLinhaTemplate() {
 export function renderManutencaoMaquinaIdentPreviewHtml(meta = {}, cabecalho = {}) {
   const lines = buildManutencaoMaquinaIdentPreviewLines(meta, cabecalho);
   if (!lines.length) {
-    return '<p class="text-muted" data-orc-maquina-ident-empty>Indique marca/modelo em cada cartão acima — aparece aqui e no PDF.</p>';
+    return '<p class="text-muted" data-orc-maquina-ident-empty>Indique marca/modelo em cada cartão acima — no PDF aparece junto aos valores.</p>';
   }
   return lines
     .map((line) => {
@@ -521,7 +560,7 @@ export function renderManutencaoMaquinaTemplatePreview(meta = {}, cabecalho = {}
       <summary class="review-orc-template-preview__summary">Texto da proposta (como no PDF)</summary>
       <div class="review-orc-template-preview__body">
         <p data-orc-maquina-intro-preview>${escapeHtml(intro)}</p>
-        <div data-orc-maquina-ident-preview>${renderManutencaoMaquinaIdentPreviewHtml(meta, cabecalho)}</div>
+        <p class="text-muted">As máquinas aparecem no PDF junto aos valores (rodapé).</p>
         <p><strong>${MANUTENCAO_MAQUINA_PLANO_TITULO}</strong></p>
         <p>– ${MANUTENCAO_MAQUINA_PLANO_DETALHE}</p>
         <p><strong>${MANUTENCAO_MAQUINA_ESPECIFICACAO_TITULO}</strong></p>
@@ -532,8 +571,13 @@ export function renderManutencaoMaquinaTemplatePreview(meta = {}, cabecalho = {}
 }
 
 export function renderManutencaoMaquinaPrecoPreviewHtml(meta = {}, cabecalho = {}) {
-  return formatManutencaoMaquinaPrecoLinhas(meta, cabecalho)
-    .map((line) => `<p><strong>${escapeHtml(line)}</strong></p>`)
+  return buildManutencaoMaquinaPrecoEquipBlocks(meta, cabecalho)
+    .map((block) => {
+      const parts = block
+        .map(([label, value]) => `<strong>${escapeHtml(label)}:</strong> ${escapeHtml(value)}`)
+        .join(' &nbsp; ');
+      return `<p data-orc-maquina-preco-line>${parts}</p>`;
+    })
     .join('');
 }
 
