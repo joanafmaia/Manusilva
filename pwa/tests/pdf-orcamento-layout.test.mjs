@@ -7,6 +7,8 @@ import {
   formatOrcamentoPdfMoneyCell,
   formatPrazoEntregaForPdf,
   normalizeLegalParagraphs,
+  resolveManutencaoMaquinaPdfFooterLayout,
+  resolveManutencaoMaquinaBulletsLayout,
   resolveManutencaoMaquinaPdfLayout,
 } from '../js/pdf-orcamento.js';
 import {
@@ -107,17 +109,19 @@ describe('pdf-orcamento layout', () => {
       forma_pagamento: 'Pronto Pagamento',
       validade_orcamento: '10 Dias',
     };
-    const layout = resolveManutencaoMaquinaPdfLayout(fill, 83);
-    assert.ok(layout.twoColumnBullets, 'lista de trabalhos em 2 colunas');
-    assert.ok(layout.compactMachines, 'identificação compacta das máquinas');
-    assert.ok(layout.bulletLineStep >= 2.15, 'passo mínimo legível');
+    const footer = resolveManutencaoMaquinaPdfFooterLayout(fill);
+    const layout = resolveManutencaoMaquinaBulletsLayout(120, footer);
+    assert.ok(layout.twoColumnBullets, 'lista de trabalhos em várias colunas');
+    assert.equal(layout.bulletColumns, 3, '3 colunas com 7 máquinas');
+    assert.ok(footer.compactMachines, 'identificação compacta das máquinas');
+    assert.ok(footer.ultraCompactPreBullet, 'cabeçalho compacto antes dos trabalhos');
     assert.ok(
-      layout.footerStartY > layout.bulletStartY,
-      'rodapé de preços fica abaixo da lista de trabalhos',
+      layout.bulletLineStep >= 3.1,
+      `passo legível (${layout.bulletLineStep})`,
     );
     assert.ok(
-      layout.footerStartY + 50 <= 230,
-      'rodapé cabe acima da caixa de aprovação',
+      layout.bulletsMaxY - 120 >= layout.bulletLineStep * 5,
+      'espaço vertical suficiente para 6 linhas lógicas (3 colunas)',
     );
     assert.ok(estimateMaquinaBodyBeforeBullets(7, true) < estimateMaquinaBodyBeforeBullets(7, false));
   });
