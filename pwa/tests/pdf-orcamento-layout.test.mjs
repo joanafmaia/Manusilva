@@ -113,8 +113,8 @@ describe('pdf-orcamento layout', () => {
     const layout = resolveManutencaoMaquinaBulletsLayout(120, footer);
     assert.ok(layout.twoColumnBullets, 'lista de trabalhos em várias colunas');
     assert.equal(layout.bulletColumns, 3, '3 colunas com 7 máquinas');
-    assert.ok(footer.twoColumnPrices, 'preços em 2 colunas no rodapé');
-    assert.equal(footer.precoBlocks.length, 8, '7 máquinas + deslocação num bloco cada');
+    assert.equal(footer.precoTable.rows.length, 7, '7 linhas na tabela de preços');
+    assert.equal(footer.twoColumnPrices, false, 'tabela a largura total');
     assert.ok(footer.ultraCompactPreBullet, 'cabeçalho compacto antes dos trabalhos');
     assert.ok(
       layout.bulletLineStep >= 3.1,
@@ -125,8 +125,8 @@ describe('pdf-orcamento layout', () => {
       'espaço vertical suficiente para 6 linhas lógicas (3 colunas)',
     );
     assert.ok(
-      footer.footerHeight < 80,
-      `rodapé mais compacto que 15 linhas separadas (${footer.footerHeight}mm estimados)`,
+      footer.footerHeight < 78,
+      `rodapé com tabela compacta (${footer.footerHeight}mm estimados)`,
     );
     assert.ok(estimateMaquinaBodyBeforeBullets(7) < 50, 'corpo sem bloco duplicado de máquinas');
   });

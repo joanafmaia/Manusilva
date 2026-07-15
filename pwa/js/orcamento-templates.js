@@ -464,8 +464,35 @@ export function formatManutencaoMaquinaPrecoLinhas(meta = {}, cabecalho = {}) {
 }
 
 /**
- * Blocos de preço por equipamento — cada bloco é uma linha (ou poucas) com rótulos em negrito no PDF.
- * Formato: [['Máquina 1', 'Toyota …'], ['Manutenção Geral', '300,00 €'], ['Inspeção DL50', '40,00 €']]
+ * Tabela de preços por equipamento — colunas Máquina | Manutenção Geral | DL50.
+ */
+export function buildManutencaoMaquinaPrecoTable(meta = {}, cabecalho = {}) {
+  const equipamentos = resolveTemplateEquipamentos(meta, cabecalho, 'maquina');
+  const multi = equipamentos.length > 1;
+  const rows = [];
+
+  equipamentos.forEach((row, index) => {
+    const nome = resolveMaquinaTemplateNome(row, index, meta, cabecalho);
+    const valorGeral = resolveEquipamentoValorGeral(row);
+    const incluirDl50 = resolveEquipamentoIncluirDl50(row);
+    if (valorGeral <= 0 && !incluirDl50) return;
+
+    rows.push({
+      maquina: multi ? `${index + 1}. ${nome}` : nome,
+      manutencao: valorGeral > 0 ? `${formatEuro(valorGeral)} €` : '—',
+      dl50: incluirDl50 ? `${formatEuro(resolveEquipamentoValorInspecaoDl50(row))} €` : '—',
+    });
+  });
+
+  const deslocacaoValor = resolveValorDeslocacaoMaquina(meta);
+  return {
+    rows,
+    deslocacao: deslocacaoValor > 0 ? `${formatEuro(deslocacaoValor)} €` : '—',
+  };
+}
+
+/**
+ * @deprecated usar buildManutencaoMaquinaPrecoTable — mantido para testes legados.
  */
 export function buildManutencaoMaquinaPrecoEquipBlocks(meta = {}, cabecalho = {}) {
   const equipamentos = resolveTemplateEquipamentos(meta, cabecalho, 'maquina');
@@ -571,14 +598,27 @@ export function renderManutencaoMaquinaTemplatePreview(meta = {}, cabecalho = {}
 }
 
 export function renderManutencaoMaquinaPrecoPreviewHtml(meta = {}, cabecalho = {}) {
-  return buildManutencaoMaquinaPrecoEquipBlocks(meta, cabecalho)
-    .map((block) => {
-      const parts = block
-        .map(([label, value]) => `<strong>${escapeHtml(label)}:</strong> ${escapeHtml(value)}`)
-        .join(' &nbsp; ');
-      return `<p data-orc-maquina-preco-line>${parts}</p>`;
-    })
+  const table = buildManutencaoMaquinaPrecoTable(meta, cabecalho);
+  const body = table.rows
+    .map(
+      (row) =>
+        `<tr><td>${escapeHtml(row.maquina)}</td><td>${escapeHtml(row.manutencao)}</td><td>${escapeHtml(row.dl50)}</td></tr>`,
+    )
     .join('');
+  return `
+    <table class="review-orc-preco-table" data-orc-maquina-preco-table>
+      <thead>
+        <tr>
+          <th>Máquina</th>
+          <th>Manutenção Geral</th>
+          <th>DL50</th>
+        </tr>
+      </thead>
+      <tbody>${body}</tbody>
+      <tfoot>
+        <tr><td colspan="2"><strong>Deslocação</strong></td><td>${escapeHtml(table.deslocacao)}</td></tr>
+      </tfoot>
+    </table>`;
 }
 
 export function applyOrcamentoTemplateMeta(meta = {}, report = null) {

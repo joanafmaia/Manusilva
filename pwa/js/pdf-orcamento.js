@@ -75,6 +75,7 @@ import {
   formatLinhasValorManutencaoBateria,
   formatManutencaoMaquinaPrecoLinhas,
   buildManutencaoMaquinaPrecoEquipBlocks,
+  buildManutencaoMaquinaPrecoTable,
   isManutencaoBateriaOrcamento,
   isManutencaoMaquinaOrcamento,
 } from './orcamento-templates.js';
@@ -104,6 +105,11 @@ const MAQUINA_BULLET_COMPACT_FONT = 7.5;
 const MAQUINA_FOOTER_GAP_ABOVE = 5;
 const MAQUINA_PRECO_FIELD_GAP = 3;
 const MAQUINA_PRECO_LINE_TAIL = 0.35;
+const MAQUINA_PRECO_TABLE_ROW_H = 4.1;
+const MAQUINA_PRECO_TABLE_HEADER_H = 4.8;
+const MAQUINA_PRECO_TABLE_FONT = 8;
+const MAQUINA_PRECO_TABLE_COL_MANUT = MARGIN + 108;
+const MAQUINA_PRECO_TABLE_COL_DL50 = MARGIN + 148;
 const PROPOSTA_FOOTER_MAX_Y = APPROVAL_TOP - 6;
 const CONTENT_MAX_Y = FOOTER_TOP - 6;
 
@@ -849,6 +855,59 @@ function estimateMaquinaPrecoBlocksHeight(
   return total + 16 + tail;
 }
 
+function estimateMaquinaPrecoTableHeight(rowCount, compactFooter, rowH = MAQUINA_PRECO_TABLE_ROW_H) {
+  const condTail = compactFooter ? 24 : 30;
+  const rows = Math.max(rowCount, 0) * rowH;
+  return MAQUINA_PRECO_TABLE_HEADER_H + rows + 5.5 + 15 + condTail;
+}
+
+function drawManutencaoMaquinaPrecoTable(doc, table, startY, maxY, options = {}) {
+  const fontSize = options.fontSize ?? MAQUINA_PRECO_TABLE_FONT;
+  const rowH = options.rowH ?? MAQUINA_PRECO_TABLE_ROW_H;
+  const maquinaColW = MAQUINA_PRECO_TABLE_COL_MANUT - MARGIN - 2;
+  let y = startY;
+
+  doc.setFontSize(fontSize);
+  doc.setTextColor(...PDF_COLOR_TEXT_DARK);
+  doc.setFillColor(241, 245, 249);
+  doc.rect(MARGIN, y - 3.6, CONTENT_W, rowH + 0.8, 'F');
+
+  pdfSetFont(doc, 'bold');
+  doc.text('Máquina', MARGIN + 1, y);
+  doc.text('Manutenção Geral', MAQUINA_PRECO_TABLE_COL_MANUT, y, { align: 'right' });
+  doc.text('DL50', MARGIN + CONTENT_W - 1, y, { align: 'right' });
+  y += rowH;
+
+  doc.setDrawColor(...PDF_TABLE_LINE);
+  doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
+  doc.line(MARGIN, y - 1, MARGIN + CONTENT_W, y - 1);
+
+  pdfSetFont(doc, 'normal');
+  (table.rows || []).forEach((row) => {
+    if (y > maxY) return;
+    const maquinaText = fitTableCellText(doc, row.maquina, maquinaColW);
+    doc.text(maquinaText, MARGIN + 1, y);
+    doc.text(pdfSafeText(row.manutencao), MAQUINA_PRECO_TABLE_COL_MANUT, y, { align: 'right' });
+    doc.text(pdfSafeText(row.dl50), MARGIN + CONTENT_W - 1, y, { align: 'right' });
+    doc.line(MARGIN, y + 1.3, MARGIN + CONTENT_W, y + 1.3);
+    y += rowH;
+  });
+
+  if (table.deslocacao != null) {
+    if (y <= maxY) {
+      y += 1.2;
+      pdfSetFont(doc, 'bold');
+      doc.text('Deslocação:', MARGIN + 1, y);
+      pdfSetFont(doc, 'normal');
+      doc.text(pdfSafeText(table.deslocacao), MARGIN + CONTENT_W - 1, y, { align: 'right' });
+      y += 4.5;
+    }
+  }
+
+  pdfSetFont(doc, 'normal');
+  return y;
+}
+
 function drawManutencaoMaquinaPrecoEquipBlocks(doc, blocks, startY, maxY, options = {}) {
   const twoColumn = Boolean(options.twoColumn);
   const lineStep = options.lineStep ?? 3.5;
@@ -1367,30 +1426,24 @@ function estimateMaquinaFooterHeight(precoLineCount, priceLineStep, twoColumnPri
 
 export function resolveManutencaoMaquinaPdfFooterLayout(fill = {}) {
   const meta = templateMetaFromFill(fill);
-  const precoBlocks = buildManutencaoMaquinaPrecoEquipBlocks(meta, meta);
+  const precoTable = buildManutencaoMaquinaPrecoTable(meta, meta);
   const machineCount = Math.max(collectTemplateMaquinaNomes(fill).length, 1);
-  const blockCount = precoBlocks.length;
-  const compactFooter = blockCount >= 6;
-  const twoColumnPrices = blockCount >= 5;
-  const priceFontSize = machineCount >= 7 ? MAQUINA_BULLET_COMPACT_FONT : machineCount >= 4 ? 8 : PDF_FONT_BODY;
-  let priceLineStep =
-    machineCount >= 7 ? 3.1 : machineCount >= 5 ? 3.3 : blockCount > 3 ? 3.6 : 4.2;
-  let footerHeight = estimateMaquinaPrecoBlocksHeightHeuristic(
-    precoBlocks,
-    priceLineStep,
-    twoColumnPrices,
-    compactFooter,
-  );
+  const rowCount = precoTable.rows.length;
+  const compactFooter = rowCount >= 6;
+  const priceRowH = machineCount >= 7 ? 3.5 : MAQUINA_PRECO_TABLE_ROW_H;
+  const priceFontSize = machineCount >= 7 ? MAQUINA_BULLET_COMPACT_FONT : MAQUINA_PRECO_TABLE_FONT;
+  const footerHeight = estimateMaquinaPrecoTableHeight(rowCount, compactFooter, priceRowH);
 
   return {
     machineCount,
     compactMachines: machineCount >= 3,
     ultraCompactPreBullet: machineCount >= 4,
     compactFooter,
-    precoBlocks,
+    precoTable,
+    precoBlocks: buildManutencaoMaquinaPrecoEquipBlocks(meta, meta),
     precoLinhas: formatManutencaoMaquinaPrecoLinhas(meta, meta),
-    twoColumnPrices,
-    priceLineStep,
+    twoColumnPrices: false,
+    priceLineStep: priceRowH,
     priceFontSize,
     footerHeight,
     footerMaxY: PROPOSTA_FOOTER_MAX_Y,
@@ -1413,7 +1466,8 @@ export function resolveManutencaoMaquinaBulletsLayout(bulletStartY, footerLayout
   let priceLineStep = footerLayout.priceLineStep;
   let footerHeight = footerLayout.footerHeight;
   const twoColumnPrices = footerLayout.twoColumnPrices;
-  const precoLineCount = footerLayout.precoBlocks?.length ?? footerLayout.precoLinhas?.length ?? 0;
+  const precoLineCount =
+    footerLayout.precoTable?.rows?.length ?? footerLayout.precoBlocks?.length ?? footerLayout.precoLinhas?.length ?? 0;
   const compactFooter = footerLayout.compactFooter;
 
   let fontSize = PDF_FONT_BODY;
@@ -1575,14 +1629,13 @@ function drawManutencaoMaquinaFooter(doc, fill, layout = {}) {
   doc.setFontSize(PDF_FONT_BODY);
   doc.setTextColor(...PDF_COLOR_TEXT_DARK);
 
-  const precoBlocks =
-    layout.precoBlocks ||
-    buildManutencaoMaquinaPrecoEquipBlocks(templateMetaFromFill(fill), templateMetaFromFill(fill));
+  const precoTable =
+    layout.precoTable ||
+    buildManutencaoMaquinaPrecoTable(templateMetaFromFill(fill), templateMetaFromFill(fill));
 
-  y = drawManutencaoMaquinaPrecoEquipBlocks(doc, precoBlocks, y, footerMaxY, {
-    twoColumn: layout.twoColumnPrices,
-    lineStep: layout.priceLineStep,
+  y = drawManutencaoMaquinaPrecoTable(doc, precoTable, y, footerMaxY, {
     fontSize: layout.priceFontSize,
+    rowH: layout.priceLineStep,
   });
 
   y = drawOrcamentoIvaTotals(doc, fill, y + 1, footerMaxY);

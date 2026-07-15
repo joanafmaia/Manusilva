@@ -13,6 +13,7 @@ import {
   formatLinhasValorManutencaoBateria,
   formatManutencaoMaquinaPrecoLinhas,
   buildManutencaoMaquinaPrecoEquipBlocks,
+  buildManutencaoMaquinaPrecoTable,
   buildManutencaoMaquinaIdentPreviewLines,
   MANUTENCAO_BATERIA_INTRO,
   MANUTENCAO_MAQUINA_INTRO,
@@ -159,13 +160,13 @@ describe('orcamento-templates — manutenção máquinas', () => {
         { maquinaManutencaoNome: 'Linde E20', valorManutencaoGeral: '200', incluirInspecaoDl50: false },
       ],
     });
-    const blocks = buildManutencaoMaquinaPrecoEquipBlocks(meta, meta);
-    assert.equal(blocks.length, 3);
-    assert.deepEqual(blocks[0][0], ['Máquina 1', 'Toyota 8FB15']);
-    assert.equal(blocks[0][1][0], 'Manutenção Geral');
-    assert.equal(blocks[0][2][0], 'Inspeção DL50');
-    assert.deepEqual(blocks[1][0], ['Máquina 2', 'Linde E20']);
-    assert.equal(blocks[1].length, 2);
-    assert.deepEqual(blocks[2][0], ['Deslocação', '30,00 €']);
+    const table = buildManutencaoMaquinaPrecoTable(meta, meta);
+    assert.equal(table.rows.length, 2);
+    assert.equal(table.rows[0].maquina, '1. Toyota 8FB15');
+    assert.equal(table.rows[0].manutencao, '350,00 €');
+    assert.equal(table.rows[0].dl50, '40,00 €');
+    assert.equal(table.rows[1].maquina, '2. Linde E20');
+    assert.equal(table.rows[1].dl50, '—');
+    assert.equal(table.deslocacao, '30,00 €');
   });
 });
