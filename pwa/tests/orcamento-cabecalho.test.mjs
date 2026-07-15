@@ -5,7 +5,6 @@ import {
   ORCAMENTO_TEXTO_INTRO_PLURAL,
   ORCAMENTO_TEXTO_INTRO_SINGULAR,
   mergeOrcamentoMetaWithCabecalho,
-  resolveOrcamentoCabecalho,
   resolveOrcamentoTextoIntroForPdf,
   resolveReportObservacoesTecnico,
   suggestOrcamentoMaquinas,
@@ -109,10 +108,9 @@ describe('suggestOrcamentoMaquinas — template manutenção máquinas', () => {
   });
 });
 
-describe('resolveOrcamentoCabecalho', () => {
-  it('usa Exmo. Senhor como A/C. por defeito', () => {
-    const cab = resolveOrcamentoCabecalho({ clientId: null, data: { values: {} } });
-    assert.equal(cab.clienteAc, ORCAMENTO_CLIENTE_AC_DEFAULT);
+describe('ORCAMENTO_CLIENTE_AC_DEFAULT', () => {
+  it('usa tratamento singular por defeito', () => {
+    assert.equal(ORCAMENTO_CLIENTE_AC_DEFAULT, 'Exmo. Senhor');
   });
 });
 
