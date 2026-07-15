@@ -977,7 +977,7 @@ function drawManutencaoMaquinaPrecoTable(doc, table, startY, maxY, options = {})
 
   if (table.deslocacao != null && rowTop + lineStep <= maxY) {
     const textY = manutencaoFooterRowTextY(rowTop, lineStep, fontSize);
-    drawOrcamentoInlineLabelValue(doc, 'Deslocação: ', table.deslocacao, MARGIN + 1, textY);
+    drawOrcamentoMoneyRow(doc, 'Deslocação:', table.deslocacao, textY);
     rowTop += lineStep;
   }
 
