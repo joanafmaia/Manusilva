@@ -18,6 +18,7 @@ import {
 
 export const ORCAMENTO_FORMA_PAGAMENTO_DEFAULT = 'Pronto Pagamento';
 export const ORCAMENTO_VALIDADE_DEFAULT = '10 Dias';
+export const ORCAMENTO_CLIENTE_AC_DEFAULT = 'Exmo. Senhor';
 export const ORCAMENTO_TEXTO_INTRO_SINGULAR =
   'Vimos por este meio enviar o nosso orçamento para a seguinte máquina:';
 export const ORCAMENTO_TEXTO_INTRO_PLURAL =
@@ -303,7 +304,7 @@ function buildDefaultsFromReport(report) {
 
   const clienteAc =
     String(values.responsavel || client?.contact || client?.contacto || '').trim() ||
-    'Exmos. Senhores';
+    ORCAMENTO_CLIENTE_AC_DEFAULT;
 
   const equipamento = resolveReportEquipamentoFields(report);
 
@@ -386,7 +387,7 @@ export function resolveOrcamentoCabecalho(report) {
   const cabecalho = syncDerivedEquipamento(
     {
       clienteNome: resolveOrcamentoClienteNome(report),
-      clienteAc: picked.clienteAc || 'Exmos. Senhores',
+      clienteAc: picked.clienteAc || ORCAMENTO_CLIENTE_AC_DEFAULT,
       ...picked,
       marca: picked.marca || legacy.marca,
       modelo: picked.modelo || legacy.modelo,
@@ -417,7 +418,7 @@ export function readOrcamentoCabecalhoFromDom(root, report) {
   const cabecalho = syncDerivedEquipamento(
     {
       clienteNome,
-      clienteAc: read('clienteAc') || 'Exmos. Senhores',
+      clienteAc: read('clienteAc') || ORCAMENTO_CLIENTE_AC_DEFAULT,
       marca: legacy.marca,
       modelo: legacy.modelo,
       tipo: legacy.tipo,

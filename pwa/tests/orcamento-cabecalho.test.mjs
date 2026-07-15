@@ -1,9 +1,11 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  ORCAMENTO_CLIENTE_AC_DEFAULT,
   ORCAMENTO_TEXTO_INTRO_PLURAL,
   ORCAMENTO_TEXTO_INTRO_SINGULAR,
   mergeOrcamentoMetaWithCabecalho,
+  resolveOrcamentoCabecalho,
   resolveOrcamentoTextoIntroForPdf,
   resolveReportObservacoesTecnico,
   suggestOrcamentoMaquinas,
@@ -104,6 +106,13 @@ describe('suggestOrcamentoMaquinas — template manutenção máquinas', () => {
       data: { orcamento: { maquinas } },
     };
     assert.equal(suggestOrcamentoMaquinas(report).length, 4);
+  });
+});
+
+describe('resolveOrcamentoCabecalho', () => {
+  it('usa Exmo. Senhor como A/C. por defeito', () => {
+    const cab = resolveOrcamentoCabecalho({ clientId: null, data: { values: {} } });
+    assert.equal(cab.clienteAc, ORCAMENTO_CLIENTE_AC_DEFAULT);
   });
 });
 
