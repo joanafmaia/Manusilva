@@ -255,7 +255,7 @@ export function renderManutencaoBateriaTemplatePreview(meta = {}) {
   const periodicidadeParagrafo = paragrafos[paragrafos.length - 1] || '';
   return `
     <details class="review-orc-template-preview review-orc-template-preview--collapsible">
-      <summary class="review-orc-template-preview__summary">Texto da proposta (fixo no PDF)</summary>
+      <summary class="review-orc-template-preview__summary">Texto da proposta (como no PDF)</summary>
       <div class="review-orc-template-preview__body">
         <p>${MANUTENCAO_BATERIA_INTRO}</p>
         <p><strong>${MANUTENCAO_BATERIA_ESPECIFICACAO_TITULO}</strong></p>
@@ -585,7 +585,7 @@ export function renderManutencaoMaquinaTemplatePreview(meta = {}, cabecalho = {}
   const intro =
     resolveManutencaoMaquinaIntro(meta, cabecalho) || MANUTENCAO_MAQUINA_INTRO;
   return `
-    <details class="review-orc-template-preview review-orc-template-preview--collapsible" open>
+    <details class="review-orc-template-preview review-orc-template-preview--collapsible">
       <summary class="review-orc-template-preview__summary">Texto da proposta (como no PDF)</summary>
       <div class="review-orc-template-preview__body">
         <p data-orc-maquina-intro-preview>${escapeHtml(intro)}</p>
