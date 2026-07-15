@@ -27,6 +27,7 @@ import {
   resolveEquipamentoValorVisita,
   resolveTemplateEquipamentos,
   syncLegacyTemplateFieldsFromMaquinas,
+  MANUTENCAO_MAQUINA_COL_LABEL,
   MANUTENCAO_MAQUINA_DL50_COL_LABEL,
 } from './orcamento-template-equipamentos.js';
 
@@ -271,7 +272,7 @@ export function renderManutencaoBateriaTemplatePreview(meta = {}) {
 /* ─── Manutenção Máquinas (empilhadores) ─── */
 
 export const MANUTENCAO_MAQUINA_VALOR_INSPECAO_DL50_DEFAULT = 40;
-export { MANUTENCAO_MAQUINA_DL50_COL_LABEL } from './orcamento-template-equipamentos.js';
+export { MANUTENCAO_MAQUINA_DL50_COL_LABEL, MANUTENCAO_MAQUINA_COL_LABEL } from './orcamento-template-equipamentos.js';
 export const MANUTENCAO_MAQUINA_PDF_SUBTITULO = 'MANUTENÇÃO MÁQUINAS';
 
 export const MANUTENCAO_MAQUINA_INTRO =
@@ -466,7 +467,7 @@ export function formatManutencaoMaquinaPrecoLinhas(meta = {}, cabecalho = {}) {
 }
 
 /**
- * Tabela de preços por equipamento — colunas Máquina | Manutenção Geral | DL50/2005.
+ * Tabela de preços por equipamento — colunas Máquina/Equipamento | Manutenção Geral | DL50/2005.
  */
 export function buildManutencaoMaquinaPrecoTable(meta = {}, cabecalho = {}) {
   const equipamentos = resolveTemplateEquipamentos(meta, cabecalho, 'maquina');
@@ -611,7 +612,7 @@ export function renderManutencaoMaquinaPrecoPreviewHtml(meta = {}, cabecalho = {
     <table class="review-orc-preco-table" data-orc-maquina-preco-table>
       <thead>
         <tr>
-          <th>Máquina</th>
+          <th>${MANUTENCAO_MAQUINA_COL_LABEL}</th>
           <th>Manutenção Geral</th>
           <th>${MANUTENCAO_MAQUINA_DL50_COL_LABEL}</th>
         </tr>

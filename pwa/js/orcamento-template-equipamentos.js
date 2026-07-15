@@ -8,6 +8,7 @@ import { formatEuro, parseOrcamentoNumber } from './orcamento-linhas.js';
 const BATERIA_VALOR_DEFAULT = 85;
 const BATERIA_PERIODICIDADE_DEFAULT = '3_em_3';
 const MAQUINA_INSPECAO_DL50_DEFAULT = 40;
+export const MANUTENCAO_MAQUINA_COL_LABEL = 'Máquina/Equipamento';
 export const MANUTENCAO_MAQUINA_DL50_COL_LABEL = 'DL50/2005';
 
 /** Máximo de cartões de máquina na proposta Manutenção Máquina (PDF compacto até aqui). */

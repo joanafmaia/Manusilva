@@ -79,6 +79,7 @@ import {
   isManutencaoBateriaOrcamento,
   isManutencaoMaquinaOrcamento,
   MANUTENCAO_MAQUINA_DL50_COL_LABEL,
+  MANUTENCAO_MAQUINA_COL_LABEL,
 } from './orcamento-templates.js';
 
 const MARGIN = PDF_MARGIN;
@@ -956,7 +957,7 @@ function drawManutencaoMaquinaPrecoTable(doc, table, startY, maxY, options = {})
 
   pdfSetFont(doc, 'bold');
   const headerY = manutencaoFooterRowTextY(rowTop, lineStep, fontSize);
-  doc.text('Máquina', MARGIN + 1, headerY);
+  doc.text(MANUTENCAO_MAQUINA_COL_LABEL, MARGIN + 1, headerY);
   doc.text('Manutenção Geral', MAQUINA_PRECO_TABLE_COL_MANUT, headerY, { align: 'right' });
   doc.text(MANUTENCAO_MAQUINA_DL50_COL_LABEL, MAQUINA_FOOTER_MONEY_X, headerY, { align: 'right' });
   rowTop += lineStep;
