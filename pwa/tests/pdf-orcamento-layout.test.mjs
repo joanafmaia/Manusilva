@@ -2,10 +2,12 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
   computeOrcamentoTableLayout,
+  estimateMaquinaBodyBeforeBullets,
   estimateOrcamentoMachineGroupBlockHeight,
   formatOrcamentoPdfMoneyCell,
   formatPrazoEntregaForPdf,
   normalizeLegalParagraphs,
+  resolveManutencaoMaquinaPdfLayout,
 } from '../js/pdf-orcamento.js';
 import {
   filterOrcamentoPdfGroupLinhas,
@@ -89,5 +91,34 @@ describe('pdf-orcamento layout', () => {
     assert.equal(normalH - compactH, 3, 'só os espaços do equipamento ficam mais compactos');
     assert.equal(normalH, 13 + 6.5 * 6);
     assert.equal(compactH, 10 + 6.5 * 6);
+  });
+
+  it('reserva espaço para a lista completa de trabalhos com 7 máquinas', () => {
+    const maquinas = Array.from({ length: 7 }, (_, index) => ({
+      maquinaManutencaoNome: `${index + 1} teste`,
+      valorManutencaoGeral: '123',
+      incluirInspecaoDl50: true,
+      valorInspecaoDl50: '40',
+    }));
+    const fill = {
+      maquinas,
+      valor_deslocacao: '123',
+      prazo_entrega: '5',
+      forma_pagamento: 'Pronto Pagamento',
+      validade_orcamento: '10 Dias',
+    };
+    const layout = resolveManutencaoMaquinaPdfLayout(fill, 83);
+    assert.ok(layout.twoColumnBullets, 'lista de trabalhos em 2 colunas');
+    assert.ok(layout.compactMachines, 'identificação compacta das máquinas');
+    assert.ok(layout.bulletLineStep >= 2.15, 'passo mínimo legível');
+    assert.ok(
+      layout.footerStartY > layout.bulletStartY,
+      'rodapé de preços fica abaixo da lista de trabalhos',
+    );
+    assert.ok(
+      layout.footerStartY + 50 <= 230,
+      'rodapé cabe acima da caixa de aprovação',
+    );
+    assert.ok(estimateMaquinaBodyBeforeBullets(7, true) < estimateMaquinaBodyBeforeBullets(7, false));
   });
 });
