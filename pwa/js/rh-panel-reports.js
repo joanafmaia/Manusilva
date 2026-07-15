@@ -3,7 +3,7 @@
  */
 
 import { dedupeReportsForDisplay, getReportsSnapshot } from './relatorios-db.js';
-import { isRhOrcamentoQueueReport } from './pedido-orcamento.js';
+import { isRhOrcamentoQueueReport, reportIsStandaloneOrcamento } from './pedido-orcamento.js';
 import { resolveServicoIdForReport } from './servicos-panel-utils.js';
 
 /** Estados de relatório exibidos no painel RH (histórico completo) */
@@ -15,7 +15,11 @@ export const RH_PANEL_REPORT_STATUSES = new Set([
 ]);
 
 function getRhPanelReportsRaw() {
-  return getReportsSnapshot().filter((r) => RH_PANEL_REPORT_STATUSES.has(r.status));
+  return getReportsSnapshot().filter((r) => {
+    if (!RH_PANEL_REPORT_STATUSES.has(r.status)) return false;
+    if (reportIsStandaloneOrcamento(r)) return false;
+    return true;
+  });
 }
 
 function buildServicosWithDraftReports(reports) {
