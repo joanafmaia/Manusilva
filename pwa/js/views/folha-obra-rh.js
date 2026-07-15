@@ -49,7 +49,7 @@ export function renderFolhaObraRhSection(folhas = getFolhasObraAguardaOrcamento(
   if (!folhas.length) {
     return `
       <section class="folha-obra-rh-section rh-section glass-card">
-        <h3 class="ms-h2 folha-obra-rh-title">Oficina — R.C por orçamentar</h3>
+        <h3 class="ms-h2 faturacao-section-title folha-obra-rh-title">Oficina — R.C por orçamentar</h3>
         <p class="text-muted">Nenhum equipamento R.C aguarda orçamento.</p>
       </section>
     `;
@@ -57,7 +57,7 @@ export function renderFolhaObraRhSection(folhas = getFolhasObraAguardaOrcamento(
 
   return `
     <section class="folha-obra-rh-section rh-section glass-card">
-      <h3 class="ms-h2 folha-obra-rh-title">Oficina — R.C por orçamentar <span class="badge-count">${folhas.length}</span></h3>
+      <h3 class="ms-h2 faturacao-section-title folha-obra-rh-title">Oficina — R.C por orçamentar <span class="badge-count">${folhas.length}</span></h3>
       <p class="text-muted folha-obra-rh-lead">
         Equipamentos com diagnóstico técnico concluído. Crie a proposta MS.015 e registe o aceite do cliente — só depois o Armazém inicia a reparação.
       </p>

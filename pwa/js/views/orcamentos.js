@@ -101,6 +101,7 @@ function filterOrcamentoReports(reports) {
   return rows.filter((report) => {
     const client = getClient(report.clientId);
     const values = report?.data?.values || {};
+    const job = report.jobId ? getJob(report.jobId) : null;
     const clientName = getClientName(client, values).toLowerCase();
     const op = formatOrdemLabel(job).toLowerCase();
     const numero = String(getReportOrcamentoMeta(report)?.numeroFormatado || '').toLowerCase();
@@ -162,7 +163,30 @@ function renderEmptyState(counts, total) {
     </div>`;
 }
 
-function renderKpis(counts) {
+function renderMetrics(counts) {
+  return `
+    <section class="faturacao-kpis rh-section" aria-label="Indicadores de propostas">
+      <div class="dashboard-metrics-grid faturacao-kpis-grid faturacao-kpis-grid--3">
+        <article class="dashboard-metric-card dashboard-metric-card--warning">
+          <p class="dashboard-metric-value">${counts.por_preparar}</p>
+          <p class="dashboard-metric-label">Por preparar</p>
+          <p class="faturacao-kpi-sub">Aguardam proposta comercial</p>
+        </article>
+        <article class="dashboard-metric-card dashboard-metric-card--primary">
+          <p class="dashboard-metric-value">${counts.enviada}</p>
+          <p class="dashboard-metric-label">Enviadas</p>
+          <p class="faturacao-kpi-sub">Aguardam resposta do cliente</p>
+        </article>
+        <article class="dashboard-metric-card dashboard-metric-card--success">
+          <p class="dashboard-metric-value">${counts.aceite}</p>
+          <p class="dashboard-metric-label">Aceites</p>
+          <p class="faturacao-kpi-sub">Prontas para faturação</p>
+        </article>
+      </div>
+    </section>`;
+}
+
+function renderEstadoTabs(counts) {
   const chips = [
     { id: 'por_preparar', label: 'Por preparar', count: counts.por_preparar },
     { id: 'guardada', label: 'Guardadas', count: counts.guardada },
@@ -173,19 +197,18 @@ function renderKpis(counts) {
   ];
 
   return `
-    <div class="orcamentos-kpis" role="tablist" aria-label="Filtrar propostas">
+    <div class="faturacao-invoices-tabs" role="tablist" aria-label="Filtrar propostas por estado">
       ${chips
         .map(
           ({ id, label, count }) => `
         <button
           type="button"
-          class="orcamentos-kpi${activeFilter === id ? ' is-active' : ''}"
+          class="faturacao-invoices-tab${activeFilter === id ? ' is-active' : ''}"
           data-orc-filter="${escapeHtml(id)}"
           role="tab"
           aria-selected="${activeFilter === id ? 'true' : 'false'}"
         >
-          <span class="orcamentos-kpi__value">${count}</span>
-          <span class="orcamentos-kpi__label">${escapeHtml(label)}</span>
+          ${escapeHtml(label)} <span class="faturacao-invoices-tab-count">${count}</span>
         </button>`,
         )
         .join('')}
@@ -218,11 +241,11 @@ function renderTableRow(report) {
   const tipoLabel = formatOrcamentoTipoPropostaLabel(getOrcamentoTipoProposta(report));
 
   return `
-    <tr class="rh-data-table-row orcamentos-row${highlighted ? ' orcamentos-row--highlight' : ''}" data-report-id="${escapeHtml(report.id)}">
-      <td class="rh-cell-ordem"><code class="orcamentos-ordem rh-ordem-badge">${escapeHtml(formatOrdemLabel(job))}</code></td>
-      <td class="rh-cell-client" title="${escapeHtml(clientName)}">
+    <tr class="rh-data-table-row orcamentos-row${highlighted ? ' orcamentos-row--highlight faturacao-row--highlight' : ''}" data-report-id="${escapeHtml(report.id)}">
+      <td class="faturacao-cell-ordem"><code class="orcamentos-ordem rh-ordem-badge faturacao-ordem">${escapeHtml(formatOrdemLabel(job))}</code></td>
+      <td class="faturacao-cell-client" title="${escapeHtml(clientName)}">
         <span class="rh-cell-client-name">${escapeHtml(clientName)}</span>
-        <span class="orcamentos-row__sub">${escapeHtml(service?.label || report.serviceType || '—')}</span>
+        <span class="faturacao-cell-detail orcamentos-row__sub">${escapeHtml(service?.label || report.serviceType || '—')}</span>
       </td>
       <td class="rh-cell-muted">${escapeHtml(tipoLabel)}</td>
       <td class="rh-cell-muted">${escapeHtml(reportStatusLabel(report))}</td>
@@ -232,8 +255,8 @@ function renderTableRow(report) {
       </td>
       <td class="rh-cell-muted orcamentos-col-detalhe" title="${escapeHtml(detalhe)}">${escapeHtml(detalheShort)}</td>
       <td class="rh-cell-muted">${escapeHtml(tech?.name || '—')}</td>
-      <td class="rh-col-action">
-        <div class="rh-table-actions">
+      <td class="faturacao-col-action">
+        <div class="faturacao-billing-actions rh-table-actions">
           ${
             canApproveReport
               ? `<button type="button" class="btn-success btn-sm rh-btn-compact" data-orc-approve-report="${escapeHtml(report.id)}" title="Aprovar e enviar o relatório técnico ao cliente">Aprovar</button>`
@@ -300,22 +323,111 @@ function renderTipoFilterSelect(id, value, label) {
     ),
   ].join('');
   return `
-    <label class="orcamentos-toolbar__field">
-      <span class="orcamentos-toolbar__label">${escapeHtml(label)}</span>
-      <select class="form-input" id="${escapeHtml(id)}">${options}</select>
+    <div class="form-group faturacao-filter-group">
+      <label class="form-label" for="${escapeHtml(id)}">${escapeHtml(label)}</label>
+      <select class="form-select" id="${escapeHtml(id)}">${options}</select>
+    </div>`;
+}
+
+function renderCompactFilterSelect(id, value, label, optionsHtml) {
+  return `
+    <label class="faturacao-audit-year-label">
+      <span class="form-label">${escapeHtml(label)}</span>
+      <select class="form-select-sm" id="${escapeHtml(id)}">${optionsHtml}</select>
     </label>`;
 }
 
-function renderEstadoFilterSelect(id, value, label) {
-  const options = EXPORT_ESTADO_OPTIONS.map(
+function renderFiltersSection(all) {
+  const yearOptions = resolveExportYearOptions(all);
+  const exportTipoOptions = [
+    `<option value="all"${exportTipoFilter === 'all' ? ' selected' : ''}>Todos</option>`,
+    ...ORCAMENTO_TIPO_PROPOSTA_OPTIONS.map(
+      ({ value: v, label: l }) =>
+        `<option value="${escapeHtml(v)}"${exportTipoFilter === v ? ' selected' : ''}>${escapeHtml(l)}</option>`,
+    ),
+  ].join('');
+  const exportEstadoOptions = EXPORT_ESTADO_OPTIONS.map(
     ({ value: v, label: l }) =>
-      `<option value="${escapeHtml(v)}"${value === v ? ' selected' : ''}>${escapeHtml(l)}</option>`,
+      `<option value="${escapeHtml(v)}"${exportEstadoFilter === v ? ' selected' : ''}>${escapeHtml(l)}</option>`,
   ).join('');
+
   return `
-    <label class="orcamentos-toolbar__field">
-      <span class="orcamentos-toolbar__label">${escapeHtml(label)}</span>
-      <select class="form-input" id="${escapeHtml(id)}">${options}</select>
-    </label>`;
+    <section class="faturacao-filters orcamentos-filters rh-section glass-card" aria-label="Filtros de propostas">
+      <div class="faturacao-filters-grid">
+        <div class="form-group faturacao-filter-group orcamentos-filter-search">
+          <label class="form-label" for="orcamentos-search">Pesquisar</label>
+          <input
+            type="search"
+            class="form-input"
+            id="orcamentos-search"
+            placeholder="Cliente, OP, tipo ou nº orçamento…"
+            value="${escapeHtml(searchQuery)}"
+            autocomplete="off"
+          />
+        </div>
+        ${renderTipoFilterSelect('orcamentos-tipo-filter', tipoFilter, 'Tipo de proposta')}
+      </div>
+      <div class="faturacao-filter-actions">
+        ${renderCompactFilterSelect(
+          'orcamentos-export-year',
+          exportYear,
+          'Ano (exportação)',
+          yearOptions
+            .map(
+              (y) =>
+                `<option value="${y}"${String(exportYear) === String(y) ? ' selected' : ''}>${y}</option>`,
+            )
+            .join(''),
+        )}
+        ${renderCompactFilterSelect('orcamentos-export-tipo', exportTipoFilter, 'Tipo (export.)', exportTipoOptions)}
+        ${renderCompactFilterSelect(
+          'orcamentos-export-estado',
+          exportEstadoFilter,
+          'Estado (export.)',
+          exportEstadoOptions,
+        )}
+        <button type="button" class="btn-outline btn-sm" id="orcamentos-export-csv">
+          Exportar Excel (CSV)
+        </button>
+        <button type="button" class="btn-outline btn-sm" id="orcamentos-export-pdf">
+          Exportar PDF
+        </button>
+      </div>
+    </section>`;
+}
+
+function renderPropostasSection(rows, counts, totalAll) {
+  const body = rows.length
+    ? `
+      <div class="rh-table-scroll faturacao-table-wrap">
+        <table class="rh-data-table rh-data-table--compact faturacao-table faturacao-table--compact orcamentos-table">
+          <thead>
+            <tr>
+              <th scope="col">OP</th>
+              <th scope="col">Cliente</th>
+              <th scope="col">Tipo</th>
+              <th scope="col">Relatório</th>
+              <th scope="col">Proposta</th>
+              <th scope="col">Pedido</th>
+              <th scope="col">Técnico</th>
+              <th scope="col" class="faturacao-col-action">Ação</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map((report) => renderTableRow(report)).join('')}
+          </tbody>
+        </table>
+      </div>`
+    : renderEmptyState(counts, totalAll);
+
+  return `
+    <section class="faturacao-invoices-section orcamentos-table-section rh-section glass-card" aria-label="Propostas comerciais">
+      <div class="faturacao-invoices-head">
+        <h3 class="ms-h2 faturacao-section-title">Propostas comerciais <span class="badge-count">${rows.length}</span></h3>
+        ${renderEstadoTabs(counts)}
+      </div>
+      ${body}
+    </section>`;
 }
 
 async function exportOrcamentoAuditPdf() {
@@ -389,86 +501,26 @@ function renderPanel() {
   const all = listOrcamentoReports();
   const counts = countByWorkflow(all);
   const rows = filterOrcamentoReports(all);
-  const yearOptions = resolveExportYearOptions(all);
 
   return `
-    <div class="orcamentos-panel rh-admin-panel">
+    <div class="orcamentos-panel faturacao-panel rh-admin-panel dashboard-panel-inner">
       ${renderFolhaObraRhSection()}
-      <header class="orcamentos-header">
+      <header class="faturacao-header orcamentos-header rh-section">
         <div class="orcamentos-header__top">
-          <h2 class="orcamentos-title">Orçamentos / Propostas comerciais</h2>
+          <div>
+            <h2 class="ms-h2">Orçamentos / Propostas comerciais</h2>
+            <p class="text-muted faturacao-lead orcamentos-lead">
+              Crie propostas comerciais do zero ou a partir de pedidos dos técnicos. O e-mail da proposta é enviado à parte do relatório de intervenção.
+            </p>
+          </div>
           <button type="button" class="btn-primary btn-touch orcamentos-new-btn" data-orc-new>
             Nova proposta
           </button>
         </div>
-        <p class="orcamentos-lead text-muted">
-          Crie propostas comerciais do zero ou a partir de pedidos dos técnicos. O e-mail da proposta é enviado à parte do relatório de intervenção.
-        </p>
       </header>
-
-      ${renderKpis(counts)}
-
-      <div class="orcamentos-toolbar">
-        <input
-          type="search"
-          class="form-input orcamentos-search"
-          id="orcamentos-search"
-          placeholder="Pesquisar cliente, OP, tipo ou nº orçamento…"
-          value="${escapeHtml(searchQuery)}"
-          autocomplete="off"
-          aria-label="Pesquisar orçamentos"
-        />
-        ${renderTipoFilterSelect('orcamentos-tipo-filter', tipoFilter, 'Tipo')}
-      </div>
-
-      <div class="orcamentos-export-bar">
-        <label class="orcamentos-toolbar__field">
-          <span class="orcamentos-toolbar__label">Ano (exportação)</span>
-          <select class="form-input" id="orcamentos-export-year">
-            ${yearOptions
-              .map(
-                (y) =>
-                  `<option value="${y}"${String(exportYear) === String(y) ? ' selected' : ''}>${y}</option>`,
-              )
-              .join('')}
-          </select>
-        </label>
-        ${renderTipoFilterSelect('orcamentos-export-tipo', exportTipoFilter, 'Tipo')}
-        ${renderEstadoFilterSelect('orcamentos-export-estado', exportEstadoFilter, 'Estado / resposta')}
-        <button type="button" class="btn-outline btn-touch" id="orcamentos-export-csv">
-          Exportar Excel (CSV)
-        </button>
-        <button type="button" class="btn-outline btn-touch" id="orcamentos-export-pdf">
-          Exportar PDF
-        </button>
-      </div>
-
-      ${
-        rows.length
-          ? `
-        <section class="orcamentos-table-section rh-admin-section">
-        <div class="orcamentos-table-wrap">
-          <table class="rh-data-table rh-data-table--compact orcamentos-table">
-            <thead>
-              <tr>
-                <th>OP</th>
-                <th>Cliente</th>
-                <th>Tipo</th>
-                <th>Relatório</th>
-                <th>Proposta</th>
-                <th>Pedido</th>
-                <th>Técnico</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              ${rows.map((report) => renderTableRow(report)).join('')}
-            </tbody>
-          </table>
-        </div>
-        </section>`
-          : renderEmptyState(counts, all.length)
-      }
+      ${renderFiltersSection(all)}
+      ${renderMetrics(counts)}
+      ${renderPropostasSection(rows, counts, all.length)}
     </div>`;
 }
 
