@@ -38,13 +38,17 @@ import {
   renderOrcamentoTipoPropostaSelect,
 } from './orcamento-tipo-proposta.js';
 import {
+  applyManutencaoBateriaTemplateMeta,
+  applyManutencaoMaquinaTemplateMeta,
   buildManutencaoBateriaParagrafos,
   formatLinhasValorManutencaoBateria,
   isManutencaoBateriaTipo,
   isManutencaoMaquinaTipo,
   renderManutencaoBateriaTemplatePreview,
+  renderManutencaoMaquinaIdentPreviewHtml,
   renderManutencaoMaquinaPrecoPreviewHtml,
   renderManutencaoMaquinaTemplatePreview,
+  resolveManutencaoMaquinaIntro,
 } from './orcamento-templates.js';
 import {
   bindTemplateBateriasValoresSection,
@@ -187,7 +191,15 @@ function refreshTemplateTotals(root, report = null) {
   if (root.dataset.orcTemplate === 'manutencao_maquina') {
     const preview = root.querySelector('[data-orc-maquina-precos-preview]');
     if (preview) {
-      preview.innerHTML = renderManutencaoMaquinaPrecoPreviewHtml(meta);
+      preview.innerHTML = renderManutencaoMaquinaPrecoPreviewHtml(meta, meta);
+    }
+    const identPreview = root.querySelector('[data-orc-maquina-ident-preview]');
+    if (identPreview) {
+      identPreview.innerHTML = renderManutencaoMaquinaIdentPreviewHtml(meta, meta);
+    }
+    const introPreview = root.querySelector('[data-orc-maquina-intro-preview]');
+    if (introPreview) {
+      introPreview.textContent = resolveManutencaoMaquinaIntro(meta, meta);
     }
   } else {
     const preview = root.querySelector('[data-orc-valor-linha-preview]');
@@ -340,7 +352,7 @@ function renderManutencaoMaquinaOrcamentoEditor(report, ctx) {
         </div>
       </section>
 
-      ${renderManutencaoMaquinaTemplatePreview()}
+      ${renderManutencaoMaquinaTemplatePreview(meta, meta)}
 
       ${renderTemplateMaquinasSection(equipamentos, meta)}
 
@@ -400,7 +412,14 @@ function renderManutencaoMaquinaOrcamentoEditor(report, ctx) {
 }
 
 export function renderOrcamentoEditor(report, { client } = {}) {
-  const meta = getReportOrcamentoMeta(report) || buildOrcamentoMetaDraft(report);
+  const tipo = getOrcamentoTipoProposta(report);
+  const cab = resolveOrcamentoCabecalho(report);
+  const rawMeta = getReportOrcamentoMeta(report) || buildOrcamentoMetaDraft(report);
+  const meta = isManutencaoBateriaTipo(tipo)
+    ? applyManutencaoBateriaTemplateMeta({ ...rawMeta, ...cab }, report)
+    : isManutencaoMaquinaTipo(tipo)
+      ? applyManutencaoMaquinaTemplateMeta({ ...rawMeta, ...cab }, report)
+      : rawMeta;
   if (meta?.enviadoEm) {
     return renderOrcamentoSentSummary(report, { client });
   }
@@ -415,10 +434,8 @@ export function renderOrcamentoEditor(report, { client } = {}) {
   const prazoEntrega = escapeHtml(meta.prazoEntrega || '');
   const emailDestinatario = escapeHtml(defaultOrcamentoEmail(report, client));
   const clienteEmailHint = escapeHtml(client?.email || client?.['E-mail'] || '');
-  const cab = resolveOrcamentoCabecalho(report);
   const isStandalone = reportIsStandaloneOrcamento(report);
   const freeformCliente = reportUsesFreeformOrcamentoCliente(report);
-  const tipo = getOrcamentoTipoProposta(report);
   const clienteField = freeformCliente
     ? `
           <label class="review-orc-field">

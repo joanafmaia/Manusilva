@@ -9,6 +9,9 @@ const BATERIA_VALOR_DEFAULT = 85;
 const BATERIA_PERIODICIDADE_DEFAULT = '3_em_3';
 const MAQUINA_INSPECAO_DL50_DEFAULT = 40;
 
+/** Máximo de cartões de máquina na proposta Manutenção Máquina (PDF compacto até aqui). */
+export const MAX_TEMPLATE_MAQUINAS = 8;
+
 function periodicidadeInputValue(value) {
   const raw = String(value || '').trim();
   const map = {
@@ -151,6 +154,22 @@ function resolveTemplateMaquinaEquipamentos(meta = {}, cabecalho = {}) {
   const legacyNome = String(meta.maquinaManutencaoNome || '').trim();
   if (!rows.length && legacyNome) {
     rows = [{ maquinaManutencaoNome: legacyNome }];
+  }
+  const rowsHaveData = rows.some(
+    (row, index) =>
+      hasTemplateMaquinaIdentData(row) ||
+      resolveEquipamentoValorGeral({
+        ...row,
+        ...pickMaquinaValoresFromMeta({ ...meta, maquinas: rows }, index),
+      }) > 0,
+  );
+  if (
+    !rowsHaveData &&
+    Array.isArray(cabecalho.maquinas) &&
+    cabecalho.maquinas.length &&
+    rows !== cabecalho.maquinas
+  ) {
+    rows = cabecalho.maquinas.map(normalizeTemplateMaquinaIdentRow);
   }
   if (!rows.length) rows = [emptyTemplateMaquinaIdentRow()];
   return rows.map((row, index) => ({
@@ -328,15 +347,16 @@ function renderTemplateMaquinaCard(row, index, total) {
 
 export function renderTemplateMaquinasSection(maquinas = [], meta = {}) {
   const rows = resolveTemplateEquipamentos({ ...meta, maquinas }, { maquinas }, 'maquina');
+  const atMax = rows.length >= MAX_TEMPLATE_MAQUINAS;
   const cards = rows.map((row, index) => renderTemplateMaquinaCard(row, index, rows.length)).join('');
   return `
     <section class="review-orc-template-maquinas" aria-label="Máquinas">
       <h4 class="review-orc-cabecalho__title">Máquinas</h4>
-      <p class="review-orc-field-hint text-muted">Marca/modelo e preços por máquina; a deslocação é única em Condições.</p>
+      <p class="review-orc-field-hint text-muted">Marca/modelo e preços por máquina (até ${MAX_TEMPLATE_MAQUINAS}); a deslocação é única em Condições.</p>
       <div class="review-orc-template-maquinas__list" data-template-maquinas-list>
         ${cards}
       </div>
-      <button type="button" class="btn-outline btn-sm btn-touch review-orc-template-maquinas__add" data-template-maquinas-add>
+      <button type="button" class="btn-outline btn-sm btn-touch review-orc-template-maquinas__add" data-template-maquinas-add${atMax ? ' disabled' : ''}>
         + Adicionar máquina
       </button>
     </section>`;
@@ -458,11 +478,25 @@ export function bindTemplateMaquinasSection(root, { onChange } = {}) {
 
   const notify = () => onChange?.();
 
+  const syncAddButton = (count) => {
+    const atMax = count >= MAX_TEMPLATE_MAQUINAS;
+    addBtn.disabled = atMax;
+    addBtn.title = atMax ? `Máximo de ${MAX_TEMPLATE_MAQUINAS} máquinas` : '';
+  };
+
   const rerender = () => {
     const rows = readTemplateMaquinasCardsFromDom(root) || [];
     list.innerHTML = rows.map((row, index) => renderTemplateMaquinaCard(row, index, rows.length)).join('');
+    syncAddButton(rows.length);
     notify();
   };
+
+  list.addEventListener('input', (e) => {
+    if (e.target.matches('[data-orc-field]')) notify();
+  });
+  list.addEventListener('change', (e) => {
+    if (e.target.matches('[data-orc-field]')) notify();
+  });
 
   list.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-template-maquina-remove]');
@@ -484,12 +518,16 @@ export function bindTemplateMaquinasSection(root, { onChange } = {}) {
 
   addBtn.addEventListener('click', () => {
     const rows = readTemplateMaquinasCardsFromDom(root) || [];
+    if (rows.length >= MAX_TEMPLATE_MAQUINAS) return;
     rows.push({ ...emptyTemplateMaquinaIdentRow(), ...defaultMaquinaEquipValores() });
     list.innerHTML = rows.map((row, index) => renderTemplateMaquinaCard(row, index, rows.length)).join('');
+    syncAddButton(rows.length);
     const cards = list.querySelectorAll('[data-template-maquina-card]');
     cards[cards.length - 1]?.querySelector('[data-orc-field="maquinaManutencaoNome"]')?.focus();
     notify();
   });
+
+  syncAddButton(list.querySelectorAll('[data-template-maquina-card]').length);
 }
 
 /** @deprecated usar bindTemplateMaquinasSection */

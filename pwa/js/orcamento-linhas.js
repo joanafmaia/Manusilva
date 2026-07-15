@@ -355,6 +355,7 @@ export function readOrcamentoFormFromDom(root, report) {
   const emailDestinatario =
     root.querySelector('[data-orc-field="emailDestinatario"]')?.value?.trim() || '';
   const cabecalho = readOrcamentoCabecalhoFromDom(root, report);
+  const { maquinas: _cabMaquinas, ...cabecalhoSemMaquinas } = cabecalho;
   const machineCount = Math.max(1, cabecalho.maquinas?.length || 1);
 
   const valorDeslocacao =
@@ -365,7 +366,7 @@ export function readOrcamentoFormFromDom(root, report) {
   let meta = {
     ...existing,
     ...domMeta,
-    ...cabecalho,
+    ...(templateMode ? cabecalhoSemMaquinas : cabecalho),
     tipoProposta,
     emailDestinatario,
     taxasSaida,

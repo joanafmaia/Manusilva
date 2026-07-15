@@ -944,17 +944,30 @@ function drawTemplateMaquinaIdentBlocks(doc, fill, startY, options = {}) {
     if (!canLine(y)) return y;
     pdfSetFont(doc, 'bold');
     doc.text('Máquinas:', MARGIN, y);
-    y = advanceY(y, 4.8);
+    y = advanceY(y, 4.2);
     pdfSetFont(doc, 'normal');
-    const numbered = nomes.map((nome, index) => `${index + 1}. ${nome}`).join('   ');
-    pdfSplitText(doc, pdfSafeText(numbered), CONTENT_W).forEach((line, lineIndex) => {
-      if (lineIndex > 0) {
-        y = advanceY(y, 4.2);
-        if (!canLine(y)) return;
+    const numbered = nomes.map((nome, index) => `${index + 1}. ${nome}`);
+    const columns = nomes.length >= 6 ? 2 : 1;
+    if (columns === 1) {
+      numbered.forEach((line) => {
+        if (!canLine(y, 4)) return;
+        doc.text(pdfSafeText(line), MARGIN, y);
+        y = advanceY(y, 4);
+      });
+    } else {
+      const half = Math.ceil(numbered.length / 2);
+      const colGap = 4;
+      const colW = (CONTENT_W - colGap) / 2;
+      for (let row = 0; row < half; row += 1) {
+        if (!canLine(y, 4)) break;
+        doc.text(pdfSafeText(numbered[row]), MARGIN, y, { maxWidth: colW });
+        if (numbered[row + half]) {
+          doc.text(pdfSafeText(numbered[row + half]), MARGIN + colW + colGap, y, { maxWidth: colW });
+        }
+        y = advanceY(y, 4);
       }
-      doc.text(line, MARGIN, y);
-    });
-    return advanceY(y, 4);
+    }
+    return advanceY(y, 3);
   }
 
   nomes.forEach((nome, index) => {
@@ -1135,14 +1148,15 @@ function resolveManutencaoMaquinaPdfLayout(fill = {}) {
   const meta = templateMetaFromFill(fill);
   const precoLinhas = formatManutencaoMaquinaPrecoLinhas(meta, meta);
   const machineCount = Math.max(collectTemplateMaquinaNomes(fill).length, 1);
-  const twoColumnPrices = precoLinhas.length > 6;
-  const priceLineStep = twoColumnPrices ? 4.1 : precoLinhas.length > 4 ? 4.5 : 5;
+  const twoColumnPrices = precoLinhas.length >= 4;
+  const priceLineStep =
+    precoLinhas.length >= 14 ? 3.5 : precoLinhas.length >= 8 ? 3.9 : precoLinhas.length > 4 ? 4.5 : 5;
   const priceRows = twoColumnPrices ? Math.ceil(precoLinhas.length / 2) : precoLinhas.length;
   const footerHeight = priceRows * (priceLineStep + 0.5) + 18 + 22;
   const footerStartY = Math.min(MAQUINA_FOOTER_ANCHOR_Y, PROPOSTA_FOOTER_MAX_Y - footerHeight);
   const bodyMaxY = footerStartY - 3;
   const bulletLineStep =
-    machineCount >= 6 ? 2.8 : machineCount >= 4 ? 3 : MAQUINA_BULLET_LINE_STEP;
+    machineCount >= 7 ? 2.45 : machineCount >= 5 ? 2.7 : machineCount >= 4 ? 3 : MAQUINA_BULLET_LINE_STEP;
 
   return {
     bodyMaxY,
@@ -1152,7 +1166,7 @@ function resolveManutencaoMaquinaPdfLayout(fill = {}) {
     twoColumnPrices,
     priceLineStep,
     bulletLineStep,
-    compactMachines: machineCount >= 4,
+    compactMachines: machineCount >= 3,
   };
 }
 

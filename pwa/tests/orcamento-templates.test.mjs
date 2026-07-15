@@ -12,6 +12,7 @@ import {
   formatLinhaValorManutencaoBateria,
   formatLinhasValorManutencaoBateria,
   formatManutencaoMaquinaPrecoLinhas,
+  buildManutencaoMaquinaIdentPreviewLines,
   MANUTENCAO_BATERIA_INTRO,
   MANUTENCAO_MAQUINA_INTRO,
   MANUTENCAO_MAQUINA_PRECO_LABEL,
@@ -133,9 +134,13 @@ describe('orcamento-templates — manutenção máquinas', () => {
     assert.equal(meta.linhas.length, 4);
     const precoLinhas = formatManutencaoMaquinaPrecoLinhas(meta, meta);
     assert.equal(precoLinhas.length, 4);
-    assert.equal(precoLinhas[0], 'Manutenção Geral – 350,00 €');
-    assert.equal(precoLinhas[2], 'Manutenção Geral – 200,00 €');
+    assert.equal(precoLinhas[0], 'Manutenção Geral — Toyota – 350,00 €');
+    assert.equal(precoLinhas[2], 'Manutenção Geral — Linde – 200,00 €');
     assert.match(precoLinhas[1], /DL50/);
     assert.match(precoLinhas[3], /Deslocação/);
+    const ident = buildManutencaoMaquinaIdentPreviewLines(meta, meta);
+    assert.equal(ident.length, 2);
+    assert.match(ident[0], /Toyota/);
+    assert.match(ident[1], /Linde/);
   });
 });

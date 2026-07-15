@@ -6,6 +6,7 @@ import {
   ORCAMENTO_FORMA_PAGAMENTO_DEFAULT,
   ORCAMENTO_VALIDADE_DEFAULT,
 } from './orcamento-cabecalho.js';
+import { escapeHtml } from './html-utils.js';
 import {
   computeLinhaTotal,
   formatEuro,
@@ -19,6 +20,7 @@ import {
 import {
   countTemplateEquipamentosComDados,
   formatTemplateMaquinaNome,
+  hasTemplateMaquinaIdentData,
   resolveEquipamentoIncluirDl50,
   resolveEquipamentoValorGeral,
   resolveEquipamentoValorInspecaoDl50,
@@ -386,14 +388,36 @@ function buildTemplateLinha(descricao, valor, equipamentoIndex = 0) {
   return { ...linha, total: totalNum > 0 ? formatEuro(totalNum) : '' };
 }
 
+function formatManutencaoMaquinaPrecoLabel(index, total, nome) {
+  if (total <= 1) return MANUTENCAO_MAQUINA_PRECO_LABEL;
+  const label = String(nome || '').trim();
+  if (label && !/^Máquina \d+$/.test(label)) {
+    return `${MANUTENCAO_MAQUINA_PRECO_LABEL} — ${label}`;
+  }
+  return `${MANUTENCAO_MAQUINA_PRECO_LABEL} — Máquina ${index + 1}`;
+}
+
+export function buildManutencaoMaquinaIdentPreviewLines(meta = {}, cabecalho = {}) {
+  const equipamentos = resolveTemplateEquipamentos(meta, cabecalho, 'maquina');
+  const lines = [];
+  equipamentos.forEach((row, index) => {
+    const nome = resolveMaquinaTemplateNome(row, index, meta, cabecalho);
+    if (!hasTemplateMaquinaIdentData(row) && /^Máquina \d+$/.test(nome)) return;
+    const prefix = equipamentos.length > 1 ? `Máquina ${index + 1}: ` : 'Máquina: ';
+    lines.push(`${prefix}${nome}`);
+  });
+  return lines;
+}
+
 export function buildManutencaoMaquinaLinhas(meta = {}, cabecalho = {}) {
   const equipamentos = resolveTemplateEquipamentos(meta, cabecalho, 'maquina');
   const linhas = [];
   equipamentos.forEach((row, index) => {
     const nome = resolveMaquinaTemplateNome(row, index, meta, cabecalho);
     const valorGeral = resolveEquipamentoValorGeral(row);
+    const precoLabel = formatManutencaoMaquinaPrecoLabel(index, equipamentos.length, nome);
     if (valorGeral > 0) {
-      linhas.push(buildTemplateLinha(MANUTENCAO_MAQUINA_PRECO_LABEL, valorGeral, index));
+      linhas.push(buildTemplateLinha(precoLabel, valorGeral, index));
     }
     if (resolveEquipamentoIncluirDl50(row)) {
       const dl50Desc =
@@ -418,10 +442,11 @@ export function formatManutencaoMaquinaPrecoLinhas(meta = {}, cabecalho = {}) {
   equipamentos.forEach((row, index) => {
     const nome = resolveMaquinaTemplateNome(row, index, meta, cabecalho);
     const valorGeral = resolveEquipamentoValorGeral(row);
+    const precoLabel = formatManutencaoMaquinaPrecoLabel(index, equipamentos.length, nome);
     lines.push(
       valorGeral > 0
-        ? `${MANUTENCAO_MAQUINA_PRECO_LABEL} – ${formatEuro(valorGeral)} €`
-        : `${MANUTENCAO_MAQUINA_PRECO_LABEL} – €`,
+        ? `${precoLabel} – ${formatEuro(valorGeral)} €`
+        : `${precoLabel} – €`,
     );
     if (resolveEquipamentoIncluirDl50(row)) {
       const dl50Line =
@@ -471,13 +496,32 @@ function emptyOrcamentoLinhaTemplate() {
   return { descricao: '', qtd: '1', precoUnit: '', total: '', equipamentoIndex: 0 };
 }
 
-export function renderManutencaoMaquinaTemplatePreview() {
+export function renderManutencaoMaquinaIdentPreviewHtml(meta = {}, cabecalho = {}) {
+  const lines = buildManutencaoMaquinaIdentPreviewLines(meta, cabecalho);
+  if (!lines.length) {
+    return '<p class="text-muted" data-orc-maquina-ident-empty>Indique marca/modelo em cada cartão acima — aparece aqui e no PDF.</p>';
+  }
+  return lines
+    .map((line) => {
+      const sep = line.indexOf(': ');
+      if (sep === -1) return `<p data-orc-maquina-ident-line>${escapeHtml(line)}</p>`;
+      const label = line.slice(0, sep);
+      const value = line.slice(sep + 2);
+      return `<p data-orc-maquina-ident-line><strong>${escapeHtml(label)}:</strong> ${escapeHtml(value)}</p>`;
+    })
+    .join('');
+}
+
+export function renderManutencaoMaquinaTemplatePreview(meta = {}, cabecalho = {}) {
   const trabalhos = MANUTENCAO_MAQUINA_TRABALHOS.map((item) => `<li>${item}</li>`).join('');
+  const intro =
+    resolveManutencaoMaquinaIntro(meta, cabecalho) || MANUTENCAO_MAQUINA_INTRO;
   return `
-    <details class="review-orc-template-preview review-orc-template-preview--collapsible">
-      <summary class="review-orc-template-preview__summary">Texto da proposta (fixo no PDF)</summary>
+    <details class="review-orc-template-preview review-orc-template-preview--collapsible" open>
+      <summary class="review-orc-template-preview__summary">Texto da proposta (como no PDF)</summary>
       <div class="review-orc-template-preview__body">
-        <p>${MANUTENCAO_MAQUINA_INTRO}</p>
+        <p data-orc-maquina-intro-preview>${escapeHtml(intro)}</p>
+        <div data-orc-maquina-ident-preview>${renderManutencaoMaquinaIdentPreviewHtml(meta, cabecalho)}</div>
         <p><strong>${MANUTENCAO_MAQUINA_PLANO_TITULO}</strong></p>
         <p>– ${MANUTENCAO_MAQUINA_PLANO_DETALHE}</p>
         <p><strong>${MANUTENCAO_MAQUINA_ESPECIFICACAO_TITULO}</strong></p>
@@ -489,7 +533,7 @@ export function renderManutencaoMaquinaTemplatePreview() {
 
 export function renderManutencaoMaquinaPrecoPreviewHtml(meta = {}, cabecalho = {}) {
   return formatManutencaoMaquinaPrecoLinhas(meta, cabecalho)
-    .map((line) => `<p><strong>${line}</strong></p>`)
+    .map((line) => `<p><strong>${escapeHtml(line)}</strong></p>`)
     .join('');
 }
 
