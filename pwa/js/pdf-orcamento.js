@@ -194,9 +194,9 @@ function getOrcamentoGenericDensityProfile(id = 'normal', groupCount = 1) {
       tableFontSize: 8,
       tableCellPad: 3,
       equipLineStep: 3.4,
-      equipTail: 1.5,
-      separatorBefore: 1.5,
-      separatorAfter: 2.5,
+      equipTail: 2,
+      separatorBefore: 2,
+      separatorAfter: 5,
       sectionTail: 0.5,
       introStep: 4.2,
       introGap: 2,
@@ -210,7 +210,7 @@ function getOrcamentoGenericDensityProfile(id = 'normal', groupCount = 1) {
       equipLineStep: 4,
       equipTail: 2,
       separatorBefore: 2,
-      separatorAfter: 3.5,
+      separatorAfter: 4.5,
       sectionTail: 1,
     };
   } else {
@@ -715,16 +715,45 @@ export function resolveOrcamentoEquipamentoPdfBlocks(fill = {}) {
 
 function drawOrcamentoEquipamentoSeparator(doc, y, density = ORC_GENERIC_DENSITY.normal) {
   y += density.separatorBefore;
-  const lineY = y + 1;
-  doc.setDrawColor(100, 116, 139);
-  doc.setLineWidth(0.65);
-  doc.line(MARGIN, lineY, MARGIN + CONTENT_W, lineY);
+  doc.setDrawColor(...PDF_TABLE_LINE);
   doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
-  return lineY + density.separatorAfter;
+  doc.line(MARGIN, y, MARGIN + CONTENT_W, y);
+  return y + density.separatorAfter;
 }
 
 function measureOrcamentoEquipamentoSeparator(y, density = ORC_GENERIC_DENSITY.normal) {
-  return y + density.separatorBefore + 1 + density.separatorAfter;
+  return y + density.separatorBefore + density.separatorAfter;
+}
+
+export function estimateOrcamentoGroupBlockHeight(
+  doc,
+  equipRows,
+  linhas,
+  density = ORC_GENERIC_DENSITY.normal,
+  includeSeparator = false,
+) {
+  let h = 0;
+  if (equipRows.length) {
+    h += measureHorizontalEquipFieldsHeight(doc, equipRows, 0, Number.POSITIVE_INFINITY, density);
+  }
+  h += density.tableRowH * (1 + filterOrcamentoPdfGroupLinhas(linhas).length);
+  if (includeSeparator) {
+    h += density.separatorBefore + density.separatorAfter;
+  }
+  return h;
+}
+
+function drawOrcamentoGenericContinuationHeader(doc, fill) {
+  let y = MARGIN + 4;
+  pdfSetFont(doc, 'bold');
+  doc.setFontSize(PDF_FONT_BODY);
+  doc.setTextColor(...PDF_COLOR_TEXT_DARK);
+  doc.text(`Orçamento nº ${pdfSafeText(fill.orcamento_numero)} — continuação`, MARGIN, y);
+  y += 6;
+  doc.setDrawColor(...PDF_TABLE_LINE);
+  doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
+  doc.line(MARGIN, y, MARGIN + CONTENT_W, y);
+  return y + 7;
 }
 
 /** Valor monetário na tabela do PDF — sempre com símbolo €. */
@@ -1157,20 +1186,40 @@ function drawOrcamentoMaquinaSections(
   const groups = groupOrcamentoLinhasByEquipamento(fill.linhas, fill.maquinas, campos);
   const { blocks } = resolveOrcamentoEquipamentoPdfBlocks(fill);
   let y = startY;
+  let bodyPage = doc.internal.getCurrentPageInfo().pageNumber;
+  let pageStartY = startY;
+  let pageMaxEndY = maxEndY;
 
   groups.forEach((group, groupIndex) => {
     const block = blocks.find((row) => row.index === group.equipamentoIndex) || blocks[groupIndex];
     const equipRows = resolveMaquinaEquipRows(block, fill);
+    const includeSeparator = groupIndex < groups.length - 1;
+    const groupHeight = estimateOrcamentoGroupBlockHeight(
+      doc,
+      equipRows,
+      group.linhas,
+      density,
+      includeSeparator,
+    );
+
+    if (y + groupHeight > pageMaxEndY && y > pageStartY) {
+      doc.addPage();
+      bodyPage = doc.getNumberOfPages();
+      y = drawOrcamentoGenericContinuationHeader(doc, fill);
+      pageStartY = y;
+      pageMaxEndY = ORC_GENERIC_BODY_MAX_Y;
+    }
+
     if (equipRows.length) {
-      y = drawHorizontalEquipFields(doc, equipRows, y, maxEndY, density);
+      y = drawHorizontalEquipFields(doc, equipRows, y, pageMaxEndY, density);
     }
     y = drawOrcamentoMachineTableSection(doc, group.linhas, y, density);
-    if (groupIndex < groups.length - 1) {
+    if (includeSeparator) {
       y = drawOrcamentoEquipamentoSeparator(doc, y, density);
     }
   });
 
-  return y + density.sectionTail;
+  return { y: y + density.sectionTail, page: bodyPage };
 }
 
 function measureOrcamentoObservacoesHeight(
@@ -1932,16 +1981,17 @@ export async function renderOrcamentoPDF(report) {
   });
   y += density.introGap;
 
-  y = drawOrcamentoMaquinaSections(doc, fill, y, ORC_GENERIC_BODY_MAX_Y, density);
+  const sections = drawOrcamentoMaquinaSections(doc, fill, y, ORC_GENERIC_BODY_MAX_Y, density);
 
-  drawOrcamentoObservacoesCliente(doc, fill, y, {
+  doc.setPage(sections.page);
+  drawOrcamentoObservacoesCliente(doc, fill, sections.y, {
     maxEndY: ORC_GENERIC_BODY_MAX_Y,
     density,
   });
 
   drawOrcamentoFooter(doc, fill);
 
-  doc.setPage(1);
+  doc.setPage(sections.page);
   drawClientApprovalBox(doc);
 
   if (legalText) {

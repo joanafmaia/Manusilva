@@ -12,6 +12,7 @@ import {
   resolveManutencaoMaquinaFooterTypography,
   resolveManutencaoMaquinaPdfLayout,
   resolveOrcamentoGenericLayout,
+  estimateOrcamentoGroupBlockHeight,
 } from '../js/pdf-orcamento.js';
 import {
   filterOrcamentoPdfGroupLinhas,
@@ -174,5 +175,21 @@ describe('pdf-orcamento layout', () => {
     };
     const layout = resolveOrcamentoGenericLayout(doc, fill, 95);
     assert.ok(layout.density.tableRowH <= 4.8);
+    assert.ok(layout.density.separatorAfter >= 5);
+  });
+
+  it('reserva espaco suficiente entre grupos para a linha separadora', () => {
+    const doc = {
+      getTextWidth: () => 10,
+      setFontSize() {},
+      setFont() {},
+      splitTextToSize: (text) => [text],
+    };
+    const density = { tableRowH: 4.8, equipLineStep: 3.4, equipTail: 2, separatorBefore: 2, separatorAfter: 5 };
+    const equipRows = [['Marca', 'Nissan'], ['Modelo', '3']];
+    const linhas = [{ descricao: 'Peça', qtd: '1', precoUnit: '10' }];
+    const blockH = estimateOrcamentoGroupBlockHeight(doc, equipRows, linhas, density, true);
+    const tableOnly = estimateOrcamentoGroupBlockHeight(doc, equipRows, linhas, density, false);
+    assert.ok(blockH - tableOnly >= 7, 'separador deve reservar pelo menos 7mm');
   });
 });
