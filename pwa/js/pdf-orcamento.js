@@ -166,7 +166,26 @@ const ORC_GENERIC_DENSITY = {
     obsHeadGap: 2,
     obsTitleStep: 3.5,
   },
+  /** 3 equipamentos numa única folha — compressão extra garantida. */
+  triple: {
+    tableRowH: 4.2,
+    tableFontSize: 8,
+    tableCellPad: 2.8,
+    equipLineStep: 3.2,
+    equipTail: 1.5,
+    separatorBefore: 1.5,
+    separatorAfter: 3.5,
+    sectionTail: 0,
+    introStep: 4,
+    introGap: 1.5,
+    obsLineStep: 3.4,
+    obsHeadGap: 2,
+    obsTitleStep: 3.8,
+  },
 };
+
+/** Até 3 máquinas ficam sempre na folha 1; a partir da 4.ª usa continuação. */
+const ORC_GENERIC_SINGLE_PAGE_GROUP_LIMIT = 3;
 
 const ORC_GENERIC_BODY_MAX_Y = FOOTER_TOP - 2;
 
@@ -187,20 +206,36 @@ function getOrcamentoGenericDensityProfile(id = 'normal', groupCount = 1) {
   const base = ORC_GENERIC_DENSITY[id] || ORC_GENERIC_DENSITY.normal;
   let density = { ...ORC_GENERIC_DENSITY.normal, ...base };
 
-  if (groupCount >= 3) {
+  if (groupCount >= 4) {
     density = {
       ...density,
-      tableRowH: 4.8,
-      tableFontSize: 8,
-      tableCellPad: 3,
-      equipLineStep: 3.4,
+      tableRowH: 5.2,
+      tableFontSize: 8.25,
+      tableCellPad: 3.5,
+      equipLineStep: 4,
       equipTail: 2,
       separatorBefore: 2,
-      separatorAfter: 5,
-      sectionTail: 0.5,
-      introStep: 4.2,
-      introGap: 2,
+      separatorAfter: 4.5,
+      sectionTail: 1,
     };
+  } else if (groupCount === 3) {
+    if (id === 'triple') {
+      density = { ...ORC_GENERIC_DENSITY.normal, ...ORC_GENERIC_DENSITY.triple };
+    } else {
+      density = {
+        ...density,
+        tableRowH: 4.8,
+        tableFontSize: 8,
+        tableCellPad: 3,
+        equipLineStep: 3.4,
+        equipTail: 2,
+        separatorBefore: 2,
+        separatorAfter: 4,
+        sectionTail: 0.5,
+        introStep: 4.2,
+        introGap: 2,
+      };
+    }
   } else if (groupCount >= 2) {
     density = {
       ...density,
@@ -265,7 +300,11 @@ export function estimateOrcamentoMachineGroupBlockHeight(
 export function resolveOrcamentoGenericLayout(doc, fill, bodyStartY) {
   const intro = resolveOrcamentoTextoIntroForPdf(fill.maquinas, fill.texto_intro);
   const groupCount = Math.max(1, countOrcamentoEquipamentoGroups(fill));
-  const order = ['normal', 'compact', 'tight'];
+  const allowPagination = groupCount > ORC_GENERIC_SINGLE_PAGE_GROUP_LIMIT;
+  const order =
+    groupCount <= ORC_GENERIC_SINGLE_PAGE_GROUP_LIMIT
+      ? ['normal', 'compact', 'tight', 'triple']
+      : ['normal', 'compact'];
 
   for (const densityId of order) {
     const density = getOrcamentoGenericDensityProfile(densityId, groupCount);
@@ -285,11 +324,49 @@ export function resolveOrcamentoGenericLayout(doc, fill, bodyStartY) {
       density,
     );
     if (contentEndY <= ORC_GENERIC_BODY_MAX_Y) {
-      return { density, densityId, intro, introEndY, sectionsEndY, contentEndY };
+      return {
+        density,
+        densityId,
+        intro,
+        introEndY,
+        sectionsEndY,
+        contentEndY,
+        allowPagination,
+        groupCount,
+      };
     }
   }
 
-  const density = getOrcamentoGenericDensityProfile('tight', groupCount);
+  if (groupCount <= ORC_GENERIC_SINGLE_PAGE_GROUP_LIMIT) {
+    const density = getOrcamentoGenericDensityProfile('triple', groupCount);
+    const introEndY = measureOrcamentoIntroHeight(doc, intro, bodyStartY, density);
+    const sectionsEndY = measureOrcamentoMaquinaSectionsHeight(
+      doc,
+      fill,
+      introEndY,
+      ORC_GENERIC_BODY_MAX_Y,
+      density,
+    );
+    const contentEndY = measureOrcamentoObservacoesHeight(
+      doc,
+      fill,
+      sectionsEndY,
+      ORC_GENERIC_BODY_MAX_Y,
+      density,
+    );
+    return {
+      density,
+      densityId: 'triple',
+      intro,
+      introEndY,
+      sectionsEndY,
+      contentEndY,
+      allowPagination: false,
+      groupCount,
+    };
+  }
+
+  const density = getOrcamentoGenericDensityProfile('compact', groupCount);
   const introEndY = measureOrcamentoIntroHeight(doc, intro, bodyStartY, density);
   const sectionsEndY = measureOrcamentoMaquinaSectionsHeight(
     doc,
@@ -305,7 +382,16 @@ export function resolveOrcamentoGenericLayout(doc, fill, bodyStartY) {
     ORC_GENERIC_BODY_MAX_Y,
     density,
   );
-  return { density, densityId: 'tight', intro, introEndY, sectionsEndY, contentEndY };
+  return {
+    density,
+    densityId: 'compact',
+    intro,
+    introEndY,
+    sectionsEndY,
+    contentEndY,
+    allowPagination: true,
+    groupCount,
+  };
 }
 
 function canDrawTableLine(y, step = 5) {
@@ -1110,12 +1196,18 @@ function measureOrcamentoMachineTableHeight(doc, linhas, startY, density = ORC_G
   return startY + density.tableRowH * (1 + rows.length);
 }
 
-function drawOrcamentoMachineTableSection(doc, linhas, startY, density = ORC_GENERIC_DENSITY.normal) {
+function drawOrcamentoMachineTableSection(
+  doc,
+  linhas,
+  startY,
+  density = ORC_GENERIC_DENSITY.normal,
+  { clip = true } = {},
+) {
   const rows = filterOrcamentoPdfGroupLinhas(linhas);
   const { drawRow } = createOrcamentoTableRowDrawer(doc, startY, {
     maxEndY: ORC_GENERIC_BODY_MAX_Y,
     density,
-    clip: true,
+    clip,
   });
   let y = drawRow(['Na reparação precisa', 'Qtd.', 'Preço Unit.', 'Total'], {
     bold: true,
@@ -1181,6 +1273,7 @@ function drawOrcamentoMaquinaSections(
   startY,
   maxEndY = CONTENT_MAX_Y,
   density = ORC_GENERIC_DENSITY.normal,
+  { allowPagination = false } = {},
 ) {
   const campos = normalizeEquipamentoCampos(fill.equipamento_campos);
   const groups = groupOrcamentoLinhasByEquipamento(fill.linhas, fill.maquinas, campos);
@@ -1202,7 +1295,7 @@ function drawOrcamentoMaquinaSections(
       includeSeparator,
     );
 
-    if (y + groupHeight > pageMaxEndY && y > pageStartY) {
+    if (allowPagination && y + groupHeight > pageMaxEndY && y > pageStartY) {
       doc.addPage();
       bodyPage = doc.getNumberOfPages();
       y = drawOrcamentoGenericContinuationHeader(doc, fill);
@@ -1213,7 +1306,9 @@ function drawOrcamentoMaquinaSections(
     if (equipRows.length) {
       y = drawHorizontalEquipFields(doc, equipRows, y, pageMaxEndY, density);
     }
-    y = drawOrcamentoMachineTableSection(doc, group.linhas, y, density);
+    y = drawOrcamentoMachineTableSection(doc, group.linhas, y, density, {
+      clip: allowPagination,
+    });
     if (includeSeparator) {
       y = drawOrcamentoEquipamentoSeparator(doc, y, density);
     }
@@ -1971,7 +2066,7 @@ export async function renderOrcamentoPDF(report) {
 
   let y = drawOrcamentoLetterhead(doc, fill);
   const layout = resolveOrcamentoGenericLayout(doc, fill, y);
-  const { density } = layout;
+  const { density, allowPagination } = layout;
 
   pdfSetFont(doc, 'normal');
   doc.setFontSize(PDF_FONT_BODY);
@@ -1981,7 +2076,9 @@ export async function renderOrcamentoPDF(report) {
   });
   y += density.introGap;
 
-  const sections = drawOrcamentoMaquinaSections(doc, fill, y, ORC_GENERIC_BODY_MAX_Y, density);
+  const sections = drawOrcamentoMaquinaSections(doc, fill, y, ORC_GENERIC_BODY_MAX_Y, density, {
+    allowPagination,
+  });
 
   doc.setPage(sections.page);
   drawOrcamentoObservacoesCliente(doc, fill, sections.y, {

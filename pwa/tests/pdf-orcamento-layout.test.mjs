@@ -157,7 +157,61 @@ describe('pdf-orcamento layout', () => {
     assert.ok(Math.abs(contentHeight - availableHeight) < 0.2);
   });
 
-  it('compacta tabelas quando há 3 ou mais equipamentos', () => {
+  it('mantém 3 equipamentos numa folha sem paginação', () => {
+    const fill = {
+      maquinas: [{ marca: 'LGM' }, { marca: 'Nissan' }, { marca: 'Nissan' }],
+      linhas: [
+        { descricao: 'Elemento', qtd: '1', precoUnit: '77', equipamentoIndex: 0 },
+        { descricao: 'Ecovalor', qtd: '1', precoUnit: '0.45', equipamentoIndex: 0 },
+        { descricao: 'União de Cabo', qtd: '2', precoUnit: '14.5', equipamentoIndex: 0 },
+        { descricao: 'Parafusos', qtd: '4', precoUnit: '2.55', equipamentoIndex: 0 },
+        { descricao: 'Mão de Obra', qtd: '1', precoUnit: '41', equipamentoIndex: 0 },
+        { descricao: 'Elemento', qtd: '1', precoUnit: '203', equipamentoIndex: 1 },
+        { descricao: 'Ecovalor', qtd: '1', precoUnit: '0.95', equipamentoIndex: 1 },
+        { descricao: 'União de Cabo', qtd: '2', precoUnit: '14.5', equipamentoIndex: 1 },
+        { descricao: 'Parafusos', qtd: '4', precoUnit: '2.55', equipamentoIndex: 1 },
+        { descricao: 'Mão de Obra', qtd: '1', precoUnit: '41', equipamentoIndex: 1 },
+        { descricao: 'Elemento', qtd: '2', precoUnit: '137', equipamentoIndex: 2 },
+        { descricao: 'Ecovalor', qtd: '2', precoUnit: '0.6', equipamentoIndex: 2 },
+        { descricao: 'União de Cabo', qtd: '4', precoUnit: '14.5', equipamentoIndex: 2 },
+        { descricao: 'Parafusos', qtd: '4', precoUnit: '2.55', equipamentoIndex: 2 },
+        { descricao: 'Mão de Obra', qtd: '1', precoUnit: '41', equipamentoIndex: 2 },
+      ],
+      texto_intro: ORCAMENTO_TEXTO_INTRO_PLURAL,
+    };
+    const doc = {
+      getTextWidth: () => 10,
+      setFontSize() {},
+      setFont() {},
+      splitTextToSize: (text) => [text],
+    };
+    const layout = resolveOrcamentoGenericLayout(doc, fill, 76);
+    assert.equal(layout.allowPagination, false);
+    assert.ok(layout.contentEndY <= 187);
+  });
+
+  it('activa paginação a partir do 4.º equipamento', () => {
+    const fill = {
+      maquinas: [{ marca: 'A' }, { marca: 'B' }, { marca: 'C' }, { marca: 'D' }],
+      linhas: [
+        { descricao: 'Peça 1', qtd: '1', precoUnit: '10', equipamentoIndex: 0 },
+        { descricao: 'Peça 2', qtd: '1', precoUnit: '10', equipamentoIndex: 1 },
+        { descricao: 'Peça 3', qtd: '1', precoUnit: '10', equipamentoIndex: 2 },
+        { descricao: 'Peça 4', qtd: '1', precoUnit: '10', equipamentoIndex: 3 },
+      ],
+      texto_intro: ORCAMENTO_TEXTO_INTRO_PLURAL,
+    };
+    const doc = {
+      getTextWidth: () => 10,
+      setFontSize() {},
+      setFont() {},
+      splitTextToSize: (text) => [text],
+    };
+    const layout = resolveOrcamentoGenericLayout(doc, fill, 76);
+    assert.equal(layout.allowPagination, true);
+  });
+
+  it('compacta tabelas quando há 3 equipamentos', () => {
     const fill = {
       maquinas: [{ marca: 'A' }, { marca: 'B' }, { marca: 'C' }],
       linhas: [
@@ -175,7 +229,7 @@ describe('pdf-orcamento layout', () => {
     };
     const layout = resolveOrcamentoGenericLayout(doc, fill, 95);
     assert.ok(layout.density.tableRowH <= 4.8);
-    assert.ok(layout.density.separatorAfter >= 5);
+    assert.equal(layout.allowPagination, false);
   });
 
   it('reserva espaco suficiente entre grupos para a linha separadora', () => {
@@ -185,11 +239,11 @@ describe('pdf-orcamento layout', () => {
       setFont() {},
       splitTextToSize: (text) => [text],
     };
-    const density = { tableRowH: 4.8, equipLineStep: 3.4, equipTail: 2, separatorBefore: 2, separatorAfter: 5 };
+    const density = { tableRowH: 4.2, equipLineStep: 3.2, equipTail: 1.5, separatorBefore: 1.5, separatorAfter: 3.5 };
     const equipRows = [['Marca', 'Nissan'], ['Modelo', '3']];
     const linhas = [{ descricao: 'Peça', qtd: '1', precoUnit: '10' }];
     const blockH = estimateOrcamentoGroupBlockHeight(doc, equipRows, linhas, density, true);
     const tableOnly = estimateOrcamentoGroupBlockHeight(doc, equipRows, linhas, density, false);
-    assert.ok(blockH - tableOnly >= 7, 'separador deve reservar pelo menos 7mm');
+    assert.ok(blockH - tableOnly >= 5, 'separador deve reservar pelo menos 5mm');
   });
 });
