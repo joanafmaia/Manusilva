@@ -11,11 +11,13 @@ import {
   resolveManutencaoMaquinaBulletsLayout,
   resolveManutencaoMaquinaFooterTypography,
   resolveManutencaoMaquinaPdfLayout,
+  resolveOrcamentoGenericLayout,
 } from '../js/pdf-orcamento.js';
 import {
   filterOrcamentoPdfGroupLinhas,
   groupOrcamentoLinhasByEquipamento,
 } from '../js/orcamento-maquinas.js';
+import { ORCAMENTO_TEXTO_INTRO_PLURAL } from '../js/orcamento-cabecalho.js';
 
 describe('pdf-orcamento layout', () => {
   it('ancora a tabela acima do rodapé fixo mesmo com muitas linhas vazias', () => {
@@ -152,5 +154,25 @@ describe('pdf-orcamento layout', () => {
     const typography = resolveManutencaoMaquinaFooterTypography(availableHeight, table);
     const contentHeight = typography.separatorGap + typography.lineCount * typography.lineStep;
     assert.ok(Math.abs(contentHeight - availableHeight) < 0.2);
+  });
+
+  it('compacta tabelas quando há 3 ou mais equipamentos', () => {
+    const fill = {
+      maquinas: [{ marca: 'A' }, { marca: 'B' }, { marca: 'C' }],
+      linhas: [
+        { descricao: 'Peça 1', qtd: '1', precoUnit: '10', equipamentoIndex: 0 },
+        { descricao: 'Peça 2', qtd: '1', precoUnit: '10', equipamentoIndex: 1 },
+        { descricao: 'Peça 3', qtd: '1', precoUnit: '10', equipamentoIndex: 2 },
+      ],
+      texto_intro: ORCAMENTO_TEXTO_INTRO_PLURAL,
+    };
+    const doc = {
+      getTextWidth: () => 10,
+      setFontSize() {},
+      setFont() {},
+      splitTextToSize: (text) => [text],
+    };
+    const layout = resolveOrcamentoGenericLayout(doc, fill, 95);
+    assert.ok(layout.density.tableRowH <= 4.8);
   });
 });

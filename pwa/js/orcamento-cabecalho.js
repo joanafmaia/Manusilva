@@ -19,6 +19,27 @@ import {
 export const ORCAMENTO_FORMA_PAGAMENTO_DEFAULT = 'Pronto Pagamento';
 export const ORCAMENTO_VALIDADE_DEFAULT = '10 Dias';
 export const ORCAMENTO_CLIENTE_AC_DEFAULT = 'Exmo. Senhor';
+
+/** Remove tratamento duplicado («Exmo. Senhor: Nome» → «Nome»). */
+export function normalizeClienteAc(value) {
+  const raw = String(value ?? '').trim();
+  if (!raw) return ORCAMENTO_CLIENTE_AC_DEFAULT;
+  const withName = raw.match(/^Exm[oa]\.?\s*Senhor[a]?\.?\s*:\s*(.+)$/i);
+  if (withName?.[1]?.trim()) return withName[1].trim();
+  if (/^Exm[oa]s?\.?\s*Senhor[a]?[es]?\.?\s*:?\s*$/i.test(raw)) return ORCAMENTO_CLIENTE_AC_DEFAULT;
+  if (/^Exm[oa]\.?\s*Senhor[a]?\.?$/i.test(raw)) return ORCAMENTO_CLIENTE_AC_DEFAULT;
+  return raw;
+}
+
+/** Texto A/C. no PDF — tratamento formal ou nome do contacto. */
+export function formatClienteAcForPdf(clienteAc) {
+  const normalized = normalizeClienteAc(clienteAc);
+  if (!normalized || /^Exm[oa]\.?\s*Senhor[a]?\.?$/i.test(normalized)) {
+    return ORCAMENTO_CLIENTE_AC_DEFAULT;
+  }
+  return normalized;
+}
+
 export const ORCAMENTO_TEXTO_INTRO_SINGULAR =
   'Vimos por este meio enviar o nosso orçamento para a seguinte máquina:';
 export const ORCAMENTO_TEXTO_INTRO_PLURAL =
@@ -302,9 +323,9 @@ function buildDefaultsFromReport(report) {
   const values = report?.data?.values || {};
   const client = getClient(report?.clientId);
 
-  const clienteAc =
-    String(values.responsavel || client?.contact || client?.contacto || '').trim() ||
-    ORCAMENTO_CLIENTE_AC_DEFAULT;
+  const clienteAc = normalizeClienteAc(
+    values.responsavel || client?.contact || client?.contacto,
+  );
 
   const equipamento = resolveReportEquipamentoFields(report);
 
@@ -387,7 +408,7 @@ export function resolveOrcamentoCabecalho(report) {
   const cabecalho = syncDerivedEquipamento(
     {
       clienteNome: resolveOrcamentoClienteNome(report),
-      clienteAc: picked.clienteAc || ORCAMENTO_CLIENTE_AC_DEFAULT,
+      clienteAc: normalizeClienteAc(picked.clienteAc) || ORCAMENTO_CLIENTE_AC_DEFAULT,
       ...picked,
       marca: picked.marca || legacy.marca,
       modelo: picked.modelo || legacy.modelo,
@@ -418,7 +439,7 @@ export function readOrcamentoCabecalhoFromDom(root, report) {
   const cabecalho = syncDerivedEquipamento(
     {
       clienteNome,
-      clienteAc: read('clienteAc') || ORCAMENTO_CLIENTE_AC_DEFAULT,
+      clienteAc: normalizeClienteAc(read('clienteAc')) || ORCAMENTO_CLIENTE_AC_DEFAULT,
       marca: legacy.marca,
       modelo: legacy.modelo,
       tipo: legacy.tipo,

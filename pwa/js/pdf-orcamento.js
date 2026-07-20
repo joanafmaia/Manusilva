@@ -7,7 +7,7 @@
 import { COMPANY } from './mock_data.js';
 import { getJob } from './app.js';
 import { buildOrcamentoFillData } from './orcamento-fill-data.js';
-import { resolveOrcamentoTextoIntroForPdf } from './orcamento-cabecalho.js';
+import { formatClienteAcForPdf, resolveOrcamentoTextoIntroForPdf } from './orcamento-cabecalho.js';
 import {
   collectMaquinaPdfFieldRows,
   filterOrcamentoPdfGroupLinhas,
@@ -183,8 +183,46 @@ function withNormalTableMetrics(density = {}) {
   };
 }
 
-function getOrcamentoGenericDensityProfile(id = 'normal') {
-  return withNormalTableMetrics(ORC_GENERIC_DENSITY[id] || ORC_GENERIC_DENSITY.normal);
+function getOrcamentoGenericDensityProfile(id = 'normal', groupCount = 1) {
+  const base = ORC_GENERIC_DENSITY[id] || ORC_GENERIC_DENSITY.normal;
+  let density = { ...ORC_GENERIC_DENSITY.normal, ...base };
+
+  if (groupCount >= 3) {
+    density = {
+      ...density,
+      tableRowH: 4.8,
+      tableFontSize: 8,
+      tableCellPad: 3,
+      equipLineStep: 3.4,
+      equipTail: 1.5,
+      separatorBefore: 1.5,
+      separatorAfter: 2.5,
+      sectionTail: 0.5,
+      introStep: 4.2,
+      introGap: 2,
+    };
+  } else if (groupCount >= 2) {
+    density = {
+      ...density,
+      tableRowH: 5.2,
+      tableFontSize: 8.25,
+      tableCellPad: 3.5,
+      equipLineStep: 4,
+      equipTail: 2,
+      separatorBefore: 2,
+      separatorAfter: 3.5,
+      sectionTail: 1,
+    };
+  } else {
+    density = withNormalTableMetrics(base);
+  }
+
+  return density;
+}
+
+function countOrcamentoEquipamentoGroups(fill = {}) {
+  const campos = normalizeEquipamentoCampos(fill.equipamento_campos);
+  return groupOrcamentoLinhasByEquipamento(fill.linhas || [], fill.maquinas || [], campos).length;
 }
 
 function measureOrcamentoIntroHeight(doc, intro, startY, density = ORC_GENERIC_DENSITY.normal) {
@@ -226,10 +264,11 @@ export function estimateOrcamentoMachineGroupBlockHeight(
 
 export function resolveOrcamentoGenericLayout(doc, fill, bodyStartY) {
   const intro = resolveOrcamentoTextoIntroForPdf(fill.maquinas, fill.texto_intro);
+  const groupCount = Math.max(1, countOrcamentoEquipamentoGroups(fill));
   const order = ['normal', 'compact', 'tight'];
 
   for (const densityId of order) {
-    const density = getOrcamentoGenericDensityProfile(densityId);
+    const density = getOrcamentoGenericDensityProfile(densityId, groupCount);
     const introEndY = measureOrcamentoIntroHeight(doc, intro, bodyStartY, density);
     const sectionsEndY = measureOrcamentoMaquinaSectionsHeight(
       doc,
@@ -250,7 +289,7 @@ export function resolveOrcamentoGenericLayout(doc, fill, bodyStartY) {
     }
   }
 
-  const density = getOrcamentoGenericDensityProfile('tight');
+  const density = getOrcamentoGenericDensityProfile('tight', groupCount);
   const introEndY = measureOrcamentoIntroHeight(doc, intro, bodyStartY, density);
   const sectionsEndY = measureOrcamentoMaquinaSectionsHeight(
     doc,
@@ -387,7 +426,7 @@ function drawOrcamentoLetterhead(doc, fill) {
   ty += 11;
 
   const clienteLabel = pdfSafeText(fill.cliente_nome).toUpperCase();
-  const acLabel = pdfSafeText(fill.cliente_ac).toUpperCase();
+  const acLabel = pdfSafeText(formatClienteAcForPdf(fill.cliente_ac)).toUpperCase();
   doc.setFontSize(10);
   pdfSplitText(doc, `PARA: ${clienteLabel}`, rightColW).forEach((line) => {
     doc.text(line, rightColX, ty);
@@ -1047,7 +1086,7 @@ function drawOrcamentoMachineTableSection(doc, linhas, startY, density = ORC_GEN
   const { drawRow } = createOrcamentoTableRowDrawer(doc, startY, {
     maxEndY: ORC_GENERIC_BODY_MAX_Y,
     density,
-    clip: false,
+    clip: true,
   });
   let y = drawRow(['Na reparação precisa', 'Qtd.', 'Preço Unit.', 'Total'], {
     bold: true,

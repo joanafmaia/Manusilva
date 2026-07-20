@@ -4,7 +4,9 @@ import {
   ORCAMENTO_CLIENTE_AC_DEFAULT,
   ORCAMENTO_TEXTO_INTRO_PLURAL,
   ORCAMENTO_TEXTO_INTRO_SINGULAR,
+  formatClienteAcForPdf,
   mergeOrcamentoMetaWithCabecalho,
+  normalizeClienteAc,
   resolveOrcamentoTextoIntroForPdf,
   resolveReportObservacoesTecnico,
   suggestOrcamentoMaquinas,
@@ -105,6 +107,26 @@ describe('suggestOrcamentoMaquinas — template manutenção máquinas', () => {
       data: { orcamento: { maquinas } },
     };
     assert.equal(suggestOrcamentoMaquinas(report).length, 4);
+  });
+});
+
+describe('normalizeClienteAc', () => {
+  it('extrai o nome quando o tratamento vem com dois-pontos', () => {
+    assert.equal(normalizeClienteAc('Exmo. Senhor: Bruno Cardoso'), 'Bruno Cardoso');
+  });
+
+  it('mantém Exmo. Senhor quando não há nome', () => {
+    assert.equal(normalizeClienteAc('Exmo. Senhor'), ORCAMENTO_CLIENTE_AC_DEFAULT);
+  });
+});
+
+describe('formatClienteAcForPdf', () => {
+  it('mostra só o nome do contacto no PDF', () => {
+    assert.equal(formatClienteAcForPdf('Exmo. Senhor: Bruno Cardoso'), 'Bruno Cardoso');
+  });
+
+  it('mantém o tratamento singular por defeito', () => {
+    assert.equal(formatClienteAcForPdf(ORCAMENTO_CLIENTE_AC_DEFAULT), ORCAMENTO_CLIENTE_AC_DEFAULT);
   });
 });
 
