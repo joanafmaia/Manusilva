@@ -3,7 +3,13 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
+    "build": "node pwa/scripts/write-mapbox-config.js && node pwa/scripts/write-build-version.js && node pwa/scripts/write-api-runtime-config.mjs && node pwa/scripts/sync-rh-admin-config.mjs",
+    "start": "node server/index.cjs",
+    "dev:server": "node server/index.cjs",
     "test": "node --test pwa/tests/*.test.mjs",
     "import:catalogo": "python scripts/import-listagem-produtos.py",
     "sync:rh-config": "node pwa/scripts/sync-rh-admin-config.mjs",
@@ -16,6 +22,7 @@
     "css:move-tech": "python scripts/move-tech-css-from-admin.py"
   },
   "dependencies": {
+    "express": "^5.2.1",
     "jszip": "^3.10.1",
     "nodemailer": "^7.0.13"
   },

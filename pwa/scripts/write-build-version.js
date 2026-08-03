@@ -8,7 +8,14 @@ import { fileURLToPath } from 'url';
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 
-let buildId = String(process.env.VERCEL_GIT_COMMIT_SHA || '').trim().slice(0, 12);
+let buildId = String(
+  process.env.RAILWAY_GIT_COMMIT_SHA ||
+    process.env.VERCEL_GIT_COMMIT_SHA ||
+    process.env.GITHUB_SHA ||
+    '',
+)
+  .trim()
+  .slice(0, 12);
 if (!buildId) {
   try {
     buildId = execSync('git rev-parse --short HEAD', { encoding: 'utf8' }).trim();

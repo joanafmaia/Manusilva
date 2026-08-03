@@ -4,7 +4,7 @@
  * Online: rede primeiro (JS/HTML atualizados).
  * Offline: cache local (arranque e módulos já visitados).
  */
-const CACHE_VERSION = '8ad7b60';
+const CACHE_VERSION = '9494e10';
 const CACHE_SHELL = `manusilva-shell-${CACHE_VERSION}`;
 const CACHE_RUNTIME = `manusilva-runtime-${CACHE_VERSION}`;
 

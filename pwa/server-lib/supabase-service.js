@@ -9,7 +9,7 @@ const SERVICE_ROLE_KEY = String(process.env.SUPABASE_SERVICE_ROLE_KEY || '').tri
 function requireServiceRoleKey() {
   if (!SERVICE_ROLE_KEY) {
     const err = new Error(
-      'SUPABASE_SERVICE_ROLE_KEY não configurada no servidor. Adicione-a nas variáveis de ambiente da Vercel.',
+      'SUPABASE_SERVICE_ROLE_KEY não configurada no servidor. Adicione-a nas variáveis de ambiente (Railway/Vercel).',
     );
     err.status = 500;
     throw err;

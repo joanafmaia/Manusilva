@@ -21,7 +21,7 @@ function getSupabaseUrl() {
   const url = String(process.env.SUPABASE_URL || fallback?.supabaseUrl || '').trim();
   if (!url) {
     throw new Error(
-      'SUPABASE_URL em falta. Configure na Vercel ou execute npm run sync:api-config.',
+      'SUPABASE_URL em falta. Configure nas variáveis de ambiente ou execute npm run sync:api-config.',
     );
   }
   return url;
@@ -37,7 +37,7 @@ function getSupabaseAnonKey() {
   ).trim();
   if (!key) {
     throw new Error(
-      'SUPABASE_ANON_KEY em falta. Configure na Vercel ou execute npm run sync:api-config.',
+      'SUPABASE_ANON_KEY em falta. Configure nas variáveis de ambiente ou execute npm run sync:api-config.',
     );
   }
   return key;

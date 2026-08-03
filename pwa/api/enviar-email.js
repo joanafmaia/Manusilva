@@ -606,7 +606,7 @@ module.exports = async function handler(req, res) {
     if (!EMAIL_USER || !EMAIL_PASS) {
       return res.status(500).json({
         error: 'Variáveis SMTP não configuradas.',
-        hint: 'Configure EMAIL_USER e EMAIL_PASS na Vercel (Gmail: use App Password com 2FA).',
+        hint: 'Configure EMAIL_USER e EMAIL_PASS no servidor (Gmail: use App Password com 2FA).',
       });
     }
 
@@ -753,9 +753,9 @@ module.exports = async function handler(req, res) {
     } else if (responseCode === 535) {
       hint = 'Falha de autenticação SMTP (ver App Password / 2FA).';
     } else if (/SUPABASE_URL|SUPABASE_ANON_KEY/i.test(detail)) {
-      hint = 'Configure SUPABASE_URL e SUPABASE_ANON_KEY na Vercel (Settings → Environment Variables).';
+      hint = 'Configure SUPABASE_URL e SUPABASE_ANON_KEY nas variáveis de ambiente do servidor.';
     } else if (/ECONNREFUSED|ETIMEDOUT|ESOCKET/i.test(code || '')) {
-      hint = 'Servidor SMTP inacessível. Verifique SMTP_HOST e SMTP_PORT na Vercel.';
+      hint = 'Servidor SMTP inacessível. Verifique SMTP_HOST e SMTP_PORT.';
     }
 
     const error =

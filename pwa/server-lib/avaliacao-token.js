@@ -76,8 +76,15 @@ function verifyAvaliacaoToken(token) {
 function getAppBaseUrl() {
   const explicit = String(process.env.APP_BASE_URL || '').trim().replace(/\/$/, '');
   if (explicit) return explicit;
+
+  const railwayDomain = String(process.env.RAILWAY_PUBLIC_DOMAIN || '').trim().replace(/\/$/, '');
+  if (railwayDomain) {
+    return railwayDomain.startsWith('http') ? railwayDomain : `https://${railwayDomain}`;
+  }
+
   const vercel = String(process.env.VERCEL_URL || '').trim();
   if (vercel) return `https://${vercel}`;
+
   return 'https://manusilva.vercel.app';
 }
 
