@@ -30,7 +30,7 @@ export async function initWarehouseDashboard() {
   initLogoutButton();
   renderUserGreeting('user-name');
   bindAppRefreshButton('btn-force-app-refresh', {
-    notifyStyle: 'button',
+    notifyStyle: 'banner',
     updateHint: 'Nova versão disponível — clique em Atualizar.',
   });
 

@@ -190,6 +190,34 @@ describe('pdf-orcamento layout', () => {
     assert.ok(layout.contentEndY <= 187);
   });
 
+  it('pagina 3 equipamentos quando o conteúdo não cabe mesmo em triple', () => {
+    const manyLinhas = [];
+    for (let g = 0; g < 3; g += 1) {
+      for (let i = 0; i < 12; i += 1) {
+        manyLinhas.push({
+          descricao: `Peça ${g}-${i}`,
+          qtd: '1',
+          precoUnit: '10',
+          equipamentoIndex: g,
+        });
+      }
+    }
+    const fill = {
+      maquinas: [{ marca: 'A' }, { marca: 'B' }, { marca: 'C' }],
+      linhas: manyLinhas,
+      texto_intro: ORCAMENTO_TEXTO_INTRO_PLURAL,
+    };
+    const doc = {
+      getTextWidth: () => 10,
+      setFontSize() {},
+      setFont() {},
+      splitTextToSize: (text) => [text],
+    };
+    const layout = resolveOrcamentoGenericLayout(doc, fill, 76);
+    assert.equal(layout.allowPagination, true);
+    assert.ok(layout.contentEndY > 187);
+  });
+
   it('activa paginação a partir do 4.º equipamento', () => {
     const fill = {
       maquinas: [{ marca: 'A' }, { marca: 'B' }, { marca: 'C' }, { marca: 'D' }],

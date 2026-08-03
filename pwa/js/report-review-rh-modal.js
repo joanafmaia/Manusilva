@@ -38,6 +38,11 @@ import {
   resolveWorkStateFromReport,
 } from './calendar-event-state.js';
 import {
+  renderReportClienteEmailBadge,
+  countReportsWithPendingClienteEmail,
+  reportClientEmailIsPending,
+} from './report-cliente-email-state.js';
+import {
   formatReportAge,
   getReportUrgencyLevel,
   isRhDayCollapsed,
@@ -275,8 +280,10 @@ function buildRhVisitaReportCompactRow(report, getJobFn = getJob) {
   const op = formatOpLabel(getReportNumeroOrdem(report));
   const opHtml = op ? `<code class="rh-ordem-badge">${escapeHtml(op)}</code>` : '';
   const badge = renderReportWorkStateBadge(report, job);
+  const emailBadge = report?.status === 'approved' ? renderReportClienteEmailBadge(report) : '';
   const age = formatReportAge(report?.submittedAt);
   const isPending = report?.status === 'pending_review';
+  const emailPending = reportClientEmailIsPending(report);
 
   const pendingToolbar = isPending
     ? `<div class="rh-visita-folder__compact-toolbar" role="group" aria-label="Ações rápidas">
@@ -289,7 +296,7 @@ function buildRhVisitaReportCompactRow(report, getJobFn = getJob) {
     : '';
 
   return `
-    <div class="rh-visita-folder__report-row rh-visita-folder__report-row--compact${isPending ? ' is-pending' : ''}" data-report-id="${escapeHtml(report.id)}">
+    <div class="rh-visita-folder__report-row rh-visita-folder__report-row--compact${isPending ? ' is-pending' : ''}${emailPending ? ' is-email-pending' : ''}" data-report-id="${escapeHtml(report.id)}">
       ${pendingToolbar}
       <button type="button" class="rh-visita-folder__compact-link" data-panel-open="${escapeHtml(report.id)}">
         ${serviceIconHtml(service, 'ms-icon')}
@@ -297,8 +304,10 @@ function buildRhVisitaReportCompactRow(report, getJobFn = getJob) {
         ${opHtml}
         ${isPending ? `<span class="rh-visita-folder__compact-age text-muted">${escapeHtml(age)}</span>` : ''}
         ${badge}
+        ${emailBadge}
       </button>
       ${isPending ? `<button type="button" class="btn-primary btn-sm rh-visita-folder__compact-rever" data-panel-open="${escapeHtml(report.id)}">Rever</button>` : ''}
+      ${emailPending ? `<button type="button" class="btn-secondary btn-sm rh-visita-folder__compact-rever" data-panel-open="${escapeHtml(report.id)}">Reenviar e-mail</button>` : ''}
     </div>`;
 }
 
@@ -320,9 +329,12 @@ export function buildRhVisitaFolder({
   if (state.rejected) statusParts.push(`${state.rejected} rejeitado${state.rejected === 1 ? '' : 's'}`);
   if (state.draft) statusParts.push(`${state.draft} rascunho${state.draft === 1 ? '' : 's'}`);
 
+  const pendingEmails = countReportsWithPendingClienteEmail(reports);
   const emailHint =
     !standalone && servico?.clientEmailSentAt
       ? `<span class="rh-visita-folder__email-hint text-muted">E-mail enviado ao cliente</span>`
+      : !standalone && pendingEmails > 0
+        ? `<span class="rh-visita-folder__email-hint rh-visita-folder__email-hint--pending">E-mail pendente (${pendingEmails})</span>`
       : !standalone && state.total > 1 && !state.allApproved
         ? `<span class="rh-visita-folder__email-hint text-muted">E-mail único quando todos estiverem aprovados</span>`
         : !standalone && state.allApproved
@@ -757,11 +769,15 @@ export function buildRhReviewModalContent({
     : job?.date || '';
   const dateLabel = submittedDate ? formatDateLong(submittedDate) : '—';
   const canResendEmail = report?.status === 'approved';
+  const emailPending = reportClientEmailIsPending(report);
+  const emailStateBadge = canResendEmail ? renderReportClienteEmailBadge(report) : '';
   const contactField = renderReviewClientEmailField(client, {
     editable: showWorkflow || canResendEmail,
     hint:
       canResendEmail && !showWorkflow
-        ? 'E-mail para reenvio do relatório técnico. Se alterar, a base de dados do cliente será atualizada.'
+        ? emailPending
+          ? 'E-mail pendente após a aprovação. Confirme o destinatário e reenvie.'
+          : 'E-mail para reenvio do relatório técnico. Se alterar, a base de dados do cliente será atualizada.'
         : 'E-mail para envio do relatório técnico após aprovação. A proposta comercial usa outro destinatário.',
   });
   const hasFotos = reviewJobHasFotos(job, report);
@@ -785,7 +801,7 @@ export function buildRhReviewModalContent({
       `
     : canResendEmail
       ? `
-        <button type="button" class="btn-primary btn-touch review-action-btn" id="modal-resend-email">Reenviar e-mail ao cliente</button>
+        <button type="button" class="${emailPending ? 'btn-primary' : 'btn-secondary'} btn-touch review-action-btn" id="modal-resend-email">${emailPending ? 'Reenviar e-mail (pendente)' : 'Reenviar e-mail ao cliente'}</button>
         <button type="button" class="btn-secondary btn-touch review-action-btn" id="modal-close-review">Fechar</button>
       `
       : `<button type="button" class="btn-secondary btn-touch review-action-btn" id="modal-close-review">Fechar</button>`;
@@ -800,6 +816,7 @@ export function buildRhReviewModalContent({
             <span class="review-ordem-num">${escapeHtml(formatOrdemLabel(job))}</span>
           </div>
           ${queueAge ? `<span class="review-queue-badge">${escapeHtml(queueAge)}</span>` : ''}
+          ${emailStateBadge}
         </div>
         <p class="review-meta-row"><strong>Serviço:</strong> ${serviceLine}</p>
         <p class="review-meta-row"><strong>Cliente:</strong> ${escapeHtml(client?.name || client?.Nome || '—')}</p>

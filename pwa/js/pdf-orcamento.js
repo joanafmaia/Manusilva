@@ -354,6 +354,7 @@ export function resolveOrcamentoGenericLayout(doc, fill, bodyStartY) {
       ORC_GENERIC_BODY_MAX_Y,
       density,
     );
+    const fits = contentEndY <= ORC_GENERIC_BODY_MAX_Y;
     return {
       density,
       densityId: 'triple',
@@ -361,7 +362,8 @@ export function resolveOrcamentoGenericLayout(doc, fill, bodyStartY) {
       introEndY,
       sectionsEndY,
       contentEndY,
-      allowPagination: false,
+      // Com ≤3 grupos tenta 1 folha; se mesmo assim não cabe, pagina.
+      allowPagination: !fits,
       groupCount,
     };
   }

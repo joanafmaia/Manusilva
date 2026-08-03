@@ -683,7 +683,7 @@ export async function initTechDashboard() {
   bindTechConnectivityActions();
   import(`./app-refresh-ui.js${globalThis.__MS_MODULE_Q || `?_=${Date.now()}`}`).then(({ bindAppRefreshButton }) => {
     bindAppRefreshButton('btn-force-app-refresh', {
-      notifyStyle: 'button',
+      notifyStyle: 'banner',
       updateHint: 'Nova versão disponível — toque em Atualizar.',
     });
   });

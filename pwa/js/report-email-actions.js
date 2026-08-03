@@ -22,6 +22,10 @@ import {
 import { syncClientEmailIfChanged } from './clients-admin.js';
 import { sendOfficialReportEmail } from './report-email-api.js';
 import {
+  buildClienteEmailSentPatch,
+  buildClienteEmailPendingPatch,
+} from './report-cliente-email-state.js';
+import {
   buildReportEmailPdfPayload,
   blobToBase64,
   prepareEmailPdfPayload,
@@ -207,10 +211,20 @@ export async function resendApprovedReportEmail(reportId, options = {}) {
       skipRatingLink: true,
       ...emailPdfPayload,
     });
+    await updateRelatorio(reportId, {
+      data: buildClienteEmailSentPatch(),
+    });
     showToast(`E-mail reenviado para ${recipientsLabel}.`, 'success', 6000);
     return true;
   } catch (err) {
     console.error('[Email] Reenvio falhou:', err);
+    try {
+      await updateRelatorio(reportId, {
+        data: buildClienteEmailPendingPatch(err?.message || ''),
+      });
+    } catch {
+      /* ignore */
+    }
     showToast(`Falha ao reenviar e-mail. ${err?.message || ''}`.trim(), 'error', 8000);
     return false;
   }
@@ -338,7 +352,7 @@ export async function sendSelectedReportsEmail(reportIds, options = {}) {
     const sentAt = new Date().toISOString();
     for (const report of reports) {
       await updateRelatorio(report.id, {
-        data: { visitClienteEmailSentAt: sentAt },
+        data: buildClienteEmailSentPatch(sentAt),
       });
     }
 

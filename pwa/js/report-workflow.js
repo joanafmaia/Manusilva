@@ -19,6 +19,11 @@ import { syncClientEmailIfChanged } from './clients-admin.js';
 import { isTestClient } from './client-test-utils.js';
 import { canReachServer } from './offline-mode.js';
 import { isDraftSafelySynced } from './report-draft-sync.js';
+import {
+  reportClientEmailAlreadySent,
+  buildClienteEmailSentPatch,
+  buildClienteEmailPendingPatch,
+} from './report-cliente-email-state.js';
 import { sendOfficialReportEmail } from './report-email-api.js';
 import { resolveAuditActor } from './audit-actor.js';
 import {
@@ -49,10 +54,6 @@ import { ensureServicosLoadedSafe, getServico } from './servicos-db.js';
 
 /** Evita aprovações concorrentes do mesmo relatório (duplo clique → 2 OPs / 2 e-mails). */
 const approvalPromises = new Map();
-
-function reportClientEmailAlreadySent(report) {
-  return Boolean(report?.data?.visitClienteEmailSentAt);
-}
 
 /**
  * @param {object} report
@@ -503,15 +504,22 @@ async function approveReportOnce(reportId, options = {}) {
           ...emailPdfPayload,
         });
         await updateRelatorio(reportId, {
-          data: { visitClienteEmailSentAt: new Date().toISOString() },
+          data: buildClienteEmailSentPatch(),
         });
         return true;
       } catch (err) {
         console.error('[Email] Envio após aprovação falhou:', err);
+        try {
+          await updateRelatorio(reportId, {
+            data: buildClienteEmailPendingPatch(err?.message || err?.hint || ''),
+          });
+        } catch (markErr) {
+          console.warn('[Email] Falha ao marcar e-mail pendente:', markErr);
+        }
         showToast(
-          `Relatório aprovado, mas o e-mail para o cliente falhou. ${err?.message || ''}`.trim(),
+          `Relatório aprovado, mas o e-mail para o cliente falhou. Use «Reenviar e-mail». ${err?.message || ''}`.trim(),
           'warning',
-          8000,
+          9000,
         );
         return false;
       }

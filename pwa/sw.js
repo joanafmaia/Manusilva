@@ -11,11 +11,13 @@ const CACHE_RUNTIME = `manusilva-runtime-${CACHE_VERSION}`;
 const SHELL_URLS = [
   './dashboard.html',
   './warehouse.html',
+  './admin.html',
   './index.html',
   './manifest.json',
   './css/base.css',
   './css/tech.css',
   './css/warehouse.css',
+  './css/admin.css',
   './js/force-refresh-page.js',
   './js/build-version.js',
   './js/bootstrap-entry.js',
