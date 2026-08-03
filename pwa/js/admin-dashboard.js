@@ -142,17 +142,15 @@ const AGENDA_SWIPE_OPEN_PX = 88;
 
 let reviewPanelHeightObserver = null;
 let rhReviewStackRenderToken = 0;
+let rhReviewUiModulePromise = null;
+/** Cache leve de avaliações para não bloquear a troca de filtros. */
+let rhReviewAvaliacoesCache = new Map();
 
-/** Evita substituir o DOM a meio do ciclo de clique (mousedown → mouseup). */
-function deferPanelDomWrite(writeFn) {
-  return new Promise((resolve) => {
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        writeFn();
-        resolve();
-      });
-    });
-  });
+function loadRhReviewUiModule() {
+  if (!rhReviewUiModulePromise) {
+    rhReviewUiModulePromise = import('./report-review-rh-modal.js');
+  }
+  return rhReviewUiModulePromise;
 }
 
 function applyRhDayCollapseDom(section, collapsed) {
@@ -201,7 +199,7 @@ function refreshOpsTab() {
       renderCalendar();
       renderSidebar();
       updateAdminChrome();
-      renderRhReviewStack().catch(console.error);
+      renderRhReviewStack({ syncCatalog: true }).catch(console.error);
       if (currentTab === 'calendario') {
         refreshMetricsPanel(getMetricActionHandlers()).catch(console.error);
       }
@@ -211,7 +209,7 @@ function refreshOpsTab() {
       renderCalendar();
       renderSidebar();
       updateAdminChrome();
-      renderRhReviewStack().catch(console.error);
+      renderRhReviewStack({ syncCatalog: true }).catch(console.error);
     });
 }
 
@@ -582,7 +580,7 @@ export async function initAdminDashboard() {
     bindRhNotificationPermissionOnGesture();
     bindCalTodayBtn();
     updateAdminChrome();
-    renderRhReviewStack().catch(console.error);
+    renderRhReviewStack({ syncCatalog: true }).catch(console.error);
     applyAdminInitialTab();
     updateAdminTabUI();
     window.matchMedia(ADMIN_MOBILE_LAYOUT_MQ).addEventListener('change', () => {
@@ -1230,32 +1228,32 @@ function scrollToReportInPanel(reportId) {
 }
 
 /** Renderiza histórico completo de relatórios no painel direito (com filtros rápidos). */
-async function renderRhReviewStack() {
+async function renderRhReviewStack(options = {}) {
+  const { syncCatalog = false } = options;
   const panel = document.getElementById('rh-review-panel');
   if (!panel) return;
 
   const token = ++rhReviewStackRenderToken;
 
-  try {
-    await syncTechniciansCatalog({ silent: true });
-  } catch (err) {
-    console.warn('[Admin] Dados para painel de relatórios:', err);
+  if (syncCatalog) {
+    try {
+      await syncTechniciansCatalog({ silent: true });
+    } catch (err) {
+      console.warn('[Admin] Dados para painel de relatórios:', err);
+    }
+    if (token !== rhReviewStackRenderToken) return;
   }
-
-  if (token !== rhReviewStackRenderToken) return;
 
   updateAdminChrome();
 
   const counts = getRhPanelReportCounts();
   const reports = getRhFilteredReports();
+  const activeFilter = rhReviewFilter;
 
-  const { buildRhReviewGroupedStack, buildRhReviewFilterBar } = await import(
-    './report-review-rh-modal.js'
-  );
-
+  const { buildRhReviewGroupedStack, buildRhReviewFilterBar } = await loadRhReviewUiModule();
   if (token !== rhReviewStackRenderToken) return;
 
-  const filterBar = buildRhReviewFilterBar(counts, rhReviewFilter, {
+  const filterBar = buildRhReviewFilterBar(counts, activeFilter, {
     techId: rhReviewTechFilter,
     search: rhReviewSearch,
     technicians: getAllTechnicians(),
@@ -1263,27 +1261,24 @@ async function renderRhReviewStack() {
   });
 
   let stackHtml;
+  let servicoIdsForEnrich = [];
   if (!reports.length) {
     const hasFilters = rhReviewTechFilter !== 'all' || String(rhReviewSearch).trim();
     const emptyMsg = hasFilters
       ? 'Nenhum relatório corresponde aos filtros aplicados.'
-      : RH_EMPTY_MESSAGES[rhReviewFilter] || RH_EMPTY_MESSAGES.all;
+      : RH_EMPTY_MESSAGES[activeFilter] || RH_EMPTY_MESSAGES.all;
     stackHtml = `<p class="rh-review-panel-empty">${escapeHtml(emptyMsg)}</p>`;
   } else {
     const { resolveServicoIdForReport } = await import('./servicos-panel-utils.js');
-    const { fetchAvaliacoesByServicoIds } = await import('./avaliacoes-db.js');
     if (token !== rhReviewStackRenderToken) return;
 
-    const servicoIds = [
+    servicoIdsForEnrich = [
       ...new Set(reports.map((report) => resolveServicoIdForReport(report)).filter(Boolean)),
     ];
-    const avaliacoesMap = await fetchAvaliacoesByServicoIds(servicoIds);
-    if (token !== rhReviewStackRenderToken) return;
-
     const dayCollapseState = loadRhDayCollapseState();
     const cards = buildRhReviewGroupedStack(reports, {
       getJobFn: getJob,
-      avaliacoesMap,
+      avaliacoesMap: rhReviewAvaliacoesCache,
       dayCollapseState,
     });
 
@@ -1296,12 +1291,46 @@ async function renderRhReviewStack() {
       <div class="rh-review-stack-wrap">${stackHtml}</div>
     </div>`;
 
-  await deferPanelDomWrite(() => {
+  if (token !== rhReviewStackRenderToken) return;
+  panel.innerHTML = html;
+  requestAnimationFrame(() => syncReviewPanelHeight());
+  updateRhBatchToolbar(panel);
+
+  if (servicoIdsForEnrich.length) {
+    void enrichRhReviewAvaliacoes(token, reports, servicoIdsForEnrich);
+  }
+}
+
+async function enrichRhReviewAvaliacoes(token, reports, servicoIds) {
+  try {
+    const { fetchAvaliacoesByServicoIds } = await import('./avaliacoes-db.js');
+    const { buildRhReviewGroupedStack } = await loadRhReviewUiModule();
+
+    const missing = servicoIds.filter((id) => !rhReviewAvaliacoesCache.has(String(id)));
+    if (missing.length) {
+      const fetched = await fetchAvaliacoesByServicoIds(missing);
+      for (const [id, value] of fetched) {
+        rhReviewAvaliacoesCache.set(String(id), value);
+      }
+    }
+
     if (token !== rhReviewStackRenderToken) return;
-    panel.innerHTML = html;
-    requestAnimationFrame(() => syncReviewPanelHeight());
+
+    const panel = document.getElementById('rh-review-panel');
+    const stackWrap = panel?.querySelector('.rh-review-stack-wrap');
+    if (!stackWrap) return;
+
+    const dayCollapseState = loadRhDayCollapseState();
+    const cards = buildRhReviewGroupedStack(reports, {
+      getJobFn: getJob,
+      avaliacoesMap: rhReviewAvaliacoesCache,
+      dayCollapseState,
+    });
+    stackWrap.innerHTML = `<div class="rh-review-stack" role="list">${cards}</div>`;
     updateRhBatchToolbar(panel);
-  });
+  } catch (err) {
+    console.warn('[Admin] Avaliações no painel RH:', err);
+  }
 }
 
 function rhReviewModalCallbacks() {
@@ -1479,7 +1508,7 @@ function bindRhReviewPanel() {
 
     const filterBtn = e.target.closest('[data-rh-filter]');
     if (filterBtn) {
-      const next = filterBtn.dataset.rhFilter;
+      const next = filterBtn.getAttribute('data-rh-filter') || filterBtn.dataset.rhFilter || '';
       if (next && next !== rhReviewFilter) {
         rhReviewFilter = next;
         persistRhReviewFilters();
