@@ -19,7 +19,7 @@ Em **Variables**, copiar as mesmas da Vercel (pelo menos):
 | `SUPABASE_SERVICE_ROLE_KEY` | Sim | Técnicos + avaliações |
 | `EMAIL_USER` | Sim | Conta Gmail |
 | `EMAIL_PASS` | Sim | App Password (2FA) |
-| `APP_BASE_URL` | Recomendado | Ex.: `https://manusilva-production.up.railway.app` (sem `/` final) |
+| `APP_BASE_URL` | Recomendado | `https://manusilva-production.up.railway.app` (sem `/` final) |
 | `MAPBOX_ACCESS_TOKEN` | Opcional | Mapas / deslocação |
 | `SMTP_HOST` / `SMTP_PORT` | Opcional | Só se não for Gmail |
 | `AVALIACAO_TOKEN_SECRET` | Se já usavas | Mesmo valor da Vercel |

@@ -85,7 +85,7 @@ function getAppBaseUrl() {
   const vercel = String(process.env.VERCEL_URL || '').trim();
   if (vercel) return `https://${vercel}`;
 
-  return 'https://manusilva.vercel.app';
+  return 'https://manusilva-production.up.railway.app';
 }
 
 module.exports = {
