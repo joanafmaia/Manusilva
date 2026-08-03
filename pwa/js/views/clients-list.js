@@ -114,6 +114,8 @@ function bindClientListActions(root, { onClientHistory }) {
   });
 }
 
+let activeClientsListRefresh = null;
+
 /**
  * @param {HTMLElement} root
  * @param {{ onClientHistory?: (clientId: string) => void }} [options]
@@ -173,5 +175,20 @@ export async function mountClientsList(root, options = {}) {
     debounceTimer = setTimeout(() => paint(input.value), 120);
   });
 
+  activeClientsListRefresh = async () => {
+    await ensureProductionCatalog();
+    catalog = getProductionClientsCatalog({ warn: false });
+    paint(input.value || '');
+  };
+
   paint('');
+}
+
+/** Atualiza dados da lista sem destruir a pesquisa / scroll. */
+export async function softRefreshClientsList() {
+  if (typeof activeClientsListRefresh === 'function') {
+    await activeClientsListRefresh();
+    return true;
+  }
+  return false;
 }

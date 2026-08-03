@@ -52,6 +52,11 @@ import {
 } from './folha-obra-rh.js';
 import { reportIsFolhaObraOrcamento } from '../folha-obra-orcamento.js';
 import { getSession } from '../session.js';
+import {
+  captureAdminMainScroll,
+  restoreAdminMainScroll,
+  replaceSectionHtml,
+} from '../admin-ui-stability.js';
 
 let mountRoot = null;
 let activeFilter = 'todas';
@@ -61,6 +66,7 @@ let exportYear = String(new Date().getFullYear());
 let exportTipoFilter = 'all';
 let exportEstadoFilter = 'all';
 let highlightReportId = null;
+let searchDebounce = null;
 
 const EXPORT_ESTADO_OPTIONS = [
   { value: 'all', label: 'Todos os estados' },
@@ -532,7 +538,7 @@ function bindPanelEvents() {
     const filterBtn = e.target.closest('[data-orc-filter]');
     if (filterBtn) {
       activeFilter = filterBtn.dataset.orcFilter || 'todas';
-      refreshOrcamentosPanel().catch(console.error);
+      softRefreshOrcamentosPanel().catch(console.error);
       return;
     }
 
@@ -669,7 +675,10 @@ function bindPanelEvents() {
   mountRoot.addEventListener('input', (e) => {
     if (e.target.id !== 'orcamentos-search') return;
     searchQuery = e.target.value || '';
-    refreshOrcamentosPanel().catch(console.error);
+    clearTimeout(searchDebounce);
+    searchDebounce = setTimeout(() => {
+      softRefreshOrcamentosPanel().catch(console.error);
+    }, 280);
   });
 
   mountRoot.addEventListener('change', (e) => {
@@ -677,22 +686,19 @@ function bindPanelEvents() {
     if (!(target instanceof HTMLSelectElement)) return;
     if (target.id === 'orcamentos-tipo-filter') {
       tipoFilter = target.value || 'all';
-      refreshOrcamentosPanel().catch(console.error);
+      softRefreshOrcamentosPanel().catch(console.error);
       return;
     }
     if (target.id === 'orcamentos-export-year') {
       exportYear = target.value || String(new Date().getFullYear());
-      refreshOrcamentosPanel().catch(console.error);
       return;
     }
     if (target.id === 'orcamentos-export-tipo') {
       exportTipoFilter = target.value || 'all';
-      refreshOrcamentosPanel().catch(console.error);
       return;
     }
     if (target.id === 'orcamentos-export-estado') {
       exportEstadoFilter = target.value || 'all';
-      refreshOrcamentosPanel().catch(console.error);
     }
   });
 }
@@ -707,9 +713,41 @@ function applyHighlight() {
   }, 4000);
 }
 
-export async function refreshOrcamentosPanel() {
+/** Atualiza KPIs + tabela sem destruir filtros (preserva foco e scroll). */
+async function softRefreshOrcamentosPanel() {
   if (!mountRoot) return;
+  if (!mountRoot.querySelector('.orcamentos-panel')) {
+    await refreshOrcamentosPanel({ soft: false });
+    return;
+  }
+
+  const scrollY = captureAdminMainScroll();
+  const all = listOrcamentoReports();
+  const counts = countByWorkflow(all);
+  const rows = filterOrcamentoReports(all);
+
+  replaceSectionHtml(mountRoot, '.faturacao-kpis', renderMetrics(counts));
+  replaceSectionHtml(
+    mountRoot,
+    '.orcamentos-table-section',
+    renderPropostasSection(rows, counts, all.length),
+  );
+  restoreAdminMainScroll(scrollY);
+  applyHighlight();
+}
+
+export async function refreshOrcamentosPanel(options = {}) {
+  if (!mountRoot) return;
+  const { soft = true } = options;
+
+  if (soft && mountRoot.querySelector('.orcamentos-panel')) {
+    await softRefreshOrcamentosPanel();
+    return;
+  }
+
+  const scrollY = captureAdminMainScroll();
   mountRoot.innerHTML = renderPanel();
+  restoreAdminMainScroll(scrollY);
   applyHighlight();
 }
 
@@ -725,7 +763,7 @@ export async function initOrcamentosPanel(root) {
     session: getSession(),
     onRefresh: () => refreshOrcamentosPanel().catch(console.error),
   });
-  return refreshOrcamentosPanel();
+  return refreshOrcamentosPanel({ soft: false });
 }
 
 export function countOrcamentosPorPreparar() {

@@ -10,7 +10,7 @@ import {
 } from '../app.js';
 import { computeDashboardMetrics, renderMetricsSection } from './dashboard-metrics.js';
 import { renderClientFormSection, mountClientForm } from './rh-client-form.js';
-import { mountClientsList } from './clients-list.js';
+import { mountClientsList, softRefreshClientsList } from './clients-list.js';
 import { mountClientHistoryView } from './historico-cliente.js';
 import { restoreClientsDashboard } from './clients-app.js';
 
@@ -111,6 +111,15 @@ async function refreshClientsListMount() {
   await mountClientsList(listMount, {
     onClientHistory: (clientId) => openClientHistoryPanel(clientId),
   });
+}
+
+/** Atualiza a lista de clientes sem remount do hub (mantém pesquisa). */
+export async function softRefreshClientsHubPanel() {
+  if (!clientsRoot?.querySelector('[data-clients-hub]')) return false;
+  const ok = await softRefreshClientsList();
+  if (ok) return true;
+  await refreshClientsListMount();
+  return true;
 }
 
 export async function initClientsHubPanel(root) {

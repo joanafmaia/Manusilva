@@ -55,7 +55,7 @@ import { renderClientCombobox, bindClientComboboxes } from './client-combobox.js
 import { finishAppBoot } from './bootstrap-entry.js';
 import { forceLogout, renderUserGreeting } from './auth.js';
 import { initMetricsPanel, refreshMetricsPanel } from './views/dashboard.js';
-import { initClientsApp } from './views/clients-app.js';
+import { initClientsApp, softRefreshClientsApp } from './views/clients-app.js';
 import { initEmployeesPanel, refreshTechniciansList } from './views/rh-registry.js';
 import { initFaturacaoPanel, refreshFaturacaoPanel, queueBillingReportFocus } from './views/faturacao.js';
 import {
@@ -305,7 +305,7 @@ function updateAdminChrome() {
 }
 
 function refreshClientesTab() {
-  initClientsApp().catch(console.error);
+  softRefreshClientsApp().catch(console.error);
 }
 
 function refreshFuncionariosTab() {

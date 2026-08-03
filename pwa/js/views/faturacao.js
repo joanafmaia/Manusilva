@@ -72,6 +72,7 @@ import {
   filterBillingByYear,
   listAvailableBillingYears,
 } from '../faturacao-stats.js';
+import { captureAdminMainScroll, restoreAdminMainScroll } from '../admin-ui-stability.js';
 
 const URGENT_DAYS = 3;
 const DEFAULT_ESTIMATE_EUR = 120;
@@ -1313,6 +1314,7 @@ async function updateChartData(metrics) {
 async function softRefreshFaturacaoPanel() {
   if (!mountRoot) return;
 
+  const scrollY = captureAdminMainScroll();
   const invoices = getFilteredInvoices();
   const metrics = computeFilteredMetrics(invoices);
   let billingItems = getPendingBillingItems();
@@ -1324,19 +1326,28 @@ async function softRefreshFaturacaoPanel() {
   replaceMountedSection('.faturacao-invoices-section', renderInvoicesSection(invoices));
   bindTableActions();
   await updateChartData(metrics);
+  restoreAdminMainScroll(scrollY);
 }
 
 /** Reaplica os filtros sem reconstruir o painel inteiro (mantém foco/scroll). */
 async function applyBillingFilters() {
   if (!mountRoot) return;
+  const scrollY = captureAdminMainScroll();
   const invoices = getFilteredInvoices();
   const metrics = computeFilteredMetrics(invoices);
+  let billingItems = getPendingBillingItems();
+  billingItems = filterBillingItemsByClient(billingItems);
+  const billingRows = buildBillingRowsFromItems(billingItems);
+
   replaceMountedSection('.faturacao-kpis', renderKpis(metrics));
+  replaceMountedSection('.faturacao-table-section--billing', renderBillingTable(billingRows));
   replaceMountedSection('.faturacao-invoices-section', renderInvoicesSection(invoices));
+  bindTableActions();
   bindHistoryDetailActions();
   bindConfirmPaymentActions();
   bindInvoicesSectionActions();
   await updateChartData(metrics);
+  restoreAdminMainScroll(scrollY);
 }
 
 function resetInvoicesListPagination() {

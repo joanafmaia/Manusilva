@@ -12,6 +12,11 @@ import {
 } from '../avaliacoes-stats.js';
 import { loadChartJs } from '../chart-js-loader.js';
 import { formatOrdemLabel } from '../report-review-ui.js';
+import {
+  captureAdminMainScroll,
+  restoreAdminMainScroll,
+  replaceSectionHtml,
+} from '../admin-ui-stability.js';
 
 let mountRoot = null;
 let activeFilter = 'todas';
@@ -19,6 +24,7 @@ let selectedYear = String(new Date().getFullYear());
 let rowsCache = [];
 let distributionChart = null;
 let monthlyChart = null;
+let panelEventsBound = false;
 
 function scoreClass(score) {
   if (score === 3) return 'avaliacao-score--good';
@@ -332,58 +338,7 @@ function exportAuditCsv(rows) {
   URL.revokeObjectURL(url);
 }
 
-function bindPanelEvents(enriched, auditRows) {
-  mountRoot.querySelectorAll('[data-avaliacao-filter]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      activeFilter = btn.dataset.avaliacaoFilter || 'todas';
-      renderPanel();
-    });
-  });
-
-  mountRoot.querySelectorAll('[data-open-servico]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const servicoId = btn.dataset.openServico;
-      if (!servicoId) return;
-      window.dispatchEvent(
-        new CustomEvent('admin-open-calendar-item', {
-          detail: {
-            jobId: servicoId,
-            visitDate: btn.dataset.visitDate || '',
-            clientName: btn.dataset.clientName || '',
-            visitSummary: btn.dataset.visitSummary || '',
-          },
-        }),
-      );
-    });
-  });
-
-  mountRoot.querySelector('#avaliacoes-year-select')?.addEventListener('change', (event) => {
-    selectedYear = event.target.value || String(new Date().getFullYear());
-    renderPanel();
-  });
-
-  mountRoot.querySelector('#avaliacoes-export-csv')?.addEventListener('click', () => {
-    if (!auditRows.length) {
-      showToast('Não há avaliações para exportar neste período.', 'info');
-      return;
-    }
-    exportAuditCsv(auditRows);
-    showToast('CSV exportado.', 'success', 4000);
-  });
-
-  mountRoot.querySelector('#avaliacoes-export-pdf')?.addEventListener('click', () => {
-    const auditSummary = buildAvaliacoesAuditSummary(
-      enriched,
-      selectedYear === 'all' ? 'all' : selectedYear,
-    );
-    void exportAuditPdf(auditRows, auditSummary);
-  });
-}
-
-function renderPanel() {
-  if (!mountRoot) return;
-  destroyCharts();
-
+function getVisibleAvaliacoesContext() {
   const enriched = rowsCache.map(enrichRow);
   const auditSummary = buildAvaliacoesAuditSummary(enriched, selectedYear);
   const auditRows =
@@ -392,6 +347,91 @@ function renderPanel() {
       : enriched.filter((row) => String(row.criadoEm || '').slice(0, 4) === selectedYear);
   const visible = filterRows(auditRows);
   const counts = summarizeCounts(auditRows);
+  return { enriched, auditSummary, auditRows, visible, counts };
+}
+
+function softUpdateAvaliacoesList() {
+  if (!mountRoot) return;
+  const scrollY = captureAdminMainScroll();
+  const { visible, counts } = getVisibleAvaliacoesContext();
+  replaceSectionHtml(mountRoot, '.avaliacoes-filter-bar', renderFilterBar(counts));
+  const listOrEmpty =
+    mountRoot.querySelector('.avaliacoes-list') ||
+    mountRoot.querySelector('.avaliacoes-panel-empty');
+  if (listOrEmpty) {
+    const wrap = document.createElement('div');
+    wrap.innerHTML = renderRows(visible).trim();
+    const next = wrap.firstElementChild;
+    if (next) listOrEmpty.replaceWith(next);
+  }
+  restoreAdminMainScroll(scrollY);
+}
+
+function bindPanelEventsOnce() {
+  if (!mountRoot || panelEventsBound) return;
+  panelEventsBound = true;
+
+  mountRoot.addEventListener('click', (e) => {
+    const filterBtn = e.target.closest('[data-avaliacao-filter]');
+    if (filterBtn) {
+      const next = filterBtn.getAttribute('data-avaliacao-filter') || 'todas';
+      if (next === activeFilter) return;
+      activeFilter = next;
+      softUpdateAvaliacoesList();
+      return;
+    }
+
+    const openBtn = e.target.closest('[data-open-servico]');
+    if (openBtn?.dataset.openServico) {
+      window.dispatchEvent(
+        new CustomEvent('admin-open-calendar-item', {
+          detail: {
+            jobId: openBtn.dataset.openServico,
+            visitDate: openBtn.dataset.visitDate || '',
+            clientName: openBtn.dataset.clientName || '',
+            visitSummary: openBtn.dataset.visitSummary || '',
+          },
+        }),
+      );
+      return;
+    }
+
+    if (e.target.closest('#avaliacoes-export-csv')) {
+      const { enriched, auditRows } = getVisibleAvaliacoesContext();
+      if (!auditRows.length) {
+        showToast('Não há avaliações para exportar neste período.', 'info');
+        return;
+      }
+      exportAuditCsv(auditRows);
+      showToast('CSV exportado.', 'success', 4000);
+      return;
+    }
+
+    if (e.target.closest('#avaliacoes-export-pdf')) {
+      const { enriched, auditRows } = getVisibleAvaliacoesContext();
+      const auditSummary = buildAvaliacoesAuditSummary(
+        enriched,
+        selectedYear === 'all' ? 'all' : selectedYear,
+      );
+      void exportAuditPdf(auditRows, auditSummary);
+    }
+  });
+
+  mountRoot.addEventListener('change', (e) => {
+    if (e.target?.id !== 'avaliacoes-year-select') return;
+    selectedYear = e.target.value || String(new Date().getFullYear());
+    renderPanel({ preserveScroll: true });
+  });
+}
+
+function renderPanel(options = {}) {
+  if (!mountRoot) return;
+  const { preserveScroll = true, rebuildCharts = true } = options;
+  const scrollY = preserveScroll ? captureAdminMainScroll() : 0;
+
+  if (rebuildCharts) destroyCharts();
+
+  const { enriched, auditSummary, auditRows, visible, counts } = getVisibleAvaliacoesContext();
 
   mountRoot.innerHTML = `
     <div class="avaliacoes-panel-inner">
@@ -406,19 +446,22 @@ function renderPanel() {
       ${renderRows(visible)}
     </div>`;
 
-  bindPanelEvents(enriched, auditRows);
-  if (auditRows.length) {
+  bindPanelEventsOnce();
+  if (auditRows.length && rebuildCharts) {
     void updateCharts(auditSummary);
   }
+  if (preserveScroll) restoreAdminMainScroll(scrollY);
 }
 
 export async function refreshAvaliacoesPanel() {
   if (!mountRoot) return;
+  const scrollY = captureAdminMainScroll();
   try {
     const { ensureServicosLoadedSafe } = await import('../servicos-db.js');
     await ensureServicosLoadedSafe();
     rowsCache = await fetchAllAvaliacoes();
-    renderPanel();
+    renderPanel({ preserveScroll: false });
+    restoreAdminMainScroll(scrollY);
   } catch (err) {
     console.error('[Avaliações] refresh:', err);
     showToast('Não foi possível carregar as avaliações.', 'error');
@@ -427,6 +470,7 @@ export async function refreshAvaliacoesPanel() {
 
 export function initAvaliacoesPanel(root) {
   mountRoot = root;
+  panelEventsBound = false;
   return refreshAvaliacoesPanel();
 }
 
@@ -437,4 +481,5 @@ export function countAvaliacoesInsatisfeitas(rows = rowsCache) {
 export function teardownAvaliacoesPanel() {
   destroyCharts();
   mountRoot = null;
+  panelEventsBound = false;
 }

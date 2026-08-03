@@ -85,7 +85,8 @@ export function renderFolhaObraRhSection(folhas = getFolhasObraAguardaOrcamento(
 }
 
 export function bindFolhaObraRhSection(root, { session, onRefresh } = {}) {
-  if (!root) return;
+  if (!root || root.dataset.folhaObraBound === '1') return;
+  root.dataset.folhaObraBound = '1';
 
   root.addEventListener('click', (event) => {
     const viewBtn = event.target.closest('[data-folha-obra-view]');
