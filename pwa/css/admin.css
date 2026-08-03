@@ -371,9 +371,10 @@
   display: none;
 }
 .admin-split-layout--review .admin-review-panel {
-  height: auto !important;
-  min-height: min(72dvh, 680px);
+  /* Altura definida (não auto) para o scroll interno de .rh-review-panel funcionar */
+  height: min(92dvh, calc(100dvh - 120px)) !important;
   max-height: min(92dvh, calc(100dvh - 120px)) !important;
+  min-height: min(72dvh, 680px);
 }
 .admin-split-layout--review .rh-review-search-row {
   flex-direction: row;
@@ -3954,8 +3955,8 @@
   }
 
   .admin-split-layout--mobile-relatorios .admin-review-panel {
-    height: min(70dvh, 720px) !important;
-    max-height: min(70dvh, 720px) !important;
+    height: min(78dvh, 820px) !important;
+    max-height: min(78dvh, 820px) !important;
   }
 
   .admin-split-layout {
@@ -4028,16 +4029,16 @@
     display: none !important;
   }
 
-  .admin-split-layout--mobile-calendar .admin-review-panel,
-  .admin-split-layout--mobile-relatorios .admin-split-calendar {
-    display: block !important;
+  /* Em paisagem o JS não usa mobile-*; não forçar display:block (partia o ecrã de revisão). */
+  .admin-split-layout--review .admin-review-panel {
+    height: min(88dvh, calc(100dvh - 100px)) !important;
+    max-height: min(88dvh, calc(100dvh - 100px)) !important;
+    min-height: 0;
   }
 
   .admin-review-panel {
-    position: sticky;
-    top: 0;
-    height: auto !important;
-    max-height: none !important;
+    position: relative;
+    top: auto;
     overflow: hidden;
   }
 

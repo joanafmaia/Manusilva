@@ -430,6 +430,13 @@ export function setAdminTab(tab) {
     updateOpsSummary();
   }
   document.querySelector('.admin-main')?.scrollTo({ top: 0, behavior: 'smooth' });
+  if (tab === 'relatorios') {
+    requestAnimationFrame(() => {
+      document.getElementById('pending')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      syncReviewPanelHeight();
+      queueRhReviewStackRender();
+    });
+  }
 }
 
 function updateAdminTabUI() {

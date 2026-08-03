@@ -42,9 +42,14 @@ export function renderReportClienteEmailBadge(report) {
     return '<span class="rh-email-state-badge rh-email-state-badge--sent" title="E-mail enviado ao cliente">E-mail enviado</span>';
   }
   if (state === 'pending') {
-    const err = String(report?.data?.clienteEmailLastError || '').trim();
+    const err = String(report?.data?.clienteEmailLastError || '')
+      .trim()
+      .replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
     const title = err
-      ? `E-mail pendente: ${err.replace(/"/g, "'")}`
+      ? `E-mail pendente: ${err}`
       : 'Aprovado, mas o e-mail ao cliente ainda não foi enviado';
     return `<span class="rh-email-state-badge rh-email-state-badge--pending" title="${title}">E-mail pendente</span>`;
   }

@@ -8,8 +8,10 @@ function ensureUpdateBannerStyles() {
   style.id = 'ms-app-update-banner-style';
   style.textContent = `
     .ms-app-update-banner {
-      position: sticky;
+      position: fixed;
       top: 0;
+      left: 0;
+      right: 0;
       z-index: 1200;
       display: flex;
       align-items: center;
@@ -43,6 +45,9 @@ function ensureUpdateBannerStyles() {
       cursor: pointer;
       font-weight: 600;
     }
+    body.ms-has-update-banner {
+      padding-top: 3.25rem;
+    }
   `;
   document.head.appendChild(style);
 }
@@ -65,12 +70,7 @@ function ensureUpdateBanner() {
     </div>
   `;
 
-  const host =
-    document.querySelector('.admin-main') ||
-    document.querySelector('.tech-app') ||
-    document.querySelector('.warehouse-app') ||
-    document.body;
-  host.prepend(banner);
+  document.body.appendChild(banner);
 
   banner.querySelector('[data-ms-update-refresh]')?.addEventListener('click', async (event) => {
     const refreshBtn = document.getElementById('btn-force-app-refresh');
@@ -89,6 +89,7 @@ function ensureUpdateBanner() {
 
   banner.querySelector('[data-ms-update-dismiss]')?.addEventListener('click', () => {
     banner.hidden = true;
+    document.body.classList.remove('ms-has-update-banner');
   });
 
   return banner;
@@ -99,6 +100,7 @@ export function showAppUpdateBanner(message) {
   const text = banner.querySelector('.ms-app-update-banner__text');
   if (text && message) text.textContent = message;
   banner.hidden = false;
+  document.body.classList.add('ms-has-update-banner');
 }
 
 /**
@@ -106,7 +108,6 @@ export function showAppUpdateBanner(message) {
  *
  * @param {string} [buttonId]
  * @param {{ updateHint?: string, notifyStyle?: 'toast' | 'button' | 'banner' }} [options]
- *   notifyStyle — 'banner' (defeito reforçado), 'button' destaca o botão, 'toast' aviso
  */
 export function bindAppRefreshButton(buttonId = 'btn-force-app-refresh', options = {}) {
   const refreshBtn = document.getElementById(buttonId);
