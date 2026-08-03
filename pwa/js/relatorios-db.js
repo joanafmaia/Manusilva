@@ -205,7 +205,8 @@ function resolveServicoIdForReport(report) {
 
   const job = getJobsSnapshot().find((row) => sameEntityId(row.id, jobId));
   const fromJob = String(job?.servicoId || '').trim();
-  if (fromJob && servicoIds.has(fromJob)) return fromJob;
+  // Confiar no FK do trabalho mesmo se o cache de serviços ainda não carregou.
+  if (fromJob) return fromJob;
   return null;
 }
 

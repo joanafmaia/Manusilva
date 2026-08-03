@@ -58,7 +58,7 @@ describe('clients-catalog offline', () => {
     globalThis.localStorage.setItem(
       'manusilva_db',
       JSON.stringify({
-        schemaVersion: 24,
+        schemaVersion: 25,
         clients: [{ id: 'c1', Nome: 'Cliente Teste', NIF: '123456789' }],
         technicians: [],
         utilizadores: [],
@@ -66,6 +66,8 @@ describe('clients-catalog offline', () => {
         settings: { offline: true },
       }),
     );
+
+    invalidateDbMemoryCache();
 
     const { resetProductionCatalogCache, ensureProductionCatalog, getProductionClientsCatalog } =
       await import('../js/clients-catalog.js');

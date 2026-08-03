@@ -64,7 +64,14 @@ app.all(
   }),
 );
 
-const CLEAN_HTML = new Set(['index', 'admin', 'dashboard', 'avaliar']);
+const CLEAN_HTML = new Set([
+  'index',
+  'admin',
+  'dashboard',
+  'avaliar',
+  'warehouse',
+  'orcamento',
+]);
 
 app.get('/', (req, res) => {
   noStore(res);

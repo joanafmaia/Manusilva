@@ -52,7 +52,7 @@ describe('form-engine exports', () => {
 
 describe('Fase 2 — supabase sem fallback hardcoded', () => {
   it('enviar-email usa supabase-auth partilhado', () => {
-    assert.match(enviarEmailSrc, /require\('\.\/lib\/supabase-auth'\)/);
+    assert.match(enviarEmailSrc, /require\('\.\.\/server-lib\/supabase-auth'\)/);
     assert.doesNotMatch(enviarEmailSrc, /zhfbezrevosmbmcbyskw/);
     assert.doesNotMatch(enviarEmailSrc, /eyJhbGci/);
     assert.doesNotMatch(enviarEmailSrc, /function getBearerToken/);

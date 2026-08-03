@@ -279,6 +279,13 @@ async function resolveEmailPdfAttachments(payload = {}) {
   let attachments = pdfCheck.attachments || [];
   if (!attachments.length && urlEntries.length === 1) {
     attachments = await fetchPdfAttachmentsFromUrls(urlEntries);
+    if (!attachments.length) {
+      return {
+        ok: false,
+        error:
+          'Não foi possível obter o PDF do Storage para anexar ao e-mail. Tente reenviar.',
+      };
+    }
   }
 
   return { ok: true, attachments };

@@ -205,12 +205,12 @@ describe('folha-obra-etiqueta', () => {
       dataRececao: '2026-07-07',
       numeroOrdem: 2,
       responsabilidade: 'MS',
-      tecnicoReparacao: 'Hugo',
+      responsavel: 'Hugo',
     });
     assert.match(msHtml, /M\.S/);
     assert.match(msHtml, /Empilhador/);
     assert.match(msHtml, /ETQ-2/);
-    assert.match(msHtml, /Arranjou/);
+    assert.match(msHtml, /Entrada/);
     assert.match(msHtml, /Hugo/);
     assert.doesNotMatch(msHtml, /Trouxe/);
 
@@ -223,27 +223,27 @@ describe('folha-obra-etiqueta', () => {
       dataRececao: '2026-07-07',
       numeroOrdem: 9,
       responsabilidade: 'RC',
-      tecnicoReparacao: 'Ana',
+      responsavel: 'Ana',
     });
     assert.match(rcHtml, /R\.C/);
-    assert.match(rcHtml, /Arranjou/);
+    assert.match(rcHtml, /Entrada/);
     assert.match(rcHtml, /Ana/);
 
     assert.deepEqual(
       buildEtiquetaPeopleLines({
         responsabilidade: 'RC',
-        tecnicoReparacao: 'Pedro',
+        responsavel: 'Pedro',
       }),
-      [{ label: 'Arranjou', value: 'Pedro' }],
+      [{ label: 'Entrada', value: 'Pedro' }],
     );
     assert.equal(
       resolveTecnicoReparacaoEtiqueta({
-        intervencoes: [{ realizado_por: 'Luís' }],
+        responsavel: 'Luís',
       }),
       'Luís',
     );
-    assert.equal(ETIQUETA_PRINT_WIDTH_MM, 50);
-    assert.equal(ETIQUETA_PRINT_HEIGHT_MM, 80);
+    assert.equal(ETIQUETA_PRINT_WIDTH_MM, 62);
+    assert.equal(ETIQUETA_PRINT_HEIGHT_MM, 58);
   });
 });
 
