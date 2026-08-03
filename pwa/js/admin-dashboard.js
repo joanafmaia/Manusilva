@@ -172,8 +172,29 @@ function syncRhReviewFilterChipsUi(panel, activeFilter = rhReviewFilter) {
   });
 }
 
-function queueRhReviewStackRender() {
-  void renderRhReviewStack().catch(console.error);
+function getRhReviewScrollEl(panel = document.getElementById('rh-review-panel')) {
+  return panel?.querySelector('.rh-review-stack-wrap') || null;
+}
+
+function captureRhReviewScroll(panel) {
+  const el = getRhReviewScrollEl(panel);
+  return el ? el.scrollTop : 0;
+}
+
+function restoreRhReviewScroll(panel, top) {
+  const el = getRhReviewScrollEl(panel);
+  if (!el) return;
+  const y = Math.max(0, Number(top) || 0);
+  el.scrollTop = y;
+  if (y > 0 && el.scrollTop !== y) {
+    requestAnimationFrame(() => {
+      el.scrollTop = y;
+    });
+  }
+}
+
+function queueRhReviewStackRender(options = {}) {
+  void renderRhReviewStack(options).catch(console.error);
 }
 
 /** Secções fora do ecrã — refresh adiado até o utilizador abrir a aba. */
@@ -432,7 +453,7 @@ export function setAdminTab(tab) {
     requestAnimationFrame(() => {
       document.getElementById('pending')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       syncReviewPanelHeight();
-      queueRhReviewStackRender();
+      queueRhReviewStackRender({ preserveScroll: false });
     });
   }
 }
@@ -1229,11 +1250,12 @@ function scrollToReportInPanel(reportId) {
 
 /** Renderiza histórico completo de relatórios no painel direito (com filtros rápidos). */
 async function renderRhReviewStack(options = {}) {
-  const { syncCatalog = false } = options;
+  const { syncCatalog = false, preserveScroll = true } = options;
   const panel = document.getElementById('rh-review-panel');
   if (!panel) return;
 
   const token = ++rhReviewStackRenderToken;
+  const prevScroll = preserveScroll ? captureRhReviewScroll(panel) : 0;
 
   if (syncCatalog) {
     try {
@@ -1293,7 +1315,11 @@ async function renderRhReviewStack(options = {}) {
 
   if (token !== rhReviewStackRenderToken) return;
   panel.innerHTML = html;
-  requestAnimationFrame(() => syncReviewPanelHeight());
+  restoreRhReviewScroll(panel, preserveScroll ? prevScroll : 0);
+  requestAnimationFrame(() => {
+    if (preserveScroll) restoreRhReviewScroll(panel, prevScroll);
+    syncReviewPanelHeight();
+  });
   updateRhBatchToolbar(panel);
 
   if (servicoIdsForEnrich.length) {
@@ -1303,16 +1329,26 @@ async function renderRhReviewStack(options = {}) {
 
 async function enrichRhReviewAvaliacoes(token, reports, servicoIds) {
   try {
+    const missing = servicoIds.filter((id) => !rhReviewAvaliacoesCache.has(String(id)));
+    if (!missing.length) return;
+
     const { fetchAvaliacoesByServicoIds } = await import('./avaliacoes-db.js');
     const { buildRhReviewGroupedStack } = await loadRhReviewUiModule();
 
-    const missing = servicoIds.filter((id) => !rhReviewAvaliacoesCache.has(String(id)));
-    if (missing.length) {
-      const fetched = await fetchAvaliacoesByServicoIds(missing);
-      for (const [id, value] of fetched) {
-        rhReviewAvaliacoesCache.set(String(id), value);
+    const fetched = await fetchAvaliacoesByServicoIds(missing);
+    let added = 0;
+    for (const [id, value] of fetched) {
+      rhReviewAvaliacoesCache.set(String(id), value);
+      added += 1;
+    }
+    // Marca IDs sem avaliação para não voltar a pedir / reescrever o DOM.
+    for (const id of missing) {
+      const key = String(id);
+      if (!rhReviewAvaliacoesCache.has(key)) {
+        rhReviewAvaliacoesCache.set(key, null);
       }
     }
+    if (!added) return;
 
     if (token !== rhReviewStackRenderToken) return;
 
@@ -1320,6 +1356,7 @@ async function enrichRhReviewAvaliacoes(token, reports, servicoIds) {
     const stackWrap = panel?.querySelector('.rh-review-stack-wrap');
     if (!stackWrap) return;
 
+    const prevScroll = stackWrap.scrollTop;
     const dayCollapseState = loadRhDayCollapseState();
     const cards = buildRhReviewGroupedStack(reports, {
       getJobFn: getJob,
@@ -1327,6 +1364,10 @@ async function enrichRhReviewAvaliacoes(token, reports, servicoIds) {
       dayCollapseState,
     });
     stackWrap.innerHTML = `<div class="rh-review-stack" role="list">${cards}</div>`;
+    stackWrap.scrollTop = prevScroll;
+    requestAnimationFrame(() => {
+      stackWrap.scrollTop = prevScroll;
+    });
     updateRhBatchToolbar(panel);
   } catch (err) {
     console.warn('[Admin] Avaliações no painel RH:', err);
@@ -1469,7 +1510,7 @@ function bindRhReviewPanel() {
       persistRhReviewFilters();
       clearTimeout(searchDebounce);
       searchDebounce = setTimeout(() => {
-        renderRhReviewStack().catch(console.error);
+        renderRhReviewStack({ preserveScroll: false }).catch(console.error);
       }, 280);
     }
   });
@@ -1481,7 +1522,7 @@ function bindRhReviewPanel() {
     if (target.id === 'rh-review-tech-filter') {
       rhReviewTechFilter = target.value;
       persistRhReviewFilters();
-      renderRhReviewStack().catch(console.error);
+      renderRhReviewStack({ preserveScroll: false }).catch(console.error);
       return;
     }
 
@@ -1513,7 +1554,7 @@ function bindRhReviewPanel() {
         rhReviewFilter = next;
         persistRhReviewFilters();
         syncRhReviewFilterChipsUi(panel, next);
-        queueRhReviewStackRender();
+        queueRhReviewStackRender({ preserveScroll: false });
       }
       return;
     }
