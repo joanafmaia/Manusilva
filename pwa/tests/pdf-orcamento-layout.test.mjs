@@ -135,6 +135,42 @@ describe('pdf-orcamento layout', () => {
     assert.ok(estimateMaquinaBodyBeforeBullets(7) < 50, 'corpo sem bloco duplicado de máquinas');
   });
 
+  it('a partir de 9 máquinas parte o mapa de preços para a 2.ª folha', () => {
+    const base = {
+      valor_deslocacao: '100',
+      prazo_entrega: '5',
+      forma_pagamento: 'Pronto Pagamento',
+      validade_orcamento: '10 Dias',
+    };
+    const fill8 = {
+      ...base,
+      maquinas: Array.from({ length: 8 }, (_, index) => ({
+        maquinaManutencaoNome: `${index + 1} teste`,
+        valorManutencaoGeral: '123',
+        incluirInspecaoDl50: true,
+        valorInspecaoDl50: '40',
+      })),
+    };
+    const fill9 = {
+      ...base,
+      maquinas: Array.from({ length: 9 }, (_, index) => ({
+        maquinaManutencaoNome: `${index + 1} teste`,
+        valorManutencaoGeral: '123',
+        incluirInspecaoDl50: true,
+        valorInspecaoDl50: '40',
+      })),
+    };
+    const layout8 = resolveManutencaoMaquinaPdfFooterLayout(fill8);
+    const layout9 = resolveManutencaoMaquinaPdfFooterLayout(fill9);
+    assert.equal(layout8.splitTablePage, false);
+    assert.ok(layout8.footerHeight > 0, '8 máquinas: tabela na folha 1');
+    assert.equal(layout9.splitTablePage, true);
+    assert.equal(layout9.footerHeight, 0, 'folha 1 sem reserva da tabela');
+    assert.ok(layout9.priceFooterHeight > 0, 'altura real da tabela guardada para a folha 2');
+    assert.equal(layout9.precoTable.rows.length, 9);
+    assert.equal(layout9.ultraCompactPreBullet, false, 'folha 1 com mais espaço sem tabela');
+  });
+
   it('escolhe tipografia maior quando o rodapé tem espaço vertical', () => {
     const table = {
       rows: Array.from({ length: 7 }, () => ({})),

@@ -2,6 +2,7 @@
  * PDF — Proposta Comercial MS.015
  * Folha 1: condições da proposta (equipamentos, observações, totais, aprovação)
  * Folha 2 (se a tabela não couber): mapa de preços completo
+ * Manutenção máquinas: a partir de 9 máquinas, mapa de preços na 2.ª folha
  * Última folha: Garantia de Reparação e Condições Gerais (texto)
  */
 
@@ -121,6 +122,8 @@ const MAQUINA_FOOTER_MONEY_X = MARGIN + CONTENT_W - 1;
 const MAQUINA_FOOTER_LINE_MIN = 4.6;
 const MAQUINA_FOOTER_LINE_MAX = 6.2;
 const MAQUINA_FOOTER_SEPARATOR_GAP = 4;
+/** Manutenção máquinas: a partir deste nº, tabela de preços numa 2.ª folha. */
+const MAQUINA_SPLIT_TABLE_FROM = 9;
 const PROPOSTA_FOOTER_MAX_Y = APPROVAL_TOP - 6;
 const CONTENT_MAX_Y = FOOTER_TOP - 6;
 
@@ -1766,16 +1769,20 @@ export function resolveManutencaoMaquinaPdfFooterLayout(fill = {}) {
   const meta = templateMetaFromFill(fill);
   const precoTable = buildManutencaoMaquinaPrecoTable(meta, meta);
   const machineCount = Math.max(collectTemplateMaquinaNomes(fill).length, 1);
+  const splitTablePage = machineCount >= MAQUINA_SPLIT_TABLE_FROM;
   const rowCount = precoTable.rows.length;
   const compactFooter = rowCount >= 6;
   const priceRowH = machineCount >= 7 ? MAQUINA_PRECO_TABLE_ROW_H_COMPACT : MAQUINA_PRECO_TABLE_ROW_H;
   const priceFontSize = machineCount >= 7 ? MAQUINA_BULLET_COMPACT_FONT : MAQUINA_PRECO_TABLE_FONT;
-  const footerHeight = estimateMaquinaPrecoTableHeight(rowCount, compactFooter, priceRowH);
+  const priceFooterHeight = estimateMaquinaPrecoTableHeight(rowCount, compactFooter, priceRowH);
+  // Folha 1 sem tabela: não reservar altura do mapa de preços.
+  const footerHeight = splitTablePage ? 0 : priceFooterHeight;
 
   return {
     machineCount,
+    splitTablePage,
     compactMachines: machineCount >= 3,
-    ultraCompactPreBullet: machineCount >= 4,
+    ultraCompactPreBullet: !splitTablePage && machineCount >= 4,
     compactFooter,
     precoTable,
     precoBlocks: buildManutencaoMaquinaPrecoEquipBlocks(meta, meta),
@@ -1783,6 +1790,7 @@ export function resolveManutencaoMaquinaPdfFooterLayout(fill = {}) {
     twoColumnPrices: false,
     priceLineStep: priceRowH,
     priceFontSize,
+    priceFooterHeight,
     footerHeight,
     footerMaxY: PROPOSTA_FOOTER_MAX_Y,
   };
@@ -2007,8 +2015,10 @@ async function renderManutencaoMaquinaOrcamentoPDF(doc, report, job) {
   const fill = buildOrcamentoFillData(report, job);
   const legalText = await loadLegalText();
   const footerLayout = resolveManutencaoMaquinaPdfFooterLayout(fill);
-  const preBulletMaxY =
-    PROPOSTA_FOOTER_MAX_Y - footerLayout.footerHeight - MAQUINA_FOOTER_GAP_ABOVE - 22;
+  const splitTablePage = footerLayout.splitTablePage;
+  const reservedFooter = splitTablePage ? 0 : footerLayout.footerHeight;
+  const gapAboveFooter = splitTablePage ? 0 : MAQUINA_FOOTER_GAP_ABOVE;
+  const preBulletMaxY = PROPOSTA_FOOTER_MAX_Y - reservedFooter - gapAboveFooter - 22;
   const sectionStep = footerLayout.ultraCompactPreBullet ? 3.8 : 5;
   const introLineStep = footerLayout.ultraCompactPreBullet ? 3.8 : 4.8;
   const bodyFontSize = footerLayout.ultraCompactPreBullet ? MAQUINA_BULLET_COMPACT_FONT : PDF_FONT_BODY;
@@ -2055,14 +2065,32 @@ async function renderManutencaoMaquinaOrcamentoPDF(doc, report, job) {
     maxEndY: bulletsLayout.bulletsMaxY,
   });
 
-  drawManutencaoMaquinaFooter(doc, fill, {
-    ...footerLayout,
-    ...bulletsLayout,
-    footerStartY: y + bulletsLayout.gapBeforeFooter,
-  });
+  if (splitTablePage) {
+    // Folha 1: condições + aprovação — sem mapa de preços.
+    doc.setPage(1);
+    drawClientApprovalBox(doc);
 
-  doc.setPage(1);
-  drawClientApprovalBox(doc);
+    // Folha 2: tabela de preços + Deslocação + totais + prazo/pagamento.
+    doc.addPage();
+    const tableY = drawOrcamentoGenericContinuationHeader(doc, fill, {
+      title: 'Mapa de preços',
+    });
+    drawManutencaoMaquinaFooter(doc, fill, {
+      ...footerLayout,
+      footerStartY: tableY,
+      footerMaxY: ORC_TABLE_PAGE_MAX_Y,
+      gapBeforeFooter: 0,
+    });
+  } else {
+    drawManutencaoMaquinaFooter(doc, fill, {
+      ...footerLayout,
+      ...bulletsLayout,
+      footerStartY: y + bulletsLayout.gapBeforeFooter,
+    });
+
+    doc.setPage(1);
+    drawClientApprovalBox(doc);
+  }
 
   if (legalText) {
     drawLegalPage(doc, legalText);
