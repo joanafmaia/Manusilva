@@ -1,5 +1,5 @@
 /**
- * Servidor Node para Railway — PWA estática + rotas /api (handlers estilo Vercel).
+ * Servidor Node para Railway — PWA estática + rotas /api (handlers em pwa/api).
  *
  * Arranque: npm start
  * Build:   npm run build

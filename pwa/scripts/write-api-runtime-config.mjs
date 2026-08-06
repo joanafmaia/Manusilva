@@ -1,6 +1,6 @@
 /**
  * Gera config pública para rotas API (Supabase URL + anon key).
- * Ficheiro versionado em server-lib — a Vercel não inclui ficheiros do .gitignore no deploy.
+ * Escrito em server-lib no build (Railway / CI) a partir de supabase-client.js ou env.
  */
 import fs from 'node:fs';
 import path from 'node:path';

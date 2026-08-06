@@ -2,7 +2,7 @@
 
 Progressive Web App mobile-first para a **ManuSilva** — gestão de intervenções técnicas (empilhadores, manutenção, baterias), relatórios em PDF, orçamentos, faturação interna e painel RH.
 
-Backend: **Supabase** (Postgres + Auth + Storage). Deploy recomendado: **Railway** (`server/index.cjs` serve a PWA + `/api`). Vercel permanece como opção legada.
+Backend: **Supabase** (Postgres + Auth + Storage). Deploy: **Railway** (`server/index.cjs` serve a PWA + `/api`).
 
 ## Estrutura do repositório
 
@@ -92,7 +92,6 @@ A **020** é obrigatória para o modelo serviço/visita. A **036** alinha RLS RH
 
 ## Deploy
 
-- **Railway (recomendado):** ver [`RAILWAY.md`](RAILWAY.md) — PWA + API no mesmo serviço (`npm run build` / `npm start`).
-- **Vercel (legado):** `vercel.json` na raiz (output `pwa/`) ou `pwa/vercel.json` (deploy a partir de `pwa/`); ambos correm o build completo (mapbox, version, API config, sync RH).
+**Railway:** ver [`RAILWAY.md`](RAILWAY.md) — PWA + API no mesmo serviço (`npm run build` / `npm start`).
 
 Variáveis: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `EMAIL_USER`, `EMAIL_PASS`, `APP_BASE_URL`, etc.

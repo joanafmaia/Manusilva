@@ -3,11 +3,9 @@
 .dev_stdout.log
 .dev_stderr.log
 .env
+.env*
 pwa/js/mapbox-config.js
 node_modules/
 .tmp-bcrypt/
 .tmp-docx-ms015/
 .tmp-ms015.zip
-
-.vercel
-.env*

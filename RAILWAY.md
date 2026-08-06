@@ -10,7 +10,7 @@ O `railway.toml` na raiz define build (`npm run build`) e start (`npm start`).
 
 ## 2. Variáveis de ambiente
 
-Em **Variables**, copiar as mesmas da Vercel (pelo menos):
+Em **Variables**:
 
 | Variável | Obrigatória | Notas |
 |----------|-------------|--------|
@@ -19,12 +19,12 @@ Em **Variables**, copiar as mesmas da Vercel (pelo menos):
 | `SUPABASE_SERVICE_ROLE_KEY` | Sim | Técnicos + avaliações |
 | `EMAIL_USER` | Sim | Conta Gmail |
 | `EMAIL_PASS` | Sim | App Password (2FA) |
-| `APP_BASE_URL` | Recomendado | `https://manusilva-production.up.railway.app` (sem `/` final) |
+| `APP_BASE_URL` | Recomendado | URL público (sem `/` final), ex. `https://manusilva-production.up.railway.app` |
 | `MAPBOX_ACCESS_TOKEN` | Opcional | Mapas / deslocação |
 | `SMTP_HOST` / `SMTP_PORT` | Opcional | Só se não for Gmail |
-| `AVALIACAO_TOKEN_SECRET` | Se já usavas | Mesmo valor da Vercel |
+| `AVALIACAO_TOKEN_SECRET` | Opcional | Tokens dos links de avaliação |
 
-A Railway define `PORT` automaticamente — não precisas de a criar.
+A Railway define `PORT` automaticamente — não precisas de a criar. `RAILWAY_PUBLIC_DOMAIN` também pode ser usada como fallback de URL base.
 
 ## 3. Domínio
 
@@ -51,7 +51,3 @@ npm start
 ```
 
 Abrir http://localhost:3000
-
-## Nota
-
-A Vercel pode continuar a funcionar em paralelo até mudares o DNS / URL no Supabase. A API e a PWA são as mesmas; só muda o host.

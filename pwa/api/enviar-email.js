@@ -20,7 +20,7 @@ const SMTP_PORT = Number(process.env.SMTP_PORT || 465);
 const EMAIL_USER = process.env.EMAIL_USER;
 const EMAIL_PASS = process.env.EMAIL_PASS;
 
-/** Tamanho máximo do PDF decodificado (evita timeouts na Vercel). */
+/** Tamanho máximo do PDF decodificado (evita timeouts no servidor). */
 const MAX_PDF_BYTES = 3 * 1024 * 1024;
 /** Limite conservador do string base64 (~4/3 do binário + padding). */
 const MAX_PDF_BASE64_LEN = Math.ceil((MAX_PDF_BYTES / 3) * 4) + 8;
@@ -102,7 +102,7 @@ function parseEmailRecipients(raw) {
   return out;
 }
 
-/** Tamanho máximo combinado de todos os anexos PDF (evita timeouts na Vercel). */
+/** Tamanho máximo combinado de todos os anexos PDF (evita timeouts no servidor). */
 const MAX_TOTAL_PDF_BYTES = 8 * 1024 * 1024;
 
 function validatePdfAttachment(pdfBase64, pdfFilename) {

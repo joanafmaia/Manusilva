@@ -1,5 +1,5 @@
 /**
- * Gera js/mapbox-config.js a partir de MAPBOX_ACCESS_TOKEN (Vercel / CI).
+ * Gera js/mapbox-config.js a partir de MAPBOX_ACCESS_TOKEN (Railway / CI).
  */
 import fs from 'fs';
 import path from 'path';

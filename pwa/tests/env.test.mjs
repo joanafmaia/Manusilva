@@ -32,7 +32,7 @@ describe('env', () => {
   });
 
   it('ignora mock=1 fora de localhost', async () => {
-    setWindowLocation({ hostname: 'manusilva.vercel.app', search: '?mock=1' });
+    setWindowLocation({ hostname: 'manusilva-production.up.railway.app', search: '?mock=1' });
     const { isDevMockEnabled, isProductionRuntime } = await import(`../js/env.js?case=${Date.now()}c`);
     assert.equal(isDevMockEnabled(), false);
     assert.equal(isProductionRuntime(), true);

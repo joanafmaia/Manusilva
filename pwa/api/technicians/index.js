@@ -39,7 +39,7 @@ function normalizeTechnicianRecord(user = {}, index = 0) {
 async function listAuthTechnicians() {
   if (!SERVICE_ROLE_KEY) {
     const err = new Error(
-      'SUPABASE_SERVICE_ROLE_KEY não configurada no servidor. Adicione-a nas variáveis de ambiente (Railway/Vercel).',
+      'SUPABASE_SERVICE_ROLE_KEY não configurada no servidor. Adicione-a nas variáveis de ambiente (Railway).',
     );
     err.status = 500;
     throw err;
@@ -71,7 +71,7 @@ async function listAuthTechnicians() {
 async function createAuthTechnician({ email, nome, technicianId, telemovel, nif }) {
   if (!SERVICE_ROLE_KEY) {
     const err = new Error(
-      'SUPABASE_SERVICE_ROLE_KEY não configurada no servidor. Adicione-a nas variáveis de ambiente (Railway/Vercel).',
+      'SUPABASE_SERVICE_ROLE_KEY não configurada no servidor. Adicione-a nas variáveis de ambiente (Railway).',
     );
     err.status = 500;
     throw err;
