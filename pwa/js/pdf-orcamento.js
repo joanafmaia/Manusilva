@@ -1167,7 +1167,7 @@ function drawManutencaoMaquinaPrecoTable(doc, table, startY, maxY, options = {})
   });
 
   if (table.deslocacao != null && rowTop + lineStep + 1 <= maxY) {
-    // Fecha a grelha de equipamentos e destaca a Deslocação (não é mais uma linha da tabela).
+    // Fecha a grelha de equipamentos e separa a Deslocação (sem fundo destacado).
     doc.setDrawColor(...PDF_COLOR_SLATE_LINE);
     doc.setLineWidth(0.55);
     doc.line(MARGIN, rowTop, MARGIN + CONTENT_W, rowTop);
@@ -1180,11 +1180,8 @@ function drawManutencaoMaquinaPrecoTable(doc, table, startY, maxY, options = {})
       return rowTop;
     }
 
-    doc.setFillColor(241, 245, 249);
-    doc.rect(MARGIN, rowTop - 0.4, CONTENT_W, lineStep, 'F');
     doc.setDrawColor(...PDF_TABLE_LINE);
     doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
-    doc.line(MARGIN, rowTop - 0.4, MARGIN + CONTENT_W, rowTop - 0.4);
 
     const textY = manutencaoFooterRowTextY(rowTop, lineStep, fontSize);
     drawOrcamentoMoneyRow(doc, 'Deslocação:', table.deslocacao, textY, {
@@ -1192,7 +1189,6 @@ function drawManutencaoMaquinaPrecoTable(doc, table, startY, maxY, options = {})
       boldValue: true,
     });
     rowTop += lineStep;
-    doc.line(MARGIN, rowTop, MARGIN + CONTENT_W, rowTop);
     rowTop += Math.min(MAQUINA_TOTALS_GAP, Math.max(1.2, gap * 0.55));
   }
 
