@@ -102,7 +102,6 @@ const BATERIA_BODY_MAX_Y = BATERIA_FOOTER_ANCHOR_Y - 6;
 /** Manutenção máquinas: rodapé mais alto (3 linhas de preço + prazo/pagamento). */
 const MAQUINA_FOOTER_BLOCK_H = 42;
 const MAQUINA_FOOTER_ANCHOR_Y = APPROVAL_TOP - MAQUINA_FOOTER_BLOCK_H - 6;
-const MAQUINA_BODY_MAX_Y = MAQUINA_FOOTER_ANCHOR_Y - 4;
 const MAQUINA_BULLET_LINE_STEP = 3.35;
 const MAQUINA_BULLET_MIN_STEP = 3.1;
 const MAQUINA_BULLET_COMPACT_FONT = 7.5;
@@ -110,14 +109,10 @@ const MAQUINA_FOOTER_GAP_ABOVE = 5;
 /** Separação visual entre a grelha de máquinas e «Deslocação» / totais. */
 const MAQUINA_DESLOCACAO_GAP = 2.6;
 const MAQUINA_TOTALS_GAP = 1.8;
-const MAQUINA_PRECO_FIELD_GAP = 3;
-const MAQUINA_PRECO_LINE_TAIL = 0.35;
 const MAQUINA_PRECO_TABLE_ROW_H = 4.2;
 const MAQUINA_PRECO_TABLE_ROW_H_COMPACT = 4;
-const MAQUINA_PRECO_TABLE_HEADER_H = 4.8;
 const MAQUINA_PRECO_TABLE_FONT = 8;
 const MAQUINA_PRECO_TABLE_COL_MANUT = MARGIN + 108;
-const MAQUINA_PRECO_TABLE_COL_DL50 = MARGIN + 148;
 const MAQUINA_FOOTER_MONEY_X = MARGIN + CONTENT_W - 1;
 const MAQUINA_FOOTER_LINE_MIN = 4.6;
 const MAQUINA_FOOTER_LINE_MAX = 6.2;
@@ -460,15 +455,6 @@ function canDrawContentLine(y, step = 5, maxY = CONTENT_MAX_Y) {
 
 function advanceContentY(y, step = 5, maxY = CONTENT_MAX_Y) {
   return canDrawContentLine(y, step, maxY) ? y + step : y;
-}
-
-/** @deprecated usar canDrawContentLine para o corpo da folha 1 */
-function canDrawBodyLine(y, step = 5) {
-  return canDrawContentLine(y, step);
-}
-
-function advanceBodyY(y, step = 5) {
-  return advanceContentY(y, step);
 }
 
 async function loadLegalText() {
@@ -1019,42 +1005,6 @@ function drawHorizontalEquipFields(
   return y + tail;
 }
 
-function countMaquinaPrecoBlockLines(doc, block, maxWidth, fontSize) {
-  doc.setFontSize(fontSize);
-  return Math.max(1, buildHorizontalEquipLines(doc, block, maxWidth, MAQUINA_PRECO_FIELD_GAP).length);
-}
-
-function estimateMaquinaPrecoBlocksHeight(
-  doc,
-  blocks,
-  { lineStep, twoColumn, fontSize, compactFooter },
-) {
-  const tail = compactFooter ? 32 : 40;
-  if (!blocks.length) return 16 + tail;
-
-  if (twoColumn) {
-    const colGap = 4;
-    const colW = (CONTENT_W - colGap) / 2;
-    const half = Math.ceil(blocks.length / 2);
-    let total = 0;
-    for (let row = 0; row < half; row += 1) {
-      const leftLines = countMaquinaPrecoBlockLines(doc, blocks[row], colW, fontSize);
-      const rightBlock = blocks[row + half];
-      const rightLines = rightBlock
-        ? countMaquinaPrecoBlockLines(doc, rightBlock, colW, fontSize)
-        : 0;
-      total += Math.max(leftLines, rightLines) * (lineStep + MAQUINA_PRECO_LINE_TAIL);
-    }
-    return total + 16 + tail;
-  }
-
-  let total = 0;
-  blocks.forEach((block) => {
-    total += countMaquinaPrecoBlockLines(doc, block, CONTENT_W, fontSize) * (lineStep + MAQUINA_PRECO_LINE_TAIL);
-  });
-  return total + 16 + tail;
-}
-
 function estimateMaquinaPrecoTableHeight(rowCount, compactFooter, rowH = null) {
   const table = {
     rows: Array.from({ length: rowCount }, () => ({})),
@@ -1211,55 +1161,6 @@ function drawManutencaoMaquinaPrecoTable(doc, table, startY, maxY, options = {})
   pdfSetFont(doc, 'normal');
   doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
   return rowTop;
-}
-
-function drawManutencaoMaquinaPrecoEquipBlocks(doc, blocks, startY, maxY, options = {}) {
-  const twoColumn = Boolean(options.twoColumn);
-  const lineStep = options.lineStep ?? 3.5;
-  const fontSize = options.fontSize ?? PDF_FONT_BODY;
-  const fieldGap = MAQUINA_PRECO_FIELD_GAP;
-  let y = startY;
-
-  if (twoColumn) {
-    const colGap = 4;
-    const colW = (CONTENT_W - colGap) / 2;
-    const half = Math.ceil(blocks.length / 2);
-    for (let row = 0; row < half; row += 1) {
-      if (y > maxY) break;
-      const leftBlock = blocks[row];
-      const rightBlock = blocks[row + half];
-      const leftEnd = drawHorizontalEquipFields(doc, leftBlock, y, maxY, ORC_GENERIC_DENSITY.normal, {
-        x: MARGIN,
-        maxWidth: colW,
-        fieldGap,
-        fontSize,
-        lineStep,
-        tail: 0,
-      });
-      const rightEnd = rightBlock
-        ? drawHorizontalEquipFields(doc, rightBlock, y, maxY, ORC_GENERIC_DENSITY.normal, {
-            x: MARGIN + colW + colGap,
-            maxWidth: colW,
-            fieldGap,
-            fontSize,
-            lineStep,
-            tail: 0,
-          })
-        : y;
-      y = Math.max(leftEnd, rightEnd) + MAQUINA_PRECO_LINE_TAIL;
-    }
-    return y;
-  }
-
-  blocks.forEach((block) => {
-    y = drawHorizontalEquipFields(doc, block, y, maxY, ORC_GENERIC_DENSITY.normal, {
-      fieldGap,
-      fontSize,
-      lineStep,
-      tail: MAQUINA_PRECO_LINE_TAIL,
-    });
-  });
-  return y;
 }
 
 function measureOrcamentoMachineTableHeight(doc, linhas, startY, density = ORC_GENERIC_DENSITY.normal) {
@@ -1433,83 +1334,6 @@ function measureOrcamentoObservacoesHeight(
     y += density.obsLineStep;
   });
   return y + 2;
-}
-
-export function planOrcamentoGenericPageLayout(doc, fill, bodyStartY) {
-  const layout = resolveOrcamentoGenericLayout(doc, fill, bodyStartY);
-  const tableLayout = computeOrcamentoTableLayout(fill.linhas, fill.maquinas, {
-    contentEndY: layout.contentEndY,
-    equipamentoCampos: fill.equipamento_campos,
-  });
-
-  return {
-    ...layout,
-    tableLayout,
-  };
-}
-
-function drawTemplateMaquinaIdentBlocks(doc, fill, startY, options = {}) {
-  const maxEndY = Number.isFinite(options.maxEndY) ? options.maxEndY : CONTENT_MAX_Y;
-  const compact = Boolean(options.compact);
-  const ultraCompact = Boolean(options.ultraCompact);
-  const canLine = (y, step = 5) => y + step <= maxEndY;
-  const advanceY = (y, step = 5) => (canLine(y, step) ? y + step : y);
-  let y = startY;
-
-  const nomes = collectTemplateMaquinaNomes(fill);
-  if (!nomes.length) return advanceY(y, ultraCompact ? 2 : 4);
-
-  if (compact) {
-    if (!canLine(y)) return y;
-    pdfSetFont(doc, 'bold');
-    doc.setFontSize(ultraCompact ? MAQUINA_BULLET_COMPACT_FONT : PDF_FONT_BODY);
-    doc.text('Máquinas:', MARGIN, y);
-    y = advanceY(y, ultraCompact ? 3.5 : 4.2);
-    pdfSetFont(doc, 'normal');
-    const numbered = nomes.map((nome, index) => `${index + 1}. ${nome}`);
-    const rowStep = ultraCompact ? 3.4 : 4;
-    const columns = nomes.length >= 5 ? 2 : 1;
-    if (columns === 1) {
-      numbered.forEach((line) => {
-        if (!canLine(y, rowStep)) return;
-        doc.text(pdfSafeText(line), MARGIN, y);
-        y = advanceY(y, rowStep);
-      });
-    } else {
-      const half = Math.ceil(numbered.length / 2);
-      const colGap = 4;
-      const colW = (CONTENT_W - colGap) / 2;
-      for (let row = 0; row < half; row += 1) {
-        if (!canLine(y, rowStep)) break;
-        doc.text(pdfSafeText(numbered[row]), MARGIN, y, { maxWidth: colW });
-        if (numbered[row + half]) {
-          doc.text(pdfSafeText(numbered[row + half]), MARGIN + colW + colGap, y, { maxWidth: colW });
-        }
-        y = advanceY(y, rowStep);
-      }
-    }
-    doc.setFontSize(PDF_FONT_BODY);
-    return advanceY(y, ultraCompact ? 2 : 3);
-  }
-
-  nomes.forEach((nome, index) => {
-    if (!canLine(y)) return;
-    pdfSetFont(doc, 'bold');
-    const prefix = nomes.length > 1 ? `Máquina ${index + 1}: ` : 'Máquina: ';
-    doc.text(prefix, MARGIN, y);
-    const prefixW = doc.getTextWidth(prefix);
-    pdfSetFont(doc, 'normal');
-    pdfSplitText(doc, pdfSafeText(nome), Math.max(12, CONTENT_W - prefixW)).forEach((line, lineIndex) => {
-      if (lineIndex > 0) {
-        y = advanceY(y, 5.5);
-        if (!canLine(y)) return;
-      }
-      doc.text(line, MARGIN + (lineIndex === 0 ? prefixW : 0), y);
-    });
-    y = advanceY(y, 5.5);
-  });
-
-  return advanceY(y, 4);
 }
 
 function drawOrcamentoObservacoesCliente(doc, fill, startY, options = {}) {
@@ -1763,47 +1587,6 @@ export function estimateMaquinaBodyBeforeBullets(_machineCount = 1, _compactMach
   return 14 + 2 + 10 + 6 + 10;
 }
 
-function estimateBlockLineCountHeuristic(block, widthFactor = 1) {
-  const chars = block.reduce(
-    (n, [label, value]) => n + String(label || '').length + String(value || '').length + 3,
-    0,
-  );
-  const adjusted = chars / widthFactor;
-  if (adjusted <= 50) return 1;
-  if (adjusted <= 85) return 2;
-  return 2;
-}
-
-function estimateMaquinaPrecoBlocksHeightHeuristic(blocks, lineStep, twoColumn, compactFooter) {
-  const tail = compactFooter ? 32 : 40;
-  if (!blocks.length) return 16 + tail;
-
-  if (twoColumn) {
-    const half = Math.ceil(blocks.length / 2);
-    const colFactor = 0.52;
-    let total = 0;
-    for (let row = 0; row < half; row += 1) {
-      const left = estimateBlockLineCountHeuristic(blocks[row], colFactor);
-      const right = blocks[row + half]
-        ? estimateBlockLineCountHeuristic(blocks[row + half], colFactor)
-        : 0;
-      total += Math.max(left, right) * (lineStep + MAQUINA_PRECO_LINE_TAIL);
-    }
-    return total + 16 + tail;
-  }
-
-  let total = 0;
-  blocks.forEach((block) => {
-    total += estimateBlockLineCountHeuristic(block) * (lineStep + MAQUINA_PRECO_LINE_TAIL);
-  });
-  return total + 16 + tail;
-}
-
-/** @deprecated preferir estimateMaquinaPrecoTableHeight — heurística antiga da lista de preços. */
-function estimateMaquinaFooterHeight(precoLineCount, priceLineStep, twoColumnPrices, compact = false) {
-  return estimateMaquinaPrecoTableHeight(precoLineCount, compact, priceLineStep);
-}
-
 export function resolveManutencaoMaquinaPdfFooterLayout(fill = {}) {
   const meta = templateMetaFromFill(fill);
   const precoTable = buildManutencaoMaquinaPrecoTable(meta, meta);
@@ -1891,64 +1674,6 @@ export function resolveManutencaoMaquinaBulletsLayout(bulletStartY, footerLayout
     priceLineStep,
     footerHeight,
   };
-}
-
-/** @deprecated usar resolveManutencaoMaquinaPdfFooterLayout + resolveManutencaoMaquinaBulletsLayout */
-export function resolveManutencaoMaquinaPdfLayout(fill = {}, letterheadEndY = 83) {
-  const footer = resolveManutencaoMaquinaPdfFooterLayout(fill);
-  const beforeBullets = estimateMaquinaBodyBeforeBullets(
-    footer.machineCount,
-    footer.compactMachines,
-  );
-  const bulletStartY = letterheadEndY + beforeBullets;
-  const bullets = resolveManutencaoMaquinaBulletsLayout(
-    bulletStartY,
-    footer,
-  );
-
-  return {
-    bulletStartY,
-    bodyMaxY: bulletStartY - 1,
-    footerStartY: bulletStartY + bullets.twoColumnBullets
-      ? Math.ceil(MANUTENCAO_MAQUINA_TRABALHOS.length / 2) * (bullets.bulletLineStep + 0.45) + 2
-      : MANUTENCAO_MAQUINA_TRABALHOS.length * (bullets.bulletLineStep + 0.45) + 2,
-    ...footer,
-    ...bullets,
-  };
-}
-
-function drawManutencaoMaquinaPrecoLines(doc, precoLinhas, startY, maxY, options = {}) {
-  const twoColumn = Boolean(options.twoColumn);
-  const lineStep = options.lineStep ?? 5;
-  const colGap = 4;
-  const colW = twoColumn ? (CONTENT_W - colGap) / 2 : CONTENT_W;
-  let y = startY;
-
-  pdfSetFont(doc, 'bold');
-  if (twoColumn) {
-    const half = Math.ceil(precoLinhas.length / 2);
-    for (let row = 0; row < half; row += 1) {
-      if (y > maxY) break;
-      const left = precoLinhas[row];
-      const right = precoLinhas[row + half];
-      doc.text(pdfSafeText(left), MARGIN, y, { maxWidth: colW });
-      if (right) {
-        doc.text(pdfSafeText(right), MARGIN + colW + colGap, y, { maxWidth: colW });
-      }
-      y += lineStep;
-    }
-    return y + 1;
-  }
-
-  precoLinhas.forEach((line) => {
-    pdfSplitText(doc, line, CONTENT_W).forEach((textLine) => {
-      if (y > maxY) return;
-      doc.text(textLine, MARGIN, y);
-      y += lineStep;
-    });
-    y += 1;
-  });
-  return y;
 }
 
 function estimateBateriaFooterHeight(valorLineCount, typography = {}) {

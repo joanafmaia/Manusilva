@@ -10,7 +10,6 @@ import {
   resolveManutencaoMaquinaPdfFooterLayout,
   resolveManutencaoMaquinaBulletsLayout,
   resolveManutencaoMaquinaFooterTypography,
-  resolveManutencaoMaquinaPdfLayout,
   resolveManutencaoBateriaPdfFooterLayout,
   resolveManutencaoBateriaFooterTypography,
   resolveOrcamentoGenericLayout,
