@@ -42,11 +42,16 @@ import {
 import { buildOrcamentoAuditSummary, downloadOrcamentoAuditCsv } from '../orcamento-audit.js';
 import { dedupeReportsForDisplay } from '../relatorios-db.js';
 import {
+  formatOrcamentoRespostaDataLabel,
   orcamentoAguardaRespostaCliente,
+  ORCAMENTO_RESPOSTA,
+  promptOrcamentoRespostaData,
   resolveOrcamentoWorkflowClass,
   resolveOrcamentoWorkflowLabel,
   resolveOrcamentoWorkflowStatus,
   setOrcamentoRespostaCliente,
+  todayLocalDateInputValue,
+  toLocalDateInputValue,
 } from '../orcamento-workflow.js';
 import { ensureFolhasObraLoadedSafe } from '../folhas-obra-db.js';
 import {
@@ -255,6 +260,11 @@ function renderTableRow(report) {
       : garantiaKey === 'nao'
         ? `<span class="orcamentos-garantia orcamentos-garantia--nao" title="Não é reclamação em garantia">Sem garantia</span>`
         : '';
+  const respostaData = formatOrcamentoRespostaDataLabel(meta);
+  const respostaDataBadge =
+    respostaData && (workflow === 'aceite' || workflow === 'recusada')
+      ? `<span class="orcamentos-resposta-data" title="${workflow === 'aceite' ? 'Data de aceite' : 'Data de recusa'}">${escapeHtml(workflow === 'aceite' ? 'Aceite' : 'Recusada')} ${escapeHtml(respostaData)}</span>`
+      : '';
 
   return `
     <tr class="rh-data-table-row orcamentos-row${highlighted ? ' orcamentos-row--highlight faturacao-row--highlight' : ''}" data-report-id="${escapeHtml(report.id)}">
@@ -269,6 +279,7 @@ function renderTableRow(report) {
         <span class="orcamentos-status ${resolveOrcamentoWorkflowClass(workflow)}">${escapeHtml(resolveOrcamentoWorkflowLabel(workflow))}</span>
         ${meta?.numeroFormatado ? `<span class="orcamentos-numero">nº ${escapeHtml(meta.numeroFormatado)}</span>` : ''}
         ${garantiaBadge}
+        ${respostaDataBadge}
       </td>
       <td class="rh-cell-muted orcamentos-col-detalhe" title="${escapeHtml(detalhe)}">${escapeHtml(detalheShort)}</td>
       <td class="rh-cell-muted">${escapeHtml(tech?.name || '—')}</td>
@@ -630,8 +641,16 @@ function bindPanelEvents() {
     if (aceiteBtn) {
       const reportId = aceiteBtn.dataset.orcAceite;
       if (!reportId) return;
-      void setOrcamentoRespostaCliente(reportId, 'aceite')
-        .then((saved) => {
+      const existing = getReportOrcamentoMeta(getReport(reportId));
+      void promptOrcamentoRespostaData({
+        resposta: ORCAMENTO_RESPOSTA.ACEITE,
+        defaultDate:
+          toLocalDateInputValue(existing?.respostaClienteEm) || todayLocalDateInputValue(),
+      }).then((date) => {
+        if (!date) return;
+        return setOrcamentoRespostaCliente(reportId, ORCAMENTO_RESPOSTA.ACEITE, {
+          respostaClienteEm: date,
+        }).then((saved) => {
           if (saved) {
             const msg = reportIsFolhaObraOrcamento(saved)
               ? 'Proposta aceite. Equipamento libertado para o Armazém.'
@@ -639,8 +658,8 @@ function bindPanelEvents() {
             showToast(msg, 'success');
             refreshOrcamentosPanel().catch(console.error);
           }
-        })
-        .catch((err) => showToast(err?.message || 'Erro ao guardar.', 'error'));
+        });
+      }).catch((err) => showToast(err?.message || 'Erro ao guardar.', 'error'));
       return;
     }
 
@@ -648,14 +667,22 @@ function bindPanelEvents() {
     if (recusadaBtn) {
       const reportId = recusadaBtn.dataset.orcRecusada;
       if (!reportId) return;
-      void setOrcamentoRespostaCliente(reportId, 'recusada')
-        .then((saved) => {
+      const existing = getReportOrcamentoMeta(getReport(reportId));
+      void promptOrcamentoRespostaData({
+        resposta: ORCAMENTO_RESPOSTA.RECUSADA,
+        defaultDate:
+          toLocalDateInputValue(existing?.respostaClienteEm) || todayLocalDateInputValue(),
+      }).then((date) => {
+        if (!date) return;
+        return setOrcamentoRespostaCliente(reportId, ORCAMENTO_RESPOSTA.RECUSADA, {
+          respostaClienteEm: date,
+        }).then((saved) => {
           if (saved) {
             showToast('Proposta marcada como recusada.', 'info');
             refreshOrcamentosPanel().catch(console.error);
           }
-        })
-        .catch((err) => showToast(err?.message || 'Erro ao guardar.', 'error'));
+        });
+      }).catch((err) => showToast(err?.message || 'Erro ao guardar.', 'error'));
       return;
     }
 

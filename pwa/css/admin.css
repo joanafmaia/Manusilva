@@ -3476,6 +3476,61 @@
   flex-wrap: wrap;
   gap: 0.5rem;
 }
+.review-orc-resposta__date {
+  margin: 0 0 0.75rem;
+  max-width: 16rem;
+}
+.review-orc-resposta__data-text {
+  margin-left: 0.35rem;
+  color: var(--text-muted, #64748b);
+  font-size: 0.88rem;
+}
+.orcamentos-resposta-data {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted, #64748b);
+}
+.orc-resposta-date-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(15, 23, 42, 0.45);
+}
+.orc-resposta-date-dialog {
+  width: min(100%, 22rem);
+  padding: 1.1rem 1.2rem;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.2);
+}
+.orc-resposta-date-dialog__title {
+  margin: 0 0 0.35rem;
+  font-size: 1.05rem;
+}
+.orc-resposta-date-dialog__hint {
+  margin: 0 0 0.85rem;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+.orc-resposta-date-dialog__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin-bottom: 1rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+.orc-resposta-date-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
 .review-orcamento-sent-notice {
   margin: 0 0 1rem;
   padding: 0.85rem 1rem;

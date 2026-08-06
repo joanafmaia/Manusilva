@@ -68,10 +68,14 @@ import { bindOrcamentoCatalogoComboboxes } from './orcamento-catalogo-combobox.j
 import { escapeHtml } from './html-utils.js';
 import { reportIsStandaloneOrcamento, reportUsesFreeformOrcamentoCliente } from './orcamento-standalone.js';
 import {
+  formatOrcamentoRespostaDataLabel,
+  ORCAMENTO_RESPOSTA,
   resolveOrcamentoWorkflowClass,
   resolveOrcamentoWorkflowLabel,
   resolveOrcamentoWorkflowStatus,
   setOrcamentoRespostaCliente,
+  todayLocalDateInputValue,
+  toLocalDateInputValue,
 } from './orcamento-workflow.js';
 import { formatInterventionDatePt } from './report-intervention-date.js';
 import {
@@ -138,16 +142,44 @@ function renderTaxasSaidaFields(meta) {
 
 function renderOrcamentoRespostaSection(report) {
   const workflow = resolveOrcamentoWorkflowStatus(report);
+  const meta = getReportOrcamentoMeta(report) || {};
+  const hasResposta =
+    workflow === 'aceite' || workflow === 'recusada';
+  const dateValue =
+    toLocalDateInputValue(meta.respostaClienteEm) || todayLocalDateInputValue();
+  const dateLabel = formatOrcamentoRespostaDataLabel(meta);
+  const dateTitle =
+    workflow === 'aceite'
+      ? 'Data de aceite'
+      : workflow === 'recusada'
+        ? 'Data de recusa'
+        : 'Data da resposta';
+
   return `
     <section class="review-orc-resposta" aria-label="Resposta do cliente">
       <h4 class="review-orc-cabecalho__title">Resposta do cliente</h4>
       <p class="review-orc-resposta__status">
         Estado:
         <span class="orcamentos-status ${resolveOrcamentoWorkflowClass(workflow)}">${escapeHtml(resolveOrcamentoWorkflowLabel(workflow))}</span>
+        ${
+          hasResposta && dateLabel
+            ? `<span class="review-orc-resposta__data-text">· ${escapeHtml(dateTitle)}: <strong>${escapeHtml(dateLabel)}</strong></span>`
+            : ''
+        }
       </p>
+      <label class="review-orc-field review-orc-resposta__date">
+        <span>${escapeHtml(dateTitle)}</span>
+        <input type="date" class="review-orc-input" data-orc-field="respostaClienteEm" value="${escapeHtml(dateValue)}" />
+        <span class="review-orc-field-hint text-muted">Pode indicar a data real da resposta do cliente (não só a do registo no sistema).</span>
+      </label>
       <div class="review-orc-resposta__actions">
         <button type="button" class="btn-success btn-sm btn-touch" data-orc-mark-aceite>Marca aceite</button>
         <button type="button" class="btn-danger btn-sm btn-touch" data-orc-mark-recusada>Marca recusada</button>
+        ${
+          hasResposta
+            ? '<button type="button" class="btn-outline btn-sm btn-touch" data-orc-save-resposta-data>Guardar data</button>'
+            : ''
+        }
       </div>
       <p class="text-muted review-orcamento-editor__hint">Registe aqui se o cliente aceitou ou recusou a proposta enviada.</p>
     </section>`;
@@ -180,6 +212,11 @@ function renderOrcamentoSentSummary(report, { client } = {}) {
         <div><dt>Tipo</dt><dd>${escapeHtml(formatOrcamentoTipoPropostaLabel(getOrcamentoTipoProposta(report)))}</dd></div>
         <div><dt>Estado</dt><dd><span class="orcamentos-status ${resolveOrcamentoWorkflowClass(workflow)}">${escapeHtml(resolveOrcamentoWorkflowLabel(workflow))}</span></dd></div>
         <div><dt>Em garantia</dt><dd>${escapeHtml(formatReclamacaoGarantiaLabel(getReportReclamacaoGarantia(report), { empty: 'Não indicado' }))}</dd></div>
+        ${
+          workflow === 'aceite' || workflow === 'recusada'
+            ? `<div><dt>${workflow === 'aceite' ? 'Data de aceite' : 'Data de recusa'}</dt><dd>${escapeHtml(formatOrcamentoRespostaDataLabel(meta, { empty: '—' }))}</dd></div>`
+            : ''
+        }
         <div><dt>Enviada para</dt><dd>${email}</dd></div>
       </dl>
       ${renderOrcamentoRespostaSection(report)}
@@ -742,11 +779,16 @@ async function openOrcamentoPdf(report, { saveMeta }) {
 }
 
 function bindOrcamentoRespostaActions(root, { getReport, onUpdated }) {
+  const readRespostaDate = () =>
+    root.querySelector('[data-orc-field="respostaClienteEm"]')?.value?.trim() || '';
+
   root.querySelector('[data-orc-mark-aceite]')?.addEventListener('click', async () => {
     try {
       const { showToast } = await import('./app.js');
       const current = getReport();
-      const saved = await setOrcamentoRespostaCliente(current.id, 'aceite');
+      const saved = await setOrcamentoRespostaCliente(current.id, ORCAMENTO_RESPOSTA.ACEITE, {
+        respostaClienteEm: readRespostaDate(),
+      });
       if (!saved) throw new Error('Não foi possível guardar.');
       onUpdated?.(saved);
       showToast('Proposta marcada como aceite.', 'success');
@@ -761,10 +803,34 @@ function bindOrcamentoRespostaActions(root, { getReport, onUpdated }) {
     try {
       const { showToast } = await import('./app.js');
       const current = getReport();
-      const saved = await setOrcamentoRespostaCliente(current.id, 'recusada');
+      const saved = await setOrcamentoRespostaCliente(current.id, ORCAMENTO_RESPOSTA.RECUSADA, {
+        respostaClienteEm: readRespostaDate(),
+      });
       if (!saved) throw new Error('Não foi possível guardar.');
       onUpdated?.(saved);
       showToast('Proposta marcada como recusada.', 'info');
+      window.location.reload();
+    } catch (err) {
+      const { showToast } = await import('./app.js');
+      showToast(err?.message || 'Erro ao guardar.', 'error');
+    }
+  });
+
+  root.querySelector('[data-orc-save-resposta-data]')?.addEventListener('click', async () => {
+    try {
+      const { showToast } = await import('./app.js');
+      const current = getReport();
+      const workflow = resolveOrcamentoWorkflowStatus(current);
+      if (workflow !== 'aceite' && workflow !== 'recusada') {
+        showToast('Marque primeiro aceite ou recusada.', 'warning');
+        return;
+      }
+      const saved = await setOrcamentoRespostaCliente(current.id, workflow, {
+        respostaClienteEm: readRespostaDate(),
+      });
+      if (!saved) throw new Error('Não foi possível guardar.');
+      onUpdated?.(saved);
+      showToast('Data da resposta atualizada.', 'success');
       window.location.reload();
     } catch (err) {
       const { showToast } = await import('./app.js');
