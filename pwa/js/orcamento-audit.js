@@ -50,8 +50,8 @@ function filterByEstado(reports, estadoFilter) {
 }
 
 function resolveOrigemLabel(report) {
-  if (reportIsStandaloneOrcamento(report)) return 'Proposta RH';
   if (reportIsFolhaObraOrcamento(report)) return 'Folha de obra R.C';
+  if (reportIsStandaloneOrcamento(report)) return 'Proposta RH';
   return 'Pedido técnico';
 }
 

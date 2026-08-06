@@ -93,6 +93,13 @@ export function resolveReportObservacoesTecnico(report) {
   }
 
   const values = report?.data?.values || {};
+  // Folha R.C. — diagnóstico / notas embutidas na criação da proposta.
+  if (
+    String(report?.data?.folhaObraId || '').trim() ||
+    String(report?.data?.orcamentoOrigem || '').trim() === 'folha_obra_rc'
+  ) {
+    return String(values.observacoes_orcamento || values.observacoes || '').trim();
+  }
   if (String(report?.serviceType || '') === 'manutencao_preventiva_empilhadores') {
     const maquinas = migrateLegacyEmpilhadoresMaquinas(values);
     const parts = maquinas

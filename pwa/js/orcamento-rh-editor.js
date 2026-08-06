@@ -36,6 +36,7 @@ import {
   formatOrcamentoTipoPropostaLabel,
   getOrcamentoTipoProposta,
   normalizeOrcamentoTipoProposta,
+  ORCAMENTO_TIPO_PROPOSTA,
   renderOrcamentoTipoPropostaSelect,
 } from './orcamento-tipo-proposta.js';
 import {
@@ -919,7 +920,21 @@ export function bindOrcamentoEditor(container, { report, onUpdated, onSaved, onS
   root.querySelector('[data-orc-field="tipoProposta"]')?.addEventListener('change', () => {
     const tipoRaw = root.querySelector('[data-orc-field="tipoProposta"]')?.value?.trim() || '';
     const meta = readOrcamentoFormFromDom(root, currentReport);
+    const prevTipo = getOrcamentoTipoProposta(currentReport);
     const tipoProposta = normalizeOrcamentoTipoProposta(tipoRaw || meta.tipoProposta, currentReport);
+    const prevIsFreeform = prevTipo === ORCAMENTO_TIPO_PROPOSTA.ORCAMENTO;
+    const nextIsTemplate = tipoProposta !== ORCAMENTO_TIPO_PROPOSTA.ORCAMENTO;
+    const hasFreeformLinhas = (meta.linhas || []).some((row) => String(row?.descricao || '').trim());
+    if (prevIsFreeform && nextIsTemplate && hasFreeformLinhas) {
+      const ok = window.confirm(
+        'Ao mudar para um modelo de manutenção, as linhas livres atuais são substituídas pelo modelo.\n\nContinuar?',
+      );
+      if (!ok) {
+        const select = root.querySelector('[data-orc-field="tipoProposta"]');
+        if (select) select.value = prevTipo;
+        return;
+      }
+    }
     const nextReport = {
       ...currentReport,
       data: {

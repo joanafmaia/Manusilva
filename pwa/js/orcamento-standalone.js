@@ -23,8 +23,16 @@ export const STANDALONE_ORCAMENTO_SERVICE_TYPE = 'proposta_ms015_rh';
 export const STANDALONE_ORCAMENTO_ORIGEM = 'rh_standalone';
 export const STANDALONE_ORCAMENTO_TECH_ID = 'rh-admin';
 
+/** Folha R.C. reutiliza o serviceType MS.015, mas não é proposta RH «do zero». */
+function reportLooksLikeFolhaObraOrcamento(report) {
+  if (!report) return false;
+  if (String(report?.data?.folhaObraId || '').trim()) return true;
+  return String(report?.data?.orcamentoOrigem || '').trim() === 'folha_obra_rc';
+}
+
 export function reportIsStandaloneOrcamento(report) {
   if (!report) return false;
+  if (reportLooksLikeFolhaObraOrcamento(report)) return false;
   if (String(report.serviceType || '') === STANDALONE_ORCAMENTO_SERVICE_TYPE) return true;
   return String(report?.data?.orcamentoOrigem || '').trim() === STANDALONE_ORCAMENTO_ORIGEM;
 }
@@ -252,6 +260,7 @@ export function standaloneOrcamentoLabel() {
 }
 
 export function reportOrcamentoQueueLabel(report) {
+  if (reportLooksLikeFolhaObraOrcamento(report)) return 'Folha de obra R.C';
   if (reportIsStandaloneOrcamento(report)) return standaloneOrcamentoLabel();
   if (report?.status === 'approved') return 'Relatório aprovado';
   if (report?.status === 'pending_review') return 'Aguarda aprovação RH';

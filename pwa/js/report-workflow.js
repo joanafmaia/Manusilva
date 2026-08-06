@@ -419,10 +419,11 @@ async function approveReportOnce(reportId, options = {}) {
       approvedBy: resolveAuditActor(),
       pdfFilename: filename,
       numeroOrdem: reportForPdf.numeroOrdem ?? undefined,
-      faturacaoStatus: servicoId
-        ? 'via_servico'
-        : reportIsRhOrcamento(report)
-          ? FATURACAO_AGUARDA_ACEITE_ORCAMENTO
+      // Pedido / proposta comercial: fatura só após aceite MS.015 (não misturar com visita).
+      faturacaoStatus: reportIsRhOrcamento(report)
+        ? FATURACAO_AGUARDA_ACEITE_ORCAMENTO
+        : servicoId
+          ? 'via_servico'
           : 'pendente',
       data: {
         ...(report.data || {}),
@@ -676,6 +677,13 @@ export async function cancelPedidoOrcamentoReport(reportId) {
   if (!report) {
     showToast('Relatório não encontrado.', 'error');
     return false;
+  }
+
+  const { reportIsFolhaObraOrcamento, deleteFolhaObraOrcamentoReport } = await import(
+    './folha-obra-orcamento.js'
+  );
+  if (reportIsFolhaObraOrcamento(report)) {
+    return deleteFolhaObraOrcamentoReport(reportId);
   }
 
   if (reportIsStandaloneOrcamento(report)) {

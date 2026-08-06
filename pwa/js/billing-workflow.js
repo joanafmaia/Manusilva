@@ -17,6 +17,7 @@ import { resolveAuditActor } from './audit-actor.js';
 import {
   getReportOrcamentoPdfUrl,
   getReportTechnicalPdfUrl,
+  reportHasPedidoOrcamento,
   reportIsCommercialOrcamento,
   reportPedidoOrcamentoRoutesToOrcamentosTab,
 } from './pedido-orcamento.js';
@@ -58,10 +59,12 @@ function sharesNumeroOrdemWithCommercialOrcamento(report, allReports) {
   });
 }
 
-/** Relatório aprovado de visita que conta para faturação (exclui só proposta MS.015). */
+/** Relatório aprovado de visita que conta para faturação (exclui proposta MS.015 / pedido de orçamento). */
 export function isServicoReportBillable(report) {
   if (!report || report.status !== 'approved') return false;
-  return !reportIsCommercialOrcamento(report);
+  if (reportIsCommercialOrcamento(report)) return false;
+  if (reportHasPedidoOrcamento(report)) return false;
+  return true;
 }
 
 /** Compara URLs do Storage ignorando query string (?v= cache bust). */
@@ -150,6 +153,7 @@ export function resolvePrimaryBillingReportId(reports = []) {
 /** Relatório aprovado ainda por faturar (controlo interno; exclui visitas e propostas comerciais). */
 export function isPendingBilling(report, allReports = null) {
   if (!report || report.status !== 'approved') return false;
+  if (reportHasPedidoOrcamento(report)) return false;
   if (reportPedidoOrcamentoRoutesToOrcamentosTab(report, safeGetClient(report.clientId))) {
     return false;
   }

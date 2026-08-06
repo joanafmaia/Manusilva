@@ -119,6 +119,6 @@ export function renderOrcamentoTipoPropostaSelect(value, { fieldId = 'orc-tipo-p
       <select class="review-orc-input" id="${escAttr(fieldId)}" data-orc-field="tipoProposta"${required ? ' required' : ''}>
         ${options}
       </select>
-      <span class="review-orc-field-hint text-muted">Pode alterar o tipo (máquina, bateria ou orçamento) — muda o modelo da proposta. Usado também na listagem e exportação anual.</span>
+      <span class="review-orc-field-hint text-muted">Pode alterar o tipo (máquina, bateria ou orçamento) — muda o modelo da proposta. Ao passar para manutenção, as linhas livres são substituídas pelo modelo; guarde antes se precisar de as recuperar. Usado também na listagem e exportação anual.</span>
     </label>`;
 }

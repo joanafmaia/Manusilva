@@ -15,6 +15,13 @@ import {
   STANDALONE_ORCAMENTO_ORIGEM,
   STANDALONE_ORCAMENTO_SERVICE_TYPE,
 } from '../js/orcamento-standalone.js';
+import {
+  FOLHA_OBRA_ORCAMENTO_ORIGEM,
+  reportIsFolhaObraOrcamento,
+} from '../js/folha-obra-orcamento.js';
+import { isPendingBilling } from '../js/billing-workflow.js';
+import { isPendingOrcamentoBilling } from '../js/orcamento-billing-workflow.js';
+import { ORCAMENTO_RESPOSTA } from '../js/orcamento-workflow.js';
 
 function standaloneReport(overrides = {}) {
   return {
@@ -31,12 +38,37 @@ function standaloneReport(overrides = {}) {
   };
 }
 
+function folhaOrcamentoReport(overrides = {}) {
+  return {
+    id: 'folha-orc-1',
+    status: 'approved',
+    serviceType: STANDALONE_ORCAMENTO_SERVICE_TYPE,
+    clientId: '42',
+    faturacaoStatus: 'via_folha_obra',
+    data: {
+      orcamentoOrigem: FOLHA_OBRA_ORCAMENTO_ORIGEM,
+      folhaObraId: 'folha-1',
+      values: { cliente: 'Cliente Oficina', observacoes_orcamento: 'Diagnóstico: rolamento' },
+      orcamento: { tipoProposta: 'orcamento' },
+    },
+    ...overrides,
+  };
+}
+
 describe('orcamento standalone', () => {
   it('deteta proposta RH sem pedido técnico', () => {
     const report = standaloneReport();
     assert.equal(reportHasPedidoOrcamento(report), false);
     assert.equal(reportIsStandaloneOrcamento(report), true);
     assert.equal(reportIsRhOrcamento(report), true);
+  });
+
+  it('folha R.C. com serviceType MS.015 não é standalone', () => {
+    const report = folhaOrcamentoReport();
+    assert.equal(reportIsFolhaObraOrcamento(report), true);
+    assert.equal(reportIsStandaloneOrcamento(report), false);
+    assert.equal(reportIsRhOrcamento(report), true);
+    assert.equal(isRhOrcamentoQueueReport(report), true);
   });
 
   it('inclui proposta standalone na fila de orçamentos', () => {
@@ -66,6 +98,33 @@ describe('orcamento standalone', () => {
     assert.equal(reportHasPedidoOrcamento(report), true);
     assert.equal(reportIsStandaloneOrcamento(report), false);
     assert.equal(isRhOrcamentoQueueReport(report), true);
+  });
+
+  it('pedido técnico aprovado não entra na faturação de visita', () => {
+    const report = {
+      id: 'tech-pedido',
+      status: 'approved',
+      serviceType: 'reparacao_avarias_bateria',
+      clientId: '10',
+      faturacaoStatus: 'pendente',
+      data: { values: { pedido_orcamento: 'Sim' } },
+    };
+    assert.equal(isPendingBilling(report), false);
+    assert.equal(isPendingOrcamentoBilling(report), false);
+  });
+
+  it('folha aceite não entra na faturação de propostas', () => {
+    const report = folhaOrcamentoReport({
+      data: {
+        ...folhaOrcamentoReport().data,
+        orcamento: {
+          enviadoEm: '2026-06-01T10:00:00.000Z',
+          respostaCliente: ORCAMENTO_RESPOSTA.ACEITE,
+          respostaClienteEm: '2026-06-15T10:00:00.000Z',
+        },
+      },
+    });
+    assert.equal(isPendingOrcamentoBilling(report), false);
   });
 
   it('cliente teste com pedido de orçamento vai para aba Orçamentos', () => {
@@ -102,5 +161,6 @@ describe('orcamento standalone', () => {
     const report = standaloneReport({ clientId: '' });
     assert.equal(reportUsesFreeformOrcamentoCliente(report), true);
     assert.equal(reportUsesFreeformOrcamentoCliente(standaloneReport({ clientId: '42' })), false);
+    assert.equal(reportUsesFreeformOrcamentoCliente(folhaOrcamentoReport()), false);
   });
 });

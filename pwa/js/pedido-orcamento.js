@@ -4,6 +4,7 @@
 
 import { isTestClient } from './client-test-utils.js';
 import { reportIsStandaloneOrcamento } from './orcamento-standalone.js';
+import { reportIsFolhaObraOrcamento } from './folha-obra-orcamento.js';
 
 export {
   reportIsStandaloneOrcamento,
@@ -22,18 +23,24 @@ export function reportPedidoOrcamentoRoutesToOrcamentosTab(report, client) {
   return isTestClient(client);
 }
 
-/** Relatório com pedido técnico ou proposta RH criada do zero. */
+/** Pedido técnico, proposta RH do zero, ou orçamento de folha de obra R.C. */
 export function reportIsRhOrcamento(report) {
-  return reportHasPedidoOrcamento(report) || reportIsStandaloneOrcamento(report);
+  return (
+    reportHasPedidoOrcamento(report) ||
+    reportIsStandaloneOrcamento(report) ||
+    reportIsFolhaObraOrcamento(report)
+  );
 }
 
 /**
- * Proposta comercial MS.015 (aba Orçamentos) — não confundir com relatório técnico
- * que tenha «pedido de orçamento = Sim» (esse relatório fatura-se normalmente).
+ * Proposta comercial MS.015 (aba Orçamentos / faturação por aceite).
+ * Pedidos técnicos com «pedido de orçamento» faturam só após aceite da proposta.
  */
 export function reportIsCommercialOrcamento(report) {
   if (!report) return false;
+  if (reportIsFolhaObraOrcamento(report)) return true;
   if (reportIsStandaloneOrcamento(report)) return true;
+  if (reportHasPedidoOrcamento(report)) return true;
   if (String(report?.data?.faturacaoOrigem || '') === 'orcamento_aceite') return true;
   return false;
 }

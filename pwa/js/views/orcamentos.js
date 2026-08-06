@@ -125,11 +125,14 @@ function filterOrcamentoReports(reports) {
 }
 
 function countByWorkflow(reports) {
+  const aceiteReports = reports.filter((r) => resolveOrcamentoWorkflowStatus(r) === 'aceite');
   return {
     por_preparar: reports.filter(reportOrcamentoPorPreparar).length,
     guardada: reports.filter((r) => resolveOrcamentoWorkflowStatus(r) === 'guardada').length,
     enviada: reports.filter((r) => resolveOrcamentoWorkflowStatus(r) === 'enviada').length,
-    aceite: reports.filter((r) => resolveOrcamentoWorkflowStatus(r) === 'aceite').length,
+    aceite: aceiteReports.length,
+    /** Aceites comerciais (exclui folha R.C. — essas vão para o Armazém). */
+    aceite_faturacao: aceiteReports.filter((r) => !reportIsFolhaObraOrcamento(r)).length,
     recusada: reports.filter((r) => resolveOrcamentoWorkflowStatus(r) === 'recusada').length,
     todas: reports.length,
   };
@@ -192,9 +195,13 @@ function renderMetrics(counts) {
           <p class="faturacao-kpi-sub">Aguardam resposta do cliente</p>
         </article>
         <article class="dashboard-metric-card dashboard-metric-card--success">
-          <p class="dashboard-metric-value">${counts.aceite}</p>
+          <p class="dashboard-metric-value">${counts.aceite_faturacao}</p>
           <p class="dashboard-metric-label">Aceites</p>
-          <p class="faturacao-kpi-sub">Prontas para faturação</p>
+          <p class="faturacao-kpi-sub">Prontas para faturação${
+            counts.aceite > counts.aceite_faturacao
+              ? ` · ${counts.aceite - counts.aceite_faturacao} oficina`
+              : ''
+          }</p>
         </article>
       </div>
     </section>`;
@@ -248,8 +255,15 @@ function renderTableRow(report) {
   const canApproveReport = !reportIsStandaloneOrcamento(report) && report.status === 'pending_review';
   const canCancelPedido = !meta?.enviadoEm;
   const canEditProposal = !meta?.enviadoEm;
+  const canViewSentProposal = Boolean(meta?.enviadoEm);
   const aguardaResposta = orcamentoAguardaRespostaCliente(report);
   const podeMarcarResposta = Boolean(meta?.enviadoEm);
+  const isFolha = reportIsFolhaObraOrcamento(report);
+  const eliminarTitle = reportIsStandaloneOrcamento(report)
+    ? 'Eliminar proposta'
+    : isFolha
+      ? 'Eliminar orçamento da folha'
+      : 'Eliminar pedido de orçamento';
   const highlighted = highlightReportId && report.id === highlightReportId;
   const clientName = getClientName(client, values) || '—';
   const tipoLabel = formatOrcamentoTipoPropostaLabel(getOrcamentoTipoProposta(report));
@@ -295,7 +309,9 @@ function renderTableRow(report) {
               ? `<button type="button" class="btn-primary btn-sm rh-btn-compact" data-orc-open="${escapeHtml(report.id)}" title="${workflow === 'por_preparar' ? 'Preparar proposta comercial' : 'Editar proposta'}">
             ${workflow === 'por_preparar' ? 'Preparar' : 'Editar'}
           </button>`
-              : ''
+              : canViewSentProposal
+                ? `<button type="button" class="btn-outline btn-sm rh-btn-compact" data-orc-open="${escapeHtml(report.id)}" title="Ver proposta enviada e registar data de resposta">Ver</button>`
+                : ''
           }
           ${
             pdfUrl
@@ -325,7 +341,7 @@ function renderTableRow(report) {
           }
           ${
             canCancelPedido
-              ? `<button type="button" class="btn-danger btn-sm rh-btn-compact" data-orc-cancel="${escapeHtml(report.id)}" title="${reportIsStandaloneOrcamento(report) ? 'Eliminar proposta' : 'Eliminar pedido de orçamento'}">Eliminar</button>`
+              ? `<button type="button" class="btn-danger btn-sm rh-btn-compact" data-orc-cancel="${escapeHtml(report.id)}" title="${escapeHtml(eliminarTitle)}">Eliminar</button>`
               : ''
           }
         </div>
@@ -610,7 +626,7 @@ function bindPanelEvents() {
       const client = report ? getClient(report.clientId) : null;
       const job = report?.jobId ? getJob(report.jobId) : null;
       const label = client?.name || client?.Nome || formatOrdemLabel(job) || 'este pedido';
-      if (reportIsStandaloneOrcamento(report)) {
+      if (reportIsStandaloneOrcamento(report) || reportIsFolhaObraOrcamento(report)) {
         void cancelPedidoOrcamentoReport(reportId).then((done) => {
           if (done) refreshOrcamentosPanel().catch(console.error);
         });

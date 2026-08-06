@@ -200,7 +200,8 @@ export function applyManutencaoBateriaTemplateMeta(meta = {}, report = null) {
     ...synced,
     tipoProposta: ORCAMENTO_TIPO_PROPOSTA.MANUTENCAO_BATERIA,
     textoIntro: MANUTENCAO_BATERIA_INTRO,
-    observacoesCliente: '',
+    // Templates não usam este campo no PDF, mas não apagar texto já escrito no formulário.
+    observacoesCliente: String(synced.observacoesCliente || '').trim(),
     periodicidadeManutencao: first.periodicidadeManutencao,
     valorManutencaoVisita: first.valorManutencaoVisita || formatValorManutencaoBateriaInput(first),
     prazoEntrega: '',
@@ -545,7 +546,8 @@ export function applyManutencaoMaquinaTemplateMeta(meta = {}, report = null) {
     ...synced,
     tipoProposta: ORCAMENTO_TIPO_PROPOSTA.MANUTENCAO_MAQUINA,
     textoIntro: resolveManutencaoMaquinaIntro(synced, synced),
-    observacoesCliente: '',
+    // Templates não usam este campo no PDF, mas não apagar texto já escrito no formulário.
+    observacoesCliente: String(synced.observacoesCliente || '').trim(),
     taxasSaida: [],
     taxaSaida: '',
     prazoEntrega: String(synced.prazoEntrega || '').trim(),

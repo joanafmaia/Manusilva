@@ -211,3 +211,52 @@ export async function handleOrcamentoRespostaForFolhaObra(report) {
   if (!reportIsFolhaObraOrcamento(report)) return null;
   return syncFolhaObraFromOrcamentoReport(report);
 }
+
+/**
+ * Elimina proposta MS.015 ligada a folha R.C. (só se ainda não enviada) e liberta a folha.
+ * @param {string} reportId
+ */
+export async function deleteFolhaObraOrcamentoReport(reportId) {
+  const { getReport } = await import('./app.js');
+  const { deleteRelatorioById } = await import('./relatorios-db.js');
+  const { showToast } = await import('./toast-modal.js');
+
+  const report = getReport(reportId);
+  if (!report || !reportIsFolhaObraOrcamento(report)) {
+    showToast('Esta proposta de folha de obra não foi encontrada.', 'error');
+    return false;
+  }
+
+  const meta = getReportOrcamentoMeta(report);
+  if (meta?.enviadoEm) {
+    showToast('A proposta já foi enviada ao cliente. Não é possível eliminar.', 'warning', 8000);
+    return false;
+  }
+
+  const folhaId = resolveFolhaObraIdFromReport(report);
+  const folha = folhaId ? getFolhaObra(folhaId) : null;
+  const label = folha?.etq || 'esta folha';
+
+  const ok = window.confirm(
+    `Eliminar o orçamento MS.015 de ${label}?\n\nA folha de obra mantém-se e volta a ficar disponível para criar nova proposta.`,
+  );
+  if (!ok) return false;
+
+  try {
+    await deleteRelatorioById(reportId);
+    if (folhaId) {
+      const estado = folha?.estado === 'orcamento_enviado' ? 'aguarda_orcamento' : folha?.estado;
+      await updateFolhaObra(folhaId, {
+        orcamentoReportId: '',
+        ...(estado ? { estado } : {}),
+      });
+    }
+    window.dispatchEvent(new CustomEvent('db-updated'));
+    showToast('Orçamento da folha eliminado.', 'success');
+    return true;
+  } catch (err) {
+    console.error('[ManuSilva] deleteFolhaObraOrcamentoReport:', err);
+    showToast(err?.message || 'Erro ao eliminar o orçamento da folha.', 'error', 9000);
+    return false;
+  }
+}
