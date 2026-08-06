@@ -4,13 +4,14 @@
 
 import { EMPILHADORES_MATERIAL_SECTION } from './mock_data.js';
 import { columnKey } from './material-table-field.js';
-import { formatEmpilhadoresVerifyState } from './preventiva-empilhadores-items.js';
+import { formatEmpilhadoresVerifyState, formatEmpilhadoresMatrixLegendText } from './preventiva-empilhadores-items.js';
 import { pdfAutoTableFont, pdfSafeText } from './pdf-font.js';
 import {
   PDF_COLOR_CORPORATE_BLUE as CORPORATE_BLUE,
   PDF_COLOR_DANGER as DANGER,
   PDF_COLOR_SUCCESS as SUCCESS,
   PDF_COLOR_TEXT_DARK as TEXT_DARK,
+  PDF_COLOR_TEXT_MUTED as TEXT_MUTED,
   PDF_CONTENT_W as CONTENT_W,
   PDF_FONT_CAPTION,
   PDF_FONT_SECTION,
@@ -39,7 +40,7 @@ import {
 } from './field-labels.js';
 import { cleanPdfText, pdfDisplayValue } from './pdf-format-utils.js';
 import { ensureSpace } from './pdf-page-layout.js';
-import { drawPdfSectionTitleBar, drawColumnSectionTitle } from './pdf-layout-bars.js';
+import { drawPdfSectionTitleBar, drawColumnSectionTitle, drawChecklistMatrixLegend } from './pdf-layout-bars.js';
 import { drawPdfGridTable } from './pdf-grid-table.js';
 
 export const EMPILHADORES_SERVICE_ID = 'manutencao_preventiva_empilhadores';
@@ -214,8 +215,14 @@ async function drawVerificationTableColumn(doc, startY, x, width, title, items, 
         data.cell.styles.minCellHeight = minCellHeight;
       }
       if (data.section === 'body' && data.column.index === 1) {
-        const state = String(data.cell.raw || '');
-        data.cell.styles.textColor = state === 'OK' ? SUCCESS : DANGER;
+        const state = String(data.cell.raw || '').trim();
+        if (state === 'OK') {
+          data.cell.styles.textColor = SUCCESS;
+        } else if (state === 'N/A' || !state || state === '—') {
+          data.cell.styles.textColor = TEXT_MUTED;
+        } else {
+          data.cell.styles.textColor = DANGER;
+        }
         data.cell.styles.fontStyle = 'bold';
       }
     },
@@ -229,6 +236,8 @@ export async function drawEmpilhadoresDualVerificationBlocks(doc, y, left, right
   const colW = (CONTENT_W - gap) / 2;
   const leftX = MARGIN;
   const rightX = MARGIN + colW + gap;
+
+  y = drawChecklistMatrixLegend(doc, y, formatEmpilhadoresMatrixLegendText());
 
   const rowEstimate = Math.max(left?.items?.length || 0, right?.items?.length || 0);
   y = ensureSpace(

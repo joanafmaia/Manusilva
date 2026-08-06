@@ -144,6 +144,30 @@ export const DL50_MATRIX_LEFT_NAMES = [
 /** Coluna direita da matriz DL50 */
 export const DL50_MATRIX_RIGHT_NAMES = ['Mastro', 'Bateria', 'Sistema de travões', 'Outros'];
 
+/** Códigos da matriz DL50 e significado (formulário + PDF). */
+export const DL50_MATRIX_LEGEND = [
+  { code: 'B', label: 'Bom', display: 'B' },
+  { code: 'N', label: 'Normal', display: 'N' },
+  { code: 'D', label: 'Danificado', display: 'D' },
+  { code: 'N.A.', label: 'Não aplicável', display: 'NA' },
+];
+
+export function dl50MatrixLegendLabel(opt) {
+  const found = DL50_MATRIX_LEGEND.find((entry) => entry.code === opt);
+  return found?.label || String(opt || '');
+}
+
+export function dl50MatrixOptionDisplay(opt) {
+  const found = DL50_MATRIX_LEGEND.find((entry) => entry.code === opt);
+  return found?.display || String(opt || '');
+}
+
+export function formatDl50MatrixLegendText(separator = '  ·  ') {
+  return DL50_MATRIX_LEGEND.map(
+    ({ display, label }) => `${display} = ${label}`,
+  ).join(separator);
+}
+
 function findDl50Category(categories, name) {
   const target = String(name).toLowerCase();
   return (categories || []).find((cat) => String(cat?.name || '').toLowerCase() === target) || null;

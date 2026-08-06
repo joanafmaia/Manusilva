@@ -3588,6 +3588,11 @@ body.warehouse-page .folha-obra-tab--ready .folha-obra-filter-bar input[type="da
   margin-bottom: 0.65rem;
   font-size: 0.9375rem;
 }
+.empilhadores-matrix-legend {
+  margin: 0 0 0.75rem;
+  padding: 0.35rem 0.15rem 0.55rem;
+  font-size: 0.9375rem;
+}
 .dl50-closing-block {
   page-break-inside: avoid;
   break-inside: avoid;

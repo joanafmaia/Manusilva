@@ -86,6 +86,7 @@ import {
 
 import {
   drawInspecaoDl50HeaderBlock,
+  formatDl50MatrixLegendText,
   INSPECAO_DL50_MACHINE_FIELD_IDS,
   INSPECAO_DL50_PDF_SKIP_FIELD_IDS,
   resolveInspecaoDl50MachineFields,
@@ -122,6 +123,7 @@ import {
   drawPdfDocumentTitleBar,
   drawPdfSectionTitleBar,
   drawPdfContentBox,
+  drawChecklistMatrixLegend,
 } from './pdf-layout-bars.js';
 import {
   buildCorretivaServiceInfoMeta,
@@ -1426,6 +1428,7 @@ async function drawMatrixInspectionBlock(doc, y, field, matrixValue, service = n
   await loadJsPdfAutoTable();
 
   y = drawSectionTitle(doc, y, getBlockPdfTitle(field) || 'Pontos de Inspeção');
+  y = drawChecklistMatrixLegend(doc, y, formatDl50MatrixLegendText());
 
   (field.categories || []).forEach((cat) => {
     const catKey = columnKey(cat.name);

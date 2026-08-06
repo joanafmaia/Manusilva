@@ -19,6 +19,8 @@ import {
   PDF_TABLE_BODY_FILL,
   PDF_CONTENT_BOX_RADIUS_MM,
   PDF_SECTION_BAND_HEIGHT_MM,
+  PDF_COLOR_TEXT_MUTED as TEXT_MUTED,
+  PDF_FONT_CAPTION,
 } from './pdf-design-system.js';
 import { ensureSpace, touchPdfContentPage } from './pdf-page-layout.js';
 
@@ -96,4 +98,34 @@ export function drawColumnSectionTitle(doc, x, y, width, title, options = {}) {
     align: 'left',
     multiline: !options.singleLine,
   });
+}
+
+/**
+ * Legenda compacta sob o título da checklist (ex.: «B = Bom · N = Normal»).
+ * @param {object} doc
+ * @param {number} y
+ * @param {string} text
+ * @param {{ x?: number, width?: number, gapAfter?: number }} [options]
+ */
+export function drawChecklistMatrixLegend(doc, y, text, options = {}) {
+  const legend = String(text || '').trim();
+  if (!legend) return y;
+
+  const x = options.x ?? MARGIN;
+  const width = options.width ?? CONTENT_W;
+  const gapAfter = options.gapAfter ?? 2.5;
+
+  pdfSetFont(doc, 'normal');
+  doc.setFontSize(PDF_FONT_CAPTION);
+  const lines = pdfSplitText(doc, legend, width);
+  const blockH = lines.length * 3.6 + gapAfter;
+  y = ensureSpace(doc, y, blockH);
+  touchPdfContentPage(doc);
+
+  doc.setTextColor(...TEXT_MUTED);
+  lines.forEach((line) => {
+    doc.text(line, x, y + 2.8);
+    y += 3.6;
+  });
+  return y + gapAfter;
 }

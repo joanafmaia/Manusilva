@@ -26,9 +26,10 @@ import {
   STANDARD_VISITAS_FIELD,
   VISITAS_FIELD_ID,
 } from './deslocacao-field.js';
-import { splitDl50MatrixCategories } from './inspecao-dl50-categories.js';
+import { splitDl50MatrixCategories, dl50MatrixLegendLabel, dl50MatrixOptionDisplay } from './inspecao-dl50-categories.js';
 import {
   EMPILHADORES_MATRIX_OPTIONS,
+  empilhadoresMatrixLegendLabel,
   empilhadoresMatrixOptionClass,
   empilhadoresMatrixOptionDataValue,
   empilhadoresMatrixOptionDisplay,
@@ -431,7 +432,12 @@ function renderEmpilhadoresVerificationTable(field, value) {
 
 function renderEmpilhadoresChecklistSection(section, fields, values, context) {
   if (section === EMPILHADORES_VERIFY_DUAL_SECTION) {
+    const legend = EMPILHADORES_MATRIX_OPTIONS.map(
+      (o) =>
+        `<span><strong>${escapeHtml(o)}</strong> = ${escapeHtml(empilhadoresMatrixLegendLabel(o))}</span>`,
+    ).join('');
     const fieldsHtml = `
+      <div class="matrix-legend empilhadores-matrix-legend">${legend}</div>
       <div class="checklist-inspection-dual empilhadores-verifications-dual">
         ${fields.map((field) => renderEmpilhadoresVerificationTable(field, values[field.id])).join('')}
       </div>
@@ -2120,7 +2126,11 @@ function renderDynamicTableField(field, value, context = {}) {
 }
 
 function matrixOptionDisplay(opt) {
-  return opt === 'N.A.' ? 'NA' : opt;
+  return dl50MatrixOptionDisplay(opt);
+}
+
+function matrixLegendLabel(opt) {
+  return dl50MatrixLegendLabel(opt);
 }
 
 function syncMatrixRowState(row) {
@@ -2359,11 +2369,6 @@ function renderMatrix4OptionsField(field, value, service = null) {
       <div class="matrix-accordion">${accordion}</div>
     </div>
   `;
-}
-
-function matrixLegendLabel(opt) {
-  const map = { B: 'Bom', N: 'Normal', D: 'Danificado', 'N.A.': 'Não aplicável' };
-  return map[opt] || opt;
 }
 
 function renderLegalVerdictField(field, value = '', service = null) {

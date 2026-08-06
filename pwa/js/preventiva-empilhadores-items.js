@@ -52,6 +52,22 @@ export const EMPILHADORES_VERIFY_STATES = ['', 'OK', 'Não OK', 'N/A'];
 /** Opções clicáveis na matriz (igual ao padrão DL50 — botões segmentados). */
 export const EMPILHADORES_MATRIX_OPTIONS = ['OK', 'Não OK', 'N/A'];
 
+/** Legenda para formulário e PDF (cliente). */
+export const EMPILHADORES_MATRIX_LEGEND = [
+  { code: 'OK', label: 'Conforme' },
+  { code: 'Não OK', label: 'Não conforme' },
+  { code: 'N/A', label: 'Não aplicável' },
+];
+
+export function formatEmpilhadoresMatrixLegendText(separator = '  ·  ') {
+  return EMPILHADORES_MATRIX_LEGEND.map(({ code, label }) => `${code} = ${label}`).join(separator);
+}
+
+export function empilhadoresMatrixLegendLabel(opt) {
+  const found = EMPILHADORES_MATRIX_LEGEND.find((entry) => entry.code === opt);
+  return found?.label || String(opt || '');
+}
+
 /** Valor do atributo data-value (evita «N/A» no dataset, que falha em alguns browsers). */
 export function empilhadoresMatrixOptionDataValue(opt) {
   if (opt === 'Não OK') return 'NOK';

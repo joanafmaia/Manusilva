@@ -3,7 +3,10 @@
  */
 
 import { columnKey } from './material-table-field.js';
-import { splitDl50MatrixCategories } from './inspecao-dl50-categories.js';
+import {
+  formatDl50MatrixLegendText,
+  splitDl50MatrixCategories,
+} from './inspecao-dl50-categories.js';
 import { pdfAutoTableFont, pdfSafeText, pdfSplitText } from './pdf-font.js';
 import {
   getBlockPdfTitle,
@@ -42,7 +45,7 @@ import {
   pdfContentBottomY,
   touchPdfContentPage,
 } from './pdf-page-layout.js';
-import { drawPdfSectionTitleBar, drawColumnSectionTitle } from './pdf-layout-bars.js';
+import { drawPdfSectionTitleBar, drawColumnSectionTitle, drawChecklistMatrixLegend } from './pdf-layout-bars.js';
 import { drawPdfGridTable } from './pdf-grid-table.js';
 
 export const INSPECAO_DL50_SERVICE_ID = 'inspecao_dl50_2005';
@@ -314,7 +317,8 @@ export async function drawDl50DualMatrixInspectionBlock(doc, y, field, matrixVal
   const rightX = MARGIN + colW + gap;
 
   y = drawSectionTitle(doc, y, getBlockPdfTitle(field) || 'Pontos de Inspeção');
-  y = drawDivider(doc, y - 4);
+  y = drawChecklistMatrixLegend(doc, y, formatDl50MatrixLegendText());
+  y = drawDivider(doc, y - 2);
 
   const rowCount = Math.max(leftCats.length, rightCats.length);
   for (let i = 0; i < rowCount; i++) {
