@@ -1316,6 +1316,8 @@ function renderHeader() {
     const nameEl = document.getElementById('brand-name');
     if (nameEl) nameEl.textContent = COMPANY.appName || COMPANY.logo || 'MFS';
   }
+  const companyEl = document.getElementById('brand-company');
+  if (companyEl) companyEl.textContent = COMPANY.companyShortName || 'Manusilva';
   const tagline = document.getElementById('brand-tagline');
   if (tagline) tagline.textContent = COMPANY.tagline;
 }

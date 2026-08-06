@@ -759,6 +759,8 @@ function renderSidebar() {
     const nameEl = document.getElementById('brand-name');
     if (nameEl) nameEl.textContent = COMPANY.appName || COMPANY.logo || 'MFS';
   }
+  const companyEl = document.getElementById('brand-company');
+  if (companyEl) companyEl.textContent = COMPANY.companyShortName || 'Manusilva';
 
   const filter = document.getElementById('tech-filter');
   if (filter) {

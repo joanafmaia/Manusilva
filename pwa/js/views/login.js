@@ -43,6 +43,7 @@ export const LoginView = {
           <div class="login-hero__inner">
             <div class="brand-logo-slot login-hero__logo" data-brand-logo-lg aria-label="MFS"></div>
             <h1 class="login-wordmark" data-hide-if-logo>MFS</h1>
+            <p class="brand-company login-brand-company">Manusilva</p>
             <p class="login-hero__tagline">Gestão de empilhadores, manutenção e baterias</p>
             <p class="login-hero__lead">Portal interno para equipa técnica e administração.</p>
           </div>
@@ -52,6 +53,7 @@ export const LoginView = {
           <div class="login-stack">
             <div class="login-brand-block login-brand-block--stacked" aria-label="MFS">
               <div class="brand-logo-slot login-brand-logo" data-brand-logo-lg aria-label="MFS"></div>
+              <p class="brand-company login-brand-company">Manusilva</p>
               <p class="login-brand-tagline">Gestão de empilhadores, manutenção e baterias</p>
             </div>
 

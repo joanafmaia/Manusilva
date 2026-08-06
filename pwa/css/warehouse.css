@@ -46,6 +46,11 @@ body.warehouse-page {
   color: var(--ms-text-muted, #64748b);
 }
 
+.warehouse-topbar__brand-text .brand-company {
+  margin: 0.05rem 0 0.05rem;
+  font-size: 0.65rem;
+}
+
 .warehouse-topbar__actions {
   display: flex;
   align-items: center;

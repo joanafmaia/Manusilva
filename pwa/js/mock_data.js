@@ -46,6 +46,8 @@ export const COMPANY = {
   /** Nome do programa (PWA / UI). */
   appName: 'MFS',
   appFullName: 'Manusilva Field Service',
+  /** Marca da empresa (subtítulo discreto na UI). */
+  companyShortName: 'Manusilva',
   tagline: 'Empilhadores · Manutenção · Baterias',
   logo: 'MFS',
   nif: '',

@@ -7992,6 +7992,11 @@ body .rh-admin-tab.is-active {
 body.tech-dashboard-page .tech-navbar__tagline {
   display: none;
 }
+body.tech-dashboard-page .brand-text .brand-company {
+  display: block;
+  margin-top: 0.05rem;
+  font-size: 0.65rem;
+}
 .tech-connectivity-bar {
   display: flex;
   align-items: center;

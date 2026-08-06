@@ -459,13 +459,29 @@ body .glass-card-inner {
 }
 
 .login-wordmark {
-  margin: 0 0 0.75rem;
+  margin: 0 0 0.2rem;
   font-family: var(--ms-font-display);
   font-size: clamp(2rem, 4vw, 2.75rem);
   font-weight: 700;
   letter-spacing: -0.02em;
   color: var(--ms-text-800);
   line-height: 1.15;
+}
+
+.brand-company {
+  margin: 0;
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  color: var(--ms-text-muted, #64748b);
+  line-height: 1.2;
+}
+
+.login-brand-company {
+  margin: 0 0 0.65rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
 }
 
 .login-hero__tagline {
@@ -514,12 +530,16 @@ body .glass-card-inner {
 }
 
 .login-brand-tagline {
-  margin: 0.75rem 0 0;
+  margin: 0.45rem 0 0;
   font-size: var(--ms-text-sm);
   font-weight: 500;
   color: var(--text-muted);
   line-height: 1.45;
   max-width: 22rem;
+}
+
+.login-brand-block .brand-company {
+  margin: 0.35rem 0 0;
 }
 
 .login-brand-block .brand-logo-slot.login-brand-logo {
