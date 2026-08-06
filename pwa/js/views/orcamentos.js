@@ -795,6 +795,12 @@ export function queueOrcamentoReportFocus(reportId) {
 
 export async function initOrcamentosPanel(root) {
   mountRoot = root;
+  try {
+    const { clearStuckUiOverlays } = await import('../toast-modal.js');
+    clearStuckUiOverlays();
+  } catch {
+    /* ignore */
+  }
   bindPanelEvents();
   await ensureFolhasObraLoadedSafe(true);
   bindFolhaObraRhSection(root, {
