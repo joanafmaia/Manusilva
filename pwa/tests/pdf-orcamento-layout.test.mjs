@@ -34,8 +34,8 @@ describe('pdf-orcamento layout', () => {
 
   it('posiciona a tabela após o equipamento quando o conteúdo empurra o fluxo', () => {
     const linhas = [{ descricao: 'Roda de Tração', qtd: '1', precoUnit: '145' }];
-    const layout = computeOrcamentoTableLayout(linhas, [], { contentEndY: 165 });
-    assert.ok(layout.startY >= 168);
+    const layout = computeOrcamentoTableLayout(linhas, [], { contentEndY: 192 });
+    assert.ok(layout.startY >= 195);
     assert.ok(layout.startY > layout.anchoredStartY, 'tabela deve seguir o fluxo do conteúdo');
   });
 
