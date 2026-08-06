@@ -1240,6 +1240,7 @@ html.ms-booting .brand-logo-slot.brand-logo-slot--ready {
   background: var(--bg-deep);
   overflow-y: auto;
   opacity: 0;
+  pointer-events: none;
   transition: opacity 0.3s;
   padding: 1rem max(1rem, env(safe-area-inset-right)) max(1rem, env(safe-area-inset-bottom))
     max(1rem, env(safe-area-inset-left));
@@ -1349,7 +1350,10 @@ html.ms-booting .brand-logo-slot.brand-logo-slot--ready {
   font-weight: 500;
   font-size: 0.8rem;
 }
-.form-overlay.show { opacity: 1; }
+.form-overlay.show {
+  opacity: 1;
+  pointer-events: auto;
+}
 .form-loading-overlay {
   position: fixed;
   inset: 0;

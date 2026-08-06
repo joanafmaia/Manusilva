@@ -154,13 +154,22 @@ export function closeModal() {
 export function clearStuckUiOverlays() {
   document.querySelectorAll('.orc-resposta-date-overlay').forEach((el) => el.remove());
 
-  const modal = document.getElementById('modal-overlay');
-  if (modal && !modal.classList.contains('show')) {
-    modal.remove();
-  }
-
-  const loading = document.getElementById('form-loading-overlay');
-  if (loading && !loading.classList.contains('show')) {
-    loading.remove();
-  }
+  [
+    'modal-overlay',
+    'form-loading-overlay',
+    'form-overlay',
+    'pdf-preview-overlay',
+  ].forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (!el.classList.contains('show')) {
+      el.remove();
+      return;
+    }
+    // Overlay «show» mas sem conteúdo útil / opacidade 0 — ainda pode bloquear
+    const style = window.getComputedStyle(el);
+    if (style.opacity === '0' || style.visibility === 'hidden') {
+      el.remove();
+    }
+  });
 }
