@@ -106,6 +106,9 @@ const MAQUINA_BULLET_LINE_STEP = 3.35;
 const MAQUINA_BULLET_MIN_STEP = 3.1;
 const MAQUINA_BULLET_COMPACT_FONT = 7.5;
 const MAQUINA_FOOTER_GAP_ABOVE = 5;
+/** Separação visual entre a grelha de máquinas e «Deslocação» / totais. */
+const MAQUINA_DESLOCACAO_GAP = 3.2;
+const MAQUINA_TOTALS_GAP = 2.4;
 const MAQUINA_PRECO_FIELD_GAP = 3;
 const MAQUINA_PRECO_LINE_TAIL = 0.35;
 const MAQUINA_PRECO_TABLE_ROW_H = 4.2;
@@ -1046,7 +1049,12 @@ function estimateMaquinaPrecoTableHeight(rowCount, compactFooter, rowH = MAQUINA
     compactFooter ? MAQUINA_PRECO_TABLE_ROW_H_COMPACT : rowH,
     MAQUINA_FOOTER_LINE_MIN,
   );
-  return MAQUINA_FOOTER_SEPARATOR_GAP + lineCount * lineStep;
+  return (
+    MAQUINA_FOOTER_SEPARATOR_GAP +
+    lineCount * lineStep +
+    MAQUINA_DESLOCACAO_GAP +
+    MAQUINA_TOTALS_GAP
+  );
 }
 
 function manutencaoFooterRowTextY(rowTop, lineStep, fontSize) {
@@ -1097,14 +1105,18 @@ function measureManutencaoMaquinaFooterContentHeight(table, typography = {}) {
   const lineCount = typography.lineCount ?? countManutencaoMaquinaFooterLines(table);
   const separatorGap = typography.separatorGap ?? MAQUINA_FOOTER_SEPARATOR_GAP;
   const lineStep = typography.lineStep ?? MAQUINA_FOOTER_LINE_MIN;
-  return separatorGap + lineCount * lineStep;
+  const deslocacaoExtra =
+    table?.deslocacao != null ? MAQUINA_DESLOCACAO_GAP + MAQUINA_TOTALS_GAP : 0;
+  return separatorGap + lineCount * lineStep + deslocacaoExtra;
 }
 
 /** Distribui o espaço do rodapé com passo de linha uniforme. */
 export function resolveManutencaoMaquinaFooterTypography(availableHeight, table = {}) {
   const lineCount = countManutencaoMaquinaFooterLines(table);
   const separatorGap = MAQUINA_FOOTER_SEPARATOR_GAP;
-  const usable = Math.max(20, availableHeight - separatorGap);
+  const deslocacaoExtra =
+    table?.deslocacao != null ? MAQUINA_DESLOCACAO_GAP + MAQUINA_TOTALS_GAP : 0;
+  const usable = Math.max(20, availableHeight - separatorGap - deslocacaoExtra);
   const lineStep = Math.min(
     MAQUINA_FOOTER_LINE_MAX,
     Math.max(MAQUINA_FOOTER_LINE_MIN, usable / lineCount),
@@ -1152,13 +1164,38 @@ function drawManutencaoMaquinaPrecoTable(doc, table, startY, maxY, options = {})
     doc.line(MARGIN, rowTop, MARGIN + CONTENT_W, rowTop);
   });
 
-  if (table.deslocacao != null && rowTop + lineStep <= maxY) {
+  if (table.deslocacao != null && rowTop + lineStep + 1 <= maxY) {
+    // Fecha a grelha de equipamentos e destaca a Deslocação (não é mais uma linha da tabela).
+    doc.setDrawColor(...PDF_COLOR_SLATE_LINE);
+    doc.setLineWidth(0.55);
+    doc.line(MARGIN, rowTop, MARGIN + CONTENT_W, rowTop);
+
+    const gap = Math.min(MAQUINA_DESLOCACAO_GAP, Math.max(2, lineStep * 0.55));
+    rowTop += gap;
+    if (rowTop + lineStep > maxY) {
+      pdfSetFont(doc, 'normal');
+      doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
+      return rowTop;
+    }
+
+    doc.setFillColor(241, 245, 249);
+    doc.rect(MARGIN, rowTop - 0.4, CONTENT_W, lineStep, 'F');
+    doc.setDrawColor(...PDF_TABLE_LINE);
+    doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
+    doc.line(MARGIN, rowTop - 0.4, MARGIN + CONTENT_W, rowTop - 0.4);
+
     const textY = manutencaoFooterRowTextY(rowTop, lineStep, fontSize);
-    drawOrcamentoMoneyRow(doc, 'Deslocação:', table.deslocacao, textY);
+    drawOrcamentoMoneyRow(doc, 'Deslocação:', table.deslocacao, textY, {
+      boldLabel: true,
+      boldValue: true,
+    });
     rowTop += lineStep;
+    doc.line(MARGIN, rowTop, MARGIN + CONTENT_W, rowTop);
+    rowTop += Math.min(MAQUINA_TOTALS_GAP, Math.max(1.2, gap * 0.55));
   }
 
   pdfSetFont(doc, 'normal');
+  doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
   return rowTop;
 }
 

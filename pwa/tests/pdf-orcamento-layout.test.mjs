@@ -153,7 +153,10 @@ describe('pdf-orcamento layout', () => {
     };
     const availableHeight = 80;
     const typography = resolveManutencaoMaquinaFooterTypography(availableHeight, table);
-    const contentHeight = typography.separatorGap + typography.lineCount * typography.lineStep;
+    // Espaço extra entre a tabela de máquinas e Deslocação / totais.
+    const deslocacaoExtra = 3.2 + 2.4;
+    const contentHeight =
+      typography.separatorGap + typography.lineCount * typography.lineStep + deslocacaoExtra;
     assert.ok(Math.abs(contentHeight - availableHeight) < 0.2);
   });
 
