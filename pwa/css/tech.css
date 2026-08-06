@@ -5656,6 +5656,25 @@ body .admin-panel .rh-section, body .rh-section {
   border-radius: 0.75rem;
   background: #ffffff;
 }
+.clients-list-table-scroll.faturacao-table-wrap--scroll-y {
+  border-radius: 0.55rem;
+}
+.clients-list-section .clients-list-hint {
+  margin: 0.25rem 0 0.85rem;
+  font-size: 0.85rem;
+}
+.clients-list-section .clients-list-toolbar {
+  align-items: end;
+  margin-bottom: 0.75rem;
+}
+.clients-list-section .clients-list-count {
+  align-self: center;
+  padding-bottom: 0.35rem;
+}
+.clients-list-table .faturacao-cell-detail {
+  display: block;
+  white-space: normal;
+}
 .clients-list-table-row:hover {
   background: rgba(30, 77, 114, 0.04);
 }
@@ -7356,7 +7375,14 @@ body.client-ficha-open {
   gap: 1.25rem;
 }
 .rh-employees-list-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
   margin-top: 0.25rem;
+}
+.rh-employees-search-wrap {
+  max-width: 22rem;
+  margin: 0;
 }
 .rh-employees-list {
   display: flex;
@@ -8716,12 +8742,14 @@ body.tech-dashboard-page .form-overlay .legal-verdict-card {
   color: var(--ms-text-muted);
 }
 .folha-obra-estado {
-  font-size: 0.7rem;
+  display: inline-block;
+  font-size: 0.62rem;
   font-weight: 600;
-  padding: 0.15rem 0.45rem;
-  border-radius: 999px;
+  padding: 0.08rem 0.35rem;
+  border-radius: 0.25rem;
   text-transform: uppercase;
   letter-spacing: 0.02em;
+  line-height: 1.2;
 }
 .folha-obra-estado--draft { background: #f1f5f9; color: #475569; }
 .folha-obra-estado--active { background: #dbeafe; color: #1d4ed8; }

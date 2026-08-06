@@ -145,10 +145,43 @@ body.warehouse-page .folha-obra-desktop-table-wrap {
   background: #fff;
 }
 
+body.warehouse-page .folha-obra-desktop-table-wrap.faturacao-table-wrap--scroll-y {
+  max-height: min(28rem, 52vh);
+  overflow-y: auto;
+}
+
+body.warehouse-page .folha-obra-desktop-table-wrap.faturacao-table-wrap--scroll-y thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #f8fafc;
+  box-shadow: 0 1px 0 var(--ms-border, #e2e8f0);
+}
+
 body.warehouse-page .folha-obra-data-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.9rem;
+}
+
+body.warehouse-page .faturacao-cell-client-name {
+  display: block;
+  font-weight: 600;
+}
+
+body.warehouse-page .faturacao-cell-detail {
+  display: block;
+  margin-top: 0.1rem;
+  font-size: 0.72rem;
+  color: var(--ms-text-muted, #64748b);
+  line-height: 1.25;
+  white-space: normal;
+}
+
+body.warehouse-page .folha-obra-data-table.faturacao-table--dense th,
+body.warehouse-page .folha-obra-data-table.faturacao-table--dense td {
+  padding: 0.4rem 0.65rem;
+  vertical-align: top;
 }
 
 body.warehouse-page .folha-obra-data-table th,

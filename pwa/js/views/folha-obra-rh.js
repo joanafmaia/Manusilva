@@ -24,19 +24,30 @@ function resolveClientName(folha) {
 
 function renderFolhaObraRhRow(folha) {
   const estadoLabel = formatFolhaObraEstadoLabel(folha.estado, { rh: true });
+  const nome = resolveClientName(folha);
+  const detailParts = [
+    formatFolhaResponsabilidadeLabel(folha.responsabilidade),
+    folha.tipo,
+    folha.marcaModelo,
+    folha.dataRececao ? `Entrada ${formatDate(folha.dataRececao)}` : '',
+  ].filter(Boolean);
   return `
-    <tr class="rh-data-table-row folha-obra-rh-row" data-folha-obra-id="${escapeHtml(folha.id)}">
-      <td><code class="folha-obra-etq-badge">${escapeHtml(folha.etq || '—')}</code></td>
-      <td>${escapeHtml(resolveClientName(folha))}</td>
-      <td>${escapeHtml(formatFolhaResponsabilidadeLabel(folha.responsabilidade))}</td>
-      <td>${escapeHtml(folha.tipo || '—')}</td>
-      <td>${escapeHtml(folha.marcaModelo || '—')}</td>
-      <td>${folha.dataRececao ? escapeHtml(formatDate(folha.dataRececao)) : '—'}</td>
-      <td><span class="folha-obra-estado folha-obra-estado--draft">${escapeHtml(estadoLabel)}</span></td>
-      <td>
-        <div class="folha-obra-rh-actions">
-          <button type="button" class="btn-outline btn-sm" data-folha-obra-view="${escapeHtml(folha.id)}">Ver</button>
-          <button type="button" class="btn-primary btn-sm" data-folha-obra-orcamento="${escapeHtml(folha.id)}">Criar orçamento MS.015</button>
+    <tr class="rh-data-table-row folha-obra-rh-row faturacao-row--compact" data-folha-obra-id="${escapeHtml(folha.id)}">
+      <td class="faturacao-cell-client" title="${escapeHtml(nome)}">
+        <span class="faturacao-cell-client-name">${escapeHtml(nome)}</span>
+        <span class="faturacao-row-meta">
+          <code class="folha-obra-etq-badge faturacao-ordem">${escapeHtml(folha.etq || '—')}</code>
+          <span class="faturacao-visit-badge faturacao-visit-badge--folha">Oficina</span>
+        </span>
+      </td>
+      <td class="faturacao-cell-ordem">
+        <span class="folha-obra-estado folha-obra-estado--pending">${escapeHtml(estadoLabel)}</span>
+        <span class="faturacao-cell-detail">${escapeHtml(detailParts.join(' · '))}</span>
+      </td>
+      <td class="faturacao-col-action">
+        <div class="faturacao-billing-actions folha-obra-rh-actions">
+          <button type="button" class="btn-outline btn-sm faturacao-btn-compact" data-folha-obra-view="${escapeHtml(folha.id)}" title="Ver folha">Ver</button>
+          <button type="button" class="btn-primary btn-sm faturacao-btn-compact" data-folha-obra-orcamento="${escapeHtml(folha.id)}" title="Criar orçamento MS.015">Orçamento</button>
         </div>
       </td>
     </tr>
@@ -48,29 +59,26 @@ export function renderFolhaObraRhSection(folhas = getFolhasObraAguardaOrcamento(
     return `
       <section class="folha-obra-rh-section rh-section glass-card">
         <h3 class="ms-h2 faturacao-section-title folha-obra-rh-title">Oficina — R.C por orçamentar</h3>
-        <p class="text-muted">Nenhum equipamento R.C aguarda orçamento.</p>
+        <p class="text-muted faturacao-empty">Nenhum equipamento R.C aguarda orçamento.</p>
       </section>
     `;
   }
+
+  const scrollClass = folhas.length > 8 ? ' faturacao-table-wrap--scroll-y' : '';
 
   return `
     <section class="folha-obra-rh-section rh-section glass-card">
       <h3 class="ms-h2 faturacao-section-title folha-obra-rh-title">Oficina — R.C por orçamentar <span class="badge-count">${folhas.length}</span></h3>
       <p class="text-muted folha-obra-rh-lead">
-        Equipamentos R.C. com diagnóstico concluído e ainda sem proposta. Crie o MS.015 aqui; depois continue na lista ou no quadro abaixo (origem «Folha de obra R.C»).
+        Diagnóstico concluído sem proposta. Crie o MS.015; depois continue na lista ou no quadro (origem «Folha de obra R.C»).
       </p>
-      <div class="folha-obra-desktop-table-wrap">
-        <table class="rh-data-table rh-data-table--compact folha-obra-data-table">
+      <div class="faturacao-table-wrap rh-table-scroll${scrollClass}">
+        <table class="rh-data-table rh-data-table--compact faturacao-table faturacao-table--compact folha-obra-data-table faturacao-table--dense">
           <thead>
             <tr>
-              <th>ETQ</th>
-              <th>Cliente</th>
-              <th>Tipo</th>
-              <th>Equipamento</th>
-              <th>Marca / Modelo</th>
-              <th>Entrada</th>
-              <th>Estado</th>
-              <th>Ação</th>
+              <th scope="col">Cliente</th>
+              <th scope="col">Detalhe</th>
+              <th scope="col" class="faturacao-col-action">Ação</th>
             </tr>
           </thead>
           <tbody>

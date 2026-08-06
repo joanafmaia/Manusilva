@@ -809,47 +809,47 @@ function renderFolhaCard(folha) {
 function renderFolhaTableRow(folha) {
   const clientName = resolveFolhaClientName(folha);
   const estadoLabel = formatFolhaObraEstadoLabel(folha.estado);
+  const detailParts = [
+    formatFolhaResponsabilidadeLabel(folha.responsabilidade),
+    folha.tipo,
+    folha.marcaModelo,
+    folha.etq ? `ETQ ${folha.etq}` : '',
+    folha.dataRececao ? `Entrada ${formatDate(folha.dataRececao)}` : '',
+  ].filter(Boolean);
 
   return `
-    <tr data-folha-id="${escapeHtml(folha.id)}" tabindex="0" role="button">
-      <td><code class="folha-obra-ordem">${escapeHtml(formatFolhaObraOrdemLabel(folha))}</code></td>
-      <td>${escapeHtml(clientName)}</td>
-      <td>${escapeHtml(formatFolhaResponsabilidadeLabel(folha.responsabilidade))}</td>
-      <td>${escapeHtml(folha.tipo || '—')}</td>
-      <td>${escapeHtml(folha.marcaModelo || '—')}</td>
-      <td>${escapeHtml(folha.numeroSerie || '—')}</td>
-      <td>${escapeHtml(folha.etq || '—')}</td>
-      <td>${folha.dataRececao ? escapeHtml(formatDate(folha.dataRececao)) : '—'}</td>
-      <td>${folha.maquinaConcluidaEm ? escapeHtml(formatDate(folha.maquinaConcluidaEm)) : '—'}</td>
-      <td>${escapeHtml(folha.responsavel || '—')}</td>
-      <td><span class="folha-obra-estado ${estadoClass(folha.estado)}">${escapeHtml(estadoLabel)}</span></td>
+    <tr class="faturacao-row--compact" data-folha-id="${escapeHtml(folha.id)}" tabindex="0" role="button">
+      <td class="faturacao-cell-ordem">
+        <code class="folha-obra-ordem faturacao-ordem">${escapeHtml(formatFolhaObraOrdemLabel(folha))}</code>
+      </td>
+      <td class="faturacao-cell-client">
+        <span class="faturacao-cell-client-name">${escapeHtml(clientName)}</span>
+        <span class="faturacao-cell-detail">${escapeHtml(detailParts.join(' · '))}</span>
+      </td>
+      <td>
+        <span class="folha-obra-estado ${estadoClass(folha.estado)}">${escapeHtml(estadoLabel)}</span>
+        ${folha.responsavel ? `<span class="faturacao-cell-detail">${escapeHtml(folha.responsavel)}</span>` : ''}
+      </td>
     </tr>
   `;
 }
 
 function renderFolhasSection(title, folhas, emptyText, layout = 'cards') {
   if (layout === 'desktop') {
+    const scrollClass = folhas.length > 8 ? ' faturacao-table-wrap--scroll-y' : '';
     return `
-      <section class="folha-obra-list-section">
-        <h3 class="folha-obra-list-title">${escapeHtml(title)}${folhas.length ? ` <span class="badge-count">${folhas.length}</span>` : ''}</h3>
+      <section class="folha-obra-list-section glass-card rh-section">
+        <h3 class="folha-obra-list-title ms-h2 faturacao-section-title">${escapeHtml(title)}${folhas.length ? ` <span class="badge-count">${folhas.length}</span>` : ''}</h3>
         ${
           folhas.length
             ? `
-          <div class="folha-obra-desktop-table-wrap">
-            <table class="folha-obra-data-table">
+          <div class="faturacao-table-wrap rh-table-scroll folha-obra-desktop-table-wrap${scrollClass}">
+            <table class="folha-obra-data-table rh-data-table rh-data-table--compact faturacao-table--dense">
               <thead>
                 <tr>
-                  <th>Ordem</th>
-                  <th>Cliente</th>
-                  <th>M.S/R.C</th>
-                  <th>Tipo</th>
-                  <th>Marca / Modelo</th>
-                  <th>N.º Série</th>
-                  <th>Etiqueta</th>
-                  <th>Entrada</th>
-                  <th>Concluída</th>
-                  <th>Responsável</th>
-                  <th>Estado</th>
+                  <th scope="col">Ordem</th>
+                  <th scope="col">Cliente</th>
+                  <th scope="col">Estado</th>
                 </tr>
               </thead>
               <tbody>
@@ -858,7 +858,7 @@ function renderFolhasSection(title, folhas, emptyText, layout = 'cards') {
             </table>
           </div>
         `
-            : `<p class="text-muted folha-obra-empty">${escapeHtml(emptyText)}</p>`
+            : `<p class="text-muted folha-obra-empty faturacao-empty">${escapeHtml(emptyText)}</p>`
         }
       </section>
     `;

@@ -45,7 +45,11 @@ export function renderEmployeesPanel() {
           <div class="rh-employees-panel" data-rh-employees-panel>
             ${renderTechnicianFormSection()}
             <div class="rh-employees-list-wrap">
-              <h3 class="dashboard-section-title">Equipa técnica</h3>
+              <h3 class="ms-h2 faturacao-section-title">Equipa técnica</h3>
+              <div class="form-group faturacao-filter-group faturacao-filter-search rh-employees-search-wrap">
+                <label class="form-label" for="rh-technicians-search">Pesquisar</label>
+                <input type="search" class="form-input" id="rh-technicians-search" placeholder="Nome, e-mail ou telemóvel…" autocomplete="off" spellcheck="false" />
+              </div>
               <div id="rh-technicians-list" class="rh-employees-list"></div>
             </div>
           </div>
@@ -86,10 +90,12 @@ function bindRhAdminTabs(root) {
   });
 }
 
-export function refreshTechniciansList(root) {
+export function refreshTechniciansList(root, query) {
   const list = root?.querySelector('#rh-technicians-list');
   if (!list) return;
-  list.innerHTML = renderTechniciansList(getAllTechnicians());
+  const searchInput = root?.querySelector('#rh-technicians-search');
+  const q = query != null ? query : searchInput?.value || '';
+  list.innerHTML = renderTechniciansList(getAllTechnicians(), { query: q });
   bindTechniciansListEvents(list);
 }
 
@@ -102,6 +108,12 @@ export function initEmployeesPanel(root) {
   syncTechniciansCatalog({ silent: true })
     .then(() => refreshTechniciansList(root))
     .catch((err) => console.warn('[RH] Sync técnicos:', err));
+
+  let searchTimer = null;
+  root.querySelector('#rh-technicians-search')?.addEventListener('input', (e) => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => refreshTechniciansList(root, e.target.value), 140);
+  });
 
   mountTechnicianForm(root, {
     onSuccess: () => {

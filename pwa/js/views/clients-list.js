@@ -19,33 +19,35 @@ function escapeAttr(str) {
 
 export function renderClientsListSection() {
   return `
-    <section class="clients-list-section rh-section rh-admin-section" data-clients-list-section aria-labelledby="clients-list-title">
-      <h3 id="clients-list-title" class="dashboard-section-title">Lista de clientes</h3>
-      <p class="clients-list-hint ms-label">
-        Use «Editar Ficha» para os dados cadastrais (NIF, morada, e-mail e condição de pagamento) e «Ver Histórico» para os relatórios do cliente.
+    <section class="clients-list-section rh-section rh-admin-section glass-card" data-clients-list-section aria-labelledby="clients-list-title">
+      <h3 id="clients-list-title" class="ms-h2 faturacao-section-title">Lista de clientes</h3>
+      <p class="clients-list-hint text-muted">
+        «Ficha» para dados cadastrais · «Histórico» para relatórios do cliente.
       </p>
-      <div class="clients-list-toolbar">
-        <input type="search"
-          class="form-input clients-list-search"
-          placeholder="Filtrar por nome, NIF ou e-mail…"
-          autocomplete="off"
-          spellcheck="false"
-          aria-label="Filtrar lista de clientes">
+      <div class="clients-list-toolbar faturacao-filters-grid">
+        <div class="form-group faturacao-filter-group faturacao-filter-search">
+          <label class="form-label" for="clients-list-search">Pesquisar</label>
+          <input type="search"
+            class="form-input clients-list-search"
+            id="clients-list-search"
+            placeholder="Nome, NIF ou e-mail…"
+            autocomplete="off"
+            spellcheck="false"
+            aria-label="Filtrar lista de clientes">
+        </div>
         <span class="clients-list-count text-muted" data-clients-list-count></span>
       </div>
 
       <div class="clients-list-cards" data-clients-list-cards role="list"></div>
 
       <div class="clients-list-table-wrap">
-        <div class="clients-list-table-scroll">
-          <table class="clients-list-table rh-data-table rh-data-table--compact">
+        <div class="faturacao-table-wrap rh-table-scroll clients-list-table-scroll" data-clients-list-scroll>
+          <table class="clients-list-table rh-data-table rh-data-table--compact faturacao-table--dense">
             <thead>
               <tr>
                 <th scope="col">Cliente</th>
-                <th scope="col">NIF</th>
-                <th scope="col">E-mail</th>
-                <th scope="col">Localidade</th>
-                <th scope="col">Ações</th>
+                <th scope="col">Contacto</th>
+                <th scope="col" class="faturacao-col-action">Ação</th>
               </tr>
             </thead>
             <tbody data-clients-list-tbody></tbody>
@@ -68,29 +70,28 @@ function renderClientCard(c) {
         <div><dt>NIF</dt><dd>${escapeHtml(c.NIF || '—')}</dd></div>
         <div><dt>E-mail</dt><dd>${escapeHtml(c['E-mail'] || '—')}</dd></div>
       </dl>
-      <div class="clients-list-card-actions">
-        <button type="button" class="btn-ghost btn-sm" data-client-profile="${escapeAttr(c.id)}">${msIconHtml('pencil', 'btn-inline-icon')} Editar Ficha</button>
-        <button type="button" class="btn-primary btn-sm" data-client-history="${escapeAttr(c.id)}">${msIconHtml('folder', 'btn-inline-icon')} Ver Histórico</button>
+      <div class="clients-list-card-actions faturacao-billing-actions">
+        <button type="button" class="btn-ghost btn-sm faturacao-btn-compact" data-client-profile="${escapeAttr(c.id)}">${msIconHtml('pencil', 'btn-inline-icon')} Ficha</button>
+        <button type="button" class="btn-primary btn-sm faturacao-btn-compact" data-client-history="${escapeAttr(c.id)}">${msIconHtml('folder', 'btn-inline-icon')} Histórico</button>
       </div>
     </article>
   `;
 }
 
 function renderClientTableRow(c) {
+  const contacto = [c.NIF, c['E-mail'], c.Localidade].filter(Boolean).join(' · ') || '—';
   return `
-    <tr class="rh-data-table-row clients-list-table-row">
-      <td class="rh-cell-client">
-        <button type="button" class="rh-cell-link-btn clients-list-name-btn" data-client-profile="${escapeAttr(c.id)}">
+    <tr class="rh-data-table-row clients-list-table-row faturacao-row--compact">
+      <td class="faturacao-cell-client">
+        <button type="button" class="rh-cell-link-btn clients-list-name-btn faturacao-cell-client-name" data-client-profile="${escapeAttr(c.id)}">
           ${escapeHtml(c.Nome)}
         </button>
       </td>
-      <td class="rh-cell-nif">${escapeHtml(c.NIF || '—')}</td>
-      <td class="rh-cell-muted">${escapeHtml(c['E-mail'] || '—')}</td>
-      <td class="rh-cell-muted">${escapeHtml(c.Localidade || '—')}</td>
-      <td class="rh-col-action clients-list-table-actions">
-        <div class="rh-table-actions">
-          <button type="button" class="btn-ghost btn-sm rh-btn-compact" data-client-profile="${escapeAttr(c.id)}" title="Editar ficha cadastral">Ficha</button>
-          <button type="button" class="btn-primary btn-sm rh-btn-compact" data-client-history="${escapeAttr(c.id)}" title="Ver histórico de relatórios">Histórico</button>
+      <td class="faturacao-cell-detail">${escapeHtml(contacto)}</td>
+      <td class="faturacao-col-action clients-list-table-actions">
+        <div class="faturacao-billing-actions">
+          <button type="button" class="btn-ghost btn-sm faturacao-btn-compact" data-client-profile="${escapeAttr(c.id)}" title="Editar ficha cadastral">Ficha</button>
+          <button type="button" class="btn-primary btn-sm faturacao-btn-compact" data-client-history="${escapeAttr(c.id)}" title="Ver histórico de relatórios">Histórico</button>
         </div>
       </td>
     </tr>
@@ -131,6 +132,7 @@ export async function mountClientsList(root, options = {}) {
   const input = section?.querySelector('.clients-list-search');
   const cardsMount = section?.querySelector('[data-clients-list-cards]');
   const tbody = section?.querySelector('[data-clients-list-tbody]');
+  const scrollWrap = section?.querySelector('[data-clients-list-scroll]');
   const countEl = section?.querySelector('[data-clients-list-count]');
   const moreEl = section?.querySelector('[data-clients-list-more]');
 
@@ -158,9 +160,13 @@ export async function mountClientsList(root, options = {}) {
         : '';
     }
 
+    if (scrollWrap) {
+      scrollWrap.classList.toggle('faturacao-table-wrap--scroll-y', items.length > 8);
+    }
+
     if (!items.length) {
       cardsMount.innerHTML = '<p class="clients-list-empty text-muted">Nenhum cliente corresponde à pesquisa.</p>';
-      tbody.innerHTML = `<tr><td colspan="5" class="clients-list-empty text-muted">Nenhum cliente corresponde à pesquisa.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="3" class="clients-list-empty text-muted">Nenhum cliente corresponde à pesquisa.</td></tr>`;
       return;
     }
 

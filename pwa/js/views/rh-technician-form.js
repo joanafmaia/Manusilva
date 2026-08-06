@@ -84,38 +84,49 @@ function renderTechnicianCards(technicians, counts) {
 }
 
 function renderTechniciansTable(technicians, counts) {
+  const scrollClass = technicians.length > 8 ? ' faturacao-table-wrap--scroll-y' : '';
   return `
-    <div class="rh-table-scroll">
-      <table class="rh-data-table rh-data-table--compact rh-employees-table">
+    <div class="faturacao-table-wrap rh-table-scroll${scrollClass}">
+      <table class="rh-data-table rh-data-table--compact rh-employees-table faturacao-table--dense">
         <thead>
           <tr>
             <th scope="col">Técnico</th>
-            <th scope="col">E-mail</th>
-            <th scope="col">Telemóvel</th>
-            <th scope="col">Concluídos</th>
-            <th scope="col">Estado</th>
+            <th scope="col">Contacto</th>
+            <th scope="col" class="faturacao-col-action">Ação</th>
           </tr>
         </thead>
         <tbody>
           ${technicians
-            .map(
-              (t) => `
-            <tr class="rh-data-table-row" data-tech-id="${escapeHtml(t.id)}" tabindex="0" role="button" aria-label="Histórico de serviços de ${escapeHtml(t.name)}">
-              <td>
+            .map((t) => {
+              const done = counts.get(t.id) ?? 0;
+              return `
+            <tr class="rh-data-table-row faturacao-row--compact" data-tech-id="${escapeHtml(t.id)}">
+              <td class="faturacao-cell-client">
                 <div class="rh-table-tech-cell">
                   <div class="employee-avatar" style="background:${t.color}20;color:${t.color}">${escapeHtml(
                     technicianInitials(t.name),
                   )}</div>
-                  <span class="rh-table-tech-name">${escapeHtml(t.name)}</span>
+                  <div>
+                    <span class="rh-table-tech-name faturacao-cell-client-name">${escapeHtml(t.name)}</span>
+                    <span class="faturacao-row-meta">
+                      <span class="faturacao-visit-badge">${done} concluído${done === 1 ? '' : 's'}</span>
+                      <span class="employee-status online-dot">Ativo</span>
+                    </span>
+                  </div>
                 </div>
               </td>
-              <td data-col-label="E-mail">${escapeHtml(t.email)}</td>
-              <td data-col-label="Telemóvel">${escapeHtml(t.phone || '—')}</td>
-              <td data-col-label="Concluídos">${renderConcluidosBadge(counts.get(t.id) ?? 0)}</td>
-              <td data-col-label="Estado"><span class="employee-status online-dot">Ativo</span></td>
+              <td class="faturacao-cell-detail">
+                ${escapeHtml(t.email)}
+                ${t.phone ? `<span class="faturacao-cell-detail">${escapeHtml(t.phone)}</span>` : ''}
+              </td>
+              <td class="faturacao-col-action">
+                <div class="faturacao-billing-actions">
+                  <button type="button" class="btn-outline btn-sm faturacao-btn-compact" data-tech-history="${escapeHtml(t.id)}" title="Histórico de serviços">Histórico</button>
+                </div>
+              </td>
             </tr>
-          `,
-            )
+          `;
+            })
             .join('')}
         </tbody>
       </table>
@@ -123,18 +134,33 @@ function renderTechniciansTable(technicians, counts) {
   `;
 }
 
-export function renderTechniciansList(technicians) {
+function filterTechnicians(technicians, query) {
+  const q = String(query || '')
+    .trim()
+    .toLowerCase();
+  if (!q) return technicians;
+  return technicians.filter((t) =>
+    [t.name, t.email, t.phone].some((bit) => String(bit || '').toLowerCase().includes(q)),
+  );
+}
+
+export function renderTechniciansList(technicians, { query = '' } = {}) {
   if (!technicians.length) {
-    return '<p class="text-muted empty-inline">Sem técnicos registados.</p>';
+    return '<p class="text-muted empty-inline faturacao-empty">Sem técnicos registados.</p>';
   }
 
+  const filtered = filterTechnicians(technicians, query);
   const counts = new Map(
     technicians.map((t) => [t.id, countConcluidosForTechnician(t)]),
   );
 
+  if (!filtered.length) {
+    return '<p class="text-muted empty-inline faturacao-empty">Nenhum técnico corresponde à pesquisa.</p>';
+  }
+
   return `
-    <div class="rh-employees-cards">${renderTechnicianCards(technicians, counts)}</div>
-    <div class="rh-employees-table-wrap">${renderTechniciansTable(technicians, counts)}</div>
+    <div class="rh-employees-cards">${renderTechnicianCards(filtered, counts)}</div>
+    <div class="rh-employees-table-wrap">${renderTechniciansTable(filtered, counts)}</div>
   `;
 }
 
@@ -214,12 +240,19 @@ export function openTechnicianHistoryModal(techId) {
 /** Liga o clique nos cards/linhas da equipa ao modal de histórico. */
 export function bindTechniciansListEvents(listEl) {
   if (!listEl) return;
-  listEl.querySelectorAll('[data-tech-id]').forEach((el) => {
-    el.addEventListener('click', () => openTechnicianHistoryModal(el.dataset.techId));
+  listEl.querySelectorAll('[data-tech-history], .employee-card[data-tech-id]').forEach((el) => {
+    const open = () => {
+      const id = el.dataset.techHistory || el.dataset.techId;
+      if (id) openTechnicianHistoryModal(id);
+    };
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      open();
+    });
     el.addEventListener('keydown', (e) => {
       if (e.key !== 'Enter' && e.key !== ' ') return;
       e.preventDefault();
-      openTechnicianHistoryModal(el.dataset.techId);
+      open();
     });
   });
 }

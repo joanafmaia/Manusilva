@@ -4389,7 +4389,11 @@ body .admin-rh-page .btn-primary, body .admin-rh-page .btn-secondary, body .admi
 }
 .faturacao-table-wrap--scroll-y .faturacao-table--invoices thead th,
 .faturacao-table-wrap--scroll-y .faturacao-billing-table thead th,
-.faturacao-table-wrap--scroll-y .orcamentos-table thead th {
+.faturacao-table-wrap--scroll-y .orcamentos-table thead th,
+.faturacao-table-wrap--scroll-y .folha-obra-data-table thead th,
+.faturacao-table-wrap--scroll-y .clients-list-table thead th,
+.faturacao-table-wrap--scroll-y .rh-employees-table thead th,
+.faturacao-table-wrap--scroll-y .avaliacoes-dense-table thead th {
   position: sticky;
   top: 0;
   z-index: 1;

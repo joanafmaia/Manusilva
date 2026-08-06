@@ -109,38 +109,38 @@ function renderAuditSection(summary) {
   const yearLabel = selectedYear === 'all' ? 'Todos os anos' : selectedYear;
 
   return `
-    <section class="avaliacoes-audit-section glass-card" aria-label="Resumo para auditoria">
+    <section class="avaliacoes-audit-section glass-card rh-section" aria-label="Resumo para auditoria">
       <div class="avaliacoes-audit-header">
         <div>
-          <h3 class="avaliacoes-audit-title">Resumo ${escapeHtml(yearLabel)}</h3>
+          <h3 class="ms-h2 faturacao-section-title">Resumo ${escapeHtml(yearLabel)}</h3>
           <p class="text-muted avaliacoes-audit-lead">Útil para fecho de ano e auditoria da satisfação do cliente.</p>
         </div>
         <div class="avaliacoes-audit-controls">
           <label class="avaliacoes-year-label">
-            <span class="text-muted">Ano</span>
+            <span class="form-label">Ano</span>
             <select id="avaliacoes-year-select" class="form-select-sm">
               ${renderYearOptions(listAvailableAvaliacaoYears(rowsCache))}
               <option value="all"${selectedYear === 'all' ? ' selected' : ''}>Todos</option>
             </select>
           </label>
-          <button type="button" class="btn-outline btn-sm" id="avaliacoes-export-csv">Exportar CSV</button>
-          <button type="button" class="btn-outline btn-sm" id="avaliacoes-export-pdf">Exportar PDF</button>
+          <button type="button" class="btn-outline btn-sm faturacao-btn-compact" id="avaliacoes-export-csv">CSV</button>
+          <button type="button" class="btn-outline btn-sm faturacao-btn-compact" id="avaliacoes-export-pdf">PDF</button>
         </div>
       </div>
-      <div class="avaliacoes-kpi-grid">
-        <article class="avaliacoes-kpi">
-          <p class="avaliacoes-kpi__label">Respostas</p>
-          <p class="avaliacoes-kpi__value">${counts.total}</p>
+      <div class="dashboard-metrics-grid faturacao-kpis-grid faturacao-kpis-grid--3 avaliacoes-kpi-grid">
+        <article class="dashboard-metric-card dashboard-metric-card--primary">
+          <p class="dashboard-metric-value">${counts.total}</p>
+          <p class="dashboard-metric-label">Respostas</p>
         </article>
-        <article class="avaliacoes-kpi">
-          <p class="avaliacoes-kpi__label">Satisfeitos</p>
-          <p class="avaliacoes-kpi__value">${satisfiedPercent != null ? `${satisfiedPercent}%` : '—'}</p>
-          <p class="avaliacoes-kpi__hint text-muted">${counts.good} de ${counts.total || 0}</p>
+        <article class="dashboard-metric-card dashboard-metric-card--success">
+          <p class="dashboard-metric-value">${satisfiedPercent != null ? `${satisfiedPercent}%` : '—'}</p>
+          <p class="dashboard-metric-label">Satisfeitos</p>
+          <p class="faturacao-kpi-sub">${counts.good} de ${counts.total || 0}</p>
         </article>
-        <article class="avaliacoes-kpi">
-          <p class="avaliacoes-kpi__label">Índice de satisfação</p>
-          <p class="avaliacoes-kpi__value">${satisfactionIndex != null ? `${satisfactionIndex}/100` : '—'}</p>
-          <p class="avaliacoes-kpi__hint text-muted">😊 100% · 😐 50% · 😞 0%</p>
+        <article class="dashboard-metric-card dashboard-metric-card--warning">
+          <p class="dashboard-metric-value">${satisfactionIndex != null ? `${satisfactionIndex}/100` : '—'}</p>
+          <p class="dashboard-metric-label">Índice de satisfação</p>
+          <p class="faturacao-kpi-sub">😊 100% · 😐 50% · 😞 0%</p>
         </article>
       </div>
       <div class="avaliacoes-charts-grid">
@@ -163,20 +163,22 @@ function renderAuditSection(summary) {
 function renderFilterBar(counts) {
   const chips = [
     { id: 'todas', label: 'Todas', count: counts.total },
-    { id: '3', label: '😊 Satisfeito', count: counts.good },
-    { id: '2', label: '😐 Regular', count: counts.mid },
-    { id: '1', label: '😞 Insatisfeito', count: counts.bad },
+    { id: '3', label: 'Satisfeito', count: counts.good },
+    { id: '2', label: 'Regular', count: counts.mid },
+    { id: '1', label: 'Insatisfeito', count: counts.bad },
   ];
 
   return `
-    <div class="rh-filter-bar avaliacoes-filter-bar" role="tablist" aria-label="Filtrar avaliações">
+    <div class="faturacao-invoices-tabs avaliacoes-filter-bar" role="tablist" aria-label="Filtrar avaliações">
       ${chips
         .map(
           (chip) => `
         <button type="button"
-          class="rh-filter-chip${activeFilter === chip.id ? ' is-active' : ''}"
-          data-avaliacao-filter="${chip.id}">
-          ${escapeHtml(chip.label)}${chip.count ? ` <span class="rh-filter-chip__count">${chip.count}</span>` : ''}
+          class="faturacao-invoices-tab${activeFilter === chip.id ? ' is-active' : ''}"
+          data-avaliacao-filter="${chip.id}"
+          role="tab"
+          aria-selected="${activeFilter === chip.id ? 'true' : 'false'}">
+          ${escapeHtml(chip.label)} <span class="faturacao-invoices-tab-count">${chip.count}</span>
         </button>`,
         )
         .join('')}
@@ -185,32 +187,54 @@ function renderFilterBar(counts) {
 
 function renderRows(rows) {
   if (!rows.length) {
-    return `<p class="avaliacoes-panel-empty text-muted">Nenhuma avaliação neste filtro.</p>`;
+    return `<p class="avaliacoes-panel-empty text-muted faturacao-empty">Nenhuma avaliação neste filtro.</p>`;
   }
 
+  const scrollClass = rows.length > 8 ? ' faturacao-table-wrap--scroll-y' : '';
+
   return `
-    <div class="avaliacoes-list" role="list">
-      ${rows
-        .map(
-          (row) => `
-        <article class="avaliacoes-list-item ${scoreClass(row.score)}" role="listitem">
-          <div class="avaliacoes-list-item__score" aria-hidden="true">${row.emoji}</div>
-          <div class="avaliacoes-list-item__body">
-            <h3 class="avaliacoes-list-item__title">${escapeHtml(row.clientName)}</h3>
-            <p class="avaliacoes-list-item__meta text-muted">
-              Visita: <strong>${escapeHtml(row.visitSummary)}</strong> · Resposta: ${escapeHtml(row.respondedAtLabel)}
-            </p>
-            <p class="avaliacoes-list-item__label">${escapeHtml(formatAvaliacaoBadge(row))}</p>
-          </div>
-          ${
-            row.servicoId
-              ? `<button type="button" class="btn-outline btn-sm" data-open-servico="${escapeHtml(row.servicoId)}" data-visit-date="${escapeHtml(row.visitDate)}" data-client-name="${escapeHtml(row.clientName)}" data-visit-summary="${escapeHtml(row.visitSummary)}">Ver no calendário</button>`
-              : ''
-          }
-        </article>`,
-        )
-        .join('')}
-    </div>`;
+    <section class="avaliacoes-list-section glass-card rh-section" aria-label="Lista de avaliações">
+      <h3 class="ms-h2 faturacao-section-title">Avaliações <span class="badge-count">${rows.length}</span></h3>
+      <div class="faturacao-table-wrap rh-table-scroll${scrollClass}">
+        <table class="rh-data-table rh-data-table--compact faturacao-table faturacao-table--compact faturacao-table--dense avaliacoes-dense-table">
+          <thead>
+            <tr>
+              <th scope="col">Cliente</th>
+              <th scope="col">Detalhe</th>
+              <th scope="col" class="faturacao-col-action">Ação</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows
+              .map(
+                (row) => `
+              <tr class="rh-data-table-row faturacao-row--compact ${scoreClass(row.score)}">
+                <td class="faturacao-cell-client">
+                  <span class="faturacao-cell-client-name">${escapeHtml(row.clientName)}</span>
+                  <span class="faturacao-row-meta">
+                    <span class="faturacao-visit-badge" title="${escapeHtml(formatAvaliacaoBadge(row))}">${row.emoji} ${escapeHtml(formatAvaliacaoBadge(row))}</span>
+                  </span>
+                </td>
+                <td class="faturacao-cell-ordem">
+                  <span class="faturacao-cell-detail">${escapeHtml(row.visitSummary)}</span>
+                  <span class="faturacao-cell-detail">Resposta: ${escapeHtml(row.respondedAtLabel)}</span>
+                </td>
+                <td class="faturacao-col-action">
+                  ${
+                    row.servicoId
+                      ? `<div class="faturacao-billing-actions">
+                          <button type="button" class="btn-outline btn-sm faturacao-btn-compact" data-open-servico="${escapeHtml(row.servicoId)}" data-visit-date="${escapeHtml(row.visitDate)}" data-client-name="${escapeHtml(row.clientName)}" data-visit-summary="${escapeHtml(row.visitSummary)}">Calendário</button>
+                        </div>`
+                      : '<span class="text-muted">—</span>'
+                  }
+                </td>
+              </tr>`,
+              )
+              .join('')}
+          </tbody>
+        </table>
+      </div>
+    </section>`;
 }
 
 async function updateCharts(summary) {
@@ -310,7 +334,7 @@ async function exportAuditPdf(auditRows, auditSummary) {
   } finally {
     if (btn) {
       btn.disabled = false;
-      btn.textContent = 'Exportar PDF';
+      btn.textContent = 'PDF';
     }
   }
 }
@@ -356,7 +380,7 @@ function softUpdateAvaliacoesList() {
   const { visible, counts } = getVisibleAvaliacoesContext();
   replaceSectionHtml(mountRoot, '.avaliacoes-filter-bar', renderFilterBar(counts));
   const listOrEmpty =
-    mountRoot.querySelector('.avaliacoes-list') ||
+    mountRoot.querySelector('.avaliacoes-list-section') ||
     mountRoot.querySelector('.avaliacoes-panel-empty');
   if (listOrEmpty) {
     const wrap = document.createElement('div');

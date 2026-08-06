@@ -10,6 +10,7 @@ import {
   getAllJobs,
   getWeekDates,
   getAllTechnicians,
+  getReportsSnapshot,
 } from '../app.js';
 import {
   getProductionClientsCatalog,
@@ -17,6 +18,14 @@ import {
 } from '../clients-catalog.js';
 import { getTeamStatsSummary } from '../team-stats.js';
 import { computeExtendedRhMetrics } from '../rh-panel-utils.js';
+import { dedupeReportsForDisplay } from '../relatorios-db.js';
+import { isRhOrcamentoQueueReport, reportOrcamentoPorPreparar } from '../pedido-orcamento.js';
+
+function countPendingOrcamentos() {
+  return dedupeReportsForDisplay(
+    getReportsSnapshot().filter((report) => isRhOrcamentoQueueReport(report)),
+  ).filter(reportOrcamentoPorPreparar).length;
+}
 
 export function computeDashboardMetrics(db = getDB()) {
   const catalog = isProductionCatalogReady()
@@ -31,6 +40,7 @@ export function computeDashboardMetrics(db = getDB()) {
   const base = {
     totalClients: catalog.length,
     pendingReports: pending.length,
+    pendingOrcamentos: countPendingOrcamentos(),
     jobsToday: jobs.filter((j) => j.date === today).length,
     jobsThisWeek: jobs.filter((j) => weekSet.has(j.date)).length,
     scheduled: jobs.filter((j) => j.status === 'scheduled').length,
@@ -63,7 +73,7 @@ function renderMetricCard(card) {
 export function renderMetricsSection(metrics) {
   const primaryCards = [
     {
-      label: 'Relatórios pendentes RH',
+      label: 'Por rever',
       value: metrics.pendingReports,
       accent: metrics.pendingReports > 0 ? 'warning' : 'muted',
       action: 'go-pending',
@@ -75,16 +85,16 @@ export function renderMetricsSection(metrics) {
       action: 'go-billing',
     },
     {
-      label: 'Trabalhos hoje',
+      label: 'Propostas',
+      value: metrics.pendingOrcamentos ?? 0,
+      accent: (metrics.pendingOrcamentos ?? 0) > 0 ? 'warning' : 'muted',
+      action: 'go-orcamentos',
+    },
+    {
+      label: 'Hoje',
       value: metrics.jobsToday,
       accent: 'primary',
       action: 'go-calendar-today',
-    },
-    {
-      label: 'Concluídos esta semana',
-      value: metrics.completedThisWeek,
-      accent: 'success',
-      action: 'go-calendar-week',
     },
   ];
 
@@ -94,6 +104,13 @@ export function renderMetricsSection(metrics) {
       : '—';
 
   const secondaryCards = [
+    {
+      label: 'Concluídos esta semana',
+      value: metrics.completedThisWeek,
+      accent: 'success',
+      size: 'secondary',
+      action: 'go-calendar-week',
+    },
     {
       label: `Mais saídas — ${metrics.teamMonthLabel}`,
       value: metrics.teamTopMonth,
