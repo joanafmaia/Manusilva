@@ -17,13 +17,10 @@ function escapeAttr(str) {
   return String(str ?? '').replace(/"/g, '&quot;');
 }
 
-export function renderClientsListSection() {
-  return `
-    <section class="clients-list-section rh-section rh-admin-section glass-card" data-clients-list-section aria-labelledby="clients-list-title">
-      <h3 id="clients-list-title" class="ms-h2 faturacao-section-title">Lista de clientes</h3>
-      <p class="clients-list-hint text-muted">
-        «Ficha» para dados cadastrais · «Histórico» para relatórios do cliente.
-      </p>
+export function renderClientsListSection({ hideSearch = false, techMode = false } = {}) {
+  const searchBlock = hideSearch
+    ? `<span class="clients-list-count text-muted" data-clients-list-count></span>`
+    : `
       <div class="clients-list-toolbar faturacao-filters-grid">
         <div class="form-group faturacao-filter-group faturacao-filter-search">
           <label class="form-label" for="clients-list-search">Pesquisar</label>
@@ -36,7 +33,19 @@ export function renderClientsListSection() {
             aria-label="Filtrar lista de clientes">
         </div>
         <span class="clients-list-count text-muted" data-clients-list-count></span>
-      </div>
+      </div>`;
+
+  return `
+    <section class="clients-list-section rh-section rh-admin-section glass-card${techMode ? ' clients-list-section--tech' : ''}${hideSearch ? ' clients-list-section--external-search' : ''}" data-clients-list-section aria-labelledby="clients-list-title">
+      ${
+        techMode
+          ? ''
+          : `<h3 id="clients-list-title" class="ms-h2 faturacao-section-title">Lista de clientes</h3>
+      <p class="clients-list-hint text-muted">
+        «Ficha» para dados cadastrais · «Histórico» para relatórios do cliente.
+      </p>`
+      }
+      ${searchBlock}
 
       <div class="clients-list-cards" data-clients-list-cards role="list"></div>
 
@@ -116,17 +125,27 @@ function bindClientListActions(root, { onClientHistory }) {
 }
 
 let activeClientsListRefresh = null;
+let activeClientsListPaint = null;
+let activeClientsListQuery = '';
 
 /**
  * @param {HTMLElement} root
- * @param {{ onClientHistory?: (clientId: string) => void }} [options]
+ * @param {{
+ *   onClientHistory?: (clientId: string) => void,
+ *   hideSearch?: boolean,
+ *   techMode?: boolean,
+ *   initialQuery?: string,
+ * }} [options]
  */
 export async function mountClientsList(root, options = {}) {
   if (!root) return;
 
   const onClientHistory = options.onClientHistory || options.onClientClick;
+  const hideSearch = Boolean(options.hideSearch);
+  const techMode = Boolean(options.techMode);
+  activeClientsListQuery = options.initialQuery || '';
 
-  root.innerHTML = renderClientsListSection();
+  root.innerHTML = renderClientsListSection({ hideSearch, techMode });
 
   const section = root.querySelector('[data-clients-list-section]');
   const input = section?.querySelector('.clients-list-search');
@@ -136,12 +155,14 @@ export async function mountClientsList(root, options = {}) {
   const countEl = section?.querySelector('[data-clients-list-count]');
   const moreEl = section?.querySelector('[data-clients-list-more]');
 
-  if (!input || !cardsMount || !tbody) return;
+  if (!cardsMount || !tbody) return;
 
   await ensureProductionCatalog();
   let catalog = getProductionClientsCatalog({ warn: false });
 
   const paint = (query = '') => {
+    activeClientsListQuery = query;
+    if (input && input.value !== query) input.value = query;
     const result = searchClients(query, catalog);
     const items = result.items.slice(0, LIST_PAGE_SIZE);
 
@@ -175,19 +196,32 @@ export async function mountClientsList(root, options = {}) {
     bindClientListActions(section, { onClientHistory });
   };
 
-  let debounceTimer;
-  input.addEventListener('input', () => {
-    clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(() => paint(input.value), 120);
-  });
+  activeClientsListPaint = paint;
+
+  if (input) {
+    let debounceTimer;
+    input.addEventListener('input', () => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => paint(input.value), 120);
+    });
+  }
 
   activeClientsListRefresh = async () => {
     await ensureProductionCatalog();
     catalog = getProductionClientsCatalog({ warn: false });
-    paint(input.value || '');
+    paint(activeClientsListQuery || input?.value || '');
   };
 
-  paint('');
+  paint(activeClientsListQuery);
+}
+
+/** Aplica pesquisa externa (ex.: toolbar do técnico). */
+export function applyClientsListQuery(query = '') {
+  if (typeof activeClientsListPaint === 'function') {
+    activeClientsListPaint(String(query || ''));
+    return true;
+  }
+  return false;
 }
 
 /** Atualiza dados da lista sem destruir a pesquisa / scroll. */

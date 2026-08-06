@@ -315,32 +315,42 @@ function ensureTechJobsShell() {
   if (!app || app.querySelector('[data-tech-jobs-shell]')) return;
   app.innerHTML = TECH_JOBS_SHELL_HTML;
   bindTechJobsSearch();
+  const searchInput = document.getElementById('tech-jobs-search');
+  if (searchInput) searchInput.value = techJobsSearchQuery;
+  updateTechJobsToolbarVisibility();
 }
 
 async function renderTechClientsTab() {
-  const app = document.getElementById('app');
-  if (!app) return;
+  ensureTechJobsShell();
+  updateJobsSectionHeader();
+  updateTechJobsToolbarVisibility();
+  updateTechCalendarWrapVisibility();
 
-  app.innerHTML = `
-    <section class="tech-clients-section jobs-section" data-tech-clients-section>
-      <div class="section-header">
-        <h2 id="tech-jobs-section-title">${TECH_JOBS_TABS.clientes.label}</h2>
-        <span class="date-label" id="selected-date-label"></span>
-      </div>
-      <div data-tech-clients-mount></div>
-    </section>
-  `;
+  const container = document.getElementById('jobs-list');
+  if (!container) return;
 
-  const mount = app.querySelector('[data-tech-clients-mount]');
+  const daySummary = document.getElementById('tech-day-summary');
+  if (daySummary) daySummary.innerHTML = '';
+  const banner = document.getElementById('tech-rejected-banner');
+  if (banner) {
+    banner.hidden = true;
+    banner.innerHTML = '';
+  }
+
+  container.innerHTML = '<div data-tech-clients-mount></div>';
+  const mount = container.querySelector('[data-tech-clients-mount]');
   if (!mount) return;
 
   const { ensureProductionCatalog } = await import('./clients-catalog.js');
   const { mountClientsList } = await import('./views/clients-list.js');
   await ensureProductionCatalog();
   await mountClientsList(mount, {
+    hideSearch: true,
+    techMode: true,
+    initialQuery: techJobsSearchQuery,
     onClientHistory: (clientId) => openTechClientHistory(clientId, { returnTo: 'clientes' }),
   });
-  app.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  container.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function restoreTechClientsTab() {
@@ -357,6 +367,9 @@ function restoreTechClientsTab() {
   const dateLabel = document.getElementById('selected-date-label');
   if (dateLabel) dateLabel.textContent = '';
 
+  const searchInput = document.getElementById('tech-jobs-search');
+  if (searchInput) searchInput.value = techJobsSearchQuery;
+
   updateTechJobsToolbarVisibility();
   updateTechCalendarWrapVisibility();
   void renderTechClientsTab();
@@ -366,7 +379,6 @@ function setTechJobsTab(tabId) {
   if (!TECH_JOBS_TABS[tabId] || techJobsTab === tabId) return;
   techJobsTab = tabId;
   techTabDataCacheKey = null;
-  techJobsSearchQuery = '';
 
   document.querySelectorAll('[data-tech-jobs-tab]').forEach((btn) => {
     const active = btn.dataset.techJobsTab === tabId;
@@ -378,7 +390,7 @@ function setTechJobsTab(tabId) {
   if (title) title.textContent = TECH_JOBS_TABS[tabId].label;
 
   const searchInput = document.getElementById('tech-jobs-search');
-  if (searchInput) searchInput.value = '';
+  if (searchInput) searchInput.value = techJobsSearchQuery;
 
   updateTechJobsToolbarVisibility();
   updateTechCalendarWrapVisibility();
@@ -407,9 +419,18 @@ function updateTechJobsToolbarVisibility() {
   const toolbar = document.getElementById('tech-jobs-toolbar');
   const search = document.getElementById('tech-jobs-search');
   if (!toolbar || !search) return;
-  const showSearch = techJobsTab !== 'realizados' && techJobsTab !== 'clientes';
-  toolbar.hidden = !showSearch;
-  search.hidden = !showSearch;
+  toolbar.hidden = false;
+  search.hidden = false;
+  if (techJobsTab === 'clientes') {
+    search.placeholder = 'Pesquisar cliente, NIF ou e-mail…';
+    search.setAttribute('aria-label', 'Pesquisar clientes');
+  } else if (techJobsTab === 'realizados') {
+    search.placeholder = 'Pesquisar cliente ou serviço…';
+    search.setAttribute('aria-label', 'Pesquisar realizados');
+  } else {
+    search.placeholder = 'Pesquisar cliente ou serviço…';
+    search.setAttribute('aria-label', 'Pesquisar trabalhos');
+  }
 }
 
 function bindTechJobsTabs() {
@@ -879,6 +900,12 @@ function bindTechJobsSearch() {
     techJobsSearchTimer = setTimeout(() => {
       techJobsSearchTimer = null;
       techJobsSearchQuery = value;
+      if (techJobsTab === 'clientes') {
+        import('./views/clients-list.js')
+          .then(({ applyClientsListQuery }) => applyClientsListQuery(value))
+          .catch(console.error);
+        return;
+      }
       renderJobs();
     }, TECH_JOBS_SEARCH_DEBOUNCE_MS);
   });
@@ -1786,11 +1813,7 @@ function bindTechJobRowsEvents(scope) {
   });
 }
 
-/* ─── Histórico de Realizados — lista compacta com pesquisa e grupos por mês ─── */
-
-let realizadosSearchQuery = '';
-let realizadosSearchTimer = null;
-const REALIZADOS_SEARCH_DEBOUNCE_MS = 150;
+/* ─── Histórico de Realizados — lista compacta com pesquisa (toolbar partilhada) ─── */
 
 function getRealizadoItemDate(item) {
   return item.job?.date || String(item.report.approvedAt || item.report.submittedAt || '').split('T')[0] || '';
@@ -1812,7 +1835,7 @@ function formatRealizadoMonthLabel(isoDate) {
 }
 
 function filterRealizadosItems(items) {
-  return filterRealizadosBySearch(items, realizadosSearchQuery, {
+  return filterRealizadosBySearch(items, techJobsSearchQuery, {
     getClient,
     getService: getServiceType,
   });
@@ -1849,7 +1872,7 @@ function renderRealizadosListHtml(allItems) {
   const items = filterRealizadosItems(allItems);
 
   if (!items.length) {
-    return realizadosSearchQuery.trim()
+    return techJobsSearchQuery.trim()
       ? '<p class="realizados-no-results text-muted">Nenhum resultado para esta pesquisa.</p>'
       : `
         <div class="empty-state glass-card">
@@ -1892,33 +1915,11 @@ function renderRealizadosPanel(container, techId) {
   const allItems = getRealizadosItems(techId);
 
   container.innerHTML = `
-    <div class="realizados-toolbar">
-      <input
-        type="search"
-        id="realizados-search"
-        class="realizados-search"
-        placeholder="🔍 Pesquisar cliente…"
-        autocomplete="off"
-        value="${escapeHtml(realizadosSearchQuery)}"
-        aria-label="Pesquisar relatórios concluídos por cliente"
-      >
-    </div>
     <div id="realizados-list">${renderRealizadosListHtml(allItems)}</div>
   `;
 
   const listEl = container.querySelector('#realizados-list');
   bindRealizadosListEvents(listEl);
-
-  const searchInput = container.querySelector('#realizados-search');
-  searchInput?.addEventListener('input', () => {
-    realizadosSearchQuery = searchInput.value || '';
-    if (realizadosSearchTimer) clearTimeout(realizadosSearchTimer);
-    realizadosSearchTimer = setTimeout(() => {
-      realizadosSearchTimer = null;
-      listEl.innerHTML = renderRealizadosListHtml(getRealizadosItems(techId));
-      bindRealizadosListEvents(listEl);
-    }, REALIZADOS_SEARCH_DEBOUNCE_MS);
-  });
 }
 
 async function openContinueJob(jobId) {

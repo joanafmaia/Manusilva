@@ -8534,13 +8534,50 @@ body.tech-dashboard-page .form-overlay .form-panel-header--minimal {
   gap: 0.5rem;
 }
 body.tech-dashboard-page .form-overlay .form-offline-chip {
-  padding: 0.25rem 0.5rem;
+  padding: 0.3rem 0.55rem;
   border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 650;
+  line-height: 1.3;
+}
+body.tech-dashboard-page .form-overlay .form-offline-chip--offline {
   background: var(--surface-warning-bg);
   color: var(--surface-warning-text, var(--ms-text-pending));
   border: 1px solid var(--surface-warning-border);
-  font-size: 0.75rem;
-  font-weight: 600;
+}
+body.tech-dashboard-page .form-overlay .form-offline-chip--online {
+  background: color-mix(in srgb, #22c55e 14%, var(--bg-card));
+  color: #166534;
+  border: 1px solid color-mix(in srgb, #22c55e 35%, var(--border-subtle));
+}
+body.tech-dashboard-page .form-overlay .form-panel-footer-row--primary .btn-touch {
+  min-height: 3rem;
+  font-size: 1rem;
+  font-weight: 700;
+}
+body.tech-dashboard-page .form-overlay .btn-preview.btn-touch {
+  width: 100%;
+  justify-content: center;
+  min-height: 2.6rem;
+}
+body.tech-dashboard-page .clients-list-section--tech {
+  border: none;
+  box-shadow: none;
+  background: transparent;
+  padding: 0;
+}
+body.tech-dashboard-page .clients-list-section--tech .clients-list-count {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-size: 0.85rem;
+}
+@media (max-width: 1023px) {
+  body.tech-dashboard-page .clients-list-section--tech .clients-list-table-wrap {
+    display: none;
+  }
+  body.tech-dashboard-page .clients-list-section--tech .clients-list-cards {
+    display: grid;
+  }
 }
 body.tech-dashboard-page .form-overlay .form-progress__label {
   display: block;

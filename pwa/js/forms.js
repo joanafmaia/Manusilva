@@ -753,7 +753,7 @@ async function buildFormHTML(job, client, tech, service, existingReport, options
         <div class="form-panel-header form-panel-header--minimal">
           <button type="button" class="btn-ghost" id="close-form">&larr; Voltar</button>
           <div class="form-tech-status-bar">
-            <div class="form-offline-chip" id="form-offline-chip" hidden>Offline — alterações guardadas neste tablet</div>
+            <div class="form-offline-chip form-offline-chip--online" id="form-offline-chip" aria-live="polite">Online</div>
             <div class="form-progress" id="form-progress-wrap">
               <span class="form-progress__label" id="form-progress-label">Dados · 1/3</span>
               <div class="form-progress__track" aria-hidden="true"><div class="form-progress__fill" id="form-progress-fill"></div></div>
@@ -803,28 +803,25 @@ async function buildFormHTML(job, client, tech, service, existingReport, options
         </div>
 
         <div class="form-panel-footer form-panel-footer--stacked form-panel-footer--sticky">
-          <button type="button" class="btn-preview" id="btn-preview-pdf">
-            ${msIconHtml('eye', 'btn-preview-icon')}
-            Pré-visualizar Relatório
-          </button>
           ${viewOnly ? `
           <div class="form-panel-footer-row">
-            <button type="button" class="btn-primary btn-touch" id="btn-view-pdf-full">Ver PDF do relatório</button>
-          </div>` : servicoVisitMode ? `
-          <p class="form-footer-hint text-muted">${
-            isMovimentoMaterialClienteService(service)
-              ? '<strong>Guardar rascunho</strong> — continua mais tarde. <strong>Concluir relatório</strong> — marca como pronto; use <strong>Assinar e concluir visita</strong> no ecrã da visita (assinaturas opcionais).'
-              : '<strong>Guardar rascunho</strong> — continua mais tarde. <strong>Concluir relatório</strong> — marca este tipo como pronto (verde); assine a visita só quando nenhum relatório estiver a cinza.'
-          }</p>
-          <div class="form-panel-footer-row">
-            <button type="button" class="btn-secondary btn-touch" id="btn-save-draft">Guardar rascunho</button>
-            <button type="button" class="btn-primary btn-touch" id="btn-submit-report">Concluir relatório</button>
+            <button type="button" class="btn-primary btn-touch" id="btn-view-pdf-full">Ver PDF</button>
           </div>` : `
-          <p class="form-footer-hint text-muted">Guardar e sair mantém o relatório <strong>em aberto</strong>. Concluir envia-o para aprovação do RH.</p>
-          <div class="form-panel-footer-row">
-            <button type="button" class="btn-secondary btn-touch" id="btn-save-draft">Guardar e sair</button>
-            <button type="button" class="btn-primary btn-touch" id="btn-submit-report">Concluir Relatório</button>
-          </div>`}
+          <button type="button" class="btn-outline btn-touch btn-preview" id="btn-preview-pdf">
+            ${msIconHtml('eye', 'btn-preview-icon')}
+            Pré-visualizar PDF
+          </button>
+          <div class="form-panel-footer-row form-panel-footer-row--primary">
+            <button type="button" class="btn-secondary btn-touch" id="btn-save-draft">${
+              servicoVisitMode ? 'Guardar' : 'Guardar'
+            }</button>
+            <button type="button" class="btn-primary btn-touch" id="btn-submit-report">Concluir</button>
+          </div>
+          <p class="form-footer-hint text-muted">${
+            servicoVisitMode
+              ? 'Guardar = continua depois. Concluir = marca este relatório pronto; assine a visita no ecrã da visita.'
+              : 'Guardar = fica em aberto neste tablet. Concluir = envia para aprovação do RH.'
+          }</p>`}
         </div>
       </div>
     </div>
@@ -916,7 +913,13 @@ function updateFormProgress(overlay, service, activeTabId) {
 function updateFormOfflineChip(overlay) {
   const chip = overlay.querySelector('#form-offline-chip');
   if (!chip) return;
-  chip.hidden = canReachServer() && !isOffline();
+  const offline = !canReachServer() || isOffline();
+  chip.hidden = false;
+  chip.classList.toggle('form-offline-chip--online', !offline);
+  chip.classList.toggle('form-offline-chip--offline', offline);
+  chip.textContent = offline
+    ? 'Offline — guardado neste tablet (envia com rede)'
+    : 'Online — pode Guardar ou Concluir';
 }
 
 function bindFormOfflineStatus(overlay) {
