@@ -78,7 +78,8 @@ const TECH_JOBS_TABS = {
 };
 
 const TECH_CAL_COMPACT_KEY = 'tech_calendar_compact';
-let techCalendarCompact = localStorage.getItem(TECH_CAL_COMPACT_KEY) === '1';
+/** Por defeito compacto — mais espaço para a lista do dia. */
+let techCalendarCompact = localStorage.getItem(TECH_CAL_COMPACT_KEY) !== '0';
 let techJobsSearchQuery = '';
 let techJobsSearchTimer = null;
 const TECH_JOBS_SEARCH_DEBOUNCE_MS = 150;
@@ -773,21 +774,40 @@ async function runTechDataSync() {
   }
 
   const bar = document.getElementById('tech-connectivity-bar');
+  const text = document.getElementById('tech-connectivity-text');
+  const queueEl = document.getElementById('tech-connectivity-queue');
   const syncBtn = document.getElementById('tech-connectivity-sync-btn');
-  if (syncBtn) syncBtn.disabled = true;
+  if (syncBtn) {
+    syncBtn.disabled = true;
+    syncBtn.textContent = 'A enviar…';
+  }
   bar?.classList.add('tech-connectivity-bar--syncing');
+  bar?.classList.remove('tech-connectivity-bar--ok', 'tech-connectivity-bar--warn', 'tech-connectivity-bar--offline');
+  if (text) text.textContent = 'A sincronizar com o servidor…';
+  if (queueEl) {
+    queueEl.hidden = false;
+    queueEl.textContent = 'Não feche a app até terminar.';
+  }
 
   try {
     const { synced, remaining } = await triggerTechDataSync();
     if (synced > 0) {
       periodJobsCacheKey = null;
       techTabDataCacheKey = null;
+      showToast(
+        remaining > 0
+          ? `${synced} enviado(s). Ainda restam ${remaining}.`
+          : `${synced} relatório(s) sincronizado(s).`,
+        remaining > 0 ? 'warning' : 'success',
+        5000,
+      );
       await refreshTechCalendar();
     } else if (remaining > 0) {
       showToast('Não foi possível enviar agora. Tente novamente dentro de momentos.', 'warning', 6000);
     } else {
       periodJobsCacheKey = null;
       techTabDataCacheKey = null;
+      showToast('Tudo sincronizado.', 'success', 3500);
       await refreshTechCalendar();
     }
   } catch (err) {
@@ -1074,7 +1094,7 @@ function renderTechRejectedBanner() {
         <strong>Relatório rejeitado — ${escapeHtml(client?.name || 'Cliente')}${more}</strong>
         ${note ? `<span class="tech-rejected-banner__note">${escapeHtml(note.length > 120 ? `${note.slice(0, 120)}…` : note)}</span>` : ''}
       </div>
-      <button type="button" class="btn-primary btn-sm tech-rejected-banner__action" data-rejected-job="${escapeHtml(first.id)}">Corrigir</button>
+      <button type="button" class="btn-primary tech-rejected-banner__action" data-rejected-job="${escapeHtml(first.id)}">Corrigir</button>
     </div>
   `;
 
@@ -1086,6 +1106,7 @@ function renderTechRejectedBanner() {
 async function renderTechConnectivityBar() {
   const bar = document.getElementById('tech-connectivity-bar');
   const text = document.getElementById('tech-connectivity-text');
+  const queueEl = document.getElementById('tech-connectivity-queue');
   const syncBtn = document.getElementById('tech-connectivity-sync-btn');
   if (!bar || !text) return;
 
@@ -1107,15 +1128,27 @@ async function renderTechConnectivityBar() {
       'tech-connectivity-bar--syncing',
     );
 
+    const queueBits = [];
+    if (pending > 0) queueBits.push(`${pending} por enviar`);
+    if (drafts > 0) queueBits.push(`${drafts} rascunho${drafts === 1 ? '' : 's'}`);
+    if (queueEl) {
+      queueEl.hidden = queueBits.length === 0;
+      queueEl.textContent = queueBits.length ? queueBits.join(' · ') : '';
+    }
+
+    if (syncBtn) {
+      syncBtn.textContent = pending > 0 ? `Sincronizar (${pending})` : 'Sincronizar';
+    }
+
     if (!online) {
       bar.classList.add('tech-connectivity-bar--offline');
       if (networkOffline) {
         text.textContent = pending
-          ? `Sem rede · ${pending} relatório(s) por enviar`
+          ? 'Sem rede — relatórios guardados neste tablet'
           : 'Sem rede — dados guardados no tablet';
       } else {
         text.textContent = pending
-          ? `Modo offline · ${pending} por enviar`
+          ? 'Modo offline — relatórios à espera de envio'
           : 'Modo offline — dados guardados no tablet';
       }
       if (syncBtn) {
@@ -1127,7 +1160,7 @@ async function renderTechConnectivityBar() {
 
     if (pending > 0) {
       bar.classList.add('tech-connectivity-bar--warn');
-      text.textContent = `${pending} relatório(s) aguardam envio`;
+      text.textContent = 'Há relatórios por sincronizar';
       if (syncBtn) {
         syncBtn.hidden = false;
         syncBtn.disabled = false;
@@ -1137,12 +1170,13 @@ async function renderTechConnectivityBar() {
 
     bar.classList.add('tech-connectivity-bar--ok');
     text.textContent = drafts
-      ? `Sincronizado · ${drafts} rascunho(s) em aberto`
+      ? 'Sincronizado — rascunhos só neste tablet até concluir'
       : 'Sincronizado com o servidor';
     if (syncBtn) syncBtn.hidden = true;
   } catch (err) {
     console.warn('[Técnico] Estado de sync:', err);
     text.textContent = 'Estado de sincronização indisponível';
+    if (queueEl) queueEl.hidden = true;
   }
 }
 
@@ -1600,6 +1634,8 @@ function renderTechJobRow(job, report, actionType, { dateOverride, showDate = tr
     : getServiceType(job?.serviceType || report?.serviceType)?.label || job?.serviceType || 'Relatório';
   const action = TECH_ROW_ACTIONS[actionType] || TECH_ROW_ACTIONS.view;
   const actionLabel = resolveTechActionLabel(actionType, state);
+  const ctaKind =
+    state === 'rejected' ? 'correct' : actionType === 'start' ? 'start' : actionType === 'continue' ? 'continue' : 'view';
   const jobId = job?.id || report?.jobId || report?.servicoId || '';
   const clientId = job?.clientId || report?.clientId || '';
   const isoDate = dateOverride || job?.date || '';
@@ -1636,9 +1672,9 @@ function renderTechJobRow(job, report, actionType, { dateOverride, showDate = tr
         </div>
         <div class="tech-job-card__row tech-job-card__row--bottom">
           <span class="tech-job-card__service">${isServico ? serviceIconHtml({ icon: 'clipboard' }, 'tech-job-card__service-icon') : serviceIconHtml(getServiceType(job?.serviceType || report?.serviceType), 'tech-job-card__service-icon')} ${escapeHtml(subtitle)}</span>
-          <span class="tech-job-card__cta">${escapeHtml(actionLabel)}</span>
         </div>
         ${rejectionHtml}
+        <span class="tech-job-card__cta tech-job-card__cta--${ctaKind}">${escapeHtml(actionLabel)}</span>
       </button>
       <div class="tech-job-card__aside">
         ${
