@@ -187,6 +187,7 @@ describe('pdf-orcamento layout', () => {
     };
     const layout = resolveOrcamentoGenericLayout(doc, fill, 76);
     assert.equal(layout.allowPagination, false);
+    assert.equal(layout.splitTablePage, false);
     assert.ok(layout.contentEndY <= 187);
   });
 
@@ -214,6 +215,7 @@ describe('pdf-orcamento layout', () => {
       splitTextToSize: (text) => [text],
     };
     const layout = resolveOrcamentoGenericLayout(doc, fill, 76);
+    assert.equal(layout.splitTablePage, true);
     assert.equal(layout.allowPagination, true);
     assert.ok(layout.contentEndY > 187);
   });
@@ -236,6 +238,7 @@ describe('pdf-orcamento layout', () => {
       splitTextToSize: (text) => [text],
     };
     const layout = resolveOrcamentoGenericLayout(doc, fill, 76);
+    assert.equal(layout.splitTablePage, true);
     assert.equal(layout.allowPagination, true);
   });
 
@@ -257,6 +260,7 @@ describe('pdf-orcamento layout', () => {
     };
     const layout = resolveOrcamentoGenericLayout(doc, fill, 95);
     assert.ok(layout.density.tableRowH <= 4.8);
+    assert.equal(layout.splitTablePage, false);
     assert.equal(layout.allowPagination, false);
   });
 

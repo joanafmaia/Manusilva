@@ -1,7 +1,8 @@
 /**
  * PDF — Proposta Comercial MS.015
- * Folha 1: proposta + caixa de aprovação (cliente à esq., encerramento Manusilva à dir.)
- * Folha 2: Garantia de Reparação, Prazo de reparação e Condições Gerais (fixo)
+ * Folha 1: condições da proposta (equipamentos, observações, totais, aprovação)
+ * Folha 2 (se a tabela não couber): mapa de preços completo
+ * Última folha: Garantia de Reparação e Condições Gerais (texto)
  */
 
 import { COMPANY } from './mock_data.js';
@@ -184,10 +185,12 @@ const ORC_GENERIC_DENSITY = {
   },
 };
 
-/** Até 3 máquinas ficam sempre na folha 1; a partir da 4.ª usa continuação. */
+/** Até 3 máquinas tentam caber numa folha; se a tabela não couber, vai para folha própria. */
 const ORC_GENERIC_SINGLE_PAGE_GROUP_LIMIT = 3;
 
 const ORC_GENERIC_BODY_MAX_Y = FOOTER_TOP - 2;
+/** Página só com tabela — usa quase toda a altura A4 (sem caixa de aprovação). */
+const ORC_TABLE_PAGE_MAX_Y = PAGE_BOTTOM - 10;
 
 let legalTextCache = null;
 
@@ -300,7 +303,7 @@ export function estimateOrcamentoMachineGroupBlockHeight(
 export function resolveOrcamentoGenericLayout(doc, fill, bodyStartY) {
   const intro = resolveOrcamentoTextoIntroForPdf(fill.maquinas, fill.texto_intro);
   const groupCount = Math.max(1, countOrcamentoEquipamentoGroups(fill));
-  const allowPagination = groupCount > ORC_GENERIC_SINGLE_PAGE_GROUP_LIMIT;
+  const forceSplitByGroups = groupCount > ORC_GENERIC_SINGLE_PAGE_GROUP_LIMIT;
   const order =
     groupCount <= ORC_GENERIC_SINGLE_PAGE_GROUP_LIMIT
       ? ['normal', 'compact', 'tight', 'triple']
@@ -323,7 +326,7 @@ export function resolveOrcamentoGenericLayout(doc, fill, bodyStartY) {
       ORC_GENERIC_BODY_MAX_Y,
       density,
     );
-    if (contentEndY <= ORC_GENERIC_BODY_MAX_Y) {
+    if (contentEndY <= ORC_GENERIC_BODY_MAX_Y && !forceSplitByGroups) {
       return {
         density,
         densityId,
@@ -331,7 +334,9 @@ export function resolveOrcamentoGenericLayout(doc, fill, bodyStartY) {
         introEndY,
         sectionsEndY,
         contentEndY,
-        allowPagination,
+        /** @deprecated use splitTablePage — já não se parte a tabela a meio da folha 1 */
+        allowPagination: false,
+        splitTablePage: false,
         groupCount,
       };
     }
@@ -362,8 +367,9 @@ export function resolveOrcamentoGenericLayout(doc, fill, bodyStartY) {
       introEndY,
       sectionsEndY,
       contentEndY,
-      // Com ≤3 grupos tenta 1 folha; se mesmo assim não cabe, pagina.
       allowPagination: !fits,
+      /** Tabela não cabe com as condições → folha 2 só para preços; garantias depois. */
+      splitTablePage: !fits,
       groupCount,
     };
   }
@@ -392,6 +398,7 @@ export function resolveOrcamentoGenericLayout(doc, fill, bodyStartY) {
     sectionsEndY,
     contentEndY,
     allowPagination: true,
+    splitTablePage: true,
     groupCount,
   };
 }
@@ -831,13 +838,24 @@ export function estimateOrcamentoGroupBlockHeight(
   return h;
 }
 
-function drawOrcamentoGenericContinuationHeader(doc, fill) {
+function drawOrcamentoGenericContinuationHeader(doc, fill, { title } = {}) {
   let y = MARGIN + 4;
   pdfSetFont(doc, 'bold');
   doc.setFontSize(PDF_FONT_BODY);
   doc.setTextColor(...PDF_COLOR_TEXT_DARK);
-  doc.text(`Orçamento nº ${pdfSafeText(fill.orcamento_numero)} — continuação`, MARGIN, y);
-  y += 6;
+  const heading =
+    title ||
+    `Orçamento nº ${pdfSafeText(fill.orcamento_numero)} — continuação`;
+  doc.text(heading, MARGIN, y);
+  y += 5;
+  if (title) {
+    pdfSetFont(doc, 'normal');
+    doc.setFontSize(PDF_FONT_CAPTION);
+    doc.setTextColor(...PDF_COLOR_TEXT_MUTED);
+    doc.text(`Orçamento nº ${pdfSafeText(fill.orcamento_numero)}`, MARGIN, y);
+    y += 5;
+    doc.setTextColor(...PDF_COLOR_TEXT_DARK);
+  }
   doc.setDrawColor(...PDF_TABLE_LINE);
   doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
   doc.line(MARGIN, y, MARGIN + CONTENT_W, y);
@@ -1203,11 +1221,11 @@ function drawOrcamentoMachineTableSection(
   linhas,
   startY,
   density = ORC_GENERIC_DENSITY.normal,
-  { clip = true } = {},
+  { clip = true, maxEndY = ORC_GENERIC_BODY_MAX_Y } = {},
 ) {
   const rows = filterOrcamentoPdfGroupLinhas(linhas);
   const { drawRow } = createOrcamentoTableRowDrawer(doc, startY, {
-    maxEndY: ORC_GENERIC_BODY_MAX_Y,
+    maxEndY,
     density,
     clip,
   });
@@ -1229,6 +1247,21 @@ function drawOrcamentoMachineTableSection(
     );
   });
   return y;
+}
+
+function drawOrcamentoTableGroupTitle(doc, label, startY, maxEndY, density = ORC_GENERIC_DENSITY.normal) {
+  const rowH = density.tableRowH ?? ORC_TABLE_ROW_H;
+  if (startY + rowH + 2 > maxEndY) return startY;
+  doc.setFillColor(226, 232, 240);
+  doc.rect(MARGIN, startY - 4.2, CONTENT_W, rowH, 'F');
+  pdfSetFont(doc, 'bold');
+  doc.setFontSize(density.tableFontSize ?? 9);
+  doc.setTextColor(...PDF_COLOR_TEXT_DARK);
+  doc.text(fitTableCellText(doc, label, CONTENT_W - 4), MARGIN + 1, startY);
+  doc.setDrawColor(203, 213, 225);
+  doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
+  doc.line(MARGIN, startY + 1.5, MARGIN + CONTENT_W, startY + 1.5);
+  return startY + rowH;
 }
 
 function resolveMaquinaEquipRows(block, fill) {
@@ -1275,7 +1308,7 @@ function drawOrcamentoMaquinaSections(
   startY,
   maxEndY = CONTENT_MAX_Y,
   density = ORC_GENERIC_DENSITY.normal,
-  { allowPagination = false } = {},
+  { allowPagination = false, mode = 'full' } = {},
 ) {
   const campos = normalizeEquipamentoCampos(fill.equipamento_campos);
   const groups = groupOrcamentoLinhasByEquipamento(fill.linhas, fill.maquinas, campos);
@@ -1284,6 +1317,8 @@ function drawOrcamentoMaquinaSections(
   let bodyPage = doc.internal.getCurrentPageInfo().pageNumber;
   let pageStartY = startY;
   let pageMaxEndY = maxEndY;
+  const drawEquip = mode === 'full' || mode === 'conditions';
+  const drawTables = mode === 'full' || mode === 'tables';
 
   groups.forEach((group, groupIndex) => {
     const block = blocks.find((row) => row.index === group.equipamentoIndex) || blocks[groupIndex];
@@ -1291,27 +1326,37 @@ function drawOrcamentoMaquinaSections(
     const includeSeparator = groupIndex < groups.length - 1;
     const groupHeight = estimateOrcamentoGroupBlockHeight(
       doc,
-      equipRows,
-      group.linhas,
+      drawEquip ? equipRows : [],
+      drawTables ? group.linhas : [],
       density,
-      includeSeparator,
+      includeSeparator && (drawEquip || drawTables),
     );
 
     if (allowPagination && y + groupHeight > pageMaxEndY && y > pageStartY) {
       doc.addPage();
       bodyPage = doc.getNumberOfPages();
-      y = drawOrcamentoGenericContinuationHeader(doc, fill);
+      y = drawOrcamentoGenericContinuationHeader(
+        doc,
+        fill,
+        mode === 'tables' ? { title: 'Mapa de preços — continuação' } : undefined,
+      );
       pageStartY = y;
-      pageMaxEndY = ORC_GENERIC_BODY_MAX_Y;
+      pageMaxEndY = mode === 'tables' ? ORC_TABLE_PAGE_MAX_Y : ORC_GENERIC_BODY_MAX_Y;
     }
 
-    if (equipRows.length) {
+    if (drawEquip && equipRows.length) {
       y = drawHorizontalEquipFields(doc, equipRows, y, pageMaxEndY, density);
     }
-    y = drawOrcamentoMachineTableSection(doc, group.linhas, y, density, {
-      clip: allowPagination,
-    });
-    if (includeSeparator) {
+    if (drawTables) {
+      if (mode === 'tables') {
+        y = drawOrcamentoTableGroupTitle(doc, group.label, y, pageMaxEndY, density);
+      }
+      y = drawOrcamentoMachineTableSection(doc, group.linhas, y, density, {
+        clip: allowPagination || mode === 'tables',
+        maxEndY: pageMaxEndY,
+      });
+    }
+    if (includeSeparator && (drawEquip || drawTables)) {
       y = drawOrcamentoEquipamentoSeparator(doc, y, density);
     }
   });
@@ -2068,7 +2113,7 @@ export async function renderOrcamentoPDF(report) {
 
   let y = drawOrcamentoLetterhead(doc, fill);
   const layout = resolveOrcamentoGenericLayout(doc, fill, y);
-  const { density, allowPagination } = layout;
+  const { density, splitTablePage } = layout;
 
   pdfSetFont(doc, 'normal');
   doc.setFontSize(PDF_FONT_BODY);
@@ -2078,20 +2123,46 @@ export async function renderOrcamentoPDF(report) {
   });
   y += density.introGap;
 
-  const sections = drawOrcamentoMaquinaSections(doc, fill, y, ORC_GENERIC_BODY_MAX_Y, density, {
-    allowPagination,
-  });
+  if (splitTablePage) {
+    // Folha 1: condições (equipamentos + observações + totais + aprovação) — sem tabela de preços.
+    const conditions = drawOrcamentoMaquinaSections(doc, fill, y, ORC_GENERIC_BODY_MAX_Y, density, {
+      mode: 'conditions',
+      allowPagination: false,
+    });
+    doc.setPage(1);
+    drawOrcamentoObservacoesCliente(doc, fill, conditions.y, {
+      maxEndY: ORC_GENERIC_BODY_MAX_Y,
+      density,
+    });
+    drawOrcamentoFooter(doc, fill);
+    drawClientApprovalBox(doc);
 
-  doc.setPage(sections.page);
-  drawOrcamentoObservacoesCliente(doc, fill, sections.y, {
-    maxEndY: ORC_GENERIC_BODY_MAX_Y,
-    density,
-  });
+    // Folha 2: mapa de preços completo.
+    doc.addPage();
+    let tableY = drawOrcamentoGenericContinuationHeader(doc, fill, {
+      title: 'Mapa de preços',
+    });
+    drawOrcamentoMaquinaSections(doc, fill, tableY, ORC_TABLE_PAGE_MAX_Y, density, {
+      mode: 'tables',
+      allowPagination: true,
+    });
+  } else {
+    const sections = drawOrcamentoMaquinaSections(doc, fill, y, ORC_GENERIC_BODY_MAX_Y, density, {
+      mode: 'full',
+      allowPagination: false,
+    });
 
-  drawOrcamentoFooter(doc, fill);
+    doc.setPage(sections.page);
+    drawOrcamentoObservacoesCliente(doc, fill, sections.y, {
+      maxEndY: ORC_GENERIC_BODY_MAX_Y,
+      density,
+    });
 
-  doc.setPage(sections.page);
-  drawClientApprovalBox(doc);
+    drawOrcamentoFooter(doc, fill);
+
+    doc.setPage(sections.page);
+    drawClientApprovalBox(doc);
+  }
 
   if (legalText) {
     drawLegalPage(doc, legalText);
