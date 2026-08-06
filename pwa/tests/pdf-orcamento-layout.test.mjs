@@ -27,9 +27,9 @@ describe('pdf-orcamento layout', () => {
       { descricao: 'Mão de obra', qtd: '1', precoUnit: '120' },
     ];
     const layout = computeOrcamentoTableLayout(linhas, []);
-    assert.ok(layout.anchoredStartY < 189, 'cabeçalho da tabela deve ficar acima do rodapé (y≈189)');
+    assert.ok(layout.anchoredStartY < 205, 'cabeçalho da tabela deve ficar acima do rodapé (caixa de assinatura compacta)');
     assert.equal(layout.dataRows.length, 2);
-    assert.ok(layout.anchoredStartY + layout.blockH < 189);
+    assert.ok(layout.anchoredStartY + layout.blockH < 205);
   });
 
   it('posiciona a tabela após o equipamento quando o conteúdo empurra o fluxo', () => {
