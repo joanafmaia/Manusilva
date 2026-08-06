@@ -242,7 +242,9 @@ export function getReportFieldTab(field, service = null) {
   if (REPORT_TAB_CHECKLIST_TYPES.has(field?.type)) return 'checklist';
   if (
     service?.id === 'manutencao_preventiva_empilhadores' &&
-    field?.section === EMPILHADORES_MATERIAL_SECTION
+    (field?.section === EMPILHADORES_MATERIAL_SECTION ||
+      field?.section === 'Consumíveis Utilizados' ||
+      field?.id === 'consumiveis')
   ) {
     return 'checklist';
   }
@@ -450,17 +452,34 @@ function renderEmpilhadoresChecklistSection(section, fields, values, context) {
     `;
   }
 
-  if (section !== EMPILHADORES_MATERIAL_SECTION) return '';
+  if (section !== EMPILHADORES_MATERIAL_SECTION) {
+    if (!fields.length) return '';
+    const sectionTitle = section
+      ? `<h4 class="form-section-subtitle">${escapeHtml(section)}</h4>`
+      : '';
+    const fieldsHtml = fields.map((f) => renderField(f, values[f.id], context)).join('');
+    const isConsumiveis = fields.some((f) => isMaterialTableField(f));
+    return `
+      <div class="form-field-section form-section-card${isConsumiveis ? ' form-field-section--material form-field-section--empilhadores-consumiveis' : ''}">
+        ${sectionTitle}
+        ${fieldsHtml}
+      </div>
+    `;
+  }
 
+  const qtyFields = fields.filter((f) => !isMaterialTableField(f));
+  const tableFields = fields.filter((f) => isMaterialTableField(f));
   const sectionTitle = `<h4 class="form-section-subtitle form-section-subtitle--empilhadores-material">${escapeHtml(section)}</h4>`;
-  const fieldsHtml = `<div class="material-substitution-grid material-substitution-grid--empilhadores">${fields
+  const fieldsHtml = `<div class="material-substitution-grid material-substitution-grid--empilhadores">${qtyFields
     .map((f) => renderField(f, values[f.id], context))
     .join('')}</div>`;
+  const tableHtml = tableFields.map((f) => renderField(f, values[f.id], context)).join('');
   return `
     <div class="form-field-section form-section-card form-field-section--material form-field-section--empilhadores-material">
       <div class="empilhadores-material-block">
         ${sectionTitle}
         ${fieldsHtml}
+        ${tableHtml}
       </div>
     </div>
   `;
@@ -1522,6 +1541,7 @@ function getMaterialUnit(label) {
 }
 
 function isMaterialQtyField(field) {
+  if (field?.type !== 'number') return false;
   return field.uiVariant === 'material' || field.section === EMPILHADORES_MATERIAL_SECTION;
 }
 

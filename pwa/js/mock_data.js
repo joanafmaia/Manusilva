@@ -528,6 +528,12 @@ export const EMPILHADORES_PER_MACHINE_FIELD_DEFS = [
     step: 1,
     uiVariant: 'material',
   },
+  createMaterialTableField({
+    id: 'consumiveis',
+    section: 'Consumíveis Utilizados',
+    label: 'Consumíveis Utilizados',
+    addButtonLabel: 'Adicionar consumíveis',
+  }),
   { type: 'textarea', id: 'observacoes', label: 'Observações' },
   {
     type: 'status_pills',

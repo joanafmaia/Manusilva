@@ -9,6 +9,7 @@ import {
   empilhadoresMatrixOptionFromDataValue,
 } from '../preventiva-empilhadores-items.js';
 import { EMPILHADORES_PER_MACHINE_FIELD_DEFS } from '../mock_data.js';
+import { normalizeMaterialRows } from '../material-table-field.js';
 import { sanitizePdfFilenameSegment } from '../pdf-storage.js';
 import { escapeHtml } from '../html-utils.js';
 import {
@@ -51,8 +52,13 @@ const LEGACY_SCALAR_KEYS = [
 ];
 
 const LEGACY_OBJECT_KEYS = ['componentes_externos', 'componentes_internos'];
+const LEGACY_ARRAY_KEYS = ['consumiveis'];
 
-export const EMPILHADORES_LEGACY_ROOT_KEYS = [...LEGACY_SCALAR_KEYS, ...LEGACY_OBJECT_KEYS];
+export const EMPILHADORES_LEGACY_ROOT_KEYS = [
+  ...LEGACY_SCALAR_KEYS,
+  ...LEGACY_OBJECT_KEYS,
+  ...LEGACY_ARRAY_KEYS,
+];
 
 function columnKey(label) {
   return String(label || '')
@@ -79,6 +85,13 @@ function hasVerificationAnswers(map = {}) {
   return Object.values(map).some((value) => String(value ?? '').trim() !== '');
 }
 
+function hasConsumiveisRows(rows) {
+  if (!Array.isArray(rows)) return false;
+  return normalizeMaterialRows(rows).some(
+    (row) => String(row?.artigo || '').trim() || String(row?.qtd || '').trim(),
+  );
+}
+
 function legacyRowFromValues(values = {}) {
   return normalizeEmpilhadoresMaquinaRow({
     marca: values.marca,
@@ -98,6 +111,7 @@ function legacyRowFromValues(values = {}) {
     qtd_filtro_combustivel: values.qtd_filtro_combustivel,
     qtd_kit_gaseificador: values.qtd_kit_gaseificador,
     qtd_limpeza_lubrificante: values.qtd_limpeza_lubrificante,
+    consumiveis: values.consumiveis,
     observacoes: values.observacoes,
     estado_maquina: values.estado_maquina,
   });
@@ -117,6 +131,9 @@ function mergeLegacyIntoMaquinaRow(row, values = {}) {
       merged[key] = legacy[key];
     }
   });
+  if (!hasConsumiveisRows(merged.consumiveis) && hasConsumiveisRows(legacy.consumiveis)) {
+    merged.consumiveis = legacy.consumiveis;
+  }
   return normalizeEmpilhadoresMaquinaRow(merged);
 }
 
@@ -148,6 +165,7 @@ export function emptyEmpilhadoresMaquinaRow() {
     qtd_filtro_combustivel: '',
     qtd_kit_gaseificador: '',
     qtd_limpeza_lubrificante: '',
+    consumiveis: [],
     observacoes: '',
     estado_maquina: 'Operacional',
   };
@@ -162,7 +180,7 @@ export function normalizeEmpilhadoresMaquinaRow(raw = {}) {
 
   LEGACY_OBJECT_KEYS.forEach((key) => {
     const nested = parseEmpilhadoresNestedValue(raw[key]);
-    if (nested && typeof nested === 'object') {
+    if (nested && typeof nested === 'object' && !Array.isArray(nested)) {
       base[key] = { ...base[key], ...nested };
     }
   });
@@ -172,6 +190,11 @@ export function normalizeEmpilhadoresMaquinaRow(raw = {}) {
     if (raw[key] === undefined || raw[key] === null) return;
     base[key] = raw[key];
   });
+
+  const consumiveisRaw = parseEmpilhadoresNestedValue(raw.consumiveis);
+  if (Array.isArray(consumiveisRaw)) {
+    base.consumiveis = normalizeMaterialRows(consumiveisRaw);
+  }
 
   if (!base.estado_maquina) base.estado_maquina = 'Operacional';
   return base;
@@ -197,7 +220,9 @@ export function migrateLegacyEmpilhadoresMaquinas(values = {}) {
 
   const hasLegacy = [...EMPILHADORES_ID_COLUMNS.map((c) => c.key), ...LEGACY_SCALAR_KEYS].some(
     (k) => String(values[k] ?? '').trim() !== '',
-  ) || LEGACY_OBJECT_KEYS.some((k) => hasVerificationAnswers(parseEmpilhadoresNestedValue(values[k])));
+  )
+    || LEGACY_OBJECT_KEYS.some((k) => hasVerificationAnswers(parseEmpilhadoresNestedValue(values[k])))
+    || hasConsumiveisRows(parseEmpilhadoresNestedValue(values.consumiveis));
 
   if (!hasLegacy) return [emptyEmpilhadoresMaquinaRow()];
 
@@ -403,6 +428,24 @@ function collectChecklistFromPanel(overlay) {
     if (selected) out[group.dataset.statusPills] = selected.dataset.value;
   });
 
+  panel.querySelectorAll('[data-dynamic-table]').forEach((wrap) => {
+    const fieldId = wrap.dataset.dynamicTable;
+    const columns = JSON.parse(wrap.dataset.columns || '[]');
+    const rows = [];
+    wrap.querySelectorAll('.dynamic-table-row').forEach((rowEl) => {
+      const row = {};
+      columns.forEach((col) => {
+        const key =
+          col && typeof col === 'object'
+            ? col.id || columnKey(col.label || col.id)
+            : columnKey(col);
+        row[key] = rowEl.querySelector(`[data-col="${key}"]`)?.value ?? '';
+      });
+      if (Object.values(row).some((v) => String(v || '').trim())) rows.push(row);
+    });
+    out[fieldId] = fieldId === 'consumiveis' ? normalizeMaterialRows(rows) : rows;
+  });
+
   return out;
 }
 
@@ -469,7 +512,7 @@ export function renderEmpilhadoresMaquinaSelector(maquinas = [], activeIndex = 0
 
   return `
     <div class="empilhadores-maquina-selector" role="tablist" aria-label="Máquina em edição">
-      <p class="empilhadores-maquina-selector-hint text-muted">Selecione a máquina para preencher o checklist e o material aplicado.</p>
+      <p class="empilhadores-maquina-selector-hint text-muted">Selecione a máquina para preencher o checklist, o material e os consumíveis.</p>
       <div class="empilhadores-maquina-tabs">${tabs}</div>
     </div>`;
 }

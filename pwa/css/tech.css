@@ -3446,6 +3446,12 @@ body.warehouse-page .folha-obra-tab--ready .folha-obra-filter-bar input[type="da
   margin-left: 0;
   vertical-align: middle;
 }
+.form-field-section--empilhadores-consumiveis {
+  margin-top: 0.75rem;
+}
+.form-field-section--empilhadores-consumiveis .dynamic-table-field {
+  margin-top: 0.25rem;
+}
 .form-section-subtitle--empilhadores-material {
   margin-bottom: 0.65rem;
   padding: 0.45rem 0.65rem;
