@@ -557,17 +557,21 @@ export function renderReportFields(service, values = {}, context = {}, options =
       maquinas[safeIndex] || emptyEmpilhadoresMaquinaRow(),
     );
     const selectorHtml = renderEmpilhadoresMaquinaSelector(maquinas, safeIndex);
-    let empGroups = groupFieldsBySection(EMPILHADORES_PER_MACHINE_FIELD_DEFS).filter(
-      ({ fields: sectionFields }) => sectionFields.length,
-    );
+    const empilhadoresTailFieldIds = new Set(['observacoes', 'estado_maquina']);
+    let empGroups = groupFieldsBySection(EMPILHADORES_PER_MACHINE_FIELD_DEFS)
+      .map((group) => ({
+        ...group,
+        fields: group.fields.filter((f) => !empilhadoresTailFieldIds.has(f.id)),
+      }))
+      .filter(({ fields: sectionFields }) => sectionFields.length);
     empGroups = mergeEmpilhadoresChecklistGroups(empGroups, service);
     const checklistHtml = empGroups
       .map(({ section, fields: sectionFields }) =>
         renderEmpilhadoresChecklistSection(section, sectionFields, machineValues, context),
       )
       .join('');
-    const tailFields = EMPILHADORES_PER_MACHINE_FIELD_DEFS.filter(
-      (f) => f.id === 'observacoes' || f.id === 'estado_maquina',
+    const tailFields = EMPILHADORES_PER_MACHINE_FIELD_DEFS.filter((f) =>
+      empilhadoresTailFieldIds.has(f.id),
     );
     const tailHtml = tailFields
       .map((f) => renderField(f, machineValues[f.id], context))

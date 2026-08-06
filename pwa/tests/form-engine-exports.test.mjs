@@ -48,6 +48,39 @@ describe('form-engine exports', () => {
     assert.match(html, /Chassis/);
     assert.match(html, /corretiva-verifications-shell/);
   });
+
+  it('não duplica Observações/Estado na checklist de empilhadores', async () => {
+    const formEngine = await import('../js/form-engine.js');
+    const { MANUTENCAO_PREVENTIVA_EMPILHADORES } = await import('../js/mock_data.js');
+    await formEngine.preloadFormFieldModules(MANUTENCAO_PREVENTIVA_EMPILHADORES);
+    const html = formEngine.renderReportFields(
+      MANUTENCAO_PREVENTIVA_EMPILHADORES,
+      {
+        maquinas: [
+          {
+            marca: 'Toyota',
+            estado_maquina: 'Operacional',
+            observacoes: 'nota',
+            componentes_externos: {},
+            componentes_internos: {},
+          },
+        ],
+      },
+      { activeMaquinaIndex: 0 },
+      { tab: 'checklist' },
+    );
+    assert.match(html, /empilhadores-maquina-tail-fields/);
+    assert.doesNotMatch(html, /A carregar checklist/);
+    // Secção «Estado da Máquina» só existia nos grupos duplicados; no tail o label é «Estado».
+    assert.equal(
+      (html.match(/Estado da Máquina/g) || []).length,
+      0,
+      'não deve haver secção Estado da Máquina duplicada nos grupos',
+    );
+    const tailChunk = html.split('empilhadores-maquina-tail-fields')[1] || '';
+    assert.match(tailChunk, /observacoes/i);
+    assert.match(tailChunk, /estado_maquina/i);
+  });
 });
 
 describe('Fase 2 — supabase sem fallback hardcoded', () => {
