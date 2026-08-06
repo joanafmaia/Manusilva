@@ -609,16 +609,26 @@ function renderAgendadosWeekPreview(techId) {
   `;
 }
 
-/** Rascunhos de outros dias — sempre visíveis quando o técnico está em Hoje. */
+/** Rascunhos de outros dias — sempre visíveis quando o técnico está em Hoje (recolhido; clicar para abrir). */
 function renderOpenDraftsCarryOverSection(items) {
   if (!items?.length) return '';
+  const count = items.length;
   const rows = items.map((job) => renderAgendadosRow(job, { showDate: true })).join('');
+  const countLabel = `${count} rascunho${count === 1 ? '' : 's'}`;
   return `
-    <div class="agendados-open-drafts" role="region" aria-label="Relatórios em aberto">
-      <h3 class="agendados-preview-title">Em aberto — não esquecer</h3>
-      <p class="agendados-open-drafts__hint">Rascunhos guardados de outros dias. Continue para concluir e enviar.</p>
-      <div class="tech-job-rows">${rows}</div>
-    </div>
+    <details class="agendados-open-drafts">
+      <summary class="agendados-open-drafts__summary">
+        <span class="agendados-open-drafts__chevron" aria-hidden="true"></span>
+        <span class="agendados-open-drafts__summary-text">
+          <span class="agendados-preview-title agendados-open-drafts__title">Em aberto — não esquecer</span>
+          <span class="agendados-open-drafts__count">${escapeHtml(countLabel)}</span>
+        </span>
+      </summary>
+      <div class="agendados-open-drafts__body">
+        <p class="agendados-open-drafts__hint">Rascunhos guardados de outros dias. Continue para concluir e enviar.</p>
+        <div class="tech-job-rows">${rows}</div>
+      </div>
+    </details>
   `;
 }
 
