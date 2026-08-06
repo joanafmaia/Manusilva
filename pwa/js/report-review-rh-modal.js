@@ -296,18 +296,17 @@ function buildRhVisitaReportCompactRow(report, getJobFn = getJob) {
     : '';
 
   return `
-    <div class="rh-visita-folder__report-row rh-visita-folder__report-row--compact${isPending ? ' is-pending' : ''}${emailPending ? ' is-email-pending' : ''}" data-report-id="${escapeHtml(report.id)}">
+    <div class="rh-visita-folder__report-row rh-visita-folder__report-row--compact faturacao-row--compact${isPending ? ' is-pending' : ''}${emailPending ? ' is-email-pending' : ''}" data-report-id="${escapeHtml(report.id)}">
       ${pendingToolbar}
       <button type="button" class="rh-visita-folder__compact-link" data-panel-open="${escapeHtml(report.id)}">
         ${serviceIconHtml(service, 'ms-icon')}
         <span class="rh-visita-folder__compact-label">${escapeHtml(label)}</span>
         ${opHtml}
         ${isPending ? `<span class="rh-visita-folder__compact-age text-muted">${escapeHtml(age)}</span>` : ''}
-        ${badge}
-        ${emailBadge}
+        <span class="faturacao-row-meta">${badge}${emailBadge}</span>
       </button>
-      ${isPending ? `<button type="button" class="btn-primary btn-sm rh-visita-folder__compact-rever" data-panel-open="${escapeHtml(report.id)}">Rever</button>` : ''}
-      ${emailPending ? `<button type="button" class="btn-secondary btn-sm rh-visita-folder__compact-rever" data-panel-open="${escapeHtml(report.id)}">Reenviar e-mail</button>` : ''}
+      ${isPending ? `<button type="button" class="btn-primary btn-sm faturacao-btn-compact rh-visita-folder__compact-rever" data-panel-open="${escapeHtml(report.id)}">Rever</button>` : ''}
+      ${emailPending ? `<button type="button" class="btn-secondary btn-sm faturacao-btn-compact rh-visita-folder__compact-rever" data-panel-open="${escapeHtml(report.id)}">E-mail</button>` : ''}
     </div>`;
 }
 
@@ -348,12 +347,12 @@ export function buildRhVisitaFolder({
 
   const reviewBtn =
     !standalone && state.hasPending && servicoId
-      ? `<button type="button" class="btn-primary btn-sm" data-servico-review="${escapeHtml(servicoId)}">Rever visita</button>`
+      ? `<button type="button" class="btn-primary btn-sm faturacao-btn-compact" data-servico-review="${escapeHtml(servicoId)}">Rever visita</button>`
       : '';
 
   const resendVisitBtn =
     !standalone && state.allApproved && state.total > 1
-      ? `<button type="button" class="btn-secondary btn-sm" data-servico-resend-email="${escapeHtml(servicoId)}">Reenviar e-mail da visita</button>`
+      ? `<button type="button" class="btn-secondary btn-sm faturacao-btn-compact" data-servico-resend-email="${escapeHtml(servicoId)}">Reenviar e-mail</button>`
       : '';
 
   const reportsHtml = reports.map((report) => buildRhVisitaReportCompactRow(report, getJobFn)).join('');

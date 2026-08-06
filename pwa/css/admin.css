@@ -846,6 +846,24 @@
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
 }
+.rh-review-stack-wrap--scroll-y {
+  max-height: min(34rem, 62vh);
+  border: 1px solid var(--ms-border, rgba(148, 163, 184, 0.35));
+  border-radius: 0.55rem;
+  padding: 0.35rem 0.45rem 0.55rem;
+  background: var(--bg-card, #fff);
+}
+.rh-review-stack-wrap--scroll-y .rh-review-day-group__header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--ms-table-head-bg, var(--surface-muted, #f8fafc));
+  box-shadow: 0 1px 0 var(--ms-border-md, #e2e8f0);
+  margin: 0 -0.15rem;
+  padding-left: 0.35rem;
+  padding-right: 0.35rem;
+  border-radius: 0.35rem 0.35rem 0 0;
+}
 .rh-review-panel-empty {
   margin: 0;
   padding: 1.5rem 0.5rem;
@@ -4670,29 +4688,49 @@ body .admin-rh-page .btn-primary, body .admin-rh-page .btn-secondary, body .admi
   border-radius: 0.35rem;
 }
 .admin-rh-page .rh-visita-folder__header {
-  padding: 0.55rem 0.65rem;
-  gap: 8px;
-}
-.admin-rh-page .rh-visita-folder__title {
-  font-size: 0.85rem;
-}
-.admin-rh-page .rh-visita-folder__meta {
-  font-size: 0.72rem;
-}
-.admin-rh-page .rh-visita-folder__email-hint {
-  font-size: 0.68rem;
-  max-width: 9rem;
-}
-.admin-rh-page .rh-visita-folder__reports {
-  padding: 6px;
+  padding: 0.4rem 0.55rem;
   gap: 6px;
 }
+.admin-rh-page .rh-visita-folder__title {
+  font-size: 0.82rem;
+}
+.admin-rh-page .rh-visita-folder__meta {
+  font-size: 0.7rem;
+}
+.admin-rh-page .rh-visita-folder__email-hint {
+  font-size: 0.65rem;
+  max-width: 8.5rem;
+}
+.admin-rh-page .rh-visita-folder__reports {
+  padding: 4px 6px;
+  gap: 2px;
+}
+.admin-rh-page .rh-visita-folder__report-row--compact {
+  padding: 0.2rem 0;
+  gap: 0.35rem;
+}
+.admin-rh-page .rh-visita-folder__compact-label {
+  font-size: 0.78rem;
+}
+.admin-rh-page .rh-visita-folder__compact-rever.faturacao-btn-compact {
+  min-width: auto;
+}
 .admin-rh-page .rh-visita-folder__reports .rh-list-item__summary {
-  padding: 0.42rem 0.55rem;
+  padding: 0.35rem 0.5rem;
 }
 .admin-rh-page .rh-visita-folder__hint {
-  font-size: 0.68rem;
-  padding: 0 0.65rem 0.5rem;
+  font-size: 0.65rem;
+  padding: 0 0.55rem 0.4rem;
+}
+.admin-rh-page .rh-review-day-group {
+  gap: 0.35rem;
+  margin-bottom: 0.55rem;
+}
+.admin-rh-page .rh-review-day-group__title {
+  font-size: 0.82rem;
+}
+.admin-rh-page .rh-review-day-group__count {
+  font-size: 0.7rem;
 }
 .admin-rh-page .rh-quick-btn {
   width: 1.35rem;

@@ -1344,7 +1344,7 @@ async function renderRhReviewStack(options = {}) {
   const html = `
     <div class="rh-review-panel-inner">
       ${filterBar}
-      <div class="rh-review-stack-wrap">${stackHtml}</div>
+      <div class="rh-review-stack-wrap${reports.length > 8 ? ' rh-review-stack-wrap--scroll-y' : ''}">${stackHtml}</div>
     </div>`;
 
   if (token !== rhReviewStackRenderToken) return;

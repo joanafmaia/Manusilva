@@ -1723,12 +1723,29 @@ async function openReportPdfQuick(reportId, jobId) {
     showToast('Relatório não encontrado.', 'warning', 5000);
     return;
   }
+
+  const offline = !canReachServer() || !isNetworkOnline();
+  if (offline) {
+    showToast('Sem rede — a gerar PDF com os dados deste tablet…', 'info', 3500);
+  }
+
   try {
     const previewModule = await import('./pdf-preview.js');
     await previewModule.previewReportPDF(report);
   } catch (err) {
     console.error('[Tech] PDF:', err);
-    showToast('Não foi possível abrir o PDF.', 'error', 6000);
+    const msg = String(err?.message || '');
+    if (offline) {
+      showToast(
+        'Sem rede: não foi possível gerar o PDF neste tablet. Quando houver ligação, sincronize e tente de novo.',
+        'error',
+        8000,
+      );
+    } else if (/demorou demasiado/i.test(msg)) {
+      showToast(msg, 'warning', 7000);
+    } else {
+      showToast('Não foi possível abrir o PDF. Verifique a ligação e tente de novo.', 'error', 7000);
+    }
   }
 }
 
