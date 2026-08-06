@@ -69,6 +69,7 @@ export function buildOrcamentoAuditDetailRows(rows = []) {
     pdfSafeText(row.op || '—'),
     formatEurPdf(row.total),
     pdfSafeText(row.estado || '—'),
+    pdfSafeText(row.reclamacaoGarantiaLabel || '—'),
     String(row.enviadoEm || '').slice(0, 10) || '—',
   ]);
 }
@@ -198,20 +199,21 @@ export async function generateOrcamentoAuditPdfBlob(payload) {
   }
 
   const detailCols = {
-    0: { cellWidth: 18 },
-    1: { cellWidth: 28 },
-    2: { cellWidth: 32 },
-    3: { cellWidth: 16 },
-    4: { cellWidth: 14 },
-    5: { cellWidth: 18, halign: 'right' },
-    6: { cellWidth: 18 },
+    0: { cellWidth: 16 },
+    1: { cellWidth: 24 },
+    2: { cellWidth: 28 },
+    3: { cellWidth: 14 },
+    4: { cellWidth: 12 },
+    5: { cellWidth: 16, halign: 'right' },
+    6: { cellWidth: 16 },
     7: { cellWidth: 18 },
+    8: { cellWidth: 16 },
   };
   await drawDataSection(
     doc,
     y,
     'Registo detalhado',
-    ['Data', 'Tipo', 'Cliente', 'Nº orç.', 'OP', 'Total', 'Estado', 'Enviada'],
+    ['Data', 'Tipo', 'Cliente', 'Nº orç.', 'OP', 'Total', 'Estado', 'Garantia', 'Enviada'],
     buildOrcamentoAuditDetailRows(rows),
     detailCols,
   );

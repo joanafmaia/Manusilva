@@ -74,6 +74,11 @@ import {
   setOrcamentoRespostaCliente,
 } from './orcamento-workflow.js';
 import { formatInterventionDatePt } from './report-intervention-date.js';
+import {
+  formatReclamacaoGarantiaLabel,
+  getReportReclamacaoGarantia,
+  renderReclamacaoGarantiaField,
+} from './orcamento-reclamacao-garantia.js';
 
 function shouldReturnToOrcamentosMenu() {
   return isOrcamentoDedicatedPage() || Boolean(window.__orcamentoReturnUrl);
@@ -174,6 +179,7 @@ function renderOrcamentoSentSummary(report, { client } = {}) {
       <dl class="review-orcamento-sent-meta">
         <div><dt>Tipo</dt><dd>${escapeHtml(formatOrcamentoTipoPropostaLabel(getOrcamentoTipoProposta(report)))}</dd></div>
         <div><dt>Estado</dt><dd><span class="orcamentos-status ${resolveOrcamentoWorkflowClass(workflow)}">${escapeHtml(resolveOrcamentoWorkflowLabel(workflow))}</span></dd></div>
+        <div><dt>Em garantia</dt><dd>${escapeHtml(formatReclamacaoGarantiaLabel(getReportReclamacaoGarantia(report), { empty: 'Não indicado' }))}</dd></div>
         <div><dt>Enviada para</dt><dd>${email}</dd></div>
       </dl>
       ${renderOrcamentoRespostaSection(report)}
@@ -277,6 +283,7 @@ function renderManutencaoBateriaOrcamentoEditor(report, ctx) {
             <span>Validade do orçamento</span>
             <input type="text" class="review-orc-input" data-orc-field="validadeOrcamento" value="${escapeHtml(cab.validadeOrcamento)}" placeholder="10 Dias" />
           </label>
+          ${renderReclamacaoGarantiaField(meta)}
         </div>
         <div class="review-orc-template-valor-preview" data-orc-valor-linha-preview>
           ${formatLinhasValorManutencaoBateria(meta, cab)
@@ -376,6 +383,7 @@ function renderManutencaoMaquinaOrcamentoEditor(report, ctx) {
             <span>Validade do orçamento</span>
             <input type="text" class="review-orc-input" data-orc-field="validadeOrcamento" value="${escapeHtml(cab.validadeOrcamento)}" placeholder="10 Dias" />
           </label>
+          ${renderReclamacaoGarantiaField(meta)}
         </div>
         <div class="review-orc-template-valor-preview" data-orc-maquina-precos-preview>
           ${renderManutencaoMaquinaPrecoPreviewHtml(meta, cab)}
@@ -579,6 +587,7 @@ export function renderOrcamentoEditor(report, { client } = {}) {
           <span>Validade do orçamento</span>
           <input type="text" class="review-orc-input" data-orc-field="validadeOrcamento" value="${escapeHtml(cab.validadeOrcamento)}" placeholder="10 Dias" />
         </label>
+        ${renderReclamacaoGarantiaField(meta)}
       </div>
 
       <div class="review-orcamento-editor__totals" aria-live="polite">
@@ -818,7 +827,7 @@ export function bindOrcamentoEditor(container, { report, onUpdated, onSaved, onS
       bindTemplateBateriasValoresSection(root, { onChange: onTemplateEquipChange });
     }
     const templateFieldSelector =
-      '[data-orc-template-equip-valores] [data-orc-field], [data-template-maquina-card] [data-orc-field], [data-orc-field="valorDeslocacao"], [data-orc-field="formaPagamento"], [data-orc-field="validadeOrcamento"], [data-orc-field="prazoEntrega"]';
+      '[data-orc-template-equip-valores] [data-orc-field], [data-template-maquina-card] [data-orc-field], [data-orc-field="valorDeslocacao"], [data-orc-field="formaPagamento"], [data-orc-field="validadeOrcamento"], [data-orc-field="prazoEntrega"], [data-orc-field="reclamacaoGarantia"]';
     const onTemplateFieldChange = (e) => {
       if (e.target.matches(templateFieldSelector)) refreshTemplate();
     };

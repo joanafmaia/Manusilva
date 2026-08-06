@@ -20,6 +20,10 @@ import {
   suggestMaquinaManutencaoNome,
 } from './orcamento-templates.js';
 import { readTemplateMaquinasFromDom } from './orcamento-template-equipamentos.js';
+import {
+  normalizeReclamacaoGarantia,
+  readReclamacaoGarantiaFromDom,
+} from './orcamento-reclamacao-garantia.js';
 
 const IVA_RATE = 0.23;
 const MIN_LINHAS_VAZIAS = 3;
@@ -301,6 +305,7 @@ export function buildOrcamentoMetaDraft(report, numeroReservado = null) {
     incluirInspecaoDl50: existing?.incluirInspecaoDl50 ?? false,
     valorInspecaoDl50: existing?.valorInspecaoDl50,
     valorDeslocacao: existing?.valorDeslocacao,
+    reclamacaoGarantia: normalizeReclamacaoGarantia(existing?.reclamacaoGarantia),
   };
 
   if (isManutencaoBateriaTipo(tipoProposta)) {
@@ -376,6 +381,10 @@ export function readOrcamentoFormFromDom(root, report) {
     root.querySelector('[data-orc-field="valorDeslocacao"]')?.value?.trim() ||
     existing.valorDeslocacao ||
     '';
+  const reclamacaoGarantiaEl = root?.querySelector('[data-orc-field="reclamacaoGarantia"]');
+  const reclamacaoGarantia = reclamacaoGarantiaEl
+    ? readReclamacaoGarantiaFromDom(root)
+    : normalizeReclamacaoGarantia(existing.reclamacaoGarantia);
 
   let meta = {
     ...existing,
@@ -387,6 +396,7 @@ export function readOrcamentoFormFromDom(root, report) {
     taxaSaida,
     prazoEntrega,
     valorDeslocacao,
+    reclamacaoGarantia,
     atualizadoEm: new Date().toISOString(),
   };
 

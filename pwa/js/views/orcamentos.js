@@ -31,6 +31,9 @@ import {
 } from '../orcamento-standalone.js';
 import { getReportOrcamentoMeta } from '../orcamento-linhas.js';
 import {
+  getReportReclamacaoGarantia,
+} from '../orcamento-reclamacao-garantia.js';
+import {
   formatOrcamentoTipoPropostaLabel,
   getOrcamentoTipoProposta,
   ORCAMENTO_TIPO_PROPOSTA_OPTIONS,
@@ -245,6 +248,13 @@ function renderTableRow(report) {
   const highlighted = highlightReportId && report.id === highlightReportId;
   const clientName = getClientName(client, values) || '—';
   const tipoLabel = formatOrcamentoTipoPropostaLabel(getOrcamentoTipoProposta(report));
+  const garantiaKey = getReportReclamacaoGarantia(report);
+  const garantiaBadge =
+    garantiaKey === 'sim'
+      ? `<span class="orcamentos-garantia orcamentos-garantia--sim" title="Avaria / reclamação em garantia">Garantia</span>`
+      : garantiaKey === 'nao'
+        ? `<span class="orcamentos-garantia orcamentos-garantia--nao" title="Não é reclamação em garantia">Sem garantia</span>`
+        : '';
 
   return `
     <tr class="rh-data-table-row orcamentos-row${highlighted ? ' orcamentos-row--highlight faturacao-row--highlight' : ''}" data-report-id="${escapeHtml(report.id)}">
@@ -258,6 +268,7 @@ function renderTableRow(report) {
       <td class="rh-cell-muted">
         <span class="orcamentos-status ${resolveOrcamentoWorkflowClass(workflow)}">${escapeHtml(resolveOrcamentoWorkflowLabel(workflow))}</span>
         ${meta?.numeroFormatado ? `<span class="orcamentos-numero">nº ${escapeHtml(meta.numeroFormatado)}</span>` : ''}
+        ${garantiaBadge}
       </td>
       <td class="rh-cell-muted orcamentos-col-detalhe" title="${escapeHtml(detalhe)}">${escapeHtml(detalheShort)}</td>
       <td class="rh-cell-muted">${escapeHtml(tech?.name || '—')}</td>

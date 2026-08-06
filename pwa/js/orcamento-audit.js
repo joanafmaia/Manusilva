@@ -18,6 +18,10 @@ import {
   resolveOrcamentoReferenceYear,
 } from './orcamento-tipo-proposta.js';
 import {
+  formatReclamacaoGarantiaAuditLabel,
+  getReportReclamacaoGarantia,
+} from './orcamento-reclamacao-garantia.js';
+import {
   resolveOrcamentoWorkflowLabel,
   resolveOrcamentoWorkflowStatus,
 } from './orcamento-workflow.js';
@@ -99,6 +103,10 @@ export function buildOrcamentoAuditRows(
         tecnico: String(tech?.name || report.technicianId || '—').trim() || '—',
         pedido: String(getPedidoOrcamentoDetalhe(report) || '').trim() || '—',
         origem: resolveOrigemLabel(report),
+        reclamacaoGarantia: getReportReclamacaoGarantia(report),
+        reclamacaoGarantiaLabel: formatReclamacaoGarantiaAuditLabel(
+          getReportReclamacaoGarantia(report),
+        ),
       };
     })
     .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
@@ -194,6 +202,7 @@ export function buildOrcamentoAuditCsv(rows = []) {
     'E-mail destinatário',
     'Técnico',
     'Origem',
+    'Em garantia',
     'Pedido / observações',
   ];
   const lines = [header.join(';')];
@@ -216,6 +225,7 @@ export function buildOrcamentoAuditCsv(rows = []) {
         row.emailDestinatario || '',
         row.tecnico || '',
         row.origem || '',
+        row.reclamacaoGarantiaLabel || '',
         row.pedido || '',
       ]
         .map(csvEscape)

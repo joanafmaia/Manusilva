@@ -4843,6 +4843,32 @@ body .admin-rh-page .btn-primary, body .admin-rh-page .btn-secondary, body .admi
   color: #047857;
 }
 .orcamentos-status--recusada {
+  color: var(--danger, #b91c1c);
+}
+.orcamentos-garantia {
+  display: inline-block;
+  margin-top: 0.2rem;
+  margin-right: 0.35rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 3px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.orcamentos-garantia--sim {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #f59e0b;
+}
+.orcamentos-garantia--nao {
+  background: var(--surface-muted, #f1f5f9);
+  color: var(--text-muted, #64748b);
+  border: 1px solid var(--ms-border-md, #cbd5e1);
+}
+.review-orc-field--reclamacao-garantia {
+  grid-column: 1 / -1;
+}
   color: #b91c1c;
 }
 .orcamentos-numero {
