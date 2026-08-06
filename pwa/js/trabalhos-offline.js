@@ -133,6 +133,9 @@ export async function addTrabalhoPendente(entry) {
     report,
     pdfBase64: entry.pdfBase64 || null,
     pdfFilename: entry.pdfFilename || null,
+    lastError: null,
+    lastErrorAt: null,
+    failCount: 0,
   };
 
   if (existingIdx >= 0) {
@@ -192,6 +195,61 @@ export async function countTrabalhosPendentes() {
   return list.length;
 }
 
+/** Etiqueta curta para UI da fila (cliente · tipo). */
+export function describePendingTrabalho(item) {
+  const report = item?.report || {};
+  const data = report.data && typeof report.data === 'object' ? report.data : {};
+  const client =
+    report.clientName ||
+    report.clienteNome ||
+    data.cliente ||
+    data.nomeCliente ||
+    data.nome_empresa ||
+    '';
+  const service = report.serviceType || data.tipoServico || '';
+  const tipoLabel =
+    item?.tipo === 'submit' ? 'Envio' : item?.tipo === 'draft' ? 'Rascunho' : item?.tipo || 'Item';
+  const error = String(item?.lastError || '').trim();
+  const title = [client, service].filter(Boolean).join(' · ') || tipoLabel;
+  return {
+    title,
+    client: String(client || ''),
+    service: String(service || ''),
+    tipoLabel,
+    error,
+    failCount: Number(item?.failCount) || 0,
+  };
+}
+
+function humanizeSyncError(err) {
+  const raw = String(err?.message || err || '').trim();
+  if (!raw) return 'Erro desconhecido ao enviar.';
+  if (/Failed to fetch|NetworkError|Load failed|fetch/i.test(raw)) {
+    return 'Sem ligação estável ao servidor.';
+  }
+  if (/timeout|demorou demasiado|AbortError/i.test(raw)) {
+    return 'O envio demorou demasiado. Tente de novo.';
+  }
+  if (/JWT|session|auth|401|403|not authenticated/i.test(raw)) {
+    return 'Sessão expirada — volte a entrar e sincronize.';
+  }
+  if (/storage|bucket|foto|upload/i.test(raw)) {
+    return 'Falha ao enviar fotos. Verifique e tente de novo.';
+  }
+  return raw.length > 160 ? `${raw.slice(0, 157)}…` : raw;
+}
+
+async function markPendingSyncFailure(item, err) {
+  const message = humanizeSyncError(err);
+  await idbPut(STORE_PENDING_SUBMISSIONS, {
+    ...item,
+    lastError: message,
+    lastErrorAt: new Date().toISOString(),
+    failCount: (Number(item.failCount) || 0) + 1,
+  });
+  return message;
+}
+
 function isManualOfflineMode() {
   try {
     const raw = localStorage.getItem('manusilva_db');
@@ -243,25 +301,32 @@ async function syncOnePendingItem(item) {
 
 /**
  * Envia itens de `trabalhos_pendentes` para Supabase (um a um) e remove após sucesso.
- * @returns {Promise<{ synced: number, remaining: number }>}
+ * Em falha: marca o erro no item e continua com o resto da fila.
+ * @returns {Promise<{ synced: number, remaining: number, failed: Array<{ id: string, error: string, title: string }> }>}
  */
 export async function sincronizarTrabalhosOffline(options = {}) {
   const { notify = true } = options;
+  const emptyFailed = [];
   if (!canSyncToServer()) {
-    return { synced: 0, remaining: await countTrabalhosPendentes() };
+    return {
+      synced: 0,
+      remaining: await countTrabalhosPendentes(),
+      failed: emptyFailed,
+    };
   }
 
   const pending = await getTrabalhosPendentes();
   if (!pending.length) {
-    return { synced: 0, remaining: 0 };
+    return { synced: 0, remaining: 0, failed: emptyFailed };
   }
 
   if (syncInProgress) {
-    return { synced: 0, remaining: pending.length };
+    return { synced: 0, remaining: pending.length, failed: emptyFailed };
   }
 
   syncInProgress = true;
   let synced = 0;
+  const failed = [];
 
   try {
     for (const item of pending) {
@@ -271,8 +336,14 @@ export async function sincronizarTrabalhosOffline(options = {}) {
         synced++;
       } catch (err) {
         console.error('[ManuSilva] Falha ao sincronizar item offline:', item.id, err);
-        break;
+        const error = await markPendingSyncFailure(item, err);
+        const meta = describePendingTrabalho({ ...item, lastError: error });
+        failed.push({ id: item.id, error, title: meta.title });
       }
+    }
+
+    if (synced > 0 || failed.length > 0) {
+      notifyPendingChange();
     }
 
     if (synced > 0) {
@@ -282,7 +353,9 @@ export async function sincronizarTrabalhosOffline(options = {}) {
       window.dispatchEvent(new CustomEvent('db-updated'));
       if (notify) {
         window.dispatchEvent(
-          new CustomEvent('trabalhos-offline-synced', { detail: { synced } }),
+          new CustomEvent('trabalhos-offline-synced', {
+            detail: { synced, failedCount: failed.length },
+          }),
         );
       }
     }
@@ -290,7 +363,11 @@ export async function sincronizarTrabalhosOffline(options = {}) {
     syncInProgress = false;
   }
 
-  return { synced, remaining: await countTrabalhosPendentes() };
+  return {
+    synced,
+    remaining: await countTrabalhosPendentes(),
+    failed,
+  };
 }
 
 /** Migra submissões antigas de `manusilva_db.offlineQueue` para `trabalhos_pendentes` */

@@ -81,6 +81,9 @@ const TECH_CAL_COMPACT_KEY = 'tech_calendar_compact';
 /** Por defeito compacto — mais espaço para a lista do dia. */
 let techCalendarCompact = localStorage.getItem(TECH_CAL_COMPACT_KEY) !== '0';
 let techJobsSearchQuery = '';
+/** Filtro Realizados: all | pending_review | approved */
+let realizadosStatusFilter = 'all';
+let techConnectivityFailuresBound = false;
 let techJobsSearchTimer = null;
 const TECH_JOBS_SEARCH_DEBOUNCE_MS = 150;
 
@@ -811,18 +814,36 @@ async function runTechDataSync() {
   }
 
   try {
-    const { synced, remaining } = await triggerTechDataSync();
+    const { synced, remaining, failed = [] } = await triggerTechDataSync();
+    const failedCount = Array.isArray(failed) ? failed.length : 0;
     if (synced > 0) {
       periodJobsCacheKey = null;
       techTabDataCacheKey = null;
-      showToast(
-        remaining > 0
-          ? `${synced} enviado(s). Ainda restam ${remaining}.`
-          : `${synced} relatório(s) sincronizado(s).`,
-        remaining > 0 ? 'warning' : 'success',
-        5000,
-      );
+      if (failedCount > 0) {
+        showToast(
+          `${synced} enviado(s). ${failedCount} com erro — veja detalhes abaixo.`,
+          'warning',
+          7000,
+        );
+      } else {
+        showToast(
+          remaining > 0
+            ? `${synced} enviado(s). Ainda restam ${remaining}.`
+            : `${synced} relatório(s) sincronizado(s).`,
+          remaining > 0 ? 'warning' : 'success',
+          5000,
+        );
+      }
       await refreshTechCalendar();
+    } else if (failedCount > 0) {
+      const first = failed[0];
+      showToast(
+        failedCount === 1
+          ? `Não enviado: ${first.title || 'relatório'} — ${first.error || 'erro'}`
+          : `${failedCount} relatórios com erro. Veja detalhes abaixo.`,
+        'error',
+        8000,
+      );
     } else if (remaining > 0) {
       showToast('Não foi possível enviar agora. Tente novamente dentro de momentos.', 'warning', 6000);
     } else {
@@ -841,12 +862,74 @@ async function runTechDataSync() {
   }
 }
 
+async function renderTechConnectivityFailures() {
+  const panel = document.getElementById('tech-connectivity-failures');
+  if (!panel) return;
+
+  try {
+    const { offline } = await loadTechOfflineDeps();
+    const pending = await offline.getTrabalhosPendentes();
+    const withErrors = (pending || []).filter((item) => String(item?.lastError || '').trim());
+
+    if (!withErrors.length) {
+      panel.hidden = true;
+      panel.innerHTML = '';
+      return;
+    }
+
+    const rows = withErrors
+      .map((item) => {
+        const meta = offline.describePendingTrabalho(item);
+        return `
+          <div class="tech-connectivity-failures__row" data-pending-id="${escapeHtml(item.id)}">
+            <div class="tech-connectivity-failures__copy">
+              <strong>${escapeHtml(meta.title)}</strong>
+              <span>${escapeHtml(meta.error)}</span>
+            </div>
+            <button type="button" class="tech-connectivity-failures__skip" data-pending-skip="${escapeHtml(item.id)}" title="Retirar da fila (mantém no tablet)">Retirar</button>
+          </div>`;
+      })
+      .join('');
+
+    panel.hidden = false;
+    panel.innerHTML = `
+      <p class="tech-connectivity-failures__intro">Não foi possível enviar estes itens. Os dados continuam neste tablet.</p>
+      ${rows}
+    `;
+  } catch (err) {
+    console.warn('[Técnico] Detalhe fila offline:', err);
+    panel.hidden = true;
+    panel.innerHTML = '';
+  }
+}
+
 function bindTechConnectivityActions() {
   if (techConnectivityBound) return;
   techConnectivityBound = true;
   document.getElementById('tech-connectivity-sync-btn')?.addEventListener('click', () => {
     void runTechDataSync();
   });
+
+  if (!techConnectivityFailuresBound) {
+    techConnectivityFailuresBound = true;
+    document.getElementById('tech-connectivity-failures')?.addEventListener('click', (e) => {
+      const skipBtn = e.target.closest('[data-pending-skip]');
+      if (!skipBtn) return;
+      const id = skipBtn.getAttribute('data-pending-skip');
+      if (!id) return;
+      void (async () => {
+        try {
+          const { offline } = await loadTechOfflineDeps();
+          await offline.removeTrabalhoPendente(id);
+          showToast('Item retirado da fila. O relatório continua neste tablet.', 'info', 5000);
+          await refreshTechDashboardChrome();
+        } catch (err) {
+          console.error('[Técnico] Retirar da fila:', err);
+          showToast('Não foi possível retirar o item da fila.', 'error', 6000);
+        }
+      })();
+    });
+  }
 }
 
 function bindTechGoToday() {
@@ -1138,7 +1221,7 @@ async function renderTechConnectivityBar() {
   if (!bar || !text) return;
 
   try {
-    const { storage } = await loadTechOfflineDeps();
+    const { storage, offline } = await loadTechOfflineDeps();
     const session = requireAuth('technician');
     const pending = cachedPendingSyncCount;
     const drafts = session?.technicianId
@@ -1147,6 +1230,14 @@ async function renderTechConnectivityBar() {
     const manualOffline = isOffline();
     const networkOffline = !isNetworkOnline();
     const online = canReachServer() && !manualOffline;
+
+    let failedCount = 0;
+    try {
+      const pendingItems = await offline.getTrabalhosPendentes();
+      failedCount = (pendingItems || []).filter((item) => String(item?.lastError || '').trim()).length;
+    } catch {
+      failedCount = 0;
+    }
 
     bar.classList.remove(
       'tech-connectivity-bar--ok',
@@ -1157,6 +1248,7 @@ async function renderTechConnectivityBar() {
 
     const queueBits = [];
     if (pending > 0) queueBits.push(`${pending} por enviar`);
+    if (failedCount > 0) queueBits.push(`${failedCount} com erro`);
     if (drafts > 0) queueBits.push(`${drafts} rascunho${drafts === 1 ? '' : 's'}`);
     if (queueEl) {
       queueEl.hidden = queueBits.length === 0;
@@ -1182,16 +1274,20 @@ async function renderTechConnectivityBar() {
         syncBtn.hidden = pending <= 0;
         syncBtn.disabled = !canReachServer();
       }
+      await renderTechConnectivityFailures();
       return;
     }
 
     if (pending > 0) {
       bar.classList.add('tech-connectivity-bar--warn');
-      text.textContent = 'Há relatórios por sincronizar';
+      text.textContent = failedCount
+        ? 'Há envios com erro — toque em Sincronizar'
+        : 'Há relatórios por sincronizar';
       if (syncBtn) {
         syncBtn.hidden = false;
         syncBtn.disabled = false;
       }
+      await renderTechConnectivityFailures();
       return;
     }
 
@@ -1200,10 +1296,16 @@ async function renderTechConnectivityBar() {
       ? 'Sincronizado — rascunhos só neste tablet até concluir'
       : 'Sincronizado com o servidor';
     if (syncBtn) syncBtn.hidden = true;
+    await renderTechConnectivityFailures();
   } catch (err) {
     console.warn('[Técnico] Estado de sync:', err);
     text.textContent = 'Estado de sincronização indisponível';
     if (queueEl) queueEl.hidden = true;
+    const failures = document.getElementById('tech-connectivity-failures');
+    if (failures) {
+      failures.hidden = true;
+      failures.innerHTML = '';
+    }
   }
 }
 
@@ -1852,9 +1954,58 @@ function formatRealizadoMonthLabel(isoDate) {
 }
 
 function filterRealizadosItems(items) {
-  return filterRealizadosBySearch(items, techJobsSearchQuery, {
+  let filtered = items;
+  if (realizadosStatusFilter === 'pending_review') {
+    filtered = filtered.filter((item) => item.report?.status === 'pending_review');
+  } else if (realizadosStatusFilter === 'approved') {
+    filtered = filtered.filter((item) => item.report?.status === 'approved');
+  }
+  return filterRealizadosBySearch(filtered, techJobsSearchQuery, {
     getClient,
     getService: getServiceType,
+  });
+}
+
+function renderRealizadosStatusFilters(allItems) {
+  const pendingCount = allItems.filter((item) => item.report?.status === 'pending_review').length;
+  const approvedCount = allItems.filter((item) => item.report?.status === 'approved').length;
+  const chips = [
+    { id: 'all', label: 'Todos', count: allItems.length },
+    { id: 'pending_review', label: 'Pendente RH', count: pendingCount },
+    { id: 'approved', label: 'Aprovado', count: approvedCount },
+  ];
+  return `
+    <div class="realizados-status-filters" role="group" aria-label="Filtrar por estado">
+      ${chips
+        .map(
+          (chip) => `
+        <button
+          type="button"
+          class="realizados-status-chip${realizadosStatusFilter === chip.id ? ' is-active' : ''}"
+          data-realizados-status="${chip.id}"
+          aria-pressed="${realizadosStatusFilter === chip.id ? 'true' : 'false'}"
+        >
+          ${escapeHtml(chip.label)}
+          <span class="realizados-status-chip__count">${chip.count}</span>
+        </button>`,
+        )
+        .join('')}
+    </div>
+  `;
+}
+
+function bindRealizadosStatusFilters(container) {
+  container.querySelectorAll('[data-realizados-status]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const next = btn.getAttribute('data-realizados-status') || 'all';
+      if (next === realizadosStatusFilter) return;
+      realizadosStatusFilter = next;
+      const session = requireAuth('technician');
+      if (!session) return;
+      const listRoot = document.getElementById('jobs-list');
+      if (listRoot) renderRealizadosPanel(listRoot, session.technicianId);
+      updateJobsSectionHeader();
+    });
   });
 }
 
@@ -1889,8 +2040,17 @@ function renderRealizadosListHtml(allItems) {
   const items = filterRealizadosItems(allItems);
 
   if (!items.length) {
-    return techJobsSearchQuery.trim()
-      ? '<p class="realizados-no-results text-muted">Nenhum resultado para esta pesquisa.</p>'
+    const searching = Boolean(techJobsSearchQuery.trim());
+    const filtered = realizadosStatusFilter !== 'all';
+    let emptyMsg = TECH_TAB_EMPTY_MESSAGES.realizados;
+    if (searching) emptyMsg = 'Nenhum resultado para esta pesquisa.';
+    else if (realizadosStatusFilter === 'pending_review') {
+      emptyMsg = 'Nenhum relatório à espera do RH.';
+    } else if (realizadosStatusFilter === 'approved') {
+      emptyMsg = 'Ainda não tem relatórios aprovados.';
+    }
+    return searching || filtered
+      ? `<p class="realizados-no-results text-muted">${escapeHtml(emptyMsg)}</p>`
       : `
         <div class="empty-state glass-card">
           <div class="empty-icon">${msIconHtml('check', 'empty-icon')}</div>
@@ -1932,9 +2092,11 @@ function renderRealizadosPanel(container, techId) {
   const allItems = getRealizadosItems(techId);
 
   container.innerHTML = `
+    ${renderRealizadosStatusFilters(allItems)}
     <div id="realizados-list">${renderRealizadosListHtml(allItems)}</div>
   `;
 
+  bindRealizadosStatusFilters(container);
   const listEl = container.querySelector('#realizados-list');
   bindRealizadosListEvents(listEl);
 }
@@ -1965,8 +2127,18 @@ function updateJobsSectionHeader() {
     dateLabel.textContent = formatDate(selectedDate);
   } else {
     const session = requireAuth('technician');
-    const count = session ? getRealizadosItems(session.technicianId).length : 0;
-    dateLabel.textContent = count ? `${count} relatório${count === 1 ? '' : 's'}` : tabMeta.subtitle;
+    const all = session ? getRealizadosItems(session.technicianId) : [];
+    const visible = filterRealizadosItems(all);
+    const count = visible.length;
+    if (!all.length) {
+      dateLabel.textContent = tabMeta.subtitle;
+    } else if (realizadosStatusFilter === 'pending_review') {
+      dateLabel.textContent = `${count} pendente${count === 1 ? '' : 's'} RH`;
+    } else if (realizadosStatusFilter === 'approved') {
+      dateLabel.textContent = `${count} aprovado${count === 1 ? '' : 's'}`;
+    } else {
+      dateLabel.textContent = `${count} relatório${count === 1 ? '' : 's'}`;
+    }
   }
 }
 

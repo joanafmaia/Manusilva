@@ -8063,7 +8063,96 @@ body.tech-dashboard-page .tech-navbar__tagline {
 }
 .tech-connectivity-bar--offline .tech-connectivity-bar__dot { background: #94a3b8; }
 .tech-connectivity-bar--syncing .tech-connectivity-bar__dot {
+  background: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 28%, transparent);
   animation: tech-sync-pulse 1s ease-in-out infinite;
+}
+.tech-connectivity-failures {
+  margin: -0.35rem 0 0.65rem;
+  padding: 0.55rem 0.7rem 0.65rem;
+  border: 1px solid var(--surface-warning-border, #f59e0b55);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--surface-warning-bg, #fffbeb) 85%, #fff);
+}
+.tech-connectivity-failures__intro {
+  margin: 0 0 0.45rem;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+.tech-connectivity-failures__row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.55rem;
+  padding: 0.35rem 0;
+  border-top: 1px solid color-mix(in srgb, var(--border-subtle) 80%, transparent);
+}
+.tech-connectivity-failures__row:first-of-type {
+  border-top: none;
+  padding-top: 0;
+}
+.tech-connectivity-failures__copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+  min-width: 0;
+  flex: 1;
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+.tech-connectivity-failures__copy strong {
+  font-size: 0.8rem;
+  color: var(--text-primary);
+}
+.tech-connectivity-failures__copy span {
+  color: var(--text-secondary);
+  word-break: break-word;
+}
+.tech-connectivity-failures__skip {
+  flex-shrink: 0;
+  min-height: 2rem;
+  padding: 0.25rem 0.55rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.realizados-status-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0 0 0.75rem;
+}
+.realizados-status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 2.1rem;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.realizados-status-chip.is-active {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 12%, var(--bg-card));
+  color: var(--primary);
+}
+.realizados-status-chip__count {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: inherit;
+  opacity: 0.85;
 }
 .tech-offline-menu {
   margin: -0.35rem 0 0.65rem;
