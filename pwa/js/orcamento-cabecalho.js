@@ -41,9 +41,16 @@ export function formatClienteAcForPdf(clienteAc) {
 }
 
 export const ORCAMENTO_TEXTO_INTRO_SINGULAR =
-  'Vimos por este meio enviar o nosso orçamento para a seguinte máquina:';
+  'Vimos por este meio apresentar a nossa proposta comercial para o seguinte equipamento:';
 export const ORCAMENTO_TEXTO_INTRO_PLURAL =
-  'Vimos por este meio enviar o nosso orçamento para as seguintes máquinas:';
+  'Vimos por este meio apresentar a nossa proposta comercial para os seguintes equipamentos:';
+
+const ORCAMENTO_TEXTO_INTRO_LEGACY = new Set([
+  ORCAMENTO_TEXTO_INTRO_SINGULAR,
+  ORCAMENTO_TEXTO_INTRO_PLURAL,
+  'Vimos por este meio enviar o nosso orçamento para a seguinte máquina:',
+  'Vimos por este meio enviar o nosso orçamento para as seguintes máquinas:',
+]);
 
 /** Ajusta singular/plural conforme o n.º de equipamentos (mantém texto personalizado). */
 export function resolveOrcamentoTextoIntroForPdf(maquinas = [], textoIntro = '') {
@@ -51,15 +58,10 @@ export function resolveOrcamentoTextoIntroForPdf(maquinas = [], textoIntro = '')
   const list = normalizeOrcamentoMaquinasList(maquinas);
   const withData = list.filter((row) => hasOrcamentoMaquinaData(row));
   const count = Math.max(1, withData.length || list.length);
+  const defaultText = count > 1 ? ORCAMENTO_TEXTO_INTRO_PLURAL : ORCAMENTO_TEXTO_INTRO_SINGULAR;
 
-  if (!saved || saved === '—') {
-    return count > 1 ? ORCAMENTO_TEXTO_INTRO_PLURAL : ORCAMENTO_TEXTO_INTRO_SINGULAR;
-  }
-  if (count > 1 && saved === ORCAMENTO_TEXTO_INTRO_SINGULAR) {
-    return ORCAMENTO_TEXTO_INTRO_PLURAL;
-  }
-  if (count === 1 && saved === ORCAMENTO_TEXTO_INTRO_PLURAL) {
-    return ORCAMENTO_TEXTO_INTRO_SINGULAR;
+  if (!saved || saved === '—' || ORCAMENTO_TEXTO_INTRO_LEGACY.has(saved)) {
+    return defaultText;
   }
   return saved;
 }

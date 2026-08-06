@@ -41,7 +41,7 @@ export const MANUTENCAO_BATERIA_PERIODICIDADE_OPCOES = [
 ];
 
 export const MANUTENCAO_BATERIA_INTRO =
-  'Vimos por este meio enviar a nossa melhor proposta para a manutenção do parque das baterias na vossa firma:';
+  'Vimos por este meio apresentar a nossa proposta de manutenção para o parque de baterias da vossa empresa:';
 
 export const MANUTENCAO_BATERIA_ESPECIFICACAO_TITULO = 'ESPECIFICAÇÃO DOS SERVIÇOS:';
 
@@ -277,10 +277,10 @@ export { MANUTENCAO_MAQUINA_DL50_COL_LABEL, MANUTENCAO_MAQUINA_COL_LABEL } from 
 export const MANUTENCAO_MAQUINA_PDF_SUBTITULO = 'MANUTENÇÃO MÁQUINAS';
 
 export const MANUTENCAO_MAQUINA_INTRO =
-  'Vimos por este meio enviar a nossa melhor proposta para a manutenção da vossa máquina:';
+  'Vimos por este meio apresentar a nossa proposta de manutenção para o vosso equipamento:';
 
 export const MANUTENCAO_MAQUINA_INTRO_PLURAL =
-  'Vimos por este meio enviar a nossa melhor proposta para a manutenção das vossas máquinas:';
+  'Vimos por este meio apresentar a nossa proposta de manutenção para os vossos equipamentos:';
 
 export function resolveManutencaoMaquinaIntro(meta = {}, cabecalho = {}) {
   const count = countTemplateEquipamentosComDados(meta, cabecalho, 'maquina');

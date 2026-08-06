@@ -217,6 +217,13 @@ function readInlineRespostaDate(reportId) {
 }
 
 async function applyInlineResposta(reportId, resposta) {
+  const report = getReport(reportId);
+  if (resposta === ORCAMENTO_RESPOSTA.ACEITE && report && !getReportReclamacaoGarantia(report)) {
+    const ok = window.confirm(
+      'A garantia de auditoria ainda não está indicada (Sim/Não).\n\nQuer marcar como aceite na mesma?',
+    );
+    if (!ok) return;
+  }
   const saved = await setOrcamentoRespostaCliente(reportId, resposta, {
     respostaClienteEm: readInlineRespostaDate(reportId),
   });
@@ -351,8 +358,12 @@ function renderTableRow(report) {
   const garantiaKey = getReportReclamacaoGarantia(report);
   const garantiaBadge =
     garantiaKey === 'sim'
-      ? `<span class="orcamentos-garantia orcamentos-garantia--sim" title="Em garantia">G</span>`
-      : '';
+      ? `<span class="orcamentos-garantia orcamentos-garantia--sim" title="Avaria / reclamação em garantia">G</span>`
+      : garantiaKey === 'nao'
+        ? `<span class="orcamentos-garantia orcamentos-garantia--nao" title="Não é reclamação em garantia">—</span>`
+        : meta?.enviadoEm || meta?.numeroFormatado
+          ? `<span class="orcamentos-garantia orcamentos-garantia--pendente" title="Garantia não indicada">?</span>`
+          : '';
   const respostaData = formatOrcamentoRespostaDataLabel(meta);
   const respostaDataBadge =
     respostaData && (workflow === 'aceite' || workflow === 'recusada')

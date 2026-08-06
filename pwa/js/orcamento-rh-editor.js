@@ -82,6 +82,8 @@ import { formatInterventionDatePt } from './report-intervention-date.js';
 import {
   formatReclamacaoGarantiaLabel,
   getReportReclamacaoGarantia,
+  normalizeReclamacaoGarantia,
+  readReclamacaoGarantiaFromDom,
   renderReclamacaoGarantiaField,
   suggestReclamacaoGarantia,
 } from './orcamento-reclamacao-garantia.js';
@@ -98,10 +100,10 @@ function finishOrcamentoEditingAndReturn({ onSaved, onSent, saved, action }) {
   }
 }
 
-function defaultOrcamentoEmail(report, _client) {
+function defaultOrcamentoEmail(report, client) {
   const meta = getReportOrcamentoMeta(report);
   if (meta?.emailDestinatario) return String(meta.emailDestinatario).trim();
-  return '';
+  return String(client?.email || client?.['E-mail'] || '').trim();
 }
 
 function renderGarantiaField(report, meta) {
@@ -214,7 +216,7 @@ function renderOrcamentoSentSummary(report, { client } = {}) {
       </div>
       <p class="review-orcamento-sent-notice">
         Esta proposta já foi enviada ao cliente em <strong>${escapeHtml(enviadoEm)}</strong>.
-        Não é possível alterá-la — use a lista de orçamentos para consultar o PDF ou registar a resposta.
+        Os valores comerciais ficam bloqueados — pode reenviar o e-mail, corrigir a garantia de auditoria e registar a resposta.
       </p>
       <dl class="review-orcamento-sent-meta">
         <div><dt>Tipo</dt><dd>${escapeHtml(formatOrcamentoTipoPropostaLabel(getOrcamentoTipoProposta(report)))}</dd></div>
@@ -227,14 +229,32 @@ function renderOrcamentoSentSummary(report, { client } = {}) {
         }
         <div><dt>Enviada para</dt><dd>${email}</dd></div>
       </dl>
+      <section class="review-orc-sent-tools" aria-label="Ações após envio">
+        ${renderGarantiaField(report, meta)}
+        <label class="review-orc-field">
+          <span>Reenviar proposta para</span>
+          <input
+            type="text"
+            class="review-orc-input"
+            data-orc-field="emailDestinatario"
+            value="${email === '—' ? '' : email}"
+            placeholder="email@empresa.pt"
+            inputmode="email"
+            autocomplete="email"
+          />
+          <span class="review-orc-field-hint text-muted">Reenvia o PDF atual sem alterar preços nem número da proposta.</span>
+        </label>
+        <div class="review-orcamento-editor__actions review-orcamento-editor__actions--sent-tools">
+          <button type="button" class="btn-outline btn-sm btn-touch" id="orcamento-garantia-save">Guardar garantia</button>
+          <button type="button" class="btn-success btn-sm btn-touch" id="orcamento-resend-email">Reenviar e-mail</button>
+          ${
+            pdfUrl
+              ? '<button type="button" class="btn-outline btn-sm btn-touch" id="orcamento-pdf-open">Ver PDF da proposta</button>'
+              : ''
+          }
+        </div>
+      </section>
       ${renderOrcamentoRespostaSection(report)}
-      <div class="review-orcamento-editor__actions">
-        ${
-          pdfUrl
-            ? '<button type="button" class="btn-outline btn-touch" id="orcamento-pdf-open">Ver PDF da proposta</button>'
-            : ''
-        }
-      </div>
     </div>`;
 }
 
@@ -563,7 +583,7 @@ export function renderOrcamentoEditor(report, { client } = {}) {
         </div>
         <label class="review-orc-field review-orc-field--full">
           <span>Texto introdutório (PDF)</span>
-          <textarea class="review-orc-input review-orc-textarea" data-orc-field="textoIntro" rows="2" placeholder="Frase antes dos dados da máquina">${escapeHtml(cab.textoIntro)}</textarea>
+          <textarea class="review-orc-input review-orc-textarea" data-orc-field="textoIntro" rows="2" placeholder="Ex.: Vimos por este meio apresentar a nossa proposta comercial para o seguinte equipamento:">${escapeHtml(cab.textoIntro)}</textarea>
           <span class="review-orc-field-hint text-muted">Aparece no início da proposta, antes dos equipamentos.</span>
         </label>
         ${renderOrcamentoMaquinasSection(cab.maquinas, cab.equipamentoCampos)}
@@ -801,6 +821,12 @@ function bindOrcamentoRespostaActions(root, { getReport, onUpdated }) {
     try {
       const { showToast } = await import('./app.js');
       const current = getReport();
+      if (!getReportReclamacaoGarantia(current)) {
+        const ok = window.confirm(
+          'A garantia de auditoria ainda não está indicada (Sim/Não).\n\nQuer marcar como aceite na mesma?',
+        );
+        if (!ok) return;
+      }
       const saved = await setOrcamentoRespostaCliente(current.id, ORCAMENTO_RESPOSTA.ACEITE, {
         respostaClienteEm: readRespostaDate(),
       });
@@ -862,6 +888,120 @@ function bindOrcamentoSentView(root, { report, onUpdated }) {
       return;
     }
     openOrcamentoStorageUrl(url);
+  });
+
+  root.querySelector('#orcamento-garantia-save')?.addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    btn.disabled = true;
+    try {
+      const { showToast } = await import('./app.js');
+      const { upsertRelatorio, mergeReportInCache } = await import('./relatorios-db.js');
+      const garantia = readReclamacaoGarantiaFromDom(root);
+      if (!garantia) {
+        showToast('Indique Sim ou Não para a garantia (auditoria).', 'warning');
+        return;
+      }
+      const meta = {
+        ...(getReportOrcamentoMeta(currentReport) || {}),
+        reclamacaoGarantia: garantia,
+      };
+      const next = {
+        ...currentReport,
+        data: {
+          ...(currentReport.data || {}),
+          orcamento: meta,
+        },
+      };
+      const saved = await upsertRelatorio(next);
+      if (!saved) throw new Error('Não foi possível guardar a garantia.');
+      mergeReportInCache(saved);
+      currentReport = saved;
+      onUpdated?.(saved);
+      showToast('Garantia de auditoria atualizada.', 'success');
+    } catch (err) {
+      console.error('[Orçamento] Guardar garantia:', err);
+      const { showToast } = await import('./app.js');
+      showToast(err?.message || 'Erro ao guardar a garantia.', 'error');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  root.querySelector('#orcamento-resend-email')?.addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    btn.disabled = true;
+    try {
+      const { showToast, getClient, getJob, getTechnician, sendOrcamentoProposalEmail } =
+        await import('./app.js');
+      const { resolveOrcamentoDocumentDate } = await import('./orcamento-fill-data.js');
+      const { formatInterventionDatePt } = await import('./report-intervention-date.js');
+      const { mergeReportInCache, upsertRelatorio } = await import('./relatorios-db.js');
+      const { isValidEmailList, formatEmailListForStorage, normalizeEmailList } =
+        await import('./validators.js');
+
+      const emailRaw = String(root.querySelector('[data-orc-field="emailDestinatario"]')?.value || '').trim();
+      const recipients = normalizeEmailList(emailRaw);
+      if (!recipients.length) {
+        showToast('Indique pelo menos um e-mail para reenvio.', 'error');
+        return;
+      }
+      if (!isValidEmailList(emailRaw)) {
+        showToast('Um ou mais e-mails são inválidos.', 'error');
+        return;
+      }
+
+      let saved = currentReport;
+      let pdfUrl = getReportOrcamentoPdfUrl(saved);
+      if (!pdfUrl) {
+        const { saveAndRegenerateOrcamento } = await import('./orcamento-pdf-service.js');
+        saved = await saveAndRegenerateOrcamento(saved, getReportOrcamentoMeta(saved) || {});
+        pdfUrl = getReportOrcamentoPdfUrl(saved);
+      }
+      if (!pdfUrl) {
+        showToast('Não foi possível obter o PDF da proposta.', 'error');
+        return;
+      }
+
+      const emailStored = formatEmailListForStorage(recipients);
+      const meta = {
+        ...(getReportOrcamentoMeta(saved) || {}),
+        emailDestinatario: emailStored,
+      };
+      const next = {
+        ...saved,
+        data: { ...(saved.data || {}), orcamento: meta },
+      };
+      saved = (await upsertRelatorio(next)) || next;
+      mergeReportInCache(saved);
+      currentReport = saved;
+      onUpdated?.(saved);
+
+      const values = saved.data?.values || {};
+      const client = getClient(saved.clientId);
+      const job = saved.jobId ? getJob(saved.jobId) : null;
+      const tech = getTechnician(saved.technicianId);
+
+      showToast('A reenviar a proposta…', 'info', 2500);
+      await sendOrcamentoProposalEmail({
+        to: recipients,
+        reportId: saved.id,
+        clienteNome: values.nome_empresa || values.cliente || client?.name || client?.Nome || '',
+        tecnico: values.tecnico || tech?.name || '',
+        dataConclusao: formatInterventionDatePt(resolveOrcamentoDocumentDate(saved)),
+        orcamentoNumero: saved.data?.orcamento?.numeroFormatado || '',
+        numeroOrdem: job?.numeroOrdem ?? null,
+        pdfUrl,
+        pdfFilename: saved.data?.orcamentoPdfFilename || undefined,
+      });
+
+      showToast(`Proposta reenviada para ${recipients.join(', ')}.`, 'success', 2500);
+    } catch (err) {
+      console.error('[Orçamento] Reenvio e-mail:', err);
+      const { showToast } = await import('./app.js');
+      showToast(err?.message || 'Falha ao reenviar a proposta.', 'error', 8000);
+    } finally {
+      btn.disabled = false;
+    }
   });
 
   bindOrcamentoRespostaActions(root, {
@@ -1073,6 +1213,7 @@ export function bindOrcamentoEditor(container, { report, onUpdated, onSaved, onS
   root.querySelector('#orcamento-send-email')?.addEventListener('click', async (e) => {
     const btn = e.currentTarget;
     btn.disabled = true;
+    let savedForRollback = null;
     try {
       const { showToast, getClient, getJob, getTechnician, sendOrcamentoProposalEmail } =
         await import('./app.js');
@@ -1093,10 +1234,16 @@ export function bindOrcamentoEditor(container, { report, onUpdated, onSaved, onS
         showToast('Um ou mais e-mails da proposta são inválidos.', 'error');
         return;
       }
+      if (!normalizeReclamacaoGarantia(readReclamacaoGarantiaFromDom(root) || meta.reclamacaoGarantia)) {
+        showToast('Indique se é avaria / reclamação em garantia (Sim ou Não).', 'warning', 6000);
+        root.querySelector('[data-orc-field="reclamacaoGarantia"]')?.focus();
+        return;
+      }
 
-      const sentAt = new Date().toISOString();
       meta.emailDestinatario = formatEmailListForStorage(recipients);
-      meta.enviadoEm = sentAt;
+      // Só marca enviada após e-mail OK — evita bloquear a proposta se SMTP/PDF falhar.
+      const previousEnviadoEm = getReportOrcamentoMeta(currentReport)?.enviadoEm || null;
+      meta.enviadoEm = null;
       meta.respostaCliente = null;
       meta.respostaClienteEm = null;
 
@@ -1104,6 +1251,7 @@ export function bindOrcamentoEditor(container, { report, onUpdated, onSaved, onS
       const { saveAndRegenerateOrcamento } = await import('./orcamento-pdf-service.js');
       const saved = await saveAndRegenerateOrcamento(currentReport, meta);
       if (!saved) throw new Error('Não foi possível guardar a proposta.');
+      savedForRollback = { report: saved, previousEnviadoEm };
       currentReport = saved;
       onUpdated?.(saved);
 
@@ -1130,13 +1278,42 @@ export function bindOrcamentoEditor(container, { report, onUpdated, onSaved, onS
         pdfFilename: saved.data?.orcamentoPdfFilename || undefined,
       });
 
-      mergeReportInCache(saved);
+      const sentAt = new Date().toISOString();
+      const metaSent = {
+        ...(getReportOrcamentoMeta(saved) || {}),
+        emailDestinatario: formatEmailListForStorage(recipients),
+        enviadoEm: sentAt,
+        respostaCliente: null,
+        respostaClienteEm: null,
+      };
+      const confirmed = await saveAndRegenerateOrcamento(saved, metaSent);
+      if (!confirmed) throw new Error('Proposta enviada, mas não foi possível registar a data de envio.');
+      mergeReportInCache(confirmed);
+      currentReport = confirmed;
+      onUpdated?.(confirmed);
+
       showToast(`Proposta enviada para ${recipients.join(', ')}.`, 'success', 2500);
-      finishOrcamentoEditingAndReturn({ onSent, saved, action: 'send' });
+      finishOrcamentoEditingAndReturn({ onSent, saved: confirmed, action: 'send' });
     } catch (err) {
       console.error('[Orçamento] Envio e-mail:', err);
+      if (savedForRollback?.report) {
+        try {
+          const { saveAndRegenerateOrcamento } = await import('./orcamento-pdf-service.js');
+          const rolledMeta = {
+            ...(getReportOrcamentoMeta(savedForRollback.report) || {}),
+            enviadoEm: savedForRollback.previousEnviadoEm || null,
+          };
+          const rolled = await saveAndRegenerateOrcamento(savedForRollback.report, rolledMeta);
+          if (rolled) {
+            currentReport = rolled;
+            onUpdated?.(rolled);
+          }
+        } catch (rollbackErr) {
+          console.error('[Orçamento] Rollback enviadoEm:', rollbackErr);
+        }
+      }
       const { showToast } = await import('./app.js');
-      showToast(err?.message || 'Falha ao enviar a proposta.', 'error', 8000);
+      showToast(err?.message || 'Falha ao enviar a proposta. A proposta continua editável.', 'error', 8000);
     } finally {
       btn.disabled = false;
     }

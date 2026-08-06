@@ -5029,6 +5029,11 @@ body .admin-rh-page .btn-primary, body .admin-rh-page .btn-secondary, body .admi
   color: var(--text-muted, #64748b);
   border: 1px solid var(--ms-border-md, #cbd5e1);
 }
+.orcamentos-garantia--pendente {
+  background: #fff7ed;
+  color: #c2410c;
+  border: 1px solid #fdba74;
+}
 .review-orc-field--reclamacao-garantia {
   grid-column: 1 / -1;
 }
