@@ -5024,16 +5024,27 @@ body .admin-rh-page .btn-primary, body .admin-rh-page .btn-secondary, body .admi
 }
 .orcamentos-table--dense th:nth-child(3),
 .orcamentos-table--dense td:nth-child(3) {
-  width: 8.5rem;
+  width: 9.5rem;
 }
 .orcamentos-table--dense th:nth-child(4),
 .orcamentos-table--dense td:nth-child(4) {
-  width: 14.5rem;
+  width: 13.5rem;
 }
 .orcamentos-row--compact td {
   padding-top: 0.4rem;
   padding-bottom: 0.4rem;
   vertical-align: middle;
+}
+.orcamentos-row--compact .orcamentos-col-proposta,
+.orcamentos-row--compact .faturacao-col-action {
+  overflow: hidden;
+}
+.orcamentos-proposta-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  min-width: 0;
 }
 .orcamentos-row__meta {
   display: flex;
@@ -5050,15 +5061,22 @@ body .admin-rh-page .btn-primary, body .admin-rh-page .btn-secondary, body .admi
   font-size: 0.8rem;
 }
 .orcamentos-col-proposta .orcamentos-numero {
-  display: inline;
-  margin-left: 0.35rem;
+  display: block;
+  margin-left: 0;
   margin-top: 0;
+  font-size: 0.78rem;
+  line-height: 1.25;
+  word-break: break-word;
 }
 .orcamentos-col-proposta .orcamentos-garantia,
 .orcamentos-col-proposta .orcamentos-resposta-data {
   display: inline-block;
   margin-top: 0;
-  margin-left: 0.25rem;
+  margin-left: 0;
+}
+.orcamentos-col-proposta .orcamentos-resposta-data {
+  font-size: 0.75rem;
+  color: var(--text-muted, #64748b);
 }
 .orcamentos-row-actions {
   display: flex;

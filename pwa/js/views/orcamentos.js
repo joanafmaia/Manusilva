@@ -185,9 +185,15 @@ function renderInlineRespostaControls(report) {
   const dateValue = resolveRespostaDateDefault(report);
   const aguarda = orcamentoAguardaRespostaCliente(report);
   if (!aguarda && workflow !== 'aceite' && workflow !== 'recusada') return '';
+  /* Data editável só enquanto aguarda resposta — em Aceites/Recusadas a data já está na coluna Proposta. */
+  const showDateInput = aguarda;
   return `
     <div class="orcamentos-inline-resposta" data-orc-inline-resposta="${escapeHtml(report.id)}">
-      <input type="date" class="form-input form-input-sm orcamentos-inline-date" data-orc-resposta-date="${escapeHtml(report.id)}" value="${escapeHtml(dateValue)}" title="Data da resposta" aria-label="Data da resposta" />
+      ${
+        showDateInput
+          ? `<input type="date" class="form-input form-input-sm orcamentos-inline-date" data-orc-resposta-date="${escapeHtml(report.id)}" value="${escapeHtml(dateValue)}" title="Data da resposta" aria-label="Data da resposta" />`
+          : ''
+      }
       ${
         aguarda || workflow !== 'aceite'
           ? `<button type="button" class="btn-success btn-sm rh-btn-compact" data-orc-aceite="${escapeHtml(report.id)}" title="Aceite">Aceite</button>`
@@ -203,7 +209,11 @@ function renderInlineRespostaControls(report) {
 
 function readInlineRespostaDate(reportId) {
   const input = mountRoot?.querySelector(`[data-orc-resposta-date="${CSS.escape(reportId)}"]`);
-  return input?.value?.trim() || todayLocalDateInputValue();
+  const fromInput = input?.value?.trim();
+  if (fromInput) return fromInput;
+  const report = getReport(reportId);
+  const meta = getReportOrcamentoMeta(report);
+  return toLocalDateInputValue(meta?.respostaClienteEm) || todayLocalDateInputValue();
 }
 
 async function applyInlineResposta(reportId, resposta) {
@@ -369,10 +379,12 @@ function renderTableRow(report) {
         </span>
       </td>
       <td class="rh-cell-muted orcamentos-col-proposta">
-        <span class="orcamentos-status ${resolveOrcamentoWorkflowClass(workflow)}">${escapeHtml(resolveOrcamentoWorkflowLabel(workflow))}</span>
-        ${meta?.numeroFormatado ? `<span class="orcamentos-numero">nº ${escapeHtml(meta.numeroFormatado)}</span>` : ''}
-        ${garantiaBadge}
-        ${respostaDataBadge}
+        <div class="orcamentos-proposta-stack">
+          <span class="orcamentos-status ${resolveOrcamentoWorkflowClass(workflow)}">${escapeHtml(resolveOrcamentoWorkflowLabel(workflow))}</span>
+          ${meta?.numeroFormatado ? `<span class="orcamentos-numero">nº ${escapeHtml(meta.numeroFormatado)}</span>` : ''}
+          ${garantiaBadge}
+          ${respostaDataBadge}
+        </div>
       </td>
       <td class="faturacao-col-action">
         <div class="orcamentos-row-actions">
