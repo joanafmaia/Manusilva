@@ -8,7 +8,7 @@ import { fileURLToPath } from 'url';
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 
-let buildId = String(
+let sha = String(
   process.env.RAILWAY_GIT_COMMIT_SHA ||
     process.env.VERCEL_GIT_COMMIT_SHA ||
     process.env.GITHUB_SHA ||
@@ -16,18 +16,22 @@ let buildId = String(
 )
   .trim()
   .slice(0, 12);
-if (!buildId) {
+
+if (!sha) {
   try {
-    buildId = execSync('git rev-parse --short HEAD', { encoding: 'utf8' }).trim();
+    sha = execSync('git rev-parse --short HEAD', { encoding: 'utf8' }).trim();
   } catch {
-    buildId = String(Date.now());
+    sha = 'local';
   }
 }
+
+// Sempre único por build — evita SW/clientes presos no mesmo ?v= quando o SHA não muda no ambiente.
+const buildId = `${sha}-${Date.now().toString(36)}`;
 
 const versionFile = path.join(root, 'js', 'build-version.js');
 fs.writeFileSync(
   versionFile,
-  `/** Gerado automaticamente no deploy — não editar */\nexport const APP_BUILD_ID = ${JSON.stringify(buildId)};\n`,
+  `/** Gerado automaticamente no deploy — nao editar */\nexport const APP_BUILD_ID = ${JSON.stringify(buildId)};\n`,
   'utf8',
 );
 

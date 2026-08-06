@@ -1,2 +1,2 @@
-/** Gerado automaticamente no deploy — não editar */
-export const APP_BUILD_ID = "9494e10";
+/** Gerado automaticamente no deploy — nao editar */
+export const APP_BUILD_ID = "653ad1e-clickfix";

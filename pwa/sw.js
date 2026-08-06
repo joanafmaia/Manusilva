@@ -4,7 +4,7 @@
  * Online: rede primeiro (JS/HTML atualizados).
  * Offline: cache local (arranque e módulos já visitados).
  */
-const CACHE_VERSION = '9494e10';
+const CACHE_VERSION = '653ad1e-clickfix';
 const CACHE_SHELL = `manusilva-shell-${CACHE_VERSION}`;
 const CACHE_RUNTIME = `manusilva-runtime-${CACHE_VERSION}`;
 
@@ -54,7 +54,7 @@ self.addEventListener('activate', (event) => {
 function isSameOrigin(url) {
   try {
     return new URL(url).origin === self.location.origin;
-  } catch {
+  } catch (_e) {
     return false;
   }
 }
@@ -68,13 +68,31 @@ async function cachePutSafe(cacheName, request, response) {
 async function networkFirstWithCache(request, cacheName = CACHE_RUNTIME) {
   try {
     const response = await fetch(request);
-    await cachePutSafe(cacheName, request, response.clone());
+    if (shouldCacheResponse(request, response)) {
+      await cachePutSafe(cacheName, request, response.clone());
+    }
     return response;
-  } catch {
+  } catch (err) {
     const cached = await caches.match(request);
     if (cached) return cached;
     throw new Error('offline');
   }
+}
+
+function shouldCacheResponse(request, response) {
+  if (!response || !response.ok) return false;
+  let pathname = '';
+  try {
+    pathname = new URL(request.url).pathname;
+  } catch (_e) {
+    return false;
+  }
+  const ct = String(response.headers.get('content-type') || '').toLowerCase();
+  // Nunca cachear HTML/CSS como se fosse módulo JS (causa SyntaxError: Unexpected token '*')
+  if (pathname.startsWith('/js/') || pathname.endsWith('.js')) {
+    if (ct.includes('text/html') || ct.includes('text/css')) return false;
+  }
+  return true;
 }
 
 async function navigateWithCache(request) {
@@ -82,7 +100,7 @@ async function navigateWithCache(request) {
     const response = await fetch(request, { cache: 'no-store' });
     await cachePutSafe(CACHE_SHELL, request, response.clone());
     return response;
-  } catch {
+  } catch (_e) {
     const cached =
       (await caches.match(request)) ||
       (await caches.match('./dashboard.html')) ||
