@@ -8,6 +8,7 @@ import {
   suggestOrcamentoTipoProposta,
   reportHasOrcamentoContent,
 } from '../js/orcamento-tipo-proposta.js';
+import { resolveOrcamentoFormReadTemplateMode } from '../js/orcamento-linhas.js';
 import { buildOrcamentoAuditSummary, buildOrcamentoAuditCsv, buildOrcamentoAuditCsvFilename } from '../js/orcamento-audit.js';
 
 describe('orcamento-tipo-proposta', () => {
@@ -28,6 +29,31 @@ describe('orcamento-tipo-proposta', () => {
     };
     assert.equal(getOrcamentoTipoProposta(report), ORCAMENTO_TIPO_PROPOSTA.ORCAMENTO);
     assert.equal(formatOrcamentoTipoPropostaLabel(ORCAMENTO_TIPO_PROPOSTA.ORCAMENTO), 'Orçamento');
+  });
+
+  it('ao mudar o Tipo no select, não reaplica o template antigo do DOM', () => {
+    assert.equal(
+      resolveOrcamentoFormReadTemplateMode('manutencao_bateria', ORCAMENTO_TIPO_PROPOSTA.ORCAMENTO),
+      null,
+    );
+    assert.equal(
+      resolveOrcamentoFormReadTemplateMode(
+        'manutencao_maquina',
+        ORCAMENTO_TIPO_PROPOSTA.MANUTENCAO_BATERIA,
+      ),
+      null,
+    );
+    assert.equal(
+      resolveOrcamentoFormReadTemplateMode(
+        'manutencao_bateria',
+        ORCAMENTO_TIPO_PROPOSTA.MANUTENCAO_BATERIA,
+      ),
+      'manutencao_bateria',
+    );
+    assert.equal(
+      resolveOrcamentoFormReadTemplateMode('', ORCAMENTO_TIPO_PROPOSTA.MANUTENCAO_MAQUINA),
+      'manutencao_maquina',
+    );
   });
 });
 

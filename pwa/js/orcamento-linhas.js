@@ -24,6 +24,18 @@ import { readTemplateMaquinasFromDom } from './orcamento-template-equipamentos.j
 const IVA_RATE = 0.23;
 const MIN_LINHAS_VAZIAS = 3;
 
+/**
+ * Modo de template a usar ao ler o DOM.
+ * Se o Tipo no select já não coincide com o template renderizado, devolve null
+ * para não reaplicar o modelo antigo (senão o RH não consegue mudar o tipo).
+ */
+export function resolveOrcamentoFormReadTemplateMode(domTemplateMode, tipoProposta) {
+  const dom = String(domTemplateMode || '').trim();
+  const target = resolveOrcamentoTemplateMode(tipoProposta) || '';
+  if (dom && target !== dom) return null;
+  return dom || target || null;
+}
+
 export function normalizeEquipamentoIndex(value, machineCount = 1) {
   if (machineCount <= 1) return 0;
   const n = Number(value);
@@ -321,8 +333,10 @@ export function readOrcamentoFormFromDom(root, report) {
   const domMeta = getReportOrcamentoMetaFromDom(root);
   const tipoRaw = root.querySelector('[data-orc-field="tipoProposta"]')?.value?.trim() || '';
   const tipoProposta = normalizeOrcamentoTipoProposta(tipoRaw || existing.tipoProposta, report);
-  const templateMode =
-    root?.dataset?.orcTemplate || resolveOrcamentoTemplateMode(tipoProposta);
+  const templateMode = resolveOrcamentoFormReadTemplateMode(
+    root?.dataset?.orcTemplate,
+    tipoProposta,
+  );
   const isTemplate = Boolean(templateMode);
 
   let linhas = [];

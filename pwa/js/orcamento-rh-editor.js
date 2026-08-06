@@ -35,6 +35,7 @@ import {
 import {
   formatOrcamentoTipoPropostaLabel,
   getOrcamentoTipoProposta,
+  normalizeOrcamentoTipoProposta,
   renderOrcamentoTipoPropostaSelect,
 } from './orcamento-tipo-proposta.js';
 import {
@@ -841,12 +842,15 @@ export function bindOrcamentoEditor(container, { report, onUpdated, onSaved, onS
   }
 
   root.querySelector('[data-orc-field="tipoProposta"]')?.addEventListener('change', () => {
+    const tipoRaw = root.querySelector('[data-orc-field="tipoProposta"]')?.value?.trim() || '';
     const meta = readOrcamentoFormFromDom(root, currentReport);
+    const tipoProposta = normalizeOrcamentoTipoProposta(tipoRaw || meta.tipoProposta, currentReport);
     const nextReport = {
       ...currentReport,
       data: {
         ...(currentReport.data || {}),
-        orcamento: meta,
+        // Garante o tipo escolhido mesmo ao mudar de modelo máquina/bateria ↔ orçamento.
+        orcamento: { ...meta, tipoProposta },
       },
     };
     onTipoChange?.(nextReport);
