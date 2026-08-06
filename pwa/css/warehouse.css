@@ -260,10 +260,13 @@ body.warehouse-page .folha-obra-panel {
   box-shadow: 0 24px 48px rgba(15, 23, 42, 0.12);
   overflow: hidden;
   background: #fff;
+  display: flex;
+  flex-direction: column;
 }
 
 body.warehouse-page .folha-obra-panel__header {
   padding: 1rem 1.25rem;
+  flex-shrink: 0;
 }
 
 body.warehouse-page .folha-obra-panel__title {
@@ -274,10 +277,13 @@ body.warehouse-page .folha-obra-panel__body {
   padding: 1.15rem 1.25rem 1.5rem;
   overflow-y: auto;
   background: #fff;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 body.warehouse-page .folha-obra-panel__footer {
   padding: 0.9rem 1.25rem;
+  flex-shrink: 0;
 }
 
 body.warehouse-page .folha-obra-header-grid {
@@ -352,10 +358,12 @@ body.warehouse-page .folha-obra-phase-hint {
   padding: 0.85rem 1rem;
 }
 
-body.warehouse-page .folha-obra-panel__footer #folha-obra-etiqueta {
+body.warehouse-page .folha-obra-panel__footer #folha-obra-etiqueta,
+body.warehouse-page .folha-obra-footer-actions #folha-obra-etiqueta {
   margin-right: 0;
 }
 
-body.warehouse-page .folha-obra-panel__footer #folha-obra-pdf {
+body.warehouse-page .folha-obra-panel__footer #folha-obra-pdf,
+body.warehouse-page .folha-obra-footer-actions #folha-obra-pdf {
   margin-right: auto;
 }

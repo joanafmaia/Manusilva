@@ -8897,6 +8897,53 @@ body.tech-dashboard-page .form-overlay .legal-verdict-card {
   margin: 0 0 0.75rem;
   color: var(--ms-text);
 }
+.folha-obra-kpis {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.4rem;
+  margin: 0 0 0.85rem;
+}
+.folha-obra-kpi {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
+  min-height: 3.1rem;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid var(--ms-border, #e2e8f0);
+  border-radius: 0.55rem;
+  background: var(--ms-card-bg, #fff);
+  color: var(--ms-text, #0f172a);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.folha-obra-kpi:hover {
+  border-color: color-mix(in srgb, var(--ms-primary, #2563eb) 45%, var(--ms-border, #e2e8f0));
+}
+.folha-obra-kpi.is-active {
+  border-color: var(--ms-primary, #2563eb);
+  background: color-mix(in srgb, var(--ms-primary, #2563eb) 10%, #fff);
+}
+.folha-obra-kpi.is-empty:not(.is-active) {
+  opacity: 0.55;
+}
+.folha-obra-kpi__value {
+  font-size: 1.15rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+.folha-obra-kpi__label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--ms-text-muted, #64748b);
+  line-height: 1.2;
+}
+@media (max-width: 720px) {
+  .folha-obra-kpis {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
 .folha-obra-list {
   display: flex;
   flex-direction: column;
@@ -9007,15 +9054,39 @@ body.folha-obra-open {
   line-height: 1;
   padding: 0.35rem 0.5rem;
   cursor: pointer;
+  flex-shrink: 0;
 }
 .folha-obra-panel__title {
   margin: 0;
   font-size: 1.05rem;
   font-weight: 600;
+  min-width: 0;
+  flex: 1;
+}
+.folha-obra-panel__header #folha-obra-offline-chip,
+.folha-obra-panel__header .form-offline-chip {
+  flex-shrink: 0;
+  margin-left: auto;
+  padding: 0.3rem 0.55rem;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 650;
+  line-height: 1.3;
+}
+.folha-obra-panel__header .form-offline-chip--offline {
+  background: var(--surface-warning-bg, #fffbeb);
+  color: var(--surface-warning-text, #92400e);
+  border: 1px solid var(--surface-warning-border, #f59e0b55);
+}
+.folha-obra-panel__header .form-offline-chip--online {
+  background: color-mix(in srgb, #22c55e 14%, #fff);
+  color: #166534;
+  border: 1px solid color-mix(in srgb, #22c55e 35%, #e2e8f0);
 }
 .folha-obra-panel__body {
   flex: 1;
   padding: 1rem;
+  min-height: 0;
 }
 .folha-obra-panel__footer {
   display: flex;
@@ -9027,6 +9098,33 @@ body.folha-obra-open {
   background: var(--ms-card-bg, #fff);
   position: sticky;
   bottom: 0;
+  z-index: 3;
+}
+.folha-obra-panel__footer--sticky {
+  flex-direction: column;
+  align-items: stretch;
+  flex-wrap: nowrap;
+  gap: 0.45rem;
+}
+.folha-obra-footer-status:empty {
+  display: none;
+}
+.folha-obra-footer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  align-items: center;
+}
+.folha-obra-footer-actions #folha-obra-delete {
+  margin-right: auto;
+}
+.folha-obra-footer-actions #folha-obra-pdf {
+  margin-right: auto;
+}
+.folha-obra-footer-actions #folha-obra-etiqueta:last-of-type:first-of-type,
+.folha-obra-footer-actions #folha-obra-etiqueta:only-of-type {
+  margin-right: auto;
 }
 .folha-obra-section-hint,
 .folha-obra-phase-hint,

@@ -7,6 +7,7 @@ import { formatDate } from '../date-utils.js';
 import { showToast, openModal, closeModal } from '../toast-modal.js';
 import { renderClientCombobox, bindClientComboboxes } from '../client-combobox.js';
 import { getClient } from '../entity-lookups.js';
+import { canReachServer, isOffline } from '../offline-mode.js';
 import {
   emptyIntervencaoRow,
   ensureFolhasObraLoadedSafe,
@@ -43,6 +44,15 @@ const ESTADO_FILTER_OPTIONS = [
   { value: 'aguarda_orcamento', label: 'Aguarda orçamento RH' },
   { value: 'em_reparacao', label: 'Reparação' },
   { value: 'finalizado', label: 'Finalizado' },
+];
+
+const PIPELINE_KPI_ITEMS = [
+  { id: 'all', label: 'Total', short: 'Total' },
+  { id: 'rascunho', label: 'Entrada', short: 'Entrada' },
+  { id: 'em_diagnostico', label: 'Diagnóstico', short: 'Diagnóstico' },
+  { id: 'aguarda_orcamento', label: 'Orçamento', short: 'Orçamento' },
+  { id: 'em_reparacao', label: 'Reparação', short: 'Reparação' },
+  { id: 'finalizado', label: 'Finalizado', short: 'Finalizado' },
 ];
 
 function isFolhaReparacaoAtiva(folha) {
@@ -527,7 +537,37 @@ function setFolhaObraEditorStatus(overlay, message, type = 'error') {
   el.className = `folha-obra-editor-status folha-obra-editor-status--${type}`;
   el.setAttribute('role', type === 'error' ? 'alert' : 'status');
   el.textContent = message;
-  footer.prepend(el);
+  const host = footer.querySelector('.folha-obra-footer-status') || footer;
+  host.prepend(el);
+}
+
+function updateFolhaObraOfflineChip(overlay) {
+  const chip = overlay?.querySelector('#folha-obra-offline-chip');
+  if (!chip) return;
+  const offline = !canReachServer() || isOffline();
+  chip.classList.toggle('form-offline-chip--online', !offline);
+  chip.classList.toggle('form-offline-chip--offline', offline);
+  chip.textContent = offline
+    ? 'Offline — guardado neste dispositivo'
+    : 'Online';
+}
+
+function bindFolhaObraOfflineChip(overlay) {
+  updateFolhaObraOfflineChip(overlay);
+  if (!overlay || overlay.__folhaOfflineBound) return;
+  overlay.__folhaOfflineBound = true;
+  const refresh = () => updateFolhaObraOfflineChip(overlay);
+  window.addEventListener('online', refresh);
+  window.addEventListener('offline', refresh);
+}
+
+function renderFolhaObraFooterShell(folha, { isLocked } = {}) {
+  return `
+    <div class="folha-obra-footer-status" aria-live="polite"></div>
+    <div class="folha-obra-footer-actions">
+      ${renderFolhaObraFooterHtml(folha, { isLocked })}
+    </div>
+  `;
 }
 
 function setFolhaObraEditorBusy(overlay, busy, label = 'A processar…') {
@@ -755,9 +795,10 @@ export function openFolhaObraEditor(folhaId, session, { onClose } = {}) {
     const folha = getFolha();
     overlay.querySelector('#folha-obra-title').textContent = renderTitle();
     overlay.querySelector('.folha-obra-panel__body').innerHTML = renderFolhaObraFormHtml(folha, session);
-    overlay.querySelector('.folha-obra-panel__footer').innerHTML = renderFolhaObraFooterHtml(folha, {
+    overlay.querySelector('.folha-obra-panel__footer').innerHTML = renderFolhaObraFooterShell(folha, {
       isLocked: isLocked(),
     });
+    updateFolhaObraOfflineChip(overlay);
     syncFormBindings();
   }
 
@@ -767,12 +808,13 @@ export function openFolhaObraEditor(folhaId, session, { onClose } = {}) {
       <header class="folha-obra-panel__header">
         <button type="button" class="folha-obra-panel__back" id="folha-obra-close" aria-label="Fechar">←</button>
         <h2 id="folha-obra-title" class="folha-obra-panel__title">${escapeHtml(renderTitle())}</h2>
+        <div class="form-offline-chip form-offline-chip--online" id="folha-obra-offline-chip" aria-live="polite">Online</div>
       </header>
       <div class="folha-obra-panel__body">
         ${renderFolhaObraFormHtml(folha, session)}
       </div>
-      <footer class="folha-obra-panel__footer">
-        ${renderFolhaObraFooterHtml(folha, { isLocked: isLocked() })}
+      <footer class="folha-obra-panel__footer folha-obra-panel__footer--sticky">
+        ${renderFolhaObraFooterShell(folha, { isLocked: isLocked() })}
       </footer>
     </div>
   `;
@@ -780,6 +822,7 @@ export function openFolhaObraEditor(folhaId, session, { onClose } = {}) {
   overlay._folhaObraEditor = { editorState, session, runtime, close, onClose, repaint };
   overlay.hidden = false;
   document.body.classList.add('folha-obra-open');
+  bindFolhaObraOfflineChip(overlay);
   syncFormBindings();
 }
 
@@ -834,7 +877,9 @@ function renderFolhaTableRow(folha) {
   `;
 }
 
-function renderFolhasSection(title, folhas, emptyText, layout = 'cards') {
+function renderFolhasSection(title, folhas, emptyText, layout = 'cards', { hideIfEmpty = false } = {}) {
+  if (hideIfEmpty && !folhas.length) return '';
+
   if (layout === 'desktop') {
     const scrollClass = folhas.length > 8 ? ' faturacao-table-wrap--scroll-y' : '';
     return `
@@ -871,6 +916,41 @@ function renderFolhasSection(title, folhas, emptyText, layout = 'cards') {
         ${folhas.length ? folhas.map(renderFolhaCard).join('') : `<p class="text-muted folha-obra-empty">${escapeHtml(emptyText)}</p>`}
       </div>
     </section>
+  `;
+}
+
+function countFolhaPipeline(folhas) {
+  const list = Array.isArray(folhas) ? folhas : [];
+  return {
+    all: list.length,
+    rascunho: list.filter((f) => f.estado === 'rascunho').length,
+    em_diagnostico: list.filter((f) => f.estado === 'em_diagnostico').length,
+    aguarda_orcamento: list.filter((f) => isFolhaObraAguardaOrcamentoEstado(f)).length,
+    em_reparacao: list.filter((f) => f.estado === 'em_reparacao').length,
+    finalizado: list.filter((f) => isFolhaObraFinalizada(f)).length,
+  };
+}
+
+function renderFolhaPipelineKpis(counts, activeEstado = 'all') {
+  const active = activeEstado || 'all';
+  return `
+    <div class="folha-obra-kpis" role="group" aria-label="Pipeline de folhas de obra">
+      ${PIPELINE_KPI_ITEMS.map((item) => {
+        const count = counts[item.id] ?? 0;
+        const isActive = active === item.id;
+        return `
+          <button
+            type="button"
+            class="folha-obra-kpi${isActive ? ' is-active' : ''}${count === 0 && item.id !== 'all' ? ' is-empty' : ''}"
+            data-folha-kpi="${item.id}"
+            aria-pressed="${isActive ? 'true' : 'false'}"
+            title="${escapeHtml(item.label)}"
+          >
+            <span class="folha-obra-kpi__value">${count}</span>
+            <span class="folha-obra-kpi__label">${escapeHtml(item.short)}</span>
+          </button>`;
+      }).join('')}
+    </div>
   `;
 }
 
@@ -929,19 +1009,45 @@ export async function mountFolhasObraTab(
       );
   }
 
-  function renderResultsHtml(filtered) {
+  function renderResultsHtml(filtered, filters = {}) {
+    const estado = filters.estado || 'all';
+    const pipelineBase = filterFolhas({ ...filters, estado: 'all' });
+    const counts = countFolhaPipeline(pipelineBase);
+    const hideIfEmpty = true;
+
     const entradaArmazem = filtered.filter((f) => f.estado === 'rascunho');
     const emDiagnostico = filtered.filter((f) => f.estado === 'em_diagnostico');
     const aguardaOrcamento = filtered.filter((f) => isFolhaObraAguardaOrcamentoEstado(f));
     const emReparacao = filtered.filter((f) => f.estado === 'em_reparacao');
     const finalizado = filtered.filter((f) => isFolhaObraFinalizada(f));
 
+    const sections = [
+      renderFolhasSection('Entrada em Armazém', entradaArmazem, 'Nenhum equipamento aguarda entrada.', layout, {
+        hideIfEmpty,
+      }),
+      renderFolhasSection('Diagnóstico técnico (R.C)', emDiagnostico, 'Nenhum equipamento R.C em diagnóstico.', layout, {
+        hideIfEmpty,
+      }),
+      renderFolhasSection(
+        'Aguarda orçamento (R.C)',
+        aguardaOrcamento,
+        'Nenhum equipamento R.C à espera de orçamento ou aceite.',
+        layout,
+        { hideIfEmpty },
+      ),
+      renderFolhasSection('Reparação', emReparacao, 'Nenhum equipamento em reparação.', layout, { hideIfEmpty }),
+      renderFolhasSection('Finalizado', finalizado, 'Ainda sem folhas concluídas.', layout, { hideIfEmpty }),
+    ]
+      .filter(Boolean)
+      .join('');
+
+    const emptyHtml = filtered.length
+      ? ''
+      : `<p class="text-muted folha-obra-empty faturacao-empty">Nenhuma folha corresponde aos filtros.</p>`;
+
     return `
-      ${renderFolhasSection('Entrada em Armazém', entradaArmazem, 'Nenhum equipamento aguarda entrada.', layout)}
-      ${renderFolhasSection('Diagnóstico técnico (R.C)', emDiagnostico, 'Nenhum equipamento R.C em diagnóstico.', layout)}
-      ${renderFolhasSection('Aguarda orçamento (R.C)', aguardaOrcamento, 'Nenhum equipamento R.C à espera de orçamento ou aceite.', layout)}
-      ${renderFolhasSection('Reparação', emReparacao, 'Nenhum equipamento em reparação.', layout)}
-      ${renderFolhasSection('Finalizado', finalizado, 'Ainda sem folhas concluídas.', layout)}
+      ${renderFolhaPipelineKpis(counts, estado)}
+      ${sections || emptyHtml}
     `;
   }
 
@@ -961,12 +1067,24 @@ export async function mountFolhasObraTab(
     });
   }
 
+  function bindPipelineKpis() {
+    mount.querySelectorAll('[data-folha-kpi]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const next = btn.getAttribute('data-folha-kpi') || 'all';
+        const select = mount.querySelector('#folha-obra-estado-filter');
+        if (select) select.value = next;
+        renderResults();
+      });
+    });
+  }
+
   function renderResults(filters = readFilters()) {
     const resultsMount = mount.querySelector('[data-folha-obra-results]');
     if (!resultsMount) return;
 
-    resultsMount.innerHTML = renderResultsHtml(filterFolhas(filters));
+    resultsMount.innerHTML = renderResultsHtml(filterFolhas(filters), filters);
     bindResultCards();
+    bindPipelineKpis();
     requestAnimationFrame(() => {
       mount.querySelector('.folha-obra-tab')?.classList.add('folha-obra-tab--ready');
     });
