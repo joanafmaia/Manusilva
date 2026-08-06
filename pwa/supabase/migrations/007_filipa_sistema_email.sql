@@ -1,5 +1,7 @@
 -- 007 — Filipa: login por nome → filipa@sistema.com
+-- Nota: partilha o prefixo 007 com 007_lockdown_anon.sql (aplicar ambos).
 -- Executar no Supabase → SQL Editor (após criar/migrar o utilizador)
+-- Nota: is_rh_admin() nesta migração ainda inclui bypass por nome; a 036 remove-o.
 
 CREATE OR REPLACE FUNCTION public.is_rh_admin()
 RETURNS boolean

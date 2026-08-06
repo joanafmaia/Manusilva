@@ -780,7 +780,9 @@ export const UTILIZADORES = [
   },
 ];
 
+/** @deprecated Preferir mapUiRoleToDb / mapDbRoleToUi em auth-roles-core.js */
 export const ROLE_UI_TO_DB = { technician: 'Tecnico', warehouse: 'Armazem', admin: 'RH' };
+/** @deprecated Preferir mapDbRoleToUi em auth-roles-core.js */
 export const ROLE_DB_TO_UI = { Tecnico: 'technician', Armazem: 'warehouse', RH: 'admin' };
 
 const TECHNICIAN_COLORS = ['#3b82f6', '#8b5cf6', '#06b6d4'];

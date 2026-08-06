@@ -3,6 +3,7 @@
  */
 
 import { ARMAZEM_AUTH_EMAIL } from './mock_data.js';
+import { mapDbRoleToUi } from './auth-roles-core.js';
 
 export const APP_SESSION_KEY = 'app_session';
 const LEGACY_SESSION_KEY = 'manusilva_session';
@@ -14,26 +15,9 @@ const TECHNICIAN_IDS = {
   'adeltonair@gmail.com': 'tech-3',
 };
 
-function mapRoleToUi(role) {
-  if (role === 'Tecnico' || role === 'technician') return 'technician';
-  if (role === 'Armazem' || role === 'armazem' || role === 'warehouse') return 'warehouse';
-  if (
-    role === 'RH' ||
-    role === 'rh' ||
-    role === 'admin' ||
-    role === 'Admin' ||
-    role === 'ADMIN' ||
-    role === 'administracao' ||
-    role === 'Administracao'
-  ) {
-    return 'admin';
-  }
-  return role;
-}
-
 export function normalizeSession(sessao) {
   if (!sessao) return null;
-  const role = mapRoleToUi(sessao.role);
+  const role = mapDbRoleToUi(sessao.role);
   const email = (sessao.email || '').toLowerCase();
   return {
     username: sessao.email,

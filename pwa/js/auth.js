@@ -10,12 +10,11 @@ export const LOGIN_URL = 'index.html';
 import { UTILIZADORES } from './mock_data.js';
 import {
   isRhOrAdminEmail,
-  isRhOrAdminName,
   isRhOrAdminRole,
   normalizeDbRole,
 } from './auth-roles-core.js';
 
-export const AUTH_BUILD = '2026-06-11-login-filipa-fix';
+export const AUTH_BUILD = '2026-08-06-rh-rls-align';
 
 /** Domínio fictício para login só com nome de utilizador (sem e-mail real). */
 export const SYSTEM_LOGIN_EMAIL_DOMAIN = 'sistema.com';
@@ -165,9 +164,11 @@ function profileFromAuthUser(user, roleFiltro) {
   );
   const normalizedMetaRole = normalizeDbRole(meta.role);
   const poolMatch = buildLoginPool().find((u) => u.email.toLowerCase() === email);
+  // RH só por metadata.role ou e-mail allowlist (igual a public.is_rh_admin / migração 036).
+  // Nome («Filipa») resolve o e-mail no login — não concede role sozinho.
   const baseRole = isRhOrAdminRole(meta.role)
     ? 'RH'
-    : isRhOrAdminEmail(email) || isRhOrAdminName(meta.nome || meta.name)
+    : isRhOrAdminEmail(email)
       ? 'RH'
       : normalizedMetaRole === 'Armazem' || normalizeDbRole(poolMatch?.role) === 'Armazem'
         ? 'Armazem'
@@ -177,6 +178,7 @@ function profileFromAuthUser(user, roleFiltro) {
             ? 'Tecnico'
             : null;
   let role = baseRole;
+  // Intencional: técnicos podem entrar no painel Armazém (PC da oficina).
   if (normalizedFilter === 'Armazem' && baseRole === 'Tecnico') {
     role = 'Armazem';
   }

@@ -61,4 +61,8 @@ describe('resolveLoginEmailCandidates', () => {
     assert.doesNotMatch(authSrc, /meta\.role\s*\|\|\s*fromPool\?\.role/);
     assert.doesNotMatch(authSrc, /meta\.technician_id\s*\|\|\s*meta\.technicianId\s*\|\|\s*fromPool\?\.technicianId/);
   });
+
+  it('não promove a RH só por metadata.nome (alinhado com is_rh_admin / 036)', () => {
+    assert.doesNotMatch(authSrc, /isRhOrAdminName\s*\(/);
+  });
 });

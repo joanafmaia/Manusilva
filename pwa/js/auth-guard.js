@@ -3,11 +3,10 @@
  */
 
 import { getSession } from './session.js';
-import { isRhOrAdminSession } from './auth-roles-core.js';
+import { isRhOrAdminSession, mapDbRoleToUi } from './auth-roles-core.js';
 
 function normalizeRequiredRole(role) {
-  if (role === 'RH' || role === 'rh') return 'admin';
-  return role;
+  return mapDbRoleToUi(role) || role;
 }
 
 function dashboardUrlForSession(session) {

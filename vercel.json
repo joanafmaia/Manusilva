@@ -16,7 +16,7 @@
       ]
     },
     {
-      "source": "/(dashboard|admin|index)",
+      "source": "/(dashboard|admin|index|warehouse|orcamento|avaliar)",
       "headers": [
         {
           "key": "Cache-Control",

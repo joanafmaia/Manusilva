@@ -1,6 +1,6 @@
 import { AuthService, resolveLoginEmail, userUsesNameOnlyLogin } from '../auth.js';
 import { getPanelUrlForUiRole } from '../auth-guard.js';
-import { ROLE_UI_TO_DB } from '../mock_data.js';
+import { mapUiRoleToDb } from '../auth-roles-core.js';
 import { getSavedLoginIdentifier, loadLoginPrefs, saveLoginPrefs } from '../login-prefs.js';
 
 const MAX_FAILED_ATTEMPTS = 5;
@@ -220,7 +220,7 @@ export const LoginView = {
       btnText.textContent = 'A verificar...';
 
       const password = passwordInput.value;
-      const roleFiltro = ROLE_UI_TO_DB[selectedUiRole];
+      const roleFiltro = mapUiRoleToDb(selectedUiRole);
 
       const resultado = await AuthService.login(identifier, password, roleFiltro);
 

@@ -52,6 +52,7 @@ function isRhOrAdminEmail(email) {
   return normalized ? RH_ADMIN_EMAILS.includes(normalized) : false;
 }
 
+/** Só catálogo / docs — não conceder RH (igual a is_rh_admin na migração 036). */
 function isRhOrAdminName(name) {
   const normalized = String(name ?? '').trim().toLowerCase();
   return normalized ? RH_ADMIN_NAMES.has(normalized) : false;
@@ -69,5 +70,6 @@ module.exports = {
   isRhOrAdminAuthUser,
   isRhOrAdminRole,
   isRhOrAdminEmail,
+  isRhOrAdminName,
   normalizeDbRole,
 };

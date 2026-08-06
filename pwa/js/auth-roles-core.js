@@ -51,6 +51,26 @@ export function normalizeDbRole(role) {
   return raw;
 }
 
+/** Sessão UI: `admin` | `technician` | `warehouse` */
+export function mapDbRoleToUi(role) {
+  const db = normalizeDbRole(role);
+  if (db === 'RH') return 'admin';
+  if (db === 'Tecnico') return 'technician';
+  if (db === 'Armazem') return 'warehouse';
+  const raw = String(role ?? '').trim();
+  if (raw === 'admin' || raw === 'technician' || raw === 'warehouse') return raw;
+  return raw || null;
+}
+
+/** Filtro de login / Auth: `RH` | `Tecnico` | `Armazem` */
+export function mapUiRoleToDb(uiRole) {
+  const raw = String(uiRole ?? '').trim();
+  if (raw === 'admin') return 'RH';
+  if (raw === 'technician') return 'Tecnico';
+  if (raw === 'warehouse') return 'Armazem';
+  return normalizeDbRole(raw);
+}
+
 export function isRhOrAdminRole(role) {
   return normalizeDbRole(role) === 'RH';
 }
@@ -60,6 +80,10 @@ export function isRhOrAdminEmail(email) {
   return normalized ? RH_ADMIN_EMAILS.includes(normalized) : false;
 }
 
+/**
+ * Nomes no catálogo RH (resolução login nome→e-mail).
+ * Não usar para conceder acesso RH — alinhado com `is_rh_admin()` (migração 036).
+ */
 export function isRhOrAdminName(name) {
   const normalized = String(name ?? '').trim().toLowerCase();
   return normalized ? RH_ADMIN_NAMES.has(normalized) : false;

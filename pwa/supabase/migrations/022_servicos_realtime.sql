@@ -1,4 +1,5 @@
 -- 022 — Realtime para servicos (visitas criadas pelo RH)
+-- Nota: partilha o prefixo 022 com 022_faturas_manuais.sql (aplicar ambos).
 -- Sem isto, o tablet do técnico só vê novos serviços após refresh manual.
 
 BEGIN;

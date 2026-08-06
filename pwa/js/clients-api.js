@@ -1,5 +1,6 @@
 /**
- * API de clientes — PUT /api/clients/[id] com fallback Supabase direto (sessão RH).
+ * API de clientes — tenta PUT /api/clients/[id] (Railway/Vercel);
+ * fallback intencional para updateClient / Supabase direto se a API falhar (404/rede/local).
  */
 
 import { updateClient, updateDB } from './app.js';

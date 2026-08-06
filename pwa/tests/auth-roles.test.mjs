@@ -7,6 +7,8 @@ import {
   isRhOrAdminSession,
   isWarehouseSession,
   normalizeDbRole,
+  mapDbRoleToUi,
+  mapUiRoleToDb,
 } from '../js/auth-roles-core.js';
 
 describe('auth-roles', () => {
@@ -16,6 +18,16 @@ describe('auth-roles', () => {
     assert.equal(isRhOrAdminRole('Admin'), true);
     assert.equal(isRhOrAdminRole('Tecnico'), false);
     assert.equal(normalizeDbRole('Armazem'), 'Armazem');
+  });
+
+  it('mapeia roles DB ↔ UI de forma consistente', () => {
+    assert.equal(mapDbRoleToUi('RH'), 'admin');
+    assert.equal(mapDbRoleToUi('admin'), 'admin');
+    assert.equal(mapDbRoleToUi('Tecnico'), 'technician');
+    assert.equal(mapDbRoleToUi('Armazem'), 'warehouse');
+    assert.equal(mapUiRoleToDb('admin'), 'RH');
+    assert.equal(mapUiRoleToDb('warehouse'), 'Armazem');
+    assert.equal(mapUiRoleToDb('technician'), 'Tecnico');
   });
 
   it('reconhece e-mails RH (Joana e identificadores da Filipa)', () => {

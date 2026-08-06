@@ -1,5 +1,8 @@
 -- RLS para utilizadores com Supabase Auth (role = authenticated)
--- Executar no SQL Editor DEPOIS de supabase-schema-operacoes.sql
+-- LEGADO / referência manual.
+-- Fonte de verdade: pwa/supabase/migrations/ (até 036_security_rls_op_rpc.sql).
+-- Não executar se as migrations já foram aplicadas — pode sobrescrever políticas mais recentes.
+-- Executar no SQL Editor DEPOIS de supabase-schema-operacoes.sql (ambientes antigos).
 -- Corrige: "Sem permissão na tabela trabalhos (RLS)" após login da equipa
 
 -- ─── trabalhos ───
@@ -30,6 +33,7 @@ DROP POLICY IF EXISTS "authenticated_update_clientes" ON public.clientes;
 DROP POLICY IF EXISTS "rh_insert_clientes" ON public.clientes;
 DROP POLICY IF EXISTS "rh_update_clientes" ON public.clientes;
 
+-- Alinhado com migrations/036 (role ou e-mail; sem bypass só por nome)
 CREATE OR REPLACE FUNCTION public.is_rh_admin()
 RETURNS boolean
 LANGUAGE sql
@@ -41,7 +45,6 @@ AS $$
       COALESCE(auth.jwt() -> 'user_metadata' ->> 'role', '') IN (
         'RH', 'rh', 'admin', 'Admin', 'ADMIN', 'administracao', 'Administracao'
       )
-      OR lower(COALESCE(auth.jwt() -> 'user_metadata' ->> 'nome', '')) IN ('joana', 'filipa')
       OR lower(COALESCE(auth.jwt() ->> 'email', '')) IN (
         'joanamaia97@gmail.com',
         'filipa@sistema.com',

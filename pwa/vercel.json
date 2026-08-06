@@ -1,5 +1,5 @@
 {
-  "buildCommand": "node scripts/write-mapbox-config.js && node scripts/write-build-version.js",
+  "buildCommand": "node scripts/write-mapbox-config.js && node scripts/write-build-version.js && node scripts/write-api-runtime-config.mjs && node scripts/sync-rh-admin-config.mjs",
   "outputDirectory": ".",
   "cleanUrls": true,
   "routes": [
@@ -16,7 +16,7 @@
       ]
     },
     {
-      "source": "/(dashboard|admin|index)",
+      "source": "/(dashboard|admin|index|warehouse|orcamento|avaliar)",
       "headers": [
         {
           "key": "Cache-Control",
@@ -35,6 +35,15 @@
     },
     {
       "source": "/sw.js",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
+        }
+      ]
+    },
+    {
+      "source": "/js/force-refresh-page.js",
       "headers": [
         {
           "key": "Cache-Control",

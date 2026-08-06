@@ -1,4 +1,5 @@
 -- 007 — Lockdown role anon (trabalhos, relatórios, clientes, storage fotos)
+-- Nota: partilha o prefixo 007 com 007_filipa_sistema_email.sql (aplicar ambos; ordem alfabética: filipa → lockdown).
 -- Pré-requisito: 006_rh_admin_roles.sql
 -- Após aplicar: a app deve usar Supabase Auth (sessão authenticated), não anon.
 

@@ -1,4 +1,5 @@
 -- 022 — Faturas registadas manualmente (sem relatório/visita na app)
+-- Nota: partilha o prefixo 022 com 022_servicos_realtime.sql (aplicar ambos; ordem: faturas → realtime).
 -- Executar no Supabase → SQL Editor
 
 BEGIN;

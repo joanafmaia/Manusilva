@@ -1,6 +1,7 @@
--- Executar no Supabase → SQL Editor (projeto zhfbezrevosmbmcbyskw)
--- Migrações versionadas: pwa/supabase/migrations/001 → 003 (executar por ordem se tabela nova).
--- Este ficheiro aplica telemovel, auditoria e RLS endurecido (escrita só RH authenticated).
+-- LEGADO / referência manual.
+-- Fonte de verdade: pwa/supabase/migrations/ (001–036). Preferir migrations versionadas.
+-- Não executar se as migrations já foram aplicadas — pode sobrescrever políticas mais recentes.
+-- Ambientes antigos: Supabase → SQL Editor (telemovel, auditoria e RLS clientes).
 
 ALTER TABLE public.clientes ADD COLUMN IF NOT EXISTS telemovel text;
 ALTER TABLE public.clientes ADD COLUMN IF NOT EXISTS condicao_pagamento text;
@@ -43,6 +44,7 @@ DROP POLICY IF EXISTS "anon_update_clientes" ON public.clientes;
 DROP POLICY IF EXISTS "authenticated_insert_clientes" ON public.clientes;
 DROP POLICY IF EXISTS "authenticated_update_clientes" ON public.clientes;
 
+-- Alinhado com migrations/036 (role ou e-mail; sem bypass só por nome)
 CREATE OR REPLACE FUNCTION public.is_rh_admin()
 RETURNS boolean
 LANGUAGE sql
@@ -54,7 +56,6 @@ AS $$
       COALESCE(auth.jwt() -> 'user_metadata' ->> 'role', '') IN (
         'RH', 'rh', 'admin', 'Admin', 'ADMIN', 'administracao', 'Administracao'
       )
-      OR lower(COALESCE(auth.jwt() -> 'user_metadata' ->> 'nome', '')) IN ('joana', 'filipa')
       OR lower(COALESCE(auth.jwt() ->> 'email', '')) IN (
         'joanamaia97@gmail.com',
         'filipa@sistema.com',

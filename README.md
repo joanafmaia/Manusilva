@@ -2,25 +2,26 @@
 
 Progressive Web App mobile-first para a **ManuSilva** — gestão de intervenções técnicas (empilhadores, manutenção, baterias), relatórios em PDF, orçamentos, faturação interna e painel RH.
 
-Backend: **Supabase** (Postgres + Auth + Storage). E-mail ao cliente via API serverless (`pwa/api/enviar-email.js`, tipicamente na Vercel).
+Backend: **Supabase** (Postgres + Auth + Storage). Deploy recomendado: **Railway** (`server/index.cjs` serve a PWA + `/api`). Vercel permanece como opção legada.
 
 ## Estrutura do repositório
 
 ```
 Manusilva/
+├── server/index.cjs            Express (Railway) — estático + API
 ├── pwa/
-│   ├── index.html              Login (técnico / RH)
+│   ├── index.html              Login (técnico / RH / armazém)
 │   ├── dashboard.html          Painel do técnico (tablet)
 │   ├── admin.html              Painel RH (desktop)
+│   ├── warehouse.html          Painel armazém / folhas de obra
 │   ├── js/                     Módulos ES (relatórios, serviços, PDF, faturação…)
-│   ├── api/                    Endpoints serverless (e-mail, clientes, técnicos)
-│   ├── supabase/migrations/    SQL versionado (incl. 020 serviços)
+│   ├── api/                    Endpoints (e-mail, clientes, técnicos, avaliações)
+│   ├── supabase/migrations/    SQL versionado (fonte de verdade; até 036)
 │   ├── tests/                  Testes Node (`*.test.mjs`)
-│   ├── css/                    Estilos
-│   ├── sw.js                   Service worker
-│   └── vercel.json             Deploy da PWA + API
-├── scripts/                    Utilitários (catálogo, templates)
-└── package.json                `npm test`, lint, format
+│   ├── css/                    Estilos (base / tech / admin / warehouse)
+│   └── sw.js                   Service worker
+├── railway.toml
+└── package.json                `npm test`, lint, build, start
 ```
 
 ## Modelo «Serviço» (visita multi-relatório)
@@ -52,7 +53,7 @@ python -m http.server 3456
 
 Abrir: http://localhost:3456/index.html
 
-Para Supabase em produção, configure as variáveis no runtime da PWA (ver `pwa/js/supabase-client.js` e scripts `npm run sync:api-config`). Sem migração 020, a app continua a funcionar em modo legado (só trabalhos).
+Para API + PWA como em produção: `npm run build` e `npm start` na raiz (ver `RAILWAY.md`).
 
 ## Testes
 
@@ -62,19 +63,23 @@ Na raiz do repositório:
 npm test
 ```
 
-Inclui testes de serviços, e-mail agrupado, faturação por visita, PDFs, orçamentos, etc.
-
 ## Autenticação e RH
 
 - Contas da equipa: ver **`pwa/supabase-auth-equipa.md`**
-- Joana e Filipa: role **`RH`** (acesso total — clientes, revisão, faturação, calendário)
-- Após criar utilizadores no Supabase Auth, aplicar migrações RLS (`pwa/supabase-rls-authenticated.sql`, `006_rh_admin_roles.sql`)
+- Joana e Filipa: role **`RH`** (ou e-mail na allowlist) — acesso total
+- Verificações partilhadas: `pwa/js/auth-roles-core.js` + `pwa/server-lib/auth-roles.js` (`npm run sync:rh-config`)
+- Técnicos podem usar o painel **Armazém**
+- Após Auth no Supabase, aplicar migrations em `pwa/supabase/migrations/` (incl. **036** para `is_rh_admin` sem bypass só por nome)
+
+Ficheiros SQL soltos em `pwa/supabase-*.sql` são referência legada — a fonte de verdade são as migrations.
 
 ## Migrações SQL
 
 Executar no Supabase → SQL Editor, por ordem numérica em `pwa/supabase/migrations/`.
 
-A **020** é obrigatória para o modelo serviço/visita. Copia faturação legada para `servicos` e liga `relatorios.servico_id`.
+Há dois pares com o mesmo prefixo (`007_*`, `022_*`) — aplicar **ambos** (ordem alfabética dentro do número).
+
+A **020** é obrigatória para o modelo serviço/visita. A **036** alinha RLS RH com a app.
 
 ## Scripts úteis
 
@@ -88,6 +93,6 @@ A **020** é obrigatória para o modelo serviço/visita. Copia faturação legad
 ## Deploy
 
 - **Railway (recomendado):** ver [`RAILWAY.md`](RAILWAY.md) — PWA + API no mesmo serviço (`npm run build` / `npm start`).
-- **Vercel (legado):** deploy a partir de `pwa/` / raiz com `vercel.json`.
+- **Vercel (legado):** `vercel.json` na raiz (output `pwa/`) ou `pwa/vercel.json` (deploy a partir de `pwa/`); ambos correm o build completo (mapbox, version, API config, sync RH).
 
 Variáveis: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `EMAIL_USER`, `EMAIL_PASS`, `APP_BASE_URL`, etc.
