@@ -126,6 +126,15 @@ const MAQUINA_FOOTER_SEPARATOR_GAP = 4;
 const MANUTENCAO_SPLIT_PRECO_FROM = 9;
 const MAQUINA_SPLIT_TABLE_FROM = MANUTENCAO_SPLIT_PRECO_FROM;
 const BATERIA_SPLIT_PRECO_FROM = MANUTENCAO_SPLIT_PRECO_FROM;
+const BATERIA_FOOTER_GAP_ABOVE = 6;
+/** Não subir o rodapé de baterias acima disto (reserva mínima para o corpo). */
+const BATERIA_FOOTER_START_MIN = 115;
+const BATERIA_FOOTER_VALOR_STEP_MAX = 5;
+const BATERIA_FOOTER_VALOR_STEP_MIN = 3.4;
+const BATERIA_FOOTER_BLOCK_STEP_MAX = 4.8;
+const BATERIA_FOOTER_BLOCK_STEP_MIN = 3.5;
+const BATERIA_FOOTER_VALOR_GAP = 1;
+const BATERIA_FOOTER_BLOCK_GAP = 1.5;
 const PROPOSTA_FOOTER_MAX_Y = APPROVAL_TOP - 6;
 const CONTENT_MAX_Y = FOOTER_TOP - 6;
 
@@ -445,12 +454,12 @@ export function computeOrcamentoTableLayout(
   };
 }
 
-function canDrawContentLine(y, step = 5) {
-  return y + step <= CONTENT_MAX_Y;
+function canDrawContentLine(y, step = 5, maxY = CONTENT_MAX_Y) {
+  return y + step <= maxY;
 }
 
-function advanceContentY(y, step = 5) {
-  return canDrawContentLine(y, step) ? y + step : y;
+function advanceContentY(y, step = 5, maxY = CONTENT_MAX_Y) {
+  return canDrawContentLine(y, step, maxY) ? y + step : y;
 }
 
 /** @deprecated usar canDrawContentLine para o corpo da folha 1 */
@@ -1915,10 +1924,73 @@ function drawManutencaoMaquinaPrecoLines(doc, precoLinhas, startY, maxY, options
   return y;
 }
 
-function estimateBateriaFooterHeight(valorLineCount) {
+function estimateBateriaFooterHeight(valorLineCount, typography = {}) {
   const n = Math.max(1, valorLineCount);
-  // Linhas de valor (~6mm) + totais IVA (~18) + pagamento/notas (~28).
-  return n * 6 + 18 + 28;
+  const valorStep = typography.valorLineStep ?? BATERIA_FOOTER_VALOR_STEP_MAX;
+  const blockStep = typography.blockLineStep ?? BATERIA_FOOTER_BLOCK_STEP_MAX;
+  const valorGap = typography.valorGap ?? BATERIA_FOOTER_VALOR_GAP;
+  const blockGap = typography.blockGap ?? BATERIA_FOOTER_BLOCK_GAP;
+  // Multi-bateria: texto mais longo → ~1.35 linhas por valor.
+  const wrapFactor = n > 1 ? 1.35 : 1;
+  const valorLines = Math.ceil(n * wrapFactor);
+  const ivaLines = 3;
+  const blockLines = 6;
+  return (
+    valorLines * (valorStep + valorGap * 0.35) +
+    n * valorGap * 0.65 +
+    ivaLines * Math.max(4, valorStep) +
+    4 +
+    blockLines * blockStep +
+    4 * blockGap
+  );
+}
+
+/** Tipografia do rodapé de baterias para caber no espaço vertical disponível. */
+export function resolveManutencaoBateriaFooterTypography(availableHeight, valorLineCount) {
+  const usable = Math.max(28, availableHeight);
+  let valorLineStep = BATERIA_FOOTER_VALOR_STEP_MAX;
+  let blockLineStep = BATERIA_FOOTER_BLOCK_STEP_MAX;
+  let valorGap = BATERIA_FOOTER_VALOR_GAP;
+  let blockGap = BATERIA_FOOTER_BLOCK_GAP;
+  let fontSize = PDF_FONT_BODY;
+
+  for (let attempt = 0; attempt < 14; attempt += 1) {
+    const estimatedHeight = estimateBateriaFooterHeight(valorLineCount, {
+      valorLineStep,
+      blockLineStep,
+      valorGap,
+      blockGap,
+    });
+    if (estimatedHeight <= usable) {
+      return {
+        valorLineStep,
+        blockLineStep,
+        valorGap,
+        blockGap,
+        fontSize,
+        estimatedHeight,
+      };
+    }
+    valorLineStep = Math.max(BATERIA_FOOTER_VALOR_STEP_MIN, valorLineStep - 0.15);
+    blockLineStep = Math.max(BATERIA_FOOTER_BLOCK_STEP_MIN, blockLineStep - 0.12);
+    valorGap = Math.max(0.35, valorGap - 0.05);
+    blockGap = Math.max(0.6, blockGap - 0.08);
+    if (valorLineStep <= 4.1) fontSize = MAQUINA_BULLET_COMPACT_FONT;
+  }
+
+  return {
+    valorLineStep,
+    blockLineStep,
+    valorGap,
+    blockGap,
+    fontSize,
+    estimatedHeight: estimateBateriaFooterHeight(valorLineCount, {
+      valorLineStep,
+      blockLineStep,
+      valorGap,
+      blockGap,
+    }),
+  };
 }
 
 export function resolveManutencaoBateriaPdfFooterLayout(fill = {}) {
@@ -1926,45 +1998,90 @@ export function resolveManutencaoBateriaPdfFooterLayout(fill = {}) {
   const valorLinhas = formatLinhasValorManutencaoBateria(meta, meta);
   const batteryCount = Math.max(valorLinhas.length, 1);
   const splitTablePage = batteryCount >= BATERIA_SPLIT_PRECO_FROM;
-  const priceFooterHeight = estimateBateriaFooterHeight(valorLinhas.length);
-  const footerHeight = splitTablePage ? 0 : priceFooterHeight;
+
+  if (splitTablePage) {
+    const roomy = resolveManutencaoBateriaFooterTypography(160, valorLinhas.length);
+    return {
+      batteryCount,
+      splitTablePage: true,
+      valorLinhas,
+      priceFooterHeight: roomy.estimatedHeight,
+      footerHeight: 0,
+      footerStartY: BATERIA_FOOTER_ANCHOR_Y,
+      footerMaxY: PROPOSTA_FOOTER_MAX_Y,
+      footerTypography: roomy,
+      bodyMaxY: PROPOSTA_FOOTER_MAX_Y - 4,
+    };
+  }
+
+  const defaultAvailable = PROPOSTA_FOOTER_MAX_Y - BATERIA_FOOTER_ANCHOR_Y;
+  let footerTypography = resolveManutencaoBateriaFooterTypography(
+    defaultAvailable,
+    valorLinhas.length,
+  );
+  let footerStartY = BATERIA_FOOTER_ANCHOR_Y;
+
+  if (footerTypography.estimatedHeight > defaultAvailable) {
+    footerStartY = Math.max(
+      BATERIA_FOOTER_START_MIN,
+      PROPOSTA_FOOTER_MAX_Y - footerTypography.estimatedHeight,
+    );
+    footerTypography = resolveManutencaoBateriaFooterTypography(
+      PROPOSTA_FOOTER_MAX_Y - footerStartY,
+      valorLinhas.length,
+    );
+    footerStartY = Math.max(
+      BATERIA_FOOTER_START_MIN,
+      PROPOSTA_FOOTER_MAX_Y - footerTypography.estimatedHeight,
+    );
+  }
 
   return {
     batteryCount,
-    splitTablePage,
+    splitTablePage: false,
     valorLinhas,
-    priceFooterHeight,
-    footerHeight,
-    footerStartY: BATERIA_FOOTER_ANCHOR_Y,
+    priceFooterHeight: footerTypography.estimatedHeight,
+    footerHeight: footerTypography.estimatedHeight,
+    footerStartY,
     footerMaxY: PROPOSTA_FOOTER_MAX_Y,
+    footerTypography,
+    bodyMaxY: footerStartY - BATERIA_FOOTER_GAP_ABOVE,
   };
 }
 
 function drawManutencaoBateriaFooter(doc, fill, layout = {}) {
   let y = layout.footerStartY ?? BATERIA_FOOTER_ANCHOR_Y;
   const footerMaxY = layout.footerMaxY ?? PROPOSTA_FOOTER_MAX_Y;
-  pdfSetFont(doc, 'normal');
-  doc.setFontSize(PDF_FONT_BODY);
-  doc.setTextColor(...PDF_COLOR_TEXT_DARK);
-
+  const availableHeight = Math.max(28, footerMaxY - y);
   const meta = templateMetaFromFill(fill);
   const valorLinhas =
     layout.valorLinhas || formatLinhasValorManutencaoBateria(meta, meta);
+  const typography =
+    layout.footerTypography ||
+    resolveManutencaoBateriaFooterTypography(availableHeight, valorLinhas.length);
+
+  pdfSetFont(doc, 'normal');
+  doc.setFontSize(typography.fontSize);
+  doc.setTextColor(...PDF_COLOR_TEXT_DARK);
 
   pdfSetFont(doc, 'bold');
   valorLinhas.forEach((valorLine) => {
     pdfSplitText(doc, valorLine, CONTENT_W).forEach((line) => {
-      if (y > footerMaxY) return;
+      if (y + typography.valorLineStep > footerMaxY + 0.5) return;
       doc.text(line, MARGIN, y);
-      y += 5;
+      y += typography.valorLineStep;
     });
-    y += 1;
+    y += typography.valorGap;
   });
 
-  y = drawOrcamentoIvaTotals(doc, fill, y + 1, footerMaxY);
+  y = drawOrcamentoIvaTotals(doc, fill, y + 1, footerMaxY, {
+    lineStep: Math.max(4, typography.valorLineStep),
+    fontSize: typography.fontSize,
+  });
   y += 1;
 
   pdfSetFont(doc, 'normal');
+  doc.setFontSize(typography.fontSize);
   const blocks = [
     MANUTENCAO_BATERIA_MO_OBS,
     `Forma de Pagamento: ${pdfSafeText(fill.forma_pagamento)}`,
@@ -1974,11 +2091,11 @@ function drawManutencaoBateriaFooter(doc, fill, layout = {}) {
 
   blocks.forEach((text) => {
     pdfSplitText(doc, text, CONTENT_W).forEach((line) => {
-      if (y > footerMaxY) return;
+      if (y + typography.blockLineStep > footerMaxY + 0.5) return;
       doc.text(line, MARGIN, y);
-      y += 4.8;
+      y += typography.blockLineStep;
     });
-    y += 1.5;
+    y += typography.blockGap;
   });
 
   return y;
@@ -2062,20 +2179,20 @@ async function renderManutencaoMaquinaOrcamentoPDF(doc, report, job) {
   y += footerLayout.ultraCompactPreBullet ? 1 : 2;
 
   pdfSetFont(doc, 'bold');
-  if (canDrawContentLine(y, sectionStep) && y + sectionStep <= preBulletMaxY) {
+  if (canDrawContentLine(y, sectionStep, preBulletMaxY)) {
     doc.text(MANUTENCAO_MAQUINA_PLANO_TITULO, MARGIN, y);
-    y = advanceContentY(y, sectionStep);
+    y = advanceContentY(y, sectionStep, preBulletMaxY);
   }
   pdfSetFont(doc, 'normal');
-  if (canDrawContentLine(y, sectionStep) && y + sectionStep <= preBulletMaxY) {
+  if (canDrawContentLine(y, sectionStep, preBulletMaxY)) {
     doc.text(`– ${MANUTENCAO_MAQUINA_PLANO_DETALHE}`, MARGIN, y);
-    y = advanceContentY(y, sectionStep);
+    y = advanceContentY(y, sectionStep, preBulletMaxY);
   }
 
   pdfSetFont(doc, 'bold');
-  if (canDrawContentLine(y, sectionStep) && y + sectionStep <= preBulletMaxY) {
+  if (canDrawContentLine(y, sectionStep, preBulletMaxY)) {
     doc.text(MANUTENCAO_MAQUINA_ESPECIFICACAO_TITULO, MARGIN, y);
-    y = advanceContentY(y, sectionStep);
+    y = advanceContentY(y, sectionStep, preBulletMaxY);
   }
 
   pdfSetFont(doc, 'normal');
@@ -2137,7 +2254,7 @@ async function renderManutencaoBateriaOrcamentoPDF(doc, report, job) {
   const splitTablePage = footerLayout.splitTablePage;
   const meta = templateMetaFromFill(fill);
   const paragrafos = buildManutencaoBateriaParagrafos(meta, meta);
-  const bodyMaxY = splitTablePage ? PROPOSTA_FOOTER_MAX_Y - 4 : BATERIA_BODY_MAX_Y;
+  const bodyMaxY = footerLayout.bodyMaxY ?? BATERIA_BODY_MAX_Y;
 
   let y = drawOrcamentoLetterhead(doc, fill);
 
@@ -2148,9 +2265,9 @@ async function renderManutencaoBateriaOrcamentoPDF(doc, report, job) {
 
   pdfSetFont(doc, 'bold');
   doc.setFontSize(PDF_FONT_BODY);
-  if (canDrawContentLine(y, 6) && y + 6 <= bodyMaxY) {
+  if (canDrawContentLine(y, 6, bodyMaxY)) {
     doc.text(MANUTENCAO_BATERIA_ESPECIFICACAO_TITULO, MARGIN, y);
-    y = advanceContentY(y, 6);
+    y = advanceContentY(y, 6, bodyMaxY);
   }
 
   pdfSetFont(doc, 'normal');

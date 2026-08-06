@@ -12,6 +12,7 @@ import {
   resolveManutencaoMaquinaFooterTypography,
   resolveManutencaoMaquinaPdfLayout,
   resolveManutencaoBateriaPdfFooterLayout,
+  resolveManutencaoBateriaFooterTypography,
   resolveOrcamentoGenericLayout,
   estimateOrcamentoGroupBlockHeight,
 } from '../js/pdf-orcamento.js';
@@ -196,11 +197,30 @@ describe('pdf-orcamento layout', () => {
     assert.equal(layout8.splitTablePage, false);
     assert.equal(layout8.batteryCount, 8);
     assert.ok(layout8.footerHeight > 0, '8 baterias: valores na folha 1');
+    assert.ok(
+      layout8.footerStartY + layout8.footerHeight <= layout8.footerMaxY + 0.5,
+      'rodapé de 8 baterias cabe até à aprovação',
+    );
+    assert.ok(layout8.bodyMaxY < layout8.footerStartY, 'corpo termina acima do rodapé');
+    assert.ok(
+      layout8.footerTypography.valorLineStep < 5 || layout8.footerStartY < 166,
+      'comprime tipografia ou sobe o rodapé para caber',
+    );
     assert.equal(layout9.splitTablePage, true);
     assert.equal(layout9.batteryCount, 9);
     assert.equal(layout9.footerHeight, 0, 'folha 1 sem reserva dos valores');
     assert.ok(layout9.priceFooterHeight > 0, 'altura real dos valores para a folha 2');
     assert.equal(layout9.valorLinhas.length, 9);
+    assert.ok(layout9.bodyMaxY > 200, 'folha 1 com mais espaço sem mapa de preços');
+  });
+
+  it('comprime tipografia de baterias quando o espaço do rodapé é apertado', () => {
+    const roomy = resolveManutencaoBateriaFooterTypography(110, 8);
+    const tight = resolveManutencaoBateriaFooterTypography(80, 8);
+    assert.ok(tight.valorLineStep <= roomy.valorLineStep);
+    assert.ok(tight.estimatedHeight <= 80 + 0.5);
+    assert.ok(roomy.estimatedHeight <= 110 + 0.5);
+    assert.ok(tight.fontSize <= roomy.fontSize || tight.valorLineStep < 5);
   });
 
   it('escolhe tipografia maior quando o rodapé tem espaço vertical', () => {
