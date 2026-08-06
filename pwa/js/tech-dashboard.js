@@ -1314,7 +1314,7 @@ function renderHeader() {
     const logoEl = document.getElementById('brand-logo');
     if (logoEl) logoEl.textContent = COMPANY.logo;
     const nameEl = document.getElementById('brand-name');
-    if (nameEl) nameEl.textContent = COMPANY.name;
+    if (nameEl) nameEl.textContent = COMPANY.appName || COMPANY.logo || 'MFS';
   }
   const tagline = document.getElementById('brand-tagline');
   if (tagline) tagline.textContent = COMPANY.tagline;

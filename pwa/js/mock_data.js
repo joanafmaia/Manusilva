@@ -41,9 +41,13 @@ export const BATERIA_IDENTITY_FIELD_DEFS = [
 export const SCHEMA_VERSION = 25;
 
 export const COMPANY = {
+  /** Razão social — PDFs, e-mails e rodapés legais. */
   name: 'ManuSilva Manutenção Industrial, Unipessoal, Lda',
+  /** Nome do programa (PWA / UI). */
+  appName: 'MFS',
+  appFullName: 'Manusilva Field Service',
   tagline: 'Empilhadores · Manutenção · Baterias',
-  logo: 'MS',
+  logo: 'MFS',
   nif: '',
   address: 'Rua São Mamede, Lote Nº1 - Fração D, 4760-725 Ribeirão VNF',
   postalCode: '4760-725 Ribeirão VNF',

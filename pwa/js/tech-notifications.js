@@ -86,7 +86,7 @@ export function maybeNotifyTechReportRejected(report, job) {
     ? `${name}: ${note.length > 120 ? `${note.slice(0, 120)}…` : note}`
     : `O relatório de ${name} foi rejeitado. Abra para corrigir.`;
 
-  postTechNotification('Relatório rejeitado — Manusilva', body, `report-rejected-${report.id || report.jobId}`);
+  postTechNotification('Relatório rejeitado — MFS', body, `report-rejected-${report.id || report.jobId}`);
 }
 
 export function maybeNotifyTechReportApproved(report, job, techMatch) {
@@ -100,7 +100,7 @@ export function maybeNotifyTechReportApproved(report, job, techMatch) {
   if (servicoId && isServicoMultiReportVisit(servicoId)) {
     const count = getServicoActiveReports(servicoId).length;
     postTechNotification(
-      'Visita aprovada — Manusilva',
+      'Visita aprovada — MFS',
       `Os ${count} relatórios de ${name} foram aprovados pelo RH.`,
       `visit-approved-${servicoId}`,
     );
@@ -108,7 +108,7 @@ export function maybeNotifyTechReportApproved(report, job, techMatch) {
   }
 
   postTechNotification(
-    'Relatório aprovado — Manusilva',
+    'Relatório aprovado — MFS',
     `O relatório de ${name} foi aprovado pelo RH.`,
     `report-approved-${report.id || report.jobId}`,
   );
@@ -140,7 +140,7 @@ export function maybeNotifyTechJobScheduled(job, techMatch) {
     diffDays === 0 ? 'hoje' : diffDays === 1 ? 'amanhã' : `em ${formatShortDate(date)}`;
 
   postTechNotification(
-    'Novo trabalho — Manusilva',
+    'Novo trabalho — MFS',
     `${name} — agendado para ${when}.`,
     `job-scheduled-${job.id}`,
   );

@@ -1,6 +1,6 @@
 {
-  "name": "Manusilva Field Service",
-  "short_name": "Manusilva",
+  "name": "MFS — Manusilva Field Service",
+  "short_name": "MFS",
   "description": "Gestão de empilhadores, manutenção e baterias",
   "start_url": "./index.html",
   "display": "standalone",
