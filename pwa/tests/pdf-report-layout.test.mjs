@@ -239,6 +239,14 @@ describe('pdf-inspecao-dl50', () => {
       assert.ok(mod[name] != null, `export em falta: ${name}`);
     }
   });
+
+  it('usa keep-together do par de colunas (regressão Bateria a meio da página)', async () => {
+    const fs = await import('node:fs');
+    const src = fs.readFileSync(new URL('../js/pdf-inspecao-dl50.js', import.meta.url), 'utf8');
+    assert.match(src, /ensureDl50DualRowFits/);
+    assert.match(src, /safetyMm/);
+    assert.equal(src.includes('ensureDl50DualRowOrphanSpace'), false);
+  });
 });
 
 describe('pdf-movimento-material', () => {

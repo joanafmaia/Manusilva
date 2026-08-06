@@ -11,8 +11,10 @@ import {
   PDF_FONT_TABLE,
   PDF_MARGIN as MARGIN,
   PDF_SECTION_GAP_MM,
+  PDF_TABLE_MIN_CELL_HEIGHT_COMPACT,
 } from './pdf-design-system.js';
 import {
+  ensureSpace,
   getPdfAutoTableMargin,
   normalizeYAfterAutoTable,
   touchPdfContentPage,
@@ -40,6 +42,15 @@ export async function drawPdfGridTable(doc, y, options = {}) {
   if (!body?.length && !head?.length) return y;
 
   await loadJsPdfAutoTable();
+
+  // Evita o bug do autoTable: se não cabe no fundo, saltar de página e
+  // começar no topo — senão pode repetir o mesmo Y a meio da página nova.
+  const minChunkMm =
+    PDF_TABLE_MIN_CELL_HEIGHT_COMPACT * ((head?.length ? 1 : 0) + (body?.length ? 1 : 0)) + 2;
+  if (minChunkMm > 0) {
+    y = ensureSpace(doc, y, minChunkMm);
+  }
+
   const baseStyles = buildPdfAutoTableStyles(doc, pdfAutoTableFont, pdfSetFont);
   const tableConfig = {
     startY: y,

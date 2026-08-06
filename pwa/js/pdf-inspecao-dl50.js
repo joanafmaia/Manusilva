@@ -122,10 +122,10 @@ function estimateDl50CategoryBlockHeight(doc, body, colWidth) {
   const titleH = DL50_MATRIX_CAT_BAND_MM + 1;
   let tableH = PDF_TABLE_MIN_CELL_HEIGHT_COMPACT + 1;
   body.forEach((row) => {
-    const lines = pdfSplitText(doc, row[0], pointColWidth - 4);
-    tableH += Math.max(PDF_TABLE_MIN_CELL_HEIGHT_COMPACT, lines.length * 3 + 2);
+    const lines = pdfSplitText(doc, String(row[0] || ''), pointColWidth - 4);
+    tableH += Math.max(PDF_TABLE_MIN_CELL_HEIGHT_COMPACT, lines.length * 3.2 + 2.2);
   });
-  return titleH + tableH + 1.5;
+  return titleH + tableH + 2;
 }
 
 function estimateDl50CategoryOrphanHeight(doc, body, colWidth) {
@@ -135,6 +135,16 @@ function estimateDl50CategoryOrphanHeight(doc, body, colWidth) {
 
 function ensureDl50CategoryOrphanSpace(doc, y, body, colWidth, maxBottomY = null) {
   const limit = maxBottomY ?? pdfContentBottomY();
+  const fullH = estimateDl50CategoryBlockHeight(doc, body, colWidth);
+  const maxOnPage = Math.max(0, limit - PDF_PAGE_CONTENT_START_Y);
+
+  // Se o bloco cabe numa página vazia, não partir a meio — saltar para a seguinte.
+  if (fullH > 0 && fullH <= maxOnPage && y + fullH > limit) {
+    doc.addPage();
+    touchPdfContentPage(doc);
+    return PDF_PAGE_CONTENT_START_Y;
+  }
+
   const orphanH = estimateDl50CategoryOrphanHeight(doc, body, colWidth);
   if (orphanH > 0 && y + orphanH > limit) {
     doc.addPage();
@@ -144,15 +154,13 @@ function ensureDl50CategoryOrphanSpace(doc, y, body, colWidth, maxBottomY = null
   return y;
 }
 
-function ensureDl50DualRowOrphanSpace(doc, y, leftBody, rightBody, colW) {
-  let orphanH = 0;
-  if (leftBody.length) {
-    orphanH = Math.max(orphanH, estimateDl50CategoryOrphanHeight(doc, leftBody, colW));
-  }
-  if (rightBody.length) {
-    orphanH = Math.max(orphanH, estimateDl50CategoryOrphanHeight(doc, rightBody, colW));
-  }
-  if (orphanH > 0 && y + orphanH > pdfContentBottomY()) {
+/** Par esquerda/direita tem de caber junto; senão o autoTable pode repetir o Y a meio da página nova. */
+function ensureDl50DualRowFits(doc, y, leftBody, rightBody, colW) {
+  const leftH = leftBody.length ? estimateDl50CategoryBlockHeight(doc, leftBody, colW) : 0;
+  const rightH = rightBody.length ? estimateDl50CategoryBlockHeight(doc, rightBody, colW) : 0;
+  const rowH = Math.max(leftH, rightH);
+  const safetyMm = 4;
+  if (rowH > 0 && y + rowH + safetyMm > pdfContentBottomY()) {
     doc.addPage();
     touchPdfContentPage(doc);
     return PDF_PAGE_CONTENT_START_Y;
@@ -334,7 +342,7 @@ export async function drawDl50DualMatrixInspectionBlock(doc, y, field, matrixVal
     const leftBody = leftCat ? buildDl50CategoryTable(doc, leftCat, leftData).body : [];
     const rightBody = rightCat ? buildDl50CategoryTable(doc, rightCat, rightData).body : [];
 
-    const rowStartY = ensureDl50DualRowOrphanSpace(doc, y, leftBody, rightBody, colW);
+    const rowStartY = ensureDl50DualRowFits(doc, y, leftBody, rightBody, colW);
     let leftEnd = rowStartY;
     let rightEnd = rowStartY;
 
