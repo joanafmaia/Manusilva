@@ -4480,6 +4480,70 @@ body .admin-rh-page .btn-primary, body .admin-rh-page .btn-secondary, body .admi
   flex-wrap: nowrap;
   gap: 0.2rem;
   justify-content: flex-end;
+  align-items: center;
+}
+.admin-rh-page .faturacao-inline-payment {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+.admin-rh-page .faturacao-inline-date {
+  width: 7.6rem;
+  min-width: 7.6rem;
+  padding: 0.16rem 0.28rem;
+  font-size: 0.7rem;
+  line-height: 1.2;
+}
+.admin-rh-page .faturacao-btn-dismiss {
+  min-width: 1.5rem;
+  padding-inline: 0.3rem;
+  color: var(--ms-text-muted, #64748b);
+}
+.admin-rh-page .faturacao-table--dense td {
+  vertical-align: top;
+}
+.admin-rh-page .faturacao-row-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  align-items: center;
+  margin-top: 0.12rem;
+}
+.admin-rh-page .faturacao-cell-detail {
+  display: block;
+  margin-top: 0.1rem;
+  font-size: 0.72rem;
+  color: var(--ms-text-muted, #64748b);
+  line-height: 1.25;
+  white-space: normal;
+}
+.admin-rh-page .faturacao-visit-badge {
+  display: inline-block;
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  padding: 0.08rem 0.35rem;
+  border-radius: 0.25rem;
+  background: rgba(30, 77, 114, 0.12);
+  color: var(--ms-primary, #1e4d72);
+  line-height: 1.2;
+}
+.admin-rh-page .faturacao-visit-badge--proposta {
+  background: rgba(5, 150, 105, 0.12);
+  color: var(--ms-emerald-700, #047857);
+}
+.admin-rh-page .faturacao-visit-badge--folha {
+  background: rgba(217, 119, 6, 0.14);
+  color: var(--ms-amber-700, #b45309);
+}
+.admin-rh-page .faturacao-visit-badge--manual {
+  background: rgba(100, 116, 139, 0.14);
+  color: #475569;
+}
+.admin-rh-page .faturacao-visit-badge--report {
+  background: rgba(59, 130, 246, 0.12);
+  color: #1d4ed8;
 }
 .admin-rh-page .rh-col-action,
 .admin-rh-page .faturacao-col-action {
@@ -4497,7 +4561,7 @@ body .admin-rh-page .btn-primary, body .admin-rh-page .btn-secondary, body .admi
 }
 .admin-rh-page .rh-cell-client--wrap,
 .admin-rh-page .faturacao-cell-client--wrap {
-  max-width: 11rem;
+  max-width: 14rem;
   white-space: normal;
   line-height: 1.2;
 }

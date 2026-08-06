@@ -209,7 +209,7 @@ const adminTabDirty = {
 
 let orcamentosRealtimeRefreshTimer = null;
 
-/** Soft-refresh Orçamentos (e marca Faturação dirty) após Realtime — debounce ~280ms. */
+/** Soft-refresh Orçamentos / Faturação após Realtime — debounce ~280ms. */
 function scheduleOrcamentosRealtimeRefresh() {
   if (orcamentosRealtimeRefreshTimer) clearTimeout(orcamentosRealtimeRefreshTimer);
   orcamentosRealtimeRefreshTimer = setTimeout(() => {
@@ -220,7 +220,12 @@ function scheduleOrcamentosRealtimeRefresh() {
     } else {
       adminTabDirty.orcamentos = true;
     }
-    adminTabDirty.faturacao = true;
+    if (currentTab === 'faturacao') {
+      adminTabDirty.faturacao = false;
+      refreshFaturacaoPanel({ soft: true }).catch(console.error);
+    } else {
+      adminTabDirty.faturacao = true;
+    }
   }, 280);
 }
 

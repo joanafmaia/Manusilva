@@ -33,12 +33,14 @@ import {
   confirmServicoInvoicePayment,
   revertServicoInvoice,
   resolveBillingFocusTarget,
+  dismissPendingBillingServico,
 } from '../servicos-billing-workflow.js';
 import {
   isServicoReportBillable,
   resolveBillingReportPdfEntries,
   resolvePrimaryBillingReportId,
   revertReportInvoice,
+  dismissPendingBillingReport,
 } from '../billing-workflow.js';
 import { getClientName } from '../client-display.js';
 import {
@@ -60,6 +62,8 @@ import {
   formatFolhaObraOrdemLabel,
   getFolhaObra,
   getInvoicedFolhasObra,
+  ensureFolhasObraLoadedSafe,
+  updateFolhaObra,
 } from '../folhas-obra-db.js';
 import {
   confirmFolhaObraInvoicePayment,
@@ -102,10 +106,15 @@ const billingFilters = {
   to: '',
   clientId: '',
   clientNome: '',
+  /** Tabs das faturas emitidas: pendente | pago | all */
   recebimentoStatus: 'pendente',
+  /** Filtro da fila «Por faturar»: all | servico | report | orcamento | folha_obra */
+  pendingKind: 'all',
+  search: '',
 };
 
 let invoicesListVisibleCount = INVOICES_LIST_PAGE_SIZE;
+let searchDebounceTimer = null;
 
 let highlightReportId = null;
 let highlightServicoId = null;
@@ -429,12 +438,35 @@ function invoiceMatchesRecebimentoFilter(item) {
   return true;
 }
 
+function invoiceMatchesSearch(item) {
+  const q = billingFilters.search.trim().toLowerCase();
+  if (!q) return true;
+  const entity = item.entity;
+  const meta = resolveClientMeta(entity.clientId);
+  const trabalho = resolveInvoiceTrabalhoLabel(item);
+  const bits = [
+    meta.nome,
+    meta.nif,
+    entity.numeroFatura,
+    trabalho.ordem,
+    trabalho.detail,
+    entity.descricao,
+  ];
+  return bits.some((bit) => String(bit || '').toLowerCase().includes(q));
+}
+
 function invoiceMatchesFilters(item) {
-  return invoiceMatchesPeriodAndClient(item) && invoiceMatchesRecebimentoFilter(item);
+  return (
+    invoiceMatchesPeriodAndClient(item) &&
+    invoiceMatchesRecebimentoFilter(item) &&
+    invoiceMatchesSearch(item)
+  );
 }
 
 function getInvoiceTabCounts() {
-  const base = getAllInvoicedEntities().filter(invoiceMatchesPeriodAndClient);
+  const base = getAllInvoicedEntities()
+    .filter(invoiceMatchesPeriodAndClient)
+    .filter(invoiceMatchesSearch);
   return {
     pendente: base.filter((item) => item.entity.statusRecebimento === 'pendente').length,
     pago: base.filter((item) => item.entity.statusRecebimento === 'pago').length,
@@ -442,7 +474,14 @@ function getInvoiceTabCounts() {
   };
 }
 
-/** Faturas dentro dos filtros ativos — mais recentes primeiro. */
+/** Faturas no período/cliente — KPIs e gráfico (todos os estados de recebimento). */
+function getKpiInvoices() {
+  return getAllInvoicedEntities()
+    .filter(invoiceMatchesPeriodAndClient)
+    .sort((a, b) => invoiceDateOfEntity(b).localeCompare(invoiceDateOfEntity(a)));
+}
+
+/** Faturas dentro dos filtros ativos (inclui tab Por receber / Recebidas) — mais recentes primeiro. */
 function getFilteredInvoices() {
   return getAllInvoicedEntities()
     .filter(invoiceMatchesFilters)
@@ -515,8 +554,8 @@ function renderAuditYearOptions(rows) {
     .join('');
 }
 
-/** KPIs calculados sobre as faturas filtradas. */
-function computeFilteredMetrics(invoices = getFilteredInvoices()) {
+/** KPIs calculados sobre o período/cliente (independente da tab Por receber / Recebidas). */
+function computeFilteredMetrics(invoices = getKpiInvoices()) {
   let totalFaturado = 0;
   let totalRecebido = 0;
   let totalDivida = 0;
@@ -558,6 +597,87 @@ function filterBillingItemsByClient(billingItems) {
   return billingItems.filter((item) =>
     billingItemMatchesClientFilter(item, billingFilters.clientId),
   );
+}
+
+function filterBillingItemsByKindAndSearch(billingItems) {
+  let items = billingItems;
+  if (billingFilters.pendingKind && billingFilters.pendingKind !== 'all') {
+    items = items.filter((item) => item.kind === billingFilters.pendingKind);
+  }
+  const q = billingFilters.search.trim().toLowerCase();
+  if (!q) return items;
+
+  return items.filter((item) => {
+    const rowBits = [];
+    if (item.kind === 'servico') {
+      const meta = resolveClientMeta(item.servico?.clientId);
+      rowBits.push(meta.nome, formatServicoOrdemLabel(item.servico, item.reports));
+    } else if (item.kind === 'folha_obra') {
+      const meta = resolveClientMeta(item.folha?.clientId);
+      rowBits.push(meta.nome, formatFolhaObraOrdemLabel(item.folha), item.folha?.etq);
+    } else {
+      const report = item.report;
+      const meta = resolveClientMeta(report?.clientId);
+      const values = report?.data?.values || {};
+      rowBits.push(
+        getClientName(meta.client, values) || meta.nome,
+        formatOrdemLabel(report?.jobId ? getJob(report.jobId) : null),
+        getReportOrcamentoMeta(report)?.numeroFormatado,
+        formatOrcamentoOrdemLabel(report),
+      );
+    }
+    return rowBits.some((bit) => String(bit || '').toLowerCase().includes(q));
+  });
+}
+
+function resolvePendingBillingRows() {
+  let billingItems = getPendingBillingItems();
+  billingItems = filterBillingItemsByClient(billingItems);
+  billingItems = filterBillingItemsByKindAndSearch(billingItems);
+  return buildBillingRowsFromItems(billingItems);
+}
+
+function resolveKindBadgeHtml(kind) {
+  if (kind === 'servico') return '<span class="faturacao-visit-badge">Visita</span>';
+  if (kind === 'orcamento') return '<span class="faturacao-visit-badge faturacao-visit-badge--proposta">Proposta</span>';
+  if (kind === 'folha_obra') return '<span class="faturacao-visit-badge faturacao-visit-badge--folha">Folha</span>';
+  if (kind === 'manual') return '<span class="faturacao-visit-badge faturacao-visit-badge--manual">Manual</span>';
+  if (kind === 'report') return '<span class="faturacao-visit-badge faturacao-visit-badge--report">Relatório</span>';
+  return '';
+}
+
+function todayPaymentDateInput() {
+  return new Date().toISOString().split('T')[0];
+}
+
+function renderInlinePaymentControls(kind, id) {
+  return `
+    <div class="faturacao-inline-payment">
+      <input type="date" class="form-input form-input-sm faturacao-inline-date" data-payment-date="${escapeHtml(kind)}:${escapeHtml(id)}" value="${todayPaymentDateInput()}" title="Data de recebimento" aria-label="Data de recebimento" />
+      <button type="button" class="btn-success btn-sm faturacao-btn-compact" data-confirm-payment-inline="${escapeHtml(id)}" data-payment-kind="${escapeHtml(kind)}" title="Confirmar recebimento">Recebido</button>
+    </div>`;
+}
+
+async function dismissPendingBillingFolhaObra(folhaId) {
+  const folha = getFolhaObra(folhaId);
+  if (!folha) {
+    showToast('Folha de obra não encontrada.', 'error');
+    return false;
+  }
+  if (folha.estado !== 'pendente_faturacao') {
+    showToast('Esta folha já não está pendente de faturação.', 'info');
+    return false;
+  }
+  try {
+    await updateFolhaObra(folhaId, { faturacaoStatus: 'dispensado' });
+    window.dispatchEvent(new CustomEvent('db-updated'));
+    showToast('Folha retirada da lista por faturar.', 'success');
+    return true;
+  } catch (err) {
+    console.error('[Faturação] dismiss folha:', err);
+    showToast(err?.message || 'Erro ao dispensar a folha.', 'error');
+    return false;
+  }
 }
 
 function resolveClientMeta(clientId) {
@@ -812,18 +932,18 @@ function renderKpis(metrics) {
       <div class="dashboard-metrics-grid faturacao-kpis-grid faturacao-kpis-grid--3">
         <article class="dashboard-metric-card dashboard-metric-card--primary">
           <p class="dashboard-metric-value">${formatCurrencyEur(metrics.totalFaturado)}</p>
-          <p class="dashboard-metric-label">Total Faturado Global</p>
-          <p class="faturacao-kpi-sub">Receita emitida (pagas + pendentes)</p>
+          <p class="dashboard-metric-label">Total Faturado</p>
+          <p class="faturacao-kpi-sub">No período e cliente filtrados (pagas + por receber)</p>
         </article>
         <article class="dashboard-metric-card dashboard-metric-card--success">
           <p class="dashboard-metric-value">${formatCurrencyEur(metrics.totalRecebido)}</p>
           <p class="dashboard-metric-label">Total Recebido</p>
-          <p class="faturacao-kpi-sub">Dinheiro já em caixa</p>
+          <p class="faturacao-kpi-sub">Já em caixa</p>
         </article>
         <article class="dashboard-metric-card dashboard-metric-card--warning">
           <p class="dashboard-metric-value">${formatCurrencyEur(metrics.totalDivida)}</p>
-          <p class="dashboard-metric-label">Total em Dívida (Na Rua)</p>
-          <p class="faturacao-kpi-sub">Faturado e ainda por receber</p>
+          <p class="dashboard-metric-label">Por receber</p>
+          <p class="faturacao-kpi-sub">Faturado e ainda em aberto</p>
         </article>
       </div>
     </section>
@@ -835,8 +955,8 @@ function renderFiltersSection() {
   const year = new Date().getFullYear();
   const opt = (value, label) =>
     `<option value="${value}"${billingFilters.period === value ? ' selected' : ''}>${label}</option>`;
-  const statusOpt = (value, label) =>
-    `<option value="${value}"${billingFilters.recebimentoStatus === value ? ' selected' : ''}>${label}</option>`;
+  const kindOpt = (value, label) =>
+    `<option value="${value}"${billingFilters.pendingKind === value ? ' selected' : ''}>${label}</option>`;
 
   return `
     <section class="faturacao-filters rh-section glass-card" aria-label="Filtros do controlo de faturação">
@@ -851,12 +971,25 @@ function renderFiltersSection() {
             ${opt('custom', 'Intervalo Personalizado')}
           </select>
         </div>
+        <div class="form-group faturacao-filter-group faturacao-filter-search">
+          <label class="form-label" for="faturacao-search">Pesquisar</label>
+          <input
+            type="search"
+            class="form-input"
+            id="faturacao-search"
+            placeholder="Cliente, OP, nº fatura…"
+            value="${escapeHtml(billingFilters.search)}"
+            autocomplete="off"
+          />
+        </div>
         <div class="form-group faturacao-filter-group">
-          <label class="form-label" for="faturacao-recebimento">Estado</label>
-          <select class="form-select" id="faturacao-recebimento">
-            ${statusOpt('all', 'Todos')}
-            ${statusOpt('pendente', 'Pendentes de pagamento')}
-            ${statusOpt('pago', 'Recebidos')}
+          <label class="form-label" for="faturacao-pending-kind">Tipo (por faturar)</label>
+          <select class="form-select" id="faturacao-pending-kind">
+            ${kindOpt('all', 'Todos')}
+            ${kindOpt('servico', 'Visitas')}
+            ${kindOpt('orcamento', 'Propostas')}
+            ${kindOpt('folha_obra', 'Folhas de obra')}
+            ${kindOpt('report', 'Relatórios')}
           </select>
         </div>
         <div class="faturacao-filter-custom"${isCustom ? '' : ' hidden'}>
@@ -943,63 +1076,52 @@ function renderInvoiceRow(row, acumulado, showAcum) {
       : pdfReportId
         ? `<button type="button" class="btn-outline btn-sm faturacao-btn-compact" data-history-pdf="${escapeHtml(pdfReportId)}" title="Abrir PDF do relatório ou proposta">PDF</button>`
         : '';
-  const paymentAttr =
-    kind === 'servico'
-      ? `data-confirm-payment-servico="${escapeHtml(detailId)}"`
-      : kind === 'manual'
-        ? `data-confirm-payment-manual="${escapeHtml(detailId)}"`
-        : kind === 'folha_obra'
-          ? `data-confirm-payment-folha-obra="${escapeHtml(detailId)}"`
-          : `data-confirm-payment="${escapeHtml(detailId)}"`;
-  const kindBadge = kind === 'servico' ? ' <span class="faturacao-visit-badge">Visita</span>' : '';
+  const paymentKind =
+    kind === 'servico' ? 'servico' : kind === 'folha_obra' ? 'folha_obra' : kind === 'manual' ? 'manual' : 'report';
+  const kindBadge = resolveKindBadgeHtml(kind);
 
   return `
-    <tr class="rh-data-table-row faturacao-history-row faturacao-invoice-row${urgentRow ? ' faturacao-row--urgent' : ''}" data-invoice-kind="${kind}" data-invoice-id="${escapeHtml(detailId)}">
+    <tr class="rh-data-table-row faturacao-history-row faturacao-invoice-row faturacao-row--compact${urgentRow ? ' faturacao-row--urgent' : ''}" data-invoice-kind="${kind}" data-invoice-id="${escapeHtml(detailId)}">
       <td class="rh-cell-date faturacao-cell-date">${escapeHtml(emissaoLabel)}</td>
       <td class="rh-cell-client faturacao-cell-client faturacao-cell-client--wrap">
-        <button type="button" class="rh-cell-link-btn faturacao-history-client-btn faturacao-cell-client-name" ${detailAttr} title="Ver detalhe da fatura (NIF, condição de pagamento, datas)">
-          ${escapeHtml(nome)}${kindBadge}
+        <button type="button" class="rh-cell-link-btn faturacao-history-client-btn faturacao-cell-client-name" ${detailAttr} title="Ver detalhe da fatura">
+          ${escapeHtml(nome)}
         </button>
-        ${vencimentoUrg === 'soon' ? ' <span class="faturacao-urgent-badge faturacao-urgent-badge--soon">A vencer</span>' : ''}
+        <span class="faturacao-row-meta">${kindBadge}${vencimentoUrg === 'soon' ? ' <span class="faturacao-urgent-badge faturacao-urgent-badge--soon">A vencer</span>' : ''}${urgentRow ? ' <span class="faturacao-urgent-badge">Vencida</span>' : ''}</span>
+        <span class="faturacao-cell-detail">${escapeHtml(ordem)}${detail ? ` · ${escapeHtml(detail)}` : ''}</span>
       </td>
-      <td class="faturacao-cell-ordem">
-        <code class="faturacao-ordem">${escapeHtml(ordem)}</code>
-        <span class="faturacao-cell-detail">${escapeHtml(detail)}</span>
+      <td class="rh-cell-ordem faturacao-cell-ordem">
+        <code class="rh-ordem-badge faturacao-ordem">${escapeHtml(numeroFatura)}</code>
+        <span class="faturacao-col-valor">${escapeHtml(valorLabel)}</span>
       </td>
-      <td class="rh-cell-ordem faturacao-cell-ordem"><code class="rh-ordem-badge faturacao-ordem">${escapeHtml(numeroFatura)}</code></td>
-      <td class="rh-cell-valor faturacao-col-valor">${escapeHtml(valorLabel)}</td>
-      <td class="faturacao-cell-date ${escapeHtml(vencimentoClass)}">${escapeHtml(vencimentoLabel)}</td>
+      <td>
+        <span class="faturacao-history-estado ${pago ? 'is-pago' : 'is-pendente'}">${pago ? 'Pago' : 'Pendente'}</span>
+        ${!pago && vencimentoLabel && vencimentoLabel !== '—' ? `<span class="faturacao-cell-detail ${escapeHtml(vencimentoClass)}">venc. ${escapeHtml(vencimentoLabel)}</span>` : ''}
+      </td>
       ${
         showAcum
           ? `<td class="rh-cell-muted faturacao-history-acum" title="Acumulado do cliente até esta fatura">${acumulado != null ? `Σ ${escapeHtml(formatCurrencyEur(acumulado))}` : '—'}</td>`
           : ''
       }
-      <td>
-        <span class="faturacao-history-estado ${pago ? 'is-pago' : 'is-pendente'}">${pago ? 'Pago' : 'Pendente'}</span>
-      </td>
       <td class="faturacao-col-action">
         ${
           kind === 'manual'
             ? `<div class="faturacao-billing-actions">
                 ${pdfBtn}
-                ${
-                  pago
-                    ? ''
-                    : `<button type="button" class="btn-success btn-sm faturacao-btn-compact" ${paymentAttr} title="Confirmar recebimento">Recebido</button>`
-                }
-                <button type="button" class="btn-danger btn-sm faturacao-btn-compact" data-delete-manual-invoice="${escapeHtml(detailId)}" title="Eliminar registo da fatura">Eliminar</button>
+                ${pago ? '' : renderInlinePaymentControls(paymentKind, detailId)}
+                <button type="button" class="btn-ghost btn-sm faturacao-btn-compact faturacao-btn-dismiss" data-delete-manual-invoice="${escapeHtml(detailId)}" title="Eliminar registo">×</button>
               </div>`
             : pago
               ? `<div class="faturacao-billing-actions">${pdfBtn || '<span class="text-muted">—</span>'}</div>`
               : `<div class="faturacao-billing-actions">
                   ${pdfBtn}
-                  <button type="button" class="btn-success btn-sm faturacao-btn-compact" ${paymentAttr} title="Confirmar recebimento">Recebido</button>
+                  ${renderInlinePaymentControls(paymentKind, detailId)}
                   ${
                     kind === 'servico'
-                      ? `<button type="button" class="btn-secondary btn-sm faturacao-btn-compact" data-revert-invoice-servico="${escapeHtml(detailId)}" title="Voltar à lista por faturar para corrigir">Corrigir</button>`
+                      ? `<button type="button" class="btn-ghost btn-sm faturacao-btn-compact" data-revert-invoice-servico="${escapeHtml(detailId)}" title="Corrigir">Corrigir</button>`
                       : kind === 'folha_obra'
-                        ? `<button type="button" class="btn-secondary btn-sm faturacao-btn-compact" data-revert-invoice-folha-obra="${escapeHtml(detailId)}" title="Voltar à lista por faturar para corrigir">Corrigir</button>`
-                        : `<button type="button" class="btn-secondary btn-sm faturacao-btn-compact" data-revert-invoice-report="${escapeHtml(detailId)}" title="Voltar à lista por faturar para corrigir">Corrigir</button>`
+                        ? `<button type="button" class="btn-ghost btn-sm faturacao-btn-compact" data-revert-invoice-folha-obra="${escapeHtml(detailId)}" title="Corrigir">Corrigir</button>`
+                        : `<button type="button" class="btn-ghost btn-sm faturacao-btn-compact" data-revert-invoice-report="${escapeHtml(detailId)}" title="Corrigir">Corrigir</button>`
                   }
                 </div>`
         }
@@ -1041,17 +1163,14 @@ function renderInvoicesTable(invoiceRows, invoices, clientActive) {
 
   return `
     <div class="faturacao-table-wrap rh-table-scroll${scrollClass}">
-      <table class="rh-data-table rh-data-table--compact faturacao-history-table faturacao-table faturacao-table--compact faturacao-table--invoices">
+      <table class="rh-data-table rh-data-table--compact faturacao-history-table faturacao-table faturacao-table--compact faturacao-table--invoices faturacao-table--dense">
         <thead>
           <tr>
             <th scope="col">Emissão</th>
             <th scope="col">Cliente</th>
-            <th scope="col">Visita / Relatório</th>
             <th scope="col">Fatura</th>
-            <th scope="col">Valor</th>
-            <th scope="col">Vencimento</th>
-            ${clientActive ? '<th scope="col">Acumulado</th>' : ''}
             <th scope="col">Estado</th>
+            ${clientActive ? '<th scope="col">Acumulado</th>' : ''}
             <th scope="col" class="faturacao-col-action">Ação</th>
           </tr>
         </thead>
@@ -1139,7 +1258,7 @@ function renderBillingTable(rows) {
     return `
       <section class="faturacao-table-section faturacao-table-section--billing rh-section glass-card">
         <h3 class="ms-h2 faturacao-section-title">Por faturar</h3>
-        <p class="text-muted faturacao-empty">Nenhuma visita, relatório ou folha de obra aguarda faturação.</p>
+        <p class="text-muted faturacao-empty">Nenhuma visita, proposta ou folha aguarda faturação neste filtro.</p>
       </section>
     `;
   }
@@ -1148,12 +1267,11 @@ function renderBillingTable(rows) {
     <section class="faturacao-table-section faturacao-table-section--billing rh-section glass-card">
       <h3 class="ms-h2 faturacao-section-title">Por faturar <span class="badge-count">${rows.length}</span></h3>
       <div class="rh-table-scroll">
-        <table class="rh-data-table rh-data-table--compact faturacao-table faturacao-table--compact faturacao-billing-table">
+        <table class="rh-data-table rh-data-table--compact faturacao-table faturacao-table--compact faturacao-billing-table faturacao-table--dense">
           <thead>
             <tr>
               <th scope="col">Cliente</th>
-              <th scope="col">Visita / Relatório</th>
-              <th scope="col">Aprovação</th>
+              <th scope="col">Detalhe</th>
               <th scope="col" class="faturacao-col-action">Ação</th>
             </tr>
           </thead>
@@ -1173,32 +1291,35 @@ function renderBillingTable(rows) {
                 const folhaPdfId = row.folhaPdfId || (isFolhaObra ? String(row.folha?.id || '') : '');
                 const pdfTitle = isServico
                   ? `Abrir PDFs dos ${row.reports.length} relatórios da visita`
-                  : row.pdfTitle || 'Abrir PDF do relatório técnico';
+                  : row.pdfTitle || 'Abrir PDF';
                 const registerAttr = isServico
                   ? `data-register-invoice-servico="${escapeHtml(row.servico.id)}"`
                   : isFolhaObra
                     ? `data-register-invoice-folha-obra="${escapeHtml(row.folha.id)}"`
                     : `data-register-invoice="${escapeHtml(reportId)}"`;
-                const kindBadge =
-                  row.kind === 'orcamento'
-                    ? ' <span class="faturacao-visit-badge">Proposta</span>'
-                    : row.kind === 'folha_obra'
-                      ? ' <span class="faturacao-visit-badge">Folha de obra</span>'
-                      : '';
+                const dismissAttr = isServico
+                  ? `data-dismiss-billing-servico="${escapeHtml(row.servico.id)}"`
+                  : isFolhaObra
+                    ? `data-dismiss-billing-folha-obra="${escapeHtml(row.folha.id)}"`
+                    : `data-dismiss-billing-report="${escapeHtml(reportId)}"`;
+                const kindBadge = resolveKindBadgeHtml(row.kind);
                 return `
-              <tr class="rh-data-table-row${row.urgent ? ' faturacao-row--urgent' : ''}" ${rowIdAttr}>
-                <td class="faturacao-cell-client" title="${escapeHtml(row.nome)}">${escapeHtml(row.nome)}${kindBadge}${row.urgent ? ' <span class="faturacao-urgent-badge">Urgente</span>' : ''}</td>
+              <tr class="rh-data-table-row faturacao-row--compact${row.urgent ? ' faturacao-row--urgent' : ''}" ${rowIdAttr}>
+                <td class="faturacao-cell-client" title="${escapeHtml(row.nome)}">
+                  <span class="faturacao-cell-client-name">${escapeHtml(row.nome)}</span>
+                  <span class="faturacao-row-meta">${kindBadge}${row.urgent ? ' <span class="faturacao-urgent-badge">Urgente</span>' : ''}</span>
+                </td>
                 <td class="faturacao-cell-ordem">
                   <code class="faturacao-ordem">${escapeHtml(row.ordem)}</code>
-                  <span class="faturacao-cell-detail">${escapeHtml(row.detail)}</span>
+                  <span class="faturacao-cell-detail">${escapeHtml(row.detail)}${row.approvedLabel ? ` · ${escapeHtml(row.approvedLabel)}` : ''}</span>
                 </td>
-                <td class="faturacao-cell-date">${escapeHtml(row.approvedLabel)}</td>
                 <td class="faturacao-col-action">
                   <div class="faturacao-billing-actions">
                     ${servicoPdfId ? `<button type="button" class="btn-outline btn-sm faturacao-btn-compact" data-billing-pdf-servico="${escapeHtml(servicoPdfId)}" title="${escapeHtml(pdfTitle)}">PDF</button>` : ''}
                     ${pdfId ? `<button type="button" class="btn-outline btn-sm faturacao-btn-compact" data-billing-pdf="${escapeHtml(pdfId)}" title="${escapeHtml(pdfTitle)}">PDF</button>` : ''}
                     ${folhaPdfId ? `<button type="button" class="btn-outline btn-sm faturacao-btn-compact" data-billing-pdf-folha-obra="${escapeHtml(folhaPdfId)}" title="${escapeHtml(pdfTitle)}">PDF</button>` : ''}
                     <button type="button" class="btn-primary btn-sm faturacao-btn-compact" ${registerAttr} title="Marcar como faturado">Faturar</button>
+                    <button type="button" class="btn-ghost btn-sm faturacao-btn-compact faturacao-btn-dismiss" ${dismissAttr} title="Retirar da fila (sem faturar)">×</button>
                   </div>
                 </td>
               </tr>
@@ -1316,10 +1437,8 @@ async function softRefreshFaturacaoPanel() {
 
   const scrollY = captureAdminMainScroll();
   const invoices = getFilteredInvoices();
-  const metrics = computeFilteredMetrics(invoices);
-  let billingItems = getPendingBillingItems();
-  billingItems = filterBillingItemsByClient(billingItems);
-  const billingRows = buildBillingRowsFromItems(billingItems);
+  const metrics = computeFilteredMetrics(getKpiInvoices());
+  const billingRows = resolvePendingBillingRows();
 
   replaceMountedSection('.faturacao-kpis', renderKpis(metrics));
   replaceMountedSection('.faturacao-table-section--billing', renderBillingTable(billingRows));
@@ -1334,18 +1453,13 @@ async function applyBillingFilters() {
   if (!mountRoot) return;
   const scrollY = captureAdminMainScroll();
   const invoices = getFilteredInvoices();
-  const metrics = computeFilteredMetrics(invoices);
-  let billingItems = getPendingBillingItems();
-  billingItems = filterBillingItemsByClient(billingItems);
-  const billingRows = buildBillingRowsFromItems(billingItems);
+  const metrics = computeFilteredMetrics(getKpiInvoices());
+  const billingRows = resolvePendingBillingRows();
 
   replaceMountedSection('.faturacao-kpis', renderKpis(metrics));
   replaceMountedSection('.faturacao-table-section--billing', renderBillingTable(billingRows));
   replaceMountedSection('.faturacao-invoices-section', renderInvoicesSection(invoices));
   bindTableActions();
-  bindHistoryDetailActions();
-  bindConfirmPaymentActions();
-  bindInvoicesSectionActions();
   await updateChartData(metrics);
   restoreAdminMainScroll(scrollY);
 }
@@ -1357,10 +1471,6 @@ function resetInvoicesListPagination() {
 function setInvoicesRecebimentoFilter(status) {
   billingFilters.recebimentoStatus = status;
   resetInvoicesListPagination();
-  const recebimentoSel = mountRoot?.querySelector('#faturacao-recebimento');
-  if (recebimentoSel && recebimentoSel.value !== status) {
-    recebimentoSel.value = status;
-  }
 }
 
 function bindInvoicesSectionActions() {
@@ -1395,10 +1505,20 @@ function bindFilterEvents() {
     applyBillingFilters().catch(console.error);
   });
 
-  root.querySelector('#faturacao-recebimento')?.addEventListener('change', (e) => {
-    billingFilters.recebimentoStatus = e.target.value || 'pendente';
-    resetInvoicesListPagination();
+  root.querySelector('#faturacao-pending-kind')?.addEventListener('change', (e) => {
+    billingFilters.pendingKind = e.target.value || 'all';
     applyBillingFilters().catch(console.error);
+  });
+
+  root.querySelector('#faturacao-search')?.addEventListener('input', (e) => {
+    const value = e.target.value || '';
+    if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+    searchDebounceTimer = setTimeout(() => {
+      searchDebounceTimer = null;
+      billingFilters.search = value;
+      resetInvoicesListPagination();
+      applyBillingFilters().catch(console.error);
+    }, 220);
   });
 
   root.querySelector('#faturacao-export-csv')?.addEventListener('click', () => {
@@ -1767,6 +1887,57 @@ function bindBillingRowActionButtons() {
       if (folhaId) openRegisterFolhaObraInvoiceModal(folhaId);
     });
   });
+
+  mountRoot?.querySelectorAll('[data-dismiss-billing-servico]').forEach((btn) => {
+    if (btn.dataset.boundDismiss === '1') return;
+    btn.dataset.boundDismiss = '1';
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const servicoId = btn.getAttribute('data-dismiss-billing-servico');
+      if (!servicoId) return;
+      const ok = window.confirm(
+        'Retirar esta visita da lista por faturar?\n\nNão será faturada na app; pode voltar a aparecer se o estado for corrigido.',
+      );
+      if (!ok) return;
+      void dismissPendingBillingServico(servicoId).then((done) => {
+        if (done) refreshFaturacaoPanel({ soft: true }).catch(console.error);
+      });
+    });
+  });
+
+  mountRoot?.querySelectorAll('[data-dismiss-billing-folha-obra]').forEach((btn) => {
+    if (btn.dataset.boundDismiss === '1') return;
+    btn.dataset.boundDismiss = '1';
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const folhaId = btn.getAttribute('data-dismiss-billing-folha-obra');
+      if (!folhaId) return;
+      const ok = window.confirm(
+        'Retirar esta folha de obra da lista por faturar?\n\nNão será faturada na app.',
+      );
+      if (!ok) return;
+      void dismissPendingBillingFolhaObra(folhaId).then((done) => {
+        if (done) refreshFaturacaoPanel({ soft: true }).catch(console.error);
+      });
+    });
+  });
+
+  mountRoot?.querySelectorAll('[data-dismiss-billing-report]').forEach((btn) => {
+    if (btn.dataset.boundDismiss === '1') return;
+    btn.dataset.boundDismiss = '1';
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const reportId = btn.getAttribute('data-dismiss-billing-report');
+      if (!reportId) return;
+      const ok = window.confirm(
+        'Retirar este item da lista por faturar?\n\nNão será faturado na app.',
+      );
+      if (!ok) return;
+      void dismissPendingBillingReport(reportId).then((done) => {
+        if (done) refreshFaturacaoPanel({ soft: true }).catch(console.error);
+      });
+    });
+  });
 }
 
 function openInvoiceHistoryDetailModal(reportId) {
@@ -1957,6 +2128,30 @@ function openFolhaObraInvoiceHistoryDetailModal(folhaId) {
     closeModal();
     runRevertFolhaObraInvoice(folhaId);
   });
+}
+
+async function runInlinePaymentConfirm(kind, id, dataRecebimento) {
+  const data = String(dataRecebimento || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) {
+    showToast('Indique a data de recebimento.', 'warning');
+    return;
+  }
+  try {
+    if (kind === 'servico') {
+      await confirmServicoInvoicePayment(id, { dataRecebimento: data });
+    } else if (kind === 'manual') {
+      await confirmManualInvoicePayment(id, { dataRecebimento: data });
+    } else if (kind === 'folha_obra') {
+      await confirmFolhaObraInvoicePayment(id, data);
+    } else {
+      await confirmInvoicePayment(id, { dataRecebimento: data });
+    }
+    showToast('Recebimento confirmado. Valor movido para caixa.', 'success');
+    await refreshFaturacaoPanel({ soft: true });
+  } catch (err) {
+    console.error('[Faturação] Recebido inline:', err);
+    showToast(err?.message || 'Erro ao confirmar recebimento.', 'error');
+  }
 }
 
 function openConfirmPaymentModal(reportId) {
@@ -2324,6 +2519,21 @@ function bindHistoryDetailActions() {
 }
 
 function bindConfirmPaymentActions() {
+  mountRoot?.querySelectorAll('[data-confirm-payment-inline]').forEach((btn) => {
+    if (btn.dataset.boundPaymentInline === '1') return;
+    btn.dataset.boundPaymentInline = '1';
+    btn.addEventListener('click', () => {
+      const id = btn.getAttribute('data-confirm-payment-inline');
+      const kind = btn.getAttribute('data-payment-kind') || 'report';
+      if (!id) return;
+      const dateInput =
+        btn.closest('.faturacao-inline-payment')?.querySelector('[data-payment-date]') ||
+        mountRoot?.querySelector(`[data-payment-date="${CSS.escape(`${kind}:${id}`)}"]`);
+      const data = String(dateInput?.value || '').trim();
+      void runInlinePaymentConfirm(kind, id, data);
+    });
+  });
+
   mountRoot?.querySelectorAll('[data-confirm-payment]').forEach((btn) => {
     if (btn.dataset.boundPayment === '1') return;
     btn.dataset.boundPayment = '1';
@@ -2563,10 +2773,8 @@ function applyBillingHighlight() {
 
 function renderPanel() {
   const invoices = getFilteredInvoices();
-  const metrics = computeFilteredMetrics(invoices);
-  let billingItems = getPendingBillingItems();
-  billingItems = filterBillingItemsByClient(billingItems);
-  const billingRows = buildBillingRowsFromItems(billingItems);
+  const metrics = computeFilteredMetrics(getKpiInvoices());
+  const billingRows = resolvePendingBillingRows();
 
   return `
     <div class="faturacao-panel rh-admin-panel dashboard-panel-inner">
@@ -2598,6 +2806,7 @@ export async function refreshFaturacaoPanel(options = {}) {
       ensureReportsLoaded(true),
       ensureServicosLoadedSafe(true),
       ensureFaturasManuaisLoadedSafe(true),
+      ensureFolhasObraLoadedSafe(true),
     ]);
     await repairOrcamentoAceiteBillingQueue();
   }
