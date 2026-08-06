@@ -2,16 +2,9 @@
  * Layout PDF — Inspeção DL 50/2005.
  */
 
-import { columnKey } from './material-table-field.js';
-import {
-  formatDl50MatrixLegendText,
-  splitDl50MatrixCategories,
-} from './inspecao-dl50-categories.js';
-import { pdfAutoTableFont, pdfSafeText, pdfSplitText } from './pdf-font.js';
 import {
   getBlockPdfTitle,
   PDF_COLOR_CORPORATE_BLUE as CORPORATE_BLUE,
-  PDF_COLOR_SUCCESS as SUCCESS,
   PDF_COLOR_TEXT_MUTED as TEXT_MUTED,
   PDF_COLOR_TEXT_DARK as TEXT_DARK,
   PDF_CONTENT_W as CONTENT_W,
@@ -28,6 +21,7 @@ import {
   PDF_TABLE_LINE_WIDTH,
   PDF_TABLE_MIN_CELL_HEIGHT_COMPACT,
   resolvePdfStandardFieldValue,
+  pdfMatrixStateRgb,
 } from './pdf-design-system.js';
 import {
   LABEL_MARCA,
@@ -47,6 +41,9 @@ import {
 } from './pdf-page-layout.js';
 import { drawPdfSectionTitleBar, drawColumnSectionTitle, drawChecklistMatrixLegend } from './pdf-layout-bars.js';
 import { drawPdfGridTable } from './pdf-grid-table.js';
+import { formatDl50MatrixLegendText, dl50MatrixOptionDisplay, splitDl50MatrixCategories } from './inspecao-dl50-categories.js';
+import { columnKey } from './material-table-field.js';
+import { pdfAutoTableFont, pdfSafeText, pdfSplitText } from './pdf-font.js';
 
 export const INSPECAO_DL50_SERVICE_ID = 'inspecao_dl50_2005';
 
@@ -99,15 +96,12 @@ function drawSectionTitle(doc, y, title, options = {}) {
 }
 
 function matrixPdfRgb(opt) {
-  if (opt === 'B') return SUCCESS;
-  if (opt === 'N') return [245, 158, 11];
-  if (opt === 'D') return [251, 113, 133];
-  return TEXT_MUTED;
+  return pdfMatrixStateRgb(opt);
 }
 
 function matrixDisplayState(opt) {
   if (!opt) return '—';
-  return opt === 'N.A.' ? 'NA' : opt;
+  return dl50MatrixOptionDisplay(opt);
 }
 
 /** DL50 — lista todos os pontos; itens sem resposta mostram «—». */

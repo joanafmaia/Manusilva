@@ -37,6 +37,7 @@ import {
   empilhadoresVerifyBadgeClass,
   empilhadoresVerifyRowClass,
   formatEmpilhadoresVerifyState,
+  isEmpilhadoresNaState,
 } from './preventiva-empilhadores-items.js';
 import { escapeHtml } from './html-utils.js';
 import {
@@ -434,7 +435,7 @@ function renderEmpilhadoresChecklistSection(section, fields, values, context) {
   if (section === EMPILHADORES_VERIFY_DUAL_SECTION) {
     const legend = EMPILHADORES_MATRIX_OPTIONS.map(
       (o) =>
-        `<span><strong>${escapeHtml(o)}</strong> = ${escapeHtml(empilhadoresMatrixLegendLabel(o))}</span>`,
+        `<span><strong>${escapeHtml(empilhadoresMatrixOptionDisplay(o))}</strong> = ${escapeHtml(empilhadoresMatrixLegendLabel(o))}</span>`,
     ).join('');
     const fieldsHtml = `
       <div class="matrix-legend empilhadores-matrix-legend">${legend}</div>
@@ -1760,6 +1761,7 @@ function countEmpilhadoresVerificationProgress(items, states) {
     if (state === 'Não OK') fail += 1;
     else if (state === 'OK') ok += 1;
     else if (!state) blank += 1;
+    // N/A / N.A. contam como preenchidos, sem ser OK nem falha
   });
   return { ok, fail, blank, total: items.length };
 }
@@ -1781,7 +1783,7 @@ function syncEmpilhadoresVerifyRow(row) {
   );
   row.classList.add(empilhadoresVerifyRowClass(value));
   if (value === 'Não OK') row.classList.add('matrix-row--defect');
-  else if (value === 'N/A') row.classList.add('matrix-row--na');
+  else if (isEmpilhadoresNaState(value)) row.classList.add('matrix-row--na');
 }
 
 function updateEmpilhadoresVerificationProgress(wrap, items = []) {

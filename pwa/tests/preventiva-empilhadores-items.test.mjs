@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   EMPILHADORES_VERIFY_STATES,
   EMPILHADORES_MATRIX_OPTIONS,
+  EMPILHADORES_NA_DISPLAY,
   formatEmpilhadoresVerifyState,
   empilhadoresVerifyRowClass,
   empilhadoresVerifyBadgeClass,
@@ -10,17 +11,19 @@ import {
   empilhadoresMatrixOptionClass,
   empilhadoresMatrixOptionDataValue,
   empilhadoresMatrixOptionFromDataValue,
+  formatEmpilhadoresMatrixLegendText,
 } from '../js/preventiva-empilhadores-items.js';
 
 describe('preventiva empilhadores — estados do checklist', () => {
-  it('inclui vazio, OK, Não OK e N/A', () => {
+  it('inclui vazio, OK, Não OK e N/A (valor guardado)', () => {
     assert.deepEqual(EMPILHADORES_VERIFY_STATES, ['', 'OK', 'Não OK', 'N/A']);
   });
 
-  it('formatEmpilhadoresVerifyState mostra traço para vazio', () => {
+  it('formatEmpilhadoresVerifyState mostra N.A. e traço para vazio', () => {
     assert.equal(formatEmpilhadoresVerifyState(''), '—');
     assert.equal(formatEmpilhadoresVerifyState('OK'), 'OK');
-    assert.equal(formatEmpilhadoresVerifyState('N/A'), 'N/A');
+    assert.equal(formatEmpilhadoresVerifyState('N/A'), EMPILHADORES_NA_DISPLAY);
+    assert.equal(formatEmpilhadoresVerifyState('N.A.'), EMPILHADORES_NA_DISPLAY);
   });
 
   it('classes CSS por estado', () => {
@@ -28,17 +31,17 @@ describe('preventiva empilhadores — estados do checklist', () => {
     assert.equal(empilhadoresVerifyRowClass('OK'), 'verification-card--ok');
     assert.equal(empilhadoresVerifyRowClass('Não OK'), 'verification-card--fail');
     assert.equal(empilhadoresVerifyRowClass('N/A'), 'verification-card--na');
-    assert.equal(empilhadoresVerifyBadgeClass('N/A'), 'verification-badge--na');
+    assert.equal(empilhadoresVerifyBadgeClass('N.A.'), 'verification-badge--na');
   });
 
   it('matriz com três botões (OK, Não OK, N/A)', () => {
     assert.deepEqual(EMPILHADORES_MATRIX_OPTIONS, ['OK', 'Não OK', 'N/A']);
   });
 
-  it('empilhadoresMatrixOptionDisplay mostra rótulos completos nos botões', () => {
+  it('empilhadoresMatrixOptionDisplay mostra N.A. nos botões', () => {
     assert.equal(empilhadoresMatrixOptionDisplay('OK'), 'OK');
     assert.equal(empilhadoresMatrixOptionDisplay('Não OK'), 'Não OK');
-    assert.equal(empilhadoresMatrixOptionDisplay('N/A'), 'N/A');
+    assert.equal(empilhadoresMatrixOptionDisplay('N/A'), 'N.A.');
   });
 
   it('empilhadoresMatrixOptionDataValue evita N/A no atributo data-value', () => {
@@ -51,5 +54,9 @@ describe('preventiva empilhadores — estados do checklist', () => {
     assert.equal(empilhadoresMatrixOptionClass('OK'), 'matrix-opt--b');
     assert.equal(empilhadoresMatrixOptionClass('Não OK'), 'matrix-opt--d');
     assert.equal(empilhadoresMatrixOptionClass('N/A'), 'matrix-opt--na');
+  });
+
+  it('legenda usa N.A.', () => {
+    assert.match(formatEmpilhadoresMatrixLegendText(), /N\.A\. = Não aplicável/);
   });
 });

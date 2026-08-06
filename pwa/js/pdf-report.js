@@ -70,6 +70,7 @@ import {
   PDF_TABLE_LINE_WIDTH,
   isMachineInfoSection,
   pdfNormalizeHeading,
+  pdfMatrixStateRgb,
   reportHasMachineSection,
   shouldSkipPdfSectionHeader,
 } from './pdf-design-system.js';
@@ -86,6 +87,7 @@ import {
 
 import {
   drawInspecaoDl50HeaderBlock,
+  dl50MatrixOptionDisplay,
   formatDl50MatrixLegendText,
   INSPECAO_DL50_MACHINE_FIELD_IDS,
   INSPECAO_DL50_PDF_SKIP_FIELD_IDS,
@@ -1356,10 +1358,7 @@ function isPdfEmptyValue(field, value) {
 }
 
 function matrixPdfRgb(opt) {
-  if (opt === 'B') return SUCCESS;
-  if (opt === 'N') return [245, 158, 11];
-  if (opt === 'D') return [251, 113, 133];
-  return TEXT_MUTED;
+  return pdfMatrixStateRgb(opt);
 }
 
 const MATRIX_POINT_COL_W = CONTENT_W * 0.78;
@@ -1393,7 +1392,7 @@ function ensurePdfClosingTailFits(doc, y, hasFotos, profile, opts = {}) {
 
 function matrixDisplayState(opt) {
   if (!opt) return '—';
-  return opt === 'N.A.' ? 'NA' : opt;
+  return dl50MatrixOptionDisplay(opt);
 }
 
 function buildMatrixCategoryTable(doc, cat, catData) {
@@ -1755,8 +1754,7 @@ async function drawVerificationBlock(doc, y, label, items, states) {
     didParseCell: (data) => {
       if (data.section !== 'body' || data.column.index !== 1) return;
       const state = String(data.cell.raw || '');
-      const isOk = state === 'OK';
-      data.cell.styles.textColor = isOk ? SUCCESS : DANGER;
+      data.cell.styles.textColor = pdfMatrixStateRgb(state);
       data.cell.styles.fontStyle = 'bold';
     },
   });

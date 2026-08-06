@@ -63,6 +63,25 @@ export const PDF_COLOR_WHITE = [255, 255, 255];
 export const PDF_COLOR_SUCCESS = [16, 185, 129];
 export const PDF_COLOR_DANGER = [248, 113, 113];
 
+/**
+ * Cores da matriz checklist (DL50 / empilhadores) — alinhadas com CSS da app:
+ * --success #2f7a52, --warning #b7791f, --danger #c53030, muted #64748b
+ */
+export const PDF_MATRIX_COLOR_OK = [47, 122, 82];
+export const PDF_MATRIX_COLOR_WARN = [183, 121, 31];
+export const PDF_MATRIX_COLOR_FAIL = [197, 48, 48];
+export const PDF_MATRIX_COLOR_NA = PDF_COLOR_TEXT_MUTED;
+
+/** RGB do estado na coluna «Est.» (formulário e PDF com a mesma semântica). */
+export function pdfMatrixStateRgb(opt) {
+  const value = String(opt ?? '').trim();
+  if (value === 'B' || value === 'OK') return PDF_MATRIX_COLOR_OK;
+  if (value === 'N') return PDF_MATRIX_COLOR_WARN;
+  if (value === 'D' || value === 'Não OK') return PDF_MATRIX_COLOR_FAIL;
+  if (value === 'N.A.' || value === 'N/A' || value === 'NA') return PDF_MATRIX_COLOR_NA;
+  return PDF_COLOR_TEXT_MUTED;
+}
+
 /** Layout (mm) */
 export const PDF_MARGIN = 15;
 export const PDF_PAGE_W = 210;

@@ -3210,7 +3210,7 @@ body.warehouse-page .folha-obra-tab--ready .folha-obra-filter-bar input[type="da
 .checklist-inspection-table--matrix thead th:last-child {
   width: 7.5rem;
 }
-/* Empilhadores — três botões com texto completo (OK / Não OK / N/A) */
+/* Empilhadores — três botões com texto completo (OK / Não OK / N.A.) */
 .empilhadores-verify-table.checklist-inspection-table--matrix thead th:first-child {
   width: 38%;
 }

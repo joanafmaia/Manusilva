@@ -8,10 +8,7 @@ import { formatEmpilhadoresVerifyState, formatEmpilhadoresMatrixLegendText } fro
 import { pdfAutoTableFont, pdfSafeText } from './pdf-font.js';
 import {
   PDF_COLOR_CORPORATE_BLUE as CORPORATE_BLUE,
-  PDF_COLOR_DANGER as DANGER,
-  PDF_COLOR_SUCCESS as SUCCESS,
   PDF_COLOR_TEXT_DARK as TEXT_DARK,
-  PDF_COLOR_TEXT_MUTED as TEXT_MUTED,
   PDF_CONTENT_W as CONTENT_W,
   PDF_FONT_CAPTION,
   PDF_FONT_SECTION,
@@ -30,6 +27,7 @@ import {
   PDF_TABLE_MIN_CELL_HEIGHT_COMPACT,
   resolvePdfStandardFieldValue,
   pdfNormalizeHeading,
+  pdfMatrixStateRgb,
 } from './pdf-design-system.js';
 import {
   LABEL_MARCA,
@@ -216,13 +214,7 @@ async function drawVerificationTableColumn(doc, startY, x, width, title, items, 
       }
       if (data.section === 'body' && data.column.index === 1) {
         const state = String(data.cell.raw || '').trim();
-        if (state === 'OK') {
-          data.cell.styles.textColor = SUCCESS;
-        } else if (state === 'N/A' || !state || state === '—') {
-          data.cell.styles.textColor = TEXT_MUTED;
-        } else {
-          data.cell.styles.textColor = DANGER;
-        }
+        data.cell.styles.textColor = pdfMatrixStateRgb(state);
         data.cell.styles.fontStyle = 'bold';
       }
     },

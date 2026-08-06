@@ -149,7 +149,7 @@ export const DL50_MATRIX_LEGEND = [
   { code: 'B', label: 'Bom', display: 'B' },
   { code: 'N', label: 'Normal', display: 'N' },
   { code: 'D', label: 'Danificado', display: 'D' },
-  { code: 'N.A.', label: 'Não aplicável', display: 'NA' },
+  { code: 'N.A.', label: 'Não aplicável', display: 'N.A.' },
 ];
 
 export function dl50MatrixLegendLabel(opt) {
@@ -158,8 +158,10 @@ export function dl50MatrixLegendLabel(opt) {
 }
 
 export function dl50MatrixOptionDisplay(opt) {
-  const found = DL50_MATRIX_LEGEND.find((entry) => entry.code === opt);
-  return found?.display || String(opt || '');
+  const raw = String(opt ?? '').trim();
+  if (raw === 'NA' || raw === 'N/A') return 'N.A.';
+  const found = DL50_MATRIX_LEGEND.find((entry) => entry.code === raw);
+  return found?.display || raw;
 }
 
 export function formatDl50MatrixLegendText(separator = '  ·  ') {
