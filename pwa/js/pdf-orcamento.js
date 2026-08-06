@@ -1055,16 +1055,18 @@ function estimateMaquinaPrecoBlocksHeight(
   return total + 16 + tail;
 }
 
-function estimateMaquinaPrecoTableHeight(rowCount, compactFooter, rowH = MAQUINA_PRECO_TABLE_ROW_H) {
+function estimateMaquinaPrecoTableHeight(rowCount, compactFooter, rowH = null) {
   const table = {
     rows: Array.from({ length: rowCount }, () => ({})),
     deslocacao: '—',
   };
   const lineCount = countManutencaoMaquinaFooterLines(table);
-  const lineStep = Math.max(
-    compactFooter ? MAQUINA_PRECO_TABLE_ROW_H_COMPACT : rowH,
-    MAQUINA_FOOTER_LINE_MIN,
-  );
+  const lineStep =
+    rowH != null && rowH > 0
+      ? rowH
+      : compactFooter
+        ? MAQUINA_PRECO_TABLE_ROW_H_COMPACT
+        : MAQUINA_PRECO_TABLE_ROW_H;
   return (
     MAQUINA_FOOTER_SEPARATOR_GAP +
     lineCount * lineStep +
@@ -1770,18 +1772,19 @@ function estimateMaquinaPrecoBlocksHeightHeuristic(blocks, lineStep, twoColumn, 
   return total + 16 + tail;
 }
 
+/** @deprecated preferir estimateMaquinaPrecoTableHeight — heurística antiga da lista de preços. */
 function estimateMaquinaFooterHeight(precoLineCount, priceLineStep, twoColumnPrices, compact = false) {
-  const priceRows = twoColumnPrices ? Math.ceil(precoLineCount / 2) : precoLineCount;
-  const tail = compact ? 32 : 40;
-  return priceRows * (priceLineStep + 0.45) + 16 + tail;
+  return estimateMaquinaPrecoTableHeight(precoLineCount, compact, priceLineStep);
 }
 
 export function resolveManutencaoMaquinaPdfFooterLayout(fill = {}) {
   const meta = templateMetaFromFill(fill);
   const precoTable = buildManutencaoMaquinaPrecoTable(meta, meta);
-  const machineCount = Math.max(collectTemplateMaquinaNomes(fill).length, 1);
-  const splitTablePage = machineCount >= MAQUINA_SPLIT_TABLE_FROM;
   const rowCount = precoTable.rows.length;
+  const namedCount = collectTemplateMaquinaNomes(fill).length;
+  // Densidade visual: nomes ou linhas de preço; split: só linhas que entram no mapa.
+  const machineCount = Math.max(rowCount, namedCount, 1);
+  const splitTablePage = rowCount >= MAQUINA_SPLIT_TABLE_FROM;
   const compactFooter = rowCount >= 6;
   const priceRowH = machineCount >= 7 ? MAQUINA_PRECO_TABLE_ROW_H_COMPACT : MAQUINA_PRECO_TABLE_ROW_H;
   const priceFontSize = machineCount >= 7 ? MAQUINA_BULLET_COMPACT_FONT : MAQUINA_PRECO_TABLE_FONT;
@@ -1819,10 +1822,10 @@ export function resolveManutencaoMaquinaBulletsLayout(bulletStartY, footerLayout
 
   let priceLineStep = footerLayout.priceLineStep;
   let footerHeight = footerLayout.footerHeight;
-  const twoColumnPrices = footerLayout.twoColumnPrices;
   const precoLineCount =
     footerLayout.precoTable?.rows?.length ?? footerLayout.precoBlocks?.length ?? footerLayout.precoLinhas?.length ?? 0;
   const compactFooter = footerLayout.compactFooter;
+  const splitTablePage = Boolean(footerLayout.splitTablePage) || footerHeight <= 0;
 
   let fontSize = PDF_FONT_BODY;
   let bulletLineStep = MAQUINA_BULLET_LINE_STEP;
@@ -1844,14 +1847,11 @@ export function resolveManutencaoMaquinaBulletsLayout(bulletStartY, footerLayout
       fontSize = PDF_FONT_BODY;
     }
 
-    if (bulletLineStep >= MAQUINA_BULLET_MIN_STEP || priceLineStep <= 2.75) break;
+    if (splitTablePage || bulletLineStep >= MAQUINA_BULLET_MIN_STEP || priceLineStep <= 2.75) {
+      break;
+    }
     priceLineStep = Math.max(2.75, priceLineStep - 0.12);
-    footerHeight = estimateMaquinaFooterHeight(
-      precoLineCount,
-      priceLineStep,
-      twoColumnPrices,
-      compactFooter,
-    );
+    footerHeight = estimateMaquinaPrecoTableHeight(precoLineCount, compactFooter, priceLineStep);
   }
 
   return {

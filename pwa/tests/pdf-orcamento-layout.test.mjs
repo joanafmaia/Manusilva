@@ -173,6 +173,39 @@ describe('pdf-orcamento layout', () => {
     assert.equal(layout9.ultraCompactPreBullet, false, 'folha 1 com mais espaço sem tabela');
   });
 
+  it('parte o mapa de preços pelo nº de linhas da tabela, não só pelos nomes', () => {
+    const base = {
+      valor_deslocacao: '100',
+      prazo_entrega: '5',
+      forma_pagamento: 'Pronto Pagamento',
+      validade_orcamento: '10 Dias',
+    };
+    const fillNamedEmpty = {
+      ...base,
+      maquinas: Array.from({ length: 9 }, (_, index) => ({
+        maquinaManutencaoNome: `Máquina ${index + 1}`,
+        valorManutencaoGeral: '',
+        incluirInspecaoDl50: false,
+      })),
+    };
+    const fillPricedNoName = {
+      ...base,
+      maquinas: Array.from({ length: 9 }, () => ({
+        maquinaManutencaoNome: '',
+        marca: '',
+        valorManutencaoGeral: '150',
+        incluirInspecaoDl50: false,
+      })),
+    };
+    const empty = resolveManutencaoMaquinaPdfFooterLayout(fillNamedEmpty);
+    const priced = resolveManutencaoMaquinaPdfFooterLayout(fillPricedNoName);
+    assert.equal(empty.precoTable.rows.length, 0);
+    assert.equal(empty.splitTablePage, false, '9 nomes sem preço: não parte folha vazia');
+    assert.ok(empty.machineCount >= 9, 'densidade ainda reflecte 9 nomes');
+    assert.equal(priced.precoTable.rows.length, 9);
+    assert.equal(priced.splitTablePage, true, '9 linhas de preço: parte mesmo sem nome');
+  });
+
   it('a partir de 9 baterias parte o mapa de preços para a 2.ª folha', () => {
     const base = {
       forma_pagamento: 'Pronto Pagamento',
