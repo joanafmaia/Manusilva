@@ -14,6 +14,7 @@ import {
   resolveManutencaoBateriaPdfFooterLayout,
   resolveManutencaoBateriaFooterTypography,
   resolveOrcamentoGenericLayout,
+  resolveOrcamentoGenericPageRoles,
   estimateOrcamentoGroupBlockHeight,
 } from '../js/pdf-orcamento.js';
 import {
@@ -364,6 +365,16 @@ describe('pdf-orcamento layout', () => {
     const layout = resolveOrcamentoGenericLayout(doc, fill, 76);
     assert.equal(layout.splitTablePage, true);
     assert.equal(layout.allowPagination, true);
+  });
+
+  it('no split genérico põe totais no mapa de preços e pagina condições', () => {
+    const single = resolveOrcamentoGenericPageRoles(false);
+    const split = resolveOrcamentoGenericPageRoles(true);
+    assert.equal(single.footerOnPricePage, false);
+    assert.equal(single.conditionsAllowPagination, false);
+    assert.ok(single.conditionsMaxY < split.conditionsMaxY, 'sem rodapé na folha, mais altura para condições');
+    assert.equal(split.footerOnPricePage, true);
+    assert.equal(split.conditionsAllowPagination, true);
   });
 
   it('compacta tabelas quando há 3 equipamentos', () => {

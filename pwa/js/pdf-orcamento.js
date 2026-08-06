@@ -1,7 +1,7 @@
 /**
  * PDF — Proposta Comercial MS.015
- * Folha 1: condições da proposta (equipamentos, observações, totais, aprovação)
- * Folha 2 (se a tabela não couber): mapa de preços completo
+ * Folha 1: condições da proposta (equipamentos, observações, aprovação)
+ * Folha 2+ (se a tabela não couber): mapa de preços + totais/pagamento
  * Manutenção máquinas / baterias: a partir de 9 equipamentos, mapa de preços na 2.ª folha
  * Última folha: Garantia de Reparação e Condições Gerais (texto)
  */
@@ -1392,7 +1392,7 @@ function drawOrcamentoMaquinaSections(
         mode === 'tables' ? { title: 'Mapa de preços — continuação' } : undefined,
       );
       pageStartY = y;
-      pageMaxEndY = mode === 'tables' ? ORC_TABLE_PAGE_MAX_Y : ORC_GENERIC_BODY_MAX_Y;
+      pageMaxEndY = mode === 'tables' ? ORC_TABLE_PAGE_MAX_Y : maxEndY;
     }
 
     if (drawEquip && equipRows.length) {
@@ -1565,20 +1565,31 @@ function drawOrcamentoIvaTotals(doc, fill, startY, maxY = Infinity, options = {}
   return y;
 }
 
-function drawOrcamentoFooter(doc, fill) {
-  let y = FOOTER_TOP + 4;
+function estimateOrcamentoFooterHeight(fill = {}) {
+  const taxas = Array.isArray(fill.taxas_saida) ? fill.taxas_saida.filter(Boolean) : [];
+  const taxaLines = Math.max(1, taxas.length);
+  // taxas + prazo/pagamento/validade + 3 linhas IVA + folga
+  return taxaLines * 5 + 15 + 15 + 4;
+}
+
+function drawOrcamentoFooter(doc, fill, options = {}) {
+  const anchored = !Number.isFinite(options.startY);
+  let y = anchored ? FOOTER_TOP + 4 : options.startY;
+  const maxY = Number.isFinite(options.maxY) ? options.maxY : Infinity;
+  const lineStep = options.lineStep ?? 5;
   pdfSetFont(doc, 'normal');
   doc.setFontSize(PDF_FONT_BODY);
   doc.setTextColor(...PDF_COLOR_TEXT_DARK);
 
   const drawLabelValue = (label, value) => {
+    if (y + lineStep > maxY + 0.5) return;
     pdfSetFont(doc, 'bold');
     const prefix = label;
     doc.text(prefix, MARGIN, y);
     const prefixW = doc.getTextWidth(prefix);
     pdfSetFont(doc, 'normal');
     doc.text(pdfSafeText(value), MARGIN + prefixW, y);
-    y += 5;
+    y += lineStep;
   };
 
   const drawTaxasSaida = () => {
@@ -1598,7 +1609,23 @@ function drawOrcamentoFooter(doc, fill) {
   drawLabelValue('Forma de Pagamento: ', fill.forma_pagamento);
   drawLabelValue('Validade do orçamento – ', fill.validade_orcamento);
 
-  drawOrcamentoIvaTotals(doc, fill, y);
+  return drawOrcamentoIvaTotals(doc, fill, y, maxY, { lineStep });
+}
+
+/** Papéis das folhas no orçamento genérico (split vs uma folha). */
+export function resolveOrcamentoGenericPageRoles(splitTablePage) {
+  if (splitTablePage) {
+    return {
+      conditionsMaxY: PROPOSTA_FOOTER_MAX_Y,
+      conditionsAllowPagination: true,
+      footerOnPricePage: true,
+    };
+  }
+  return {
+    conditionsMaxY: ORC_GENERIC_BODY_MAX_Y,
+    conditionsAllowPagination: false,
+    footerOnPricePage: false,
+  };
 }
 
 function drawOrcamentoBodyParagraphs(doc, paragraphs, startY, options = {}) {
@@ -2352,27 +2379,47 @@ export async function renderOrcamentoPDF(report) {
   y += density.introGap;
 
   if (splitTablePage) {
-    // Folha 1: condições (equipamentos + observações + totais + aprovação) — sem tabela de preços.
-    const conditions = drawOrcamentoMaquinaSections(doc, fill, y, ORC_GENERIC_BODY_MAX_Y, density, {
-      mode: 'conditions',
-      allowPagination: false,
-    });
-    doc.setPage(1);
+    // Folhas de condições: equipamentos + observações + aprovação — sem tabela nem totais.
+    const pageRoles = resolveOrcamentoGenericPageRoles(true);
+    const conditions = drawOrcamentoMaquinaSections(
+      doc,
+      fill,
+      y,
+      pageRoles.conditionsMaxY,
+      density,
+      {
+        mode: 'conditions',
+        allowPagination: pageRoles.conditionsAllowPagination,
+      },
+    );
+    doc.setPage(conditions.page);
     drawOrcamentoObservacoesCliente(doc, fill, conditions.y, {
-      maxEndY: ORC_GENERIC_BODY_MAX_Y,
+      maxEndY: pageRoles.conditionsMaxY,
       density,
     });
-    drawOrcamentoFooter(doc, fill);
     drawClientApprovalBox(doc);
 
-    // Folha 2: mapa de preços completo.
+    // Folhas de preços: mapa + totais/pagamento (alinhado com manutenção).
     doc.addPage();
     let tableY = drawOrcamentoGenericContinuationHeader(doc, fill, {
       title: 'Mapa de preços',
     });
-    drawOrcamentoMaquinaSections(doc, fill, tableY, ORC_TABLE_PAGE_MAX_Y, density, {
+    const tables = drawOrcamentoMaquinaSections(doc, fill, tableY, ORC_TABLE_PAGE_MAX_Y, density, {
       mode: 'tables',
       allowPagination: true,
+    });
+    doc.setPage(tables.page);
+    let footerY = tables.y + 4;
+    const footerH = estimateOrcamentoFooterHeight(fill);
+    if (footerY + footerH > ORC_TABLE_PAGE_MAX_Y) {
+      doc.addPage();
+      footerY = drawOrcamentoGenericContinuationHeader(doc, fill, {
+        title: 'Totais e condições comerciais',
+      });
+    }
+    drawOrcamentoFooter(doc, fill, {
+      startY: footerY,
+      maxY: ORC_TABLE_PAGE_MAX_Y,
     });
   } else {
     const sections = drawOrcamentoMaquinaSections(doc, fill, y, ORC_GENERIC_BODY_MAX_Y, density, {
