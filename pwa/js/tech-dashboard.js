@@ -253,7 +253,11 @@ function startOfLocalDay(date) {
 }
 
 function getTodayIso() {
-  return new Date().toISOString().split('T')[0];
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
 
 function sortJobsByDateTime(a, b) {
@@ -522,6 +526,25 @@ function getAgendadosJobs(techId) {
   return getAgendadosItemsForDate(techId, selectedDate).sort(sortAgendadosJobs);
 }
 
+/**
+ * Rascunhos em aberto (em curso) fora do dia indicado — para fixar em «Hoje»
+ * e o técnico não esquecer relatórios de dias anteriores.
+ */
+function getOpenDraftItemsOutsideDate(techId, excludeIsoDate) {
+  const exclude = toPureDate(excludeIsoDate);
+  return filterAgendadosActiveJobs(
+    getTechAgendadosItems(techId).filter((item) => {
+      if (toPureDate(item.date) === exclude) return false;
+      const report = getCalendarItemReport(item);
+      return resolveCalendarEventState(item, report) === 'draft';
+    }),
+  ).sort(sortAgendadosJobs);
+}
+
+function isViewingTodayAgendados() {
+  return toPureDate(selectedDate) === getTodayIso();
+}
+
 /** Resto da semana do dia selecionado (exclui o próprio dia). */
 function getRestOfWeekScheduledJobs(techId) {
   const selected = toPureDate(selectedDate);
@@ -573,7 +596,14 @@ function renderAgendadosRow(item, options = {}) {
 }
 
 function renderAgendadosWeekPreview(techId) {
-  const weekJobs = getRestOfWeekScheduledJobs(techId);
+  let weekJobs = getRestOfWeekScheduledJobs(techId);
+  // Em Hoje, rascunhos de outros dias já vão na secção «Em aberto — não esquecer».
+  if (isViewingTodayAgendados()) {
+    weekJobs = weekJobs.filter((item) => {
+      const report = getCalendarItemReport(item);
+      return resolveCalendarEventState(item, report) !== 'draft';
+    });
+  }
   if (!weekJobs.length) {
     return '<p class="agendados-preview-empty text-muted">Sem mais trabalhos agendados esta semana.</p>';
   }
@@ -583,6 +613,19 @@ function renderAgendadosWeekPreview(techId) {
   return `
     <div class="agendados-week-preview">
       <h3 class="agendados-preview-title">Resto da semana</h3>
+      <div class="tech-job-rows">${rows}</div>
+    </div>
+  `;
+}
+
+/** Rascunhos de outros dias — sempre visíveis quando o técnico está em Hoje. */
+function renderOpenDraftsCarryOverSection(items) {
+  if (!items?.length) return '';
+  const rows = items.map((job) => renderAgendadosRow(job, { showDate: true })).join('');
+  return `
+    <div class="agendados-open-drafts" role="region" aria-label="Relatórios em aberto">
+      <h3 class="agendados-preview-title">Em aberto — não esquecer</h3>
+      <p class="agendados-open-drafts__hint">Rascunhos guardados de outros dias. Continue para concluir e enviar.</p>
       <div class="tech-job-rows">${rows}</div>
     </div>
   `;
@@ -952,7 +995,9 @@ function getRejectedJobsForTech(techId) {
 
 function getTodayAgendadosCount(techId) {
   const today = getTodayIso();
-  return getAgendadosItemsForDate(techId, today).length;
+  const todayCount = getAgendadosItemsForDate(techId, today).length;
+  const openElsewhere = getOpenDraftItemsOutsideDate(techId, today).length;
+  return todayCount + openElsewhere;
 }
 
 function countJobsByStateForDate(techId, isoDate) {
@@ -1003,12 +1048,14 @@ async function renderTechDaySummary() {
   const today = getTodayIso();
   const todayJobs = getTodayAgendadosCount(techId);
   const todayStates = countJobsByStateForDate(techId, today);
+  const openElsewhere = getOpenDraftItemsOutsideDate(techId, today).length;
   const rejected = getRejectedJobsForTech(techId).length;
   const todayLabel = formatDateLong(today);
 
   const stateParts = [];
-  if (todayStates.draft) {
-    stateParts.push(`<strong>${todayStates.draft}</strong> em curso`);
+  if (todayStates.draft || openElsewhere) {
+    const draftTotal = todayStates.draft + openElsewhere;
+    stateParts.push(`<strong>${draftTotal}</strong> em curso`);
   }
   if (todayStates.pending) {
     stateParts.push(`<strong>${todayStates.pending}</strong> à espera de aprovação`);
@@ -1935,24 +1982,35 @@ function renderJobs() {
   if (techJobsTab === 'agendados') {
     let jobs = getAgendadosJobs(techId);
     jobs = filterJobsBySearch(jobs, techJobsSearchQuery, jobFilterOpts);
+    const searching = Boolean(techJobsSearchQuery.trim());
+    let carryOverDrafts = [];
+    if (!searching && isViewingTodayAgendados()) {
+      carryOverDrafts = getOpenDraftItemsOutsideDate(techId, selectedDate);
+    }
+    const carryOverHtml = renderOpenDraftsCarryOverSection(carryOverDrafts);
+    const weekHtml = searching ? '' : renderAgendadosWeekPreview(techId);
 
     if (!jobs.length) {
-      const emptyMsg = techJobsSearchQuery.trim()
+      const emptyMsg = searching
         ? 'Nenhum resultado para esta pesquisa.'
-        : TECH_TAB_EMPTY_MESSAGES.agendados;
+        : carryOverDrafts.length
+          ? 'Sem trabalhos agendados para hoje — tem rascunhos em aberto acima.'
+          : TECH_TAB_EMPTY_MESSAGES.agendados;
       container.innerHTML = `
         ${renderAgendadosStateLegend()}
+        ${carryOverHtml}
         <div class="agendados-empty-note" role="status">
           <span aria-hidden="true">📅</span>
           <p>${emptyMsg}</p>
         </div>
-        ${techJobsSearchQuery.trim() ? '' : renderAgendadosWeekPreview(techId)}
+        ${weekHtml}
       `;
     } else {
       container.innerHTML = `
         ${renderAgendadosStateLegend()}
+        ${carryOverHtml}
         ${renderTechJobsListHtml(jobs, (job) => renderAgendadosRow(job, { showDate: false }))}
-        ${techJobsSearchQuery.trim() ? '' : renderAgendadosWeekPreview(techId)}
+        ${weekHtml}
       `;
     }
     bindTechJobRowsEvents(container);

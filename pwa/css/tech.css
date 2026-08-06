@@ -761,6 +761,23 @@ html.ms-booting .brand-logo-slot.brand-logo-slot--ready {
   flex-direction: column;
   gap: 0.4rem;
 }
+.agendados-open-drafts {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 0.85rem;
+  padding: 0.65rem 0.7rem 0.75rem;
+  border: 1px solid var(--ms-border-md, var(--border-subtle));
+  border-left: 3px solid var(--ws-draft, #6b7280);
+  border-radius: var(--radius-sm, 8px);
+  background: var(--surface-muted, #f8fafc);
+}
+.agendados-open-drafts__hint {
+  margin: 0 0 0.35rem;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: var(--text-muted, #64748b);
+}
 .agendados-preview-title {
   margin: 0 0 0.15rem;
   font-size: 0.7rem;
