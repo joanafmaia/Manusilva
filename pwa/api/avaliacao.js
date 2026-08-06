@@ -27,7 +27,7 @@ function renderPage({ title, message, emoji, accent = '#0f172a', extraHtml = '' 
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>${escapeHtml(title)} — MFS</title>
+  <title>${escapeHtml(title)}</title>
   <style>
     body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center;
       font-family:Segoe UI, system-ui, sans-serif; background:#f8fafc; color:#0f172a; padding:24px; }
