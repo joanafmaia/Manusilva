@@ -4,21 +4,17 @@
 
 import { pdfAutoTableFont, pdfSetFont, pdfSplitText } from './pdf-font.js';
 import {
+  buildReportCompactTableStylePack,
   mergePdfTableDidParseCell,
   PDF_CLIENT_BOX_FILL,
-  PDF_COLOR_CORPORATE_BLUE as CORPORATE_BLUE,
   PDF_COLOR_TEXT_DARK as TEXT_DARK,
   PDF_COLOR_TEXT_MUTED as TEXT_MUTED,
   PDF_CONTENT_W as CONTENT_W,
+  PDF_FONT_TABLE,
   PDF_MARGIN as MARGIN,
   PDF_PAGE_CONTENT_START_Y,
   PDF_PAGE_W as PAGE_W,
-  PDF_SECTION_BG,
-  PDF_TABLE_ALT_ROW_FILL,
-  PDF_TABLE_BODY_FILL,
-  PDF_TABLE_LINE,
-  PDF_TABLE_LINE_WIDTH,
-  PDF_TABLE_MIN_CELL_HEIGHT_COMPACT,
+  PDF_SECTION_GAP_MM,
   resolvePdfStandardFieldValue,
 } from './pdf-design-system.js';
 import { resolvePdfEstadoTextColor } from './pdf-estado-colors.js';
@@ -51,10 +47,6 @@ import {
   normalizeMaterialRows,
 } from './material-table-field.js';
 
-const RAV_SECTION_GAP_MM = 2.8;
-const RAV_HEAD_FONT_PT = 10;
-const RAV_TABLE_FONT_PT = 9.5;
-const RAV_CELL_PADDING = { top: 1.06, right: 1.2, bottom: 1.06, left: 1.2 };
 const RAV_DUAL_COL_GAP_MM = 5.3;
 const RAV_CLOSING_PROFILE = {
   sigTop: 4,
@@ -64,66 +56,16 @@ const RAV_CLOSING_PROFILE = {
 };
 
 export function drawRavBateriaTitleBar(doc, y, title) {
-  return drawPdfDocumentTitleBar(doc, y, title, RAV_SECTION_GAP_MM);
+  return drawPdfDocumentTitleBar(doc, y, title, PDF_SECTION_GAP_MM);
 }
 
 function ravTableStylePack(doc) {
-  return {
-    styles: {
-      font: pdfAutoTableFont(doc),
-      fontSize: RAV_TABLE_FONT_PT,
-      cellPadding: RAV_CELL_PADDING,
-      minCellHeight: PDF_TABLE_MIN_CELL_HEIGHT_COMPACT,
-      lineColor: PDF_TABLE_LINE,
-      lineWidth: PDF_TABLE_LINE_WIDTH,
-      textColor: TEXT_DARK,
-      valign: 'middle',
-      overflow: 'linebreak',
-    },
-    headStyles: {
-      font: pdfAutoTableFont(doc),
-      fillColor: PDF_SECTION_BG,
-      textColor: CORPORATE_BLUE,
-      fontStyle: 'bold',
-      fontSize: RAV_TABLE_FONT_PT,
-      cellPadding: RAV_CELL_PADDING,
-      minCellHeight: PDF_TABLE_MIN_CELL_HEIGHT_COMPACT,
-      lineColor: PDF_TABLE_LINE,
-      lineWidth: PDF_TABLE_LINE_WIDTH,
-      halign: 'left',
-    },
-    bodyStyles: {
-      fillColor: PDF_TABLE_BODY_FILL,
-      minCellHeight: PDF_TABLE_MIN_CELL_HEIGHT_COMPACT,
-      cellPadding: RAV_CELL_PADDING,
-      fontSize: RAV_TABLE_FONT_PT,
-      textColor: TEXT_DARK,
-    },
-    didParseCell: (data) => {
-      if (data.section === 'body' && data.row.index % 2 === 1) {
-        data.cell.styles.fillColor = PDF_TABLE_ALT_ROW_FILL;
-      }
-      if (data.section === 'body') {
-        data.cell.styles.lineWidth = {
-          top: 0,
-          right: 0,
-          bottom: PDF_TABLE_LINE_WIDTH,
-          left: 0,
-        };
-      }
-    },
-  };
+  return buildReportCompactTableStylePack(doc, pdfAutoTableFont);
 }
 
 async function drawRavSectionBar(doc, y, title, layout = {}) {
   const { x = MARGIN, width = CONTENT_W } = layout;
-  return drawPdfSectionTitleBar(doc, y, title, {
-    x,
-    width,
-    bandH: 5.5,
-    gapAfter: 0.8,
-    fontSize: RAV_HEAD_FONT_PT,
-  });
+  return drawPdfSectionTitleBar(doc, y, title, { x, width });
 }
 
 function collectRavConsumableRows(service, values) {
@@ -150,12 +92,12 @@ async function drawRavConsumablesTableAt(doc, startY, rows, x, width) {
     marginRight: PAGE_W - x - width,
     tableWidth: width,
     columnStyles: {
-      0: { cellWidth: artW, halign: 'left', fontSize: RAV_TABLE_FONT_PT },
-      1: { cellWidth: qtdW, halign: 'center', fontSize: RAV_TABLE_FONT_PT },
+      0: { cellWidth: artW, halign: 'left', fontSize: PDF_FONT_TABLE },
+      1: { cellWidth: qtdW, halign: 'center', fontSize: PDF_FONT_TABLE },
     },
     gapAfter: 0,
     ...pack,
-    didParseCell: mergePdfTableDidParseCell(pack.didParseCell),
+    didParseCell: mergePdfTableDidParseCell(),
     autoTableExtra: { rowPageBreak: 'avoid' },
   });
 }
@@ -183,13 +125,13 @@ async function drawRavVisitasTempoTableAt(doc, startY, values, x, width) {
     marginRight: PAGE_W - x - width,
     tableWidth: width,
     columnStyles: {
-      0: { cellWidth: colW, halign: 'center', fontSize: RAV_TABLE_FONT_PT },
-      1: { cellWidth: colW, halign: 'center', fontSize: RAV_TABLE_FONT_PT },
+      0: { cellWidth: colW, halign: 'center', fontSize: PDF_FONT_TABLE },
+      1: { cellWidth: colW, halign: 'center', fontSize: PDF_FONT_TABLE },
     },
     gapAfter: 0,
     ...pack,
     bodyStyles: { ...pack.bodyStyles, halign: 'center' },
-    didParseCell: mergePdfTableDidParseCell(pack.didParseCell),
+    didParseCell: mergePdfTableDidParseCell(),
     autoTableExtra: { rowPageBreak: 'avoid' },
   });
 }
@@ -205,7 +147,7 @@ async function drawRavConsumablesVisitasDualBlock(doc, y, service, values) {
   const leftEndY = await drawRavConsumablesTableAt(doc, startY, consumableRows, leftX, colW);
   const rightEndY = await drawRavVisitasTempoTableAt(doc, startY, values, rightX, colW);
 
-  return Math.max(leftEndY, rightEndY) + RAV_SECTION_GAP_MM;
+  return Math.max(leftEndY, rightEndY) + PDF_SECTION_GAP_MM;
 }
 
 export async function drawRavEstadoFinalBlock(doc, y, values) {
@@ -213,15 +155,15 @@ export async function drawRavEstadoFinalBlock(doc, y, values) {
   const estado = pdfDisplayValue(values.estado_final);
   const textW = CONTENT_W - 8;
   const lines = pdfSplitText(doc, observacao, textW);
-  const lineStep = (RAV_TABLE_FONT_PT / 72) * 25.4 * 1.15;
-  const estadoBandH = 7 + RAV_SECTION_GAP_MM;
+  const lineStep = (PDF_FONT_TABLE / 72) * 25.4 * 1.15;
+  const estadoBandH = 7 + PDF_SECTION_GAP_MM;
   const obsLabelH = 3.8;
   const obsTextTop = 7.2;
 
   y = await drawRavSectionBar(doc, y, 'Estado Final');
 
   pdfSetFont(doc, 'normal');
-  doc.setFontSize(RAV_TABLE_FONT_PT);
+  doc.setFontSize(PDF_FONT_TABLE);
 
   let lineIdx = 0;
   while (lineIdx < lines.length) {
@@ -261,7 +203,7 @@ export async function drawRavEstadoFinalBlock(doc, y, values) {
 
   y = ensureSpace(doc, y, estadoBandH);
   pdfSetFont(doc, 'bold');
-  doc.setFontSize(RAV_TABLE_FONT_PT);
+  doc.setFontSize(PDF_FONT_TABLE);
   doc.setTextColor(...resolvePdfEstadoTextColor(estado));
   doc.text(`Estado: ${estado}`, MARGIN + 2, y + 3.5);
   touchPdfContentPage(doc);

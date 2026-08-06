@@ -4,17 +4,13 @@
 
 import { pdfAutoTableFont, pdfSetFont, pdfSplitText } from './pdf-font.js';
 import {
+  buildReportCompactTableStylePack,
   mergePdfTableDidParseCell,
-  PDF_COLOR_CORPORATE_BLUE as CORPORATE_BLUE,
   PDF_COLOR_TEXT_DARK as TEXT_DARK,
   PDF_CONTENT_W as CONTENT_W,
+  PDF_FONT_TABLE,
   PDF_MARGIN as MARGIN,
-  PDF_SECTION_BG,
-  PDF_TABLE_ALT_ROW_FILL,
-  PDF_TABLE_BODY_FILL,
-  PDF_TABLE_LINE,
-  PDF_TABLE_LINE_WIDTH,
-  PDF_TABLE_MIN_CELL_HEIGHT_COMPACT,
+  PDF_SECTION_GAP_MM,
   resolvePdfStandardFieldValue,
 } from './pdf-design-system.js';
 import { pdfEstadoValueDidParseCell } from './pdf-estado-colors.js';
@@ -58,11 +54,6 @@ import { drawInterventionFotografiasSection } from './pdf-intervention-fotos.js'
 import { drawSignaturesFooter } from './pdf-signatures-footer.js';
 import { drawPdfGridTable } from './pdf-grid-table.js';
 
-const FOLHA_AVARIAS_SECTION_GAP_MM = 2.8;
-const FOLHA_AVARIAS_HEAD_FONT_PT = 10;
-const FOLHA_AVARIAS_TABLE_FONT_PT = 9.5;
-const FOLHA_AVARIAS_CELL_PADDING = { top: 1.06, right: 1.2, bottom: 1.06, left: 1.2 };
-
 const FOLHA_AVARIAS_CLOSING_PROFILE = {
   sigTop: 5,
   sigImg: 15,
@@ -71,67 +62,19 @@ const FOLHA_AVARIAS_CLOSING_PROFILE = {
 };
 
 export function drawFolhaAvariasTitleBar(doc, y, title) {
-  return drawPdfDocumentTitleBar(doc, y, title, FOLHA_AVARIAS_SECTION_GAP_MM);
+  return drawPdfDocumentTitleBar(doc, y, title, PDF_SECTION_GAP_MM);
 }
 
 function folhaAvariasTableStylePack(doc) {
-  return {
-    styles: {
-      font: pdfAutoTableFont(doc),
-      fontSize: FOLHA_AVARIAS_TABLE_FONT_PT,
-      cellPadding: FOLHA_AVARIAS_CELL_PADDING,
-      minCellHeight: PDF_TABLE_MIN_CELL_HEIGHT_COMPACT,
-      lineColor: PDF_TABLE_LINE,
-      lineWidth: PDF_TABLE_LINE_WIDTH,
-      textColor: TEXT_DARK,
-      valign: 'middle',
-      overflow: 'linebreak',
-    },
-    headStyles: {
-      font: pdfAutoTableFont(doc),
-      fillColor: PDF_SECTION_BG,
-      textColor: CORPORATE_BLUE,
-      fontStyle: 'bold',
-      fontSize: FOLHA_AVARIAS_TABLE_FONT_PT,
-      cellPadding: FOLHA_AVARIAS_CELL_PADDING,
-      minCellHeight: PDF_TABLE_MIN_CELL_HEIGHT_COMPACT,
-      lineColor: PDF_TABLE_LINE,
-      lineWidth: PDF_TABLE_LINE_WIDTH,
-      halign: 'left',
-    },
-    bodyStyles: {
-      fillColor: PDF_TABLE_BODY_FILL,
-      minCellHeight: PDF_TABLE_MIN_CELL_HEIGHT_COMPACT,
-      cellPadding: FOLHA_AVARIAS_CELL_PADDING,
-      fontSize: FOLHA_AVARIAS_TABLE_FONT_PT,
-      textColor: TEXT_DARK,
-    },
-    didParseCell: (data) => {
-      if (data.section === 'body' && data.row.index % 2 === 1) {
-        data.cell.styles.fillColor = PDF_TABLE_ALT_ROW_FILL;
-      }
-      if (data.section === 'body') {
-        data.cell.styles.lineWidth = {
-          top: 0,
-          right: 0,
-          bottom: PDF_TABLE_LINE_WIDTH,
-          left: 0,
-        };
-      }
-    },
-  };
+  return buildReportCompactTableStylePack(doc, pdfAutoTableFont);
 }
 
 async function drawFolhaAvariasSectionBar(doc, y, title) {
-  return drawPdfSectionTitleBar(doc, y, title, {
-    bandH: 5.5,
-    gapAfter: 0.8,
-    fontSize: FOLHA_AVARIAS_HEAD_FONT_PT,
-  });
+  return drawPdfSectionTitleBar(doc, y, title);
 }
 
 async function drawFolhaAvariasDashboardTable(doc, y, sectionTitle, options = {}) {
-  const { head, body, columnStyles, bodyStyles, gapAfter = FOLHA_AVARIAS_SECTION_GAP_MM, didParseCell } =
+  const { head, body, columnStyles, bodyStyles, gapAfter = PDF_SECTION_GAP_MM, didParseCell } =
     options;
   y = await drawFolhaAvariasSectionBar(doc, y, sectionTitle);
   const pack = folhaAvariasTableStylePack(doc);
@@ -186,11 +129,11 @@ async function drawFolhaIntervencaoTextSection(doc, y, sectionTitle, text) {
   const boxY = y;
   drawPdfContentBox(doc, MARGIN, boxY, CONTENT_W, boxH);
   pdfSetFont(doc, 'normal');
-  doc.setFontSize(FOLHA_AVARIAS_TABLE_FONT_PT);
+  doc.setFontSize(PDF_FONT_TABLE);
   doc.setTextColor(...TEXT_DARK);
   doc.text(lines, MARGIN + 2.5, boxY + 4.5, { lineHeightFactor: 1.15 });
   touchPdfContentPage(doc);
-  return boxY + boxH + FOLHA_AVARIAS_SECTION_GAP_MM;
+  return boxY + boxH + PDF_SECTION_GAP_MM;
 }
 
 async function drawFolhaIntervencaoMaterialTable(doc, y, rows) {

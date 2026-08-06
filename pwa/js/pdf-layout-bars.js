@@ -13,6 +13,7 @@ import {
   PDF_FONT_SUBTITLE,
   PDF_FONT_SECTION,
   PDF_SECTION_TITLE_BAR_H_MM,
+  PDF_SECTION_TITLE_BAR_GAP_AFTER_MM,
   PDF_SECTION_BG,
   PDF_TABLE_LINE,
   PDF_TABLE_LINE_WIDTH,
@@ -43,7 +44,7 @@ export function drawPdfSectionTitleBar(doc, y, title, options = {}) {
   const x = options.x ?? MARGIN;
   const width = options.width ?? CONTENT_W;
   const bandH = options.bandH ?? PDF_SECTION_TITLE_BAR_H_MM;
-  const gapAfter = options.gapAfter ?? PDF_SECTION_GAP_MM;
+  const gapAfter = options.gapAfter ?? PDF_SECTION_TITLE_BAR_GAP_AFTER_MM;
   const fontSize = options.fontSize ?? PDF_FONT_SECTION;
   const align = options.align ?? 'left';
 

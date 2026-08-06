@@ -5,18 +5,13 @@
 
 import { pdfAutoTableFont } from './pdf-font.js';
 import {
+  buildReportCompactTableStylePack,
   mergePdfTableDidParseCell,
-  PDF_COLOR_CORPORATE_BLUE as CORPORATE_BLUE,
-  PDF_COLOR_TEXT_DARK as TEXT_DARK,
   PDF_CONTENT_W as CONTENT_W,
+  PDF_FONT_TABLE,
   PDF_MARGIN as MARGIN,
   PDF_PAGE_W as PAGE_W,
-  PDF_SECTION_BG,
-  PDF_TABLE_ALT_ROW_FILL,
-  PDF_TABLE_BODY_FILL,
-  PDF_TABLE_LINE,
-  PDF_TABLE_LINE_WIDTH,
-  PDF_TABLE_MIN_CELL_HEIGHT_COMPACT,
+  PDF_SECTION_GAP_MM,
   PREVENTIVA_BATERIA_ANALYSIS_SPECS,
   resolvePdfStandardFieldValue,
 } from './pdf-design-system.js';
@@ -47,10 +42,6 @@ import { drawSignaturesFooter } from './pdf-signatures-footer.js';
 import { drawPdfGridTable } from './pdf-grid-table.js';
 import { drawRavEstadoFinalBlock } from './pdf-rav-bateria.js';
 
-const PREVENTIVA_SECTION_GAP_MM = 2.8;
-const PREVENTIVA_HEAD_FONT_PT = 10;
-const PREVENTIVA_TABLE_FONT_PT = 9.5;
-const PREVENTIVA_CELL_PADDING = { top: 1.06, right: 1.2, bottom: 1.06, left: 1.2 };
 const PREVENTIVA_DUAL_COL_GAP_MM = 5.3;
 const PREVENTIVA_CLOSING_PROFILE = {
   sigTop: 4,
@@ -62,62 +53,12 @@ const PREVENTIVA_CLOSING_PROFILE = {
 export const FOLHA_CLOSING_PROFILE = PREVENTIVA_CLOSING_PROFILE;
 
 function preventivaTableStylePack(doc) {
-  return {
-    styles: {
-      font: pdfAutoTableFont(doc),
-      fontSize: PREVENTIVA_TABLE_FONT_PT,
-      cellPadding: PREVENTIVA_CELL_PADDING,
-      minCellHeight: PDF_TABLE_MIN_CELL_HEIGHT_COMPACT,
-      lineColor: PDF_TABLE_LINE,
-      lineWidth: PDF_TABLE_LINE_WIDTH,
-      textColor: TEXT_DARK,
-      valign: 'middle',
-      overflow: 'linebreak',
-    },
-    headStyles: {
-      font: pdfAutoTableFont(doc),
-      fillColor: PDF_SECTION_BG,
-      textColor: CORPORATE_BLUE,
-      fontStyle: 'bold',
-      fontSize: PREVENTIVA_TABLE_FONT_PT,
-      cellPadding: PREVENTIVA_CELL_PADDING,
-      minCellHeight: PDF_TABLE_MIN_CELL_HEIGHT_COMPACT,
-      lineColor: PDF_TABLE_LINE,
-      lineWidth: PDF_TABLE_LINE_WIDTH,
-      halign: 'left',
-    },
-    bodyStyles: {
-      fillColor: PDF_TABLE_BODY_FILL,
-      minCellHeight: PDF_TABLE_MIN_CELL_HEIGHT_COMPACT,
-      cellPadding: PREVENTIVA_CELL_PADDING,
-      fontSize: PREVENTIVA_TABLE_FONT_PT,
-      textColor: TEXT_DARK,
-    },
-    didParseCell: (data) => {
-      if (data.section === 'body' && data.row.index % 2 === 1) {
-        data.cell.styles.fillColor = PDF_TABLE_ALT_ROW_FILL;
-      }
-      if (data.section === 'body') {
-        data.cell.styles.lineWidth = {
-          top: 0,
-          right: 0,
-          bottom: PDF_TABLE_LINE_WIDTH,
-          left: 0,
-        };
-      }
-    },
-  };
+  return buildReportCompactTableStylePack(doc, pdfAutoTableFont);
 }
 
 async function drawPreventivaSectionBar(doc, y, title, layout = {}) {
   const { x = MARGIN, width = CONTENT_W } = layout;
-  return drawPdfSectionTitleBar(doc, y, title, {
-    x,
-    width,
-    bandH: 5.5,
-    gapAfter: 0.8,
-    fontSize: PREVENTIVA_HEAD_FONT_PT,
-  });
+  return drawPdfSectionTitleBar(doc, y, title, { x, width });
 }
 
 /** @deprecated Mantido para testes — usar cabeçalho padrão em pdf-report.js */
@@ -126,7 +67,7 @@ export function drawPreventivaBateriaMirrorHeader() {
 }
 
 export function drawFolhaTitleBar(doc, y, title) {
-  return drawPdfDocumentTitleBar(doc, y, title, PREVENTIVA_SECTION_GAP_MM);
+  return drawPdfDocumentTitleBar(doc, y, title, PDF_SECTION_GAP_MM);
 }
 
 function resolvePreventivaBateriaAnalysisValue(spec, values) {
@@ -168,12 +109,12 @@ async function drawPreventivaBateriaAnalysisTable(doc, y, values) {
     marginRight: MARGIN,
     tableWidth: CONTENT_W,
     columnStyles: {
-      0: { cellWidth: labelColW, halign: 'left', fontSize: PREVENTIVA_TABLE_FONT_PT },
-      1: { cellWidth: CONTENT_W - labelColW, halign: 'left', fontSize: PREVENTIVA_TABLE_FONT_PT },
+      0: { cellWidth: labelColW, halign: 'left', fontSize: PDF_FONT_TABLE },
+      1: { cellWidth: CONTENT_W - labelColW, halign: 'left', fontSize: PDF_FONT_TABLE },
     },
-    gapAfter: PREVENTIVA_SECTION_GAP_MM,
+    gapAfter: PDF_SECTION_GAP_MM,
     ...pack,
-    didParseCell: mergePdfTableDidParseCell(pack.didParseCell),
+    didParseCell: mergePdfTableDidParseCell(),
     autoTableExtra: { rowPageBreak: 'avoid' },
   });
 }
@@ -194,12 +135,12 @@ async function drawPreventivaConsumablesTableAt(doc, startY, rows, x, width) {
     marginRight: PAGE_W - x - width,
     tableWidth: width,
     columnStyles: {
-      0: { cellWidth: artW, halign: 'left', fontSize: PREVENTIVA_TABLE_FONT_PT },
-      1: { cellWidth: qtdW, halign: 'center', fontSize: PREVENTIVA_TABLE_FONT_PT },
+      0: { cellWidth: artW, halign: 'left', fontSize: PDF_FONT_TABLE },
+      1: { cellWidth: qtdW, halign: 'center', fontSize: PDF_FONT_TABLE },
     },
     gapAfter: 0,
     ...pack,
-    didParseCell: mergePdfTableDidParseCell(pack.didParseCell),
+    didParseCell: mergePdfTableDidParseCell(),
     autoTableExtra: { rowPageBreak: 'avoid' },
   });
 }
@@ -228,13 +169,13 @@ export async function drawPreventivaBateriaIntervencaoTable(doc, startY, values,
     marginRight: PAGE_W - x - width,
     tableWidth: width,
     columnStyles: {
-      0: { cellWidth: colW, halign: 'center', fontSize: PREVENTIVA_TABLE_FONT_PT },
-      1: { cellWidth: colW, halign: 'center', fontSize: PREVENTIVA_TABLE_FONT_PT },
+      0: { cellWidth: colW, halign: 'center', fontSize: PDF_FONT_TABLE },
+      1: { cellWidth: colW, halign: 'center', fontSize: PDF_FONT_TABLE },
     },
     gapAfter: 0,
     ...pack,
     bodyStyles: { ...pack.bodyStyles, halign: 'center' },
-    didParseCell: mergePdfTableDidParseCell(pack.didParseCell),
+    didParseCell: mergePdfTableDidParseCell(),
     autoTableExtra: { rowPageBreak: 'avoid' },
   });
 }
@@ -259,7 +200,7 @@ async function drawPreventivaConsumablesVisitasDualBlock(doc, y, service, values
     width: colW,
   });
 
-  return Math.max(leftEndY, rightEndY) + PREVENTIVA_SECTION_GAP_MM;
+  return Math.max(leftEndY, rightEndY) + PDF_SECTION_GAP_MM;
 }
 
 export async function drawPreventivaBateriaBody(doc, y, values, service) {

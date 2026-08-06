@@ -4,18 +4,12 @@
 
 import { pdfAutoTableFont, pdfSetFont, pdfSplitText } from './pdf-font.js';
 import {
-  mergePdfTableDidParseCell,
-  PDF_COLOR_CORPORATE_BLUE as CORPORATE_BLUE,
+  buildReportCompactTableStylePack,
   PDF_COLOR_TEXT_DARK as TEXT_DARK,
   PDF_CONTENT_W as CONTENT_W,
+  PDF_FONT_TABLE,
   PDF_MARGIN as MARGIN,
-  PDF_SECTION_BG,
-  PDF_TABLE_ALT_ROW_FILL,
-  PDF_TABLE_BODY_FILL,
-  PDF_TABLE_CELL_PADDING_COMPACT,
-  PDF_TABLE_LINE,
-  PDF_TABLE_LINE_WIDTH,
-  PDF_TABLE_MIN_CELL_HEIGHT_COMPACT,
+  PDF_SECTION_GAP_MM,
 } from './pdf-design-system.js';
 import { LABEL_N_INTERNO, LABEL_TIPO, labelWithValue } from './field-labels.js';
 import { formatFolhaInterventionDate, pdfDisplayValue } from './pdf-format-utils.js';
@@ -35,9 +29,6 @@ import { drawInterventionFotografiasSection } from './pdf-intervention-fotos.js'
 import { drawSignaturesFooter } from './pdf-signatures-footer.js';
 import { drawPdfGridTable } from './pdf-grid-table.js';
 
-const SECTION_GAP_MM = 3.2;
-const FONT_PT = 9;
-const HEAD_FONT_PT = 10.5;
 const CLOSING_PROFILE = {
   sigTop: 3,
   sigImg: 13,
@@ -46,59 +37,11 @@ const CLOSING_PROFILE = {
 };
 
 function movimentoTableStylePack(doc) {
-  return {
-    styles: {
-      font: pdfAutoTableFont(doc),
-      fontSize: FONT_PT,
-      cellPadding: PDF_TABLE_CELL_PADDING_COMPACT,
-      minCellHeight: PDF_TABLE_MIN_CELL_HEIGHT_COMPACT,
-      lineColor: PDF_TABLE_LINE,
-      lineWidth: PDF_TABLE_LINE_WIDTH,
-      textColor: TEXT_DARK,
-      valign: 'middle',
-      overflow: 'linebreak',
-    },
-    headStyles: {
-      font: pdfAutoTableFont(doc),
-      fillColor: PDF_SECTION_BG,
-      textColor: CORPORATE_BLUE,
-      fontStyle: 'bold',
-      fontSize: FONT_PT,
-      cellPadding: PDF_TABLE_CELL_PADDING_COMPACT,
-      minCellHeight: PDF_TABLE_MIN_CELL_HEIGHT_COMPACT,
-      lineColor: PDF_TABLE_LINE,
-      lineWidth: PDF_TABLE_LINE_WIDTH,
-      halign: 'left',
-    },
-    bodyStyles: {
-      fillColor: PDF_TABLE_BODY_FILL,
-      minCellHeight: PDF_TABLE_MIN_CELL_HEIGHT_COMPACT,
-      cellPadding: PDF_TABLE_CELL_PADDING_COMPACT,
-      fontSize: FONT_PT,
-      textColor: TEXT_DARK,
-    },
-    didParseCell: mergePdfTableDidParseCell((data) => {
-      if (data.section === 'body' && data.row.index % 2 === 1) {
-        data.cell.styles.fillColor = PDF_TABLE_ALT_ROW_FILL;
-      }
-      if (data.section === 'body') {
-        data.cell.styles.lineWidth = {
-          top: 0,
-          right: 0,
-          bottom: PDF_TABLE_LINE_WIDTH,
-          left: 0,
-        };
-      }
-    }),
-  };
+  return buildReportCompactTableStylePack(doc, pdfAutoTableFont);
 }
 
 async function drawSectionBar(doc, y, title) {
-  return drawPdfSectionTitleBar(doc, y, title, {
-    bandH: 6,
-    gapAfter: 1.2,
-    fontSize: HEAD_FONT_PT,
-  });
+  return drawPdfSectionTitleBar(doc, y, title);
 }
 
 function resolveTipoEquipamento(values) {
@@ -122,10 +65,10 @@ export async function drawMovimentoMaterialBody(doc, y, values) {
       ],
     ],
     columnStyles: {
-      0: { cellWidth: movimentoColW, halign: 'left', fontSize: FONT_PT },
-      1: { cellWidth: movimentoColW, halign: 'left', fontSize: FONT_PT },
+      0: { cellWidth: movimentoColW, halign: 'left', fontSize: PDF_FONT_TABLE },
+      1: { cellWidth: movimentoColW, halign: 'left', fontSize: PDF_FONT_TABLE },
     },
-    gapAfter: SECTION_GAP_MM,
+    gapAfter: PDF_SECTION_GAP_MM,
     ...movimentoTableStylePack(doc),
   });
 
@@ -139,10 +82,10 @@ export async function drawMovimentoMaterialBody(doc, y, values) {
       ],
     ],
     columnStyles: {
-      0: { cellWidth: equipColW, halign: 'left', fontSize: FONT_PT },
-      1: { cellWidth: equipColW, halign: 'left', fontSize: FONT_PT },
+      0: { cellWidth: equipColW, halign: 'left', fontSize: PDF_FONT_TABLE },
+      1: { cellWidth: equipColW, halign: 'left', fontSize: PDF_FONT_TABLE },
     },
-    gapAfter: SECTION_GAP_MM,
+    gapAfter: PDF_SECTION_GAP_MM,
     ...movimentoTableStylePack(doc),
   });
 
@@ -162,12 +105,12 @@ async function drawObservationsBox(doc, y, value) {
   drawPdfContentBox(doc, MARGIN, boxY, CONTENT_W, boxH);
 
   pdfSetFont(doc, 'normal');
-  doc.setFontSize(FONT_PT);
+  doc.setFontSize(PDF_FONT_TABLE);
   doc.setTextColor(...TEXT_DARK);
   doc.text(lines, MARGIN + 3, boxY + 4.5);
 
   touchPdfContentPage(doc);
-  return boxY + boxH + SECTION_GAP_MM;
+  return boxY + boxH + PDF_SECTION_GAP_MM;
 }
 
 export async function drawMovimentoMaterialClosingSection(doc, y, opts) {

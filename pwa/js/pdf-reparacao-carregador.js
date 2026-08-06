@@ -6,24 +6,23 @@ import MANUSILVA_LOGO from './logo_data.js';
 import { isLogoConfigured, getPdfLogoFormat } from './brand-ui.js';
 import { pdfAutoTableFont, pdfSetFont, pdfSplitText, pdfSafeText } from './pdf-font.js';
 import {
+  buildReportCompactTableStylePack,
   PDF_COLOR_CORPORATE_BLUE as CORPORATE_BLUE,
   PDF_COLOR_TEXT_DARK as TEXT_DARK,
   PDF_COLOR_TEXT_MUTED as TEXT_MUTED,
   PDF_CONTENT_W as CONTENT_W,
   PDF_FONT_BODY,
   PDF_FONT_CAPTION,
+  PDF_FONT_SECTION,
+  PDF_FONT_TABLE,
   PDF_HEADER_CLIENT_W,
   PDF_LOGO_HEIGHT_MM,
   PDF_LOGO_WIDTH_MM,
   PDF_MARGIN as MARGIN,
   PDF_PAGE_W as PAGE_W,
-  PDF_SECTION_BG,
-  PDF_TABLE_ALT_ROW_FILL,
-  PDF_TABLE_BODY_FILL,
-  PDF_TABLE_CELL_PADDING_COMPACT,
+  PDF_SECTION_GAP_MM,
   PDF_TABLE_LINE,
   PDF_TABLE_LINE_WIDTH,
-  PDF_TABLE_MIN_CELL_HEIGHT_COMPACT,
   PDF_CLIENT_BOX_FILL,
   resolvePdfStandardFieldValue,
 } from './pdf-design-system.js';
@@ -58,9 +57,6 @@ import { drawSignaturesFooter } from './pdf-signatures-footer.js';
 import { drawPdfGridTable } from './pdf-grid-table.js';
 import { drawLogoPlaceholder } from './pdf-header-blocks.js';
 
-const CARREGADOR_SECTION_GAP_MM = 3.5;
-const CARREGADOR_FONT_PT = 9;
-const CARREGADOR_HEAD_FONT_PT = 10;
 const CARREGADOR_CLOSING_PROFILE = {
   sigTop: 3,
   sigImg: 13,
@@ -70,7 +66,7 @@ const CARREGADOR_CLOSING_PROFILE = {
 const CARREGADOR_RADIUS_MM = 1.6;
 
 export function drawCarregadorTitleBar(doc, y, title) {
-  return drawPdfDocumentTitleBar(doc, y, title, CARREGADOR_SECTION_GAP_MM);
+  return drawPdfDocumentTitleBar(doc, y, title, PDF_SECTION_GAP_MM);
 }
 
 function drawCarregadorMetaCell(doc, x, y, label, value, maxW) {
@@ -79,7 +75,7 @@ function drawCarregadorMetaCell(doc, x, y, label, value, maxW) {
   doc.setTextColor(...TEXT_MUTED);
   doc.text(`${label}:`, x, y);
   pdfSetFont(doc, 'normal');
-  doc.setFontSize(CARREGADOR_FONT_PT);
+  doc.setFontSize(PDF_FONT_TABLE);
   doc.setTextColor(...TEXT_DARK);
   doc.text(pdfSafeText(value) || '—', x, y + 3.2, { maxWidth: maxW });
 }
@@ -124,7 +120,7 @@ function drawCarregadorIdentificacaoClienteBox(doc, topY, values, techName) {
 
   let lineY = topY + blockPad + 3;
   pdfSetFont(doc, 'bold');
-  doc.setFontSize(CARREGADOR_HEAD_FONT_PT);
+  doc.setFontSize(PDF_FONT_SECTION);
   doc.setTextColor(...CORPORATE_BLUE);
   doc.text('IDENTIFICAÇÃO CLIENTE', blockX + blockPad, lineY);
   lineY += 4.2;
@@ -145,59 +141,11 @@ function drawCarregadorIdentificacaoClienteBox(doc, topY, values, techName) {
 }
 
 function carregadorTableStylePack(doc) {
-  return {
-    styles: {
-      font: pdfAutoTableFont(doc),
-      fontSize: CARREGADOR_FONT_PT,
-      cellPadding: PDF_TABLE_CELL_PADDING_COMPACT,
-      minCellHeight: PDF_TABLE_MIN_CELL_HEIGHT_COMPACT,
-      lineColor: PDF_TABLE_LINE,
-      lineWidth: PDF_TABLE_LINE_WIDTH,
-      textColor: TEXT_DARK,
-      valign: 'middle',
-      overflow: 'linebreak',
-    },
-    headStyles: {
-      font: pdfAutoTableFont(doc),
-      fillColor: PDF_SECTION_BG,
-      textColor: CORPORATE_BLUE,
-      fontStyle: 'bold',
-      fontSize: CARREGADOR_HEAD_FONT_PT,
-      cellPadding: PDF_TABLE_CELL_PADDING_COMPACT,
-      minCellHeight: PDF_TABLE_MIN_CELL_HEIGHT_COMPACT,
-      lineColor: PDF_TABLE_LINE,
-      lineWidth: PDF_TABLE_LINE_WIDTH,
-      halign: 'left',
-    },
-    bodyStyles: {
-      fillColor: PDF_TABLE_BODY_FILL,
-      minCellHeight: PDF_TABLE_MIN_CELL_HEIGHT_COMPACT,
-      cellPadding: PDF_TABLE_CELL_PADDING_COMPACT,
-      fontSize: CARREGADOR_FONT_PT,
-      textColor: TEXT_DARK,
-    },
-    didParseCell: (data) => {
-      if (data.section === 'body' && data.row.index % 2 === 1) {
-        data.cell.styles.fillColor = PDF_TABLE_ALT_ROW_FILL;
-      }
-      if (data.section === 'body') {
-        data.cell.styles.lineWidth = {
-          top: 0,
-          right: 0,
-          bottom: PDF_TABLE_LINE_WIDTH,
-          left: 0,
-        };
-      }
-    },
-  };
+  return buildReportCompactTableStylePack(doc, pdfAutoTableFont);
 }
 
 async function drawCarregadorSectionBar(doc, y, title) {
-  return drawPdfSectionTitleBar(doc, y, title, {
-    bandH: 6,
-    gapAfter: 1.2,
-    fontSize: CARREGADOR_HEAD_FONT_PT,
-  });
+  return drawPdfSectionTitleBar(doc, y, title);
 }
 
 async function drawCarregadorDashboardTable(doc, y, sectionTitle, columnHead, body, columnStyles) {
@@ -208,7 +156,7 @@ async function drawCarregadorDashboardTable(doc, y, sectionTitle, columnHead, bo
     head: columnHead?.length ? [columnHead] : undefined,
     body,
     columnStyles,
-    gapAfter: CARREGADOR_SECTION_GAP_MM,
+    gapAfter: PDF_SECTION_GAP_MM,
     ...pack,
   });
 }
@@ -243,7 +191,7 @@ export async function drawReparacaoCarregadorTopSection(doc, clientMeta, techNam
   const clientNameH = drawCarregadorClientNameBlock(doc, topY, clientMeta);
   const boxH = drawCarregadorIdentificacaoClienteBox(doc, topY, values, techName);
   touchPdfContentPage(doc);
-  return Math.max(topY + logoH + clientNameH, topY + boxH) + CARREGADOR_SECTION_GAP_MM;
+  return Math.max(topY + logoH + clientNameH, topY + boxH) + PDF_SECTION_GAP_MM;
 }
 
 async function drawReparacaoCarregadorIdentificacaoTable(doc, y, values, pdfContext = null) {
@@ -263,10 +211,10 @@ async function drawReparacaoCarregadorIdentificacaoTable(doc, y, values, pdfCont
   return drawPdfGridTable(doc, y, {
     body: [[labelWithValue(LABEL_MARCA_MODELO, marcaModelo), labelWithValue(LABEL_NUMERO_SERIE, serie)]],
     columnStyles: {
-      0: { cellWidth: colW, halign: 'left', fontSize: CARREGADOR_FONT_PT },
-      1: { cellWidth: colW, halign: 'left', fontSize: CARREGADOR_FONT_PT },
+      0: { cellWidth: colW, halign: 'left', fontSize: PDF_FONT_TABLE },
+      1: { cellWidth: colW, halign: 'left', fontSize: PDF_FONT_TABLE },
     },
-    gapAfter: CARREGADOR_SECTION_GAP_MM,
+    gapAfter: PDF_SECTION_GAP_MM,
     ...pack,
   });
 }
@@ -389,10 +337,10 @@ async function drawReparacaoCarregadorFechoBlock(doc, y, values) {
   return drawPdfGridTable(doc, y, {
     body: [[`Concluído e Testado Em: ${concluido}`, `Responsável: ${responsavel}`]],
     columnStyles: {
-      0: { cellWidth: colW, halign: 'left', fontSize: CARREGADOR_FONT_PT },
-      1: { cellWidth: colW, halign: 'left', fontSize: CARREGADOR_FONT_PT },
+      0: { cellWidth: colW, halign: 'left', fontSize: PDF_FONT_TABLE },
+      1: { cellWidth: colW, halign: 'left', fontSize: PDF_FONT_TABLE },
     },
-    gapAfter: CARREGADOR_SECTION_GAP_MM,
+    gapAfter: PDF_SECTION_GAP_MM,
     ...pack,
   });
 }

@@ -4,22 +4,17 @@
 
 import { pdfAutoTableFont, pdfSetFont, pdfSplitText, pdfSafeText } from './pdf-font.js';
 import {
+  buildReportCompactTableStylePack,
   getBlockPdfTitle,
   mergePdfTableDidParseCell,
-  PDF_COLOR_CORPORATE_BLUE as CORPORATE_BLUE,
   PDF_COLOR_DANGER as DANGER,
   PDF_COLOR_SUCCESS as SUCCESS,
   PDF_COLOR_TEXT_DARK as TEXT_DARK,
   PDF_CONTENT_W as CONTENT_W,
+  PDF_FONT_TABLE,
   PDF_MARGIN as MARGIN,
   PDF_MACHINE_SECTION,
-  PDF_SECTION_BG,
-  PDF_TABLE_ALT_ROW_FILL,
-  PDF_TABLE_BODY_FILL,
-  PDF_TABLE_CELL_PADDING_COMPACT,
-  PDF_TABLE_LINE,
-  PDF_TABLE_LINE_WIDTH,
-  PDF_TABLE_MIN_CELL_HEIGHT_COMPACT,
+  PDF_SECTION_GAP_MM,
   resolvePdfStandardFieldValue,
 } from './pdf-design-system.js';
 import {
@@ -52,9 +47,6 @@ import { drawInterventionFotografiasSection } from './pdf-intervention-fotos.js'
 import { drawSignaturesFooter } from './pdf-signatures-footer.js';
 import { drawPdfGridTable } from './pdf-grid-table.js';
 
-const CORRETIVA_SECTION_GAP_MM = 3.5;
-const CORRETIVA_FONT_PT = 9;
-const CORRETIVA_HEAD_FONT_PT = 10.5;
 const CORRETIVA_CLOSING_PROFILE = {
   sigTop: 3,
   sigImg: 13,
@@ -78,63 +70,15 @@ function normalizeVerifyItem(item) {
 }
 
 export function drawCorretivaTitleBar(doc, y, title) {
-  return drawPdfDocumentTitleBar(doc, y, title, CORRETIVA_SECTION_GAP_MM);
+  return drawPdfDocumentTitleBar(doc, y, title, PDF_SECTION_GAP_MM);
 }
 
 function corretivaTableStylePack(doc) {
-  return {
-    styles: {
-      font: pdfAutoTableFont(doc),
-      fontSize: CORRETIVA_FONT_PT,
-      cellPadding: PDF_TABLE_CELL_PADDING_COMPACT,
-      minCellHeight: PDF_TABLE_MIN_CELL_HEIGHT_COMPACT,
-      lineColor: PDF_TABLE_LINE,
-      lineWidth: PDF_TABLE_LINE_WIDTH,
-      textColor: TEXT_DARK,
-      valign: 'middle',
-      overflow: 'linebreak',
-    },
-    headStyles: {
-      font: pdfAutoTableFont(doc),
-      fillColor: PDF_SECTION_BG,
-      textColor: CORPORATE_BLUE,
-      fontStyle: 'bold',
-      fontSize: CORRETIVA_FONT_PT,
-      cellPadding: PDF_TABLE_CELL_PADDING_COMPACT,
-      minCellHeight: PDF_TABLE_MIN_CELL_HEIGHT_COMPACT,
-      lineColor: PDF_TABLE_LINE,
-      lineWidth: PDF_TABLE_LINE_WIDTH,
-      halign: 'left',
-    },
-    bodyStyles: {
-      fillColor: PDF_TABLE_BODY_FILL,
-      minCellHeight: PDF_TABLE_MIN_CELL_HEIGHT_COMPACT,
-      cellPadding: PDF_TABLE_CELL_PADDING_COMPACT,
-      fontSize: CORRETIVA_FONT_PT,
-      textColor: TEXT_DARK,
-    },
-    didParseCell: (data) => {
-      if (data.section === 'body' && data.row.index % 2 === 1) {
-        data.cell.styles.fillColor = PDF_TABLE_ALT_ROW_FILL;
-      }
-      if (data.section === 'body') {
-        data.cell.styles.lineWidth = {
-          top: 0,
-          right: 0,
-          bottom: PDF_TABLE_LINE_WIDTH,
-          left: 0,
-        };
-      }
-    },
-  };
+  return buildReportCompactTableStylePack(doc, pdfAutoTableFont);
 }
 
 async function drawCorretivaSectionBar(doc, y, title) {
-  return drawPdfSectionTitleBar(doc, y, title, {
-    bandH: 6,
-    gapAfter: 1.2,
-    fontSize: CORRETIVA_HEAD_FONT_PT,
-  });
+  return drawPdfSectionTitleBar(doc, y, title);
 }
 
 async function drawCorretivaMachineBlock(doc, y, values, pdfContext = null) {
@@ -155,11 +99,11 @@ async function drawCorretivaMachineBlock(doc, y, values, pdfContext = null) {
   return drawPdfGridTable(doc, y, {
     body: [[labelWithValue(LABEL_MARCA, marca), labelWithValue(LABEL_MODELO, modelo), labelWithValue(LABEL_NUMERO_SERIE, serie)]],
     columnStyles: {
-      0: { cellWidth: colW, halign: 'left', fontSize: CORRETIVA_FONT_PT },
-      1: { cellWidth: colW, halign: 'left', fontSize: CORRETIVA_FONT_PT },
-      2: { cellWidth: colW, halign: 'left', fontSize: CORRETIVA_FONT_PT },
+      0: { cellWidth: colW, halign: 'left', fontSize: PDF_FONT_TABLE },
+      1: { cellWidth: colW, halign: 'left', fontSize: PDF_FONT_TABLE },
+      2: { cellWidth: colW, halign: 'left', fontSize: PDF_FONT_TABLE },
     },
-    gapAfter: CORRETIVA_SECTION_GAP_MM,
+    gapAfter: PDF_SECTION_GAP_MM,
     ...pack,
   });
 }
@@ -183,29 +127,18 @@ async function drawCorretivaVerificationTable(doc, y, field, states) {
     head: [['Ponto', 'Est.']],
     body,
     columnStyles: {
-      0: { cellWidth: pointW, overflow: 'linebreak', fontSize: CORRETIVA_FONT_PT },
+      0: { cellWidth: pointW, overflow: 'linebreak', fontSize: PDF_FONT_TABLE },
       1: {
         cellWidth: stateW,
         halign: 'center',
         overflow: 'linebreak',
-        fontSize: CORRETIVA_FONT_PT,
+        fontSize: PDF_FONT_TABLE,
         fontStyle: 'bold',
       },
     },
-    gapAfter: CORRETIVA_SECTION_GAP_MM,
+    gapAfter: PDF_SECTION_GAP_MM,
     ...pack,
     didParseCell: mergePdfTableDidParseCell((data) => {
-      if (data.section === 'body' && data.row.index % 2 === 1) {
-        data.cell.styles.fillColor = PDF_TABLE_ALT_ROW_FILL;
-      }
-      if (data.section === 'body') {
-        data.cell.styles.lineWidth = {
-          top: 0,
-          right: 0,
-          bottom: PDF_TABLE_LINE_WIDTH,
-          left: 0,
-        };
-      }
       if (data.section === 'body' && data.column.index === 1) {
         const state = String(data.cell.raw || '');
         data.cell.styles.textColor = state === 'OK' ? SUCCESS : DANGER;
@@ -228,12 +161,12 @@ async function drawCorretivaObservationsBox(doc, y, value) {
   drawPdfContentBox(doc, MARGIN, boxY, CONTENT_W, boxH);
 
   pdfSetFont(doc, 'normal');
-  doc.setFontSize(CORRETIVA_FONT_PT);
+  doc.setFontSize(PDF_FONT_TABLE);
   doc.setTextColor(...TEXT_DARK);
   doc.text(lines, MARGIN + 3, boxY + 4.5);
 
   touchPdfContentPage(doc);
-  return boxY + boxH + CORRETIVA_SECTION_GAP_MM;
+  return boxY + boxH + PDF_SECTION_GAP_MM;
 }
 
 async function drawCorretivaResumoRow(doc, y, values) {
@@ -245,19 +178,15 @@ async function drawCorretivaResumoRow(doc, y, values) {
 
   y = await drawCorretivaSectionBar(doc, y, 'Resumo da Intervenção');
   const pack = corretivaTableStylePack(doc);
-  const packDidParse = pack.didParseCell;
   return drawPdfGridTable(doc, y, {
     body: [[labelWithValue(LABEL_HORAS, horas), labelWithValue(LABEL_ESTADO_MAQUINA, estado)]],
     columnStyles: {
-      0: { cellWidth: colW, halign: 'left', fontSize: CORRETIVA_FONT_PT },
-      1: { cellWidth: colW, halign: 'left', fontSize: CORRETIVA_FONT_PT },
+      0: { cellWidth: colW, halign: 'left', fontSize: PDF_FONT_TABLE },
+      1: { cellWidth: colW, halign: 'left', fontSize: PDF_FONT_TABLE },
     },
-    gapAfter: CORRETIVA_SECTION_GAP_MM,
+    gapAfter: PDF_SECTION_GAP_MM,
     ...pack,
-    didParseCell: mergePdfTableDidParseCell((data) => {
-      if (packDidParse) packDidParse(data);
-      pdfEstadoGridDidParseCell(data);
-    }),
+    didParseCell: mergePdfTableDidParseCell(pdfEstadoGridDidParseCell),
   });
 }
 

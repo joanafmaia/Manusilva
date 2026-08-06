@@ -9,22 +9,18 @@ import { formatFolhaResponsabilidadeLabel } from './folha-obra-orcamento.js';
 import { formatFolhaObraOrdemLabel } from './folhas-obra-db.js';
 import { ensurePdfFonts, pdfAutoTableFont, pdfSetFont, pdfSafeText } from './pdf-font.js';
 import {
-  PDF_COLOR_CORPORATE_BLUE as CORPORATE_BLUE,
+  buildReportCompactTableStylePack,
   PDF_COLOR_TEXT_DARK as TEXT_DARK,
   PDF_COLOR_TEXT_MUTED as TEXT_MUTED,
   PDF_CONTENT_W as CONTENT_W,
   PDF_FONT_BODY,
   PDF_FONT_CAPTION,
+  PDF_FONT_SECTION,
+  PDF_FONT_TABLE,
   PDF_LOGO_HEIGHT_MM,
   PDF_LOGO_WIDTH_MM,
   PDF_MARGIN as MARGIN,
-  PDF_SECTION_BG,
-  PDF_TABLE_ALT_ROW_FILL,
-  PDF_TABLE_BODY_FILL,
-  PDF_TABLE_CELL_PADDING_COMPACT,
-  PDF_TABLE_LINE,
-  PDF_TABLE_LINE_WIDTH,
-  PDF_TABLE_MIN_CELL_HEIGHT_COMPACT,
+  PDF_SECTION_GAP_MM,
 } from './pdf-design-system.js';
 import { formatFolhaInterventionDate, pdfDisplayValue } from './pdf-format-utils.js';
 import { drawCompactClientBox } from './pdf-header-blocks.js';
@@ -34,9 +30,6 @@ import { drawFolhaDocumentFooters } from './pdf-institutional-footer.js';
 import { loadJsPDF, loadJsPdfAutoTable } from './pdf-jspdf-loader.js';
 import { touchPdfContentPage } from './pdf-page-layout.js';
 
-const SECTION_GAP = 3.2;
-const TABLE_FONT = 8.5;
-const HEAD_FONT = 9.5;
 export const FOLHA_OBRA_DOC_REF = 'MS.056.1';
 const FOLHA_OBRA_DOC_REF_Y = 293.5;
 
@@ -75,57 +68,19 @@ function resolveClientMetaForPdf(clientId) {
 }
 
 function tableStylePack(doc) {
-  return {
-    styles: {
-      font: pdfAutoTableFont(doc),
-      fontSize: TABLE_FONT,
-      cellPadding: PDF_TABLE_CELL_PADDING_COMPACT,
-      minCellHeight: PDF_TABLE_MIN_CELL_HEIGHT_COMPACT,
-      lineColor: PDF_TABLE_LINE,
-      lineWidth: PDF_TABLE_LINE_WIDTH,
-      textColor: TEXT_DARK,
-      valign: 'middle',
-      overflow: 'linebreak',
-    },
-    headStyles: {
-      font: pdfAutoTableFont(doc),
-      fillColor: PDF_SECTION_BG,
-      textColor: CORPORATE_BLUE,
-      fontStyle: 'bold',
-      fontSize: HEAD_FONT,
-      cellPadding: PDF_TABLE_CELL_PADDING_COMPACT,
-      minCellHeight: PDF_TABLE_MIN_CELL_HEIGHT_COMPACT,
-      lineColor: PDF_TABLE_LINE,
-      lineWidth: PDF_TABLE_LINE_WIDTH,
-      halign: 'left',
-    },
-    bodyStyles: {
-      fillColor: PDF_TABLE_BODY_FILL,
-      minCellHeight: PDF_TABLE_MIN_CELL_HEIGHT_COMPACT,
-      cellPadding: PDF_TABLE_CELL_PADDING_COMPACT,
-      fontSize: TABLE_FONT,
-      textColor: TEXT_DARK,
-    },
-    didParseCell: (data) => {
-      if (data.section === 'body' && data.row.index % 2 === 1) {
-        data.cell.styles.fillColor = PDF_TABLE_ALT_ROW_FILL;
-      }
-    },
-  };
+  return buildReportCompactTableStylePack(doc, pdfAutoTableFont, {
+    headFontSize: PDF_FONT_SECTION,
+  });
 }
 
 async function drawSectionTable(doc, y, title, head, body, columnStyles) {
-  y = await drawPdfSectionTitleBar(doc, y, title, {
-    bandH: 6,
-    gapAfter: 1.2,
-    fontSize: HEAD_FONT,
-  });
+  y = await drawPdfSectionTitleBar(doc, y, title);
   const pack = tableStylePack(doc);
   return drawPdfGridTable(doc, y, {
     head: head?.length ? [head] : undefined,
     body,
     columnStyles,
-    gapAfter: SECTION_GAP,
+    gapAfter: PDF_SECTION_GAP_MM,
     ...pack,
   });
 }
@@ -153,7 +108,7 @@ function drawHeader(doc, folha, clientMeta) {
   doc.text(formatFolhaObraPdfOrdemRef(folha), MARGIN, y);
   y += 4;
 
-  return drawPdfDocumentTitleBar(doc, y, 'FOLHA DE OBRA', SECTION_GAP);
+  return drawPdfDocumentTitleBar(doc, y, 'FOLHA DE OBRA', PDF_SECTION_GAP_MM);
 }
 
 export function buildFolhaObraPdfFilename(folha) {
@@ -210,24 +165,20 @@ export async function generateFolhaObraPDFBlob(folha) {
       1: { cellWidth: equipCol },
       2: { cellWidth: equipCol },
     },
-    gapAfter: SECTION_GAP,
+    gapAfter: PDF_SECTION_GAP_MM,
     ...tableStylePack(doc),
   });
 
   const diagnostico = pdfDisplayValue(folha.diagnosticoTecnico);
   if (diagnostico && diagnostico !== '—') {
-    y = await drawPdfSectionTitleBar(doc, y, 'Diagnóstico técnico', {
-      bandH: 6,
-      gapAfter: 1.2,
-      fontSize: HEAD_FONT,
-    });
+    y = await drawPdfSectionTitleBar(doc, y, 'Diagnóstico técnico');
     pdfSetFont(doc, 'normal');
     doc.setFontSize(PDF_FONT_BODY);
     doc.setTextColor(...TEXT_DARK);
     const diagLines = doc.splitTextToSize(pdfSafeText(diagnostico), CONTENT_W - 4);
     doc.text(diagLines, MARGIN + 2, y + 4);
     touchPdfContentPage(doc);
-    y += diagLines.length * 4 + SECTION_GAP;
+    y += diagLines.length * 4 + PDF_SECTION_GAP_MM;
   }
 
   const intervencoes = Array.isArray(folha.intervencoes) ? folha.intervencoes : [];
@@ -278,18 +229,14 @@ export async function generateFolhaObraPDFBlob(folha) {
 
   const obs = pdfDisplayValue(folha.observacoes);
   if (obs && obs !== '—') {
-    y = await drawPdfSectionTitleBar(doc, y, 'Observações', {
-      bandH: 6,
-      gapAfter: 1.2,
-      fontSize: HEAD_FONT,
-    });
+    y = await drawPdfSectionTitleBar(doc, y, 'Observações');
     pdfSetFont(doc, 'normal');
     doc.setFontSize(PDF_FONT_BODY);
     doc.setTextColor(...TEXT_DARK);
     const lines = doc.splitTextToSize(pdfSafeText(obs), CONTENT_W - 4);
     doc.text(lines, MARGIN + 2, y + 4);
     touchPdfContentPage(doc);
-    y += lines.length * 4 + SECTION_GAP;
+    y += lines.length * 4 + PDF_SECTION_GAP_MM;
   }
 
   drawFolhaDocumentFooters(doc);

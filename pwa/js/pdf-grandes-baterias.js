@@ -4,17 +4,15 @@
 
 import { pdfAutoTableFont, pdfSetFont, pdfSplitText } from './pdf-font.js';
 import {
+  buildReportCompactTableStylePack,
   mergePdfTableDidParseCell,
-  PDF_COLOR_CORPORATE_BLUE as CORPORATE_BLUE,
   PDF_COLOR_TEXT_DARK as TEXT_DARK,
   PDF_CONTENT_W as CONTENT_W,
+  PDF_FONT_SECTION,
+  PDF_FONT_TABLE,
   PDF_MARGIN as MARGIN,
   PDF_PAGE_W as PAGE_W,
-  PDF_SECTION_BG,
-  PDF_TABLE_ALT_ROW_FILL,
-  PDF_TABLE_BODY_FILL,
-  PDF_TABLE_LINE,
-  PDF_TABLE_LINE_WIDTH,
+  PDF_SECTION_TITLE_BAR_H_MM,
   PDF_TABLE_MIN_CELL_HEIGHT_COMPACT,
   resolvePdfStandardFieldValue,
 } from './pdf-design-system.js';
@@ -46,12 +44,9 @@ import {
   resolvePdfEstadoTextColor,
 } from './pdf-estado-colors.js';
 
+/** Gap/densidade próprios — caber tabela de baterias sem mudar lógica de campos */
 const GRANDES_SECTION_GAP_MM = 2.1;
-const GRANDES_SECTION_BAR_H_MM = 5;
 const GRANDES_SECTION_BAR_GAP_MM = 0.5;
-const GRANDES_HEAD_FONT_PT = 10;
-const GRANDES_BATTERY_FONT_PT = 8.5;
-const GRANDES_TABLE_FONT_PT = 8.5;
 /** ~2px vertical, ~4px horizontal */
 const GRANDES_BATTERY_CELL_PADDING = { top: 0.53, right: 1.06, bottom: 0.53, left: 1.06 };
 const GRANDES_BATTERY_MIN_CELL_HEIGHT = 3;
@@ -85,106 +80,21 @@ export function drawGrandesTitleBar(doc, y, title) {
 }
 
 function grandesBatteryTableStylePack(doc) {
-  return {
-    styles: {
-      font: pdfAutoTableFont(doc),
-      fontSize: GRANDES_BATTERY_FONT_PT,
-      cellPadding: GRANDES_BATTERY_CELL_PADDING,
-      minCellHeight: GRANDES_BATTERY_MIN_CELL_HEIGHT,
-      lineHeight: GRANDES_BATTERY_LINE_HEIGHT,
-      lineColor: PDF_TABLE_LINE,
-      lineWidth: PDF_TABLE_LINE_WIDTH,
-      textColor: TEXT_DARK,
-      valign: 'middle',
-      overflow: 'linebreak',
-    },
-    headStyles: {
-      font: pdfAutoTableFont(doc),
-      fillColor: PDF_SECTION_BG,
-      textColor: CORPORATE_BLUE,
-      fontStyle: 'bold',
-      fontSize: GRANDES_BATTERY_FONT_PT,
-      cellPadding: GRANDES_BATTERY_CELL_PADDING,
-      minCellHeight: GRANDES_BATTERY_MIN_CELL_HEIGHT,
-      lineHeight: GRANDES_BATTERY_LINE_HEIGHT,
-      lineColor: PDF_TABLE_LINE,
-      lineWidth: PDF_TABLE_LINE_WIDTH,
-      halign: 'left',
-    },
-    bodyStyles: {
-      fillColor: PDF_TABLE_BODY_FILL,
-      minCellHeight: GRANDES_BATTERY_MIN_CELL_HEIGHT,
-      cellPadding: GRANDES_BATTERY_CELL_PADDING,
-      fontSize: GRANDES_BATTERY_FONT_PT,
-      lineHeight: GRANDES_BATTERY_LINE_HEIGHT,
-      textColor: TEXT_DARK,
-    },
-    didParseCell: (data) => {
-      if (data.section === 'body' && data.row.index % 2 === 1) {
-        data.cell.styles.fillColor = PDF_TABLE_ALT_ROW_FILL;
-      }
-      if (data.section === 'body') {
-        data.cell.styles.lineWidth = {
-          top: 0,
-          right: 0,
-          bottom: PDF_TABLE_LINE_WIDTH,
-          left: 0,
-        };
-      }
-      if (GRANDES_BATTERY_NOWRAP_COLS.has(data.column.index)) {
-        data.cell.styles.overflow = 'ellipsize';
-        data.cell.styles.cellWidth = GRANDES_BATTERY_COL_WIDTHS[data.column.index];
-      }
-    },
-  };
+  return buildReportCompactTableStylePack(doc, pdfAutoTableFont, {
+    fontSize: PDF_FONT_TABLE,
+    cellPadding: GRANDES_BATTERY_CELL_PADDING,
+    minCellHeight: GRANDES_BATTERY_MIN_CELL_HEIGHT,
+    lineHeight: GRANDES_BATTERY_LINE_HEIGHT,
+  });
 }
 
 function grandesTableStylePack(doc) {
-  return {
-    styles: {
-      font: pdfAutoTableFont(doc),
-      fontSize: GRANDES_TABLE_FONT_PT,
-      cellPadding: GRANDES_BATTERY_CELL_PADDING,
-      minCellHeight: PDF_TABLE_MIN_CELL_HEIGHT_COMPACT,
-      lineColor: PDF_TABLE_LINE,
-      lineWidth: PDF_TABLE_LINE_WIDTH,
-      textColor: TEXT_DARK,
-      valign: 'middle',
-      overflow: 'linebreak',
-    },
-    headStyles: {
-      font: pdfAutoTableFont(doc),
-      fillColor: PDF_SECTION_BG,
-      textColor: CORPORATE_BLUE,
-      fontStyle: 'bold',
-      fontSize: GRANDES_HEAD_FONT_PT,
-      cellPadding: GRANDES_BATTERY_CELL_PADDING,
-      minCellHeight: PDF_TABLE_MIN_CELL_HEIGHT_COMPACT,
-      lineColor: PDF_TABLE_LINE,
-      lineWidth: PDF_TABLE_LINE_WIDTH,
-      halign: 'left',
-    },
-    bodyStyles: {
-      fillColor: PDF_TABLE_BODY_FILL,
-      minCellHeight: PDF_TABLE_MIN_CELL_HEIGHT_COMPACT,
-      cellPadding: GRANDES_BATTERY_CELL_PADDING,
-      fontSize: GRANDES_TABLE_FONT_PT,
-      textColor: TEXT_DARK,
-    },
-    didParseCell: (data) => {
-      if (data.section === 'body' && data.row.index % 2 === 1) {
-        data.cell.styles.fillColor = PDF_TABLE_ALT_ROW_FILL;
-      }
-      if (data.section === 'body') {
-        data.cell.styles.lineWidth = {
-          top: 0,
-          right: 0,
-          bottom: PDF_TABLE_LINE_WIDTH,
-          left: 0,
-        };
-      }
-    },
-  };
+  return buildReportCompactTableStylePack(doc, pdfAutoTableFont, {
+    fontSize: PDF_FONT_TABLE,
+    headFontSize: PDF_FONT_SECTION,
+    cellPadding: GRANDES_BATTERY_CELL_PADDING,
+    minCellHeight: PDF_TABLE_MIN_CELL_HEIGHT_COMPACT,
+  });
 }
 
 async function drawGrandesSectionBar(doc, y, title, layout = {}) {
@@ -192,9 +102,9 @@ async function drawGrandesSectionBar(doc, y, title, layout = {}) {
   return drawPdfSectionTitleBar(doc, y, title, {
     x,
     width,
-    bandH: GRANDES_SECTION_BAR_H_MM,
+    bandH: PDF_SECTION_TITLE_BAR_H_MM,
     gapAfter: GRANDES_SECTION_BAR_GAP_MM,
-    fontSize: GRANDES_HEAD_FONT_PT,
+    fontSize: PDF_FONT_SECTION,
   });
 }
 
@@ -220,7 +130,7 @@ function buildGrandesBatteryColumnStyles() {
   GRANDES_BATTERY_COL_WIDTHS.forEach((w, i) => {
     styles[i] = {
       cellWidth: w,
-      fontSize: GRANDES_BATTERY_FONT_PT,
+      fontSize: PDF_FONT_TABLE,
       overflow: GRANDES_BATTERY_NOWRAP_COLS.has(i) ? 'ellipsize' : 'linebreak',
       halign: i === 3 || i === 4 ? 'center' : 'left',
     };
@@ -240,7 +150,7 @@ async function drawGrandesBatteryTable(doc, y, rows) {
     columnStyles: buildGrandesBatteryColumnStyles(),
     gapAfter: GRANDES_SECTION_GAP_MM,
     ...pack,
-    didParseCell: mergePdfTableDidParseCell(pack.didParseCell),
+    didParseCell: mergePdfTableDidParseCell(),
     autoTableExtra: { rowPageBreak: 'avoid' },
   });
 }
@@ -266,13 +176,13 @@ async function drawGrandesConsumablesTableAt(doc, startY, rows, x, width) {
   const pack = grandesTableStylePack(doc);
   const columnStyles = hasMaquina
     ? {
-        0: { cellWidth: maqW, halign: 'left', fontSize: GRANDES_TABLE_FONT_PT },
-        1: { cellWidth: artW, halign: 'left', fontSize: GRANDES_TABLE_FONT_PT },
-        2: { cellWidth: qtdW, halign: 'center', fontSize: GRANDES_TABLE_FONT_PT },
+        0: { cellWidth: maqW, halign: 'left', fontSize: PDF_FONT_TABLE },
+        1: { cellWidth: artW, halign: 'left', fontSize: PDF_FONT_TABLE },
+        2: { cellWidth: qtdW, halign: 'center', fontSize: PDF_FONT_TABLE },
       }
     : {
-        0: { cellWidth: artW, halign: 'left', fontSize: GRANDES_TABLE_FONT_PT },
-        1: { cellWidth: qtdW, halign: 'center', fontSize: GRANDES_TABLE_FONT_PT },
+        0: { cellWidth: artW, halign: 'left', fontSize: PDF_FONT_TABLE },
+        1: { cellWidth: qtdW, halign: 'center', fontSize: PDF_FONT_TABLE },
       };
   const endY = await drawPdfGridTable(doc, y, {
     head: [hasMaquina ? ['Máquina', 'Artigo / Desc.', 'Qtd.'] : ['Artigo / Desc.', 'Qtd.']],
@@ -283,7 +193,7 @@ async function drawGrandesConsumablesTableAt(doc, startY, rows, x, width) {
     columnStyles,
     gapAfter: 0,
     ...pack,
-    didParseCell: mergePdfTableDidParseCell(pack.didParseCell),
+    didParseCell: mergePdfTableDidParseCell(),
     autoTableExtra: { rowPageBreak: 'avoid' },
   });
   return endY;
@@ -293,7 +203,7 @@ async function drawGrandesObservationsBoxAt(doc, startY, value, x, width) {
   const text = pdfDisplayValue(value);
   const textWidth = width - 5;
   const allLines = text === '—' ? [] : pdfSplitText(doc, text, textWidth);
-  const lineStep = (GRANDES_TABLE_FONT_PT / 72) * 25.4 * GRANDES_BATTERY_LINE_HEIGHT;
+  const lineStep = (PDF_FONT_TABLE / 72) * 25.4 * GRANDES_BATTERY_LINE_HEIGHT;
 
   let y = await drawGrandesSectionBar(doc, startY, 'Observações', { x, width });
 
@@ -303,7 +213,7 @@ async function drawGrandesObservationsBoxAt(doc, startY, value, x, width) {
     const boxY = y;
     drawPdfContentBox(doc, x, boxY, width, boxH);
     pdfSetFont(doc, 'normal');
-    doc.setFontSize(GRANDES_TABLE_FONT_PT);
+    doc.setFontSize(PDF_FONT_TABLE);
     doc.setTextColor(...TEXT_DARK);
     doc.text('—', x + 2.5, boxY + 3.2);
     touchPdfContentPage(doc);
@@ -320,7 +230,7 @@ async function drawGrandesObservationsBoxAt(doc, startY, value, x, width) {
     const boxY = y;
     drawPdfContentBox(doc, x, boxY, width, boxH);
     pdfSetFont(doc, 'normal');
-    doc.setFontSize(GRANDES_TABLE_FONT_PT);
+    doc.setFontSize(PDF_FONT_TABLE);
     doc.setTextColor(...TEXT_DARK);
     doc.text(chunk, x + 2.5, boxY + 3.2, { lineHeightFactor: GRANDES_BATTERY_LINE_HEIGHT });
     touchPdfContentPage(doc);
@@ -354,15 +264,12 @@ async function drawGrandesResumoRow(doc, y, values) {
   return drawPdfGridTable(doc, y, {
     body: [[labelWithValue(LABEL_HORAS, horas), `Estado Geral: ${estado}`]],
     columnStyles: {
-      0: { cellWidth: colW, halign: 'left', fontSize: GRANDES_TABLE_FONT_PT },
-      1: { cellWidth: colW, halign: 'left', fontSize: GRANDES_TABLE_FONT_PT },
+      0: { cellWidth: colW, halign: 'left', fontSize: PDF_FONT_TABLE },
+      1: { cellWidth: colW, halign: 'left', fontSize: PDF_FONT_TABLE },
     },
     gapAfter: GRANDES_SECTION_GAP_MM,
     ...pack,
-    didParseCell: mergePdfTableDidParseCell((data) => {
-      pack.didParseCell?.(data);
-      pdfEstadoGridDidParseCell(data);
-    }),
+    didParseCell: mergePdfTableDidParseCell(pdfEstadoGridDidParseCell),
   });
 }
 

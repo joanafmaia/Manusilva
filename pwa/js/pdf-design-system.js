@@ -39,14 +39,17 @@ export const PDF_TABLE_MIN_CELL_HEIGHT_COMPACT = 4;
 export const PDF_TABLE_LINE_WIDTH = 0.1;
 export const PDF_TABLE_MIN_CELL_HEIGHT = 5;
 export const PDF_TITLE_BAR_HEIGHT_MM = 8;
-export const PDF_SECTION_BAND_HEIGHT_MM = 8;
+/** Barras de secção / colunas — mesma altura em todos os relatórios */
+export const PDF_SECTION_BAND_HEIGHT_MM = 5.5;
 
 /** Barra de título do documento — alinhamento centrado (padrão corretiva) */
 export const PDF_DOCUMENT_TITLE_BAR_H_MM = 5.5;
 export const PDF_BAR_RADIUS_MM = 1.1;
 /** Caixas de texto / observações */
 export const PDF_CONTENT_BOX_RADIUS_MM = 1.6;
-export const PDF_SECTION_TITLE_BAR_H_MM = 6;
+export const PDF_SECTION_TITLE_BAR_H_MM = 5.5;
+/** Espaço após barra de secção (antes da tabela / conteúdo) */
+export const PDF_SECTION_TITLE_BAR_GAP_AFTER_MM = 1;
 
 /** Cabeçalho bilateral compacto */
 export const PDF_LOGO_WIDTH_MM = 40;
@@ -96,10 +99,10 @@ export const PDF_AUTOTABLE_MARGIN_BOTTOM_MM = PDF_CONTENT_SAFE_BOTTOM_MM;
 export const PDF_FOOTER_TEXT_RGB = [75, 75, 75];
 export const PDF_FOOTER_INSTITUTIONAL_RGB = PDF_FOOTER_TEXT_RGB;
 
-/** Tabelas autoTable — linhas #E2E8F0, cabeçalhos fundo suave + texto grafite */
+/** Tabelas autoTable — linhas #E2E8F0, cabeçalhos fundo suave + texto azul técnico */
 export const PDF_SECTION_BG = [237, 242, 247];
 export const PDF_TABLE_HEAD_FILL = PDF_SECTION_BG;
-export const PDF_TABLE_HEAD_TEXT = PDF_COLOR_TEXT_DARK;
+export const PDF_TABLE_HEAD_TEXT = PDF_COLOR_CORPORATE_BLUE;
 export const PDF_TABLE_LINE = [226, 232, 240];
 export const PDF_TABLE_BODY_FILL = PDF_COLOR_WHITE;
 export const PDF_TABLE_ALT_ROW_FILL = [248, 250, 252];
@@ -432,10 +435,10 @@ export function resolvePdfStandardFieldValue(values, spec, fallback = null) {
   return fallback;
 }
 
-/** Bordas só horizontais (#E2E8F0) — sem linhas verticais */
+/** Bordas só horizontais inferiores (#E2E8F0) — sem linhas verticais nem topo */
 export function applyPdfTableHorizontalBorders(data) {
   data.cell.styles.lineWidth = {
-    top: PDF_TABLE_LINE_WIDTH,
+    top: 0,
     right: 0,
     bottom: PDF_TABLE_LINE_WIDTH,
     left: 0,
@@ -475,6 +478,55 @@ export function buildPdfAutoTableStyles(doc, pdfAutoTableFont, pdfSetFont) {
       overflow: 'linebreak',
     },
     alternateRowStyles: { fillColor: PDF_TABLE_ALT_ROW_FILL },
+  };
+}
+
+/**
+ * Pack compacto partilhado — tipografia, cores e padding iguais em todos os relatórios.
+ * Opções densas (ex. Grandes) só via overrides; sem mudar a lógica de conteúdo.
+ */
+export function buildReportCompactTableStylePack(doc, pdfAutoTableFont, options = {}) {
+  const fontSize = options.fontSize ?? PDF_FONT_TABLE;
+  const headFontSize = options.headFontSize ?? fontSize;
+  const cellPadding = options.cellPadding ?? PDF_TABLE_CELL_PADDING_COMPACT;
+  const minCellHeight = options.minCellHeight ?? PDF_TABLE_MIN_CELL_HEIGHT_COMPACT;
+  const lineHeight = options.lineHeight;
+  const lineHeightStyle = lineHeight != null ? { lineHeight } : {};
+
+  return {
+    styles: {
+      font: pdfAutoTableFont(doc),
+      fontSize,
+      cellPadding,
+      minCellHeight,
+      lineColor: PDF_TABLE_LINE,
+      lineWidth: PDF_TABLE_LINE_WIDTH,
+      textColor: PDF_COLOR_TEXT_DARK,
+      valign: 'middle',
+      overflow: 'linebreak',
+      ...lineHeightStyle,
+    },
+    headStyles: {
+      font: pdfAutoTableFont(doc),
+      fillColor: PDF_SECTION_BG,
+      textColor: PDF_TABLE_HEAD_TEXT,
+      fontStyle: 'bold',
+      fontSize: headFontSize,
+      cellPadding,
+      minCellHeight,
+      lineColor: PDF_TABLE_LINE,
+      lineWidth: PDF_TABLE_LINE_WIDTH,
+      halign: 'left',
+      ...lineHeightStyle,
+    },
+    bodyStyles: {
+      fillColor: PDF_TABLE_BODY_FILL,
+      minCellHeight,
+      cellPadding,
+      fontSize,
+      textColor: PDF_COLOR_TEXT_DARK,
+      ...lineHeightStyle,
+    },
   };
 }
 
