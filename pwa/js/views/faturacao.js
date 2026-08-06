@@ -1263,10 +1263,12 @@ function renderBillingTable(rows) {
     `;
   }
 
+  const scrollClass = rows.length > 8 ? ' faturacao-table-wrap--scroll-y' : '';
+
   return `
     <section class="faturacao-table-section faturacao-table-section--billing rh-section glass-card">
       <h3 class="ms-h2 faturacao-section-title">Por faturar <span class="badge-count">${rows.length}</span></h3>
-      <div class="rh-table-scroll">
+      <div class="faturacao-table-wrap rh-table-scroll${scrollClass}">
         <table class="rh-data-table rh-data-table--compact faturacao-table faturacao-table--compact faturacao-billing-table faturacao-table--dense">
           <thead>
             <tr>
