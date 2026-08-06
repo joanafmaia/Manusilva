@@ -85,7 +85,17 @@ export async function runManusilvaEntry(entry, options = {}) {
   finishAppBoot();
   clearModuleRecoveryFlag();
 
-  if (options.onRemoteBuild) startBuildIdWatch(options.onRemoteBuild);
+  if (options.onRemoteBuild) {
+    startBuildIdWatch((remote) => {
+      globalThis.__MS_APP_UPDATE_PENDING = true;
+      try {
+        sessionStorage.setItem('manusilva_update_pending', '1');
+      } catch {
+        /* ignore */
+      }
+      options.onRemoteBuild(remote);
+    });
+  }
 }
 
 /**
@@ -107,7 +117,17 @@ export async function bootstrapManusilvaApp({ onReady, registerServiceWorker = f
   await onReady(v, moduleQ);
   clearModuleRecoveryFlag();
 
-  if (onRemoteBuild) startBuildIdWatch(onRemoteBuild);
+  if (onRemoteBuild) {
+    startBuildIdWatch((remote) => {
+      globalThis.__MS_APP_UPDATE_PENDING = true;
+      try {
+        sessionStorage.setItem('manusilva_update_pending', '1');
+      } catch {
+        /* ignore */
+      }
+      onRemoteBuild(remote);
+    });
+  }
 }
 
 export async function handleBootstrapFailure(err) {

@@ -218,6 +218,7 @@ export function startBuildIdWatch(onUpdate) {
     }
   };
 
+  void check();
   window.setInterval(check, 90 * 1000);
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') void check();

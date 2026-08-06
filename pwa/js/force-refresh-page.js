@@ -53,6 +53,12 @@
       var lab = btn.querySelector('.tech-refresh-label, .sidebar-refresh-label');
       if (lab) lab.textContent = 'A atualizar…';
     }
+    try {
+      window.__MS_APP_UPDATE_PENDING = false;
+      sessionStorage.removeItem('manusilva_update_pending');
+    } catch {
+      /* ignore */
+    }
     var url = new URL(location.href);
     url.searchParams.set('_ms', bust);
     url.searchParams.set('_bust', bust);

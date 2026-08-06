@@ -214,6 +214,19 @@
   color: var(--ms-primary);
   transform: none;
 }
+.sidebar-footer .tech-refresh-btn.sidebar-refresh-btn.tech-refresh-btn--update-available,
+.tech-refresh-btn.sidebar-refresh-btn.tech-refresh-btn--update-available {
+  color: #fff;
+  border-color: var(--ms-primary, #1e4d72);
+  background: var(--ms-primary, #1e4d72);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--ms-primary, #1e4d72) 28%, transparent);
+}
+.sidebar-footer .tech-refresh-btn.sidebar-refresh-btn.tech-refresh-btn--update-available:hover,
+.tech-refresh-btn.sidebar-refresh-btn.tech-refresh-btn--update-available:hover {
+  color: #fff;
+  border-color: var(--ms-primary-hover, #163a55);
+  background: var(--ms-primary-hover, #163a55);
+}
 .admin-main {
   padding: 0;
   overflow-y: auto;

@@ -2,6 +2,42 @@
  * Faixa persistente «Nova versão disponível» + botão Atualizar.
  */
 
+const UPDATE_PENDING_KEY = 'manusilva_update_pending';
+
+function markAppUpdatePending() {
+  globalThis.__MS_APP_UPDATE_PENDING = true;
+  try {
+    sessionStorage.setItem(UPDATE_PENDING_KEY, '1');
+  } catch {
+    /* ignore */
+  }
+}
+
+function clearAppUpdatePending() {
+  globalThis.__MS_APP_UPDATE_PENDING = false;
+  try {
+    sessionStorage.removeItem(UPDATE_PENDING_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+export function isAppUpdatePending() {
+  if (globalThis.__MS_APP_UPDATE_PENDING) return true;
+  try {
+    return sessionStorage.getItem(UPDATE_PENDING_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+/** Dispara o aviso de nova versão (seguro mesmo antes do botão estar ligado). */
+export function notifyAppUpdateAvailable() {
+  markAppUpdatePending();
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent('manusilva-app-update-available'));
+}
+
 function ensureUpdateBannerStyles() {
   if (document.getElementById('ms-app-update-banner-style')) return;
   const style = document.createElement('style');
@@ -121,6 +157,7 @@ export function bindAppRefreshButton(buttonId = 'btn-force-app-refresh', options
   let updateHintShown = false;
 
   refreshBtn.addEventListener('click', async (event) => {
+    clearAppUpdatePending();
     if (typeof globalThis.msForceAppRefresh === 'function') {
       globalThis.msForceAppRefresh(event);
       return;
@@ -154,12 +191,13 @@ export function bindAppRefreshButton(buttonId = 'btn-force-app-refresh', options
     'Nova versão disponível — clique em «Atualizar app».';
 
   const onUpdateAvailable = () => {
-    if (updateHintShown) return;
-    updateHintShown = true;
-
+    markAppUpdatePending();
     refreshBtn.classList.add('tech-refresh-btn--update-available');
     refreshBtn.title = hint;
     refreshBtn.setAttribute('aria-label', hint);
+
+    if (updateHintShown) return;
+    updateHintShown = true;
 
     if (notifyStyle === 'banner') {
       showAppUpdateBanner(hint);
@@ -174,4 +212,9 @@ export function bindAppRefreshButton(buttonId = 'btn-force-app-refresh', options
   };
 
   window.addEventListener('manusilva-app-update-available', onUpdateAvailable);
+
+  // Se o aviso chegou antes deste listener (import assíncrono), aplica já.
+  if (isAppUpdatePending()) {
+    onUpdateAvailable();
+  }
 }

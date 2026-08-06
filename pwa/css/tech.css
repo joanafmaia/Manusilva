@@ -148,10 +148,15 @@ html.ms-booting .brand-logo-slot.brand-logo-slot--ready {
   line-height: 1;
 }
 .tech-refresh-btn--update-available {
-  color: var(--ms-primary);
-  border-color: color-mix(in srgb, var(--ms-primary) 55%, transparent);
-  background: color-mix(in srgb, var(--ms-primary) 12%, #fff);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--ms-primary) 18%, transparent);
+  color: #fff;
+  border-color: var(--ms-primary, #1e4d72);
+  background: var(--ms-primary, #1e4d72);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--ms-primary, #1e4d72) 28%, transparent);
+}
+.tech-refresh-btn--update-available:hover {
+  color: #fff;
+  border-color: var(--ms-primary-hover, #163a55);
+  background: var(--ms-primary-hover, #163a55);
 }
 .connection-badge {
   display: inline-flex;
