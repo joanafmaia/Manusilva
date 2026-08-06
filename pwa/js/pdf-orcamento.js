@@ -2,7 +2,7 @@
  * PDF — Proposta Comercial MS.015
  * Folha 1: condições da proposta (equipamentos, observações, totais, aprovação)
  * Folha 2 (se a tabela não couber): mapa de preços completo
- * Manutenção máquinas: a partir de 9 máquinas, mapa de preços na 2.ª folha
+ * Manutenção máquinas / baterias: a partir de 9 equipamentos, mapa de preços na 2.ª folha
  * Última folha: Garantia de Reparação e Condições Gerais (texto)
  */
 
@@ -122,8 +122,10 @@ const MAQUINA_FOOTER_MONEY_X = MARGIN + CONTENT_W - 1;
 const MAQUINA_FOOTER_LINE_MIN = 4.6;
 const MAQUINA_FOOTER_LINE_MAX = 6.2;
 const MAQUINA_FOOTER_SEPARATOR_GAP = 4;
-/** Manutenção máquinas: a partir deste nº, tabela de preços numa 2.ª folha. */
-const MAQUINA_SPLIT_TABLE_FROM = 9;
+/** Manutenção máquinas/baterias: a partir deste nº, preços numa 2.ª folha. */
+const MANUTENCAO_SPLIT_PRECO_FROM = 9;
+const MAQUINA_SPLIT_TABLE_FROM = MANUTENCAO_SPLIT_PRECO_FROM;
+const BATERIA_SPLIT_PRECO_FROM = MANUTENCAO_SPLIT_PRECO_FROM;
 const PROPOSTA_FOOTER_MAX_Y = APPROVAL_TOP - 6;
 const CONTENT_MAX_Y = FOOTER_TOP - 6;
 
@@ -1913,15 +1915,41 @@ function drawManutencaoMaquinaPrecoLines(doc, precoLinhas, startY, maxY, options
   return y;
 }
 
-function drawManutencaoBateriaFooter(doc, fill) {
-  let y = BATERIA_FOOTER_ANCHOR_Y;
-  const footerMaxY = PROPOSTA_FOOTER_MAX_Y;
+function estimateBateriaFooterHeight(valorLineCount) {
+  const n = Math.max(1, valorLineCount);
+  // Linhas de valor (~6mm) + totais IVA (~18) + pagamento/notas (~28).
+  return n * 6 + 18 + 28;
+}
+
+export function resolveManutencaoBateriaPdfFooterLayout(fill = {}) {
+  const meta = templateMetaFromFill(fill);
+  const valorLinhas = formatLinhasValorManutencaoBateria(meta, meta);
+  const batteryCount = Math.max(valorLinhas.length, 1);
+  const splitTablePage = batteryCount >= BATERIA_SPLIT_PRECO_FROM;
+  const priceFooterHeight = estimateBateriaFooterHeight(valorLinhas.length);
+  const footerHeight = splitTablePage ? 0 : priceFooterHeight;
+
+  return {
+    batteryCount,
+    splitTablePage,
+    valorLinhas,
+    priceFooterHeight,
+    footerHeight,
+    footerStartY: BATERIA_FOOTER_ANCHOR_Y,
+    footerMaxY: PROPOSTA_FOOTER_MAX_Y,
+  };
+}
+
+function drawManutencaoBateriaFooter(doc, fill, layout = {}) {
+  let y = layout.footerStartY ?? BATERIA_FOOTER_ANCHOR_Y;
+  const footerMaxY = layout.footerMaxY ?? PROPOSTA_FOOTER_MAX_Y;
   pdfSetFont(doc, 'normal');
   doc.setFontSize(PDF_FONT_BODY);
   doc.setTextColor(...PDF_COLOR_TEXT_DARK);
 
   const meta = templateMetaFromFill(fill);
-  const valorLinhas = formatLinhasValorManutencaoBateria(meta, meta);
+  const valorLinhas =
+    layout.valorLinhas || formatLinhasValorManutencaoBateria(meta, meta);
 
   pdfSetFont(doc, 'bold');
   valorLinhas.forEach((valorLine) => {
@@ -2105,19 +2133,22 @@ async function renderManutencaoMaquinaOrcamentoPDF(doc, report, job) {
 async function renderManutencaoBateriaOrcamentoPDF(doc, report, job) {
   const fill = buildOrcamentoFillData(report, job);
   const legalText = await loadLegalText();
+  const footerLayout = resolveManutencaoBateriaPdfFooterLayout(fill);
+  const splitTablePage = footerLayout.splitTablePage;
   const meta = templateMetaFromFill(fill);
   const paragrafos = buildManutencaoBateriaParagrafos(meta, meta);
+  const bodyMaxY = splitTablePage ? PROPOSTA_FOOTER_MAX_Y - 4 : BATERIA_BODY_MAX_Y;
 
   let y = drawOrcamentoLetterhead(doc, fill);
 
   pdfSetFont(doc, 'normal');
   doc.setFontSize(PDF_FONT_BODY);
-  y = drawOrcamentoBodyParagraphs(doc, [MANUTENCAO_BATERIA_INTRO], y, { maxEndY: BATERIA_BODY_MAX_Y });
+  y = drawOrcamentoBodyParagraphs(doc, [MANUTENCAO_BATERIA_INTRO], y, { maxEndY: bodyMaxY });
   y += 2;
 
   pdfSetFont(doc, 'bold');
   doc.setFontSize(PDF_FONT_BODY);
-  if (canDrawContentLine(y, 6) && y + 6 <= BATERIA_BODY_MAX_Y) {
+  if (canDrawContentLine(y, 6) && y + 6 <= bodyMaxY) {
     doc.text(MANUTENCAO_BATERIA_ESPECIFICACAO_TITULO, MARGIN, y);
     y = advanceContentY(y, 6);
   }
@@ -2125,21 +2156,38 @@ async function renderManutencaoBateriaOrcamentoPDF(doc, report, job) {
   pdfSetFont(doc, 'normal');
   y = drawOrcamentoBodyParagraphs(doc, [MANUTENCAO_BATERIA_TRABALHOS_INTRO], y, {
     lineStep: 4.5,
-    maxEndY: BATERIA_BODY_MAX_Y,
+    maxEndY: bodyMaxY,
   });
   y = drawOrcamentoBulletList(doc, MANUTENCAO_BATERIA_TRABALHOS, y, {
-    maxEndY: BATERIA_BODY_MAX_Y,
+    maxEndY: bodyMaxY,
   });
   y += 2;
   y = drawOrcamentoBodyParagraphs(doc, paragrafos, y, {
     lineStep: 4.5,
-    maxEndY: BATERIA_BODY_MAX_Y,
+    maxEndY: bodyMaxY,
   });
 
-  drawManutencaoBateriaFooter(doc, fill);
+  if (splitTablePage) {
+    // Folha 1: condições + aprovação — sem mapa de preços.
+    doc.setPage(1);
+    drawClientApprovalBox(doc);
 
-  doc.setPage(1);
-  drawClientApprovalBox(doc);
+    // Folha 2: valores por bateria + totais + pagamento.
+    doc.addPage();
+    const tableY = drawOrcamentoGenericContinuationHeader(doc, fill, {
+      title: 'Mapa de preços',
+    });
+    drawManutencaoBateriaFooter(doc, fill, {
+      ...footerLayout,
+      footerStartY: tableY,
+      footerMaxY: ORC_TABLE_PAGE_MAX_Y,
+    });
+  } else {
+    drawManutencaoBateriaFooter(doc, fill, footerLayout);
+
+    doc.setPage(1);
+    drawClientApprovalBox(doc);
+  }
 
   if (legalText) {
     drawLegalPage(doc, legalText);

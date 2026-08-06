@@ -11,6 +11,7 @@ import {
   resolveManutencaoMaquinaBulletsLayout,
   resolveManutencaoMaquinaFooterTypography,
   resolveManutencaoMaquinaPdfLayout,
+  resolveManutencaoBateriaPdfFooterLayout,
   resolveOrcamentoGenericLayout,
   estimateOrcamentoGroupBlockHeight,
 } from '../js/pdf-orcamento.js';
@@ -169,6 +170,37 @@ describe('pdf-orcamento layout', () => {
     assert.ok(layout9.priceFooterHeight > 0, 'altura real da tabela guardada para a folha 2');
     assert.equal(layout9.precoTable.rows.length, 9);
     assert.equal(layout9.ultraCompactPreBullet, false, 'folha 1 com mais espaço sem tabela');
+  });
+
+  it('a partir de 9 baterias parte o mapa de preços para a 2.ª folha', () => {
+    const base = {
+      forma_pagamento: 'Pronto Pagamento',
+      validade_orcamento: '10 Dias',
+    };
+    const fill8 = {
+      ...base,
+      maquinas: Array.from({ length: 8 }, (_, index) => ({
+        periodicidadeManutencao: '3_em_3',
+        valorManutencaoVisita: String(80 + index),
+      })),
+    };
+    const fill9 = {
+      ...base,
+      maquinas: Array.from({ length: 9 }, (_, index) => ({
+        periodicidadeManutencao: '3_em_3',
+        valorManutencaoVisita: String(80 + index),
+      })),
+    };
+    const layout8 = resolveManutencaoBateriaPdfFooterLayout(fill8);
+    const layout9 = resolveManutencaoBateriaPdfFooterLayout(fill9);
+    assert.equal(layout8.splitTablePage, false);
+    assert.equal(layout8.batteryCount, 8);
+    assert.ok(layout8.footerHeight > 0, '8 baterias: valores na folha 1');
+    assert.equal(layout9.splitTablePage, true);
+    assert.equal(layout9.batteryCount, 9);
+    assert.equal(layout9.footerHeight, 0, 'folha 1 sem reserva dos valores');
+    assert.ok(layout9.priceFooterHeight > 0, 'altura real dos valores para a folha 2');
+    assert.equal(layout9.valorLinhas.length, 9);
   });
 
   it('escolhe tipografia maior quando o rodapé tem espaço vertical', () => {
