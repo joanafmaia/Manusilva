@@ -97,9 +97,8 @@ async function drawObservationsBox(doc, y, value) {
   const lines = pdfSplitText(doc, text, CONTENT_W - 6);
   const boxH = Math.max(14, lines.length * 3.8 + 6);
 
-  y = ensureSpace(doc, y, 8);
+  y = ensureSpace(doc, y, 6.5 + boxH + 2);
   y = await drawSectionBar(doc, y, 'Observações');
-  y = ensureSpace(doc, y, boxH);
 
   const boxY = y;
   drawPdfContentBox(doc, MARGIN, boxY, CONTENT_W, boxH);

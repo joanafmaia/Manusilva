@@ -19,6 +19,7 @@ import {
 import { pdfDisplayValue } from './pdf-format-utils.js';
 import {
   ensureBlockFitsSafeZone,
+  ensurePdfDualColumnFits,
   ensureSpace,
   pdfContentBottomY,
   touchPdfContentPage,
@@ -246,7 +247,10 @@ async function drawGrandesConsumablesObsDualBlock(doc, y, consumableRows, obsTex
   const colW = (CONTENT_W - gapMm) / 2;
   const leftX = MARGIN;
   const rightX = MARGIN + colW + gapMm;
-  const startY = y;
+
+  const rowCount = Math.max(consumableRows.length, 1);
+  const dualH = PDF_SECTION_TITLE_BAR_H_MM + 8 + rowCount * 5 + 10;
+  const startY = ensurePdfDualColumnFits(doc, y, dualH);
 
   const leftEndY = await drawGrandesConsumablesTableAt(doc, startY, consumableRows, leftX, colW);
   const rightEndY = await drawGrandesObservationsBoxAt(doc, startY, obsText || '—', rightX, colW);

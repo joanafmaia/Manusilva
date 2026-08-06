@@ -46,6 +46,20 @@ export function ensureBlockFitsSafeZone(doc, y, blockHeight) {
   return PDF_PAGE_CONTENT_START_Y;
 }
 
+/**
+ * Pares esquerda/direita no mesmo startY — saltar de página juntos.
+ * Evita o autoTable repetir o Y a meio da página nova (bug DL50 / dual columns).
+ */
+export function ensurePdfDualColumnFits(doc, y, estimatedHeightMm, safetyMm = 4) {
+  const h = Number(estimatedHeightMm) || 0;
+  if (h > 0 && y + h + safetyMm > pdfContentBottomY()) {
+    doc.addPage();
+    touchPdfContentPage(doc);
+    return PDF_PAGE_CONTENT_START_Y;
+  }
+  return y;
+}
+
 export function pdfMaxContentHeight() {
   return pdfContentBottomY() - PDF_PAGE_CONTENT_START_Y;
 }

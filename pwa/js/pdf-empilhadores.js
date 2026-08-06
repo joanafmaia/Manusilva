@@ -37,7 +37,7 @@ import {
   LABEL_HORAS,
 } from './field-labels.js';
 import { cleanPdfText, pdfDisplayValue } from './pdf-format-utils.js';
-import { ensureSpace } from './pdf-page-layout.js';
+import { ensureSpace, ensurePdfDualColumnFits } from './pdf-page-layout.js';
 import { drawPdfSectionTitleBar, drawColumnSectionTitle, drawChecklistMatrixLegend } from './pdf-layout-bars.js';
 import { drawPdfGridTable } from './pdf-grid-table.js';
 
@@ -232,13 +232,13 @@ export async function drawEmpilhadoresDualVerificationBlocks(doc, y, left, right
   y = drawChecklistMatrixLegend(doc, y, formatEmpilhadoresMatrixLegendText());
 
   const rowEstimate = Math.max(left?.items?.length || 0, right?.items?.length || 0);
-  y = ensureSpace(
-    doc,
-    y,
-    EMPILHADORES_VERIFY_COL_BAND_MM + rowEstimate * 3.6 + 8,
-  );
+  const dualH =
+    EMPILHADORES_VERIFY_COL_BAND_MM +
+    PDF_TABLE_MIN_CELL_HEIGHT_COMPACT +
+    rowEstimate * PDF_TABLE_MIN_CELL_HEIGHT_COMPACT +
+    6;
+  const startY = ensurePdfDualColumnFits(doc, y, dualH);
 
-  const startY = y;
   const compactOpts = { compact: true };
   const leftEnd = await drawVerificationTableColumn(
     doc,

@@ -23,6 +23,7 @@ import { pdfDisplayValue, formatPdfNumeroVisitas } from './pdf-format-utils.js';
 import { VISITAS_FIELD_ID } from './deslocacao-field.js';
 import {
   ensureBlockFitsSafeZone,
+  ensurePdfDualColumnFits,
   ensureSpace,
   pdfContentBottomY,
   touchPdfContentPage,
@@ -141,8 +142,10 @@ async function drawRavConsumablesVisitasDualBlock(doc, y, service, values) {
   const colW = (CONTENT_W - gapMm) / 2;
   const leftX = MARGIN;
   const rightX = MARGIN + colW + gapMm;
-  const startY = y;
   const consumableRows = collectRavConsumableRows(service, values);
+
+  const dualH = 8 + Math.max(consumableRows.length, 1) * 5.5 + 12;
+  const startY = ensurePdfDualColumnFits(doc, y, dualH);
 
   const leftEndY = await drawRavConsumablesTableAt(doc, startY, consumableRows, leftX, colW);
   const rightEndY = await drawRavVisitasTempoTableAt(doc, startY, values, rightX, colW);

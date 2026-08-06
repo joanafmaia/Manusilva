@@ -29,6 +29,7 @@ import {
 } from './pdf-format-utils.js';
 import {
   ensureBlockFitsSafeZone,
+  ensurePdfDualColumnFits,
   pdfContentBottomY,
 } from './pdf-page-layout.js';
 import { drawPdfDocumentTitleBar, drawPdfSectionTitleBar } from './pdf-layout-bars.js';
@@ -185,7 +186,6 @@ async function drawPreventivaConsumablesVisitasDualBlock(doc, y, service, values
   const colW = (CONTENT_W - gapMm) / 2;
   const leftX = MARGIN;
   const rightX = MARGIN + colW + gapMm;
-  const startY = y;
 
   const materialField = (service?.fields || []).find((f) => isMaterialTableField(f));
   const rows = materialField
@@ -193,6 +193,9 @@ async function drawPreventivaConsumablesVisitasDualBlock(doc, y, service, values
         (row) => String(row.artigo || '').trim() || row.qtd,
       )
     : [];
+
+  const dualH = 8 + Math.max(rows.length, 1) * 5.5 + 12;
+  const startY = ensurePdfDualColumnFits(doc, y, dualH);
 
   const leftEndY = await drawPreventivaConsumablesTableAt(doc, startY, rows, leftX, colW);
   const rightEndY = await drawPreventivaBateriaIntervencaoTable(doc, startY, values, {

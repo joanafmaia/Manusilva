@@ -247,6 +247,21 @@ describe('pdf-inspecao-dl50', () => {
     assert.match(src, /safetyMm/);
     assert.equal(src.includes('ensureDl50DualRowOrphanSpace'), false);
   });
+
+  it('partilha ensurePdfDualColumnFits nos outros relatórios dual-coluna', async () => {
+    const fs = await import('node:fs');
+    const pageLayout = fs.readFileSync(new URL('../js/pdf-page-layout.js', import.meta.url), 'utf8');
+    assert.match(pageLayout, /export function ensurePdfDualColumnFits/);
+    for (const file of [
+      'pdf-empilhadores.js',
+      'pdf-preventiva-bateria.js',
+      'pdf-rav-bateria.js',
+      'pdf-grandes-baterias.js',
+    ]) {
+      const src = fs.readFileSync(new URL(`../js/${file}`, import.meta.url), 'utf8');
+      assert.match(src, /ensurePdfDualColumnFits/, `${file} deve usar keep-together dual`);
+    }
+  });
 });
 
 describe('pdf-movimento-material', () => {

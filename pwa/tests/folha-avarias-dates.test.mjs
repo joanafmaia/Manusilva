@@ -40,7 +40,7 @@ describe('folha avarias dates', () => {
     assert.equal(meta.serviceDate, '02/07/2026');
     assert.equal(meta.scheduledDateLabel, 'Data do Serviço');
     assert.equal(meta.scheduledDate, '30/06/2026');
-    assert.equal(meta.numeroVisitas, '2');
+    assert.equal(meta.numeroVisitas, null);
   });
 
   it('resolveReportInterventionDatePt prioriza data_2 na folha de avarias', async () => {

@@ -6,7 +6,6 @@ import {
   formatPdfConclusionDate,
   formatPdfJobDateOnly,
   formatPdfServiceDateOnly,
-  formatPdfNumeroVisitas,
   resolveFolhaAvariasConclusionDate,
   resolveFolhaAvariasServiceDate,
 } from './pdf-format-utils.js';
@@ -70,12 +69,12 @@ export function buildEmpilhadoresServiceInfoMeta(report, job, values, visitCount
 }
 
 export function buildFolhaAvariasServiceInfoMeta(report, job, values) {
-  const visitCount = formatPdfNumeroVisitas(values);
   const conclusionDate = resolveFolhaAvariasConclusionDate(values);
   const serviceDate = resolveFolhaAvariasServiceDate(values, job, report);
 
   const meta = {
-    numeroVisitas: visitCount,
+    /** Visitas ficam só na tabela «Datas de Intervenção» — evitar duplicar no cabeçalho. */
+    numeroVisitas: null,
     deslocacao: null,
     technician: null,
     metaBottomGapMm: PDF_SECTION_GAP_MM,

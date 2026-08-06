@@ -36,6 +36,7 @@ import {
 } from './pdf-format-utils.js';
 import {
   ensureBlockFitsSafeZone,
+  ensureSpace,
   pdfContentBottomY,
   touchPdfContentPage,
 } from './pdf-page-layout.js';
@@ -125,6 +126,7 @@ async function drawFolhaIntervencaoTextSection(doc, y, sectionTitle, text) {
   const lines = pdfSplitText(doc, display, CONTENT_W - 8);
   const boxH = Math.max(12, lines.length * 3.8 + 4);
 
+  y = ensureSpace(doc, y, 6.5 + boxH + 2);
   y = await drawFolhaAvariasSectionBar(doc, y, sectionTitle);
   const boxY = y;
   drawPdfContentBox(doc, MARGIN, boxY, CONTENT_W, boxH);
