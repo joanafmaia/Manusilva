@@ -138,8 +138,29 @@ export function openModal(title, content, actions = '', options = {}) {
 
 export function closeModal() {
   const overlay = document.getElementById('modal-overlay');
-  if (overlay) {
-    overlay.classList.remove('show');
-    setTimeout(() => overlay.remove(), 200);
+  if (!overlay) return;
+  overlay.classList.remove('show');
+  overlay.style.pointerEvents = 'none';
+  const node = overlay;
+  setTimeout(() => {
+    if (node.isConnected) node.remove();
+  }, 200);
+}
+
+/**
+ * Remove overlays invisíveis/presos que bloqueiam cliques em toda a página.
+ * Seguro chamar no arranque do painel ou ao mudar de aba.
+ */
+export function clearStuckUiOverlays() {
+  document.querySelectorAll('.orc-resposta-date-overlay').forEach((el) => el.remove());
+
+  const modal = document.getElementById('modal-overlay');
+  if (modal && !modal.classList.contains('show')) {
+    modal.remove();
+  }
+
+  const loading = document.getElementById('form-loading-overlay');
+  if (loading && !loading.classList.contains('show')) {
+    loading.remove();
   }
 }

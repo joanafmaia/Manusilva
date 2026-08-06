@@ -132,16 +132,18 @@ export function promptOrcamentoRespostaData({
   const confirmLabel = isAceite ? 'Marcar aceite' : 'Marcar recusada';
 
   return new Promise((resolve) => {
-    const existing = document.querySelector('.orc-resposta-date-overlay');
-    existing?.remove();
+    document.querySelectorAll('.orc-resposta-date-overlay').forEach((el) => el.remove());
 
     const overlay = document.createElement('div');
     overlay.className = 'orc-resposta-date-overlay';
     overlay.setAttribute('role', 'dialog');
     overlay.setAttribute('aria-modal', 'true');
     overlay.setAttribute('aria-label', title);
+    // Estilos inline de segurança — mesmo se o CSS falhar, o diálogo fecha e não bloqueia para sempre
+    overlay.style.cssText =
+      'position:fixed;inset:0;z-index:12000;display:flex;align-items:center;justify-content:center;padding:1rem;background:rgba(15,23,42,0.45);';
     overlay.innerHTML = `
-      <div class="orc-resposta-date-dialog glass-card">
+      <div class="orc-resposta-date-dialog glass-card" style="width:min(100%,22rem);padding:1.1rem 1.2rem;border-radius:10px;background:#fff;box-shadow:0 12px 40px rgba(15,23,42,0.2);">
         <h3 class="orc-resposta-date-dialog__title">${title}</h3>
         <p class="orc-resposta-date-dialog__hint text-muted">
           Indique a data em que o cliente ${isAceite ? 'aceitou' : 'recusou'} a proposta.
@@ -156,13 +158,19 @@ export function promptOrcamentoRespostaData({
         </div>
       </div>`;
 
+    let settled = false;
     const finish = (value) => {
+      if (settled) return;
+      settled = true;
+      document.removeEventListener('keydown', onKey, true);
       overlay.remove();
-      document.removeEventListener('keydown', onKey);
       resolve(value);
     };
     const onKey = (e) => {
-      if (e.key === 'Escape') finish(null);
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        finish(null);
+      }
     };
 
     overlay.addEventListener('click', (e) => {
@@ -178,7 +186,7 @@ export function promptOrcamentoRespostaData({
       }
       finish(value);
     });
-    document.addEventListener('keydown', onKey);
+    document.addEventListener('keydown', onKey, true);
     document.body.appendChild(overlay);
     queueMicrotask(() => overlay.querySelector('[data-orc-resposta-date]')?.focus());
   });

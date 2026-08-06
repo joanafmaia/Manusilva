@@ -564,6 +564,13 @@ export async function initAdminDashboard() {
   const session = requireAuth('admin');
   if (!session) return;
 
+  try {
+    const { clearStuckUiOverlays } = await import('./toast-modal.js');
+    clearStuckUiOverlays();
+  } catch {
+    /* ignore */
+  }
+
   renderUserGreeting('user-name');
   document.getElementById('logout-btn')?.addEventListener('click', () => {
     void forceLogout();

@@ -1360,9 +1360,13 @@ html.ms-booting .brand-logo-slot.brand-logo-slot--ready {
   padding: 1.5rem;
   background: var(--modal-scrim);
   opacity: 0;
+  pointer-events: none;
   transition: opacity 0.2s ease;
 }
-.form-loading-overlay.show { opacity: 1; }
+.form-loading-overlay.show {
+  opacity: 1;
+  pointer-events: auto;
+}
 .form-loading-overlay__card {
   display: flex;
   flex-direction: column;
@@ -7491,9 +7495,13 @@ details[open] .expand-icon { transform: rotate(90deg); }
   justify-content: center;
   padding: 1.5rem;
   opacity: 0;
+  pointer-events: none;
   transition: opacity 0.2s;
 }
-.modal-overlay.show { opacity: 1; }
+.modal-overlay.show {
+  opacity: 1;
+  pointer-events: auto;
+}
 .modal-overlay--review {
   background: var(--modal-scrim);
   padding: 1rem;
