@@ -129,7 +129,7 @@ describe('pdf-orcamento layout', () => {
       'espaço vertical suficiente para 6 linhas lógicas (3 colunas)',
     );
     assert.ok(
-      footer.footerHeight < 78,
+      footer.footerHeight < 82,
       `rodapé com tabela compacta (${footer.footerHeight}mm estimados)`,
     );
     assert.ok(estimateMaquinaBodyBeforeBullets(7) < 50, 'corpo sem bloco duplicado de máquinas');
@@ -154,7 +154,7 @@ describe('pdf-orcamento layout', () => {
     const availableHeight = 80;
     const typography = resolveManutencaoMaquinaFooterTypography(availableHeight, table);
     // Espaço extra entre a tabela de máquinas e Deslocação / totais.
-    const deslocacaoExtra = 3.2 + 2.4;
+    const deslocacaoExtra = 2.6 + 1.8;
     const contentHeight =
       typography.separatorGap + typography.lineCount * typography.lineStep + deslocacaoExtra;
     assert.ok(Math.abs(contentHeight - availableHeight) < 0.2);

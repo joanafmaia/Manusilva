@@ -107,8 +107,8 @@ const MAQUINA_BULLET_MIN_STEP = 3.1;
 const MAQUINA_BULLET_COMPACT_FONT = 7.5;
 const MAQUINA_FOOTER_GAP_ABOVE = 5;
 /** Separação visual entre a grelha de máquinas e «Deslocação» / totais. */
-const MAQUINA_DESLOCACAO_GAP = 3.2;
-const MAQUINA_TOTALS_GAP = 2.4;
+const MAQUINA_DESLOCACAO_GAP = 2.6;
+const MAQUINA_TOTALS_GAP = 1.8;
 const MAQUINA_PRECO_FIELD_GAP = 3;
 const MAQUINA_PRECO_LINE_TAIL = 0.35;
 const MAQUINA_PRECO_TABLE_ROW_H = 4.2;
