@@ -7,8 +7,6 @@ import {
   getJob,
   getReport,
   getReportsSnapshot,
-  getServiceType,
-  getTechnician,
   escapeHtml,
   showToast,
   cancelPedidoOrcamentoReport,
@@ -71,7 +69,7 @@ import {
 } from '../admin-ui-stability.js';
 
 let mountRoot = null;
-let activeFilter = 'todas';
+let activeFilter = 'por_preparar';
 let tipoFilter = 'all';
 let origemFilter = 'all';
 let viewMode = 'lista'; // lista | quadro
@@ -163,7 +161,16 @@ function reportStatusLabel(report) {
 
 function renderOrigemBadge(report) {
   const origem = resolveOrcamentoOrigem(report);
-  return `<span class="orcamentos-origem orcamentos-origem--${escapeHtml(origem.id)}" title="Origem">${escapeHtml(origem.label)}</span>`;
+  const short =
+    origem.id === 'rh' ? 'RH' : origem.id === 'folha' ? 'Oficina' : 'Pedido';
+  return `<span class="orcamentos-origem orcamentos-origem--${escapeHtml(origem.id)}" title="${escapeHtml(origem.label)}">${escapeHtml(short)}</span>`;
+}
+
+function formatTipoShort(report) {
+  const tipo = getOrcamentoTipoProposta(report);
+  if (tipo === 'manutencao_maquina') return 'Manut. máquina';
+  if (tipo === 'manutencao_bateria') return 'Manut. bateria';
+  return 'Orçamento';
 }
 
 function resolveRespostaDateDefault(report) {
@@ -177,20 +184,18 @@ function renderInlineRespostaControls(report) {
   const workflow = resolveOrcamentoWorkflowStatus(report);
   const dateValue = resolveRespostaDateDefault(report);
   const aguarda = orcamentoAguardaRespostaCliente(report);
+  if (!aguarda && workflow !== 'aceite' && workflow !== 'recusada') return '';
   return `
     <div class="orcamentos-inline-resposta" data-orc-inline-resposta="${escapeHtml(report.id)}">
-      <label class="orcamentos-inline-resposta__date">
-        <span class="sr-only">Data da resposta</span>
-        <input type="date" class="form-input form-input-sm orcamentos-inline-date" data-orc-resposta-date="${escapeHtml(report.id)}" value="${escapeHtml(dateValue)}" />
-      </label>
+      <input type="date" class="form-input form-input-sm orcamentos-inline-date" data-orc-resposta-date="${escapeHtml(report.id)}" value="${escapeHtml(dateValue)}" title="Data da resposta" aria-label="Data da resposta" />
       ${
         aguarda || workflow !== 'aceite'
-          ? `<button type="button" class="btn-success btn-sm rh-btn-compact" data-orc-aceite="${escapeHtml(report.id)}" title="Cliente aceitou a proposta">Aceite</button>`
+          ? `<button type="button" class="btn-success btn-sm rh-btn-compact" data-orc-aceite="${escapeHtml(report.id)}" title="Aceite">Aceite</button>`
           : ''
       }
       ${
         aguarda || workflow !== 'recusada'
-          ? `<button type="button" class="btn-danger btn-sm rh-btn-compact" data-orc-recusada="${escapeHtml(report.id)}" title="Cliente recusou a proposta">Recusada</button>`
+          ? `<button type="button" class="btn-outline btn-sm rh-btn-compact orcamentos-btn-recusar" data-orc-recusada="${escapeHtml(report.id)}" title="Recusada">Recusar</button>`
           : ''
       }
     </div>`;
@@ -314,16 +319,9 @@ function renderTableRow(report) {
   const client = getClient(report.clientId);
   const values = report?.data?.values || {};
   const job = report.jobId ? getJob(report.jobId) : null;
-  const tech = getTechnician(report.technicianId);
-  const service = getServiceType(report.serviceType);
   const workflow = resolveOrcamentoWorkflowStatus(report);
   const meta = getReportOrcamentoMeta(report);
   const detalhe = reportIsStandaloneOrcamento(report) ? '' : getPedidoOrcamentoDetalhe(report);
-  const detalheShort = detalhe
-    ? detalhe.length > 48
-      ? `${detalhe.slice(0, 45)}…`
-      : detalhe
-    : '—';
   const pdfUrl = getReportOrcamentoPdfUrl(report);
   const techPdfUrl = getReportTechnicalPdfUrl(report) || (job?.urlPdf ? String(job.urlPdf).trim() : '');
   const canApproveReport = !reportIsStandaloneOrcamento(report) && report.status === 'pending_review';
@@ -338,71 +336,80 @@ function renderTableRow(report) {
       : 'Eliminar pedido de orçamento';
   const highlighted = highlightReportId && report.id === highlightReportId;
   const clientName = getClientName(client, values) || '—';
-  const tipoLabel = formatOrcamentoTipoPropostaLabel(getOrcamentoTipoProposta(report));
+  const tipoShort = formatTipoShort(report);
   const origemBadge = renderOrigemBadge(report);
   const garantiaKey = getReportReclamacaoGarantia(report);
   const garantiaBadge =
     garantiaKey === 'sim'
-      ? `<span class="orcamentos-garantia orcamentos-garantia--sim" title="Avaria / reclamação em garantia">Garantia</span>`
-      : garantiaKey === 'nao'
-        ? `<span class="orcamentos-garantia orcamentos-garantia--nao" title="Não é reclamação em garantia">Sem garantia</span>`
-        : '';
+      ? `<span class="orcamentos-garantia orcamentos-garantia--sim" title="Em garantia">G</span>`
+      : '';
   const respostaData = formatOrcamentoRespostaDataLabel(meta);
   const respostaDataBadge =
     respostaData && (workflow === 'aceite' || workflow === 'recusada')
-      ? `<span class="orcamentos-resposta-data" title="${workflow === 'aceite' ? 'Data de aceite' : 'Data de recusa'}">${escapeHtml(workflow === 'aceite' ? 'Aceite' : 'Recusada')} ${escapeHtml(respostaData)}</span>`
+      ? `<span class="orcamentos-resposta-data" title="${workflow === 'aceite' ? 'Data de aceite' : 'Data de recusa'}">${escapeHtml(respostaData)}</span>`
       : '';
+  const ordemLabel = formatOrdemLabel(job);
+  const showOrdem = ordemLabel && ordemLabel !== '—';
+  const rowTitle = [detalhe, reportStatusLabel(report)].filter(Boolean).join(' · ');
 
   return `
-    <tr class="rh-data-table-row orcamentos-row${highlighted ? ' orcamentos-row--highlight faturacao-row--highlight' : ''}" data-report-id="${escapeHtml(report.id)}">
-      <td class="faturacao-cell-ordem"><code class="orcamentos-ordem rh-ordem-badge faturacao-ordem">${escapeHtml(formatOrdemLabel(job))}</code></td>
-      <td class="faturacao-cell-client" title="${escapeHtml(clientName)}">
-        <span class="rh-cell-client-name">${escapeHtml(clientName)}</span>
-        <span class="faturacao-cell-detail orcamentos-row__sub">${escapeHtml(service?.label || report.serviceType || '—')}</span>
-        ${origemBadge}
+    <tr class="rh-data-table-row orcamentos-row orcamentos-row--compact${highlighted ? ' orcamentos-row--highlight faturacao-row--highlight' : ''}" data-report-id="${escapeHtml(report.id)}" title="${escapeHtml(rowTitle)}">
+      <td class="faturacao-cell-ordem">
+        ${
+          showOrdem
+            ? `<code class="orcamentos-ordem rh-ordem-badge faturacao-ordem">${escapeHtml(ordemLabel)}</code>`
+            : `<span class="orcamentos-ordem-empty text-muted">—</span>`
+        }
       </td>
-      <td class="rh-cell-muted">${escapeHtml(tipoLabel)}</td>
-      <td class="rh-cell-muted">${escapeHtml(reportStatusLabel(report))}</td>
-      <td class="rh-cell-muted">
+      <td class="faturacao-cell-client" title="${escapeHtml(clientName)}${detalhe ? ` — ${escapeHtml(detalhe)}` : ''}">
+        <span class="rh-cell-client-name">${escapeHtml(clientName)}</span>
+        <span class="orcamentos-row__meta">
+          ${origemBadge}
+          <span class="orcamentos-tipo-short">${escapeHtml(tipoShort)}</span>
+        </span>
+      </td>
+      <td class="rh-cell-muted orcamentos-col-proposta">
         <span class="orcamentos-status ${resolveOrcamentoWorkflowClass(workflow)}">${escapeHtml(resolveOrcamentoWorkflowLabel(workflow))}</span>
         ${meta?.numeroFormatado ? `<span class="orcamentos-numero">nº ${escapeHtml(meta.numeroFormatado)}</span>` : ''}
         ${garantiaBadge}
         ${respostaDataBadge}
       </td>
-      <td class="rh-cell-muted orcamentos-col-detalhe" title="${escapeHtml(detalhe)}">${escapeHtml(detalheShort)}</td>
-      <td class="rh-cell-muted">${escapeHtml(tech?.name || '—')}</td>
       <td class="faturacao-col-action">
-        <div class="faturacao-billing-actions rh-table-actions">
-          ${
-            canApproveReport
-              ? `<button type="button" class="btn-success btn-sm rh-btn-compact" data-orc-approve-report="${escapeHtml(report.id)}" title="Aprovar e enviar o relatório técnico ao cliente">Aprovar</button>`
-              : ''
-          }
-          ${
-            canEditProposal
-              ? `<button type="button" class="btn-primary btn-sm rh-btn-compact" data-orc-open="${escapeHtml(report.id)}" title="${workflow === 'por_preparar' ? 'Preparar proposta comercial' : 'Editar proposta'}">
-            ${workflow === 'por_preparar' ? 'Preparar' : 'Editar'}
-          </button>`
-              : canViewSentProposal
-                ? `<button type="button" class="btn-outline btn-sm rh-btn-compact" data-orc-open="${escapeHtml(report.id)}" title="Ver proposta enviada e registar data de resposta">Ver</button>`
+        <div class="orcamentos-row-actions">
+          <div class="orcamentos-row-actions__primary">
+            ${
+              canApproveReport
+                ? `<button type="button" class="btn-success btn-sm rh-btn-compact" data-orc-approve-report="${escapeHtml(report.id)}" title="Aprovar relatório técnico">Aprovar</button>`
                 : ''
-          }
-          ${
-            pdfUrl
-              ? `<button type="button" class="btn-outline btn-sm rh-btn-compact" data-orc-pdf="${escapeHtml(report.id)}" title="Abrir PDF da proposta comercial">PDF</button>`
-              : ''
-          }
-          ${
-            techPdfUrl && report.status === 'approved'
-              ? `<button type="button" class="btn-outline btn-sm rh-btn-compact" data-orc-tech-pdf="${escapeHtml(techPdfUrl)}" title="Abrir PDF do relatório técnico">Relatório</button>`
-              : ''
-          }
+            }
+            ${
+              canEditProposal
+                ? `<button type="button" class="btn-primary btn-sm rh-btn-compact" data-orc-open="${escapeHtml(report.id)}" title="${workflow === 'por_preparar' ? 'Preparar proposta' : 'Editar'}">
+              ${workflow === 'por_preparar' ? 'Preparar' : 'Editar'}
+            </button>`
+                : canViewSentProposal
+                  ? `<button type="button" class="btn-outline btn-sm rh-btn-compact" data-orc-open="${escapeHtml(report.id)}" title="Ver proposta">Ver</button>`
+                  : ''
+            }
+            ${
+              pdfUrl
+                ? `<button type="button" class="btn-outline btn-sm rh-btn-compact" data-orc-pdf="${escapeHtml(report.id)}" title="PDF da proposta">PDF</button>`
+                : ''
+            }
+          </div>
           ${renderInlineRespostaControls(report)}
-          ${
-            canCancelPedido
-              ? `<button type="button" class="btn-danger btn-sm rh-btn-compact" data-orc-cancel="${escapeHtml(report.id)}" title="${escapeHtml(eliminarTitle)}">Eliminar</button>`
-              : ''
-          }
+          <div class="orcamentos-row-actions__more">
+            ${
+              techPdfUrl && report.status === 'approved'
+                ? `<button type="button" class="btn-ghost btn-sm rh-btn-compact" data-orc-tech-pdf="${escapeHtml(techPdfUrl)}" title="PDF do relatório técnico">Rel.</button>`
+                : ''
+            }
+            ${
+              canCancelPedido
+                ? `<button type="button" class="btn-ghost btn-sm rh-btn-compact orcamentos-btn-eliminar" data-orc-cancel="${escapeHtml(report.id)}" title="${escapeHtml(eliminarTitle)}">×</button>`
+                : ''
+            }
+          </div>
         </div>
       </td>
     </tr>`;
@@ -529,7 +536,7 @@ function renderKanbanCard(report) {
   const meta = getReportOrcamentoMeta(report);
   const workflow = resolveOrcamentoWorkflowStatus(report);
   const clientName = getClientName(client, values) || '—';
-  const tipoLabel = formatOrcamentoTipoPropostaLabel(getOrcamentoTipoProposta(report));
+  const tipoLabel = formatTipoShort(report);
   const pdfUrl = getReportOrcamentoPdfUrl(report);
   const canEditProposal = !meta?.enviadoEm;
   const openLabel = workflow === 'por_preparar' ? 'Preparar' : meta?.enviadoEm ? 'Ver' : 'Editar';
@@ -599,16 +606,12 @@ function renderPropostasSection(rows, counts, totalAll) {
       : rows.length
         ? `
       <div class="rh-table-scroll faturacao-table-wrap">
-        <table class="rh-data-table rh-data-table--compact faturacao-table faturacao-table--compact orcamentos-table">
+        <table class="rh-data-table rh-data-table--compact faturacao-table faturacao-table--compact orcamentos-table orcamentos-table--dense">
           <thead>
             <tr>
               <th scope="col">OP</th>
               <th scope="col">Cliente</th>
-              <th scope="col">Tipo</th>
-              <th scope="col">Relatório</th>
               <th scope="col">Proposta</th>
-              <th scope="col">Pedido</th>
-              <th scope="col">Técnico</th>
               <th scope="col" class="faturacao-col-action">Ação</th>
             </tr>
           </thead>
