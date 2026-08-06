@@ -207,6 +207,23 @@ const adminTabDirty = {
   funcionarios: false,
 };
 
+let orcamentosRealtimeRefreshTimer = null;
+
+/** Soft-refresh Orçamentos (e marca Faturação dirty) após Realtime — debounce ~280ms. */
+function scheduleOrcamentosRealtimeRefresh() {
+  if (orcamentosRealtimeRefreshTimer) clearTimeout(orcamentosRealtimeRefreshTimer);
+  orcamentosRealtimeRefreshTimer = setTimeout(() => {
+    orcamentosRealtimeRefreshTimer = null;
+    if (currentTab === 'orcamentos') {
+      adminTabDirty.orcamentos = false;
+      refreshOrcamentosPanel({ soft: true }).catch(console.error);
+    } else {
+      adminTabDirty.orcamentos = true;
+    }
+    adminTabDirty.faturacao = true;
+  }, 280);
+}
+
 /** Avaliações do cliente por visita — cache para calendário e painel RH. */
 let calendarAvaliacoesMap = new Map();
 
@@ -652,6 +669,7 @@ export async function initAdminDashboard() {
     },
     onPendingReport: (report, opts = {}) => {
       handleNewPendingReport(report, opts, playNotificationBeep).catch(console.error);
+      scheduleOrcamentosRealtimeRefresh();
     },
     onReportUpdated: (report, oldRow) => {
       const becamePending =
@@ -671,6 +689,10 @@ export async function initAdminDashboard() {
       } catch (e) {
         console.error('[Admin] Atualização visual após relatório:', e);
       }
+      scheduleOrcamentosRealtimeRefresh();
+    },
+    onFolhaChanged: () => {
+      scheduleOrcamentosRealtimeRefresh();
     },
   }).catch((err) => {
     console.error('[Admin] Realtime:', err);

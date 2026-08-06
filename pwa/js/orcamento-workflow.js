@@ -39,11 +39,15 @@ export function todayLocalDateInputValue(date = new Date()) {
   return `${y}-${m}-${d}`;
 }
 
-/** Converte ISO / AAAA-MM-DD / DD/MM/AAAA → AAAA-MM-DD para o input. */
+/** Converte ISO / AAAA-MM-DD / DD/MM/AAAA → AAAA-MM-DD para o input (calendário local). */
 export function toLocalDateInputValue(raw) {
   const pure = String(raw ?? '').trim();
   if (!pure) return '';
-  if (/^\d{4}-\d{2}-\d{2}/.test(pure)) return pure.slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(pure)) return pure;
+  if (/^\d{4}-\d{2}-\d{2}T/.test(pure)) {
+    const parsed = Date.parse(pure);
+    if (!Number.isNaN(parsed)) return todayLocalDateInputValue(new Date(parsed));
+  }
   const parts = pure.split(/[/-]/);
   if (parts.length === 3 && parts[0].length !== 4) {
     const [d, m, y] = parts;

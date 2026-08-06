@@ -167,6 +167,23 @@ function upsertCacheEntry(folha) {
   else folhasObraCache.push(folha);
 }
 
+/** Atualiza cache local a partir de um evento Realtime (INSERT/UPDATE). */
+export function mergeFolhaFromRealtime(row) {
+  const folha = mapRowToFolhaObra(row);
+  if (!folha) return null;
+  upsertCacheEntry(folha);
+  return folha;
+}
+
+/** Remove folha do cache (evento Realtime DELETE). */
+export function removeFolhaFromCache(folhaId) {
+  if (folhaId == null || !folhasObraCache) return null;
+  const id = String(folhaId);
+  const removed = folhasObraCache.find((f) => String(f.id) === id) || null;
+  folhasObraCache = folhasObraCache.filter((f) => String(f.id) !== id);
+  return removed;
+}
+
 export async function ensureFolhasObraLoaded(force = false) {
   if (folhasObraFullyLoaded && folhasObraCache && !force) return folhasObraCache;
   if (!folhasObraLoadPromise || force) {

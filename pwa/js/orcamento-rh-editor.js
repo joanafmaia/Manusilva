@@ -83,6 +83,7 @@ import {
   formatReclamacaoGarantiaLabel,
   getReportReclamacaoGarantia,
   renderReclamacaoGarantiaField,
+  suggestReclamacaoGarantia,
 } from './orcamento-reclamacao-garantia.js';
 
 function shouldReturnToOrcamentosMenu() {
@@ -101,6 +102,12 @@ function defaultOrcamentoEmail(report, _client) {
   const meta = getReportOrcamentoMeta(report);
   if (meta?.emailDestinatario) return String(meta.emailDestinatario).trim();
   return '';
+}
+
+function renderGarantiaField(report, meta) {
+  return renderReclamacaoGarantiaField(meta, {
+    suggested: suggestReclamacaoGarantia(report),
+  });
 }
 
 function renderTotals(meta) {
@@ -321,7 +328,7 @@ function renderManutencaoBateriaOrcamentoEditor(report, ctx) {
             <span>Validade do orçamento</span>
             <input type="text" class="review-orc-input" data-orc-field="validadeOrcamento" value="${escapeHtml(cab.validadeOrcamento)}" placeholder="10 Dias" />
           </label>
-          ${renderReclamacaoGarantiaField(meta)}
+          ${renderGarantiaField(report, meta)}
         </div>
         <div class="review-orc-template-valor-preview" data-orc-valor-linha-preview>
           ${formatLinhasValorManutencaoBateria(meta, cab)
@@ -356,7 +363,9 @@ function renderManutencaoBateriaOrcamentoEditor(report, ctx) {
         <button type="button" class="btn-outline btn-touch" id="orcamento-pdf">Ver PDF da proposta</button>
         <button type="button" class="btn-success btn-touch" id="orcamento-send-email">Enviar proposta por e-mail</button>
       </div>
-      <p class="text-muted review-orcamento-editor__hint">O PDF usa o texto fixo da Manutenção Baterias — indique periodicidade e valor por visita.</p>
+      <p class="text-muted review-orcamento-editor__hint">O PDF usa o texto fixo da Manutenção Baterias — indique periodicidade e valor por visita.
+        <span class="orcamento-autosave-status" data-orc-autosave-status aria-live="polite"></span>
+      </p>
     </div>`;
 }
 
@@ -421,7 +430,7 @@ function renderManutencaoMaquinaOrcamentoEditor(report, ctx) {
             <span>Validade do orçamento</span>
             <input type="text" class="review-orc-input" data-orc-field="validadeOrcamento" value="${escapeHtml(cab.validadeOrcamento)}" placeholder="10 Dias" />
           </label>
-          ${renderReclamacaoGarantiaField(meta)}
+          ${renderGarantiaField(report, meta)}
         </div>
         <div class="review-orc-template-valor-preview" data-orc-maquina-precos-preview>
           ${renderManutencaoMaquinaPrecoPreviewHtml(meta, cab)}
@@ -454,7 +463,9 @@ function renderManutencaoMaquinaOrcamentoEditor(report, ctx) {
         <button type="button" class="btn-outline btn-touch" id="orcamento-pdf">Ver PDF da proposta</button>
         <button type="button" class="btn-success btn-touch" id="orcamento-send-email">Enviar proposta por e-mail</button>
       </div>
-      <p class="text-muted review-orcamento-editor__hint">Identifique cada máquina, preços por máquina e uma deslocação única para a proposta.</p>
+      <p class="text-muted review-orcamento-editor__hint">Identifique cada máquina, preços por máquina e uma deslocação única para a proposta.
+        <span class="orcamento-autosave-status" data-orc-autosave-status aria-live="polite"></span>
+      </p>
     </div>`;
 }
 
@@ -625,7 +636,7 @@ export function renderOrcamentoEditor(report, { client } = {}) {
           <span>Validade do orçamento</span>
           <input type="text" class="review-orc-input" data-orc-field="validadeOrcamento" value="${escapeHtml(cab.validadeOrcamento)}" placeholder="10 Dias" />
         </label>
-        ${renderReclamacaoGarantiaField(meta)}
+        ${renderGarantiaField(report, meta)}
       </div>
 
       <div class="review-orcamento-editor__totals" aria-live="polite">
@@ -639,7 +650,10 @@ export function renderOrcamentoEditor(report, { client } = {}) {
         <button type="button" class="btn-outline btn-touch" id="orcamento-pdf">Ver PDF da proposta</button>
         <button type="button" class="btn-success btn-touch" id="orcamento-send-email">Enviar proposta por e-mail</button>
       </div>
-      <p class="text-muted review-orcamento-editor__hint">Guarde antes de enviar. O e-mail inclui apenas a proposta comercial, não o relatório técnico.</p>
+      <p class="text-muted review-orcamento-editor__hint">
+        Guarde antes de enviar. O e-mail inclui apenas a proposta comercial, não o relatório técnico.
+        <span class="orcamento-autosave-status" data-orc-autosave-status aria-live="polite"></span>
+      </p>
     </div>`;
 }
 
@@ -793,7 +807,6 @@ function bindOrcamentoRespostaActions(root, { getReport, onUpdated }) {
       if (!saved) throw new Error('Não foi possível guardar.');
       onUpdated?.(saved);
       showToast('Proposta marcada como aceite.', 'success');
-      window.location.reload();
     } catch (err) {
       const { showToast } = await import('./app.js');
       showToast(err?.message || 'Erro ao guardar.', 'error');
@@ -810,7 +823,6 @@ function bindOrcamentoRespostaActions(root, { getReport, onUpdated }) {
       if (!saved) throw new Error('Não foi possível guardar.');
       onUpdated?.(saved);
       showToast('Proposta marcada como recusada.', 'info');
-      window.location.reload();
     } catch (err) {
       const { showToast } = await import('./app.js');
       showToast(err?.message || 'Erro ao guardar.', 'error');
@@ -832,7 +844,6 @@ function bindOrcamentoRespostaActions(root, { getReport, onUpdated }) {
       if (!saved) throw new Error('Não foi possível guardar.');
       onUpdated?.(saved);
       showToast('Data da resposta atualizada.', 'success');
-      window.location.reload();
     } catch (err) {
       const { showToast } = await import('./app.js');
       showToast(err?.message || 'Erro ao guardar.', 'error');
@@ -986,6 +997,42 @@ export function bindOrcamentoEditor(container, { report, onUpdated, onSaved, onS
     });
     return saved;
   };
+
+  let autosaveTimer = null;
+  const setAutosaveStatus = (text) => {
+    const el = root.querySelector('[data-orc-autosave-status]');
+    if (el) el.textContent = text ? ` · ${text}` : '';
+  };
+  const scheduleAutosaveMeta = () => {
+    if (root.dataset.orcSent === '1' || getReportOrcamentoMeta(currentReport)?.enviadoEm) return;
+    clearTimeout(autosaveTimer);
+    setAutosaveStatus('A guardar rascunho…');
+    autosaveTimer = setTimeout(async () => {
+      try {
+        const meta = readOrcamentoFormFromDom(root, currentReport);
+        const { updateRelatorio, mergeReportInCache } = await import('./relatorios-db.js');
+        const saved = await updateRelatorio(currentReport.id, {
+          data: {
+            orcamento: meta,
+          },
+        });
+        if (!saved) return;
+        mergeReportInCache(saved);
+        currentReport = saved;
+        onUpdated?.(saved);
+        setAutosaveStatus('Rascunho guardado');
+      } catch (err) {
+        console.warn('[Orçamento] autosave:', err);
+        setAutosaveStatus('Falha ao guardar rascunho');
+      }
+    }, 2000);
+  };
+  root.addEventListener('input', (e) => {
+    if (e.target?.closest?.('[data-orc-field]')) scheduleAutosaveMeta();
+  });
+  root.addEventListener('change', (e) => {
+    if (e.target?.closest?.('[data-orc-field]')) scheduleAutosaveMeta();
+  });
 
   root.querySelector('#review-orc-save')?.addEventListener('click', async (e) => {
     const btn = e.currentTarget;

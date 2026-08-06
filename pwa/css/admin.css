@@ -4924,7 +4924,135 @@ body .admin-rh-page .btn-primary, body .admin-rh-page .btn-secondary, body .admi
 .review-orc-field--reclamacao-garantia {
   grid-column: 1 / -1;
 }
-  color: #b91c1c;
+.orcamentos-origem {
+  display: inline-block;
+  margin-top: 0.25rem;
+  padding: 0.08rem 0.4rem;
+  border-radius: 3px;
+  font-size: 0.68rem;
+  font-weight: 650;
+  border: 1px solid var(--ms-border-md, #cbd5e1);
+  color: var(--text-muted, #475569);
+  background: var(--surface-muted, #f8fafc);
+}
+.orcamentos-origem--folha {
+  border-color: #f59e0b;
+  color: #92400e;
+  background: #fffbeb;
+}
+.orcamentos-origem--rh {
+  border-color: #93c5fd;
+  color: #1e40af;
+  background: #eff6ff;
+}
+.orcamentos-origem--pedido {
+  border-color: #86efac;
+  color: #166534;
+  background: #f0fdf4;
+}
+.orcamentos-inline-resposta {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.25rem;
+}
+.orcamentos-inline-date {
+  width: auto;
+  min-width: 8.5rem;
+  padding: 0.2rem 0.35rem;
+  font-size: 0.78rem;
+}
+.orcamentos-section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+}
+.orcamentos-view-toggle {
+  display: inline-flex;
+  gap: 0.35rem;
+}
+.orcamentos-view-toggle .btn-outline.is-active {
+  background: var(--ms-primary, #1e3a5f);
+  color: #fff;
+  border-color: var(--ms-primary, #1e3a5f);
+}
+.orcamentos-kanban-lead {
+  margin: 0.35rem 0 0;
+  font-size: 0.85rem;
+}
+.orcamentos-kanban {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(12rem, 1fr));
+  gap: 0.75rem;
+  overflow-x: auto;
+  padding-bottom: 0.35rem;
+}
+.orcamentos-kanban-col {
+  min-width: 12rem;
+  background: var(--surface-muted, #f8fafc);
+  border: 1px solid var(--ms-border-md, #e2e8f0);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  max-height: 70vh;
+}
+.orcamentos-kanban-col__head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.65rem 0.75rem;
+  border-bottom: 1px solid var(--ms-border-md, #e2e8f0);
+  background: inherit;
+  border-radius: 8px 8px 0 0;
+}
+.orcamentos-kanban-col__head h4 {
+  margin: 0;
+  font-size: 0.85rem;
+}
+.orcamentos-kanban-col__body {
+  padding: 0.65rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+.orcamentos-kanban-card {
+  background: #fff;
+  border: 1px solid var(--ms-border-md, #e2e8f0);
+  border-radius: 6px;
+  padding: 0.65rem 0.7rem;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 4%);
+}
+.orcamentos-kanban-card__client {
+  margin: 0;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+.orcamentos-kanban-card__meta {
+  margin: 0.2rem 0 0.35rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+.orcamentos-kanban-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.4rem;
+}
+.orcamentos-kanban-empty {
+  margin: 0.35rem 0;
+  font-size: 0.8rem;
+}
+.orcamento-autosave-status {
+  white-space: nowrap;
 }
 .orcamentos-numero {
   display: block;

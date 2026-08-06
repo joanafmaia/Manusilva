@@ -7,8 +7,6 @@ import { getClientName } from './client-display.js';
 import { formatOrdemLabel } from './report-review-ui.js';
 import { getReportOrcamentoMeta, parseOrcamentoNumber } from './orcamento-linhas.js';
 import { getPedidoOrcamentoDetalhe } from './pedido-orcamento.js';
-import { reportIsStandaloneOrcamento } from './orcamento-standalone.js';
-import { reportIsFolhaObraOrcamento } from './folha-obra-orcamento.js';
 import {
   formatOrcamentoTipoPropostaLabel,
   getOrcamentoTipoProposta,
@@ -21,6 +19,7 @@ import {
   formatReclamacaoGarantiaAuditLabel,
   getReportReclamacaoGarantia,
 } from './orcamento-reclamacao-garantia.js';
+import { formatOrcamentoOrigemLabel } from './orcamento-origem.js';
 import {
   resolveOrcamentoWorkflowLabel,
   resolveOrcamentoWorkflowStatus,
@@ -47,12 +46,6 @@ function filterByTipo(reports, tipoFilter) {
 function filterByEstado(reports, estadoFilter) {
   if (!estadoFilter || estadoFilter === 'all') return reports;
   return reports.filter((report) => resolveOrcamentoWorkflowStatus(report) === estadoFilter);
-}
-
-function resolveOrigemLabel(report) {
-  if (reportIsFolhaObraOrcamento(report)) return 'Folha de obra R.C';
-  if (reportIsStandaloneOrcamento(report)) return 'Proposta RH';
-  return 'Pedido técnico';
 }
 
 function resolveRespostaCliente(meta, workflowStatus) {
@@ -102,7 +95,7 @@ export function buildOrcamentoAuditRows(
         emailDestinatario: String(meta.emailDestinatario || '').trim() || '—',
         tecnico: String(tech?.name || report.technicianId || '—').trim() || '—',
         pedido: String(getPedidoOrcamentoDetalhe(report) || '').trim() || '—',
-        origem: resolveOrigemLabel(report),
+        origem: formatOrcamentoOrigemLabel(report),
         reclamacaoGarantia: getReportReclamacaoGarantia(report),
         reclamacaoGarantiaLabel: formatReclamacaoGarantiaAuditLabel(
           getReportReclamacaoGarantia(report),

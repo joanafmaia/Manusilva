@@ -70,12 +70,16 @@ export function isFolhaObraRepairEditable(folha) {
   return (folha?.estado || 'rascunho') === 'em_reparacao';
 }
 
+/**
+ * Folhas R.C. ainda sem proposta MS.015 — a lista de Orçamentos trata as que já têm report.
+ */
 export function getFolhasObraAguardaOrcamento() {
   return getFolhasObraSnapshot()
     .filter(
       (f) =>
         normalizeFolhaResponsabilidade(f.responsabilidade) === FOLHA_RESPONSABILIDADE.RC &&
-        (f.estado === 'aguarda_orcamento' || f.estado === 'orcamento_enviado'),
+        f.estado === 'aguarda_orcamento' &&
+        !String(f.orcamentoReportId || '').trim(),
     )
     .sort((a, b) => String(b.dataRececao || '').localeCompare(String(a.dataRececao || '')));
 }

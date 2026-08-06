@@ -45,7 +45,6 @@ import {
   formatOrcamentoRespostaDataLabel,
   orcamentoAguardaRespostaCliente,
   ORCAMENTO_RESPOSTA,
-  promptOrcamentoRespostaData,
   resolveOrcamentoWorkflowClass,
   resolveOrcamentoWorkflowLabel,
   resolveOrcamentoWorkflowStatus,
@@ -59,6 +58,11 @@ import {
   renderFolhaObraRhSection,
 } from './folha-obra-rh.js';
 import { reportIsFolhaObraOrcamento } from '../folha-obra-orcamento.js';
+import {
+  ORCAMENTO_ORIGEM_OPTIONS,
+  reportMatchesOrcamentoOrigem,
+  resolveOrcamentoOrigem,
+} from '../orcamento-origem.js';
 import { getSession } from '../session.js';
 import {
   captureAdminMainScroll,
@@ -69,6 +73,8 @@ import {
 let mountRoot = null;
 let activeFilter = 'todas';
 let tipoFilter = 'all';
+let origemFilter = 'all';
+let viewMode = 'lista'; // lista | quadro
 let searchQuery = '';
 let exportYear = String(new Date().getFullYear());
 let exportTipoFilter = 'all';
@@ -99,14 +105,20 @@ function listOrcamentoReports() {
 
 function filterOrcamentoReports(reports) {
   let rows = reports;
-  if (activeFilter === 'por_preparar') {
-    rows = rows.filter(reportOrcamentoPorPreparar);
-  } else if (activeFilter !== 'todas') {
-    rows = rows.filter((report) => resolveOrcamentoWorkflowStatus(report) === activeFilter);
+  if (viewMode === 'lista') {
+    if (activeFilter === 'por_preparar') {
+      rows = rows.filter(reportOrcamentoPorPreparar);
+    } else if (activeFilter !== 'todas') {
+      rows = rows.filter((report) => resolveOrcamentoWorkflowStatus(report) === activeFilter);
+    }
   }
 
   if (tipoFilter && tipoFilter !== 'all') {
     rows = rows.filter((report) => getOrcamentoTipoProposta(report) === tipoFilter);
+  }
+
+  if (origemFilter && origemFilter !== 'all') {
+    rows = rows.filter((report) => reportMatchesOrcamentoOrigem(report, origemFilter));
   }
 
   const q = searchQuery.trim().toLowerCase();
@@ -120,7 +132,14 @@ function filterOrcamentoReports(reports) {
     const op = formatOrdemLabel(job).toLowerCase();
     const numero = String(getReportOrcamentoMeta(report)?.numeroFormatado || '').toLowerCase();
     const tipo = formatOrcamentoTipoPropostaLabel(getOrcamentoTipoProposta(report)).toLowerCase();
-    return clientName.includes(q) || op.includes(q) || numero.includes(q) || tipo.includes(q);
+    const origem = resolveOrcamentoOrigem(report).label.toLowerCase();
+    return (
+      clientName.includes(q) ||
+      op.includes(q) ||
+      numero.includes(q) ||
+      tipo.includes(q) ||
+      origem.includes(q)
+    );
   });
 }
 
@@ -140,6 +159,61 @@ function countByWorkflow(reports) {
 
 function reportStatusLabel(report) {
   return reportOrcamentoQueueLabel(report);
+}
+
+function renderOrigemBadge(report) {
+  const origem = resolveOrcamentoOrigem(report);
+  return `<span class="orcamentos-origem orcamentos-origem--${escapeHtml(origem.id)}" title="Origem">${escapeHtml(origem.label)}</span>`;
+}
+
+function resolveRespostaDateDefault(report) {
+  const meta = getReportOrcamentoMeta(report);
+  return toLocalDateInputValue(meta?.respostaClienteEm) || todayLocalDateInputValue();
+}
+
+function renderInlineRespostaControls(report) {
+  const meta = getReportOrcamentoMeta(report);
+  if (!meta?.enviadoEm) return '';
+  const workflow = resolveOrcamentoWorkflowStatus(report);
+  const dateValue = resolveRespostaDateDefault(report);
+  const aguarda = orcamentoAguardaRespostaCliente(report);
+  return `
+    <div class="orcamentos-inline-resposta" data-orc-inline-resposta="${escapeHtml(report.id)}">
+      <label class="orcamentos-inline-resposta__date">
+        <span class="sr-only">Data da resposta</span>
+        <input type="date" class="form-input form-input-sm orcamentos-inline-date" data-orc-resposta-date="${escapeHtml(report.id)}" value="${escapeHtml(dateValue)}" />
+      </label>
+      ${
+        aguarda || workflow !== 'aceite'
+          ? `<button type="button" class="btn-success btn-sm rh-btn-compact" data-orc-aceite="${escapeHtml(report.id)}" title="Cliente aceitou a proposta">Aceite</button>`
+          : ''
+      }
+      ${
+        aguarda || workflow !== 'recusada'
+          ? `<button type="button" class="btn-danger btn-sm rh-btn-compact" data-orc-recusada="${escapeHtml(report.id)}" title="Cliente recusou a proposta">Recusada</button>`
+          : ''
+      }
+    </div>`;
+}
+
+function readInlineRespostaDate(reportId) {
+  const input = mountRoot?.querySelector(`[data-orc-resposta-date="${CSS.escape(reportId)}"]`);
+  return input?.value?.trim() || todayLocalDateInputValue();
+}
+
+async function applyInlineResposta(reportId, resposta) {
+  const saved = await setOrcamentoRespostaCliente(reportId, resposta, {
+    respostaClienteEm: readInlineRespostaDate(reportId),
+  });
+  if (!saved) return;
+  const msg =
+    resposta === ORCAMENTO_RESPOSTA.ACEITE
+      ? reportIsFolhaObraOrcamento(saved)
+        ? 'Proposta aceite. Equipamento libertado para o Armazém.'
+        : 'Proposta marcada como aceite. Adicionada à Faturação.'
+      : 'Proposta marcada como recusada.';
+  showToast(msg, resposta === ORCAMENTO_RESPOSTA.ACEITE ? 'success' : 'info');
+  await refreshOrcamentosPanel({ soft: true });
 }
 
 function renderFilterHint(counts, total) {
@@ -256,8 +330,6 @@ function renderTableRow(report) {
   const canCancelPedido = !meta?.enviadoEm;
   const canEditProposal = !meta?.enviadoEm;
   const canViewSentProposal = Boolean(meta?.enviadoEm);
-  const aguardaResposta = orcamentoAguardaRespostaCliente(report);
-  const podeMarcarResposta = Boolean(meta?.enviadoEm);
   const isFolha = reportIsFolhaObraOrcamento(report);
   const eliminarTitle = reportIsStandaloneOrcamento(report)
     ? 'Eliminar proposta'
@@ -267,6 +339,7 @@ function renderTableRow(report) {
   const highlighted = highlightReportId && report.id === highlightReportId;
   const clientName = getClientName(client, values) || '—';
   const tipoLabel = formatOrcamentoTipoPropostaLabel(getOrcamentoTipoProposta(report));
+  const origemBadge = renderOrigemBadge(report);
   const garantiaKey = getReportReclamacaoGarantia(report);
   const garantiaBadge =
     garantiaKey === 'sim'
@@ -286,6 +359,7 @@ function renderTableRow(report) {
       <td class="faturacao-cell-client" title="${escapeHtml(clientName)}">
         <span class="rh-cell-client-name">${escapeHtml(clientName)}</span>
         <span class="faturacao-cell-detail orcamentos-row__sub">${escapeHtml(service?.label || report.serviceType || '—')}</span>
+        ${origemBadge}
       </td>
       <td class="rh-cell-muted">${escapeHtml(tipoLabel)}</td>
       <td class="rh-cell-muted">${escapeHtml(reportStatusLabel(report))}</td>
@@ -323,22 +397,7 @@ function renderTableRow(report) {
               ? `<button type="button" class="btn-outline btn-sm rh-btn-compact" data-orc-tech-pdf="${escapeHtml(techPdfUrl)}" title="Abrir PDF do relatório técnico">Relatório</button>`
               : ''
           }
-          ${
-            aguardaResposta
-              ? `<button type="button" class="btn-success btn-sm rh-btn-compact" data-orc-aceite="${escapeHtml(report.id)}" title="Cliente aceitou a proposta">Aceite</button>
-                 <button type="button" class="btn-danger btn-sm rh-btn-compact" data-orc-recusada="${escapeHtml(report.id)}" title="Cliente recusou a proposta">Recusada</button>`
-              : ''
-          }
-          ${
-            podeMarcarResposta && !aguardaResposta && workflow !== 'aceite'
-              ? `<button type="button" class="btn-outline btn-sm rh-btn-compact" data-orc-aceite="${escapeHtml(report.id)}" title="Marcar como aceite">Aceite</button>`
-              : ''
-          }
-          ${
-            podeMarcarResposta && !aguardaResposta && workflow !== 'recusada'
-              ? `<button type="button" class="btn-outline btn-sm rh-btn-compact" data-orc-recusada="${escapeHtml(report.id)}" title="Marcar como recusada">Recusada</button>`
-              : ''
-          }
+          ${renderInlineRespostaControls(report)}
           ${
             canCancelPedido
               ? `<button type="button" class="btn-danger btn-sm rh-btn-compact" data-orc-cancel="${escapeHtml(report.id)}" title="${escapeHtml(eliminarTitle)}">Eliminar</button>`
@@ -362,6 +421,21 @@ function renderTipoFilterSelect(id, value, label) {
   const options = [
     `<option value="all"${value === 'all' ? ' selected' : ''}>Todos os tipos</option>`,
     ...ORCAMENTO_TIPO_PROPOSTA_OPTIONS.map(
+      ({ value: v, label: l }) =>
+        `<option value="${escapeHtml(v)}"${value === v ? ' selected' : ''}>${escapeHtml(l)}</option>`,
+    ),
+  ].join('');
+  return `
+    <div class="form-group faturacao-filter-group">
+      <label class="form-label" for="${escapeHtml(id)}">${escapeHtml(label)}</label>
+      <select class="form-select" id="${escapeHtml(id)}">${options}</select>
+    </div>`;
+}
+
+function renderOrigemFilterSelect(id, value, label) {
+  const options = [
+    `<option value="all"${value === 'all' ? ' selected' : ''}>Todas as origens</option>`,
+    ...ORCAMENTO_ORIGEM_OPTIONS.map(
       ({ value: v, label: l }) =>
         `<option value="${escapeHtml(v)}"${value === v ? ' selected' : ''}>${escapeHtml(l)}</option>`,
     ),
@@ -410,6 +484,7 @@ function renderFiltersSection(all) {
           />
         </div>
         ${renderTipoFilterSelect('orcamentos-tipo-filter', tipoFilter, 'Tipo de proposta')}
+        ${renderOrigemFilterSelect('orcamentos-origem-filter', origemFilter, 'Origem')}
       </div>
       <div class="faturacao-filter-actions">
         ${renderCompactFilterSelect(
@@ -440,9 +515,89 @@ function renderFiltersSection(all) {
     </section>`;
 }
 
+function renderViewToggle() {
+  return `
+    <div class="orcamentos-view-toggle" role="group" aria-label="Vista de propostas">
+      <button type="button" class="btn-outline btn-sm${viewMode === 'lista' ? ' is-active' : ''}" data-orc-view="lista">Lista</button>
+      <button type="button" class="btn-outline btn-sm${viewMode === 'quadro' ? ' is-active' : ''}" data-orc-view="quadro">Quadro</button>
+    </div>`;
+}
+
+function renderKanbanCard(report) {
+  const client = getClient(report.clientId);
+  const values = report?.data?.values || {};
+  const meta = getReportOrcamentoMeta(report);
+  const workflow = resolveOrcamentoWorkflowStatus(report);
+  const clientName = getClientName(client, values) || '—';
+  const tipoLabel = formatOrcamentoTipoPropostaLabel(getOrcamentoTipoProposta(report));
+  const pdfUrl = getReportOrcamentoPdfUrl(report);
+  const canEditProposal = !meta?.enviadoEm;
+  const openLabel = workflow === 'por_preparar' ? 'Preparar' : meta?.enviadoEm ? 'Ver' : 'Editar';
+
+  return `
+    <article class="orcamentos-kanban-card" data-report-id="${escapeHtml(report.id)}">
+      <p class="orcamentos-kanban-card__client">${escapeHtml(clientName)}</p>
+      <p class="orcamentos-kanban-card__meta">
+        ${escapeHtml(tipoLabel)}
+        ${meta?.numeroFormatado ? ` · nº ${escapeHtml(meta.numeroFormatado)}` : ''}
+      </p>
+      ${renderOrigemBadge(report)}
+      <div class="orcamentos-kanban-card__actions">
+        <button type="button" class="btn-primary btn-sm rh-btn-compact" data-orc-open="${escapeHtml(report.id)}">${escapeHtml(openLabel)}</button>
+        ${
+          pdfUrl
+            ? `<button type="button" class="btn-outline btn-sm rh-btn-compact" data-orc-pdf="${escapeHtml(report.id)}">PDF</button>`
+            : ''
+        }
+      </div>
+      ${canEditProposal ? '' : renderInlineRespostaControls(report)}
+    </article>`;
+}
+
+function renderKanbanBoard(rows) {
+  const columns = [
+    { id: 'por_preparar', label: 'Por preparar' },
+    { id: 'guardada', label: 'Guardadas' },
+    { id: 'enviada', label: 'Enviadas' },
+    { id: 'aceite', label: 'Aceites' },
+    { id: 'recusada', label: 'Recusadas' },
+  ];
+
+  return `
+    <div class="orcamentos-kanban" aria-label="Quadro de propostas">
+      ${columns
+        .map((col) => {
+          const cards = rows.filter((report) => {
+            if (col.id === 'por_preparar') return reportOrcamentoPorPreparar(report);
+            return resolveOrcamentoWorkflowStatus(report) === col.id;
+          });
+          return `
+            <section class="orcamentos-kanban-col" data-orc-kanban-col="${escapeHtml(col.id)}">
+              <header class="orcamentos-kanban-col__head">
+                <h4>${escapeHtml(col.label)}</h4>
+                <span class="badge-count">${cards.length}</span>
+              </header>
+              <div class="orcamentos-kanban-col__body">
+                ${
+                  cards.length
+                    ? cards.map(renderKanbanCard).join('')
+                    : '<p class="text-muted orcamentos-kanban-empty">—</p>'
+                }
+              </div>
+            </section>`;
+        })
+        .join('')}
+    </div>`;
+}
+
 function renderPropostasSection(rows, counts, totalAll) {
-  const body = rows.length
-    ? `
+  const body =
+    viewMode === 'quadro'
+      ? rows.length || totalAll > 0
+        ? renderKanbanBoard(rows)
+        : renderEmptyState(counts, totalAll)
+      : rows.length
+        ? `
       <div class="rh-table-scroll faturacao-table-wrap">
         <table class="rh-data-table rh-data-table--compact faturacao-table faturacao-table--compact orcamentos-table">
           <thead>
@@ -462,13 +617,16 @@ function renderPropostasSection(rows, counts, totalAll) {
           </tbody>
         </table>
       </div>`
-    : renderEmptyState(counts, totalAll);
+        : renderEmptyState(counts, totalAll);
 
   return `
     <section class="faturacao-invoices-section orcamentos-table-section rh-section glass-card" aria-label="Propostas comerciais">
       <div class="faturacao-invoices-head">
-        <h3 class="ms-h2 faturacao-section-title">Propostas comerciais <span class="badge-count">${rows.length}</span></h3>
-        ${renderEstadoTabs(counts)}
+        <div class="orcamentos-section-head">
+          <h3 class="ms-h2 faturacao-section-title">Propostas comerciais <span class="badge-count">${rows.length}</span></h3>
+          ${renderViewToggle()}
+        </div>
+        ${viewMode === 'lista' ? renderEstadoTabs(counts) : '<p class="text-muted orcamentos-kanban-lead">Quadro por estado — filtros de origem, tipo e pesquisa aplicam-se aqui.</p>'}
       </div>
       ${body}
     </section>`;
@@ -580,6 +738,14 @@ function bindPanelEvents() {
       return;
     }
 
+    const viewBtn = e.target.closest('[data-orc-view]');
+    if (viewBtn) {
+      viewMode = viewBtn.dataset.orcView === 'quadro' ? 'quadro' : 'lista';
+      if (viewMode === 'quadro') activeFilter = 'todas';
+      softRefreshOrcamentosPanel().catch(console.error);
+      return;
+    }
+
     const openBtn = e.target.closest('[data-orc-open]');
     if (openBtn) {
       const report = getReport(openBtn.dataset.orcOpen);
@@ -657,25 +823,9 @@ function bindPanelEvents() {
     if (aceiteBtn) {
       const reportId = aceiteBtn.dataset.orcAceite;
       if (!reportId) return;
-      const existing = getReportOrcamentoMeta(getReport(reportId));
-      void promptOrcamentoRespostaData({
-        resposta: ORCAMENTO_RESPOSTA.ACEITE,
-        defaultDate:
-          toLocalDateInputValue(existing?.respostaClienteEm) || todayLocalDateInputValue(),
-      }).then((date) => {
-        if (!date) return;
-        return setOrcamentoRespostaCliente(reportId, ORCAMENTO_RESPOSTA.ACEITE, {
-          respostaClienteEm: date,
-        }).then((saved) => {
-          if (saved) {
-            const msg = reportIsFolhaObraOrcamento(saved)
-              ? 'Proposta aceite. Equipamento libertado para o Armazém.'
-              : 'Proposta marcada como aceite. Adicionada à Faturação.';
-            showToast(msg, 'success');
-            refreshOrcamentosPanel().catch(console.error);
-          }
-        });
-      }).catch((err) => showToast(err?.message || 'Erro ao guardar.', 'error'));
+      void applyInlineResposta(reportId, ORCAMENTO_RESPOSTA.ACEITE).catch((err) =>
+        showToast(err?.message || 'Erro ao guardar.', 'error'),
+      );
       return;
     }
 
@@ -683,22 +833,9 @@ function bindPanelEvents() {
     if (recusadaBtn) {
       const reportId = recusadaBtn.dataset.orcRecusada;
       if (!reportId) return;
-      const existing = getReportOrcamentoMeta(getReport(reportId));
-      void promptOrcamentoRespostaData({
-        resposta: ORCAMENTO_RESPOSTA.RECUSADA,
-        defaultDate:
-          toLocalDateInputValue(existing?.respostaClienteEm) || todayLocalDateInputValue(),
-      }).then((date) => {
-        if (!date) return;
-        return setOrcamentoRespostaCliente(reportId, ORCAMENTO_RESPOSTA.RECUSADA, {
-          respostaClienteEm: date,
-        }).then((saved) => {
-          if (saved) {
-            showToast('Proposta marcada como recusada.', 'info');
-            refreshOrcamentosPanel().catch(console.error);
-          }
-        });
-      }).catch((err) => showToast(err?.message || 'Erro ao guardar.', 'error'));
+      void applyInlineResposta(reportId, ORCAMENTO_RESPOSTA.RECUSADA).catch((err) =>
+        showToast(err?.message || 'Erro ao guardar.', 'error'),
+      );
       return;
     }
 
@@ -743,6 +880,11 @@ function bindPanelEvents() {
       softRefreshOrcamentosPanel().catch(console.error);
       return;
     }
+    if (target.id === 'orcamentos-origem-filter') {
+      origemFilter = target.value || 'all';
+      softRefreshOrcamentosPanel().catch(console.error);
+      return;
+    }
     if (target.id === 'orcamentos-export-year') {
       exportYear = target.value || String(new Date().getFullYear());
       return;
@@ -767,7 +909,7 @@ function applyHighlight() {
   }, 4000);
 }
 
-/** Atualiza KPIs + tabela sem destruir filtros (preserva foco e scroll). */
+/** Atualiza KPIs + tabela/quadro + oficina sem destruir filtros (preserva foco e scroll). */
 async function softRefreshOrcamentosPanel() {
   if (!mountRoot) return;
   if (!mountRoot.querySelector('.orcamentos-panel')) {
@@ -780,6 +922,7 @@ async function softRefreshOrcamentosPanel() {
   const counts = countByWorkflow(all);
   const rows = filterOrcamentoReports(all);
 
+  replaceSectionHtml(mountRoot, '.folha-obra-rh-section', renderFolhaObraRhSection());
   replaceSectionHtml(mountRoot, '.faturacao-kpis', renderMetrics(counts));
   replaceSectionHtml(
     mountRoot,

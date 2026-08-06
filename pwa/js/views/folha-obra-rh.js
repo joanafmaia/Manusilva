@@ -24,8 +24,6 @@ function resolveClientName(folha) {
 
 function renderFolhaObraRhRow(folha) {
   const estadoLabel = formatFolhaObraEstadoLabel(folha.estado, { rh: true });
-  const hasOrcamento = Boolean(folha.orcamentoReportId);
-  const actionLabel = hasOrcamento ? 'Abrir orçamento' : 'Criar orçamento MS.015';
   return `
     <tr class="rh-data-table-row folha-obra-rh-row" data-folha-obra-id="${escapeHtml(folha.id)}">
       <td><code class="folha-obra-etq-badge">${escapeHtml(folha.etq || '—')}</code></td>
@@ -38,7 +36,7 @@ function renderFolhaObraRhRow(folha) {
       <td>
         <div class="folha-obra-rh-actions">
           <button type="button" class="btn-outline btn-sm" data-folha-obra-view="${escapeHtml(folha.id)}">Ver</button>
-          <button type="button" class="btn-primary btn-sm" data-folha-obra-orcamento="${escapeHtml(folha.id)}">${escapeHtml(actionLabel)}</button>
+          <button type="button" class="btn-primary btn-sm" data-folha-obra-orcamento="${escapeHtml(folha.id)}">Criar orçamento MS.015</button>
         </div>
       </td>
     </tr>
@@ -59,7 +57,7 @@ export function renderFolhaObraRhSection(folhas = getFolhasObraAguardaOrcamento(
     <section class="folha-obra-rh-section rh-section glass-card">
       <h3 class="ms-h2 faturacao-section-title folha-obra-rh-title">Oficina — R.C por orçamentar <span class="badge-count">${folhas.length}</span></h3>
       <p class="text-muted folha-obra-rh-lead">
-        Equipamentos com diagnóstico técnico concluído. Crie a proposta MS.015 e registe o aceite do cliente — só depois o Armazém inicia a reparação.
+        Equipamentos R.C. com diagnóstico concluído e ainda sem proposta. Crie o MS.015 aqui; depois continue na lista ou no quadro abaixo (origem «Folha de obra R.C»).
       </p>
       <div class="folha-obra-desktop-table-wrap">
         <table class="rh-data-table rh-data-table--compact folha-obra-data-table">

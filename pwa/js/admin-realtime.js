@@ -6,6 +6,7 @@ import { getAuthenticatedSupabaseClient } from './supabase-client.js';
 import { mergeJobFromRealtime } from './trabalhos-db.js';
 import { mergeReportFromRealtime } from './relatorios-db.js';
 import { mergeServicoFromRealtime } from './servicos-db.js';
+import { mergeFolhaFromRealtime, removeFolhaFromCache } from './folhas-obra-db.js';
 import { shouldNotifyRhPendingForServicoReport } from './servicos-panel-utils.js';
 
 let channel = null;
@@ -55,7 +56,13 @@ function playNotificationBeep() {
 }
 
 /**
- * @param {{ onPendingReport?: (report: object) => void, onTrabalhoInserted?: (job: object) => void, onServicoChanged?: () => void }} callbacks
+ * @param {{
+ *   onPendingReport?: (report: object, opts?: object) => void,
+ *   onTrabalhoInserted?: (job: object) => void,
+ *   onServicoChanged?: () => void,
+ *   onReportUpdated?: (report: object, oldRow?: object) => void,
+ *   onFolhaChanged?: (folha: object|null) => void,
+ * }} callbacks
  */
 export async function initAdminRealtime(callbacks = {}) {
   if (channel) return channel;
@@ -106,6 +113,8 @@ export async function initAdminRealtime(callbacks = {}) {
         const report = mergeReportFromRealtime(payload.new);
         if (shouldNotifyNewPendingReport(report)) {
           callbacks.onPendingReport?.(report, { playSound: true });
+        } else if (report) {
+          callbacks.onReportUpdated?.(report, null);
         }
       },
     )
@@ -122,9 +131,33 @@ export async function initAdminRealtime(callbacks = {}) {
         callbacks.onReportUpdated?.(report, payload.old);
       },
     )
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'folhas_obra' },
+      (payload) => {
+        const folha = mergeFolhaFromRealtime(payload.new);
+        callbacks.onFolhaChanged?.(folha);
+      },
+    )
+    .on(
+      'postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'folhas_obra' },
+      (payload) => {
+        const folha = mergeFolhaFromRealtime(payload.new);
+        callbacks.onFolhaChanged?.(folha);
+      },
+    )
+    .on(
+      'postgres_changes',
+      { event: 'DELETE', schema: 'public', table: 'folhas_obra' },
+      (payload) => {
+        removeFolhaFromCache(payload.old?.id);
+        callbacks.onFolhaChanged?.(null);
+      },
+    )
     .subscribe((status, err) => {
       if (status === 'SUBSCRIBED') {
-        console.info('[Admin Realtime] Subscrição ativa (serviços, trabalhos + relatórios).');
+        console.info('[Admin Realtime] Subscrição ativa (serviços, trabalhos, relatórios, folhas).');
       }
       if (status === 'CHANNEL_ERROR' || err) {
         console.error('[Admin Realtime] Erro na subscrição:', err || status);
