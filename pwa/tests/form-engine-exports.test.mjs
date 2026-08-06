@@ -71,7 +71,6 @@ describe('form-engine exports', () => {
     );
     assert.match(html, /empilhadores-maquina-tail-fields/);
     assert.doesNotMatch(html, /A carregar checklist/);
-    // Secção «Estado da Máquina» só existia nos grupos duplicados; no tail o label é «Estado».
     assert.equal(
       (html.match(/Estado da Máquina/g) || []).length,
       0,
@@ -80,6 +79,42 @@ describe('form-engine exports', () => {
     const tailChunk = html.split('empilhadores-maquina-tail-fields')[1] || '';
     assert.match(tailChunk, /observacoes/i);
     assert.match(tailChunk, /estado_maquina/i);
+  });
+
+  it('omite label do campo quando a secção já tem o mesmo título', async () => {
+    const { renderReportFields, preloadFormFieldModules } = await import('../js/form-engine.js');
+    const {
+      MOVIMENTO_MATERIAL_CLIENTE,
+      REPARACAO_CARREGADOR,
+      MANUTENCAO_PREVENTIVA_EMPILHADORES,
+    } = await import('../js/mock_data.js');
+
+    const movimentoHtml = renderReportFields(MOVIMENTO_MATERIAL_CLIENTE, {}, {}, { tab: 'geral' });
+    assert.match(movimentoHtml, /form-section-subtitle[^>]*>Observações</);
+    assert.equal(
+      (movimentoHtml.match(/<label class="form-label">Observações<\/label>/g) || []).length,
+      0,
+    );
+
+    const carregadorHtml = renderReportFields(REPARACAO_CARREGADOR, {}, {}, { tab: 'geral' });
+    assert.match(carregadorHtml, /form-section-subtitle[^>]*>Consumíveis</);
+    assert.equal(
+      (carregadorHtml.match(/<label class="form-label">Consumíveis<\/label>/g) || []).length,
+      0,
+    );
+
+    await preloadFormFieldModules(MANUTENCAO_PREVENTIVA_EMPILHADORES);
+    const empHtml = renderReportFields(
+      MANUTENCAO_PREVENTIVA_EMPILHADORES,
+      { maquinas: [{ marca: 'Toyota', consumiveis: [] }] },
+      { activeMaquinaIndex: 0 },
+      { tab: 'checklist' },
+    );
+    assert.match(empHtml, /Consumíveis Utilizados/);
+    assert.equal(
+      (empHtml.match(/<label class="form-label">Consumíveis Utilizados<\/label>/g) || []).length,
+      0,
+    );
   });
 });
 

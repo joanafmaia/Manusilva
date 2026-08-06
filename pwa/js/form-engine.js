@@ -1510,12 +1510,25 @@ function gridEligibleFieldBlockClass(extraClasses = '') {
   return extraClasses ? `${base} ${extraClasses}` : base;
 }
 
+function fieldSectionRepeatsLabel(field) {
+  const label = String(field?.label || '').trim();
+  const section = String(field?.section || '').trim();
+  return Boolean(label && section && label === section);
+}
+
+/** Label do campo — omitido quando a secção já tem o mesmo título. */
+function formFieldLabelHtml(field) {
+  if (fieldSectionRepeatsLabel(field) || !String(field?.label || '').trim()) return '';
+  return `<label class="form-label">${escapeHtml(field.label)}</label>`;
+}
+
 function renderTextField(field, value = '') {
   return `
     <div class="${gridEligibleFieldBlockClass()}">
-      <label class="form-label">${escapeHtml(field.label)}</label>
+      ${formFieldLabelHtml(field)}
       <input type="text" class="form-input" data-field-id="${field.id}" data-field-kind="text"
-        value="${escapeHtml(String(value))}" placeholder="${escapeHtml(field.placeholder || '')}">
+        value="${escapeHtml(String(value))}" placeholder="${escapeHtml(field.placeholder || '')}"
+        ${fieldSectionRepeatsLabel(field) ? `aria-label="${escapeHtml(field.label)}"` : ''}>
     </div>
   `;
 }
@@ -1529,11 +1542,12 @@ function renderTextareaField(field, value = '') {
 
   return `
     <div class="${blockClass}">
-      <label class="form-label">${escapeHtml(field.label)}</label>
+      ${formFieldLabelHtml(field)}
       ${prominent ? '<p class="field-hint diagnostic-field-hint">Registe o diagnóstico completo da bateria — sintomas, medições e conclusões técnicas.</p>' : ''}
       <textarea class="form-textarea${prominent ? ' form-textarea--diagnostic' : ''}"
         data-field-id="${field.id}" data-field-kind="textarea"
-        rows="${rows}" placeholder="${escapeHtml(field.placeholder || '')}">${escapeHtml(String(value))}</textarea>
+        rows="${rows}" placeholder="${escapeHtml(field.placeholder || '')}"
+        ${fieldSectionRepeatsLabel(field) ? `aria-label="${escapeHtml(field.label)}"` : ''}>${escapeHtml(String(value))}</textarea>
     </div>
   `;
 }
@@ -2135,8 +2149,9 @@ function renderDynamicTableField(field, value, context = {}) {
       data-columns='${JSON.stringify(columns)}'
       data-column-types='${JSON.stringify(field.columnTypes || {})}'
       data-default-row='${JSON.stringify(defaultRow)}'
-      ${field.machineSourceFieldId ? `data-machine-source="${escapeHtml(field.machineSourceFieldId)}"` : ''}>
-      <label class="form-label">${escapeHtml(field.label)}</label>
+      ${field.machineSourceFieldId ? `data-machine-source="${escapeHtml(field.machineSourceFieldId)}"` : ''}
+      ${fieldSectionRepeatsLabel(field) ? `aria-label="${escapeHtml(field.label)}"` : ''}>
+      ${formFieldLabelHtml(field)}
       ${field.fieldHint ? `<p class="field-hint text-muted">${escapeHtml(field.fieldHint)}</p>` : ''}
       <div class="dynamic-table-wrap glass-card-inner">
         <table class="dynamic-table">
