@@ -163,7 +163,7 @@ function renderOrigemBadge(report) {
   const origem = resolveOrcamentoOrigem(report);
   const short =
     origem.id === 'rh' ? 'RH' : origem.id === 'folha' ? 'Oficina' : 'Pedido';
-  return `<span class="orcamentos-origem orcamentos-origem--${escapeHtml(origem.id)}" title="${escapeHtml(origem.label)}">${escapeHtml(short)}</span>`;
+  return `<span class="faturacao-visit-badge orcamentos-origem orcamentos-origem--${escapeHtml(origem.id)}" title="${escapeHtml(origem.label)}">${escapeHtml(short)}</span>`;
 }
 
 function formatTipoShort(report) {
@@ -196,12 +196,12 @@ function renderInlineRespostaControls(report) {
       }
       ${
         aguarda || workflow !== 'aceite'
-          ? `<button type="button" class="btn-success btn-sm rh-btn-compact" data-orc-aceite="${escapeHtml(report.id)}" title="Aceite">Aceite</button>`
+          ? `<button type="button" class="btn-success btn-sm rh-btn-compact faturacao-btn-compact" data-orc-aceite="${escapeHtml(report.id)}" title="Aceite">Aceite</button>`
           : ''
       }
       ${
         aguarda || workflow !== 'recusada'
-          ? `<button type="button" class="btn-outline btn-sm rh-btn-compact orcamentos-btn-recusar" data-orc-recusada="${escapeHtml(report.id)}" title="Recusada">Recusar</button>`
+          ? `<button type="button" class="btn-outline btn-sm rh-btn-compact faturacao-btn-compact orcamentos-btn-recusar" data-orc-recusada="${escapeHtml(report.id)}" title="Recusada">Recusar</button>`
           : ''
       }
     </div>`;
@@ -372,8 +372,8 @@ function renderTableRow(report) {
         }
       </td>
       <td class="faturacao-cell-client" title="${escapeHtml(clientName)}${detalhe ? ` — ${escapeHtml(detalhe)}` : ''}">
-        <span class="rh-cell-client-name">${escapeHtml(clientName)}</span>
-        <span class="orcamentos-row__meta">
+        <span class="faturacao-cell-client-name rh-cell-client-name">${escapeHtml(clientName)}</span>
+        <span class="faturacao-row-meta orcamentos-row__meta">
           ${origemBadge}
           <span class="orcamentos-tipo-short">${escapeHtml(tipoShort)}</span>
         </span>
@@ -387,41 +387,37 @@ function renderTableRow(report) {
         </div>
       </td>
       <td class="faturacao-col-action">
-        <div class="orcamentos-row-actions">
-          <div class="orcamentos-row-actions__primary">
+        <div class="faturacao-billing-actions orcamentos-row-actions">
             ${
               canApproveReport
-                ? `<button type="button" class="btn-success btn-sm rh-btn-compact" data-orc-approve-report="${escapeHtml(report.id)}" title="Aprovar relatório técnico">Aprovar</button>`
+                ? `<button type="button" class="btn-success btn-sm rh-btn-compact faturacao-btn-compact" data-orc-approve-report="${escapeHtml(report.id)}" title="Aprovar relatório técnico">Aprovar</button>`
                 : ''
             }
             ${
               canEditProposal
-                ? `<button type="button" class="btn-primary btn-sm rh-btn-compact" data-orc-open="${escapeHtml(report.id)}" title="${workflow === 'por_preparar' ? 'Preparar proposta' : 'Editar'}">
+                ? `<button type="button" class="btn-primary btn-sm rh-btn-compact faturacao-btn-compact" data-orc-open="${escapeHtml(report.id)}" title="${workflow === 'por_preparar' ? 'Preparar proposta' : 'Editar'}">
               ${workflow === 'por_preparar' ? 'Preparar' : 'Editar'}
             </button>`
                 : canViewSentProposal
-                  ? `<button type="button" class="btn-outline btn-sm rh-btn-compact" data-orc-open="${escapeHtml(report.id)}" title="Ver proposta">Ver</button>`
+                  ? `<button type="button" class="btn-outline btn-sm rh-btn-compact faturacao-btn-compact" data-orc-open="${escapeHtml(report.id)}" title="Ver proposta">Ver</button>`
                   : ''
             }
             ${
               pdfUrl
-                ? `<button type="button" class="btn-outline btn-sm rh-btn-compact" data-orc-pdf="${escapeHtml(report.id)}" title="PDF da proposta">PDF</button>`
+                ? `<button type="button" class="btn-outline btn-sm rh-btn-compact faturacao-btn-compact" data-orc-pdf="${escapeHtml(report.id)}" title="PDF da proposta">PDF</button>`
                 : ''
             }
-          </div>
           ${renderInlineRespostaControls(report)}
-          <div class="orcamentos-row-actions__more">
             ${
               techPdfUrl && report.status === 'approved'
-                ? `<button type="button" class="btn-ghost btn-sm rh-btn-compact" data-orc-tech-pdf="${escapeHtml(techPdfUrl)}" title="PDF do relatório técnico">Rel.</button>`
+                ? `<button type="button" class="btn-ghost btn-sm rh-btn-compact faturacao-btn-compact" data-orc-tech-pdf="${escapeHtml(techPdfUrl)}" title="PDF do relatório técnico">Rel.</button>`
                 : ''
             }
             ${
               canCancelPedido
-                ? `<button type="button" class="btn-ghost btn-sm rh-btn-compact orcamentos-btn-eliminar" data-orc-cancel="${escapeHtml(report.id)}" title="${escapeHtml(eliminarTitle)}">×</button>`
+                ? `<button type="button" class="btn-ghost btn-sm rh-btn-compact faturacao-btn-compact faturacao-btn-dismiss orcamentos-btn-eliminar" data-orc-cancel="${escapeHtml(report.id)}" title="${escapeHtml(eliminarTitle)}">×</button>`
                 : ''
             }
-          </div>
         </div>
       </td>
     </tr>`;
@@ -561,11 +557,11 @@ function renderKanbanCard(report) {
         ${meta?.numeroFormatado ? ` · nº ${escapeHtml(meta.numeroFormatado)}` : ''}
       </p>
       ${renderOrigemBadge(report)}
-      <div class="orcamentos-kanban-card__actions">
-        <button type="button" class="btn-primary btn-sm rh-btn-compact" data-orc-open="${escapeHtml(report.id)}">${escapeHtml(openLabel)}</button>
+      <div class="orcamentos-kanban-card__actions faturacao-billing-actions">
+        <button type="button" class="btn-primary btn-sm rh-btn-compact faturacao-btn-compact" data-orc-open="${escapeHtml(report.id)}">${escapeHtml(openLabel)}</button>
         ${
           pdfUrl
-            ? `<button type="button" class="btn-outline btn-sm rh-btn-compact" data-orc-pdf="${escapeHtml(report.id)}">PDF</button>`
+            ? `<button type="button" class="btn-outline btn-sm rh-btn-compact faturacao-btn-compact" data-orc-pdf="${escapeHtml(report.id)}">PDF</button>`
             : ''
         }
       </div>
@@ -610,6 +606,7 @@ function renderKanbanBoard(rows) {
 }
 
 function renderPropostasSection(rows, counts, totalAll) {
+  const scrollClass = rows.length > 8 ? ' faturacao-table-wrap--scroll-y' : '';
   const body =
     viewMode === 'quadro'
       ? rows.length || totalAll > 0
@@ -617,7 +614,7 @@ function renderPropostasSection(rows, counts, totalAll) {
         : renderEmptyState(counts, totalAll)
       : rows.length
         ? `
-      <div class="rh-table-scroll faturacao-table-wrap">
+      <div class="rh-table-scroll faturacao-table-wrap${scrollClass}">
         <table class="rh-data-table rh-data-table--compact faturacao-table faturacao-table--compact orcamentos-table orcamentos-table--dense">
           <thead>
             <tr>

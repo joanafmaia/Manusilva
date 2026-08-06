@@ -4388,7 +4388,8 @@ body .admin-rh-page .btn-primary, body .admin-rh-page .btn-secondary, body .admi
   border-radius: 0.55rem;
 }
 .faturacao-table-wrap--scroll-y .faturacao-table--invoices thead th,
-.faturacao-table-wrap--scroll-y .faturacao-billing-table thead th {
+.faturacao-table-wrap--scroll-y .faturacao-billing-table thead th,
+.faturacao-table-wrap--scroll-y .orcamentos-table thead th {
   position: sticky;
   top: 0;
   z-index: 1;
@@ -4990,30 +4991,22 @@ body .admin-rh-page .btn-primary, body .admin-rh-page .btn-secondary, body .admi
   grid-column: 1 / -1;
 }
 .orcamentos-origem {
-  display: inline-block;
-  margin-top: 0.25rem;
-  padding: 0.08rem 0.4rem;
-  border-radius: 3px;
-  font-size: 0.68rem;
-  font-weight: 650;
-  border: 1px solid var(--ms-border-md, #cbd5e1);
-  color: var(--text-muted, #475569);
-  background: var(--surface-muted, #f8fafc);
+  /* herda tipografia de .faturacao-visit-badge; só cor por origem */
+  text-transform: uppercase;
+  border: none;
+  margin-top: 0;
 }
 .orcamentos-origem--folha {
-  border-color: #f59e0b;
-  color: #92400e;
-  background: #fffbeb;
+  background: rgba(217, 119, 6, 0.14);
+  color: var(--ms-amber-700, #b45309);
 }
 .orcamentos-origem--rh {
-  border-color: #93c5fd;
-  color: #1e40af;
-  background: #eff6ff;
+  background: rgba(59, 130, 246, 0.12);
+  color: #1d4ed8;
 }
 .orcamentos-origem--pedido {
-  border-color: #86efac;
-  color: #166534;
-  background: #f0fdf4;
+  background: rgba(5, 150, 105, 0.12);
+  color: var(--ms-emerald-700, #047857);
 }
 .orcamentos-table--dense {
   table-layout: fixed;
@@ -5034,7 +5027,7 @@ body .admin-rh-page .btn-primary, body .admin-rh-page .btn-secondary, body .admi
 .orcamentos-row--compact td {
   padding-top: 0.4rem;
   padding-bottom: 0.4rem;
-  vertical-align: middle;
+  vertical-align: top;
 }
 .orcamentos-row--compact .orcamentos-col-proposta,
 .orcamentos-row--compact .faturacao-col-action {
@@ -5051,8 +5044,8 @@ body .admin-rh-page .btn-primary, body .admin-rh-page .btn-secondary, body .admi
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.35rem;
-  margin-top: 0.15rem;
+  gap: 0.25rem;
+  margin-top: 0.12rem;
 }
 .orcamentos-tipo-short {
   font-size: 0.72rem;
@@ -5079,25 +5072,16 @@ body .admin-rh-page .btn-primary, body .admin-rh-page .btn-secondary, body .admi
   font-size: 0.75rem;
   color: var(--text-muted, #64748b);
 }
-.orcamentos-row-actions {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.3rem;
-}
-.orcamentos-row-actions__primary,
-.orcamentos-row-actions__more {
-  display: flex;
+.admin-rh-page .orcamentos-row-actions {
+  display: inline-flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.3rem;
+  justify-content: flex-end;
+  gap: 0.2rem;
 }
 .orcamentos-btn-eliminar {
-  color: var(--danger, #b91c1c);
+  color: var(--ms-text-muted, #64748b);
   font-weight: 700;
-  min-width: 1.6rem;
-  padding-left: 0.35rem;
-  padding-right: 0.35rem;
 }
 .orcamentos-btn-recusar {
   color: var(--danger, #b91c1c);
@@ -5106,14 +5090,14 @@ body .admin-rh-page .btn-primary, body .admin-rh-page .btn-secondary, body .admi
   display: inline-flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.3rem;
+  gap: 0.2rem;
 }
 .orcamentos-inline-date {
-  width: auto;
-  min-width: 7.75rem;
+  width: 7.6rem;
+  min-width: 7.6rem;
   max-width: 9rem;
-  padding: 0.15rem 0.3rem;
-  font-size: 0.75rem;
+  padding: 0.16rem 0.28rem;
+  font-size: 0.7rem;
   line-height: 1.2;
 }
 .orcamentos-section-head {
