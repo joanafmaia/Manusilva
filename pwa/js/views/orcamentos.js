@@ -110,11 +110,27 @@ let highlightReportId = null;
 let searchDebounce = null;
 
 /** Restaura pasta pendente antes de qualquer paint (evita flash na lista de pastas). */
-function syncPastaStateFromSession() {
+function syncPastaStateFromSession({ validate = false } = {}) {
   const key = String(peekOrcamentoPendingPasta() || '').trim();
   if (!key) return;
+  // Só validar quando o snapshot de relatórios já está disponível.
+  if (validate && !listReportsForPasta(key).length) {
+    clearOrcamentoPendingPasta();
+    selectedPastaKey = null;
+    clientPastaOpen = false;
+    return;
+  }
   selectedPastaKey = key;
   clientPastaOpen = true;
+}
+
+/** Se a pasta aberta já não tem propostas, fecha e limpa a sessão. */
+function ensureOpenPastaStillValid() {
+  if (!clientPastaOpen) return;
+  const key = String(selectedPastaKey || '').trim();
+  if (!key || !listReportsForPasta(key).length) {
+    closeClientPasta();
+  }
 }
 
 syncPastaStateFromSession();
@@ -439,7 +455,7 @@ function buildClientGroupFromReports(pastaKey, reports) {
   const groups = groupOrcamentoReportsByClient(reports);
   if (!groups.length) return null;
   const key = String(pastaKey || '').trim();
-  return groups.find((g) => String(g.pastaKey) === key) || groups[0] || null;
+  return groups.find((g) => String(g.pastaKey) === key) || null;
 }
 
 function openClientPasta(pastaKey) {
@@ -1025,26 +1041,30 @@ function renderClientPasta(group) {
 }
 
 function renderPropostasSection(rows, counts, totalAll) {
+  ensureOpenPastaStillValid();
   const groups = groupOrcamentoReportsByClient(rows);
   const selectedGroup = clientPastaOpen
     ? buildClientGroupFromReports(selectedPastaKey, listReportsForPasta(selectedPastaKey))
     : null;
 
-  const body = clientPastaOpen
+  if (clientPastaOpen && !selectedGroup) {
+    closeClientPasta();
+  }
+
+  const pastaOpen = clientPastaOpen && selectedGroup;
+  const body = pastaOpen
     ? renderClientPasta(selectedGroup)
     : groups.length || totalAll > 0
       ? renderClientFolders(groups)
       : renderEmptyState(counts, totalAll);
 
-  const sectionTitle = selectedGroup ? selectedGroup.name : 'Pastas por cliente';
-  const sectionCount = clientPastaOpen
-    ? selectedGroup?.rows?.length || 0
-    : groups.length;
+  const sectionTitle = pastaOpen ? selectedGroup.name : 'Pastas por cliente';
+  const sectionCount = pastaOpen ? selectedGroup?.rows?.length || 0 : groups.length;
 
   return `
     <section class="faturacao-invoices-section orcamentos-table-section rh-section glass-card" aria-label="Propostas comerciais">
       ${
-        clientPastaOpen
+        pastaOpen
           ? ''
           : `<div class="faturacao-invoices-head">
         <div class="orcamentos-section-head">
@@ -1400,7 +1420,7 @@ function applyHighlight() {
 /** Atualiza KPIs + pastas/pasta + oficina sem destruir filtros (preserva foco e scroll). */
 async function softRefreshOrcamentosPanel() {
   if (!mountRoot) return;
-  syncPastaStateFromSession();
+  syncPastaStateFromSession({ validate: true });
   if (!mountRoot.querySelector('.orcamentos-panel')) {
     await refreshOrcamentosPanel({ soft: false });
     return;
@@ -1424,7 +1444,7 @@ async function softRefreshOrcamentosPanel() {
 
 export async function refreshOrcamentosPanel(options = {}) {
   if (!mountRoot) return;
-  syncPastaStateFromSession();
+  syncPastaStateFromSession({ validate: true });
   const { soft = true } = options;
 
   if (soft && mountRoot.querySelector('.orcamentos-panel')) {
@@ -1452,11 +1472,15 @@ export async function initOrcamentosPanel(root) {
   }
 
   const pendingPasta = consumeOrcamentoPendingPasta();
-  if (pendingPasta) {
+  if (pendingPasta && listReportsForPasta(pendingPasta).length) {
     selectedPastaKey = pendingPasta;
     clientPastaOpen = true;
     // Regravar para sobreviver a refreshes suaves até o utilizador sair da pasta.
     rememberOrcamentoPendingPasta(pendingPasta);
+  } else if (pendingPasta) {
+    clearOrcamentoPendingPasta();
+    selectedPastaKey = null;
+    clientPastaOpen = false;
   }
   const pendingReport = consumeOrcamentoPendingReport();
   if (pendingReport) {
