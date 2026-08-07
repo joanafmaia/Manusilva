@@ -23,6 +23,7 @@ import { readTemplateMaquinasFromDom } from './orcamento-template-equipamentos.j
 import {
   normalizeReclamacaoGarantia,
   readReclamacaoGarantiaFromDom,
+  resolveReclamacaoGarantiaForSave,
 } from './orcamento-reclamacao-garantia.js';
 import {
   readTituloColunaArtigosFromDom,
@@ -312,7 +313,11 @@ export function buildOrcamentoMetaDraft(report, numeroReservado = null) {
     incluirInspecaoDl50: existing?.incluirInspecaoDl50 ?? false,
     valorInspecaoDl50: existing?.valorInspecaoDl50,
     valorDeslocacao: existing?.valorDeslocacao,
-    reclamacaoGarantia: normalizeReclamacaoGarantia(existing?.reclamacaoGarantia),
+    reclamacaoGarantia: resolveReclamacaoGarantiaForSave(existing?.reclamacaoGarantia, {
+      ...existing,
+      tituloColunaArtigosPreset: tituloColuna.preset,
+      tituloColunaArtigos: tituloColuna.titulo,
+    }),
   };
 
   if (isManutencaoBateriaTipo(tipoProposta)) {
@@ -389,7 +394,7 @@ export function readOrcamentoFormFromDom(root, report) {
     existing.valorDeslocacao ||
     '';
   const reclamacaoGarantiaEl = root?.querySelector('[data-orc-field="reclamacaoGarantia"]');
-  const reclamacaoGarantia = reclamacaoGarantiaEl
+  const reclamacaoGarantiaRaw = reclamacaoGarantiaEl
     ? readReclamacaoGarantiaFromDom(root)
     : normalizeReclamacaoGarantia(existing.reclamacaoGarantia);
   const tituloColunaArtigosFields = isTemplate
@@ -410,7 +415,10 @@ export function readOrcamentoFormFromDom(root, report) {
     taxaSaida,
     prazoEntrega,
     valorDeslocacao,
-    reclamacaoGarantia,
+    reclamacaoGarantia: resolveReclamacaoGarantiaForSave(reclamacaoGarantiaRaw, {
+      ...existing,
+      ...tituloColunaArtigosFields,
+    }),
     atualizadoEm: new Date().toISOString(),
   };
 

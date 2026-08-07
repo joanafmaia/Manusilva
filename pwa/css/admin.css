@@ -5065,6 +5065,13 @@ body .admin-rh-page .btn-primary, body .admin-rh-page .btn-secondary, body .admi
   color: var(--text-muted, #64748b);
   border: 1px solid var(--ms-border-md, #cbd5e1);
 }
+.orcamentos-garantia--na {
+  background: var(--surface-muted, #f1f5f9);
+  color: var(--text-muted, #64748b);
+  border: 1px solid var(--ms-border-md, #cbd5e1);
+  text-transform: none;
+  letter-spacing: 0.04em;
+}
 .orcamentos-garantia--pendente {
   background: #fff7ed;
   color: #c2410c;

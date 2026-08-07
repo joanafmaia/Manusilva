@@ -36,6 +36,8 @@ import {
 import { getReportOrcamentoMeta } from '../orcamento-linhas.js';
 import {
   getReportReclamacaoGarantia,
+  reportHasReclamacaoGarantiaIndicacao,
+  orcamentoNeedsReclamacaoGarantia,
 } from '../orcamento-reclamacao-garantia.js';
 import {
   formatOrcamentoTipoPropostaLabel,
@@ -298,7 +300,12 @@ function readInlineRespostaDate(reportId) {
 
 async function applyInlineResposta(reportId, resposta) {
   const report = getReport(reportId);
-  if (resposta === ORCAMENTO_RESPOSTA.ACEITE && report && !getReportReclamacaoGarantia(report)) {
+  if (
+    resposta === ORCAMENTO_RESPOSTA.ACEITE &&
+    report &&
+    orcamentoNeedsReclamacaoGarantia(report) &&
+    !reportHasReclamacaoGarantiaIndicacao(report)
+  ) {
     const ok = window.confirm(
       'A garantia de auditoria ainda não está indicada (Sim/Não).\n\nQuer marcar como aceite na mesma?',
     );
@@ -503,9 +510,11 @@ function renderTableRow(report) {
       ? `<span class="orcamentos-garantia orcamentos-garantia--sim" title="Avaria / reclamação em garantia">G</span>`
       : garantiaKey === 'nao'
         ? `<span class="orcamentos-garantia orcamentos-garantia--nao" title="Não é reclamação em garantia">—</span>`
-        : meta?.enviadoEm || meta?.numeroFormatado
-          ? `<span class="orcamentos-garantia orcamentos-garantia--pendente" title="Garantia não indicada">?</span>`
-          : '';
+        : garantiaKey === 'na'
+          ? `<span class="orcamentos-garantia orcamentos-garantia--na" title="Garantia N/A (proposta de venda)">N/A</span>`
+          : meta?.enviadoEm || meta?.numeroFormatado
+            ? `<span class="orcamentos-garantia orcamentos-garantia--pendente" title="Garantia não indicada">?</span>`
+            : '';
   const respostaData = formatOrcamentoRespostaDataLabel(meta);
   const respostaDataBadge =
     respostaData && (workflow === 'aceite' || workflow === 'recusada')
@@ -767,9 +776,11 @@ function renderPastaTableRow(report) {
       ? `<span class="orcamentos-garantia orcamentos-garantia--sim" title="Avaria / reclamação em garantia">G</span>`
       : garantiaKey === 'nao'
         ? `<span class="orcamentos-garantia orcamentos-garantia--nao" title="Não é reclamação em garantia">—</span>`
-        : meta?.enviadoEm || meta?.numeroFormatado
-          ? `<span class="orcamentos-garantia orcamentos-garantia--pendente" title="Garantia não indicada">?</span>`
-          : '';
+        : garantiaKey === 'na'
+          ? `<span class="orcamentos-garantia orcamentos-garantia--na" title="Garantia N/A (proposta de venda)">N/A</span>`
+          : meta?.enviadoEm || meta?.numeroFormatado
+            ? `<span class="orcamentos-garantia orcamentos-garantia--pendente" title="Garantia não indicada">?</span>`
+            : '';
   const respostaData = formatOrcamentoRespostaDataLabel(meta);
   const respostaDataBadge =
     respostaData && (workflow === 'aceite' || workflow === 'recusada')

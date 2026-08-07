@@ -4,15 +4,19 @@ import {
   formatReclamacaoGarantiaAuditLabel,
   formatReclamacaoGarantiaLabel,
   getReportReclamacaoGarantia,
+  isOrcamentoPropostaVenda,
   normalizeReclamacaoGarantia,
+  orcamentoNeedsReclamacaoGarantia,
   renderReclamacaoGarantiaField,
+  reportHasReclamacaoGarantiaIndicacao,
 } from '../js/orcamento-reclamacao-garantia.js';
 import { buildOrcamentoAuditCsv } from '../js/orcamento-audit.js';
 
 describe('orcamento reclamação garantia', () => {
-  it('normaliza Sim/Não e valores vagos', () => {
+  it('normaliza Sim/Não/N/A e valores vagos', () => {
     assert.equal(normalizeReclamacaoGarantia('Sim'), 'sim');
     assert.equal(normalizeReclamacaoGarantia('NÃO'), 'nao');
+    assert.equal(normalizeReclamacaoGarantia('N/A'), 'na');
     assert.equal(normalizeReclamacaoGarantia(true), 'sim');
     assert.equal(normalizeReclamacaoGarantia(false), 'nao');
     assert.equal(normalizeReclamacaoGarantia(''), '');
@@ -22,12 +26,33 @@ describe('orcamento reclamação garantia', () => {
   it('formata etiquetas e lê do relatório', () => {
     assert.equal(formatReclamacaoGarantiaLabel('sim'), 'Sim');
     assert.equal(formatReclamacaoGarantiaLabel('nao'), 'Não');
+    assert.equal(formatReclamacaoGarantiaLabel('na'), 'N/A');
     assert.equal(formatReclamacaoGarantiaLabel(''), '—');
     assert.equal(formatReclamacaoGarantiaAuditLabel(''), 'Não indicado');
+    assert.equal(formatReclamacaoGarantiaAuditLabel('na'), 'N/A');
     assert.equal(
       getReportReclamacaoGarantia({ data: { orcamento: { reclamacaoGarantia: 'Sim' } } }),
       'sim',
     );
+  });
+
+  it('proposta de venda usa N/A e não pede Sim/Não', () => {
+    const report = {
+      data: {
+        orcamento: {
+          tituloColunaArtigosPreset: 'venda',
+          tituloColunaArtigos: 'Proposta de venda',
+        },
+      },
+    };
+    assert.equal(isOrcamentoPropostaVenda(report), true);
+    assert.equal(orcamentoNeedsReclamacaoGarantia(report), false);
+    assert.equal(getReportReclamacaoGarantia(report), 'na');
+    assert.equal(reportHasReclamacaoGarantiaIndicacao(report), true);
+    const html = renderReclamacaoGarantiaField(report.data.orcamento);
+    assert.match(html, /N\/A/);
+    assert.match(html, /value="na"/);
+    assert.doesNotMatch(html, /<select/);
   });
 
   it('renderiza select no editor RH', () => {

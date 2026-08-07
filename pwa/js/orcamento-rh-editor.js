@@ -91,9 +91,10 @@ import { formatInterventionDatePt } from './report-intervention-date.js';
 import {
   formatReclamacaoGarantiaLabel,
   getReportReclamacaoGarantia,
-  normalizeReclamacaoGarantia,
+  orcamentoNeedsReclamacaoGarantia,
   readReclamacaoGarantiaFromDom,
   renderReclamacaoGarantiaField,
+  reportHasReclamacaoGarantiaIndicacao,
   suggestReclamacaoGarantia,
 } from './orcamento-reclamacao-garantia.js';
 
@@ -823,7 +824,10 @@ function bindOrcamentoRespostaActions(root, { getReport, onUpdated }) {
     try {
       const { showToast } = await import('./app.js');
       const current = getReport();
-      if (!getReportReclamacaoGarantia(current)) {
+      if (
+        orcamentoNeedsReclamacaoGarantia(current) &&
+        !reportHasReclamacaoGarantiaIndicacao(current)
+      ) {
         const ok = window.confirm(
           'A garantia de auditoria ainda não está indicada (Sim/Não).\n\nQuer marcar como aceite na mesma?',
         );
@@ -899,13 +903,14 @@ function bindOrcamentoSentView(root, { report, onUpdated }) {
       const { showToast } = await import('./app.js');
       const { upsertRelatorio, mergeReportInCache } = await import('./relatorios-db.js');
       const garantia = readReclamacaoGarantiaFromDom(root);
-      if (!garantia) {
+      if (orcamentoNeedsReclamacaoGarantia(currentReport) && !garantia) {
         showToast('Indique Sim ou Não para a garantia (auditoria).', 'warning');
         return;
       }
       const meta = {
         ...(getReportOrcamentoMeta(currentReport) || {}),
-        reclamacaoGarantia: garantia,
+        reclamacaoGarantia:
+          garantia || (orcamentoNeedsReclamacaoGarantia(currentReport) ? '' : 'na'),
       };
       const next = {
         ...currentReport,
@@ -1005,6 +1010,27 @@ export function bindOrcamentoEditor(container, { report, onUpdated, onSaved, onS
           if (prev.preset === TITULO_COLUNA_ARTIGOS_PRESET.OUTRO) {
             customInput.value = prev.titulo;
           }
+        }
+        const garantiaWrap = root.querySelector('[data-orc-garantia-wrap]');
+        if (garantiaWrap) {
+          const partialMeta = {
+            ...(getReportOrcamentoMeta(currentReport) || {}),
+            tituloColunaArtigosPreset: preset,
+            tituloColunaArtigos: tituloColunaArtigosForPreset(preset) || customInput?.value || '',
+            reclamacaoGarantia:
+              preset === TITULO_COLUNA_ARTIGOS_PRESET.VENDA
+                ? 'na'
+                : root.querySelector('[data-orc-field="reclamacaoGarantia"]')?.value || '',
+          };
+          garantiaWrap.outerHTML = renderReclamacaoGarantiaField(partialMeta, {
+            suggested: suggestReclamacaoGarantia({
+              ...currentReport,
+              data: {
+                ...(currentReport.data || {}),
+                orcamento: partialMeta,
+              },
+            }),
+          });
         }
       }
       if (
