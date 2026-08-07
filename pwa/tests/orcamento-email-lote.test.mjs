@@ -67,16 +67,19 @@ describe('orcamento-email-lote', () => {
     assert.deepEqual(formatOrcamentoLoteNumeros(lote), ['2.0/2026']);
   });
 
-  it('ignora propostas ainda por preparar', () => {
-    const draft = reportFixture({
-      id: 'draft',
-      urlPdfOrcamento: null,
-      orcamento: { numeroFormatado: '9.0/2026' },
+  it('filtra lote por nome livre sem clientId', () => {
+    const row = reportFixture({
+      id: 'sap',
+      numero: '10.0/2026',
     });
-    // sem atualizadoEm + pdf → por preparar
-    draft.data.orcamento = { numeroFormatado: '9.0/2026' };
-    draft.data.urlPdfOrcamento = '';
-    assert.equal(isOrcamentoLotePendente(draft), false);
-    assert.equal(filterOrcamentoLoteReports([draft], 'c1').length, 0);
+    row.clientId = '';
+    row.data.values = { nome_empresa: 'SAP METAL', cliente: 'SAP METAL' };
+    const lote = filterOrcamentoLoteReports([row], '', {
+      mode: 'pendentes',
+      pastaKey: 'nome:sap metal',
+      clienteNome: 'SAP METAL',
+    });
+    assert.equal(lote.length, 1);
+    assert.equal(lote[0].id, 'sap');
   });
 });

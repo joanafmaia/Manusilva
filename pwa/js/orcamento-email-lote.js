@@ -4,6 +4,7 @@
 
 import { getClient, getJob, getTechnician, showToast } from './app.js';
 import { getClientName } from './client-display.js';
+import { resolveOrcamentoClienteNome, resolveOrcamentoPastaKey } from './orcamento-cabecalho.js';
 import { getReportOrcamentoMeta, resolveOrcamentoNumeroFormatado } from './orcamento-linhas.js';
 import { attachOrcamentoPdfToReport } from './orcamento-pdf-service.js';
 import {
@@ -46,14 +47,27 @@ export function isOrcamentoLoteEnviado(report) {
 /**
  * @param {object[]} reports
  * @param {string} clientId
- * @param {{ mode?: 'pendentes' | 'reenvio' }} [options]
+ * @param {{ mode?: 'pendentes' | 'reenvio', pastaKey?: string, clienteNome?: string }} [options]
  */
-export function filterOrcamentoLoteReports(reports = [], clientId, { mode = 'pendentes' } = {}) {
+export function filterOrcamentoLoteReports(reports = [], clientId, { mode = 'pendentes', pastaKey = '', clienteNome = '' } = {}) {
   const cid = String(clientId || '').trim();
-  if (!cid) return [];
-  const list = (Array.isArray(reports) ? reports : []).filter(
-    (report) => String(report?.clientId || '') === cid,
-  );
+  const key = String(pastaKey || '').trim();
+  let list = Array.isArray(reports) ? reports : [];
+
+  if (key) {
+    list = list.filter((report) => resolveOrcamentoPastaKey(report) === key);
+  } else if (cid) {
+    list = list.filter((report) => String(report?.clientId || '') === cid);
+  } else {
+    const nomeWanted = String(clienteNome || '').trim().toLowerCase();
+    if (!nomeWanted) return [];
+    list = list.filter((report) => {
+      if (String(report?.clientId || '').trim()) return false;
+      const nome = resolveOrcamentoClienteNome(report);
+      return nome !== '—' && nome.toLowerCase() === nomeWanted;
+    });
+  }
+
   if (mode === 'reenvio') {
     return list.filter(isOrcamentoLoteEnviado);
   }
@@ -112,18 +126,27 @@ export async function sendOrcamentoLoteForReports(reports = [], options = {}) {
     );
   }
 
-  const clientId = list[0]?.clientId;
-  if (!list.every((report) => String(report.clientId) === String(clientId))) {
+  const pastaKey = resolveOrcamentoPastaKey(list[0]);
+  if (!pastaKey || !list.every((report) => resolveOrcamentoPastaKey(report) === pastaKey)) {
     throw new Error('O lote só pode incluir propostas do mesmo cliente.');
   }
 
-  const client = getClient(clientId);
+  const clientId = String(list[0]?.clientId || '').trim();
+  const client = clientId ? getClient(clientId) : null;
   const toRaw = options.to != null ? options.to : '';
   let recipients = normalizeEmailList(
     Array.isArray(toRaw) ? toRaw.join(';') : String(toRaw || ''),
   );
   if (!recipients.length) {
-    const fallback = String(client?.email || client?.['E-mail'] || '').trim();
+    const values = list[0]?.data?.values || {};
+    const fallback = String(
+      client?.email ||
+        client?.['E-mail'] ||
+        values.email ||
+        values['E-mail'] ||
+        values.email_cliente ||
+        '',
+    ).trim();
     recipients = normalizeEmailList(fallback);
   }
   if (!recipients.length) {
@@ -161,7 +184,11 @@ export async function sendOrcamentoLoteForReports(reports = [], options = {}) {
 
   const numeros = formatOrcamentoLoteNumeros(withPdfs);
   const values = withPdfs[0]?.data?.values || {};
-  const clienteNome = getClientName(client, values) || client?.name || client?.Nome || 'Cliente';
+  const resolvedNome = resolveOrcamentoClienteNome(withPdfs[0]);
+  const clienteNome =
+    resolvedNome !== '—'
+      ? resolvedNome
+      : getClientName(client, values) || client?.name || client?.Nome || 'Cliente';
   const job = withPdfs[0]?.jobId ? getJob(withPdfs[0].jobId) : null;
   const tech = getTechnician(withPdfs[0]?.technicianId);
 
@@ -213,11 +240,15 @@ export async function sendOrcamentoLoteForReports(reports = [], options = {}) {
  * UI helper — toast + send for a client folder.
  * @param {object[]} allReports
  * @param {string} clientId
- * @param {{ to?: string, mode?: 'pendentes' | 'reenvio' }} [options]
+ * @param {{ to?: string, mode?: 'pendentes' | 'reenvio', pastaKey?: string, clienteNome?: string }} [options]
  */
 export async function sendOrcamentoLoteForClient(allReports, clientId, options = {}) {
   const mode = options.mode === 'reenvio' ? 'reenvio' : 'pendentes';
-  const lote = filterOrcamentoLoteReports(allReports, clientId, { mode });
+  const lote = filterOrcamentoLoteReports(allReports, clientId, {
+    mode,
+    pastaKey: options.pastaKey || '',
+    clienteNome: options.clienteNome || '',
+  });
   if (!lote.length) {
     showToast(
       mode === 'reenvio'

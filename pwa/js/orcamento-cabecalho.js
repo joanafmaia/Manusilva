@@ -394,14 +394,50 @@ function syncDerivedEquipamento(cabecalho, maquinas = []) {
   };
 }
 
-/** Nome «PARA» — sempre o cliente do relatório (não editável na proposta). */
+/** Nome «PARA» — cliente do relatório / nome livre na proposta (não exige ficha na BD). */
 export function resolveOrcamentoClienteNome(report) {
   const values = report?.data?.values || {};
-  const client = getClient(report?.clientId);
-  return (
-    String(values.nome_empresa || values.cliente || client?.name || client?.Nome || '').trim() ||
-    '—'
-  );
+  const meta = report?.data?.orcamento || {};
+  const fromReport = String(
+    values.nome_empresa || values.cliente || meta.clienteNome || '',
+  ).trim();
+  if (fromReport) return fromReport;
+  const clientId = String(report?.clientId || '').trim();
+  if (!clientId) return '—';
+  const client = getClient(clientId);
+  return String(client?.name || client?.Nome || '').trim() || '—';
+}
+
+/** Chave estável para pasta RH (ficha ou nome escrito na proposta). */
+export function normalizeOrcamentoClienteNomeKey(nome) {
+  return String(nome || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .replace(/\s+/g, ' ');
+}
+
+/**
+ * Identidade da pasta de propostas.
+ * @returns {{ key: string, clientId: string, nome: string }}
+ */
+export function resolveOrcamentoPastaIdentity(report) {
+  const clientId = String(report?.clientId || '').trim();
+  const nomeRaw = resolveOrcamentoClienteNome(report);
+  const nome = nomeRaw === '—' ? '' : nomeRaw;
+  if (clientId) {
+    return { key: `id:${clientId}`, clientId, nome };
+  }
+  const nomeKey = normalizeOrcamentoClienteNomeKey(nome);
+  if (nomeKey) {
+    return { key: `nome:${nomeKey}`, clientId: '', nome };
+  }
+  return { key: 'nome:__vazio__', clientId: '', nome: '' };
+}
+
+export function resolveOrcamentoPastaKey(report) {
+  return resolveOrcamentoPastaIdentity(report).key;
 }
 
 /** Valores do cabeçalho — meta RH sobrepõe o relatório técnico (exceto cliente). */

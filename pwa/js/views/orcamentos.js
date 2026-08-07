@@ -68,6 +68,11 @@ import {
   isOrcamentoLotePendente,
   sendOrcamentoLoteForClient,
 } from '../orcamento-email-lote.js';
+import {
+  resolveOrcamentoClienteNome,
+  resolveOrcamentoPastaIdentity,
+  resolveOrcamentoPastaKey,
+} from '../orcamento-cabecalho.js';
 import { getSession } from '../session.js';
 import {
   captureAdminMainScroll,
@@ -81,8 +86,8 @@ let mountRoot = null;
 let activeFilter = 'em_preparacao';
 let tipoFilter = 'all';
 let origemFilter = 'all';
-let selectedClientId = null;
-/** true quando a pasta de um cliente está aberta (inclui «Sem cliente» com id ''). */
+let selectedPastaKey = null;
+/** true quando a pasta de um cliente está aberta. */
 let clientPastaOpen = false;
 let searchQuery = '';
 let exportYear = String(new Date().getFullYear());
@@ -141,7 +146,11 @@ function filterOrcamentoReports(reports) {
     const client = getClient(report.clientId);
     const values = report?.data?.values || {};
     const job = report.jobId ? getJob(report.jobId) : null;
-    const clientName = getClientName(client, values).toLowerCase();
+    const clientName = (
+      resolveOrcamentoClienteNome(report) !== '—'
+        ? resolveOrcamentoClienteNome(report)
+        : getClientName(client, values)
+    ).toLowerCase();
     const op = formatOrdemLabel(job).toLowerCase();
     const numero = String(getReportOrcamentoMeta(report)?.numeroFormatado || '').toLowerCase();
     const tipo = formatOrcamentoTipoPropostaLabel(getOrcamentoTipoProposta(report)).toLowerCase();
@@ -156,33 +165,50 @@ function filterOrcamentoReports(reports) {
   });
 }
 
-/** Agrupa propostas filtradas por cliente (pasta). */
+/** Agrupa propostas filtradas por pasta (ficha ou nome escrito no orçamento). */
 export function groupOrcamentoReportsByClient(reports = []) {
   const map = new Map();
   reports.forEach((report) => {
-    const cid = String(report?.clientId || '').trim() || '__sem_cliente__';
-    if (!map.has(cid)) map.set(cid, []);
-    map.get(cid).push(report);
+    const key = resolveOrcamentoPastaKey(report);
+    if (!map.has(key)) map.set(key, []);
+    map.get(key).push(report);
   });
   return [...map.entries()]
-    .map(([clientId, rows]) => {
+    .map(([pastaKey, rows]) => {
       const sample = rows[0];
-      const client = clientId === '__sem_cliente__' ? null : getClient(clientId);
+      const identity = resolveOrcamentoPastaIdentity(sample);
+      const client = identity.clientId ? getClient(identity.clientId) : null;
       const values = sample?.data?.values || {};
+      const nameFromRows = rows
+        .map((report) => {
+          const n = resolveOrcamentoClienteNome(report);
+          return n === '—' ? '' : n;
+        })
+        .find(Boolean);
       const name =
-        clientId === '__sem_cliente__'
-          ? 'Sem cliente'
-          : getClientName(client, values) || client?.name || client?.Nome || 'Cliente';
+        nameFromRows ||
+        getClientName(client, values) ||
+        client?.name ||
+        client?.Nome ||
+        'Sem nome de cliente';
       const pendentes = rows.filter(isOrcamentoLotePendente);
       const enviadas = rows.filter(isOrcamentoLoteEnviado);
       return {
-        clientId: clientId === '__sem_cliente__' ? '' : clientId,
+        pastaKey,
+        clientId: identity.clientId,
         name,
         client,
         rows,
         pendentes,
         enviadas,
-        email: String(client?.email || client?.['E-mail'] || '').trim(),
+        email: String(
+          client?.email ||
+            client?.['E-mail'] ||
+            values.email ||
+            values['E-mail'] ||
+            values.email_cliente ||
+            '',
+        ).trim(),
       };
     })
     .sort((a, b) => a.name.localeCompare(b.name, 'pt'));
@@ -378,24 +404,18 @@ function renderEstadoTabs(counts) {
     </div>`;
 }
 
-/** Todas as propostas de um cliente (pasta), independentemente do filtro de fila. */
-function listReportsForClient(clientId) {
-  const cid = String(clientId || '').trim();
-  return listOrcamentoReports().filter((report) => {
-    const rc = String(report?.clientId || '').trim();
-    return cid ? rc === cid : !rc;
-  });
+/** Todas as propostas de uma pasta (ficha ou nome livre). */
+function listReportsForPasta(pastaKey) {
+  const key = String(pastaKey || '').trim();
+  if (!key) return [];
+  return listOrcamentoReports().filter((report) => resolveOrcamentoPastaKey(report) === key);
 }
 
-function buildClientGroupFromReports(clientId, reports) {
+function buildClientGroupFromReports(pastaKey, reports) {
   const groups = groupOrcamentoReportsByClient(reports);
   if (!groups.length) return null;
-  const cid = String(clientId || '').trim();
-  return (
-    groups.find((g) => String(g.clientId || '') === cid) ||
-    groups[0] ||
-    null
-  );
+  const key = String(pastaKey || '').trim();
+  return groups.find((g) => String(g.pastaKey) === key) || groups[0] || null;
 }
 
 function folderMetaParts(group) {
@@ -644,7 +664,7 @@ function renderFiltersSection(all) {
 }
 
 function renderClientFolderCard(group) {
-  const cid = escapeHtml(group.clientId || '');
+  const pastaKey = escapeHtml(group.pastaKey || '');
   const meta = folderMetaParts(group);
   const ready = group.pendentes.length;
   return `
@@ -663,7 +683,7 @@ function renderClientFolderCard(group) {
           </div>
         </div>
         <div class="rh-visita-folder__actions">
-          <button type="button" class="btn-primary btn-sm faturacao-btn-compact" data-orc-open-client="${cid}">
+          <button type="button" class="btn-primary btn-sm faturacao-btn-compact" data-orc-open-pasta="${pastaKey}">
             Abrir pasta
           </button>
         </div>
@@ -805,26 +825,40 @@ function renderClientPasta(group) {
   const allClientRows = group.rows;
   const emPreparacao = allClientRows.filter(reportIsEmPreparacao);
   const enviadas = allClientRows.filter(isOrcamentoLoteEnviado);
-  const pendentes = filterOrcamentoLoteReports(allClientRows, group.clientId, { mode: 'pendentes' });
-  const reenvio = filterOrcamentoLoteReports(allClientRows, group.clientId, { mode: 'reenvio' });
+  const pendentes = filterOrcamentoLoteReports(allClientRows, group.clientId, {
+    mode: 'pendentes',
+    pastaKey: group.pastaKey,
+    clienteNome: group.name,
+  });
+  const reenvio = filterOrcamentoLoteReports(allClientRows, group.clientId, {
+    mode: 'reenvio',
+    pastaKey: group.pastaKey,
+    clienteNome: group.name,
+  });
   const pendNumeros = formatOrcamentoLoteNumeros(pendentes);
   const defaultEmail = escapeHtml(group.email || '');
-  const canNova = Boolean(group.clientId);
 
   return `
-    <div class="orcamentos-client-pasta" data-orc-client-pasta="${escapeHtml(group.clientId || '')}">
+    <div
+      class="orcamentos-client-pasta"
+      data-orc-client-pasta="${escapeHtml(group.pastaKey || '')}"
+      data-orc-pasta-client-id="${escapeHtml(group.clientId || '')}"
+      data-orc-pasta-client-name="${escapeHtml(group.name || '')}"
+    >
       <div class="orcamentos-client-pasta__head">
         <button type="button" class="btn-outline btn-sm" data-orc-client-back>← Pastas</button>
         <div class="orcamentos-client-pasta__title-wrap">
           <h3 class="ms-h2 faturacao-section-title orcamentos-client-pasta__name">${escapeHtml(group.name)}</h3>
         </div>
-        ${
-          canNova
-            ? `<button type="button" class="btn-primary btn-sm orcamentos-client-pasta__new" data-orc-new data-orc-new-client="${escapeHtml(group.clientId)}" data-orc-new-name="${escapeHtml(group.name)}">
-                Nova proposta
-              </button>`
-            : ''
-        }
+        <button
+          type="button"
+          class="btn-primary btn-sm orcamentos-client-pasta__new"
+          data-orc-new
+          data-orc-new-client="${escapeHtml(group.clientId || '')}"
+          data-orc-new-name="${escapeHtml(group.name || '')}"
+        >
+          Nova proposta
+        </button>
       </div>
 
       <label class="review-orc-field orcamentos-client-pasta__email">
@@ -899,7 +933,7 @@ function renderClientPasta(group) {
 function renderPropostasSection(rows, counts, totalAll) {
   const groups = groupOrcamentoReportsByClient(rows);
   const selectedGroup = clientPastaOpen
-    ? buildClientGroupFromReports(selectedClientId, listReportsForClient(selectedClientId))
+    ? buildClientGroupFromReports(selectedPastaKey, listReportsForPasta(selectedPastaKey))
     : null;
 
   const body = clientPastaOpen
@@ -1032,23 +1066,23 @@ function bindPanelEvents() {
     const filterBtn = e.target.closest('[data-orc-filter]');
     if (filterBtn) {
       activeFilter = filterBtn.dataset.orcFilter || 'todas';
-      selectedClientId = null;
+      selectedPastaKey = null;
       clientPastaOpen = false;
       softRefreshOrcamentosPanel().catch(console.error);
       return;
     }
 
-    const openClientBtn = e.target.closest('[data-orc-open-client]');
-    if (openClientBtn) {
-      selectedClientId = String(openClientBtn.getAttribute('data-orc-open-client') ?? '');
-      clientPastaOpen = true;
+    const openPastaBtn = e.target.closest('[data-orc-open-pasta]');
+    if (openPastaBtn) {
+      selectedPastaKey = String(openPastaBtn.getAttribute('data-orc-open-pasta') ?? '');
+      clientPastaOpen = Boolean(selectedPastaKey);
       softRefreshOrcamentosPanel().catch(console.error);
       return;
     }
 
     const backClientBtn = e.target.closest('[data-orc-client-back]');
     if (backClientBtn) {
-      selectedClientId = null;
+      selectedPastaKey = null;
       clientPastaOpen = false;
       softRefreshOrcamentosPanel().catch(console.error);
       return;
@@ -1059,15 +1093,17 @@ function bindPanelEvents() {
       if (loteSendBtn.disabled) return;
       const mode = loteSendBtn.dataset.orcLoteMode === 'reenvio' ? 'reenvio' : 'pendentes';
       const pasta = loteSendBtn.closest('[data-orc-client-pasta]');
-      const clientId = pasta?.dataset?.orcClientPasta || selectedClientId;
-      if (!clientId) {
-        showToast('Cliente não identificado.', 'error');
+      const pastaKey = pasta?.dataset?.orcClientPasta || selectedPastaKey || '';
+      const clientId = pasta?.dataset?.orcPastaClientId || '';
+      const clienteNome = pasta?.dataset?.orcPastaClientName || '';
+      if (!pastaKey) {
+        showToast('Pasta do cliente não identificada.', 'error');
         return;
       }
       const emailInput = pasta?.querySelector('[data-orc-lote-email]');
       const to = String(emailInput?.value || '').trim();
       const all = listOrcamentoReports();
-      const lote = filterOrcamentoLoteReports(all, clientId, { mode });
+      const lote = filterOrcamentoLoteReports(all, clientId, { mode, pastaKey, clienteNome });
       const numeros = formatOrcamentoLoteNumeros(lote);
       const ok = window.confirm(
         mode === 'reenvio'
@@ -1076,7 +1112,7 @@ function bindPanelEvents() {
       );
       if (!ok) return;
       loteSendBtn.disabled = true;
-      void sendOrcamentoLoteForClient(all, clientId, { to, mode })
+      void sendOrcamentoLoteForClient(all, clientId, { to, mode, pastaKey, clienteNome })
         .then((result) => {
           if (result) softRefreshOrcamentosPanel().catch(console.error);
         })
@@ -1154,16 +1190,19 @@ function bindPanelEvents() {
 
     const newBtn = e.target.closest('[data-orc-new]');
     if (newBtn) {
-      const presetClientId = newBtn.dataset.orcNewClient || selectedClientId || '';
-      const presetNome = newBtn.dataset.orcNewName || '';
+      const pasta = newBtn.closest('[data-orc-client-pasta]');
+      const presetClientId =
+        newBtn.dataset.orcNewClient || pasta?.dataset?.orcPastaClientId || '';
+      const presetNome =
+        newBtn.dataset.orcNewName || pasta?.dataset?.orcPastaClientName || '';
       openNovaPropostaModal({
         clientId: presetClientId,
         clienteNome: presetNome,
         onCreated: (report) => {
           highlightReportId = report?.id || null;
-          if (report?.clientId) {
-            selectedClientId = String(report.clientId);
-            clientPastaOpen = true;
+          if (report) {
+            selectedPastaKey = resolveOrcamentoPastaKey(report);
+            clientPastaOpen = Boolean(selectedPastaKey);
           }
           refreshOrcamentosPanel().catch(console.error);
         },
