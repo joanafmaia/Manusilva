@@ -34,6 +34,8 @@ const BREVO_API_KEY = cleanEnvSecret(
 );
 const EMAIL_FROM = String(process.env.EMAIL_FROM || '').trim();
 const EMAIL_REPLY_TO = String(process.env.EMAIL_REPLY_TO || EMAIL_USER || '').trim();
+/** Cópia oculta na caixa ManuSilva (por omissão = EMAIL_USER). Desligar: EMAIL_BCC=off */
+const EMAIL_BCC_RAW = process.env.EMAIL_BCC;
 
 const SMTP_TIMEOUTS = {
   connectionTimeout: 20000,
@@ -149,6 +151,29 @@ function normalizeToList(to) {
     .filter(Boolean);
 }
 
+/**
+ * BCC de arquivo: por omissão EMAIL_USER (vê-se na Entrada do Gmail).
+ * EMAIL_BCC=off|false|0 → desliga; EMAIL_BCC=a@x.com,b@y.com → lista custom.
+ */
+function resolveArchiveBcc(toList) {
+  const raw =
+    EMAIL_BCC_RAW === undefined || EMAIL_BCC_RAW === null
+      ? String(EMAIL_USER || '')
+      : String(EMAIL_BCC_RAW);
+  const trimmed = raw.trim();
+  if (!trimmed || /^(0|false|off|no|none)$/i.test(trimmed)) return [];
+
+  const toSet = new Set(
+    normalizeToList(toList)
+      .map((e) => normalizeEmail(e))
+      .filter(Boolean),
+  );
+
+  return normalizeToList(trimmed)
+    .map((e) => normalizeEmail(e))
+    .filter((email) => email && isValidEmailAddress(email) && !toSet.has(email));
+}
+
 /** Envio via HTTPS (Brevo) — permite remetente Gmail verificado sem DNS. */
 async function sendMailViaBrevo(mailOptions) {
   const toList = normalizeToList(mailOptions.to);
@@ -191,6 +216,8 @@ async function sendMailViaBrevo(mailOptions) {
     ? normalizeEmail(EMAIL_REPLY_TO)
     : null;
   if (replyTo) body.replyTo = { email: replyTo };
+  const bccList = resolveArchiveBcc(toList);
+  if (bccList.length) body.bcc = bccList.map((email) => ({ email }));
   if (attachments.length) body.attachment = attachments;
 
   const res = await fetch('https://api.brevo.com/v3/smtp/email', {
@@ -256,6 +283,8 @@ async function sendMailViaResend(mailOptions) {
   if (EMAIL_REPLY_TO && isValidEmailAddress(normalizeEmail(EMAIL_REPLY_TO))) {
     body.reply_to = normalizeEmail(EMAIL_REPLY_TO);
   }
+  const bccList = resolveArchiveBcc(to);
+  if (bccList.length) body.bcc = bccList;
   if (attachments.length) body.attachments = attachments;
 
   const res = await fetch('https://api.resend.com/emails', {
@@ -321,9 +350,12 @@ async function sendMailWithSmtpFallback(mailOptions) {
 /** Preferir Brevo/Resend (HTTPS). Nunca cair para SMTP se houver API key — na Railway o SMTP falha com ETIMEDOUT. */
 async function sendMail(mailOptions) {
   const from = resolveFromAddress();
+  const toList = normalizeToList(mailOptions.to);
+  const bccList = resolveArchiveBcc(toList);
   const options = { ...mailOptions, from };
+  if (bccList.length) options.bcc = bccList.join(', ');
   const status = getEmailProviderStatus();
-  console.info('[API /enviar-email] fornecedor:', status.active, status);
+  console.info('[API /enviar-email] fornecedor:', status.active, status, bccList.length ? { bcc: bccList } : '');
 
   if (hasBrevoConfig()) {
     return sendMailViaBrevo(options);

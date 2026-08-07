@@ -19,8 +19,9 @@ Em **Variables**:
 | `SUPABASE_SERVICE_ROLE_KEY` | Sim | Técnicos + avaliações |
 | `BREVO_API_KEY` | **Recomendada** | Envio HTTPS ([brevo.com](https://www.brevo.com)) — mantém remetente Gmail |
 | `RESEND_API_KEY` | Alternativa | [resend.com](https://resend.com) — para clientes convém verificar `manusilva.pt` |
-| `EMAIL_USER` | Sim (com Brevo) | `manusilva.lda@gmail.com` — remetente / reply-to |
+| `EMAIL_USER` | Sim (com Brevo) | `manusilva.lda@gmail.com` — remetente / reply-to / BCC automático |
 | `EMAIL_FROM` | Opcional | Ex. `ManuSilva <manusilva.lda@gmail.com>` |
+| `EMAIL_BCC` | Opcional | Por omissão = `EMAIL_USER` (cópia na Entrada). `off` para desligar |
 | `EMAIL_PASS` | Opcional | App Password Gmail (SMTP); **na Railway costuma falhar com ETIMEDOUT** |
 | `APP_BASE_URL` | Recomendado | URL público sem `/` final |
 | `MAPBOX_ACCESS_TOKEN` | Opcional | Mapas / deslocação |
