@@ -5191,55 +5191,13 @@ body .admin-rh-page .btn-primary, body .admin-rh-page .btn-secondary, body .admi
   gap: 0.75rem;
   width: 100%;
 }
-.orcamentos-view-toggle {
-  display: inline-flex;
-  gap: 0.35rem;
-}
-.orcamentos-view-toggle .btn-outline.is-active {
-  background: var(--ms-primary, #1e3a5f);
-  color: #fff;
-  border-color: var(--ms-primary, #1e3a5f);
-}
-.orcamentos-client-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 0.75rem;
-}
-.orcamentos-client-card {
+.orcamentos-client-folders {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 0.35rem;
-  text-align: left;
-  padding: 0.9rem 1rem;
-  border: 1px solid rgba(15, 23, 42, 0.1);
-  border-radius: 10px;
-  background: #fff;
-  cursor: pointer;
-  font: inherit;
-  color: inherit;
+  gap: 0.65rem;
 }
-.orcamentos-client-card:hover {
-  border-color: rgba(15, 23, 42, 0.22);
-  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.06);
-}
-.orcamentos-client-card__name {
-  font-weight: 650;
-  font-size: 0.95rem;
-}
-.orcamentos-client-card__meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
-  font-size: 0.75rem;
-  color: var(--text-muted, #64748b);
-}
-.orcamentos-client-card__pend {
-  color: #b45309;
-  font-weight: 600;
-}
-.orcamentos-client-card__env {
-  color: #047857;
+.orcamentos-client-folder .rh-visita-folder__header {
+  cursor: default;
 }
 .orcamentos-client-pasta__head {
   display: flex;
@@ -5247,6 +5205,10 @@ body .admin-rh-page .btn-primary, body .admin-rh-page .btn-secondary, body .admi
   align-items: flex-start;
   gap: 0.75rem 1rem;
   margin-bottom: 0.85rem;
+}
+.orcamentos-client-pasta__title-wrap {
+  flex: 1 1 14rem;
+  min-width: 0;
 }
 .orcamentos-client-pasta__lead {
   margin: 0.2rem 0 0;
@@ -5256,7 +5218,7 @@ body .admin-rh-page .btn-primary, body .admin-rh-page .btn-secondary, body .admi
   display: grid;
   gap: 0.65rem;
   padding: 0.85rem 1rem;
-  margin-bottom: 0.85rem;
+  margin-bottom: 1rem;
 }
 .orcamentos-client-pasta__lote-actions {
   display: flex;
@@ -5267,79 +5229,34 @@ body .admin-rh-page .btn-primary, body .admin-rh-page .btn-secondary, body .admi
   margin: 0;
   font-size: 0.78rem;
 }
+.orcamentos-pasta-section {
+  margin-bottom: 1.25rem;
+}
+.orcamentos-pasta-section__head {
+  margin-bottom: 0.55rem;
+}
+.orcamentos-pasta-section__title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 650;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.orcamentos-pasta-section__hint {
+  margin: 0.2rem 0 0;
+  font-size: 0.8rem;
+}
+.orcamentos-pasta-section__empty {
+  margin: 0.35rem 0 0;
+  font-size: 0.85rem;
+}
 .orcamentos-client-empty {
   margin: 0.5rem 0;
 }
 .orcamentos-kanban-lead {
   margin: 0.35rem 0 0;
   font-size: 0.85rem;
-}
-.orcamentos-kanban {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(12rem, 1fr));
-  gap: 0.75rem;
-  overflow-x: auto;
-  padding-bottom: 0.35rem;
-}
-.orcamentos-kanban-col {
-  min-width: 12rem;
-  background: var(--surface-muted, #f8fafc);
-  border: 1px solid var(--ms-border-md, #e2e8f0);
-  border-radius: 8px;
-  display: flex;
-  flex-direction: column;
-  max-height: 70vh;
-}
-.orcamentos-kanban-col__head {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  padding: 0.65rem 0.75rem;
-  border-bottom: 1px solid var(--ms-border-md, #e2e8f0);
-  background: inherit;
-  border-radius: 8px 8px 0 0;
-}
-.orcamentos-kanban-col__head h4 {
-  margin: 0;
-  font-size: 0.85rem;
-}
-.orcamentos-kanban-col__body {
-  padding: 0.65rem;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 0.55rem;
-}
-.orcamentos-kanban-card {
-  background: #fff;
-  border: 1px solid var(--ms-border-md, #e2e8f0);
-  border-radius: 6px;
-  padding: 0.65rem 0.7rem;
-  box-shadow: 0 1px 2px rgb(15 23 42 / 4%);
-}
-.orcamentos-kanban-card__client {
-  margin: 0;
-  font-weight: 700;
-  font-size: 0.9rem;
-}
-.orcamentos-kanban-card__meta {
-  margin: 0.2rem 0 0.35rem;
-  font-size: 0.75rem;
-  color: var(--text-muted);
-}
-.orcamentos-kanban-card__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-  margin-top: 0.4rem;
-}
-.orcamentos-kanban-empty {
-  margin: 0.35rem 0;
-  font-size: 0.8rem;
 }
 .orcamento-autosave-status {
   white-space: nowrap;

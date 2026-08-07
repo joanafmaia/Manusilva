@@ -161,9 +161,15 @@ export async function deleteStandaloneOrcamentoReport(reportId) {
 
 /**
  * Modal RH — escolher cliente e criar proposta MS.015 do zero.
- * @param {{ onCreated?: (report: object) => void }} [options]
+ * @param {{ onCreated?: (report: object) => void, clientId?: string, clienteNome?: string }} [options]
  */
-export function openNovaPropostaModal({ onCreated } = {}) {
+export function openNovaPropostaModal({ onCreated, clientId: presetClientId = '', clienteNome: presetNome = '' } = {}) {
+  const presetClient = presetClientId ? getClientFromCatalog(presetClientId) || getClient(presetClientId) : null;
+  const presetLabel =
+    String(presetNome || '').trim() ||
+    presetClient?.name ||
+    presetClient?.Nome ||
+    '';
   const content = `
     <form id="nova-proposta-form" class="nova-proposta-form">
       <p class="text-muted nova-proposta-lead">
@@ -172,8 +178,8 @@ export function openNovaPropostaModal({ onCreated } = {}) {
       ${renderClientCombobox({
         fieldId: 'nova-proposta-client',
         label: 'Cliente',
-        value: '',
-        selectedId: '',
+        value: presetLabel,
+        selectedId: presetClientId || '',
       })}
       <p class="text-muted nova-proposta-client-hint" style="margin-top:-0.35rem;font-size:0.8125rem">
         Selecione na lista ou escreva o nome — não é obrigatório ter o cliente criado na ficha.

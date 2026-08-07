@@ -74,13 +74,16 @@ import {
   restoreAdminMainScroll,
   replaceSectionHtml,
 } from '../admin-ui-stability.js';
+import { msIconHtml } from '../ui-icons.js';
 
 let mountRoot = null;
-let activeFilter = 'por_preparar';
+/** Fila principal: em_preparacao | enviada | aceite | recusada | todas */
+let activeFilter = 'em_preparacao';
 let tipoFilter = 'all';
 let origemFilter = 'all';
-let viewMode = 'clientes'; // clientes | lista | quadro
 let selectedClientId = null;
+/** true quando a pasta de um cliente está aberta (inclui «Sem cliente» com id ''). */
+let clientPastaOpen = false;
 let searchQuery = '';
 let exportYear = String(new Date().getFullYear());
 let exportTipoFilter = 'all';
@@ -97,6 +100,17 @@ const EXPORT_ESTADO_OPTIONS = [
   { value: 'recusada', label: 'Recusadas' },
 ];
 
+function reportIsEmPreparacao(report) {
+  if (reportOrcamentoPorPreparar(report)) return true;
+  return resolveOrcamentoWorkflowStatus(report) === 'guardada';
+}
+
+function reportMatchesActiveQueue(report) {
+  if (activeFilter === 'todas') return true;
+  if (activeFilter === 'em_preparacao') return reportIsEmPreparacao(report);
+  return resolveOrcamentoWorkflowStatus(report) === activeFilter;
+}
+
 function listOrcamentoReports() {
   return dedupeReportsForDisplay(
     getReportsSnapshot()
@@ -110,14 +124,7 @@ function listOrcamentoReports() {
 }
 
 function filterOrcamentoReports(reports) {
-  let rows = reports;
-  if (viewMode === 'lista') {
-    if (activeFilter === 'por_preparar') {
-      rows = rows.filter(reportOrcamentoPorPreparar);
-    } else if (activeFilter !== 'todas') {
-      rows = rows.filter((report) => resolveOrcamentoWorkflowStatus(report) === activeFilter);
-    }
-  }
+  let rows = reports.filter(reportMatchesActiveQueue);
 
   if (tipoFilter && tipoFilter !== 'all') {
     rows = rows.filter((report) => getOrcamentoTipoProposta(report) === tipoFilter);
@@ -183,12 +190,13 @@ export function groupOrcamentoReportsByClient(reports = []) {
 
 function countByWorkflow(reports) {
   const aceiteReports = reports.filter((r) => resolveOrcamentoWorkflowStatus(r) === 'aceite');
+  const emPreparacao = reports.filter(reportIsEmPreparacao).length;
   return {
+    em_preparacao: emPreparacao,
     por_preparar: reports.filter(reportOrcamentoPorPreparar).length,
     guardada: reports.filter((r) => resolveOrcamentoWorkflowStatus(r) === 'guardada').length,
     enviada: reports.filter((r) => resolveOrcamentoWorkflowStatus(r) === 'enviada').length,
     aceite: aceiteReports.length,
-    /** Aceites comerciais (exclui folha R.C. — essas vão para o Armazém). */
     aceite_faturacao: aceiteReports.filter((r) => !reportIsFolhaObraOrcamento(r)).length,
     recusada: reports.filter((r) => resolveOrcamentoWorkflowStatus(r) === 'recusada').length,
     todas: reports.length,
@@ -282,8 +290,7 @@ function renderFilterHint(counts, total) {
   if (total <= 0) return '';
 
   const hints = [
-    { id: 'por_preparar', label: 'por preparar', count: counts.por_preparar },
-    { id: 'guardada', label: 'guardadas', count: counts.guardada },
+    { id: 'em_preparacao', label: 'em preparação', count: counts.em_preparacao },
     { id: 'enviada', label: 'enviadas (aguardam resposta)', count: counts.enviada },
     { id: 'aceite', label: 'aceites', count: counts.aceite },
     { id: 'recusada', label: 'recusadas', count: counts.recusada },
@@ -321,9 +328,9 @@ function renderMetrics(counts) {
     <section class="faturacao-kpis rh-section" aria-label="Indicadores de propostas">
       <div class="dashboard-metrics-grid faturacao-kpis-grid faturacao-kpis-grid--3">
         <article class="dashboard-metric-card dashboard-metric-card--warning">
-          <p class="dashboard-metric-value">${counts.por_preparar}</p>
-          <p class="dashboard-metric-label">Por preparar</p>
-          <p class="faturacao-kpi-sub">Aguardam proposta comercial</p>
+          <p class="dashboard-metric-value">${counts.em_preparacao}</p>
+          <p class="dashboard-metric-label">Em preparação</p>
+          <p class="faturacao-kpi-sub">Por preparar ou guardadas (lote)</p>
         </article>
         <article class="dashboard-metric-card dashboard-metric-card--primary">
           <p class="dashboard-metric-value">${counts.enviada}</p>
@@ -345,8 +352,7 @@ function renderMetrics(counts) {
 
 function renderEstadoTabs(counts) {
   const chips = [
-    { id: 'por_preparar', label: 'Por preparar', count: counts.por_preparar },
-    { id: 'guardada', label: 'Guardadas', count: counts.guardada },
+    { id: 'em_preparacao', label: 'Em preparação', count: counts.em_preparacao },
     { id: 'enviada', label: 'Enviadas', count: counts.enviada },
     { id: 'aceite', label: 'Aceites', count: counts.aceite },
     { id: 'recusada', label: 'Recusadas', count: counts.recusada },
@@ -354,7 +360,7 @@ function renderEstadoTabs(counts) {
   ];
 
   return `
-    <div class="faturacao-invoices-tabs" role="tablist" aria-label="Filtrar propostas por estado">
+    <div class="faturacao-invoices-tabs" role="tablist" aria-label="Filtrar pastas por estado">
       ${chips
         .map(
           ({ id, label, count }) => `
@@ -370,6 +376,62 @@ function renderEstadoTabs(counts) {
         )
         .join('')}
     </div>`;
+}
+
+/** Todas as propostas de um cliente (pasta), independentemente do filtro de fila. */
+function listReportsForClient(clientId) {
+  const cid = String(clientId || '').trim();
+  return listOrcamentoReports().filter((report) => {
+    const rc = String(report?.clientId || '').trim();
+    return cid ? rc === cid : !rc;
+  });
+}
+
+function buildClientGroupFromReports(clientId, reports) {
+  const groups = groupOrcamentoReportsByClient(reports);
+  if (!groups.length) return null;
+  const cid = String(clientId || '').trim();
+  return (
+    groups.find((g) => String(g.clientId || '') === cid) ||
+    groups[0] ||
+    null
+  );
+}
+
+function folderMetaParts(group) {
+  const prep = group.rows.filter(reportIsEmPreparacao);
+  const prontaEnviar = group.pendentes.length;
+  const porPreparar = prep.filter(reportOrcamentoPorPreparar).length;
+  const guardadas = prep.length - porPreparar;
+  const enviadasAguarda = group.rows.filter(
+    (r) => resolveOrcamentoWorkflowStatus(r) === 'enviada',
+  ).length;
+  const aceites = group.rows.filter((r) => resolveOrcamentoWorkflowStatus(r) === 'aceite').length;
+  const recusadas = group.rows.filter((r) => resolveOrcamentoWorkflowStatus(r) === 'recusada')
+    .length;
+
+  if (activeFilter === 'em_preparacao') {
+    const parts = [];
+    if (porPreparar) parts.push(`${porPreparar} por preparar`);
+    if (guardadas) parts.push(`${guardadas} guardada${guardadas === 1 ? '' : 's'}`);
+    if (prontaEnviar) parts.push(`${prontaEnviar} pronta${prontaEnviar === 1 ? '' : 's'} a enviar`);
+    return parts.length ? parts.join(' · ') : `${prep.length} em preparação`;
+  }
+  if (activeFilter === 'enviada') {
+    return `${enviadasAguarda || group.rows.length} enviada${(enviadasAguarda || group.rows.length) === 1 ? '' : 's'} · aguardam resposta`;
+  }
+  if (activeFilter === 'aceite') {
+    return `${aceites || group.rows.length} aceite${(aceites || group.rows.length) === 1 ? '' : 's'}`;
+  }
+  if (activeFilter === 'recusada') {
+    return `${recusadas || group.rows.length} recusada${(recusadas || group.rows.length) === 1 ? '' : 's'}`;
+  }
+  const parts = [];
+  if (prep.length) parts.push(`${prep.length} em preparação`);
+  if (enviadasAguarda) parts.push(`${enviadasAguarda} enviada${enviadasAguarda === 1 ? '' : 's'}`);
+  if (aceites) parts.push(`${aceites} aceite${aceites === 1 ? '' : 's'}`);
+  if (recusadas) parts.push(`${recusadas} recusada${recusadas === 1 ? '' : 's'}`);
+  return parts.join(' · ') || `${group.rows.length} proposta${group.rows.length === 1 ? '' : 's'}`;
 }
 
 function renderTableRow(report) {
@@ -581,60 +643,192 @@ function renderFiltersSection(all) {
     </section>`;
 }
 
-function renderViewToggle() {
-  return `
-    <div class="orcamentos-view-toggle" role="group" aria-label="Vista de propostas">
-      <button type="button" class="btn-outline btn-sm${viewMode === 'clientes' ? ' is-active' : ''}" data-orc-view="clientes">Clientes</button>
-      <button type="button" class="btn-outline btn-sm${viewMode === 'lista' ? ' is-active' : ''}" data-orc-view="lista">Lista</button>
-      <button type="button" class="btn-outline btn-sm${viewMode === 'quadro' ? ' is-active' : ''}" data-orc-view="quadro">Quadro</button>
-    </div>`;
-}
-
 function renderClientFolderCard(group) {
-  const pend = group.pendentes.length;
-  const env = group.enviadas.length;
   const cid = escapeHtml(group.clientId || '');
+  const meta = folderMetaParts(group);
+  const ready = group.pendentes.length;
   return `
-    <button type="button" class="orcamentos-client-card" data-orc-open-client="${cid}">
-      <span class="orcamentos-client-card__name">${escapeHtml(group.name)}</span>
-      <span class="orcamentos-client-card__meta">
-        <span>${group.rows.length} proposta${group.rows.length === 1 ? '' : 's'}</span>
-        ${pend ? `<span class="orcamentos-client-card__pend">${pend} por enviar</span>` : ''}
-        ${env ? `<span class="orcamentos-client-card__env">${env} enviada${env === 1 ? '' : 's'}</span>` : ''}
-      </span>
-    </button>`;
+    <article class="rh-visita-folder orcamentos-client-folder" role="listitem">
+      <header class="rh-visita-folder__header">
+        <div class="rh-visita-folder__heading">
+          ${msIconHtml('clipboard', 'rh-visita-folder__icon')}
+          <div>
+            <h3 class="rh-visita-folder__title">${escapeHtml(group.name)}</h3>
+            <p class="rh-visita-folder__meta">${escapeHtml(meta)}</p>
+            ${
+              ready && activeFilter === 'em_preparacao'
+                ? `<span class="rh-visita-folder__email-hint rh-visita-folder__email-hint--pending">${ready} pronta${ready === 1 ? '' : 's'} para envio em lote</span>`
+                : ''
+            }
+          </div>
+        </div>
+        <div class="rh-visita-folder__actions">
+          <button type="button" class="btn-primary btn-sm faturacao-btn-compact" data-orc-open-client="${cid}">
+            Abrir pasta
+          </button>
+        </div>
+      </header>
+    </article>`;
 }
 
 function renderClientFolders(groups) {
   if (!groups.length) {
-    return '<p class="text-muted orcamentos-client-empty">Nenhuma proposta com estes filtros.</p>';
+    return '<p class="text-muted orcamentos-client-empty">Nenhuma pasta com estes filtros.</p>';
   }
   return `
-    <div class="orcamentos-client-grid" aria-label="Pastas por cliente">
+    <div class="orcamentos-client-folders" role="list" aria-label="Pastas por cliente">
       ${groups.map(renderClientFolderCard).join('')}
     </div>`;
 }
 
-function renderClientPasta(group, allFilteredRows) {
+function renderPastaProposalTable(rows, { showClient = false } = {}) {
+  if (!rows.length) return '';
+  return `
+    <div class="rh-table-scroll faturacao-table-wrap">
+      <table class="rh-data-table rh-data-table--compact faturacao-table faturacao-table--compact orcamentos-table orcamentos-table--dense">
+        <thead>
+          <tr>
+            <th scope="col">OP</th>
+            ${showClient ? '<th scope="col">Cliente</th>' : '<th scope="col">Tipo</th>'}
+            <th scope="col">Proposta</th>
+            <th scope="col" class="faturacao-col-action">Ação</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map((report) => (showClient ? renderTableRow(report) : renderPastaTableRow(report))).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+function renderPastaTableRow(report) {
+  const job = report.jobId ? getJob(report.jobId) : null;
+  const workflow = resolveOrcamentoWorkflowStatus(report);
+  const meta = getReportOrcamentoMeta(report);
+  const detalhe = reportIsStandaloneOrcamento(report) ? '' : getPedidoOrcamentoDetalhe(report);
+  const pdfUrl = getReportOrcamentoPdfUrl(report);
+  const techPdfUrl = getReportTechnicalPdfUrl(report) || (job?.urlPdf ? String(job.urlPdf).trim() : '');
+  const canApproveReport = !reportIsStandaloneOrcamento(report) && report.status === 'pending_review';
+  const canCancelPedido = !meta?.enviadoEm;
+  const canEditProposal = !meta?.enviadoEm;
+  const canViewSentProposal = Boolean(meta?.enviadoEm);
+  const isFolha = reportIsFolhaObraOrcamento(report);
+  const eliminarTitle = reportIsStandaloneOrcamento(report)
+    ? 'Eliminar proposta'
+    : isFolha
+      ? 'Eliminar orçamento da folha'
+      : 'Eliminar pedido de orçamento';
+  const highlighted = highlightReportId && report.id === highlightReportId;
+  const tipoShort = formatTipoShort(report);
+  const origemBadge = renderOrigemBadge(report);
+  const garantiaKey = getReportReclamacaoGarantia(report);
+  const garantiaBadge =
+    garantiaKey === 'sim'
+      ? `<span class="orcamentos-garantia orcamentos-garantia--sim" title="Avaria / reclamação em garantia">G</span>`
+      : garantiaKey === 'nao'
+        ? `<span class="orcamentos-garantia orcamentos-garantia--nao" title="Não é reclamação em garantia">—</span>`
+        : meta?.enviadoEm || meta?.numeroFormatado
+          ? `<span class="orcamentos-garantia orcamentos-garantia--pendente" title="Garantia não indicada">?</span>`
+          : '';
+  const respostaData = formatOrcamentoRespostaDataLabel(meta);
+  const respostaDataBadge =
+    respostaData && (workflow === 'aceite' || workflow === 'recusada')
+      ? `<span class="orcamentos-resposta-data" title="${workflow === 'aceite' ? 'Data de aceite' : 'Data de recusa'}">${escapeHtml(respostaData)}</span>`
+      : '';
+  const ordemLabel = formatOrdemLabel(job);
+  const showOrdem = ordemLabel && ordemLabel !== '—';
+  const rowTitle = [detalhe, reportStatusLabel(report)].filter(Boolean).join(' · ');
+
+  return `
+    <tr class="rh-data-table-row orcamentos-row orcamentos-row--compact${highlighted ? ' orcamentos-row--highlight faturacao-row--highlight' : ''}" data-report-id="${escapeHtml(report.id)}" title="${escapeHtml(rowTitle)}">
+      <td class="faturacao-cell-ordem">
+        ${
+          showOrdem
+            ? `<code class="orcamentos-ordem rh-ordem-badge faturacao-ordem">${escapeHtml(ordemLabel)}</code>`
+            : `<span class="orcamentos-ordem-empty text-muted">—</span>`
+        }
+      </td>
+      <td class="faturacao-cell-client" title="${escapeHtml(detalhe || tipoShort)}">
+        <span class="faturacao-cell-client-name rh-cell-client-name">${escapeHtml(tipoShort)}</span>
+        <span class="faturacao-row-meta orcamentos-row__meta">${origemBadge}</span>
+      </td>
+      <td class="rh-cell-muted orcamentos-col-proposta">
+        <div class="orcamentos-proposta-stack">
+          <span class="orcamentos-status ${resolveOrcamentoWorkflowClass(workflow)}">${escapeHtml(resolveOrcamentoWorkflowLabel(workflow))}</span>
+          ${meta?.numeroFormatado ? `<span class="orcamentos-numero">nº ${escapeHtml(meta.numeroFormatado)}</span>` : ''}
+          ${garantiaBadge}
+          ${respostaDataBadge}
+        </div>
+      </td>
+      <td class="faturacao-col-action">
+        <div class="faturacao-billing-actions orcamentos-row-actions">
+            ${
+              canApproveReport
+                ? `<button type="button" class="btn-success btn-sm rh-btn-compact faturacao-btn-compact" data-orc-approve-report="${escapeHtml(report.id)}" title="Aprovar relatório técnico">Aprovar</button>`
+                : ''
+            }
+            ${
+              canEditProposal
+                ? `<button type="button" class="btn-primary btn-sm rh-btn-compact faturacao-btn-compact" data-orc-open="${escapeHtml(report.id)}" title="${workflow === 'por_preparar' ? 'Preparar proposta' : 'Editar'}">
+              ${workflow === 'por_preparar' ? 'Preparar' : 'Editar'}
+            </button>`
+                : canViewSentProposal
+                  ? `<button type="button" class="btn-outline btn-sm rh-btn-compact faturacao-btn-compact" data-orc-open="${escapeHtml(report.id)}" title="Ver proposta">Ver</button>`
+                  : ''
+            }
+            ${
+              pdfUrl
+                ? `<button type="button" class="btn-outline btn-sm rh-btn-compact faturacao-btn-compact" data-orc-pdf="${escapeHtml(report.id)}" title="PDF da proposta">PDF</button>`
+                : ''
+            }
+          ${renderInlineRespostaControls(report)}
+            ${
+              techPdfUrl && report.status === 'approved'
+                ? `<button type="button" class="btn-ghost btn-sm rh-btn-compact faturacao-btn-compact" data-orc-tech-pdf="${escapeHtml(techPdfUrl)}" title="PDF do relatório técnico">Rel.</button>`
+                : ''
+            }
+            ${
+              canCancelPedido
+                ? `<button type="button" class="btn-ghost btn-sm rh-btn-compact faturacao-btn-compact faturacao-btn-dismiss orcamentos-btn-eliminar" data-orc-cancel="${escapeHtml(report.id)}" title="${escapeHtml(eliminarTitle)}">×</button>`
+                : ''
+            }
+        </div>
+      </td>
+    </tr>`;
+}
+
+function renderClientPasta(group) {
   if (!group) {
     return '<p class="text-muted">Cliente não encontrado.</p>';
   }
-  const pendentes = filterOrcamentoLoteReports(allFilteredRows, group.clientId, { mode: 'pendentes' });
-  const enviadas = filterOrcamentoLoteReports(allFilteredRows, group.clientId, { mode: 'reenvio' });
+
+  const allClientRows = group.rows;
+  const emPreparacao = allClientRows.filter(reportIsEmPreparacao);
+  const enviadas = allClientRows.filter(isOrcamentoLoteEnviado);
+  const pendentes = filterOrcamentoLoteReports(allClientRows, group.clientId, { mode: 'pendentes' });
+  const reenvio = filterOrcamentoLoteReports(allClientRows, group.clientId, { mode: 'reenvio' });
   const pendNumeros = formatOrcamentoLoteNumeros(pendentes);
-  const envNumeros = formatOrcamentoLoteNumeros(enviadas);
+  const envNumeros = formatOrcamentoLoteNumeros(reenvio);
   const defaultEmail = escapeHtml(group.email || '');
+  const canNova = Boolean(group.clientId);
 
   return `
     <div class="orcamentos-client-pasta" data-orc-client-pasta="${escapeHtml(group.clientId || '')}">
       <div class="orcamentos-client-pasta__head">
-        <button type="button" class="btn-outline btn-sm" data-orc-client-back>← Clientes</button>
-        <div>
+        <button type="button" class="btn-outline btn-sm" data-orc-client-back>← Pastas</button>
+        <div class="orcamentos-client-pasta__title-wrap">
           <h3 class="ms-h2 faturacao-section-title">${escapeHtml(group.name)}</h3>
           <p class="text-muted orcamentos-client-pasta__lead">
-            Prepare e guarde as propostas. Quando estiverem prontas, envie o lote num único e-mail.
+            Abra ou prepare cada proposta, guarde, adicione outra se precisar e envie o lote num único e-mail.
           </p>
         </div>
+        ${
+          canNova
+            ? `<button type="button" class="btn-primary btn-touch" data-orc-new data-orc-new-client="${escapeHtml(group.clientId)}" data-orc-new-name="${escapeHtml(group.name)}">
+                Nova proposta
+              </button>`
+            : ''
+        }
       </div>
 
       <div class="orcamentos-client-pasta__lote glass-card">
@@ -656,25 +850,25 @@ function renderClientPasta(group, allFilteredRows) {
             data-orc-lote-send
             data-orc-lote-mode="pendentes"
             ${pendentes.length ? '' : 'disabled'}
-            title="${pendentes.length ? `Enviar ${pendentes.length} proposta(s)` : 'Sem propostas preparadas por enviar'}"
+            title="${pendentes.length ? `Enviar ${pendentes.length} proposta(s)` : 'Guarde propostas preparadas antes de enviar o lote'}"
           >
-            Enviar propostas ao cliente${pendentes.length ? ` (${pendentes.length})` : ''}
+            Enviar lote ao cliente${pendentes.length ? ` (${pendentes.length})` : ''}
           </button>
           <button
             type="button"
             class="btn-outline btn-touch"
             data-orc-lote-send
             data-orc-lote-mode="reenvio"
-            ${enviadas.length ? '' : 'disabled'}
-            title="${enviadas.length ? `Reenviar ${enviadas.length} proposta(s)` : 'Sem propostas já enviadas'}"
+            ${reenvio.length ? '' : 'disabled'}
+            title="${reenvio.length ? `Reenviar ${reenvio.length} proposta(s)` : 'Sem propostas já enviadas'}"
           >
-            Reenviar enviadas${enviadas.length ? ` (${enviadas.length})` : ''}
+            Reenviar enviadas${reenvio.length ? ` (${reenvio.length})` : ''}
           </button>
         </div>
         ${
           pendNumeros.length
-            ? `<p class="text-muted orcamentos-client-pasta__nums">Por enviar: ${escapeHtml(pendNumeros.join(', '))}</p>`
-            : '<p class="text-muted orcamentos-client-pasta__nums">Nenhuma proposta preparada por enviar.</p>'
+            ? `<p class="text-muted orcamentos-client-pasta__nums">Prontas a enviar: ${escapeHtml(pendNumeros.join(', '))}</p>`
+            : '<p class="text-muted orcamentos-client-pasta__nums">Nenhuma proposta guardada pronta a enviar — prepare e guarde primeiro.</p>'
         }
         ${
           envNumeros.length
@@ -683,155 +877,61 @@ function renderClientPasta(group, allFilteredRows) {
         }
       </div>
 
-      <div class="rh-table-scroll faturacao-table-wrap">
-        <table class="rh-data-table rh-data-table--compact faturacao-table faturacao-table--compact orcamentos-table orcamentos-table--dense">
-          <thead>
-            <tr>
-              <th scope="col">OP</th>
-              <th scope="col">Cliente</th>
-              <th scope="col">Proposta</th>
-              <th scope="col" class="faturacao-col-action">Ação</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${group.rows.map((report) => renderTableRow(report)).join('')}
-          </tbody>
-        </table>
-      </div>
-    </div>`;
-}
-
-function renderKanbanCard(report) {
-  const client = getClient(report.clientId);
-  const values = report?.data?.values || {};
-  const meta = getReportOrcamentoMeta(report);
-  const workflow = resolveOrcamentoWorkflowStatus(report);
-  const clientName = getClientName(client, values) || '—';
-  const tipoLabel = formatTipoShort(report);
-  const pdfUrl = getReportOrcamentoPdfUrl(report);
-  const canEditProposal = !meta?.enviadoEm;
-  const openLabel = workflow === 'por_preparar' ? 'Preparar' : meta?.enviadoEm ? 'Ver' : 'Editar';
-
-  return `
-    <article class="orcamentos-kanban-card" data-report-id="${escapeHtml(report.id)}">
-      <p class="orcamentos-kanban-card__client">${escapeHtml(clientName)}</p>
-      <p class="orcamentos-kanban-card__meta">
-        ${escapeHtml(tipoLabel)}
-        ${meta?.numeroFormatado ? ` · nº ${escapeHtml(meta.numeroFormatado)}` : ''}
-      </p>
-      ${renderOrigemBadge(report)}
-      <div class="orcamentos-kanban-card__actions faturacao-billing-actions">
-        <button type="button" class="btn-primary btn-sm rh-btn-compact faturacao-btn-compact" data-orc-open="${escapeHtml(report.id)}">${escapeHtml(openLabel)}</button>
+      <section class="orcamentos-pasta-section" aria-label="Em preparação">
+        <header class="orcamentos-pasta-section__head">
+          <h4 class="orcamentos-pasta-section__title">Em preparação <span class="badge-count">${emPreparacao.length}</span></h4>
+          <p class="text-muted orcamentos-pasta-section__hint">Por preparar ou guardadas — ainda não foram enviadas ao cliente.</p>
+        </header>
         ${
-          pdfUrl
-            ? `<button type="button" class="btn-outline btn-sm rh-btn-compact faturacao-btn-compact" data-orc-pdf="${escapeHtml(report.id)}">PDF</button>`
-            : ''
+          emPreparacao.length
+            ? renderPastaProposalTable(emPreparacao)
+            : '<p class="text-muted orcamentos-pasta-section__empty">Nada em preparação. Use <strong>Nova proposta</strong> para adicionar.</p>'
         }
-      </div>
-      ${canEditProposal ? '' : renderInlineRespostaControls(report)}
-    </article>`;
-}
+      </section>
 
-function renderKanbanBoard(rows) {
-  const columns = [
-    { id: 'por_preparar', label: 'Por preparar' },
-    { id: 'guardada', label: 'Guardadas' },
-    { id: 'enviada', label: 'Enviadas' },
-    { id: 'aceite', label: 'Aceites' },
-    { id: 'recusada', label: 'Recusadas' },
-  ];
-
-  return `
-    <div class="orcamentos-kanban" aria-label="Quadro de propostas">
-      ${columns
-        .map((col) => {
-          const cards = rows.filter((report) => {
-            if (col.id === 'por_preparar') return reportOrcamentoPorPreparar(report);
-            return resolveOrcamentoWorkflowStatus(report) === col.id;
-          });
-          return `
-            <section class="orcamentos-kanban-col" data-orc-kanban-col="${escapeHtml(col.id)}">
-              <header class="orcamentos-kanban-col__head">
-                <h4>${escapeHtml(col.label)}</h4>
-                <span class="badge-count">${cards.length}</span>
-              </header>
-              <div class="orcamentos-kanban-col__body">
-                ${
-                  cards.length
-                    ? cards.map(renderKanbanCard).join('')
-                    : '<p class="text-muted orcamentos-kanban-empty">—</p>'
-                }
-              </div>
-            </section>`;
-        })
-        .join('')}
+      <section class="orcamentos-pasta-section" aria-label="Já enviadas">
+        <header class="orcamentos-pasta-section__head">
+          <h4 class="orcamentos-pasta-section__title">Já enviadas <span class="badge-count">${enviadas.length}</span></h4>
+          <p class="text-muted orcamentos-pasta-section__hint">Enviadas ao cliente — aguardam resposta ou já foram respondidas.</p>
+        </header>
+        ${
+          enviadas.length
+            ? renderPastaProposalTable(enviadas)
+            : '<p class="text-muted orcamentos-pasta-section__empty">Ainda não há propostas enviadas neste cliente.</p>'
+        }
+      </section>
     </div>`;
 }
 
 function renderPropostasSection(rows, counts, totalAll) {
   const groups = groupOrcamentoReportsByClient(rows);
-  const selectedGroup =
-    viewMode === 'clientes' && selectedClientId
-      ? groups.find((g) => String(g.clientId) === String(selectedClientId)) || null
-      : null;
+  const selectedGroup = clientPastaOpen
+    ? buildClientGroupFromReports(selectedClientId, listReportsForClient(selectedClientId))
+    : null;
 
-  let body;
-  if (viewMode === 'clientes') {
-    body = selectedClientId
-      ? renderClientPasta(selectedGroup, rows)
-      : groups.length || totalAll > 0
-        ? renderClientFolders(groups)
-        : renderEmptyState(counts, totalAll);
-  } else if (viewMode === 'quadro') {
-    body =
-      rows.length || totalAll > 0
-        ? renderKanbanBoard(rows)
-        : renderEmptyState(counts, totalAll);
-  } else {
-    body = rows.length
-      ? `
-      <div class="rh-table-scroll faturacao-table-wrap${rows.length > 8 ? ' faturacao-table-wrap--scroll-y' : ''}">
-        <table class="rh-data-table rh-data-table--compact faturacao-table faturacao-table--compact orcamentos-table orcamentos-table--dense">
-          <thead>
-            <tr>
-              <th scope="col">OP</th>
-              <th scope="col">Cliente</th>
-              <th scope="col">Proposta</th>
-              <th scope="col" class="faturacao-col-action">Ação</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${rows.map((report) => renderTableRow(report)).join('')}
-          </tbody>
-        </table>
-      </div>`
+  const body = clientPastaOpen
+    ? renderClientPasta(selectedGroup)
+    : groups.length || totalAll > 0
+      ? renderClientFolders(groups)
       : renderEmptyState(counts, totalAll);
-  }
 
-  const sectionTitle =
-    viewMode === 'clientes' && selectedGroup
-      ? `Pasta — ${selectedGroup.name}`
-      : viewMode === 'clientes'
-        ? 'Clientes'
-        : 'Propostas comerciais';
+  const sectionTitle = selectedGroup
+    ? `Pasta — ${selectedGroup.name}`
+    : 'Pastas por cliente';
 
   return `
     <section class="faturacao-invoices-section orcamentos-table-section rh-section glass-card" aria-label="Propostas comerciais">
       <div class="faturacao-invoices-head">
         <div class="orcamentos-section-head">
           <h3 class="ms-h2 faturacao-section-title">${escapeHtml(sectionTitle)} <span class="badge-count">${
-            viewMode === 'clientes' && !selectedClientId ? groups.length : rows.length
+            clientPastaOpen ? selectedGroup?.rows?.length || 0 : groups.length
           }</span></h3>
-          ${renderViewToggle()}
         </div>
+        ${clientPastaOpen ? '' : renderEstadoTabs(counts)}
         ${
-          viewMode === 'lista'
-            ? renderEstadoTabs(counts)
-            : viewMode === 'quadro'
-              ? '<p class="text-muted orcamentos-kanban-lead">Quadro por estado — filtros de origem, tipo e pesquisa aplicam-se aqui.</p>'
-              : selectedClientId
-                ? ''
-                : '<p class="text-muted orcamentos-kanban-lead">Abra a pasta do cliente para preparar propostas e enviar o lote num único e-mail.</p>'
+          clientPastaOpen
+            ? ''
+            : '<p class="text-muted orcamentos-kanban-lead">Abra a pasta do cliente: prepare → guarde → adicione outra → envie o lote.</p>'
         }
       </div>
       ${body}
@@ -918,7 +1018,7 @@ function renderPanel() {
           <div>
             <h2 class="ms-h2">Orçamentos / Propostas comerciais</h2>
             <p class="text-muted faturacao-lead orcamentos-lead">
-              Prepare propostas por cliente e envie o lote num único e-mail (como nas visitas). O e-mail da proposta é separado do relatório de intervenção.
+              Fluxo: abrir pasta do cliente → preparar / guardar propostas → enviar o lote num único e-mail. Separado do relatório de intervenção.
             </p>
           </div>
           <button type="button" class="btn-primary btn-touch orcamentos-new-btn" data-orc-new>
@@ -940,24 +1040,16 @@ function bindPanelEvents() {
     const filterBtn = e.target.closest('[data-orc-filter]');
     if (filterBtn) {
       activeFilter = filterBtn.dataset.orcFilter || 'todas';
-      softRefreshOrcamentosPanel().catch(console.error);
-      return;
-    }
-
-    const viewBtn = e.target.closest('[data-orc-view]');
-    if (viewBtn) {
-      const next = viewBtn.dataset.orcView;
-      viewMode = next === 'quadro' ? 'quadro' : next === 'lista' ? 'lista' : 'clientes';
-      if (viewMode === 'quadro') activeFilter = 'todas';
-      if (viewMode !== 'clientes') selectedClientId = null;
+      selectedClientId = null;
+      clientPastaOpen = false;
       softRefreshOrcamentosPanel().catch(console.error);
       return;
     }
 
     const openClientBtn = e.target.closest('[data-orc-open-client]');
     if (openClientBtn) {
-      selectedClientId = openClientBtn.dataset.orcOpenClient || null;
-      viewMode = 'clientes';
+      selectedClientId = String(openClientBtn.getAttribute('data-orc-open-client') ?? '');
+      clientPastaOpen = true;
       softRefreshOrcamentosPanel().catch(console.error);
       return;
     }
@@ -965,6 +1057,7 @@ function bindPanelEvents() {
     const backClientBtn = e.target.closest('[data-orc-client-back]');
     if (backClientBtn) {
       selectedClientId = null;
+      clientPastaOpen = false;
       softRefreshOrcamentosPanel().catch(console.error);
       return;
     }
@@ -981,7 +1074,7 @@ function bindPanelEvents() {
       }
       const emailInput = pasta?.querySelector('[data-orc-lote-email]');
       const to = String(emailInput?.value || '').trim();
-      const all = filterOrcamentoReports(listOrcamentoReports());
+      const all = listOrcamentoReports();
       const lote = filterOrcamentoLoteReports(all, clientId, { mode });
       const numeros = formatOrcamentoLoteNumeros(lote);
       const ok = window.confirm(
@@ -1069,9 +1162,17 @@ function bindPanelEvents() {
 
     const newBtn = e.target.closest('[data-orc-new]');
     if (newBtn) {
+      const presetClientId = newBtn.dataset.orcNewClient || selectedClientId || '';
+      const presetNome = newBtn.dataset.orcNewName || '';
       openNovaPropostaModal({
+        clientId: presetClientId,
+        clienteNome: presetNome,
         onCreated: (report) => {
           highlightReportId = report?.id || null;
+          if (report?.clientId) {
+            selectedClientId = String(report.clientId);
+            clientPastaOpen = true;
+          }
           refreshOrcamentosPanel().catch(console.error);
         },
       });
@@ -1168,7 +1269,7 @@ function applyHighlight() {
   }, 4000);
 }
 
-/** Atualiza KPIs + tabela/quadro + oficina sem destruir filtros (preserva foco e scroll). */
+/** Atualiza KPIs + pastas/pasta + oficina sem destruir filtros (preserva foco e scroll). */
 async function softRefreshOrcamentosPanel() {
   if (!mountRoot) return;
   if (!mountRoot.querySelector('.orcamentos-panel')) {
@@ -1229,5 +1330,5 @@ export async function initOrcamentosPanel(root) {
 }
 
 export function countOrcamentosPorPreparar() {
-  return listOrcamentoReports().filter(reportOrcamentoPorPreparar).length;
+  return listOrcamentoReports().filter(reportIsEmPreparacao).length;
 }
