@@ -746,11 +746,14 @@ function buildSubject(payload = {}) {
       ? payload.orcamentoNumeros.map((n) => String(n || '').trim()).filter(Boolean)
       : [];
     const count = Number(payload.propostaCount) || numeros.length || 0;
-    if (tipoRelatorio === 'orcamento_lote' || count > 1) {
-      return `ManuSilva - Propostas comerciais - ${company}`;
+    const numeroUnico = String(payload.orcamentoNumero || numeros[0] || '').trim();
+    if (count > 1 || numeros.length > 1) {
+      const lista = numeros.join(', ');
+      return lista
+        ? `ManuSilva - Propostas ${lista} - ${company}`
+        : `ManuSilva - Propostas comerciais - ${company}`;
     }
-    const numero = String(payload.orcamentoNumero || numeros[0] || '').trim();
-    const numSuffix = numero ? ` nº ${numero}` : '';
+    const numSuffix = numeroUnico ? ` nº ${numeroUnico}` : '';
     return `ManuSilva - Proposta Comercial${numSuffix} - ${company}`;
   }
 
@@ -869,11 +872,14 @@ function buildHtmlBody(payload = {}, options = {}) {
       ? payload.orcamentoNumeros.map((n) => String(n || '').trim()).filter(Boolean)
       : [];
     const count = Number(payload.propostaCount) || numeros.length || attachmentCount || 1;
-    const isLote = tipoRelatorio === 'orcamento_lote' || count > 1;
+    const isLote = count > 1 || numeros.length > 1;
     const numero = escapeHtml(String(payload.orcamentoNumero || numeros[0] || '').trim());
     const numerosLine = isLote && numeros.length
       ? `<p style="margin:0 0 10px 0;font-size:14px;line-height:1.6;color:#334155;">
           Propostas: <strong>${escapeHtml(numeros.join(', '))}</strong>.
+        </p>
+        <p style="margin:0 0 10px 0;font-size:13px;line-height:1.5;color:#64748b;">
+          Cada proposta tem o seu número — pode aceitar uma e recusar outra.
         </p>`
       : numero
         ? `<p style="margin:0 0 10px 0;font-size:14px;line-height:1.6;color:#334155;">

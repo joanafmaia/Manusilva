@@ -165,4 +165,24 @@ describe('orcamento-email-lote', () => {
       false,
     );
   });
+
+  it('lista o nº oficial de cada proposta no lote', () => {
+    const rows = [
+      reportFixture({
+        id: 'a',
+        orcamento: { numeroSequencial: 350, ano: 2026, numeroFormatado: '350.0/2026' },
+      }),
+      reportFixture({
+        id: 'b',
+        orcamento: {
+          enviadoEm: '2026-08-02T10:00:00.000Z',
+          atualizadoEm: '2026-08-01T10:00:00.000Z',
+          numeroSequencial: 351,
+          ano: 2026,
+          numeroFormatado: '351.0/2026',
+        },
+      }),
+    ];
+    assert.deepEqual(formatOrcamentoLoteNumeros(rows), ['350.0/2026', '351.0/2026']);
+  });
 });

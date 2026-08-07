@@ -5,7 +5,12 @@
 import { getClient, getJob, getTechnician, showToast } from './app.js';
 import { getClientName } from './client-display.js';
 import { resolveOrcamentoClienteNome, resolveOrcamentoPastaKey } from './orcamento-cabecalho.js';
-import { getReportOrcamentoMeta, resolveOrcamentoNumeroFormatado } from './orcamento-linhas.js';
+import {
+  formatOrcamentoNumeroLabel,
+  getReportOrcamentoMeta,
+  isPlaceholderOrcamentoNumero,
+  resolveOrcamentoNumeroFormatado,
+} from './orcamento-linhas.js';
 import { attachOrcamentoPdfToReport } from './orcamento-pdf-service.js';
 import {
   getReportOrcamentoPdfUrl,
@@ -22,6 +27,28 @@ import {
   isValidEmailList,
   normalizeEmailList,
 } from './validators.js';
+
+/**
+ * Nº oficial da proposta (sequencial reservado). Não usa OP como substituto.
+ * @param {object} report
+ * @returns {string}
+ */
+export function resolveReportPropostaNumero(report) {
+  const meta = getReportOrcamentoMeta(report) || {};
+  if (meta.numeroSequencial != null && meta.ano != null) {
+    return formatOrcamentoNumeroLabel(meta.numeroSequencial, meta.ano);
+  }
+  const fmt = String(meta.numeroFormatado || '').trim();
+  if (!isPlaceholderOrcamentoNumero(fmt)) return fmt;
+  const resolved = resolveOrcamentoNumeroFormatado(meta, {
+    year: meta.ano || new Date().getFullYear(),
+  });
+  return isPlaceholderOrcamentoNumero(resolved) ? '' : resolved;
+}
+
+export function formatOrcamentoLoteNumeros(reports = []) {
+  return reports.map((report) => resolveReportPropostaNumero(report) || '—');
+}
 
 /**
  * @param {object} report
@@ -124,19 +151,6 @@ export function filterOrcamentoLoteReports(reports = [], clientId, { mode = 'pen
   return list.filter(isOrcamentoLotePendente);
 }
 
-export function formatOrcamentoLoteNumeros(reports = []) {
-  return reports
-    .map((report) => {
-      const meta = getReportOrcamentoMeta(report) || {};
-      return (
-        resolveOrcamentoNumeroFormatado(meta, {
-          year: meta.ano || new Date().getFullYear(),
-        }) || meta.numeroFormatado || '—'
-      );
-    })
-    .filter(Boolean);
-}
-
 /**
  * Meta após envio/reenvio do lote — preserva a data do 1.º envio no reenvio.
  * @param {object} existing
@@ -158,7 +172,7 @@ export function applyOrcamentoLoteEnvioMeta(existing = {}, { mode = 'pendentes',
 }
 
 /**
- * Garante PDF em Storage para cada proposta do lote.
+ * Garante PDF + número oficial por proposta (cada uma tem o seu nº).
  * @param {object[]} reports
  * @returns {Promise<object[]>}
  */
@@ -166,14 +180,19 @@ export async function ensureOrcamentoLotePdfs(reports = []) {
   const out = [];
   for (const report of reports) {
     let current = report;
+    let numero = resolveReportPropostaNumero(current);
     let pdfUrl = getReportOrcamentoPdfUrl(current);
-    if (!pdfUrl) {
+    if (!pdfUrl || !numero) {
       current = (await attachOrcamentoPdfToReport(current, { force: true })) || current;
       pdfUrl = getReportOrcamentoPdfUrl(current);
+      numero = resolveReportPropostaNumero(current);
+    }
+    if (!numero) {
+      throw new Error(
+        'Cada proposta precisa de um número próprio antes do envio. Abra a proposta, guarde e tente de novo.',
+      );
     }
     if (!pdfUrl) {
-      const meta = getReportOrcamentoMeta(current) || {};
-      const numero = meta.numeroFormatado || current.id;
       throw new Error(`Não foi possível obter o PDF da proposta ${numero}.`);
     }
     out.push(current);
@@ -218,12 +237,15 @@ export async function sendOrcamentoLoteForReports(reports = [], options = {}) {
   }
 
   const withPdfs = await ensureOrcamentoLotePdfs(list);
+  const numeros = formatOrcamentoLoteNumeros(withPdfs);
+  if (numeros.some((n) => !n || n === '—' || isPlaceholderOrcamentoNumero(n))) {
+    throw new Error(
+      'Há propostas sem número oficial. Guarde cada proposta (gera o nº) antes de enviar ao cliente.',
+    );
+  }
+
   const pdfEntries = withPdfs.map((report) => {
-    const meta = getReportOrcamentoMeta(report) || {};
-    const numero =
-      resolveOrcamentoNumeroFormatado(meta, {
-        year: meta.ano || new Date().getFullYear(),
-      }) || meta.numeroFormatado || 'Proposta';
+    const numero = resolveReportPropostaNumero(report);
     const filename =
       String(report.data?.orcamentoPdfFilename || '').trim() ||
       `MS015_Orcamento_${String(numero).replace(/[^\w.-]+/g, '_')}.pdf`;
@@ -243,7 +265,6 @@ export async function sendOrcamentoLoteForReports(reports = [], options = {}) {
     );
   }
 
-  const numeros = formatOrcamentoLoteNumeros(withPdfs);
   const values = withPdfs[0]?.data?.values || {};
   const resolvedNome = resolveOrcamentoClienteNome(withPdfs[0]);
   const clienteNome =
