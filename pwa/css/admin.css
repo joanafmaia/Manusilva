@@ -864,11 +864,16 @@
   -webkit-overflow-scrolling: touch;
 }
 .rh-review-stack-wrap--scroll-y {
-  max-height: min(34rem, 62vh);
+  /* Em revisão ecrã-cheio a altura vem do flex do painel — não limitar a 62vh
+     (causava caixa pequena + saltos de scroll em «Todos»). */
+  max-height: none;
   border: 1px solid var(--ms-border, rgba(148, 163, 184, 0.35));
   border-radius: 0.55rem;
   padding: 0.35rem 0.45rem 0.55rem;
   background: var(--bg-card, #fff);
+}
+.admin-split-layout--calendar .rh-review-stack-wrap--scroll-y {
+  max-height: min(34rem, 62vh);
 }
 .rh-review-stack-wrap--scroll-y .rh-review-day-group__header {
   position: sticky;

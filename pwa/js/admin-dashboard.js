@@ -178,10 +178,16 @@ function getRhReviewScrollEl(panel = document.getElementById('rh-review-panel'))
 
 /** Último scroll conhecido — sobrevive a re-renders e a painel momentaneamente oculto. */
 let rhReviewSavedScrollTop = 0;
+/** Evita que o listener grave 0 quando innerHTML reinicia o scroll do wrap. */
+let rhReviewScrollWriteLock = 0;
+let rhReviewStackRenderTimer = null;
+let rhReviewStackRenderPendingOpts = null;
 
 function captureRhReviewScroll(panel) {
   const el = getRhReviewScrollEl(panel);
   if (!el) return rhReviewSavedScrollTop;
+  // Durante rewrite do DOM o browser reporta 0 — não apagar a posição.
+  if (rhReviewScrollWriteLock > 0) return rhReviewSavedScrollTop;
   // Painel oculto / sem layout: browsers reportam scrollTop 0 — não apagar a posição.
   if (el.clientHeight > 0) {
     rhReviewSavedScrollTop = el.scrollTop;
@@ -194,13 +200,27 @@ function restoreRhReviewScroll(panel, top = rhReviewSavedScrollTop) {
   if (!el) return;
   const y = Math.max(0, Number(top) || 0);
   rhReviewSavedScrollTop = y;
+  rhReviewScrollWriteLock += 1;
   el.scrollTop = y;
   requestAnimationFrame(() => {
     el.scrollTop = y;
     requestAnimationFrame(() => {
       el.scrollTop = y;
+      rhReviewScrollWriteLock = Math.max(0, rhReviewScrollWriteLock - 1);
     });
   });
+}
+
+function withRhReviewScrollLock(fn) {
+  rhReviewScrollWriteLock += 1;
+  try {
+    return fn();
+  } finally {
+    // Libertar no próximo frame — o evento 'scroll' do reset do innerHTML é síncrono/microtask.
+    requestAnimationFrame(() => {
+      rhReviewScrollWriteLock = Math.max(0, rhReviewScrollWriteLock - 1);
+    });
+  }
 }
 
 function bindRhReviewScrollPersist(panel = document.getElementById('rh-review-panel')) {
@@ -210,6 +230,7 @@ function bindRhReviewScrollPersist(panel = document.getElementById('rh-review-pa
   el.addEventListener(
     'scroll',
     () => {
+      if (rhReviewScrollWriteLock > 0) return;
       rhReviewSavedScrollTop = el.scrollTop;
     },
     { passive: true },
@@ -217,7 +238,22 @@ function bindRhReviewScrollPersist(panel = document.getElementById('rh-review-pa
 }
 
 function queueRhReviewStackRender(options = {}) {
-  void renderRhReviewStack(options).catch(console.error);
+  const next = { ...(rhReviewStackRenderPendingOpts || {}), ...options };
+  // preserveScroll: false ganha (mudança de filtro); caso contrário mantém true.
+  if (rhReviewStackRenderPendingOpts?.preserveScroll === false || options.preserveScroll === false) {
+    next.preserveScroll = false;
+  }
+  if (rhReviewStackRenderPendingOpts?.syncCatalog || options.syncCatalog) {
+    next.syncCatalog = true;
+  }
+  rhReviewStackRenderPendingOpts = next;
+  if (rhReviewStackRenderTimer != null) return;
+  rhReviewStackRenderTimer = setTimeout(() => {
+    rhReviewStackRenderTimer = null;
+    const opts = rhReviewStackRenderPendingOpts || {};
+    rhReviewStackRenderPendingOpts = null;
+    void renderRhReviewStack(opts).catch(console.error);
+  }, 120);
 }
 
 /** Secções fora do ecrã — refresh adiado até o utilizador abrir a aba. */
@@ -442,10 +478,13 @@ function handleAdminDbUpdated() {
 
 /** Painel de relatórios em ecrã inteiro — altura definida por CSS, não pelo calendário. */
 function syncReviewPanelHeight() {
-  const panel = document.querySelector('.admin-review-panel');
-  if (!panel) return;
-  panel.style.removeProperty('height');
-  panel.style.removeProperty('max-height');
+  const reviewPanel = document.querySelector('.admin-review-panel');
+  if (!reviewPanel) return;
+  const rhPanel = document.getElementById('rh-review-panel');
+  const prevScroll = captureRhReviewScroll(rhPanel);
+  reviewPanel.style.removeProperty('height');
+  reviewPanel.style.removeProperty('max-height');
+  restoreRhReviewScroll(rhPanel, prevScroll);
 }
 
 function bindReviewPanelHeightSync() {
@@ -715,11 +754,11 @@ export async function initAdminDashboard() {
       try {
         if (isOpsTabActive()) {
           renderCalendar();
-          renderRhReviewStack()
-            .then(() => {
-              if (becamePending && report?.id) flashPendingReportInPanel(report.id);
-            })
-            .catch(console.error);
+          queueRhReviewStackRender();
+          if (becamePending && report?.id) {
+            // Flash depois do debounce do soft-render.
+            setTimeout(() => flashPendingReportInPanel(report.id), 180);
+          }
         } else {
           adminTabDirty.ops = true;
         }
@@ -1324,6 +1363,7 @@ async function renderRhReviewStack(options = {}) {
 
   const token = ++rhReviewStackRenderToken;
   const prevScroll = preserveScroll ? captureRhReviewScroll(panel) : 0;
+  if (!preserveScroll) rhReviewSavedScrollTop = 0;
 
   if (syncCatalog) {
     try {
@@ -1375,20 +1415,56 @@ async function renderRhReviewStack(options = {}) {
     stackHtml = `<div class="rh-review-stack" role="list">${cards}</div>`;
   }
 
+  if (token !== rhReviewStackRenderToken) return;
+
+  const scrollTarget = preserveScroll ? Math.max(prevScroll, rhReviewSavedScrollTop) : 0;
+  const existingInner = panel.querySelector('.rh-review-panel-inner');
+  const existingWrap = getRhReviewScrollEl(panel);
+  // Soft update: manter o mesmo nó de scroll (evita saltar para o topo em «Todos»).
+  if (existingInner && existingWrap) {
+    const filterHost = existingInner.querySelector('.rh-review-filters-wrap');
+    const filterWrap = document.createElement('div');
+    filterWrap.innerHTML = filterBar.trim();
+    const nextFilter = filterWrap.firstElementChild;
+    if (filterHost && nextFilter) {
+      withRhReviewScrollLock(() => filterHost.replaceWith(nextFilter));
+    } else if (nextFilter && !filterHost) {
+      withRhReviewScrollLock(() => existingInner.insertBefore(nextFilter, existingWrap));
+    }
+    // Classe de estilo sempre (sticky headers); o flex do painel define a altura de scroll.
+    existingWrap.classList.add('rh-review-stack-wrap--scroll-y');
+    withRhReviewScrollLock(() => {
+      existingWrap.innerHTML = stackHtml;
+    });
+    bindRhReviewScrollPersist(panel);
+    restoreRhReviewScroll(panel, scrollTarget);
+    requestAnimationFrame(() => {
+      restoreRhReviewScroll(panel, scrollTarget);
+      syncReviewPanelHeight();
+      restoreRhReviewScroll(panel, scrollTarget);
+    });
+    updateRhBatchToolbar(panel);
+    if (servicoIdsForEnrich.length) {
+      void enrichRhReviewAvaliacoes(token, reports, servicoIdsForEnrich);
+    }
+    return;
+  }
+
   const html = `
     <div class="rh-review-panel-inner">
       ${filterBar}
-      <div class="rh-review-stack-wrap${reports.length > 8 ? ' rh-review-stack-wrap--scroll-y' : ''}">${stackHtml}</div>
+      <div class="rh-review-stack-wrap rh-review-stack-wrap--scroll-y">${stackHtml}</div>
     </div>`;
 
-  if (token !== rhReviewStackRenderToken) return;
-  panel.innerHTML = html;
+  withRhReviewScrollLock(() => {
+    panel.innerHTML = html;
+  });
   bindRhReviewScrollPersist(panel);
-  restoreRhReviewScroll(panel, preserveScroll ? prevScroll : 0);
+  restoreRhReviewScroll(panel, scrollTarget);
   requestAnimationFrame(() => {
-    if (preserveScroll) restoreRhReviewScroll(panel, prevScroll);
+    restoreRhReviewScroll(panel, scrollTarget);
     syncReviewPanelHeight();
-    if (preserveScroll) restoreRhReviewScroll(panel, prevScroll);
+    restoreRhReviewScroll(panel, scrollTarget);
   });
   updateRhBatchToolbar(panel);
 
@@ -1426,7 +1502,10 @@ async function enrichRhReviewAvaliacoes(token, reports, servicoIds) {
     const stackWrap = panel?.querySelector('.rh-review-stack-wrap');
     if (!stackWrap) return;
 
-    const prevScroll = Math.max(stackWrap.scrollTop, rhReviewSavedScrollTop);
+    const prevScroll = Math.max(
+      rhReviewScrollWriteLock > 0 ? 0 : stackWrap.scrollTop,
+      rhReviewSavedScrollTop,
+    );
     rhReviewSavedScrollTop = prevScroll;
     const dayCollapseState = loadRhDayCollapseState();
     const cards = buildRhReviewGroupedStack(reports, {
@@ -1434,9 +1513,15 @@ async function enrichRhReviewAvaliacoes(token, reports, servicoIds) {
       avaliacoesMap: rhReviewAvaliacoesCache,
       dayCollapseState,
     });
-    stackWrap.innerHTML = `<div class="rh-review-stack" role="list">${cards}</div>`;
+    const nextHtml = `<div class="rh-review-stack" role="list">${cards}</div>`;
+    // Evita rewrite inútil (e salto) quando o HTML não mudou de forma relevante.
+    if (stackWrap.innerHTML === nextHtml) return;
+    withRhReviewScrollLock(() => {
+      stackWrap.innerHTML = nextHtml;
+    });
     bindRhReviewScrollPersist(panel);
     restoreRhReviewScroll(panel, prevScroll);
+    requestAnimationFrame(() => restoreRhReviewScroll(panel, prevScroll));
     updateRhBatchToolbar(panel);
   } catch (err) {
     console.warn('[Admin] Avaliações no painel RH:', err);
