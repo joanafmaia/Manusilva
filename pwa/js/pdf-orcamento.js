@@ -12,6 +12,7 @@ import { buildOrcamentoFillData } from './orcamento-fill-data.js';
 import { formatClienteAcForPdf, resolveOrcamentoTextoIntroForPdf } from './orcamento-cabecalho.js';
 import {
   collectMaquinaPdfFieldRows,
+  resolveOrcamentoEquipPdfDisplayLines,
   filterOrcamentoPdfGroupLinhas,
   formatOrcamentoMaquinaPdfTableLabel,
   formatOrcamentoMaquinaLabel,
@@ -136,7 +137,6 @@ const CONTENT_MAX_Y = FOOTER_TOP - 6;
 const ORC_TABLE_ROW_H = 6.5;
 const ORC_TABLE_GAP_ABOVE_FOOTER = 3;
 const ORC_TABLE_COL_X = [MARGIN, MARGIN + 98, MARGIN + 112, MARGIN + 148, MARGIN + CONTENT_W];
-const ORC_EQUIP_FIELD_GAP = 5;
 
 /** Perfis de densidade — orçamento genérico numa folha sem páginas extra. */
 const ORC_GENERIC_DENSITY = {
@@ -308,7 +308,7 @@ export function estimateOrcamentoMachineGroupBlockHeight(
 ) {
   const density = getOrcamentoGenericDensityProfile(densityId);
   const rows = filterOrcamentoPdfGroupLinhas(linhas);
-  const equipLines = Math.max(1, Math.ceil(equipFieldCount / 3));
+  const equipLines = Math.max(1, Number(equipFieldCount) || 0);
   return equipLines * density.equipLineStep + density.equipTail + density.tableRowH * (1 + rows.length);
 }
 
@@ -541,16 +541,22 @@ function drawOrcamentoLetterhead(doc, fill) {
   doc.line(MARGIN, headerBottom, MARGIN + CONTENT_W, headerBottom);
 
   let y = headerBottom + 9;
+  const orcTitle = `Orçamento nº ${pdfSafeText(fill.orcamento_numero)}`;
   pdfSetFont(doc, 'bold');
   doc.setFontSize(PDF_FONT_SECTION);
   doc.setTextColor(...PDF_COLOR_TEXT_DARK);
-  doc.text(`Orçamento nº ${pdfSafeText(fill.orcamento_numero)}`, MARGIN, y);
+  doc.text(orcTitle, MARGIN, y);
+  const titleW = doc.getTextWidth(orcTitle);
+  doc.setDrawColor(...PDF_COLOR_TEXT_DARK);
+  doc.setLineWidth(0.4);
+  doc.line(MARGIN, y + 1.1, MARGIN + titleW, y + 1.1);
+  y += 6;
   pdfSetFont(doc, 'normal');
   doc.setFontSize(PDF_FONT_BODY);
   doc.setTextColor(...PDF_COLOR_TEXT_MUTED);
-  doc.text(pdfSafeText(fill.data_extenso), MARGIN + CONTENT_W, y, { align: 'right' });
+  doc.text(pdfSafeText(fill.data_extenso), MARGIN, y);
   doc.setTextColor(...PDF_COLOR_TEXT_DARK);
-  return y + 9;
+  return y + 8;
 }
 
 /** Referência do documento — canto inferior esquerdo de cada página. */
@@ -919,35 +925,26 @@ function createOrcamentoTableRowDrawer(
   return { drawRow };
 }
 
-function buildHorizontalEquipLines(doc, equipRows, maxWidth = CONTENT_W, fieldGap = ORC_EQUIP_FIELD_GAP) {
-  const lines = [];
-  let currentLine = [];
-  let currentWidth = 0;
-
-  equipRows.forEach(([label, value]) => {
-    const safeLabel = pdfSafeText(String(label || '').trim() || '—');
-    const safeValue = pdfSafeText(String(value || '').trim() || '—');
-    pdfSetFont(doc, 'bold');
-    doc.setFontSize(PDF_FONT_BODY);
-    const prefix = `${safeLabel}: `;
-    const prefixW = doc.getTextWidth(prefix);
-    pdfSetFont(doc, 'normal');
-    const valueW = doc.getTextWidth(safeValue);
-    const segmentW = prefixW + valueW;
-    const gap = currentLine.length ? fieldGap : 0;
-
-    if (currentLine.length && currentWidth + gap + segmentW > maxWidth) {
-      lines.push(currentLine);
-      currentLine = [];
-      currentWidth = 0;
+/** Conta linhas de texto (com wrap) da lista vertical de equipamento. */
+function countVerticalEquipFieldLines(doc, equipRows, maxWidth = CONTENT_W) {
+  const display = resolveOrcamentoEquipPdfDisplayLines(equipRows);
+  if (!display.length) return 0;
+  let count = 0;
+  doc.setFontSize(PDF_FONT_BODY);
+  display.forEach((line) => {
+    if (line.kind === 'value') {
+      pdfSetFont(doc, 'bold');
+      count += Math.max(1, pdfSplitText(doc, pdfSafeText(line.value), maxWidth).length);
+      return;
     }
-    if (currentLine.length) currentWidth += fieldGap;
-    currentLine.push({ label: safeLabel, value: safeValue, prefixW, valueW });
-    currentWidth += segmentW;
+    pdfSetFont(doc, 'bold');
+    const prefix = `${pdfSafeText(line.label)} – `;
+    const prefixW = doc.getTextWidth(prefix);
+    const valueWidth = Math.max(12, maxWidth - prefixW);
+    pdfSetFont(doc, 'normal');
+    count += Math.max(1, pdfSplitText(doc, pdfSafeText(line.value), valueWidth).length);
   });
-
-  if (currentLine.length) lines.push(currentLine);
-  return lines;
+  return count;
 }
 
 function measureHorizontalEquipFieldsHeight(
@@ -959,7 +956,7 @@ function measureHorizontalEquipFieldsHeight(
 ) {
   if (!equipRows.length) return startY;
   let y = startY;
-  const lineCount = buildHorizontalEquipLines(doc, equipRows).length;
+  const lineCount = countVerticalEquipFieldLines(doc, equipRows);
   for (let i = 0; i < lineCount; i += 1) {
     if (y + density.equipLineStep > maxEndY) break;
     y += density.equipLineStep;
@@ -967,6 +964,7 @@ function measureHorizontalEquipFieldsHeight(
   return y + density.equipTail;
 }
 
+/** Lista vertical estilo carta comercial (Label – Valor), uma spec por linha. */
 function drawHorizontalEquipFields(
   doc,
   equipRows,
@@ -978,7 +976,6 @@ function drawHorizontalEquipFields(
   if (!equipRows.length) return startY;
   const xStart = Number.isFinite(options.x) ? options.x : MARGIN;
   const maxWidth = Number.isFinite(options.maxWidth) ? options.maxWidth : CONTENT_W;
-  const fieldGap = Number.isFinite(options.fieldGap) ? options.fieldGap : ORC_EQUIP_FIELD_GAP;
   const fontSize = options.fontSize ?? PDF_FONT_BODY;
   const lineStep = options.lineStep ?? density.equipLineStep;
   const tail = options.tail ?? density.equipTail;
@@ -986,20 +983,39 @@ function drawHorizontalEquipFields(
   doc.setFontSize(fontSize);
   doc.setTextColor(...PDF_COLOR_TEXT_DARK);
 
-  buildHorizontalEquipLines(doc, equipRows, maxWidth, fieldGap).forEach((segments) => {
+  resolveOrcamentoEquipPdfDisplayLines(equipRows).forEach((line) => {
     if (y + lineStep > maxEndY) return;
-    let x = xStart;
-    segments.forEach((segment, index) => {
-      if (index > 0) x += fieldGap;
+
+    if (line.kind === 'value') {
       pdfSetFont(doc, 'bold');
-      const prefix = `${segment.label}: `;
-      doc.text(prefix, x, y);
-      x += segment.prefixW;
-      pdfSetFont(doc, 'normal');
-      doc.text(segment.value, x, y);
-      x += segment.valueW;
+      const wrapped = pdfSplitText(doc, pdfSafeText(line.value), maxWidth);
+      wrapped.forEach((textLine) => {
+        if (y + lineStep > maxEndY) return;
+        doc.text(textLine, xStart, y);
+        y += lineStep;
+      });
+      return;
+    }
+
+    pdfSetFont(doc, 'bold');
+    const prefix = `${pdfSafeText(line.label)} – `;
+    const prefixW = doc.getTextWidth(prefix);
+    const valueWidth = Math.max(12, maxWidth - prefixW);
+    pdfSetFont(doc, 'normal');
+    const valueLines = pdfSplitText(doc, pdfSafeText(line.value), valueWidth);
+    valueLines.forEach((textLine, index) => {
+      if (y + lineStep > maxEndY) return;
+      if (index === 0) {
+        pdfSetFont(doc, 'bold');
+        doc.text(prefix, xStart, y);
+        pdfSetFont(doc, 'normal');
+        doc.text(textLine, xStart + prefixW, y);
+      } else {
+        pdfSetFont(doc, 'normal');
+        doc.text(textLine, xStart + prefixW, y);
+      }
+      y += lineStep;
     });
-    y += lineStep;
   });
 
   return y + tail;

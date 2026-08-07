@@ -9,6 +9,7 @@ import {
   hasOrcamentoMaquinaData,
   normalizeOrcamentoMaquina,
   renderOrcamentoLinhasTableBody,
+  resolveOrcamentoEquipPdfDisplayLines,
   shouldGroupOrcamentoLinhasByEquipamento,
 } from '../js/orcamento-maquinas.js';
 import { suggestOrcamentoMaquinas } from '../js/orcamento-cabecalho.js';
@@ -66,12 +67,29 @@ describe('orcamento-maquinas', () => {
     ], campos), /1\. Marca: Toyota — Modelo: A/);
   });
 
-  it('formata campos em linha horizontal para o PDF', () => {
+  it('formata campos em lista vertical para o PDF', () => {
     const text = formatMaquinaPdfHorizontalText([
       ['Marca', 'Toyota'],
       ['Modelo', '8FB'],
+      ['campo_9', 'Máquina Recondicionada'],
     ]);
-    assert.match(text, /Marca: Toyota\s+Modelo: 8FB/);
+    assert.match(text, /Marca – Toyota/);
+    assert.match(text, /Modelo – 8FB/);
+    assert.match(text, /Máquina Recondicionada/);
+    assert.doesNotMatch(text, /campo_9/);
+  });
+
+  it('resolve linhas de display sem rótulos auto campo_N', () => {
+    const lines = resolveOrcamentoEquipPdfDisplayLines([
+      ['Máquina', 'Empilhador'],
+      ['campo_7', '4ª Válvula'],
+      ['', 'Com Pinça'],
+    ]);
+    assert.deepEqual(lines, [
+      { kind: 'pair', label: 'Máquina', value: 'Empilhador' },
+      { kind: 'value', value: '4ª Válvula' },
+      { kind: 'value', value: 'Com Pinça' },
+    ]);
   });
 
   it('mantém campos e rótulos por máquina', () => {

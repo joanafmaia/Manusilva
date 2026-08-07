@@ -136,9 +136,36 @@ export function formatOrcamentoMaquinaCompactLine(row, index = 0, campos = null)
   return pairs.join(' — ') || formatOrcamentoMaquinaLabel(row, index, campos);
 }
 
+/** Chave/rótulo gerado automaticamente (ex.: campo_7) — no PDF mostra só o valor. */
+export function isOrcamentoEquipAutoCampoLabel(label) {
+  return /^campo_\d+$/i.test(String(label || '').trim());
+}
+
+/**
+ * Linhas de especificação para PDF estilo carta comercial.
+ * @returns {{ kind: 'pair'|'value', label?: string, value: string }[]}
+ */
+export function resolveOrcamentoEquipPdfDisplayLines(rows = []) {
+  const out = [];
+  rows.forEach((row) => {
+    const label = String(row?.[0] ?? '').trim();
+    const value = String(row?.[1] ?? '').trim();
+    if (!value) return;
+    if (!label || isOrcamentoEquipAutoCampoLabel(label) || label.toLowerCase() === value.toLowerCase()) {
+      out.push({ kind: 'value', value });
+      return;
+    }
+    out.push({ kind: 'pair', label, value });
+  });
+  return out;
+}
+
+/** Texto horizontal legado (testes / docx auxiliar). */
 export function formatMaquinaPdfHorizontalText(rows = []) {
-  return rows
-    .map(([label, value]) => `${label}: ${String(value || '').trim() || '—'}`)
+  return resolveOrcamentoEquipPdfDisplayLines(rows)
+    .map((line) =>
+      line.kind === 'value' ? line.value : `${line.label} – ${line.value}`,
+    )
     .join('    ');
 }
 

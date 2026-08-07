@@ -96,9 +96,9 @@ describe('pdf-orcamento layout', () => {
     const normalH = estimateOrcamentoMachineGroupBlockHeight(linhas, 4, 'normal');
     const compactH = estimateOrcamentoMachineGroupBlockHeight(linhas, 4, 'compact');
     assert.ok(compactH < normalH, 'perfil compacto ocupa menos altura nos espaços');
-    assert.equal(normalH - compactH, 3, 'só os espaços do equipamento ficam mais compactos');
-    assert.equal(normalH, 13 + 6.5 * 6);
-    assert.equal(compactH, 10 + 6.5 * 6);
+    assert.equal(normalH - compactH, 5, 'lista vertical: 4 linhas + cauda mais compactas');
+    assert.equal(normalH, 23 + 6.5 * 6);
+    assert.equal(compactH, 18 + 6.5 * 6);
   });
 
   it('reserva espaço para a lista completa de trabalhos com 7 máquinas', () => {
