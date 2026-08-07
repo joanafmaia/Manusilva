@@ -93,7 +93,7 @@ const PAGE_BOTTOM = 287;
 const MS015_DOC_REF = 'MS.015.0';
 const MS015_DOC_REF_Y = 293.5;
 /** Espaço reservado no fundo da folha 1 para a caixa de aprovação do cliente. */
-const APPROVAL_BOX_H = 38;
+const APPROVAL_BOX_H = 42;
 const APPROVAL_TOP = PAGE_BOTTOM - APPROVAL_BOX_H - 5;
 /** Zona fixa para taxa, prazo e totais — o total nunca fica cortado. */
 const FOOTER_BLOCK_H = 40;
@@ -110,7 +110,7 @@ const MAQUINA_BULLET_COMPACT_FONT = 7.5;
 const MAQUINA_FOOTER_GAP_ABOVE = 5;
 /** Espaço após o mapa de preços / grelha até Deslocação, taxas ou totais (todas as propostas). */
 const ORC_AFTER_PRICE_TABLE_GAP = 2.6;
-const ORC_AFTER_PRICE_TOTALS_GAP = 1.8;
+const ORC_AFTER_PRICE_TOTALS_GAP = 2.2;
 /** @deprecated alias — usar ORC_AFTER_PRICE_TABLE_GAP */
 const MAQUINA_DESLOCACAO_GAP = ORC_AFTER_PRICE_TABLE_GAP;
 const MAQUINA_TOTALS_GAP = ORC_AFTER_PRICE_TOTALS_GAP;
@@ -135,7 +135,8 @@ const BATERIA_FOOTER_BLOCK_STEP_MAX = 4.8;
 const BATERIA_FOOTER_BLOCK_STEP_MIN = 3.5;
 const BATERIA_FOOTER_VALOR_GAP = 1;
 const BATERIA_FOOTER_BLOCK_GAP = 1.5;
-const PROPOSTA_FOOTER_MAX_Y = APPROVAL_TOP - 6;
+/** Folga entre totais/pagamento e o topo da caixa de aprovação. */
+const PROPOSTA_FOOTER_MAX_Y = APPROVAL_TOP - 9;
 const CONTENT_MAX_Y = FOOTER_TOP - 6;
 
 const ORC_TABLE_ROW_H = 6.5;
@@ -677,14 +678,13 @@ function drawOrcamentoTable(
   return y + 4;
 }
 
-/** Caixa no fundo da folha 1 — aprovação do cliente (esq.) e encerramento Manusilva (inf. dir.).
- * Compacta de propósito: liberta espaço ao mapa de preços / totais em todas as propostas.
- */
+/** Caixa no fundo da folha 1 — aprovação do cliente (esq.) e encerramento Manusilva (inf. dir.). */
 function drawClientApprovalBox(doc) {
   const boxY = APPROVAL_TOP;
   const boxX = MARGIN;
   const boxW = CONTENT_W;
   const pad = 3.5;
+  const bottomPad = 8;
   const rightX = boxX + boxW - pad;
   const leftColW = boxW * 0.58;
 
@@ -693,7 +693,7 @@ function drawClientApprovalBox(doc) {
   doc.setFillColor(255, 255, 255);
   doc.rect(boxX, boxY, boxW, APPROVAL_BOX_H, 'FD');
 
-  let ty = boxY + 5;
+  let ty = boxY + 5.5;
   pdfSetFont(doc, 'bold');
   doc.setFontSize(9);
   doc.setTextColor(...PDF_COLOR_TEXT_DARK);
@@ -713,16 +713,16 @@ function drawClientApprovalBox(doc) {
 
   doc.setFontSize(7.5);
   doc.setTextColor(...PDF_COLOR_TEXT_MUTED);
-  doc.text('Assinatura e carimbo do cliente', boxX + pad, boxY + APPROVAL_BOX_H - 5);
+  doc.text('Assinatura e carimbo do cliente', boxX + pad, boxY + APPROVAL_BOX_H - bottomPad);
 
-  const closingY = boxY + APPROVAL_BOX_H - 15;
+  const closingY = boxY + APPROVAL_BOX_H - bottomPad - 11;
   pdfSetFont(doc, 'normal');
   doc.setFontSize(PDF_FONT_BODY);
   doc.setTextColor(...PDF_COLOR_TEXT_DARK);
   doc.text('De V. Exas.', rightX, closingY, { align: 'right' });
-  doc.text('Atentamente', rightX, closingY + 4.2, { align: 'right' });
+  doc.text('Atentamente', rightX, closingY + 4.5, { align: 'right' });
   pdfSetFont(doc, 'bold');
-  doc.text('MANUSILVA,LDA', rightX, closingY + 8.4, { align: 'right' });
+  doc.text('MANUSILVA,LDA', rightX, closingY + 9, { align: 'right' });
 
   return boxY + APPROVAL_BOX_H;
 }

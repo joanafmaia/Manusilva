@@ -275,7 +275,7 @@ describe('pdf-orcamento layout', () => {
     const availableHeight = 80;
     const typography = resolveManutencaoMaquinaFooterTypography(availableHeight, table);
     // Espaço extra entre a tabela de máquinas e Deslocação / totais.
-    const deslocacaoExtra = 2.6 + 1.8;
+    const deslocacaoExtra = 2.6 + 2.2;
     const contentHeight =
       typography.separatorGap + typography.lineCount * typography.lineStep + deslocacaoExtra;
     assert.ok(Math.abs(contentHeight - availableHeight) < 0.2);
