@@ -71,6 +71,30 @@ export function resolveOrcamentoLoteEmailSuggestion(reports = [], client = null)
 }
 
 /**
+ * E-mails distintos guardados nas propostas do lote (normalizados em minúsculas).
+ * @param {object[]} reports
+ * @returns {string[]}
+ */
+export function collectOrcamentoLoteEmailDestinatarios(reports = []) {
+  const seen = new Set();
+  const ordered = [];
+  for (const report of Array.isArray(reports) ? reports : []) {
+    const email = String(getReportOrcamentoMeta(report)?.emailDestinatario || '')
+      .trim()
+      .toLowerCase();
+    if (!email || seen.has(email)) continue;
+    seen.add(email);
+    ordered.push(email);
+  }
+  return ordered;
+}
+
+/** True se há mais do que um emailDestinatario diferente nas propostas do lote. */
+export function orcamentoLoteHasConflictingEmails(reports = []) {
+  return collectOrcamentoLoteEmailDestinatarios(reports).length > 1;
+}
+
+/**
  * @param {object[]} reports
  * @param {string} clientId
  * @param {{ mode?: 'pendentes' | 'reenvio', pastaKey?: string, clienteNome?: string }} [options]

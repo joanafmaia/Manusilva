@@ -1,7 +1,10 @@
 /**
  * Data da intervenção para e-mails e textos externos (DD/MM/AAAA).
  * Alinhado com o PDF — não usar data de envio, submissão ou aprovação.
+ * Timestamps ISO usam calendário de Portugal (Europe/Lisbon).
  */
+
+import { toPortugalIsoDate } from './date-utils.js';
 
 function pickFirstFormatted(candidates) {
   for (const raw of candidates) {
@@ -15,6 +18,14 @@ function pickFirstFormatted(candidates) {
 export function formatInterventionDatePt(raw) {
   const pure = String(raw ?? '').trim();
   if (!pure || pure === '—') return '';
+
+  if (pure.includes('T') || /Z|[+-]\d{2}:?\d{2}$/.test(pure)) {
+    const lisbon = toPortugalIsoDate(pure);
+    if (lisbon) {
+      const [y, m, d] = lisbon.split('-');
+      return `${d}/${m}/${y}`;
+    }
+  }
 
   const iso = pure.includes('T') ? pure.split('T')[0] : pure;
   if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) {

@@ -5254,6 +5254,10 @@ body .admin-rh-page .btn-primary, body .admin-rh-page .btn-secondary, body .admi
   max-width: 28rem;
   margin-bottom: 1rem;
 }
+.orcamentos-lote-email-warn {
+  color: #9a3412;
+  font-weight: 500;
+}
 .orcamentos-pasta-section {
   margin-bottom: 1.35rem;
   padding-top: 0.85rem;

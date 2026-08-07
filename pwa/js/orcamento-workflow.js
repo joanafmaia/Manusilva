@@ -8,6 +8,7 @@ import {
   clearOrcamentoBillingOnClienteRecusa,
 } from './orcamento-billing-workflow.js';
 import { reportOrcamentoGuardado, reportOrcamentoPorPreparar } from './pedido-orcamento.js';
+import { toPortugalIsoDate } from './date-utils.js';
 import { formatInterventionDatePt } from './report-intervention-date.js';
 
 export const ORCAMENTO_RESPOSTA = {
@@ -18,7 +19,7 @@ export const ORCAMENTO_RESPOSTA = {
 const WORKFLOW_LABELS = {
   por_preparar: 'Por preparar',
   guardada: 'Guardada',
-  enviada: 'Enviada',
+  enviada: 'Aguarda resposta',
   aceite: 'Aceite',
   recusada: 'Recusada',
 };
@@ -31,22 +32,19 @@ const WORKFLOW_CLASSES = {
   recusada: 'orcamentos-status--recusada',
 };
 
-/** Data local AAAA-MM-DD para inputs type=date. */
+/** Data AAAA-MM-DD em horário de Portugal (Europe/Lisbon) para inputs type=date. */
 export function todayLocalDateInputValue(date = new Date()) {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
+  return toPortugalIsoDate(date instanceof Date ? date : new Date(date));
 }
 
-/** Converte ISO / AAAA-MM-DD / DD/MM/AAAA → AAAA-MM-DD para o input (calendário local). */
+/** Converte ISO / AAAA-MM-DD / DD/MM/AAAA → AAAA-MM-DD (calendário Portugal). */
 export function toLocalDateInputValue(raw) {
   const pure = String(raw ?? '').trim();
   if (!pure) return '';
   if (/^\d{4}-\d{2}-\d{2}$/.test(pure)) return pure;
-  if (/^\d{4}-\d{2}-\d{2}T/.test(pure)) {
-    const parsed = Date.parse(pure);
-    if (!Number.isNaN(parsed)) return todayLocalDateInputValue(new Date(parsed));
+  if (/^\d{4}-\d{2}-\d{2}T/.test(pure) || /Z|[+-]\d{2}:?\d{2}$/.test(pure)) {
+    const lisbon = toPortugalIsoDate(pure);
+    if (lisbon) return lisbon;
   }
   const parts = pure.split(/[/-]/);
   if (parts.length === 3 && parts[0].length !== 4) {
@@ -55,8 +53,8 @@ export function toLocalDateInputValue(raw) {
       return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
     }
   }
-  const parsed = Date.parse(pure);
-  if (!Number.isNaN(parsed)) return todayLocalDateInputValue(new Date(parsed));
+  const lisbon = toPortugalIsoDate(pure);
+  if (lisbon) return lisbon;
   return '';
 }
 

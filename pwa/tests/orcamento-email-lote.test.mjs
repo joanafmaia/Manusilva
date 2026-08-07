@@ -2,10 +2,12 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
   applyOrcamentoLoteEnvioMeta,
+  collectOrcamentoLoteEmailDestinatarios,
   filterOrcamentoLoteReports,
   formatOrcamentoLoteNumeros,
   isOrcamentoLoteEnviado,
   isOrcamentoLotePendente,
+  orcamentoLoteHasConflictingEmails,
   resolveOrcamentoLoteEmailSuggestion,
 } from '../js/orcamento-email-lote.js';
 import { STANDALONE_ORCAMENTO_SERVICE_TYPE } from '../js/orcamento-standalone.js';
@@ -116,5 +118,51 @@ describe('orcamento-email-lote', () => {
     );
     assert.equal(firstSend.enviadoEm, again);
     assert.equal(firstSend.reenviadoEm, undefined);
+  });
+
+  it('deteta e-mails diferentes no mesmo lote', () => {
+    const rows = [
+      reportFixture({
+        id: 'a',
+        orcamento: {
+          atualizadoEm: '2026-08-01T10:00:00.000Z',
+          numeroFormatado: '1.0/2026',
+          emailDestinatario: 'compras@a.pt',
+        },
+      }),
+      reportFixture({
+        id: 'b',
+        orcamento: {
+          atualizadoEm: '2026-08-01T10:00:00.000Z',
+          numeroFormatado: '2.0/2026',
+          emailDestinatario: 'compras@b.pt',
+        },
+      }),
+    ];
+    assert.equal(orcamentoLoteHasConflictingEmails(rows), true);
+    assert.deepEqual(collectOrcamentoLoteEmailDestinatarios(rows), [
+      'compras@a.pt',
+      'compras@b.pt',
+    ]);
+    assert.equal(
+      orcamentoLoteHasConflictingEmails([
+        reportFixture({
+          orcamento: {
+            atualizadoEm: '2026-08-01T10:00:00.000Z',
+            numeroFormatado: '1.0/2026',
+            emailDestinatario: 'Compras@A.pt',
+          },
+        }),
+        reportFixture({
+          id: 'x',
+          orcamento: {
+            atualizadoEm: '2026-08-01T10:00:00.000Z',
+            numeroFormatado: '2.0/2026',
+            emailDestinatario: 'compras@a.pt',
+          },
+        }),
+      ]),
+      false,
+    );
   });
 });

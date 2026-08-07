@@ -77,6 +77,7 @@ export function buildOrcamentoAuditDetailRows(rows = []) {
 function formatGeneratedAtLabel(date = new Date()) {
   try {
     return date.toLocaleString('pt-PT', {
+      timeZone: 'Europe/Lisbon',
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',

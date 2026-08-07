@@ -3,12 +3,39 @@
  */
 
 const DAY_LABELS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
+const PORTUGAL_TZ = 'Europe/Lisbon';
+
+/**
+ * Calendário civil em horário de Portugal (Europe/Lisbon).
+ * Datas puras AAAA-MM-DD mantêm-se; timestamps ISO usam o fuso de Lisboa
+ * (não o UTC do `.slice(0, 10)`).
+ * @param {Date|string|number} [value]
+ * @returns {string} AAAA-MM-DD ou ''
+ */
+export function toPortugalIsoDate(value = new Date()) {
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) return '';
+    return formatDateInTimeZone(value, PORTUGAL_TZ);
+  }
+  const pure = String(value ?? '').trim();
+  if (!pure) return '';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(pure)) return pure;
+  const d = new Date(pure);
+  if (Number.isNaN(d.getTime())) return '';
+  return formatDateInTimeZone(d, PORTUGAL_TZ);
+}
+
+function formatDateInTimeZone(date, timeZone) {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(date);
+}
 
 function toLocalIsoDate(date) {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
+  return toPortugalIsoDate(date instanceof Date ? date : new Date(date));
 }
 
 export function getWeekDates(baseDate = new Date()) {

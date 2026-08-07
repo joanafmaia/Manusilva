@@ -74,10 +74,11 @@ describe('reclamacao garantia sugestão', () => {
 });
 
 describe('orcamento datas locais', () => {
-  it('toLocalDateInputValue usa calendário local para ISO com hora', () => {
+  it('toLocalDateInputValue usa calendário de Portugal para ISO com hora', () => {
     const iso = new Date(2026, 5, 15, 12, 0, 0).toISOString();
     assert.equal(toLocalDateInputValue(iso), '2026-06-15');
     assert.equal(toLocalDateInputValue('2026-06-15'), '2026-06-15');
+    assert.equal(toLocalDateInputValue('2026-08-06T23:30:00.000Z'), '2026-08-07');
   });
 });
 

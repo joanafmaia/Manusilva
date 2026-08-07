@@ -52,13 +52,16 @@ describe('resolveOrcamentoWorkflowLabel', () => {
   it('traduz estados', () => {
     assert.equal(resolveOrcamentoWorkflowLabel('aceite'), 'Aceite');
     assert.equal(resolveOrcamentoWorkflowLabel('recusada'), 'Recusada');
+    assert.equal(resolveOrcamentoWorkflowLabel('enviada'), 'Aguarda resposta');
   });
 });
 
 describe('data de aceite/recusa', () => {
-  it('converte AAAA-MM-DD e ISO para o input date', () => {
+  it('converte AAAA-MM-DD e ISO para o input date (Portugal)', () => {
     assert.equal(toLocalDateInputValue('2026-03-15T18:00:00.000Z'), '2026-03-15');
     assert.equal(toLocalDateInputValue('15/03/2026'), '2026-03-15');
+    // 23:30 UTC em agosto = 00:30 em Lisboa no dia seguinte
+    assert.equal(toLocalDateInputValue('2026-08-06T23:30:00.000Z'), '2026-08-07');
     assert.match(todayLocalDateInputValue(), /^\d{4}-\d{2}-\d{2}$/);
   });
 

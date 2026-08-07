@@ -6,6 +6,7 @@ import { isBatteryService } from './service-constants.js';
 import { getReportOrcamentoMeta } from './orcamento-linhas.js';
 import { reportIsStandaloneOrcamento } from './orcamento-standalone.js';
 import { reportIsFolhaObraOrcamento } from './folha-obra-orcamento.js';
+import { toPortugalIsoDate } from './date-utils.js';
 
 function escAttr(value) {
   return String(value ?? '')
@@ -88,13 +89,7 @@ export function resolveOrcamentoReferenceDate(report) {
   const iso = String(raw || '').trim();
   if (!iso) return '';
   if (iso.includes('T') || /Z|[+-]\d{2}:?\d{2}$/.test(iso)) {
-    const parsed = new Date(iso);
-    if (!Number.isNaN(parsed.getTime())) {
-      const y = parsed.getFullYear();
-      const m = String(parsed.getMonth() + 1).padStart(2, '0');
-      const d = String(parsed.getDate()).padStart(2, '0');
-      return `${y}-${m}-${d}`;
-    }
+    return toPortugalIsoDate(iso) || iso.split('T')[0];
   }
   return iso.split('T')[0];
 }

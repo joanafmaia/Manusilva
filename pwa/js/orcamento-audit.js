@@ -24,6 +24,13 @@ import {
   resolveOrcamentoWorkflowLabel,
   resolveOrcamentoWorkflowStatus,
 } from './orcamento-workflow.js';
+import { toPortugalIsoDate } from './date-utils.js';
+
+function formatAuditDatePt(raw) {
+  const pure = String(raw ?? '').trim();
+  if (!pure) return '—';
+  return toPortugalIsoDate(pure) || '—';
+}
 
 function safeClientName(report) {
   const client = getClient(report?.clientId);
@@ -89,9 +96,9 @@ export function buildOrcamentoAuditRows(
         estado: workflowLabel,
         estadoKey: workflowStatus,
         respostaCliente: resolveRespostaCliente(meta, workflowStatus),
-        respostaClienteEm: meta.respostaClienteEm ? String(meta.respostaClienteEm).slice(0, 10) : '—',
+        respostaClienteEm: formatAuditDatePt(meta.respostaClienteEm),
         total: Number.isFinite(total) && total > 0 ? total : null,
-        enviadoEm: meta.enviadoEm ? String(meta.enviadoEm).slice(0, 10) : '—',
+        enviadoEm: formatAuditDatePt(meta.enviadoEm),
         emailDestinatario: String(meta.emailDestinatario || '').trim() || '—',
         tecnico: String(tech?.name || report.technicianId || '—').trim() || '—',
         pedido: String(getPedidoOrcamentoDetalhe(report) || '').trim() || '—',

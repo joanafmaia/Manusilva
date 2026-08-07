@@ -74,6 +74,8 @@ import {
   filterOrcamentoLoteReports,
   isOrcamentoLoteEnviado,
   isOrcamentoLotePendente,
+  collectOrcamentoLoteEmailDestinatarios,
+  orcamentoLoteHasConflictingEmails,
   resolveOrcamentoLoteEmailSuggestion,
   sendOrcamentoLoteForClient,
 } from '../orcamento-email-lote.js';
@@ -906,6 +908,17 @@ function renderClientPasta(group) {
   });
   const pendNumeros = formatOrcamentoLoteNumeros(pendentes);
   const defaultEmail = escapeHtml(group.email || '');
+  const loteEmailsConflict = orcamentoLoteHasConflictingEmails([
+    ...pendentes,
+    ...reenvio,
+  ]);
+  const loteEmailsList = collectOrcamentoLoteEmailDestinatarios([
+    ...pendentes,
+    ...reenvio,
+  ]);
+  const emailHint = loteEmailsConflict
+    ? `Atenção: as propostas deste lote têm e-mails diferentes (${loteEmailsList.join(', ')}). O envio usa o campo abaixo para todas.`
+    : 'Usa o e-mail guardado nas propostas; se estiver vazio, a ficha do cliente.';
 
   return `
     <div
@@ -940,7 +953,7 @@ function renderClientPasta(group) {
           placeholder="compras@empresa.pt"
           autocomplete="email"
         />
-        <span class="review-orc-field-hint text-muted">Usa o e-mail guardado nas propostas; se estiver vazio, a ficha do cliente.</span>
+        <span class="review-orc-field-hint ${loteEmailsConflict ? 'orcamentos-lote-email-warn' : 'text-muted'}">${escapeHtml(emailHint)}</span>
       </label>
 
       <section class="orcamentos-pasta-section orcamentos-pasta-section--prep" aria-label="Em preparação">
@@ -1172,10 +1185,15 @@ function bindPanelEvents() {
       const all = listOrcamentoReports();
       const lote = filterOrcamentoLoteReports(all, clientId, { mode, pastaKey, clienteNome });
       const numeros = formatOrcamentoLoteNumeros(lote);
+      const emailsConflict = orcamentoLoteHasConflictingEmails(lote);
+      const emailsList = collectOrcamentoLoteEmailDestinatarios(lote);
+      const conflictNote = emailsConflict
+        ? `\n\nAtenção: as propostas têm e-mails guardados diferentes (${emailsList.join(', ')}). Todas serão enviadas para ${to || 'o e-mail do campo'}.`
+        : '';
       const ok = window.confirm(
         mode === 'reenvio'
-          ? `Reenviar ${lote.length} proposta(s) para ${to || 'o e-mail do cliente'}?\n\n${numeros.join(', ') || '—'}`
-          : `Enviar ${lote.length} proposta(s) para ${to || 'o e-mail do cliente'}?\n\n${numeros.join(', ') || '—'}`,
+          ? `Reenviar ${lote.length} proposta(s) para ${to || 'o e-mail do cliente'}?\n\n${numeros.join(', ') || '—'}${conflictNote}`
+          : `Enviar ${lote.length} proposta(s) para ${to || 'o e-mail do cliente'}?\n\n${numeros.join(', ') || '—'}${conflictNote}`,
       );
       if (!ok) return;
       loteSendBtn.disabled = true;

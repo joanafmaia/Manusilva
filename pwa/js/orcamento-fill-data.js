@@ -34,6 +34,7 @@ import {
 import { hasTemplateMaquinaIdentData } from './orcamento-template-equipamentos.js';
 import { getOrcamentoTipoProposta } from './orcamento-tipo-proposta.js';
 import { resolveTituloColunaArtigos } from './orcamento-coluna-artigos.js';
+import { toPortugalIsoDate } from './date-utils.js';
 
 const MESES_PT = [
   'Janeiro',
@@ -53,13 +54,15 @@ const MESES_PT = [
 export function formatOrcamentoDateLong(raw) {
   const text = String(raw || '').trim();
   if (!text) {
-    const now = new Date();
-    return `${now.getDate()} de ${MESES_PT[now.getMonth()]} ${now.getFullYear()}`;
+    const lisbon = toPortugalIsoDate(new Date());
+    const [y, m, d] = lisbon.split('-').map(Number);
+    return `${d} de ${MESES_PT[m - 1]} ${y}`;
   }
   if (text.includes('T') || /Z|[+-]\d{2}:?\d{2}$/.test(text)) {
-    const parsed = new Date(text);
-    if (!Number.isNaN(parsed.getTime())) {
-      return `${parsed.getDate()} de ${MESES_PT[parsed.getMonth()]} ${parsed.getFullYear()}`;
+    const lisbon = toPortugalIsoDate(text);
+    if (lisbon) {
+      const [y, m, d] = lisbon.split('-').map(Number);
+      return `${d} de ${MESES_PT[m - 1]} ${y}`;
     }
   }
   const iso = text.match(/^(\d{4})-(\d{2})-(\d{2})/);
@@ -74,27 +77,18 @@ export function formatOrcamentoDateLong(raw) {
   return text;
 }
 
-function toLocalIsoDate(value = new Date()) {
-  const d = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(d.getTime())) return '';
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
-
 /**
  * Data do documento da proposta — dia em que a proposta é (ou foi) enviada ao cliente.
- * Não usa a data da intervenção técnica. Usa calendário local (Portugal).
+ * Não usa a data da intervenção técnica. Usa calendário de Portugal (Europe/Lisbon).
  */
 export function resolveOrcamentoDocumentDate(report) {
   const enviadoEm = getReportOrcamentoMeta(report)?.enviadoEm;
   if (enviadoEm) {
-    const local = toLocalIsoDate(String(enviadoEm).trim());
+    const local = toPortugalIsoDate(String(enviadoEm).trim());
     if (local) return local;
     return String(enviadoEm).trim();
   }
-  return toLocalIsoDate(new Date());
+  return toPortugalIsoDate(new Date());
 }
 
 export function buildOrcamentoFillData(report, job = null) {
