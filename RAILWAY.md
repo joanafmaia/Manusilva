@@ -17,46 +17,40 @@ Em **Variables**:
 | `SUPABASE_URL` | Sim | URL do projeto Supabase |
 | `SUPABASE_ANON_KEY` | Sim | Chave anon |
 | `SUPABASE_SERVICE_ROLE_KEY` | Sim | Técnicos + avaliações |
-| `BREVO_API_KEY` | **Recomendada** | Envio HTTPS ([brevo.com](https://www.brevo.com)) — mantém remetente Gmail |
-| `RESEND_API_KEY` | Alternativa | [resend.com](https://resend.com) — para clientes convém verificar `manusilva.pt` |
-| `EMAIL_USER` | Sim (com Brevo) | `manusilva.lda@gmail.com` — remetente / reply-to / BCC automático |
+| `GOOGLE_CLIENT_ID` | **Sim (e-mail)** | Gmail API OAuth — e-mails em **Enviados** |
+| `GOOGLE_CLIENT_SECRET` | **Sim (e-mail)** | Secret OAuth |
+| `GOOGLE_REFRESH_TOKEN` | **Sim (e-mail)** | Obtido com `npm run gmail:oauth` |
+| `EMAIL_USER` | Sim | `manusilva.lda@gmail.com` — conta autorizada |
 | `EMAIL_FROM` | Opcional | Ex. `ManuSilva <manusilva.lda@gmail.com>` |
-| `EMAIL_BCC` | Opcional | Por omissão = `EMAIL_USER` (cópia na Entrada). `off` para desligar |
-| `EMAIL_PASS` | Opcional | App Password Gmail (SMTP); **na Railway costuma falhar com ETIMEDOUT** |
+| `EMAIL_PASS` | Opcional | Só local/dev (SMTP); na Railway falha com ETIMEDOUT |
 | `APP_BASE_URL` | Recomendado | URL público sem `/` final |
 | `MAPBOX_ACCESS_TOKEN` | Opcional | Mapas / deslocação |
 | `AVALIACAO_TOKEN_SECRET` | Opcional | Tokens de avaliação |
 
-### E-mail na Railway (obrigatório se aparecer ETIMEDOUT)
+### E-mail — Gmail API
 
-A App Password do Gmail pode estar **certa** e mesmo assim falhar: a Railway bloqueia SMTP (portas 465/587).
+Na Railway o SMTP Gmail (portas 465/587) costuma falhar. A app envia só pela **Gmail API** (HTTPS).
 
-**Verificar se a chave chegou ao servidor:** abra `https://SEU-DOMINIO/api/health` — deve aparecer `"email": { "active": "brevo", "brevo": true, ... }`. Se `active` for `"smtp"` ou `"none"`, a variável **não** está no serviço em execução.
+**Verificar:** `https://SEU-DOMINIO/api/health` → `"email": { "active": "gmail_api", ... }`.
 
-Checklist se ainda falhar:
-1. Nome **exato**: `BREVO_API_KEY` (não “Brevo API Key” nem chave SMTP do Brevo)
-2. Variável no **serviço** da app (não só no projeto) → Variables → Shared / Service
-3. Após guardar: **Redeploy** (Deployments → Redeploy)
-4. Valor = chave de **API** em Brevo → SMTP & API → API keys (`xkeysib-...`), não a password SMTP
-5. Se o erro mencionar **unrecognised IP** / `authorised_ips`: em [Security → Authorised IPs](https://app.brevo.com/security/authorised_ips) **desative** a restrição de IPs (o IP da Railway muda nos redeploys). Alternativa: adicionar o IP temporariamente.
+#### Configurar OAuth (uma vez)
 
-#### Opção A — Brevo (mais simples com Gmail)
+1. [Google Cloud Console](https://console.cloud.google.com/) → projeto
+2. Ativar **Gmail API**
+3. OAuth consent (External) → utilizador de teste: `manusilva.lda@gmail.com`
+4. Credentials → OAuth client → tipo **Desktop app**
+5. No PC:
 
-1. Criar conta em [brevo.com](https://www.brevo.com) (free)
-2. **Senders** → adicionar `manusilva.lda@gmail.com` → confirmar o e-mail que o Brevo envia
-3. **SMTP & API** → API keys → criar chave
-4. **Security → Authorised IPs**: desativar bloqueio por IP (obrigatório na Railway)
-5. Na Railway → Variables:
-   - `BREVO_API_KEY` = a chave
-   - `EMAIL_USER` = `manusilva.lda@gmail.com`
-6. Redeploy → confirmar `/api/health` com `"active":"brevo"` → testar envio
+```powershell
+$env:GOOGLE_CLIENT_ID="xxx.apps.googleusercontent.com"
+$env:GOOGLE_CLIENT_SECRET="GOCSPX-..."
+npm run gmail:oauth
+```
 
-#### Opção B — Resend
+6. Autorizar com `manusilva.lda@gmail.com` → copiar `GOOGLE_REFRESH_TOKEN` para a Railway
+7. Redeploy → testar envio
 
-1. Conta em [resend.com](https://resend.com) → API Key (`re_...`)
-2. Railway: `RESEND_API_KEY=re_...`
-3. Teste: `EMAIL_FROM=ManuSilva <onboarding@resend.dev>` (só envia para o vosso e-mail de conta)
-4. Produção: Domains → verificar `manusilva.pt` → `EMAIL_FROM=ManuSilva <orcamentos@manusilva.pt>`
+Podes **apagar** `BREVO_API_KEY` / `RESEND_API_KEY` se existirem — já não são usadas.
 
 A Railway define `PORT` automaticamente. `RAILWAY_PUBLIC_DOMAIN` serve de fallback de URL base.
 
@@ -70,7 +64,7 @@ A Railway define `PORT` automaticamente. `RAILWAY_PUBLIC_DOMAIN` serve de fallba
 ## 4. Após o deploy
 
 - `https://SEU-DOMINIO/` → login
-- `https://SEU-DOMINIO/api/health` → `{ "ok": true, "email": { "active": "brevo", ... } }`
+- `https://SEU-DOMINIO/api/health` → `{ "ok": true, "email": { "active": "gmail_api", ... } }`
 
 ## 5. Local
 
@@ -80,4 +74,4 @@ npm run build
 npm start
 ```
 
-Abrir http://localhost:3000 — podes usar Brevo/Resend ou `EMAIL_USER` + `EMAIL_PASS`.
+Abrir http://localhost:3000 — Gmail API OAuth ou, em último caso, `EMAIL_USER` + `EMAIL_PASS` (SMTP).
