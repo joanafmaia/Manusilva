@@ -15,7 +15,11 @@ import {
   suggestOrcamentoLinhas,
   taxasSaidaSlotsFromMeta,
 } from './orcamento-linhas.js';
-import { mergeOrcamentoMetaWithCabecalho, resolveOrcamentoCabecalho } from './orcamento-cabecalho.js';
+import {
+  mergeOrcamentoMetaWithCabecalho,
+  resolveOrcamentoCabecalho,
+  resolveOrcamentoPastaKey,
+} from './orcamento-cabecalho.js';
 import {
   bindOrcamentoMaquinasSection,
   readOrcamentoMaquinasFromDom,
@@ -72,6 +76,8 @@ import {
 } from './orcamento-template-equipamentos.js';
 import {
   isOrcamentoDedicatedPage,
+  rememberOrcamentoPendingPasta,
+  rememberOrcamentoPendingReport,
   returnToOrcamentosMenu,
 } from './orcamento-modal.js';
 import { bindOrcamentoCatalogoComboboxes } from './orcamento-catalogo-combobox.js';
@@ -106,6 +112,10 @@ function finishOrcamentoEditingAndReturn({ onSaved, onSent, saved, action }) {
   if (action === 'save') onSaved?.(saved);
   if (action === 'send') onSent?.(saved);
   if (shouldReturnToOrcamentosMenu()) {
+    if (saved?.id) {
+      rememberOrcamentoPendingPasta(resolveOrcamentoPastaKey(saved));
+      rememberOrcamentoPendingReport(saved.id);
+    }
     returnToOrcamentosMenu();
   }
 }
@@ -355,7 +365,7 @@ function renderManutencaoBateriaOrcamentoEditor(report, ctx) {
       </section>
 
       <label class="review-orc-field review-orc-field--email">
-        <span>Enviar proposta para</span>
+        <span>E-mail sugerido para o lote</span>
         <input
           type="text"
           class="review-orc-input"
@@ -365,7 +375,7 @@ function renderManutencaoBateriaOrcamentoEditor(report, ctx) {
           placeholder="compras@empresa.pt; contabilidade@empresa.pt"
         />
         <span class="review-orc-field-hint text-muted">
-          Um ou vários e-mails, separados por ponto e vírgula ou vírgula${clienteEmailHint ? ` (ficha cliente: ${clienteEmailHint})` : ''}.
+          Prefill do envio em lote na pasta do cliente. Um ou vários e-mails, separados por ponto e vírgula ou vírgula${clienteEmailHint ? ` (ficha: ${clienteEmailHint})` : ''}.
         </span>
       </label>
 
@@ -455,7 +465,7 @@ function renderManutencaoMaquinaOrcamentoEditor(report, ctx) {
       </section>
 
       <label class="review-orc-field review-orc-field--email">
-        <span>Enviar proposta para</span>
+        <span>E-mail sugerido para o lote</span>
         <input
           type="text"
           class="review-orc-input"
@@ -465,7 +475,7 @@ function renderManutencaoMaquinaOrcamentoEditor(report, ctx) {
           placeholder="compras@empresa.pt; contabilidade@empresa.pt"
         />
         <span class="review-orc-field-hint text-muted">
-          Um ou vários e-mails, separados por ponto e vírgula ou vírgula${clienteEmailHint ? ` (ficha cliente: ${clienteEmailHint})` : ''}.
+          Prefill do envio em lote na pasta do cliente. Um ou vários e-mails, separados por ponto e vírgula ou vírgula${clienteEmailHint ? ` (ficha: ${clienteEmailHint})` : ''}.
         </span>
       </label>
 
@@ -593,7 +603,7 @@ export function renderOrcamentoEditor(report, { client } = {}) {
       </section>
 
       <label class="review-orc-field review-orc-field--email">
-        <span>Enviar proposta para</span>
+        <span>E-mail sugerido para o lote</span>
         <input
           type="text"
           class="review-orc-input"
@@ -603,7 +613,7 @@ export function renderOrcamentoEditor(report, { client } = {}) {
           placeholder="compras@empresa.pt; contabilidade@empresa.pt"
         />
         <span class="review-orc-field-hint text-muted">
-          Um ou vários e-mails, separados por ponto e vírgula ou vírgula${clienteEmailHint ? ` (ficha cliente: ${clienteEmailHint})` : ''}.
+          Prefill do envio em lote na pasta do cliente. Um ou vários e-mails, separados por ponto e vírgula ou vírgula${clienteEmailHint ? ` (ficha: ${clienteEmailHint})` : ''}.
         </span>
       </label>
 

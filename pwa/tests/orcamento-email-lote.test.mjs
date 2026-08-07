@@ -5,6 +5,7 @@ import {
   formatOrcamentoLoteNumeros,
   isOrcamentoLoteEnviado,
   isOrcamentoLotePendente,
+  resolveOrcamentoLoteEmailSuggestion,
 } from '../js/orcamento-email-lote.js';
 import { STANDALONE_ORCAMENTO_SERVICE_TYPE } from '../js/orcamento-standalone.js';
 
@@ -81,5 +82,19 @@ describe('orcamento-email-lote', () => {
     });
     assert.equal(lote.length, 1);
     assert.equal(lote[0].id, 'sap');
+  });
+
+  it('sugere e-mail do editor antes da ficha', () => {
+    const row = reportFixture({
+      id: 'e1',
+      orcamento: {
+        atualizadoEm: '2026-08-01T10:00:00.000Z',
+        numeroFormatado: '11.0/2026',
+        emailDestinatario: 'compras@sapmetal.pt',
+      },
+    });
+    row.clientId = '';
+    row.data.values = { nome_empresa: 'SAP METAL' };
+    assert.equal(resolveOrcamentoLoteEmailSuggestion([row]), 'compras@sapmetal.pt');
   });
 });

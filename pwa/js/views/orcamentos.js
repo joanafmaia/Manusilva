@@ -74,6 +74,7 @@ import {
   filterOrcamentoLoteReports,
   isOrcamentoLoteEnviado,
   isOrcamentoLotePendente,
+  resolveOrcamentoLoteEmailSuggestion,
   sendOrcamentoLoteForClient,
 } from '../orcamento-email-lote.js';
 import {
@@ -108,7 +109,7 @@ const EXPORT_ESTADO_OPTIONS = [
   { value: 'all', label: 'Todos os estados' },
   { value: 'por_preparar', label: 'Por preparar' },
   { value: 'guardada', label: 'Guardadas' },
-  { value: 'enviada', label: 'Enviadas (aguardam resposta)' },
+  { value: 'enviada', label: 'Aguardam resposta' },
   { value: 'aceite', label: 'Aceites' },
   { value: 'recusada', label: 'Recusadas' },
 ];
@@ -209,14 +210,10 @@ export function groupOrcamentoReportsByClient(reports = []) {
         rows,
         pendentes,
         enviadas,
-        email: String(
-          client?.email ||
-            client?.['E-mail'] ||
-            values.email ||
-            values['E-mail'] ||
-            values.email_cliente ||
-            '',
-        ).trim(),
+        email: resolveOrcamentoLoteEmailSuggestion(
+          [...pendentes, ...enviadas, ...rows],
+          client,
+        ),
       };
     })
     .sort((a, b) => a.name.localeCompare(b.name, 'pt'));
@@ -330,7 +327,7 @@ function renderFilterHint(counts, total) {
 
   const hints = [
     { id: 'em_preparacao', label: 'em preparação', count: counts.em_preparacao },
-    { id: 'enviada', label: 'enviadas (aguardam resposta)', count: counts.enviada },
+    { id: 'enviada', label: 'a aguardar resposta', count: counts.enviada },
     { id: 'aceite', label: 'aceites', count: counts.aceite },
     { id: 'recusada', label: 'recusadas', count: counts.recusada },
   ].filter(({ id, count }) => id !== activeFilter && count > 0);
@@ -373,8 +370,8 @@ function renderMetrics(counts) {
         </article>
         <article class="dashboard-metric-card dashboard-metric-card--primary">
           <p class="dashboard-metric-value">${counts.enviada}</p>
-          <p class="dashboard-metric-label">Enviadas</p>
-          <p class="faturacao-kpi-sub">Aguardam resposta do cliente</p>
+          <p class="dashboard-metric-label">Aguardam resposta</p>
+          <p class="faturacao-kpi-sub">Já enviadas ao cliente</p>
         </article>
         <article class="dashboard-metric-card dashboard-metric-card--success">
           <p class="dashboard-metric-value">${counts.aceite_faturacao}</p>
@@ -392,7 +389,7 @@ function renderMetrics(counts) {
 function renderEstadoTabs(counts) {
   const chips = [
     { id: 'em_preparacao', label: 'Em preparação', count: counts.em_preparacao },
-    { id: 'enviada', label: 'Enviadas', count: counts.enviada },
+    { id: 'enviada', label: 'Aguardam resposta', count: counts.enviada },
     { id: 'aceite', label: 'Aceites', count: counts.aceite },
     { id: 'recusada', label: 'Recusadas', count: counts.recusada },
     { id: 'todas', label: 'Todas', count: counts.todas },
@@ -893,7 +890,7 @@ function renderClientPasta(group) {
       </div>
 
       <label class="review-orc-field orcamentos-client-pasta__email">
-        <span>E-mail do cliente (lote)</span>
+        <span>E-mail do lote</span>
         <input
           type="text"
           class="form-input"
@@ -902,6 +899,7 @@ function renderClientPasta(group) {
           placeholder="compras@empresa.pt"
           autocomplete="email"
         />
+        <span class="review-orc-field-hint text-muted">Usa o e-mail guardado nas propostas; se estiver vazio, a ficha do cliente.</span>
       </label>
 
       <section class="orcamentos-pasta-section orcamentos-pasta-section--prep" aria-label="Em preparação">
@@ -932,11 +930,11 @@ function renderClientPasta(group) {
         }
       </section>
 
-      <section class="orcamentos-pasta-section orcamentos-pasta-section--sent" aria-label="Já enviadas">
+      <section class="orcamentos-pasta-section orcamentos-pasta-section--sent" aria-label="Enviadas ao cliente">
         <header class="orcamentos-pasta-section__head">
           <div>
-            <h4 class="orcamentos-pasta-section__title">Já enviadas <span class="badge-count">${enviadas.length}</span></h4>
-            <p class="text-muted orcamentos-pasta-section__hint">Aguardam resposta ou já foram respondidas.</p>
+            <h4 class="orcamentos-pasta-section__title">Enviadas ao cliente <span class="badge-count">${enviadas.length}</span></h4>
+            <p class="text-muted orcamentos-pasta-section__hint">Inclui as que aguardam resposta e as já respondidas (aceite/recusada).</p>
           </div>
           ${
             reenvio.length

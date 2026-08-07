@@ -45,6 +45,32 @@ export function isOrcamentoLoteEnviado(report) {
 }
 
 /**
+ * Sugere e-mail do lote: preferir o guardado no editor das propostas, depois ficha/valores.
+ * @param {object[]} reports
+ * @param {object|null} [client]
+ */
+export function resolveOrcamentoLoteEmailSuggestion(reports = [], client = null) {
+  const list = Array.isArray(reports) ? reports : [];
+  for (const report of list) {
+    const meta = getReportOrcamentoMeta(report);
+    const fromMeta = String(meta?.emailDestinatario || '').trim();
+    if (fromMeta) return fromMeta;
+  }
+  const sample = list[0];
+  const values = sample?.data?.values || {};
+  const resolvedClient =
+    client || (sample?.clientId ? getClient(sample.clientId) : null);
+  return String(
+    resolvedClient?.email ||
+      resolvedClient?.['E-mail'] ||
+      values.email ||
+      values['E-mail'] ||
+      values.email_cliente ||
+      '',
+  ).trim();
+}
+
+/**
  * @param {object[]} reports
  * @param {string} clientId
  * @param {{ mode?: 'pendentes' | 'reenvio', pastaKey?: string, clienteNome?: string }} [options]
@@ -138,16 +164,7 @@ export async function sendOrcamentoLoteForReports(reports = [], options = {}) {
     Array.isArray(toRaw) ? toRaw.join(';') : String(toRaw || ''),
   );
   if (!recipients.length) {
-    const values = list[0]?.data?.values || {};
-    const fallback = String(
-      client?.email ||
-        client?.['E-mail'] ||
-        values.email ||
-        values['E-mail'] ||
-        values.email_cliente ||
-        '',
-    ).trim();
-    recipients = normalizeEmailList(fallback);
+    recipients = normalizeEmailList(resolveOrcamentoLoteEmailSuggestion(list, client));
   }
   if (!recipients.length) {
     throw new Error('Indique pelo menos um e-mail de destino.');
