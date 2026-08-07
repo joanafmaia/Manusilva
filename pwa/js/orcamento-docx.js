@@ -64,6 +64,7 @@ export async function renderOrcamentoDOCX(report, job = null) {
   const tableXml = buildOrcamentoWordTableXml(data.linhas || [], {
     maquinas: data.maquinas || [],
     equipamentoCampos: data.equipamento_campos || [],
+    tituloColunaArtigos: data.titulo_coluna_artigos,
   });
   if (xml.includes('[[TABELA_ORCAMENTO]]')) {
     xml = xml.replace(

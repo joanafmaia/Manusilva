@@ -3644,6 +3644,25 @@
   overflow-x: auto;
   margin-bottom: 0.5rem;
 }
+.review-orc-titulo-coluna {
+  display: grid;
+  grid-template-columns: minmax(12rem, 1fr) minmax(12rem, 1fr);
+  gap: 0.65rem 1rem;
+  align-items: end;
+  margin-bottom: 0.55rem;
+}
+.review-orc-titulo-coluna .review-orc-field-hint {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+.review-orc-titulo-coluna__custom[hidden] {
+  display: none !important;
+}
+@media (max-width: 720px) {
+  .review-orc-titulo-coluna {
+    grid-template-columns: 1fr;
+  }
+}
 .review-orc-catalog-hint {
   margin: 0 0 0.45rem;
   font-size: 0.72rem;

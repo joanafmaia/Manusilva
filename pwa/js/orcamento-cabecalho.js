@@ -140,6 +140,8 @@ const TEMPLATE_META_OVERRIDE_KEYS = [
   'linhas',
   'tipoProposta',
   'textoIntro',
+  'tituloColunaArtigos',
+  'tituloColunaArtigosPreset',
   'valorDeslocacao',
   'prazoEntrega',
   'subtotal',

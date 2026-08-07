@@ -24,6 +24,10 @@ import {
   normalizeReclamacaoGarantia,
   readReclamacaoGarantiaFromDom,
 } from './orcamento-reclamacao-garantia.js';
+import {
+  readTituloColunaArtigosFromDom,
+  resolveTituloColunaArtigosState,
+} from './orcamento-coluna-artigos.js';
 
 const IVA_RATE = 0.23;
 const MIN_LINHAS_VAZIAS = 3;
@@ -280,6 +284,7 @@ export function buildOrcamentoMetaDraft(report, numeroReservado = null) {
   const totals = computeOrcamentoTotals(linhas, existing || taxasSaida);
   const cabecalho = resolveOrcamentoCabecalho(report);
   const tipoProposta = normalizeOrcamentoTipoProposta(existing?.tipoProposta, report);
+  const tituloColuna = resolveTituloColunaArtigosState(existing || {});
 
   const draft = {
     numeroSequencial: sequencial,
@@ -290,6 +295,8 @@ export function buildOrcamentoMetaDraft(report, numeroReservado = null) {
     emailDestinatario: existing?.emailDestinatario ?? '',
     ...cabecalho,
     maquinas: cabecalho.maquinas,
+    tituloColunaArtigosPreset: tituloColuna.preset,
+    tituloColunaArtigos: tituloColuna.titulo,
     taxasSaida,
     taxaSaida,
     prazoEntrega: String(prazoEntrega || ''),
@@ -385,11 +392,18 @@ export function readOrcamentoFormFromDom(root, report) {
   const reclamacaoGarantia = reclamacaoGarantiaEl
     ? readReclamacaoGarantiaFromDom(root)
     : normalizeReclamacaoGarantia(existing.reclamacaoGarantia);
+  const tituloColunaArtigosFields = isTemplate
+    ? {
+        tituloColunaArtigosPreset: existing.tituloColunaArtigosPreset,
+        tituloColunaArtigos: existing.tituloColunaArtigos,
+      }
+    : readTituloColunaArtigosFromDom(root);
 
   let meta = {
     ...existing,
     ...domMeta,
     ...(templateMode ? cabecalhoSemMaquinas : cabecalho),
+    ...tituloColunaArtigosFields,
     tipoProposta,
     emailDestinatario,
     taxasSaida,

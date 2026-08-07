@@ -27,7 +27,16 @@ import {
   shouldShowLinhaEquipamentoColumn,
   syncOrcamentoLinhaEquipamentoColumn,
   syncOrcamentoGroupedEquipHeaders,
+  syncOrcamentoLinhasColunaTitulo,
+  formatOrcamentoCatalogHint,
 } from './orcamento-maquinas.js';
+import {
+  renderTituloColunaArtigosControl,
+  resolveTituloColunaArtigos,
+  resolveTituloColunaArtigosState,
+  tituloColunaArtigosForPreset,
+  TITULO_COLUNA_ARTIGOS_PRESET,
+} from './orcamento-coluna-artigos.js';
 import {
   getReportOrcamentoPdfUrl,
   openOrcamentoStorageUrl,
@@ -611,12 +620,15 @@ export function renderOrcamentoEditor(report, { client } = {}) {
       </label>
 
       <div class="review-orc-table-wrap">
-        <p class="review-orc-catalog-hint text-muted">${
-          shouldGroupOrcamentoLinhasByEquipamento(cab.maquinas, cab.equipamentoCampos)
-            ? 'Com várias máquinas, cada equipamento tem a sua secção. Use «+ Linha» em cada máquina para os artigos dessa máquina.'
-            : shouldShowLinhaEquipamentoColumn(cab.maquinas, cab.equipamentoCampos)
-              ? 'Na coluna «Na reparação precisa», escreva para pesquisar no catálogo. Com várias máquinas, indique o equipamento em cada linha.'
-              : 'Na coluna «Na reparação precisa», escreva para pesquisar no catálogo.'
+        ${renderTituloColunaArtigosControl(meta)}
+        <p class="review-orc-catalog-hint text-muted" data-orc-coluna-artigos-hint>${
+          escapeHtml(
+            formatOrcamentoCatalogHint(
+              cab.maquinas,
+              cab.equipamentoCampos,
+              resolveTituloColunaArtigos(meta),
+            ),
+          )
         }</p>
         <table class="review-orc-table${
           shouldGroupOrcamentoLinhasByEquipamento(cab.maquinas, cab.equipamentoCampos)
@@ -626,7 +638,11 @@ export function renderOrcamentoEditor(report, { client } = {}) {
               : ''
         }">
           <thead>
-            ${renderOrcamentoLinhasTableHead(cab.maquinas, cab.equipamentoCampos)}
+            ${renderOrcamentoLinhasTableHead(
+              cab.maquinas,
+              cab.equipamentoCampos,
+              resolveTituloColunaArtigos(meta),
+            )}
           </thead>
           <tbody id="review-orc-linhas-body">
             ${renderOrcamentoLinhasTableBody(linhas, cab.maquinas, cab.equipamentoCampos)}
@@ -1064,6 +1080,33 @@ export function bindOrcamentoEditor(container, { report, onUpdated, onSaved, onS
       onChange: syncEquipStructure,
       onFieldChange: syncEquipFieldValue,
     });
+    const onTituloColunaChange = (e) => {
+      const presetEl = e.target?.matches?.('[data-orc-field="tituloColunaArtigosPreset"]')
+        ? e.target
+        : null;
+      if (presetEl) {
+        const preset = presetEl.value;
+        const customInput = root.querySelector('[data-orc-field="tituloColunaArtigos"]');
+        if (preset !== TITULO_COLUNA_ARTIGOS_PRESET.OUTRO && customInput) {
+          customInput.value = tituloColunaArtigosForPreset(preset);
+        } else if (preset === TITULO_COLUNA_ARTIGOS_PRESET.OUTRO && customInput && !customInput.value.trim()) {
+          const prev = resolveTituloColunaArtigosState(
+            getReportOrcamentoMeta(currentReport) || {},
+          );
+          if (prev.preset === TITULO_COLUNA_ARTIGOS_PRESET.OUTRO) {
+            customInput.value = prev.titulo;
+          }
+        }
+      }
+      if (
+        e.target?.matches?.('[data-orc-field="tituloColunaArtigosPreset"]') ||
+        e.target?.matches?.('[data-orc-field="tituloColunaArtigos"]')
+      ) {
+        syncOrcamentoLinhasColunaTitulo(root, getReportOrcamentoMeta(currentReport));
+      }
+    };
+    root.addEventListener('change', onTituloColunaChange);
+    root.addEventListener('input', onTituloColunaChange);
     syncEquipStructure();
     refreshLineTotals(root, currentReport);
   }

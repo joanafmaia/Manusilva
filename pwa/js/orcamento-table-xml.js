@@ -14,6 +14,7 @@ import {
   groupOrcamentoLinhasByEquipamento,
   shouldGroupOrcamentoLinhasByEquipamento,
 } from './orcamento-maquinas.js';
+import { TITULO_COLUNA_ARTIGOS_DEFAULT } from './orcamento-coluna-artigos.js';
 
 const COL_WIDTHS_SINGLE = [5200, 900, 1700, 1700];
 const COL_WIDTHS_MULTI = [1400, 3800, 900, 1700, 1700];
@@ -78,17 +79,18 @@ function dataRowCells(row, colWidths, { multi = false, machineCount = 1 } = {}) 
   ];
 }
 
-function columnHeaderRow(colWidths, { multi = false } = {}) {
+function columnHeaderRow(colWidths, { multi = false, tituloColunaArtigos = TITULO_COLUNA_ARTIGOS_DEFAULT } = {}) {
+  const colTitulo = String(tituloColunaArtigos || '').trim() || TITULO_COLUNA_ARTIGOS_DEFAULT;
   const cells = multi
     ? [
         cellWithWidth('Equipamento', colWidths[0], { bold: true, headerFill: true }),
-        cellWithWidth('Na reparação precisa', colWidths[1], { bold: true, headerFill: true }),
+        cellWithWidth(colTitulo, colWidths[1], { bold: true, headerFill: true }),
         cellWithWidth('Qtd.', colWidths[2], { bold: true, align: 'center', headerFill: true }),
         cellWithWidth('Preço Unit. (€)', colWidths[3], { bold: true, align: 'right', headerFill: true }),
         cellWithWidth('Total (€)', colWidths[4], { bold: true, align: 'right', headerFill: true }),
       ]
     : [
-        cellWithWidth('Na reparação precisa', colWidths[0], { bold: true, headerFill: true }),
+        cellWithWidth(colTitulo, colWidths[0], { bold: true, headerFill: true }),
         cellWithWidth('Qtd.', colWidths[1], { bold: true, align: 'center', headerFill: true }),
         cellWithWidth('Preço Unit. (€)', colWidths[2], { bold: true, align: 'right', headerFill: true }),
         cellWithWidth('Total (€)', colWidths[3], { bold: true, align: 'right', headerFill: true }),
@@ -96,14 +98,14 @@ function columnHeaderRow(colWidths, { multi = false } = {}) {
   return rowXml(cells);
 }
 
-function groupedTableBody(groups, colWidths) {
+function groupedTableBody(groups, colWidths, tituloColunaArtigos = TITULO_COLUNA_ARTIGOS_DEFAULT) {
   const totalWidth = colWidths.reduce((sum, width) => sum + width, 0);
   return groups
     .map((group) => {
       const machineHeader = rowXml([
         mergedCell(group.label, totalWidth, COL_SPAN_SINGLE, { bold: true, fill: true }),
       ]);
-      const subHeader = columnHeaderRow(colWidths);
+      const subHeader = columnHeaderRow(colWidths, { tituloColunaArtigos });
       const lines = group.linhas
         .map((row) => rowXml(dataRowCells(row, colWidths)))
         .join('');
@@ -114,18 +116,22 @@ function groupedTableBody(groups, colWidths) {
 
 /**
  * @param {Array<{ descricao?: string, qtd?: string, precoUnit?: string, total?: string, equipamentoIndex?: number }>} linhas
- * @param {{ maquinas?: Array<object>, equipamentoCampos?: Array<object> }} [options]
+ * @param {{ maquinas?: Array<object>, equipamentoCampos?: Array<object>, tituloColunaArtigos?: string }} [options]
  */
-export function buildOrcamentoWordTableXml(linhas, { maquinas = [], equipamentoCampos = null } = {}) {
+export function buildOrcamentoWordTableXml(
+  linhas,
+  { maquinas = [], equipamentoCampos = null, tituloColunaArtigos = TITULO_COLUNA_ARTIGOS_DEFAULT } = {},
+) {
   const campos = normalizeEquipamentoCampos(equipamentoCampos);
   const grouped = shouldGroupOrcamentoLinhasByEquipamento(maquinas, campos);
   const multi = !grouped && Array.isArray(maquinas) && maquinas.length > 1;
   const COL_WIDTHS = multi ? COL_WIDTHS_MULTI : COL_WIDTHS_SINGLE;
   const machineCount = Math.max(maquinas.length || 0, 1);
+  const colTitulo = String(tituloColunaArtigos || '').trim() || TITULO_COLUNA_ARTIGOS_DEFAULT;
 
   if (grouped) {
     const groups = groupOrcamentoLinhasByEquipamento(linhas, maquinas, campos);
-    const body = groupedTableBody(groups, COL_WIDTHS);
+    const body = groupedTableBody(groups, COL_WIDTHS, colTitulo);
     const gridCols = COL_WIDTHS.map((w) => `<w:gridCol w:w="${w}"/>`).join('');
 
     return `<w:tbl>
@@ -151,7 +157,7 @@ export function buildOrcamentoWordTableXml(linhas, { maquinas = [], equipamentoC
     (r) => r.descricao || r.precoUnit || r.qtd !== '1',
   );
   const dataRows = rows.length ? rows : [{ descricao: '—', qtd: '1', precoUnit: '', total: '' }];
-  const header = columnHeaderRow(COL_WIDTHS, { multi });
+  const header = columnHeaderRow(COL_WIDTHS, { multi, tituloColunaArtigos: colTitulo });
   const body = dataRows
     .map((row) => rowXml(dataRowCells(row, COL_WIDTHS, { multi, machineCount })))
     .join('');

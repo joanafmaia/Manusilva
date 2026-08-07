@@ -11,6 +11,11 @@ import {
   readOrcamentoEquipamentoCamposFromDom,
 } from './orcamento-equipamento-campos.js';
 import {
+  TITULO_COLUNA_ARTIGOS_DEFAULT,
+  readTituloColunaArtigosFromDom,
+  resolveTituloColunaArtigos,
+} from './orcamento-coluna-artigos.js';
+import {
   computeLinhaTotal,
   emptyOrcamentoLinha,
   formatEuro,
@@ -356,8 +361,52 @@ export function renderOrcamentoLinhasTableBody(linhas = [], maquinas = [], campo
     .join('');
 }
 
-export function renderOrcamentoLinhasTableHead(maquinas = [], campos = null) {
+export function resolveOrcamentoLinhasColunaTituloFromRoot(root, fallbackMeta = null) {
+  if (root?.querySelector('[data-orc-field="tituloColunaArtigosPreset"]')) {
+    return resolveTituloColunaArtigos(readTituloColunaArtigosFromDom(root));
+  }
+  return resolveTituloColunaArtigos(fallbackMeta || {});
+}
+
+export function formatOrcamentoCatalogHint(maquinas = [], campos = null, tituloColuna = TITULO_COLUNA_ARTIGOS_DEFAULT) {
+  const titulo = String(tituloColuna || '').trim() || TITULO_COLUNA_ARTIGOS_DEFAULT;
+  if (shouldGroupOrcamentoLinhasByEquipamento(maquinas, campos)) {
+    return 'Com várias máquinas, cada equipamento tem a sua secção. Use «+ Linha» em cada máquina para os artigos dessa máquina.';
+  }
+  if (shouldShowLinhaEquipamentoColumn(maquinas, campos)) {
+    return `Na coluna «${titulo}», escreva para pesquisar no catálogo. Com várias máquinas, indique o equipamento em cada linha.`;
+  }
+  return `Na coluna «${titulo}», escreva para pesquisar no catálogo.`;
+}
+
+export function syncOrcamentoLinhasColunaTitulo(root, fallbackMeta = null) {
+  const titulo = resolveOrcamentoLinhasColunaTituloFromRoot(root, fallbackMeta);
+  root?.querySelectorAll('[data-orc-coluna-artigos-th]').forEach((th) => {
+    th.textContent = titulo;
+  });
+  const campos = readOrcamentoEquipamentoCamposFromDom(root);
+  const maquinas = readOrcamentoMaquinasFromDom(root, campos);
+  const hint = root?.querySelector('[data-orc-coluna-artigos-hint], .review-orc-catalog-hint');
+  if (hint) {
+    hint.textContent = formatOrcamentoCatalogHint(maquinas, campos, titulo);
+  }
+  const customWrap = root?.querySelector('[data-orc-titulo-coluna-custom]');
+  const preset =
+    root?.querySelector('[data-orc-field="tituloColunaArtigosPreset"]')?.value?.trim() || '';
+  if (customWrap) {
+    const isOutro = preset === 'outro';
+    customWrap.hidden = !isOutro;
+    customWrap.querySelector('input')?.toggleAttribute('disabled', !isOutro);
+  }
+}
+
+export function renderOrcamentoLinhasTableHead(
+  maquinas = [],
+  campos = null,
+  tituloColuna = TITULO_COLUNA_ARTIGOS_DEFAULT,
+) {
   const grouped = shouldGroupOrcamentoLinhasByEquipamento(maquinas, campos);
+  const titulo = String(tituloColuna || '').trim() || TITULO_COLUNA_ARTIGOS_DEFAULT;
   const equipTh =
     !grouped && shouldShowLinhaEquipamentoColumn(maquinas, campos)
       ? '<th class="review-orc-equip-th" data-orc-equip-th scope="col">Equipamento</th>'
@@ -365,7 +414,7 @@ export function renderOrcamentoLinhasTableHead(maquinas = [], campos = null) {
   return `
     <tr>
       ${equipTh}
-      <th>Na reparação precisa</th>
+      <th data-orc-coluna-artigos-th scope="col">${escapeHtml(titulo)}</th>
       <th>Qtd.</th>
       <th>Preço unit. (€)</th>
       <th>Total (€)</th>
@@ -383,11 +432,12 @@ export function rebuildOrcamentoLinhasTable(root, linhas = null) {
   const maquinas = readOrcamentoMaquinasFromDom(root, campos);
   const grouped = shouldGroupOrcamentoLinhasByEquipamento(maquinas, campos);
   const preserved = Array.isArray(linhas) ? linhas : readOrcamentoLinhasFromDom(root);
+  const titulo = resolveOrcamentoLinhasColunaTituloFromRoot(root);
 
   table.classList.toggle('review-orc-table--grouped-equip', grouped);
   table.classList.toggle('review-orc-table--multi-equip', !grouped && maquinas.length > 1);
 
-  theadRow.innerHTML = renderOrcamentoLinhasTableHead(maquinas, campos)
+  theadRow.innerHTML = renderOrcamentoLinhasTableHead(maquinas, campos, titulo)
     .trim()
     .replace(/^<tr>/, '')
     .replace(/<\/tr>$/, '');
@@ -412,19 +462,11 @@ export function syncOrcamentoLinhaEquipamentoColumn(root) {
   const campos = readOrcamentoEquipamentoCamposFromDom(root);
   const maquinas = readOrcamentoMaquinasFromDom(root, campos);
   const grouped = shouldGroupOrcamentoLinhasByEquipamento(maquinas, campos);
-  const multi = shouldShowLinhaEquipamentoColumn(maquinas, campos);
   root?.querySelector('.review-orcamento-editor__toolbar')?.classList.toggle(
     'review-orcamento-editor__toolbar--hidden',
     grouped,
   );
-  const hint = root?.querySelector('.review-orc-catalog-hint');
-  if (hint) {
-    hint.textContent = grouped
-      ? 'Com várias máquinas, cada equipamento tem a sua secção. Use «+ Linha» em cada máquina para os artigos dessa máquina.'
-      : multi
-        ? 'Na coluna «Na reparação precisa», escreva para pesquisar no catálogo. Com várias máquinas, indique o equipamento em cada linha.'
-        : 'Na coluna «Na reparação precisa», escreva para pesquisar no catálogo.';
-  }
+  syncOrcamentoLinhasColunaTitulo(root);
 }
 
 export function syncLegacyMaquinaFieldsFromList(maquinas = [], campos = null) {

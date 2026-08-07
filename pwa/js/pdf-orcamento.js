@@ -26,6 +26,7 @@ import {
   filterOrcamentoTableLinhas,
 } from './orcamento-maquinas.js';
 import { normalizeEquipamentoCampos } from './orcamento-equipamento-campos.js';
+import { TITULO_COLUNA_ARTIGOS_DEFAULT } from './orcamento-coluna-artigos.js';
 import {
   computeLinhaTotal,
   formatEuro,
@@ -586,7 +587,12 @@ function fitTableCellText(doc, text, maxWidthMm) {
   return trimmed.length < safe.length ? `${trimmed}…` : trimmed;
 }
 
-function drawOrcamentoTable(doc, linhas, startY, { maquinas = [], equipamentoCampos = null, layout = null } = {}) {
+function drawOrcamentoTable(
+  doc,
+  linhas,
+  startY,
+  { maquinas = [], equipamentoCampos = null, layout = null, tituloColunaArtigos = null } = {},
+) {
   const campos = normalizeEquipamentoCampos(equipamentoCampos);
   const table =
     layout ||
@@ -594,6 +600,8 @@ function drawOrcamentoTable(doc, linhas, startY, { maquinas = [], equipamentoCam
   const grouped = table.grouped;
   const groups = table.groups || groupOrcamentoLinhasByEquipamento(linhas, maquinas, campos);
   const y0 = table.startY ?? startY;
+  const colTitulo =
+    String(tituloColunaArtigos || '').trim() || TITULO_COLUNA_ARTIGOS_DEFAULT;
 
   const colX = [MARGIN, MARGIN + 98, MARGIN + 112, MARGIN + 148, MARGIN + CONTENT_W];
   let y = y0;
@@ -634,7 +642,7 @@ function drawOrcamentoTable(doc, linhas, startY, { maquinas = [], equipamentoCam
   if (grouped) {
     groups.forEach((group, groupIndex) => {
       y = drawMachineHeader(group.label);
-      y = drawRow(['Na reparação precisa', 'Qtd.', 'Preço Unit.', 'Total'], {
+      y = drawRow([colTitulo, 'Qtd.', 'Preço Unit.', 'Total'], {
         bold: true,
         fill: true,
       });
@@ -657,7 +665,7 @@ function drawOrcamentoTable(doc, linhas, startY, { maquinas = [], equipamentoCam
     return y + 4;
   }
 
-  y = drawRow(['Na reparação precisa', 'Qtd.', 'Preço Unit.', 'Total'], { bold: true, fill: true });
+  y = drawRow([colTitulo, 'Qtd.', 'Preço Unit.', 'Total'], { bold: true, fill: true });
   (table.dataRows || orcamentoTableDataRows(linhas, maquinas)).forEach((row) => {
     const total =
       row.total ||
@@ -1189,7 +1197,11 @@ function drawOrcamentoMachineTableSection(
   linhas,
   startY,
   density = ORC_GENERIC_DENSITY.normal,
-  { clip = true, maxEndY = ORC_GENERIC_BODY_MAX_Y } = {},
+  {
+    clip = true,
+    maxEndY = ORC_GENERIC_BODY_MAX_Y,
+    tituloColunaArtigos = TITULO_COLUNA_ARTIGOS_DEFAULT,
+  } = {},
 ) {
   const rows = filterOrcamentoPdfGroupLinhas(linhas);
   const { drawRow } = createOrcamentoTableRowDrawer(doc, startY, {
@@ -1197,7 +1209,8 @@ function drawOrcamentoMachineTableSection(
     density,
     clip,
   });
-  let y = drawRow(['Na reparação precisa', 'Qtd.', 'Preço Unit.', 'Total'], {
+  const colTitulo = String(tituloColunaArtigos || '').trim() || TITULO_COLUNA_ARTIGOS_DEFAULT;
+  let y = drawRow([colTitulo, 'Qtd.', 'Preço Unit.', 'Total'], {
     bold: true,
     fill: true,
   });
@@ -1287,6 +1300,8 @@ function drawOrcamentoMaquinaSections(
   let pageMaxEndY = maxEndY;
   const drawEquip = mode === 'full' || mode === 'conditions';
   const drawTables = mode === 'full' || mode === 'tables';
+  const colTitulo =
+    String(fill.titulo_coluna_artigos || '').trim() || TITULO_COLUNA_ARTIGOS_DEFAULT;
 
   groups.forEach((group, groupIndex) => {
     const block = blocks.find((row) => row.index === group.equipamentoIndex) || blocks[groupIndex];
@@ -1322,6 +1337,7 @@ function drawOrcamentoMaquinaSections(
       y = drawOrcamentoMachineTableSection(doc, group.linhas, y, density, {
         clip: allowPagination || mode === 'tables',
         maxEndY: pageMaxEndY,
+        tituloColunaArtigos: colTitulo,
       });
     }
     if (includeSeparator && (drawEquip || drawTables)) {

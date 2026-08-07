@@ -33,6 +33,7 @@ import {
 } from './orcamento-templates.js';
 import { hasTemplateMaquinaIdentData } from './orcamento-template-equipamentos.js';
 import { getOrcamentoTipoProposta } from './orcamento-tipo-proposta.js';
+import { resolveTituloColunaArtigos } from './orcamento-coluna-artigos.js';
 
 const MESES_PT = [
   'Janeiro',
@@ -212,6 +213,7 @@ export function buildOrcamentoFillData(report, job = null) {
     maquinas_texto: formatOrcamentoMaquinasDocxText(maquinasForPdf, equipamentoCampos),
     observacoes_cliente: observacoesCliente || '—',
     reparacao_necessaria: observacoesCliente || '—',
+    titulo_coluna_artigos: resolveTituloColunaArtigos(orcamentoMeta),
     taxas_saida: taxasSaidaLista.map((value) => formatEuro(value)),
     taxa_saida:
       taxasSaidaLista.length === 0
