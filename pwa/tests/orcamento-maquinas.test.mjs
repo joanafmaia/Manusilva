@@ -216,4 +216,20 @@ describe('orcamento-maquinas', () => {
     assert.equal(groups[0].linhas.length, 1);
     assert.equal(groups[0].linhas[0].descricao, '—');
   });
+
+  it('limita a uma máquina por proposta (sem botão adicionar)', async () => {
+    const { renderOrcamentoMaquinasSection, MAX_ORCAMENTO_EQUIPAMENTOS } = await import(
+      '../js/orcamento-maquinas.js'
+    );
+    const { MAX_TEMPLATE_MAQUINAS, renderTemplateMaquinasSection } = await import(
+      '../js/orcamento-template-equipamentos.js'
+    );
+    assert.equal(MAX_ORCAMENTO_EQUIPAMENTOS, 1);
+    assert.equal(MAX_TEMPLATE_MAQUINAS, 1);
+    const freeform = renderOrcamentoMaquinasSection([{ marca: 'STILL' }]);
+    assert.doesNotMatch(freeform, /review-orc-add-maquina/);
+    assert.match(freeform, /Uma máquina\/bateria por proposta/);
+    const template = renderTemplateMaquinasSection([{ maquinaManutencaoNome: 'Toyota' }]);
+    assert.doesNotMatch(template, /data-template-maquinas-add/);
+  });
 });

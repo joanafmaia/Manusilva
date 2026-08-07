@@ -517,6 +517,9 @@ function renderMaquinaFieldRow({ key, label }, value, { canRemoveCampo }) {
     </div>`;
 }
 
+/** 1 equipamento por proposta — várias máquinas = várias propostas no lote do cliente. */
+export const MAX_ORCAMENTO_EQUIPAMENTOS = 1;
+
 function renderMaquinaCard(row, index, fallbackCampos, { canRemoveMachine }) {
   const fieldDefs = resolveMaquinaFieldDefs(row, fallbackCampos);
   const m = normalizeOrcamentoMaquina(row, fieldDefs);
@@ -527,11 +530,12 @@ function renderMaquinaCard(row, index, fallbackCampos, { canRemoveMachine }) {
       }),
     )
     .join('');
+  const title = MAX_ORCAMENTO_EQUIPAMENTOS === 1 && !canRemoveMachine ? 'Equipamento' : `Equipamento ${index + 1}`;
 
   return `
     <article class="review-orc-maquina" data-orcamento-maquina data-index="${index}">
       <div class="review-orc-maquina__head">
-        <strong class="review-orc-maquina__title">Equipamento ${index + 1}</strong>
+        <strong class="review-orc-maquina__title">${title}</strong>
         <div class="review-orc-maquina__head-actions">
           <button type="button" class="btn-outline btn-sm" data-orc-add-campo-maquina>+ Campo</button>
           ${
@@ -560,18 +564,24 @@ function renderMaquinasList(maquinas, fallbackCampos) {
 
 export function renderOrcamentoMaquinasSection(maquinas = [], equipamentoCampos = null) {
   const campos = normalizeEquipamentoCampos(equipamentoCampos);
+  const list = maquinas?.length ? maquinas : [emptyOrcamentoMaquina(campos)];
+  const atMax = list.length >= MAX_ORCAMENTO_EQUIPAMENTOS;
   return `
-    <section class="review-orc-maquinas" aria-label="Equipamentos da proposta">
+    <section class="review-orc-maquinas" aria-label="Equipamento da proposta">
       <div class="review-orc-maquinas__head">
-        <h4 class="review-orc-cabecalho__title">Equipamentos</h4>
-        <span class="review-orc-field-hint text-muted">Cada máquina pode ter títulos e campos diferentes (ex.: Equipamento, Material).</span>
+        <h4 class="review-orc-cabecalho__title">Equipamento</h4>
+        <span class="review-orc-field-hint text-muted">Uma máquina/bateria por proposta. Para outro equipamento, crie uma nova proposta (envio em lote na pasta do cliente).</span>
       </div>
       <div class="review-orc-maquinas__list" id="review-orc-maquinas-list">
-        ${renderMaquinasList(maquinas, campos)}
+        ${renderMaquinasList(list, campos)}
       </div>
-      <div class="review-orc-maquinas__actions">
+      ${
+        atMax
+          ? ''
+          : `<div class="review-orc-maquinas__actions">
         <button type="button" class="btn-outline btn-touch review-orc-maquinas-add" id="review-orc-add-maquina">+ Adicionar máquina</button>
-      </div>
+      </div>`
+      }
     </section>`;
 }
 
@@ -597,7 +607,7 @@ export { readOrcamentoEquipamentoCamposFromDom };
 export function bindOrcamentoMaquinasSection(root, { onChange, onFieldChange } = {}) {
   const list = root?.querySelector('#review-orc-maquinas-list');
   const addMaquinaBtn = root?.querySelector('#review-orc-add-maquina');
-  if (!list || !addMaquinaBtn) return;
+  if (!list) return;
 
   const notifyStructure = () => onChange?.();
   const notifyField = () => onFieldChange?.();
@@ -607,7 +617,12 @@ export function bindOrcamentoMaquinasSection(root, { onChange, onFieldChange } =
     cards.forEach((card, index) => {
       card.dataset.index = String(index);
       const title = card.querySelector('.review-orc-maquina__title');
-      if (title) title.textContent = `Equipamento ${index + 1}`;
+      if (title) {
+        title.textContent =
+          cards.length === 1 && MAX_ORCAMENTO_EQUIPAMENTOS === 1
+            ? 'Equipamento'
+            : `Equipamento ${index + 1}`;
+      }
       const removeBtn = card.querySelector('.review-orc-maquina-remove');
       if (removeBtn) removeBtn.hidden = cards.length <= 1;
     });
@@ -688,8 +703,9 @@ export function bindOrcamentoMaquinasSection(root, { onChange, onFieldChange } =
     if (e.target.matches('[data-orc-campo-label], [data-orc-maquina-field]')) notifyField();
   });
 
-  addMaquinaBtn.addEventListener('click', () => {
+  addMaquinaBtn?.addEventListener('click', () => {
     const maquinas = readOrcamentoMaquinasFromDom(root);
+    if (maquinas.length >= MAX_ORCAMENTO_EQUIPAMENTOS) return;
     const templateCampos = maquinas[0]?.campos?.map((field) => ({ ...field }));
     maquinas.push(emptyOrcamentoMaquina(templateCampos));
     const fallback = maquinas[0]?.campos || readOrcamentoEquipamentoCamposFromDom(root);

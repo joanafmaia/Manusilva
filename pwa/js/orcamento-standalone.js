@@ -167,7 +167,7 @@ export function openNovaPropostaModal({ onCreated } = {}) {
   const content = `
     <form id="nova-proposta-form" class="nova-proposta-form">
       <p class="text-muted nova-proposta-lead">
-        Cria uma proposta comercial sem relatório de intervenção. Pode adicionar máquinas, linhas e gerar o PDF de seguida.
+        Cria uma proposta comercial sem relatório de intervenção. Uma máquina/bateria por proposta; pode criar várias propostas e enviá-las em lote na pasta do cliente.
       </p>
       ${renderClientCombobox({
         fieldId: 'nova-proposta-client',
