@@ -339,32 +339,34 @@ function flushDirtyAdminTab(tab) {
   if ((tab === 'calendario' || tab === 'relatorios') && adminTabDirty.ops) {
     adminTabDirty.ops = false;
     refreshOpsTab();
-    return;
+    return true;
   }
   if (tab === 'faturacao' && adminTabDirty.faturacao) {
     adminTabDirty.faturacao = false;
-    refreshFaturacaoPanel().catch(console.error);
-    return;
+    refreshFaturacaoPanel({ soft: true }).catch(console.error);
+    return true;
   }
   if (tab === 'orcamentos' && adminTabDirty.orcamentos) {
     adminTabDirty.orcamentos = false;
-    refreshOrcamentosPanel().catch(console.error);
-    return;
+    refreshOrcamentosPanel({ soft: true }).catch(console.error);
+    return true;
   }
   if (tab === 'avaliacoes' && adminTabDirty.avaliacoes) {
     adminTabDirty.avaliacoes = false;
     refreshAvaliacoesPanel().catch(console.error);
-    return;
+    return true;
   }
   if (tab === 'clientes' && adminTabDirty.clientes) {
     adminTabDirty.clientes = false;
     refreshClientesTab();
-    return;
+    return true;
   }
   if (tab === 'funcionarios' && adminTabDirty.funcionarios) {
     adminTabDirty.funcionarios = false;
     refreshFuncionariosTab();
+    return true;
   }
+  return false;
 }
 
 function handleAdminDbUpdated() {
@@ -454,32 +456,34 @@ export async function navigateToBillingReport(reportId) {
   await refreshFaturacaoPanel();
 }
 
-export function setAdminTab(tab) {
+export function setAdminTab(tab, options = {}) {
   if (!tab) return;
+  const tabChanged = currentTab !== tab;
   currentTab = tab;
   if (tab === 'relatorios') opsMobileView = 'relatorios';
   if (tab === 'calendario') opsMobileView = 'calendario';
   updateAdminTabUI();
-  flushDirtyAdminTab(tab);
-  if (tab === 'orcamentos') {
-    // Só refrescar se o painel já estiver montado — evita 1.º paint na lista
-    // de pastas antes do init restaurar a pasta do cliente.
-    if (document.querySelector('#orcamentos-panel-root .orcamentos-panel')) {
-      refreshOrcamentosPanel().catch(console.error);
-    }
+  const flushedDirty = flushDirtyAdminTab(tab);
+
+  // Só refrescar se dirty (já tratado) não cobriu — evita refresh duplicado / lag.
+  if (tab === 'orcamentos' && !flushedDirty) {
+    /* painel mantém-se; soft refresh só quando há dados novos */
   }
-  if (tab === 'avaliacoes') {
-    refreshAvaliacoesPanel().catch(console.error);
+  if (tab === 'avaliacoes' && !flushedDirty) {
+    /* idem — sem rebuild de charts em cada clique na aba */
   }
   if (tab === 'relatorios' || tab === 'calendario') {
     updateOpsSummary();
   }
-  document.querySelector('.admin-main')?.scrollTo({ top: 0, behavior: 'smooth' });
-  if (tab === 'relatorios') {
+
+  // Sem scroll animado para o topo em cada troca (causa salto e compete com soft-refresh).
+  if (tabChanged && options.resetScroll === true) {
+    document.querySelector('.admin-main')?.scrollTo({ top: 0, behavior: 'auto' });
+  }
+  if (tab === 'relatorios' && tabChanged) {
     requestAnimationFrame(() => {
-      document.getElementById('pending')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       syncReviewPanelHeight();
-      queueRhReviewStackRender({ preserveScroll: false });
+      queueRhReviewStackRender({ preserveScroll: true });
     });
   }
 }

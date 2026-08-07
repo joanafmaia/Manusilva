@@ -2896,6 +2896,24 @@
 }
 
 /* —— Proposta MS.015 — página dedicada (ecrã completo) —— */
+.orcamento-admin-shell {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  overflow: auto;
+  background: var(--ms-bg, #f7f6f3);
+}
+.orcamento-admin-shell__app {
+  min-height: 100%;
+}
+body.orcamento-admin-shell-open {
+  overflow: hidden;
+}
+body.orcamento-admin-shell-open .admin-app {
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .orcamento-page-app {
   position: relative;
   z-index: 1;

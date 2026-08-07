@@ -1389,7 +1389,8 @@ function bindPanelEvents() {
 function applyHighlight() {
   if (!mountRoot || !highlightReportId) return;
   const row = mountRoot.querySelector(`[data-report-id="${CSS.escape(highlightReportId)}"]`);
-  row?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  row?.classList.add('orcamentos-row--highlight');
+  row?.scrollIntoView({ block: 'nearest', behavior: 'auto' });
   window.setTimeout(() => {
     highlightReportId = null;
     row?.classList.remove('orcamentos-row--highlight');

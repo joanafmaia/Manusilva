@@ -75,6 +75,7 @@ import {
   syncTemplateEquipValoresList,
 } from './orcamento-template-equipamentos.js';
 import {
+  isOrcamentoAdminShellOpen,
   isOrcamentoDedicatedPage,
   rememberOrcamentoPendingPasta,
   rememberOrcamentoPendingReport,
@@ -111,6 +112,8 @@ function shouldReturnToOrcamentosMenu() {
 function finishOrcamentoEditingAndReturn({ onSaved, onSent, saved, action }) {
   if (action === 'save') onSaved?.(saved);
   if (action === 'send') onSent?.(saved);
+  // Shell in-page no admin: onSaved/onSent fecham o editor (sem reload).
+  if (isOrcamentoAdminShellOpen()) return;
   if (shouldReturnToOrcamentosMenu()) {
     if (saved?.id) {
       rememberOrcamentoPendingPasta(resolveOrcamentoPastaKey(saved));

@@ -136,6 +136,150 @@ export function isOrcamentoDedicatedPage() {
   return /^orcamento(?:\.html)?$/i.test(leaf);
 }
 
+/** Painel RH admin.html — permite abrir a proposta sem sair da SPA. */
+export function isAdminDashboardPage() {
+  if (document.body?.classList.contains('admin-rh-page') && !isOrcamentoDedicatedPage()) {
+    return Boolean(document.querySelector('.admin-app, #orcamentos-panel-root'));
+  }
+  const leaf = String(window.location.pathname || '')
+    .split('/')
+    .pop()
+    .toLowerCase();
+  return /^admin(?:\.html)?$/i.test(leaf);
+}
+
+export function isOrcamentoAdminShellOpen() {
+  return Boolean(document.getElementById('orcamento-admin-shell'));
+}
+
+/**
+ * Fecha o editor in-page e refresca Orçamentos (soft) na pasta guardada.
+ * @param {{ refresh?: boolean }} [options]
+ */
+export async function closeOrcamentoAdminShell({ refresh = true } = {}) {
+  document.getElementById('orcamento-admin-shell')?.remove();
+  document.body.classList.remove('orcamento-admin-shell-open');
+  if (!refresh) return;
+  try {
+    const { refreshOrcamentosPanel } = await import('./views/orcamentos.js');
+    await refreshOrcamentosPanel({ soft: true });
+  } catch (err) {
+    console.warn('[Orçamento] soft refresh após fechar shell:', err);
+  }
+}
+
+/**
+ * Editor MS.015 em ecrã completo sobre o admin — sem location.href / reload.
+ * @param {object} report
+ * @param {{ pastaKey?: string }} [options]
+ */
+export async function openOrcamentoInAdminShell(report, { pastaKey } = {}) {
+  if (!report?.id) return;
+
+  const { resolveOrcamentoPastaKey } = await import('./orcamento-cabecalho.js');
+  const key = String(pastaKey || '').trim() || resolveOrcamentoPastaKey(report);
+  if (key) rememberOrcamentoPendingPasta(key);
+  rememberOrcamentoPendingReport(report.id);
+  rememberAdminPendingTab('orcamentos');
+
+  document.getElementById('orcamento-admin-shell')?.remove();
+
+  const shell = document.createElement('div');
+  shell.id = 'orcamento-admin-shell';
+  shell.className = 'orcamento-admin-shell';
+  shell.setAttribute('role', 'dialog');
+  shell.setAttribute('aria-modal', 'true');
+  shell.setAttribute('aria-label', 'Proposta comercial');
+  shell.innerHTML = `
+    <div class="orcamento-page-app orcamento-admin-shell__app">
+      <header class="orcamento-page-header glass-card">
+        <div class="orcamento-page-header__start">
+          <button type="button" class="btn-outline btn-sm orcamento-page-back" data-orc-admin-back>
+            ← Voltar aos orçamentos
+          </button>
+          <div class="orcamento-page-title-wrap">
+            <h1 class="orcamento-page-title">Proposta Comercial</h1>
+            <span class="orcamento-page-title-num" data-orc-admin-title-num hidden></span>
+          </div>
+        </div>
+      </header>
+      <main class="orcamento-page-main glass-card" data-orc-admin-main aria-live="polite">
+        <p class="text-muted">A carregar proposta…</p>
+      </main>
+    </div>`;
+  document.body.appendChild(shell);
+  document.body.classList.add('orcamento-admin-shell-open');
+
+  const main = shell.querySelector('[data-orc-admin-main]');
+  const titleNum = shell.querySelector('[data-orc-admin-title-num]');
+  const backBtn = shell.querySelector('[data-orc-admin-back]');
+  let closing = false;
+
+  const onKeyDown = (e) => {
+    if (e.key !== 'Escape') return;
+    if (document.querySelector('.orc-resposta-date-overlay, .modal-overlay.show')) return;
+    e.preventDefault();
+    void finishToPasta(report);
+  };
+
+  const finishToPasta = async (saved) => {
+    if (closing) return;
+    closing = true;
+    document.removeEventListener('keydown', onKeyDown, true);
+    if (saved?.id) {
+      rememberOrcamentoPendingPasta(resolveOrcamentoPastaKey(saved));
+      rememberOrcamentoPendingReport(saved.id);
+    }
+    await closeOrcamentoAdminShell({ refresh: true });
+  };
+
+  backBtn?.addEventListener('click', () => {
+    void finishToPasta(report);
+  });
+  document.addEventListener('keydown', onKeyDown, true);
+
+  const { mountOrcamentoEditorView, resolveOrcamentoTitleNumero } = await import(
+    './orcamento-view.js'
+  );
+
+  const syncTitle = (r) => {
+    const num = resolveOrcamentoTitleNumero(r);
+    if (!titleNum) return;
+    if (num) {
+      titleNum.textContent = num;
+      titleNum.hidden = false;
+    } else {
+      titleNum.hidden = true;
+    }
+  };
+
+  syncTitle(report);
+  mountOrcamentoEditorView(main, report, {
+    onUpdated: (updated) => {
+      syncTitle(updated);
+      void import('./folha-obra-orcamento.js')
+        .then(({ syncFolhaObraFromOrcamentoReport }) => syncFolhaObraFromOrcamentoReport(updated))
+        .catch((err) => console.warn('[Orçamento] sync folha:', err));
+    },
+    onNumeroChange: (num) => {
+      if (!titleNum) return;
+      titleNum.textContent = num;
+      titleNum.hidden = !num;
+    },
+    onSaved: (saved) => {
+      void finishToPasta(saved);
+    },
+    onSent: (saved) => {
+      void finishToPasta(saved);
+    },
+  });
+
+  requestAnimationFrame(() => {
+    shell.querySelector('[data-orc-admin-main]')?.scrollTo?.(0, 0);
+    backBtn?.focus();
+  });
+}
+
 export function consumeAdminPendingTab() {
   try {
     const tab = sessionStorage.getItem(ADMIN_PENDING_TAB_KEY);
@@ -183,6 +327,13 @@ export function exitOrcamentoPageAfterSend(options = {}) {
  */
 export function openOrcamentoPage(report, { returnTo, pastaKey } = {}) {
   if (!report?.id) return;
+
+  // No painel RH: editor in-page (sem reload de admin.html).
+  if (isAdminDashboardPage()) {
+    void openOrcamentoInAdminShell(report, { pastaKey });
+    return;
+  }
+
   const back = returnTo || resolveOrcamentosAdminUrl();
   rememberOrcamentoReturnUrl(back);
   if (pastaKey) rememberOrcamentoPendingPasta(pastaKey);
