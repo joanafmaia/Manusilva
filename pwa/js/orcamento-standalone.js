@@ -10,7 +10,8 @@ import {
 } from './app.js';
 import { bindClientComboboxes, renderClientCombobox } from './client-combobox.js';
 import { getClientFromCatalog } from './clients-catalog.js';
-import { openOrcamentoPage } from './orcamento-modal.js';import { deleteRelatorioById, upsertRelatorio } from './relatorios-db.js';
+import { openOrcamentoPage } from './orcamento-modal.js';
+import { deleteRelatorioById, upsertRelatorio } from './relatorios-db.js';
 import { deleteTrabalho } from './trabalhos-db.js';
 import {
   ORCAMENTO_TIPO_PROPOSTA,
