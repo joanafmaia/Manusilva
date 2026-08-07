@@ -808,7 +808,6 @@ function renderClientPasta(group) {
   const pendentes = filterOrcamentoLoteReports(allClientRows, group.clientId, { mode: 'pendentes' });
   const reenvio = filterOrcamentoLoteReports(allClientRows, group.clientId, { mode: 'reenvio' });
   const pendNumeros = formatOrcamentoLoteNumeros(pendentes);
-  const envNumeros = formatOrcamentoLoteNumeros(reenvio);
   const defaultEmail = escapeHtml(group.email || '');
   const canNova = Boolean(group.clientId);
 
@@ -817,70 +816,49 @@ function renderClientPasta(group) {
       <div class="orcamentos-client-pasta__head">
         <button type="button" class="btn-outline btn-sm" data-orc-client-back>← Pastas</button>
         <div class="orcamentos-client-pasta__title-wrap">
-          <h3 class="ms-h2 faturacao-section-title">${escapeHtml(group.name)}</h3>
-          <p class="text-muted orcamentos-client-pasta__lead">
-            Abra ou prepare cada proposta, guarde, adicione outra se precisar e envie o lote num único e-mail.
-          </p>
+          <h3 class="ms-h2 faturacao-section-title orcamentos-client-pasta__name">${escapeHtml(group.name)}</h3>
         </div>
         ${
           canNova
-            ? `<button type="button" class="btn-primary btn-touch" data-orc-new data-orc-new-client="${escapeHtml(group.clientId)}" data-orc-new-name="${escapeHtml(group.name)}">
+            ? `<button type="button" class="btn-primary btn-sm orcamentos-client-pasta__new" data-orc-new data-orc-new-client="${escapeHtml(group.clientId)}" data-orc-new-name="${escapeHtml(group.name)}">
                 Nova proposta
               </button>`
             : ''
         }
       </div>
 
-      <div class="orcamentos-client-pasta__lote glass-card">
-        <label class="review-orc-field">
-          <span>E-mail do lote</span>
-          <input
-            type="text"
-            class="form-input"
-            data-orc-lote-email
-            value="${defaultEmail}"
-            placeholder="compras@empresa.pt"
-            autocomplete="email"
-          />
-        </label>
-        <div class="orcamentos-client-pasta__lote-actions">
+      <label class="review-orc-field orcamentos-client-pasta__email">
+        <span>E-mail do cliente (lote)</span>
+        <input
+          type="text"
+          class="form-input"
+          data-orc-lote-email
+          value="${defaultEmail}"
+          placeholder="compras@empresa.pt"
+          autocomplete="email"
+        />
+      </label>
+
+      <section class="orcamentos-pasta-section orcamentos-pasta-section--prep" aria-label="Em preparação">
+        <header class="orcamentos-pasta-section__head">
+          <div>
+            <h4 class="orcamentos-pasta-section__title">Em preparação <span class="badge-count">${emPreparacao.length}</span></h4>
+            <p class="text-muted orcamentos-pasta-section__hint">Prepare, guarde e adicione mais propostas. Depois envie tudo num único e-mail.</p>
+          </div>
           <button
             type="button"
-            class="btn-success btn-touch"
+            class="btn-success btn-sm"
             data-orc-lote-send
             data-orc-lote-mode="pendentes"
             ${pendentes.length ? '' : 'disabled'}
-            title="${pendentes.length ? `Enviar ${pendentes.length} proposta(s)` : 'Guarde propostas preparadas antes de enviar o lote'}"
+            title="${
+              pendentes.length
+                ? `Enviar ${pendentes.length} proposta(s): ${pendNumeros.join(', ')}`
+                : 'Guarde pelo menos uma proposta preparada para enviar o lote'
+            }"
           >
-            Enviar lote ao cliente${pendentes.length ? ` (${pendentes.length})` : ''}
+            Enviar lote${pendentes.length ? ` (${pendentes.length})` : ''}
           </button>
-          <button
-            type="button"
-            class="btn-outline btn-touch"
-            data-orc-lote-send
-            data-orc-lote-mode="reenvio"
-            ${reenvio.length ? '' : 'disabled'}
-            title="${reenvio.length ? `Reenviar ${reenvio.length} proposta(s)` : 'Sem propostas já enviadas'}"
-          >
-            Reenviar enviadas${reenvio.length ? ` (${reenvio.length})` : ''}
-          </button>
-        </div>
-        ${
-          pendNumeros.length
-            ? `<p class="text-muted orcamentos-client-pasta__nums">Prontas a enviar: ${escapeHtml(pendNumeros.join(', '))}</p>`
-            : '<p class="text-muted orcamentos-client-pasta__nums">Nenhuma proposta guardada pronta a enviar — prepare e guarde primeiro.</p>'
-        }
-        ${
-          envNumeros.length
-            ? `<p class="text-muted orcamentos-client-pasta__nums">Já enviadas: ${escapeHtml(envNumeros.join(', '))}</p>`
-            : ''
-        }
-      </div>
-
-      <section class="orcamentos-pasta-section" aria-label="Em preparação">
-        <header class="orcamentos-pasta-section__head">
-          <h4 class="orcamentos-pasta-section__title">Em preparação <span class="badge-count">${emPreparacao.length}</span></h4>
-          <p class="text-muted orcamentos-pasta-section__hint">Por preparar ou guardadas — ainda não foram enviadas ao cliente.</p>
         </header>
         ${
           emPreparacao.length
@@ -889,10 +867,25 @@ function renderClientPasta(group) {
         }
       </section>
 
-      <section class="orcamentos-pasta-section" aria-label="Já enviadas">
+      <section class="orcamentos-pasta-section orcamentos-pasta-section--sent" aria-label="Já enviadas">
         <header class="orcamentos-pasta-section__head">
-          <h4 class="orcamentos-pasta-section__title">Já enviadas <span class="badge-count">${enviadas.length}</span></h4>
-          <p class="text-muted orcamentos-pasta-section__hint">Enviadas ao cliente — aguardam resposta ou já foram respondidas.</p>
+          <div>
+            <h4 class="orcamentos-pasta-section__title">Já enviadas <span class="badge-count">${enviadas.length}</span></h4>
+            <p class="text-muted orcamentos-pasta-section__hint">Aguardam resposta ou já foram respondidas.</p>
+          </div>
+          ${
+            reenvio.length
+              ? `<button
+                  type="button"
+                  class="btn-outline btn-sm"
+                  data-orc-lote-send
+                  data-orc-lote-mode="reenvio"
+                  title="Reenviar ${reenvio.length} proposta(s) já enviadas"
+                >
+                  Reenviar (${reenvio.length})
+                </button>`
+              : ''
+          }
         </header>
         ${
           enviadas.length
@@ -915,25 +908,24 @@ function renderPropostasSection(rows, counts, totalAll) {
       ? renderClientFolders(groups)
       : renderEmptyState(counts, totalAll);
 
-  const sectionTitle = selectedGroup
-    ? `Pasta — ${selectedGroup.name}`
-    : 'Pastas por cliente';
+  const sectionTitle = selectedGroup ? selectedGroup.name : 'Pastas por cliente';
+  const sectionCount = clientPastaOpen
+    ? selectedGroup?.rows?.length || 0
+    : groups.length;
 
   return `
     <section class="faturacao-invoices-section orcamentos-table-section rh-section glass-card" aria-label="Propostas comerciais">
-      <div class="faturacao-invoices-head">
+      ${
+        clientPastaOpen
+          ? ''
+          : `<div class="faturacao-invoices-head">
         <div class="orcamentos-section-head">
-          <h3 class="ms-h2 faturacao-section-title">${escapeHtml(sectionTitle)} <span class="badge-count">${
-            clientPastaOpen ? selectedGroup?.rows?.length || 0 : groups.length
-          }</span></h3>
+          <h3 class="ms-h2 faturacao-section-title">${escapeHtml(sectionTitle)} <span class="badge-count">${sectionCount}</span></h3>
         </div>
-        ${clientPastaOpen ? '' : renderEstadoTabs(counts)}
-        ${
-          clientPastaOpen
-            ? ''
-            : '<p class="text-muted orcamentos-kanban-lead">Abra a pasta do cliente: prepare → guarde → adicione outra → envie o lote.</p>'
-        }
-      </div>
+        ${renderEstadoTabs(counts)}
+        <p class="text-muted orcamentos-kanban-lead">Abra a pasta do cliente: prepare → guarde → adicione outra → envie o lote.</p>
+      </div>`
+      }
       ${body}
     </section>`;
 }

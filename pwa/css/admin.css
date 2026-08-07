@@ -5202,38 +5202,41 @@ body .admin-rh-page .btn-primary, body .admin-rh-page .btn-secondary, body .admi
 .orcamentos-client-pasta__head {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-start;
-  gap: 0.75rem 1rem;
+  align-items: center;
+  gap: 0.65rem 0.85rem;
   margin-bottom: 0.85rem;
 }
 .orcamentos-client-pasta__title-wrap {
-  flex: 1 1 14rem;
+  flex: 1 1 12rem;
   min-width: 0;
 }
-.orcamentos-client-pasta__lead {
-  margin: 0.2rem 0 0;
-  font-size: 0.85rem;
+.orcamentos-client-pasta__name {
+  margin: 0;
+  font-size: 1.1rem;
 }
-.orcamentos-client-pasta__lote {
+.orcamentos-client-pasta__new {
+  flex: 0 0 auto;
+  width: auto !important;
+  white-space: nowrap;
+}
+.orcamentos-client-pasta__email {
   display: grid;
-  gap: 0.65rem;
-  padding: 0.85rem 1rem;
+  gap: 0.35rem;
+  max-width: 28rem;
   margin-bottom: 1rem;
 }
-.orcamentos-client-pasta__lote-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-.orcamentos-client-pasta__nums {
-  margin: 0;
-  font-size: 0.78rem;
-}
 .orcamentos-pasta-section {
-  margin-bottom: 1.25rem;
+  margin-bottom: 1.35rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--ms-border-md, #e2e8f0);
 }
 .orcamentos-pasta-section__head {
-  margin-bottom: 0.55rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.65rem 1rem;
+  margin-bottom: 0.65rem;
 }
 .orcamentos-pasta-section__title {
   margin: 0;
@@ -5246,10 +5249,15 @@ body .admin-rh-page .btn-primary, body .admin-rh-page .btn-secondary, body .admi
 .orcamentos-pasta-section__hint {
   margin: 0.2rem 0 0;
   font-size: 0.8rem;
+  max-width: 36rem;
 }
 .orcamentos-pasta-section__empty {
   margin: 0.35rem 0 0;
   font-size: 0.85rem;
+}
+.orcamentos-pasta-section--prep {
+  border-top: none;
+  padding-top: 0;
 }
 .orcamentos-client-empty {
   margin: 0.5rem 0;
