@@ -95,15 +95,18 @@ const MS015_DOC_REF_Y = 293.5;
 /** Espaço reservado no fundo da folha 1 para a caixa de aprovação do cliente. */
 const APPROVAL_BOX_H = 42;
 const APPROVAL_TOP = PAGE_BOTTOM - APPROVAL_BOX_H - 5;
-/** Zona fixa para taxa, prazo e totais — o total nunca fica cortado. */
-const FOOTER_BLOCK_H = 40;
-const FOOTER_TOP = APPROVAL_TOP - FOOTER_BLOCK_H;
+/** Folga clara entre a linha «Total:» e o topo da caixa de aprovação. */
+const PROPOSTA_APPROVAL_GAP = 14;
+const PROPOSTA_FOOTER_MAX_Y = APPROVAL_TOP - PROPOSTA_APPROVAL_GAP;
+/** Zona fixa para taxa, prazo e totais — fica toda acima da folga da aprovação. */
+const FOOTER_BLOCK_H = 42;
+const FOOTER_TOP = PROPOSTA_FOOTER_MAX_Y - FOOTER_BLOCK_H;
 /** Zona do corpo da proposta baterias — acima do bloco fixo de valores/pagamento. */
 const BATERIA_FOOTER_ANCHOR_Y = FOOTER_TOP - FOOTER_BLOCK_H + 2;
 const BATERIA_BODY_MAX_Y = BATERIA_FOOTER_ANCHOR_Y - 6;
 /** Manutenção máquinas: rodapé mais alto (3 linhas de preço + prazo/pagamento). */
 const MAQUINA_FOOTER_BLOCK_H = 42;
-const MAQUINA_FOOTER_ANCHOR_Y = APPROVAL_TOP - MAQUINA_FOOTER_BLOCK_H - 6;
+const MAQUINA_FOOTER_ANCHOR_Y = PROPOSTA_FOOTER_MAX_Y - MAQUINA_FOOTER_BLOCK_H;
 const MAQUINA_BULLET_LINE_STEP = 3.35;
 const MAQUINA_BULLET_MIN_STEP = 3.1;
 const MAQUINA_BULLET_COMPACT_FONT = 7.5;
@@ -135,8 +138,6 @@ const BATERIA_FOOTER_BLOCK_STEP_MAX = 4.8;
 const BATERIA_FOOTER_BLOCK_STEP_MIN = 3.5;
 const BATERIA_FOOTER_VALOR_GAP = 1;
 const BATERIA_FOOTER_BLOCK_GAP = 1.5;
-/** Folga entre totais/pagamento e o topo da caixa de aprovação. */
-const PROPOSTA_FOOTER_MAX_Y = APPROVAL_TOP - 9;
 const CONTENT_MAX_Y = FOOTER_TOP - 6;
 
 const ORC_TABLE_ROW_H = 6.5;
@@ -1430,7 +1431,11 @@ function estimateOrcamentoFooterHeight(fill = {}) {
 function drawOrcamentoFooter(doc, fill, options = {}) {
   const anchored = !Number.isFinite(options.startY);
   let y = anchored ? FOOTER_TOP + 4 : options.startY;
-  const maxY = Number.isFinite(options.maxY) ? options.maxY : Infinity;
+  const maxY = Number.isFinite(options.maxY)
+    ? options.maxY
+    : anchored
+      ? PROPOSTA_FOOTER_MAX_Y
+      : Infinity;
   const lineStep = options.lineStep ?? 5;
   const alignMoney = options.alignMoney !== false;
   pdfSetFont(doc, 'normal');
@@ -1475,11 +1480,13 @@ function drawOrcamentoFooter(doc, fill, options = {}) {
   }
 
   drawTaxasSaida();
-  y += Math.min(ORC_AFTER_PRICE_TOTALS_GAP, 1.8);
+  y += Math.min(ORC_AFTER_PRICE_TOTALS_GAP, 2.2);
   drawLabelValue('Prazo de Entrega:', formatPrazoEntregaForPdf(fill.prazo_entrega));
   drawLabelValue('Forma de Pagamento:', fill.forma_pagamento);
   drawLabelValue('Validade do orçamento –', fill.validade_orcamento);
 
+  // Folga extra antes do Total face à caixa de aprovação.
+  y += 1.5;
   return drawOrcamentoIvaTotals(doc, fill, y, maxY, { lineStep, alignMoney });
 }
 

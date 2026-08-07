@@ -312,7 +312,7 @@ describe('pdf-orcamento layout', () => {
     const layout = resolveOrcamentoGenericLayout(doc, fill, 76);
     assert.equal(layout.allowPagination, false);
     assert.equal(layout.splitTablePage, false);
-    assert.ok(layout.contentEndY <= 202, 'cabe no corpo alargado com assinatura compacta');
+    assert.ok(layout.contentEndY <= 185, 'cabe no corpo com folga acima da caixa de aprovação');
   });
 
   it('pagina 3 equipamentos quando o conteúdo não cabe mesmo em triple', () => {
