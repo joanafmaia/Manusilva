@@ -462,7 +462,11 @@ export function setAdminTab(tab) {
   updateAdminTabUI();
   flushDirtyAdminTab(tab);
   if (tab === 'orcamentos') {
-    refreshOrcamentosPanel().catch(console.error);
+    // Só refrescar se o painel já estiver montado — evita 1.º paint na lista
+    // de pastas antes do init restaurar a pasta do cliente.
+    if (document.querySelector('#orcamentos-panel-root .orcamentos-panel')) {
+      refreshOrcamentosPanel().catch(console.error);
+    }
   }
   if (tab === 'avaliacoes') {
     refreshAvaliacoesPanel().catch(console.error);

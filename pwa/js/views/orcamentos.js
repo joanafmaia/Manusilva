@@ -17,6 +17,7 @@ import {
   consumeOrcamentoPendingPasta,
   consumeOrcamentoPendingReport,
   openOrcamentoModal,
+  peekOrcamentoPendingPasta,
   rememberOrcamentoPendingPasta,
 } from '../orcamento-modal.js';
 import { formatOrdemLabel } from '../report-review-ui.js';
@@ -107,6 +108,16 @@ let exportTipoFilter = 'all';
 let exportEstadoFilter = 'all';
 let highlightReportId = null;
 let searchDebounce = null;
+
+/** Restaura pasta pendente antes de qualquer paint (evita flash na lista de pastas). */
+function syncPastaStateFromSession() {
+  const key = String(peekOrcamentoPendingPasta() || '').trim();
+  if (!key) return;
+  selectedPastaKey = key;
+  clientPastaOpen = true;
+}
+
+syncPastaStateFromSession();
 
 const EXPORT_ESTADO_OPTIONS = [
   { value: 'all', label: 'Todos os estados' },
@@ -1388,6 +1399,7 @@ function applyHighlight() {
 /** Atualiza KPIs + pastas/pasta + oficina sem destruir filtros (preserva foco e scroll). */
 async function softRefreshOrcamentosPanel() {
   if (!mountRoot) return;
+  syncPastaStateFromSession();
   if (!mountRoot.querySelector('.orcamentos-panel')) {
     await refreshOrcamentosPanel({ soft: false });
     return;
@@ -1411,6 +1423,7 @@ async function softRefreshOrcamentosPanel() {
 
 export async function refreshOrcamentosPanel(options = {}) {
   if (!mountRoot) return;
+  syncPastaStateFromSession();
   const { soft = true } = options;
 
   if (soft && mountRoot.querySelector('.orcamentos-panel')) {

@@ -34,6 +34,15 @@ export function clearOrcamentoPendingPasta() {
   }
 }
 
+/** Lê a pasta pendente sem consumir (para abrir já no 1.º render ao voltar do editor). */
+export function peekOrcamentoPendingPasta() {
+  try {
+    return sessionStorage.getItem(ADMIN_PENDING_PASTA_KEY) || null;
+  } catch {
+    return null;
+  }
+}
+
 export function consumeOrcamentoPendingPasta() {
   try {
     const key = sessionStorage.getItem(ADMIN_PENDING_PASTA_KEY);
