@@ -158,7 +158,9 @@ export async function openFolhaObraOrcamentoEditor(folhaId, { onUpdated } = {}) 
   const report = getReport(reportId);
   if (!report) throw new Error('Proposta não encontrada.');
 
+  const { resolveOrcamentoPastaKey } = await import('./orcamento-cabecalho.js');
   openOrcamentoModal(report, {
+    pastaKey: resolveOrcamentoPastaKey(report),
     onUpdated: async (updated) => {
       await syncFolhaObraFromOrcamentoReport(updated);
       onUpdated?.(updated);

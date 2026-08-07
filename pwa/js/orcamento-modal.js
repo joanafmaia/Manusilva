@@ -4,12 +4,63 @@
 
 const RETURN_KEY = 'orcamento_return_url';
 const ADMIN_PENDING_TAB_KEY = 'admin_pending_tab';
+const ADMIN_PENDING_PASTA_KEY = 'orcamento_pending_pasta';
+const ADMIN_PENDING_REPORT_KEY = 'orcamento_pending_report';
 
 function rememberAdminPendingTab(tab) {
   try {
     sessionStorage.setItem(ADMIN_PENDING_TAB_KEY, String(tab || 'orcamentos'));
   } catch {
     /* ignore */
+  }
+}
+
+/** Mantém a pasta do cliente ao voltar do ecrã da proposta. */
+export function rememberOrcamentoPendingPasta(pastaKey) {
+  try {
+    const key = String(pastaKey || '').trim();
+    if (key) sessionStorage.setItem(ADMIN_PENDING_PASTA_KEY, key);
+    else sessionStorage.removeItem(ADMIN_PENDING_PASTA_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+export function clearOrcamentoPendingPasta() {
+  try {
+    sessionStorage.removeItem(ADMIN_PENDING_PASTA_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+export function consumeOrcamentoPendingPasta() {
+  try {
+    const key = sessionStorage.getItem(ADMIN_PENDING_PASTA_KEY);
+    sessionStorage.removeItem(ADMIN_PENDING_PASTA_KEY);
+    return key || null;
+  } catch {
+    return null;
+  }
+}
+
+export function rememberOrcamentoPendingReport(reportId) {
+  try {
+    const id = String(reportId || '').trim();
+    if (id) sessionStorage.setItem(ADMIN_PENDING_REPORT_KEY, id);
+    else sessionStorage.removeItem(ADMIN_PENDING_REPORT_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+export function consumeOrcamentoPendingReport() {
+  try {
+    const id = sessionStorage.getItem(ADMIN_PENDING_REPORT_KEY);
+    sessionStorage.removeItem(ADMIN_PENDING_REPORT_KEY);
+    return id || null;
+  } catch {
+    return null;
   }
 }
 
@@ -119,12 +170,15 @@ export function exitOrcamentoPageAfterSend(options = {}) {
 
 /**
  * @param {object} report
- * @param {{ onUpdated?: (report: object) => void, returnTo?: string }} [options]
+ * @param {{ onUpdated?: (report: object) => void, returnTo?: string, pastaKey?: string }} [options]
  */
-export function openOrcamentoPage(report, { returnTo } = {}) {
+export function openOrcamentoPage(report, { returnTo, pastaKey } = {}) {
   if (!report?.id) return;
   const back = returnTo || resolveOrcamentosAdminUrl();
   rememberOrcamentoReturnUrl(back);
+  if (pastaKey) rememberOrcamentoPendingPasta(pastaKey);
+  rememberOrcamentoPendingReport(report.id);
+  rememberAdminPendingTab('orcamentos');
   window.location.href = buildOrcamentoPageUrl(report.id, { returnTo: back });
 }
 

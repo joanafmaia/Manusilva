@@ -12,7 +12,13 @@ import {
   cancelPedidoOrcamentoReport,
 } from '../app.js';
 import { getClientName } from '../client-display.js';
-import { openOrcamentoModal } from '../orcamento-modal.js';
+import {
+  clearOrcamentoPendingPasta,
+  consumeOrcamentoPendingPasta,
+  consumeOrcamentoPendingReport,
+  openOrcamentoModal,
+  rememberOrcamentoPendingPasta,
+} from '../orcamento-modal.js';
 import { formatOrdemLabel } from '../report-review-ui.js';
 import {
   getPedidoOrcamentoDetalhe,
@@ -416,6 +422,20 @@ function buildClientGroupFromReports(pastaKey, reports) {
   if (!groups.length) return null;
   const key = String(pastaKey || '').trim();
   return groups.find((g) => String(g.pastaKey) === key) || groups[0] || null;
+}
+
+function openClientPasta(pastaKey) {
+  const key = String(pastaKey || '').trim();
+  selectedPastaKey = key || null;
+  clientPastaOpen = Boolean(key);
+  if (key) rememberOrcamentoPendingPasta(key);
+  else clearOrcamentoPendingPasta();
+}
+
+function closeClientPasta() {
+  selectedPastaKey = null;
+  clientPastaOpen = false;
+  clearOrcamentoPendingPasta();
 }
 
 function folderMetaParts(group) {
@@ -1066,24 +1086,21 @@ function bindPanelEvents() {
     const filterBtn = e.target.closest('[data-orc-filter]');
     if (filterBtn) {
       activeFilter = filterBtn.dataset.orcFilter || 'todas';
-      selectedPastaKey = null;
-      clientPastaOpen = false;
+      closeClientPasta();
       softRefreshOrcamentosPanel().catch(console.error);
       return;
     }
 
     const openPastaBtn = e.target.closest('[data-orc-open-pasta]');
     if (openPastaBtn) {
-      selectedPastaKey = String(openPastaBtn.getAttribute('data-orc-open-pasta') ?? '');
-      clientPastaOpen = Boolean(selectedPastaKey);
+      openClientPasta(openPastaBtn.getAttribute('data-orc-open-pasta') ?? '');
       softRefreshOrcamentosPanel().catch(console.error);
       return;
     }
 
     const backClientBtn = e.target.closest('[data-orc-client-back]');
     if (backClientBtn) {
-      selectedPastaKey = null;
-      clientPastaOpen = false;
+      closeClientPasta();
       softRefreshOrcamentosPanel().catch(console.error);
       return;
     }
@@ -1134,6 +1151,7 @@ function bindPanelEvents() {
         return;
       }
       openOrcamentoModal(report, {
+        pastaKey: selectedPastaKey || resolveOrcamentoPastaKey(report),
         onUpdated: async (updated) => {
           const { syncFolhaObraFromOrcamentoReport } = await import('../folha-obra-orcamento.js');
           await syncFolhaObraFromOrcamentoReport(updated);
@@ -1201,8 +1219,7 @@ function bindPanelEvents() {
         onCreated: (report) => {
           highlightReportId = report?.id || null;
           if (report) {
-            selectedPastaKey = resolveOrcamentoPastaKey(report);
-            clientPastaOpen = Boolean(selectedPastaKey);
+            openClientPasta(resolveOrcamentoPastaKey(report));
           }
           refreshOrcamentosPanel().catch(console.error);
         },
@@ -1351,6 +1368,19 @@ export async function initOrcamentosPanel(root) {
   } catch {
     /* ignore */
   }
+
+  const pendingPasta = consumeOrcamentoPendingPasta();
+  if (pendingPasta) {
+    selectedPastaKey = pendingPasta;
+    clientPastaOpen = true;
+    // Regravar para sobreviver a refreshes suaves até o utilizador sair da pasta.
+    rememberOrcamentoPendingPasta(pendingPasta);
+  }
+  const pendingReport = consumeOrcamentoPendingReport();
+  if (pendingReport) {
+    highlightReportId = pendingReport;
+  }
+
   bindPanelEvents();
   await ensureFolhasObraLoadedSafe(true);
   bindFolhaObraRhSection(root, {
