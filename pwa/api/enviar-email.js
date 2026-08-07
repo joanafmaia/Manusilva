@@ -50,7 +50,8 @@ async function supabaseGet(path, token) {
 
 async function fetchReportForEmail(reportId, token, tipoRelatorio) {
   const id = encodeURIComponent(String(reportId).trim());
-  const isOrcamento = String(tipoRelatorio || '').toLowerCase() === 'orcamento';
+  const tipo = String(tipoRelatorio || '').toLowerCase();
+  const isOrcamento = tipo === 'orcamento' || tipo === 'orcamento_lote';
   const estadoFilter = isOrcamento ? '' : '&estado=eq.approved';
   const rows = await supabaseGet(
     `/rest/v1/relatorios?id=eq.${id}${estadoFilter}&select=id,cliente_id,estado,aprovado_em,submetido_em,dados,trabalho_id,servico_id`,
@@ -369,8 +370,15 @@ function buildSubject(payload = {}) {
   const op = formatOpEmailLabel(payload.numeroOrdem);
   const opSuffix = op ? ` - ${op}` : '';
 
-  if (tipoRelatorio === 'orcamento') {
-    const numero = String(payload.orcamentoNumero || '').trim();
+  if (tipoRelatorio === 'orcamento' || tipoRelatorio === 'orcamento_lote') {
+    const numeros = Array.isArray(payload.orcamentoNumeros)
+      ? payload.orcamentoNumeros.map((n) => String(n || '').trim()).filter(Boolean)
+      : [];
+    const count = Number(payload.propostaCount) || numeros.length || 0;
+    if (tipoRelatorio === 'orcamento_lote' || count > 1) {
+      return `ManuSilva - Propostas comerciais - ${company}${opSuffix}`;
+    }
+    const numero = String(payload.orcamentoNumero || numeros[0] || '').trim();
     const numSuffix = numero ? ` nº ${numero}` : '';
     return `ManuSilva - Proposta Comercial${numSuffix} - ${company}${opSuffix}`;
   }
@@ -472,20 +480,32 @@ function buildHtmlBody(payload = {}, options = {}) {
       : '';
 
   const attachmentCount = Number(options.attachmentCount) || (hasAttachment ? 1 : 0);
+  const isOrcamentoTipo = tipoRelatorio === 'orcamento' || tipoRelatorio === 'orcamento_lote';
   const attachmentNote = attachmentCount > 0
     ? `<p style="margin:12px 0 0 0;font-size:13px;line-height:1.5;color:#64748b;">
         ${
           attachmentCount > 1
-            ? `Os ${attachmentCount} relatórios encontram-se em anexo a este e-mail.`
+            ? isOrcamentoTipo
+              ? `As ${attachmentCount} propostas comerciais encontram-se em anexo a este e-mail.`
+              : `Os ${attachmentCount} relatórios encontram-se em anexo a este e-mail.`
             : 'O documento encontra-se em anexo a este e-mail.'
         }
       </p>`
     : '';
 
-  if (tipoRelatorio === 'orcamento') {
-    const numero = escapeHtml(String(payload.orcamentoNumero || '').trim());
-    const numeroLine = numero
+  if (isOrcamentoTipo) {
+    const numeros = Array.isArray(payload.orcamentoNumeros)
+      ? payload.orcamentoNumeros.map((n) => String(n || '').trim()).filter(Boolean)
+      : [];
+    const count = Number(payload.propostaCount) || numeros.length || attachmentCount || 1;
+    const isLote = tipoRelatorio === 'orcamento_lote' || count > 1;
+    const numero = escapeHtml(String(payload.orcamentoNumero || numeros[0] || '').trim());
+    const numerosLine = isLote && numeros.length
       ? `<p style="margin:0 0 10px 0;font-size:14px;line-height:1.6;color:#334155;">
+          Propostas: <strong>${escapeHtml(numeros.join(', '))}</strong>${opText}.
+        </p>`
+      : numero
+        ? `<p style="margin:0 0 10px 0;font-size:14px;line-height:1.6;color:#334155;">
           Proposta comercial <strong>${numero}</strong>${opText}.
         </p>`
       : '';
@@ -501,7 +521,7 @@ function buildHtmlBody(payload = {}, options = {}) {
             <tr>
               <td style="padding:20px 24px 16px 24px;border-bottom:1px solid #e2e8f0;">
                 <p style="margin:0;font-size:16px;font-weight:700;color:#0f172a;">ManuSilva</p>
-                <p style="margin:4px 0 0 0;font-size:12px;color:#64748b;">Proposta comercial</p>
+                <p style="margin:4px 0 0 0;font-size:12px;color:#64748b;">${isLote ? 'Propostas comerciais' : 'Proposta comercial'}</p>
               </td>
             </tr>
             <tr>
@@ -509,9 +529,13 @@ function buildHtmlBody(payload = {}, options = {}) {
                 <p style="margin:0 0 14px 0;font-size:14px;line-height:1.6;color:#0f172a;">
                   Exmos. Senhores <strong>${company}</strong>,
                 </p>
-                ${numeroLine}
+                ${numerosLine}
                 <p style="margin:0;font-size:14px;line-height:1.65;color:#334155;">
-                  Vimos por este meio enviar a nossa proposta comercial.
+                  ${
+                    isLote
+                      ? 'Vimos por este meio enviar as nossas propostas comerciais.'
+                      : 'Vimos por este meio enviar a nossa proposta comercial.'
+                  }
                 </p>
                 ${pdfBlock}
                 ${attachmentNote}
@@ -647,7 +671,7 @@ module.exports = async function handler(req, res) {
     const report = await fetchReportForEmail(reportId, token, tipoRelatorio);
     if (!report) {
       const msg =
-        tipoRelatorio === 'orcamento'
+        tipoRelatorio === 'orcamento' || tipoRelatorio === 'orcamento_lote'
           ? 'Relatório não encontrado.'
           : 'Relatório aprovado não encontrado.';
       return res.status(404).json({ error: msg });
@@ -655,8 +679,8 @@ module.exports = async function handler(req, res) {
 
     const registeredEmail = await fetchClienteEmail(report.cliente_id, token);
     const clientDomains = await fetchClientEmailDomains(token);
-    const allowManualRecipients = tipoRelatorio === 'orcamento';
-
+    const allowManualRecipients =
+      tipoRelatorio === 'orcamento' || tipoRelatorio === 'orcamento_lote';
     for (const recipient of recipients) {
       if (!isRecipientAllowed(recipient, registeredEmail, clientDomains, { allowManualRecipients })) {
         return res.status(403).json({
@@ -714,6 +738,7 @@ module.exports = async function handler(req, res) {
     const includeRatingLinks =
       !skipRatingLink &&
       tipoRelatorio !== 'orcamento' &&
+      tipoRelatorio !== 'orcamento_lote' &&
       payload.includeRatingLinks !== false;
 
     if (includeRatingLinks) {

@@ -5200,6 +5200,76 @@ body .admin-rh-page .btn-primary, body .admin-rh-page .btn-secondary, body .admi
   color: #fff;
   border-color: var(--ms-primary, #1e3a5f);
 }
+.orcamentos-client-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.75rem;
+}
+.orcamentos-client-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.35rem;
+  text-align: left;
+  padding: 0.9rem 1rem;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  border-radius: 10px;
+  background: #fff;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+.orcamentos-client-card:hover {
+  border-color: rgba(15, 23, 42, 0.22);
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.06);
+}
+.orcamentos-client-card__name {
+  font-weight: 650;
+  font-size: 0.95rem;
+}
+.orcamentos-client-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  font-size: 0.75rem;
+  color: var(--text-muted, #64748b);
+}
+.orcamentos-client-card__pend {
+  color: #b45309;
+  font-weight: 600;
+}
+.orcamentos-client-card__env {
+  color: #047857;
+}
+.orcamentos-client-pasta__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0.75rem 1rem;
+  margin-bottom: 0.85rem;
+}
+.orcamentos-client-pasta__lead {
+  margin: 0.2rem 0 0;
+  font-size: 0.85rem;
+}
+.orcamentos-client-pasta__lote {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0.85rem 1rem;
+  margin-bottom: 0.85rem;
+}
+.orcamentos-client-pasta__lote-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.orcamentos-client-pasta__nums {
+  margin: 0;
+  font-size: 0.78rem;
+}
+.orcamentos-client-empty {
+  margin: 0.5rem 0;
+}
 .orcamentos-kanban-lead {
   margin: 0.35rem 0 0;
   font-size: 0.85rem;

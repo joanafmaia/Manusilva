@@ -61,6 +61,13 @@ import {
   reportMatchesOrcamentoOrigem,
   resolveOrcamentoOrigem,
 } from '../orcamento-origem.js';
+import {
+  formatOrcamentoLoteNumeros,
+  filterOrcamentoLoteReports,
+  isOrcamentoLoteEnviado,
+  isOrcamentoLotePendente,
+  sendOrcamentoLoteForClient,
+} from '../orcamento-email-lote.js';
 import { getSession } from '../session.js';
 import {
   captureAdminMainScroll,
@@ -72,7 +79,8 @@ let mountRoot = null;
 let activeFilter = 'por_preparar';
 let tipoFilter = 'all';
 let origemFilter = 'all';
-let viewMode = 'lista'; // lista | quadro
+let viewMode = 'clientes'; // clientes | lista | quadro
+let selectedClientId = null;
 let searchQuery = '';
 let exportYear = String(new Date().getFullYear());
 let exportTipoFilter = 'all';
@@ -139,6 +147,38 @@ function filterOrcamentoReports(reports) {
       origem.includes(q)
     );
   });
+}
+
+/** Agrupa propostas filtradas por cliente (pasta). */
+export function groupOrcamentoReportsByClient(reports = []) {
+  const map = new Map();
+  reports.forEach((report) => {
+    const cid = String(report?.clientId || '').trim() || '__sem_cliente__';
+    if (!map.has(cid)) map.set(cid, []);
+    map.get(cid).push(report);
+  });
+  return [...map.entries()]
+    .map(([clientId, rows]) => {
+      const sample = rows[0];
+      const client = clientId === '__sem_cliente__' ? null : getClient(clientId);
+      const values = sample?.data?.values || {};
+      const name =
+        clientId === '__sem_cliente__'
+          ? 'Sem cliente'
+          : getClientName(client, values) || client?.name || client?.Nome || 'Cliente';
+      const pendentes = rows.filter(isOrcamentoLotePendente);
+      const enviadas = rows.filter(isOrcamentoLoteEnviado);
+      return {
+        clientId: clientId === '__sem_cliente__' ? '' : clientId,
+        name,
+        client,
+        rows,
+        pendentes,
+        enviadas,
+        email: String(client?.email || client?.['E-mail'] || '').trim(),
+      };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name, 'pt'));
 }
 
 function countByWorkflow(reports) {
@@ -544,8 +584,120 @@ function renderFiltersSection(all) {
 function renderViewToggle() {
   return `
     <div class="orcamentos-view-toggle" role="group" aria-label="Vista de propostas">
+      <button type="button" class="btn-outline btn-sm${viewMode === 'clientes' ? ' is-active' : ''}" data-orc-view="clientes">Clientes</button>
       <button type="button" class="btn-outline btn-sm${viewMode === 'lista' ? ' is-active' : ''}" data-orc-view="lista">Lista</button>
       <button type="button" class="btn-outline btn-sm${viewMode === 'quadro' ? ' is-active' : ''}" data-orc-view="quadro">Quadro</button>
+    </div>`;
+}
+
+function renderClientFolderCard(group) {
+  const pend = group.pendentes.length;
+  const env = group.enviadas.length;
+  const cid = escapeHtml(group.clientId || '');
+  return `
+    <button type="button" class="orcamentos-client-card" data-orc-open-client="${cid}">
+      <span class="orcamentos-client-card__name">${escapeHtml(group.name)}</span>
+      <span class="orcamentos-client-card__meta">
+        <span>${group.rows.length} proposta${group.rows.length === 1 ? '' : 's'}</span>
+        ${pend ? `<span class="orcamentos-client-card__pend">${pend} por enviar</span>` : ''}
+        ${env ? `<span class="orcamentos-client-card__env">${env} enviada${env === 1 ? '' : 's'}</span>` : ''}
+      </span>
+    </button>`;
+}
+
+function renderClientFolders(groups) {
+  if (!groups.length) {
+    return '<p class="text-muted orcamentos-client-empty">Nenhuma proposta com estes filtros.</p>';
+  }
+  return `
+    <div class="orcamentos-client-grid" aria-label="Pastas por cliente">
+      ${groups.map(renderClientFolderCard).join('')}
+    </div>`;
+}
+
+function renderClientPasta(group, allFilteredRows) {
+  if (!group) {
+    return '<p class="text-muted">Cliente não encontrado.</p>';
+  }
+  const pendentes = filterOrcamentoLoteReports(allFilteredRows, group.clientId, { mode: 'pendentes' });
+  const enviadas = filterOrcamentoLoteReports(allFilteredRows, group.clientId, { mode: 'reenvio' });
+  const pendNumeros = formatOrcamentoLoteNumeros(pendentes);
+  const envNumeros = formatOrcamentoLoteNumeros(enviadas);
+  const defaultEmail = escapeHtml(group.email || '');
+
+  return `
+    <div class="orcamentos-client-pasta" data-orc-client-pasta="${escapeHtml(group.clientId || '')}">
+      <div class="orcamentos-client-pasta__head">
+        <button type="button" class="btn-outline btn-sm" data-orc-client-back>← Clientes</button>
+        <div>
+          <h3 class="ms-h2 faturacao-section-title">${escapeHtml(group.name)}</h3>
+          <p class="text-muted orcamentos-client-pasta__lead">
+            Prepare e guarde as propostas. Quando estiverem prontas, envie o lote num único e-mail.
+          </p>
+        </div>
+      </div>
+
+      <div class="orcamentos-client-pasta__lote glass-card">
+        <label class="review-orc-field">
+          <span>E-mail do lote</span>
+          <input
+            type="text"
+            class="form-input"
+            data-orc-lote-email
+            value="${defaultEmail}"
+            placeholder="compras@empresa.pt"
+            autocomplete="email"
+          />
+        </label>
+        <div class="orcamentos-client-pasta__lote-actions">
+          <button
+            type="button"
+            class="btn-success btn-touch"
+            data-orc-lote-send
+            data-orc-lote-mode="pendentes"
+            ${pendentes.length ? '' : 'disabled'}
+            title="${pendentes.length ? `Enviar ${pendentes.length} proposta(s)` : 'Sem propostas preparadas por enviar'}"
+          >
+            Enviar propostas ao cliente${pendentes.length ? ` (${pendentes.length})` : ''}
+          </button>
+          <button
+            type="button"
+            class="btn-outline btn-touch"
+            data-orc-lote-send
+            data-orc-lote-mode="reenvio"
+            ${enviadas.length ? '' : 'disabled'}
+            title="${enviadas.length ? `Reenviar ${enviadas.length} proposta(s)` : 'Sem propostas já enviadas'}"
+          >
+            Reenviar enviadas${enviadas.length ? ` (${enviadas.length})` : ''}
+          </button>
+        </div>
+        ${
+          pendNumeros.length
+            ? `<p class="text-muted orcamentos-client-pasta__nums">Por enviar: ${escapeHtml(pendNumeros.join(', '))}</p>`
+            : '<p class="text-muted orcamentos-client-pasta__nums">Nenhuma proposta preparada por enviar.</p>'
+        }
+        ${
+          envNumeros.length
+            ? `<p class="text-muted orcamentos-client-pasta__nums">Já enviadas: ${escapeHtml(envNumeros.join(', '))}</p>`
+            : ''
+        }
+      </div>
+
+      <div class="rh-table-scroll faturacao-table-wrap">
+        <table class="rh-data-table rh-data-table--compact faturacao-table faturacao-table--compact orcamentos-table orcamentos-table--dense">
+          <thead>
+            <tr>
+              <th scope="col">OP</th>
+              <th scope="col">Cliente</th>
+              <th scope="col">Proposta</th>
+              <th scope="col" class="faturacao-col-action">Ação</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${group.rows.map((report) => renderTableRow(report)).join('')}
+          </tbody>
+        </table>
+      </div>
     </div>`;
 }
 
@@ -617,15 +769,28 @@ function renderKanbanBoard(rows) {
 }
 
 function renderPropostasSection(rows, counts, totalAll) {
-  const scrollClass = rows.length > 8 ? ' faturacao-table-wrap--scroll-y' : '';
-  const body =
-    viewMode === 'quadro'
-      ? rows.length || totalAll > 0
+  const groups = groupOrcamentoReportsByClient(rows);
+  const selectedGroup =
+    viewMode === 'clientes' && selectedClientId
+      ? groups.find((g) => String(g.clientId) === String(selectedClientId)) || null
+      : null;
+
+  let body;
+  if (viewMode === 'clientes') {
+    body = selectedClientId
+      ? renderClientPasta(selectedGroup, rows)
+      : groups.length || totalAll > 0
+        ? renderClientFolders(groups)
+        : renderEmptyState(counts, totalAll);
+  } else if (viewMode === 'quadro') {
+    body =
+      rows.length || totalAll > 0
         ? renderKanbanBoard(rows)
-        : renderEmptyState(counts, totalAll)
-      : rows.length
-        ? `
-      <div class="rh-table-scroll faturacao-table-wrap${scrollClass}">
+        : renderEmptyState(counts, totalAll);
+  } else {
+    body = rows.length
+      ? `
+      <div class="rh-table-scroll faturacao-table-wrap${rows.length > 8 ? ' faturacao-table-wrap--scroll-y' : ''}">
         <table class="rh-data-table rh-data-table--compact faturacao-table faturacao-table--compact orcamentos-table orcamentos-table--dense">
           <thead>
             <tr>
@@ -640,16 +805,34 @@ function renderPropostasSection(rows, counts, totalAll) {
           </tbody>
         </table>
       </div>`
-        : renderEmptyState(counts, totalAll);
+      : renderEmptyState(counts, totalAll);
+  }
+
+  const sectionTitle =
+    viewMode === 'clientes' && selectedGroup
+      ? `Pasta — ${selectedGroup.name}`
+      : viewMode === 'clientes'
+        ? 'Clientes'
+        : 'Propostas comerciais';
 
   return `
     <section class="faturacao-invoices-section orcamentos-table-section rh-section glass-card" aria-label="Propostas comerciais">
       <div class="faturacao-invoices-head">
         <div class="orcamentos-section-head">
-          <h3 class="ms-h2 faturacao-section-title">Propostas comerciais <span class="badge-count">${rows.length}</span></h3>
+          <h3 class="ms-h2 faturacao-section-title">${escapeHtml(sectionTitle)} <span class="badge-count">${
+            viewMode === 'clientes' && !selectedClientId ? groups.length : rows.length
+          }</span></h3>
           ${renderViewToggle()}
         </div>
-        ${viewMode === 'lista' ? renderEstadoTabs(counts) : '<p class="text-muted orcamentos-kanban-lead">Quadro por estado — filtros de origem, tipo e pesquisa aplicam-se aqui.</p>'}
+        ${
+          viewMode === 'lista'
+            ? renderEstadoTabs(counts)
+            : viewMode === 'quadro'
+              ? '<p class="text-muted orcamentos-kanban-lead">Quadro por estado — filtros de origem, tipo e pesquisa aplicam-se aqui.</p>'
+              : selectedClientId
+                ? ''
+                : '<p class="text-muted orcamentos-kanban-lead">Abra a pasta do cliente para preparar propostas e enviar o lote num único e-mail.</p>'
+        }
       </div>
       ${body}
     </section>`;
@@ -735,7 +918,7 @@ function renderPanel() {
           <div>
             <h2 class="ms-h2">Orçamentos / Propostas comerciais</h2>
             <p class="text-muted faturacao-lead orcamentos-lead">
-              Crie propostas comerciais do zero ou a partir de pedidos dos técnicos. O e-mail da proposta é enviado à parte do relatório de intervenção.
+              Prepare propostas por cliente e envie o lote num único e-mail (como nas visitas). O e-mail da proposta é separado do relatório de intervenção.
             </p>
           </div>
           <button type="button" class="btn-primary btn-touch orcamentos-new-btn" data-orc-new>
@@ -763,9 +946,62 @@ function bindPanelEvents() {
 
     const viewBtn = e.target.closest('[data-orc-view]');
     if (viewBtn) {
-      viewMode = viewBtn.dataset.orcView === 'quadro' ? 'quadro' : 'lista';
+      const next = viewBtn.dataset.orcView;
+      viewMode = next === 'quadro' ? 'quadro' : next === 'lista' ? 'lista' : 'clientes';
       if (viewMode === 'quadro') activeFilter = 'todas';
+      if (viewMode !== 'clientes') selectedClientId = null;
       softRefreshOrcamentosPanel().catch(console.error);
+      return;
+    }
+
+    const openClientBtn = e.target.closest('[data-orc-open-client]');
+    if (openClientBtn) {
+      selectedClientId = openClientBtn.dataset.orcOpenClient || null;
+      viewMode = 'clientes';
+      softRefreshOrcamentosPanel().catch(console.error);
+      return;
+    }
+
+    const backClientBtn = e.target.closest('[data-orc-client-back]');
+    if (backClientBtn) {
+      selectedClientId = null;
+      softRefreshOrcamentosPanel().catch(console.error);
+      return;
+    }
+
+    const loteSendBtn = e.target.closest('[data-orc-lote-send]');
+    if (loteSendBtn) {
+      if (loteSendBtn.disabled) return;
+      const mode = loteSendBtn.dataset.orcLoteMode === 'reenvio' ? 'reenvio' : 'pendentes';
+      const pasta = loteSendBtn.closest('[data-orc-client-pasta]');
+      const clientId = pasta?.dataset?.orcClientPasta || selectedClientId;
+      if (!clientId) {
+        showToast('Cliente não identificado.', 'error');
+        return;
+      }
+      const emailInput = pasta?.querySelector('[data-orc-lote-email]');
+      const to = String(emailInput?.value || '').trim();
+      const all = filterOrcamentoReports(listOrcamentoReports());
+      const lote = filterOrcamentoLoteReports(all, clientId, { mode });
+      const numeros = formatOrcamentoLoteNumeros(lote);
+      const ok = window.confirm(
+        mode === 'reenvio'
+          ? `Reenviar ${lote.length} proposta(s) para ${to || 'o e-mail do cliente'}?\n\n${numeros.join(', ') || '—'}`
+          : `Enviar ${lote.length} proposta(s) para ${to || 'o e-mail do cliente'}?\n\n${numeros.join(', ') || '—'}`,
+      );
+      if (!ok) return;
+      loteSendBtn.disabled = true;
+      void sendOrcamentoLoteForClient(all, clientId, { to, mode })
+        .then((result) => {
+          if (result) softRefreshOrcamentosPanel().catch(console.error);
+        })
+        .catch((err) => {
+          console.error('[Orçamentos] Lote e-mail:', err);
+          showToast(err?.message || 'Falha ao enviar o lote de propostas.', 'error', 9000);
+        })
+        .finally(() => {
+          loteSendBtn.disabled = false;
+        });
       return;
     }
 

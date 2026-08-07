@@ -225,7 +225,8 @@ function renderOrcamentoSentSummary(report, { client } = {}) {
       </div>
       <p class="review-orcamento-sent-notice">
         Esta proposta já foi enviada ao cliente em <strong>${escapeHtml(enviadoEm)}</strong>.
-        Os valores comerciais ficam bloqueados — pode reenviar o e-mail, corrigir a garantia de auditoria e registar a resposta.
+        Os valores comerciais ficam bloqueados. O reenvio do e-mail faz-se na pasta do cliente (lote).
+        Aqui pode corrigir a garantia de auditoria e registar a resposta.
       </p>
       <dl class="review-orcamento-sent-meta">
         <div><dt>Tipo</dt><dd>${escapeHtml(formatOrcamentoTipoPropostaLabel(getOrcamentoTipoProposta(report)))}</dd></div>
@@ -240,22 +241,8 @@ function renderOrcamentoSentSummary(report, { client } = {}) {
       </dl>
       <section class="review-orc-sent-tools" aria-label="Ações após envio">
         ${renderGarantiaField(report, meta)}
-        <label class="review-orc-field">
-          <span>Reenviar proposta para</span>
-          <input
-            type="text"
-            class="review-orc-input"
-            data-orc-field="emailDestinatario"
-            value="${email === '—' ? '' : email}"
-            placeholder="email@empresa.pt"
-            inputmode="email"
-            autocomplete="email"
-          />
-          <span class="review-orc-field-hint text-muted">Reenvia o PDF atual sem alterar preços nem número da proposta.</span>
-        </label>
         <div class="review-orcamento-editor__actions review-orcamento-editor__actions--sent-tools">
           <button type="button" class="btn-outline btn-sm btn-touch" id="orcamento-garantia-save">Guardar garantia</button>
-          <button type="button" class="btn-success btn-sm btn-touch" id="orcamento-resend-email">Reenviar e-mail</button>
           ${
             pdfUrl
               ? '<button type="button" class="btn-outline btn-sm btn-touch" id="orcamento-pdf-open">Ver PDF da proposta</button>'
@@ -390,9 +377,9 @@ function renderManutencaoBateriaOrcamentoEditor(report, ctx) {
       <div class="review-orcamento-editor__actions review-orcamento-editor__actions--split">
         <button type="button" class="btn-primary btn-touch" id="review-orc-save">Guardar proposta</button>
         <button type="button" class="btn-outline btn-touch" id="orcamento-pdf">Ver PDF da proposta</button>
-        <button type="button" class="btn-success btn-touch" id="orcamento-send-email">Enviar proposta por e-mail</button>
       </div>
       <p class="text-muted review-orcamento-editor__hint">O PDF usa o texto fixo da Manutenção Baterias — indique periodicidade e valor por visita.
+        O envio ao cliente faz-se na pasta do cliente, com todas as propostas preparadas.
         <span class="orcamento-autosave-status" data-orc-autosave-status aria-live="polite"></span>
       </p>
     </div>`;
@@ -490,9 +477,9 @@ function renderManutencaoMaquinaOrcamentoEditor(report, ctx) {
       <div class="review-orcamento-editor__actions review-orcamento-editor__actions--split">
         <button type="button" class="btn-primary btn-touch" id="review-orc-save">Guardar proposta</button>
         <button type="button" class="btn-outline btn-touch" id="orcamento-pdf">Ver PDF da proposta</button>
-        <button type="button" class="btn-success btn-touch" id="orcamento-send-email">Enviar proposta por e-mail</button>
       </div>
       <p class="text-muted review-orcamento-editor__hint">Identifique cada máquina, preços por máquina e uma deslocação única para a proposta.
+        O envio ao cliente faz-se na pasta do cliente, com todas as propostas preparadas.
         <span class="orcamento-autosave-status" data-orc-autosave-status aria-live="polite"></span>
       </p>
     </div>`;
@@ -684,10 +671,9 @@ export function renderOrcamentoEditor(report, { client } = {}) {
       <div class="review-orcamento-editor__actions review-orcamento-editor__actions--split">
         <button type="button" class="btn-primary btn-touch" id="review-orc-save">Guardar proposta</button>
         <button type="button" class="btn-outline btn-touch" id="orcamento-pdf">Ver PDF da proposta</button>
-        <button type="button" class="btn-success btn-touch" id="orcamento-send-email">Enviar proposta por e-mail</button>
       </div>
       <p class="text-muted review-orcamento-editor__hint">
-        Guarde antes de enviar. O e-mail inclui apenas a proposta comercial, não o relatório técnico.
+        Guarde a proposta quando estiver pronta. O envio ao cliente faz-se na pasta do cliente, com todas as propostas preparadas.
         <span class="orcamento-autosave-status" data-orc-autosave-status aria-live="polite"></span>
       </p>
     </div>`;
@@ -943,83 +929,6 @@ function bindOrcamentoSentView(root, { report, onUpdated }) {
     }
   });
 
-  root.querySelector('#orcamento-resend-email')?.addEventListener('click', async (e) => {
-    const btn = e.currentTarget;
-    btn.disabled = true;
-    try {
-      const { showToast, getClient, getJob, getTechnician, sendOrcamentoProposalEmail } =
-        await import('./app.js');
-      const { resolveOrcamentoDocumentDate } = await import('./orcamento-fill-data.js');
-      const { formatInterventionDatePt } = await import('./report-intervention-date.js');
-      const { mergeReportInCache, upsertRelatorio } = await import('./relatorios-db.js');
-      const { isValidEmailList, formatEmailListForStorage, normalizeEmailList } =
-        await import('./validators.js');
-
-      const emailRaw = String(root.querySelector('[data-orc-field="emailDestinatario"]')?.value || '').trim();
-      const recipients = normalizeEmailList(emailRaw);
-      if (!recipients.length) {
-        showToast('Indique pelo menos um e-mail para reenvio.', 'error');
-        return;
-      }
-      if (!isValidEmailList(emailRaw)) {
-        showToast('Um ou mais e-mails são inválidos.', 'error');
-        return;
-      }
-
-      let saved = currentReport;
-      let pdfUrl = getReportOrcamentoPdfUrl(saved);
-      if (!pdfUrl) {
-        const { saveAndRegenerateOrcamento } = await import('./orcamento-pdf-service.js');
-        saved = await saveAndRegenerateOrcamento(saved, getReportOrcamentoMeta(saved) || {});
-        pdfUrl = getReportOrcamentoPdfUrl(saved);
-      }
-      if (!pdfUrl) {
-        showToast('Não foi possível obter o PDF da proposta.', 'error');
-        return;
-      }
-
-      const emailStored = formatEmailListForStorage(recipients);
-      const meta = {
-        ...(getReportOrcamentoMeta(saved) || {}),
-        emailDestinatario: emailStored,
-      };
-      const next = {
-        ...saved,
-        data: { ...(saved.data || {}), orcamento: meta },
-      };
-      saved = (await upsertRelatorio(next)) || next;
-      mergeReportInCache(saved);
-      currentReport = saved;
-      onUpdated?.(saved);
-
-      const values = saved.data?.values || {};
-      const client = getClient(saved.clientId);
-      const job = saved.jobId ? getJob(saved.jobId) : null;
-      const tech = getTechnician(saved.technicianId);
-
-      showToast('A reenviar a proposta…', 'info', 2500);
-      await sendOrcamentoProposalEmail({
-        to: recipients,
-        reportId: saved.id,
-        clienteNome: values.nome_empresa || values.cliente || client?.name || client?.Nome || '',
-        tecnico: values.tecnico || tech?.name || '',
-        dataConclusao: formatInterventionDatePt(resolveOrcamentoDocumentDate(saved)),
-        orcamentoNumero: saved.data?.orcamento?.numeroFormatado || '',
-        numeroOrdem: job?.numeroOrdem ?? null,
-        pdfUrl,
-        pdfFilename: saved.data?.orcamentoPdfFilename || undefined,
-      });
-
-      showToast(`Proposta reenviada para ${recipients.join(', ')}.`, 'success', 2500);
-    } catch (err) {
-      console.error('[Orçamento] Reenvio e-mail:', err);
-      const { showToast } = await import('./app.js');
-      showToast(err?.message || 'Falha ao reenviar a proposta.', 'error', 8000);
-    } finally {
-      btn.disabled = false;
-    }
-  });
-
   bindOrcamentoRespostaActions(root, {
     getReport: () => currentReport,
     onUpdated: (saved) => {
@@ -1253,114 +1162,6 @@ export function bindOrcamentoEditor(container, { report, onUpdated, onSaved, onS
     }
   });
 
-  root.querySelector('#orcamento-send-email')?.addEventListener('click', async (e) => {
-    const btn = e.currentTarget;
-    btn.disabled = true;
-    let savedForRollback = null;
-    try {
-      const { showToast, getClient, getJob, getTechnician, sendOrcamentoProposalEmail } =
-        await import('./app.js');
-      const { resolveOrcamentoDocumentDate } = await import('./orcamento-fill-data.js');
-      const { formatInterventionDatePt } = await import('./report-intervention-date.js');
-      const { mergeReportInCache } = await import('./relatorios-db.js');
-      const { isValidEmailList, formatEmailListForStorage, normalizeEmailList } =
-        await import('./validators.js');
-
-      const meta = readOrcamentoFormFromDom(root, currentReport);
-      const emailRaw = String(meta.emailDestinatario || '').trim();
-      const recipients = normalizeEmailList(emailRaw);
-      if (!recipients.length) {
-        showToast('Indique pelo menos um e-mail para envio da proposta.', 'error');
-        return;
-      }
-      if (!isValidEmailList(emailRaw)) {
-        showToast('Um ou mais e-mails da proposta são inválidos.', 'error');
-        return;
-      }
-      if (!normalizeReclamacaoGarantia(readReclamacaoGarantiaFromDom(root) || meta.reclamacaoGarantia)) {
-        showToast('Indique se é avaria / reclamação em garantia (Sim ou Não).', 'warning', 6000);
-        root.querySelector('[data-orc-field="reclamacaoGarantia"]')?.focus();
-        return;
-      }
-
-      meta.emailDestinatario = formatEmailListForStorage(recipients);
-      // Só marca enviada após e-mail OK — evita bloquear a proposta se SMTP/PDF falhar.
-      const previousEnviadoEm = getReportOrcamentoMeta(currentReport)?.enviadoEm || null;
-      meta.enviadoEm = null;
-      meta.respostaCliente = null;
-      meta.respostaClienteEm = null;
-
-      showToast('A preparar envio da proposta…', 'info', 3000);
-      const { saveAndRegenerateOrcamento } = await import('./orcamento-pdf-service.js');
-      const saved = await saveAndRegenerateOrcamento(currentReport, meta);
-      if (!saved) throw new Error('Não foi possível guardar a proposta.');
-      savedForRollback = { report: saved, previousEnviadoEm };
-      currentReport = saved;
-      onUpdated?.(saved);
-
-      const pdfUrl = getReportOrcamentoPdfUrl(saved);
-      if (!pdfUrl) {
-        showToast('Não foi possível gerar o PDF da proposta.', 'error');
-        return;
-      }
-
-      const values = saved.data?.values || {};
-      const client = getClient(saved.clientId);
-      const job = saved.jobId ? getJob(saved.jobId) : null;
-      const tech = getTechnician(saved.technicianId);
-
-      await sendOrcamentoProposalEmail({
-        to: recipients,
-        reportId: saved.id,
-        clienteNome: values.nome_empresa || values.cliente || client?.name || client?.Nome || '',
-        tecnico: values.tecnico || tech?.name || '',
-        dataConclusao: formatInterventionDatePt(resolveOrcamentoDocumentDate(saved)),
-        orcamentoNumero: saved.data?.orcamento?.numeroFormatado || '',
-        numeroOrdem: job?.numeroOrdem ?? null,
-        pdfUrl,
-        pdfFilename: saved.data?.orcamentoPdfFilename || undefined,
-      });
-
-      const sentAt = new Date().toISOString();
-      const metaSent = {
-        ...(getReportOrcamentoMeta(saved) || {}),
-        emailDestinatario: formatEmailListForStorage(recipients),
-        enviadoEm: sentAt,
-        respostaCliente: null,
-        respostaClienteEm: null,
-      };
-      const confirmed = await saveAndRegenerateOrcamento(saved, metaSent);
-      if (!confirmed) throw new Error('Proposta enviada, mas não foi possível registar a data de envio.');
-      mergeReportInCache(confirmed);
-      currentReport = confirmed;
-      onUpdated?.(confirmed);
-
-      showToast(`Proposta enviada para ${recipients.join(', ')}.`, 'success', 2500);
-      finishOrcamentoEditingAndReturn({ onSent, saved: confirmed, action: 'send' });
-    } catch (err) {
-      console.error('[Orçamento] Envio e-mail:', err);
-      if (savedForRollback?.report) {
-        try {
-          const { saveAndRegenerateOrcamento } = await import('./orcamento-pdf-service.js');
-          const rolledMeta = {
-            ...(getReportOrcamentoMeta(savedForRollback.report) || {}),
-            enviadoEm: savedForRollback.previousEnviadoEm || null,
-          };
-          const rolled = await saveAndRegenerateOrcamento(savedForRollback.report, rolledMeta);
-          if (rolled) {
-            currentReport = rolled;
-            onUpdated?.(rolled);
-          }
-        } catch (rollbackErr) {
-          console.error('[Orçamento] Rollback enviadoEm:', rollbackErr);
-        }
-      }
-      const { showToast } = await import('./app.js');
-      showToast(err?.message || 'Falha ao enviar a proposta. A proposta continua editável.', 'error', 8000);
-    } finally {
-      btn.disabled = false;
-    }
-  });
 }
 
 /** @deprecated usar bindOrcamentoEditor */

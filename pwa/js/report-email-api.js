@@ -60,7 +60,7 @@ export async function sendOfficialReportEmail(meta = {}) {
   return true;
 }
 
-/** Envia proposta comercial MS.015 por e-mail. */
+/** Envia proposta comercial MS.015 por e-mail (1 ou N PDFs). */
 export async function sendOrcamentoProposalEmail(meta = {}) {
   const { getFreshAccessToken } = await import('./supabase-client.js');
   const token = await getFreshAccessToken();
@@ -76,20 +76,34 @@ export async function sendOrcamentoProposalEmail(meta = {}) {
         .map((s) => s.trim())
         .filter(Boolean);
 
+  const propostaCount = Number(meta.propostaCount) || 0;
+  const isLote =
+    Boolean(meta.lote) ||
+    propostaCount > 1 ||
+    (Array.isArray(meta.pdfUrls) && meta.pdfUrls.length > 1) ||
+    (Array.isArray(meta.pdfAttachments) && meta.pdfAttachments.length > 1);
+
   const payload = {
     to: toList,
     reportId: meta.reportId,
+    reportIds: meta.reportIds,
     clienteNome: meta.clienteNome || meta.nome_empresa || 'Cliente não indicado',
     tecnico: meta.tecnico || 'Técnico não indicado',
     dataConclusao: dateStamp,
-    tipoRelatorio: 'orcamento',
+    tipoRelatorio: isLote ? 'orcamento_lote' : 'orcamento',
     orcamentoNumero: meta.orcamentoNumero || '',
+    orcamentoNumeros: meta.orcamentoNumeros || [],
+    propostaCount: propostaCount || (isLote ? meta.pdfUrls?.length || meta.pdfAttachments?.length || 0 : 1),
     numeroOrdem: meta.numeroOrdem ?? null,
     pdfUrl: meta.pdfUrl,
+    pdfUrls: meta.pdfUrls,
   };
   if (meta.pdfBase64 && meta.pdfFilename) {
     payload.pdfBase64 = meta.pdfBase64;
     payload.pdfFilename = meta.pdfFilename;
+  }
+  if (Array.isArray(meta.pdfAttachments) && meta.pdfAttachments.length) {
+    payload.pdfAttachments = meta.pdfAttachments;
   }
 
   const response = await fetch('/api/enviar-email', {
@@ -108,4 +122,9 @@ export async function sendOrcamentoProposalEmail(meta = {}) {
   }
 
   return true;
+}
+
+/** Alias explícito para lote de propostas (mesmo payload multi-PDF). */
+export async function sendOrcamentoLoteEmail(meta = {}) {
+  return sendOrcamentoProposalEmail({ ...meta, lote: true });
 }
