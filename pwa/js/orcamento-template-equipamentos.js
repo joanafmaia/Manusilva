@@ -1,6 +1,5 @@
 /**
  * Vários equipamentos nas propostas Manutenção Baterias / Máquinas.
- * Regra atual: 1 equipamento por proposta (criar outra proposta para outro equipamento).
  */
 
 import { escapeHtml } from './html-utils.js';
@@ -12,8 +11,8 @@ const MAQUINA_INSPECAO_DL50_DEFAULT = 40;
 export const MANUTENCAO_MAQUINA_COL_LABEL = 'Máquina/Equipamento';
 export const MANUTENCAO_MAQUINA_DL50_COL_LABEL = 'DL50/2005';
 
-/** 1 equipamento por proposta — várias máquinas = várias propostas. */
-export const MAX_TEMPLATE_MAQUINAS = 1;
+/** Máximo de cartões na proposta Manutenção Máquina / Baterias (PDF compacto até aqui). */
+export const MAX_TEMPLATE_MAQUINAS = 8;
 
 function periodicidadeInputValue(value) {
   const raw = String(value || '').trim();
@@ -353,19 +352,21 @@ export function renderTemplateMaquinasSection(maquinas = [], meta = {}) {
   const atMax = rows.length >= MAX_TEMPLATE_MAQUINAS;
   const cards = rows.map((row, index) => renderTemplateMaquinaCard(row, index, rows.length)).join('');
   return `
-    <section class="review-orc-template-maquinas" aria-label="Máquina">
-      <h4 class="review-orc-cabecalho__title">Máquina</h4>
-      <p class="review-orc-field-hint text-muted">Uma máquina por proposta. Para outra máquina, crie uma nova proposta. A deslocação fica em Condições.</p>
+    <section class="review-orc-template-maquinas" aria-label="Máquinas">
+      <h4 class="review-orc-cabecalho__title">Máquinas</h4>
+      <p class="review-orc-field-hint text-muted">Marca/modelo e preços por máquina (até ${MAX_TEMPLATE_MAQUINAS}). A deslocação fica em Condições.</p>
       <div class="review-orc-template-maquinas__list" data-template-maquinas-list>
         ${cards}
       </div>
-      ${
-        atMax
-          ? ''
-          : `<button type="button" class="btn-outline btn-sm btn-touch review-orc-template-maquinas__add" data-template-maquinas-add>
+      <button
+        type="button"
+        class="btn-outline btn-sm btn-touch review-orc-template-maquinas__add"
+        data-template-maquinas-add
+        ${atMax ? 'disabled hidden' : ''}
+        title="${atMax ? `Máximo de ${MAX_TEMPLATE_MAQUINAS} máquinas` : ''}"
+      >
         + Adicionar máquina
-      </button>`
-      }
+      </button>
     </section>`;
 }
 
@@ -390,20 +391,16 @@ export function readTemplateMaquinasCardsFromDom(root) {
 
 export function renderTemplateEquipValoresSection(maquinas, campos, meta, mode) {
   const rows = resolveTemplateEquipamentos({ ...meta, maquinas }, { maquinas }, mode);
-  const title = mode === 'bateria' ? 'Valores da bateria' : 'Valores da máquina';
+  const title = mode === 'bateria' ? 'Valores das baterias' : 'Valores da máquina';
   const hint =
     mode === 'bateria'
-      ? 'Indique periodicidade e valor por visita. Uma bateria por proposta — para outra, crie nova proposta.'
+      ? `Indique periodicidade e valor por visita (até ${MAX_TEMPLATE_MAQUINAS} baterias).`
       : '';
   if (mode !== 'bateria') return '';
   const atMax = rows.length >= MAX_TEMPLATE_MAQUINAS;
   const cards =
     mode === 'bateria'
       ? rows.map((row, i) => renderBateriaValorRow(row, i, rows.length)).join('')
-      : '';
-  const addBateriaBtn =
-    mode === 'bateria' && !atMax
-      ? `<button type="button" class="btn-outline btn-touch review-orc-template-equip-valores__add" data-template-baterias-valores-add>+ Adicionar bateria</button>`
       : '';
 
   return `
@@ -413,7 +410,13 @@ export function renderTemplateEquipValoresSection(maquinas, campos, meta, mode) 
       <div class="review-orc-template-equip-valores__list" data-orc-template-equip-valores-list>
         ${cards}
       </div>
-      ${addBateriaBtn}
+      <button
+        type="button"
+        class="btn-outline btn-touch review-orc-template-equip-valores__add"
+        data-template-baterias-valores-add
+        ${atMax ? 'disabled hidden' : ''}
+        title="${atMax ? `Máximo de ${MAX_TEMPLATE_MAQUINAS} baterias` : ''}"
+      >+ Adicionar bateria</button>
     </section>`;
 }
 
@@ -432,10 +435,19 @@ export function bindTemplateBateriasValoresSection(root, { onChange } = {}) {
 
   const notify = () => onChange?.();
 
+  const syncAddButton = (count) => {
+    if (!addBtn) return;
+    const atMax = count >= MAX_TEMPLATE_MAQUINAS;
+    addBtn.disabled = atMax;
+    addBtn.hidden = atMax;
+    addBtn.title = atMax ? `Máximo de ${MAX_TEMPLATE_MAQUINAS} baterias` : '';
+  };
+
   const rerender = () => {
     const valores = readTemplateEquipValoresFromDom(root, 'bateria');
     const merged = mergeMaquinasWithTemplateValores(valores, valores, 'bateria');
     list.innerHTML = merged.map((row, i) => renderBateriaValorRow(row, i, merged.length)).join('');
+    syncAddButton(merged.length);
     notify();
   };
 
@@ -474,10 +486,13 @@ export function bindTemplateBateriasValoresSection(root, { onChange } = {}) {
     if (merged.length >= MAX_TEMPLATE_MAQUINAS) return;
     merged.push(defaultBateriaEquipValores());
     list.innerHTML = merged.map((row, i) => renderBateriaValorRow(row, i, merged.length)).join('');
+    syncAddButton(merged.length);
     const cards = list.querySelectorAll('[data-orc-template-equip-valores]');
     cards[cards.length - 1]?.querySelector('[data-orc-field="periodicidadeManutencao"]')?.focus();
     notify();
   });
+
+  syncAddButton(list.querySelectorAll('[data-orc-template-equip-valores]').length);
 }
 
 export function bindTemplateMaquinasSection(root, { onChange } = {}) {
@@ -492,7 +507,7 @@ export function bindTemplateMaquinasSection(root, { onChange } = {}) {
     const atMax = count >= MAX_TEMPLATE_MAQUINAS;
     addBtn.disabled = atMax;
     addBtn.hidden = atMax;
-    addBtn.title = atMax ? 'Uma máquina por proposta — crie outra proposta para mais equipamentos.' : '';
+    addBtn.title = atMax ? `Máximo de ${MAX_TEMPLATE_MAQUINAS} máquinas` : '';
   };
 
   const rerender = () => {

@@ -216,19 +216,29 @@ describe('orcamento-maquinas', () => {
     assert.equal(groups[0].linhas[0].descricao, '—');
   });
 
-  it('limita a uma máquina por proposta (sem botão adicionar)', async () => {
+  it('manutenção máquina/bateria permite várias; orçamento livre continua a 1', async () => {
     const { renderOrcamentoMaquinasSection, MAX_ORCAMENTO_EQUIPAMENTOS } = await import(
       '../js/orcamento-maquinas.js'
     );
-    const { MAX_TEMPLATE_MAQUINAS, renderTemplateMaquinasSection } = await import(
-      '../js/orcamento-template-equipamentos.js'
-    );
+    const {
+      MAX_TEMPLATE_MAQUINAS,
+      renderTemplateMaquinasSection,
+      renderTemplateEquipValoresSection,
+    } = await import('../js/orcamento-template-equipamentos.js');
     assert.equal(MAX_ORCAMENTO_EQUIPAMENTOS, 1);
-    assert.equal(MAX_TEMPLATE_MAQUINAS, 1);
+    assert.equal(MAX_TEMPLATE_MAQUINAS, 8);
     const freeform = renderOrcamentoMaquinasSection([{ marca: 'STILL' }]);
     assert.doesNotMatch(freeform, /review-orc-add-maquina/);
     assert.match(freeform, /Uma máquina\/bateria por proposta/);
     const template = renderTemplateMaquinasSection([{ maquinaManutencaoNome: 'Toyota' }]);
-    assert.doesNotMatch(template, /data-template-maquinas-add/);
+    assert.match(template, /data-template-maquinas-add/);
+    assert.doesNotMatch(template, /\bdisabled\b/);
+    const baterias = renderTemplateEquipValoresSection(
+      [{ valorManutencaoVisita: '85,00' }],
+      [],
+      {},
+      'bateria',
+    );
+    assert.match(baterias, /data-template-baterias-valores-add/);
   });
 });
