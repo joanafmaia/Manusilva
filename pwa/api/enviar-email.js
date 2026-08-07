@@ -747,11 +747,11 @@ function buildSubject(payload = {}) {
       : [];
     const count = Number(payload.propostaCount) || numeros.length || 0;
     if (tipoRelatorio === 'orcamento_lote' || count > 1) {
-      return `ManuSilva - Propostas comerciais - ${company}${opSuffix}`;
+      return `ManuSilva - Propostas comerciais - ${company}`;
     }
     const numero = String(payload.orcamentoNumero || numeros[0] || '').trim();
     const numSuffix = numero ? ` nº ${numero}` : '';
-    return `ManuSilva - Proposta Comercial${numSuffix} - ${company}${opSuffix}`;
+    return `ManuSilva - Proposta Comercial${numSuffix} - ${company}`;
   }
 
   if (tipoRelatorio === 'dl50-2005') {
@@ -873,11 +873,11 @@ function buildHtmlBody(payload = {}, options = {}) {
     const numero = escapeHtml(String(payload.orcamentoNumero || numeros[0] || '').trim());
     const numerosLine = isLote && numeros.length
       ? `<p style="margin:0 0 10px 0;font-size:14px;line-height:1.6;color:#334155;">
-          Propostas: <strong>${escapeHtml(numeros.join(', '))}</strong>${opText}.
+          Propostas: <strong>${escapeHtml(numeros.join(', '))}</strong>.
         </p>`
       : numero
         ? `<p style="margin:0 0 10px 0;font-size:14px;line-height:1.6;color:#334155;">
-          Proposta comercial <strong>${numero}</strong>${opText}.
+          Proposta comercial <strong>${numero}</strong>.
         </p>`
       : '';
 
