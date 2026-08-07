@@ -1145,7 +1145,9 @@ function drawManutencaoMaquinaPrecoTable(doc, table, startY, maxY, options = {})
   doc.line(MARGIN, rowTop, MARGIN + CONTENT_W, rowTop);
 
   pdfSetFont(doc, 'normal');
-  (table.rows || []).forEach((row) => {
+  const rows = table.rows || [];
+  const hasDeslocacao = table.deslocacao != null;
+  rows.forEach((row, index) => {
     if (rowTop + lineStep > maxY) return;
     const textY = manutencaoFooterRowTextY(rowTop, lineStep, fontSize);
     const maquinaText = fitTableCellText(doc, row.maquina, maquinaColW);
@@ -1153,17 +1155,25 @@ function drawManutencaoMaquinaPrecoTable(doc, table, startY, maxY, options = {})
     doc.text(pdfSafeText(row.manutencao), MAQUINA_PRECO_TABLE_COL_MANUT, textY, { align: 'right' });
     doc.text(pdfSafeText(row.dl50), MAQUINA_FOOTER_MONEY_X, textY, { align: 'right' });
     rowTop += lineStep;
-    doc.line(MARGIN, rowTop, MARGIN + CONTENT_W, rowTop);
+    // Com Deslocação, o fecho da grelha é desenhado no bloco seguinte.
+    if (!hasDeslocacao || index < rows.length - 1) {
+      doc.line(MARGIN, rowTop, MARGIN + CONTENT_W, rowTop);
+    }
   });
 
-  if (table.deslocacao != null && rowTop + lineStep + 1 <= maxY) {
-    // Fecha a grelha de equipamentos e separa a Deslocação (sem fundo destacado).
-    doc.setDrawColor(...PDF_COLOR_SLATE_LINE);
-    doc.setLineWidth(0.55);
+  if (hasDeslocacao && rowTop + lineStep + 1 <= maxY) {
+    // Fecha a tabela e centra o separador no espaço até à Deslocação.
+    doc.setDrawColor(...PDF_TABLE_LINE);
+    doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
     doc.line(MARGIN, rowTop, MARGIN + CONTENT_W, rowTop);
 
-    const gap = Math.min(MAQUINA_DESLOCACAO_GAP, Math.max(2, lineStep * 0.55));
+    const gap = Math.min(MAQUINA_DESLOCACAO_GAP, Math.max(2.4, lineStep * 0.55));
+    const separatorY = rowTop + gap / 2;
+    doc.setDrawColor(...PDF_COLOR_SLATE_LINE);
+    doc.setLineWidth(0.35);
+    doc.line(MARGIN, separatorY, MARGIN + CONTENT_W, separatorY);
     rowTop += gap;
+
     if (rowTop + lineStep > maxY) {
       pdfSetFont(doc, 'normal');
       doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
