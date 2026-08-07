@@ -108,9 +108,12 @@ const MAQUINA_BULLET_LINE_STEP = 3.35;
 const MAQUINA_BULLET_MIN_STEP = 3.1;
 const MAQUINA_BULLET_COMPACT_FONT = 7.5;
 const MAQUINA_FOOTER_GAP_ABOVE = 5;
-/** Separação visual entre a grelha de máquinas e «Deslocação» / totais. */
-const MAQUINA_DESLOCACAO_GAP = 2.6;
-const MAQUINA_TOTALS_GAP = 1.8;
+/** Espaço após o mapa de preços / grelha até Deslocação, taxas ou totais (todas as propostas). */
+const ORC_AFTER_PRICE_TABLE_GAP = 2.6;
+const ORC_AFTER_PRICE_TOTALS_GAP = 1.8;
+/** @deprecated alias — usar ORC_AFTER_PRICE_TABLE_GAP */
+const MAQUINA_DESLOCACAO_GAP = ORC_AFTER_PRICE_TABLE_GAP;
+const MAQUINA_TOTALS_GAP = ORC_AFTER_PRICE_TOTALS_GAP;
 const MAQUINA_PRECO_TABLE_ROW_H = 4.2;
 const MAQUINA_PRECO_TABLE_ROW_H_COMPACT = 4;
 const MAQUINA_PRECO_TABLE_FONT = 8;
@@ -537,9 +540,7 @@ function drawOrcamentoLetterhead(doc, fill) {
   });
 
   const headerBottom = Math.max(topY + logoH, ty + 2) + 6;
-  doc.setDrawColor(...PDF_TABLE_LINE);
-  doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
-  doc.line(MARGIN, headerBottom, MARGIN + CONTENT_W, headerBottom);
+  strokeOrcamentoTableHairline(doc, headerBottom);
 
   let y = headerBottom + 9;
   const orcTitle = `Orçamento nº ${pdfSafeText(fill.orcamento_numero)}`;
@@ -619,9 +620,7 @@ function drawOrcamentoTable(
     doc.text(pdfSafeText(cells[1]), colX[2] - 2, y, { align: 'right' });
     doc.text(pdfSafeText(cells[2]), colX[3] - 2, y, { align: 'right' });
     doc.text(pdfSafeText(cells[3]), colX[4] - 1, y, { align: 'right' });
-    doc.setDrawColor(203, 213, 225);
-    doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
-    doc.line(MARGIN, y + 1.5, MARGIN + CONTENT_W, y + 1.5);
+    strokeOrcamentoTableHairline(doc, y + 1.5);
     return y + ORC_TABLE_ROW_H;
   };
 
@@ -633,9 +632,7 @@ function drawOrcamentoTable(
     doc.setFontSize(9);
     doc.setTextColor(...PDF_COLOR_TEXT_DARK);
     doc.text(fitTableCellText(doc, label, CONTENT_W - 4), MARGIN + 1, y);
-    doc.setDrawColor(203, 213, 225);
-    doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
-    doc.line(MARGIN, y + 1.5, MARGIN + CONTENT_W, y + 1.5);
+    strokeOrcamentoTableHairline(doc, y + 1.5);
     return y + ORC_TABLE_ROW_H;
   };
 
@@ -827,11 +824,20 @@ export function resolveOrcamentoEquipamentoPdfBlocks(fill = {}) {
   };
 }
 
-function drawOrcamentoEquipamentoSeparator(doc, y, density = ORC_GENERIC_DENSITY.normal) {
-  y += density.separatorBefore;
+/** Linha fina da grelha — mesmo estilo em todas as propostas (sem traço grosso). */
+function strokeOrcamentoTableHairline(doc, y) {
   doc.setDrawColor(...PDF_TABLE_LINE);
   doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
   doc.line(MARGIN, y, MARGIN + CONTENT_W, y);
+}
+
+function resolveOrcamentoAfterPriceGap(lineStep = 5) {
+  return Math.min(ORC_AFTER_PRICE_TABLE_GAP, Math.max(2.4, lineStep * 0.55));
+}
+
+function drawOrcamentoEquipamentoSeparator(doc, y, density = ORC_GENERIC_DENSITY.normal) {
+  y += density.separatorBefore;
+  strokeOrcamentoTableHairline(doc, y);
   return y + density.separatorAfter;
 }
 
@@ -875,9 +881,7 @@ function drawOrcamentoGenericContinuationHeader(doc, fill, { title } = {}) {
     y += 5;
     doc.setTextColor(...PDF_COLOR_TEXT_DARK);
   }
-  doc.setDrawColor(...PDF_TABLE_LINE);
-  doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
-  doc.line(MARGIN, y, MARGIN + CONTENT_W, y);
+  strokeOrcamentoTableHairline(doc, y);
   return y + 7;
 }
 
@@ -923,9 +927,7 @@ function createOrcamentoTableRowDrawer(
     doc.text(pdfSafeText(cells[1]), colX[2] - 2, y, { align: 'right' });
     doc.text(pdfSafeText(cells[2]), colX[3] - 2, y, { align: 'right' });
     doc.text(pdfSafeText(cells[3]), colX[4] - 1, y, { align: 'right' });
-    doc.setDrawColor(203, 213, 225);
-    doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
-    doc.line(MARGIN, y + 1.5, MARGIN + CONTENT_W, y + 1.5);
+    strokeOrcamentoTableHairline(doc, y + 1.5);
     y += rowH;
     return y;
   };
@@ -1140,9 +1142,7 @@ function drawManutencaoMaquinaPrecoTable(doc, table, startY, maxY, options = {})
   doc.text(MANUTENCAO_MAQUINA_DL50_COL_LABEL, MAQUINA_FOOTER_MONEY_X, headerY, { align: 'right' });
   rowTop += lineStep;
 
-  doc.setDrawColor(...PDF_TABLE_LINE);
-  doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
-  doc.line(MARGIN, rowTop, MARGIN + CONTENT_W, rowTop);
+  strokeOrcamentoTableHairline(doc, rowTop);
 
   pdfSetFont(doc, 'normal');
   const rows = table.rows || [];
@@ -1157,17 +1157,15 @@ function drawManutencaoMaquinaPrecoTable(doc, table, startY, maxY, options = {})
     rowTop += lineStep;
     // Com Deslocação, o fecho da grelha é desenhado no bloco seguinte.
     if (!hasDeslocacao || index < rows.length - 1) {
-      doc.line(MARGIN, rowTop, MARGIN + CONTENT_W, rowTop);
+      strokeOrcamentoTableHairline(doc, rowTop);
     }
   });
 
   if (hasDeslocacao && rowTop + lineStep + 1 <= maxY) {
-    // Fecha a grelha; o espaço até à Deslocação basta para separar (sem linha extra).
-    doc.setDrawColor(...PDF_TABLE_LINE);
-    doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
-    doc.line(MARGIN, rowTop, MARGIN + CONTENT_W, rowTop);
+    // Fecha a grelha; o espaço até à Deslocação basta (sem linha extra) — padrão de todas as propostas.
+    strokeOrcamentoTableHairline(doc, rowTop);
 
-    const gap = Math.min(MAQUINA_DESLOCACAO_GAP, Math.max(2.4, lineStep * 0.55));
+    const gap = resolveOrcamentoAfterPriceGap(lineStep);
     rowTop += gap;
 
     if (rowTop + lineStep > maxY) {
@@ -1182,7 +1180,7 @@ function drawManutencaoMaquinaPrecoTable(doc, table, startY, maxY, options = {})
       boldValue: true,
     });
     rowTop += lineStep;
-    rowTop += Math.min(MAQUINA_TOTALS_GAP, Math.max(1.2, gap * 0.55));
+    rowTop += Math.min(ORC_AFTER_PRICE_TOTALS_GAP, Math.max(1.2, gap * 0.55));
   }
 
   pdfSetFont(doc, 'normal');
@@ -1242,9 +1240,7 @@ function drawOrcamentoTableGroupTitle(doc, label, startY, maxEndY, density = ORC
   doc.setFontSize(density.tableFontSize ?? 9);
   doc.setTextColor(...PDF_COLOR_TEXT_DARK);
   doc.text(fitTableCellText(doc, label, CONTENT_W - 4), MARGIN + 1, startY);
-  doc.setDrawColor(203, 213, 225);
-  doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
-  doc.line(MARGIN, startY + 1.5, MARGIN + CONTENT_W, startY + 1.5);
+  strokeOrcamentoTableHairline(doc, startY + 1.5);
   return startY + rowH;
 }
 
@@ -1436,12 +1432,22 @@ function drawOrcamentoFooter(doc, fill, options = {}) {
   let y = anchored ? FOOTER_TOP + 4 : options.startY;
   const maxY = Number.isFinite(options.maxY) ? options.maxY : Infinity;
   const lineStep = options.lineStep ?? 5;
+  const alignMoney = options.alignMoney !== false;
   pdfSetFont(doc, 'normal');
   doc.setFontSize(PDF_FONT_BODY);
   doc.setTextColor(...PDF_COLOR_TEXT_DARK);
 
   const drawLabelValue = (label, value) => {
     if (y + lineStep > maxY + 0.5) return;
+    if (alignMoney) {
+      const textY = manutencaoFooterRowTextY(y, lineStep, PDF_FONT_BODY);
+      drawOrcamentoMoneyRow(doc, label, value, textY, {
+        boldLabel: true,
+        boldValue: false,
+      });
+      y += lineStep;
+      return;
+    }
     pdfSetFont(doc, 'bold');
     const prefix = label;
     doc.text(prefix, MARGIN, y);
@@ -1454,21 +1460,27 @@ function drawOrcamentoFooter(doc, fill, options = {}) {
   const drawTaxasSaida = () => {
     const taxas = Array.isArray(fill.taxas_saida) ? fill.taxas_saida.filter(Boolean) : [];
     if (!taxas.length) {
-      drawLabelValue('Taxa de Saída – ', '—');
+      drawLabelValue('Taxa de Saída –', '—');
       return;
     }
     taxas.forEach((value, index) => {
-      const label = taxas.length === 1 ? 'Taxa de Saída – ' : `Taxa de Saída ${index + 1} – `;
-      drawLabelValue(label, `${value} €`);
+      const label = taxas.length === 1 ? 'Taxa de Saída –' : `Taxa de Saída ${index + 1} –`;
+      drawLabelValue(label, formatOrcamentoPdfCurrency(value));
     });
   };
 
-  drawTaxasSaida();
-  drawLabelValue('Prazo de Entrega: ', formatPrazoEntregaForPdf(fill.prazo_entrega));
-  drawLabelValue('Forma de Pagamento: ', fill.forma_pagamento);
-  drawLabelValue('Validade do orçamento – ', fill.validade_orcamento);
+  // Mesmo padrão das restantes propostas: espaço após o mapa, sem linha grossa.
+  if (!anchored) {
+    y += resolveOrcamentoAfterPriceGap(lineStep);
+  }
 
-  return drawOrcamentoIvaTotals(doc, fill, y, maxY, { lineStep });
+  drawTaxasSaida();
+  y += Math.min(ORC_AFTER_PRICE_TOTALS_GAP, 1.8);
+  drawLabelValue('Prazo de Entrega:', formatPrazoEntregaForPdf(fill.prazo_entrega));
+  drawLabelValue('Forma de Pagamento:', fill.forma_pagamento);
+  drawLabelValue('Validade do orçamento –', fill.validade_orcamento);
+
+  return drawOrcamentoIvaTotals(doc, fill, y, maxY, { lineStep, alignMoney });
 }
 
 /** Papéis das folhas no orçamento genérico (split vs uma folha). */
@@ -1861,11 +1873,13 @@ function drawManutencaoBateriaFooter(doc, fill, layout = {}) {
     y += typography.valorGap;
   });
 
-  y = drawOrcamentoIvaTotals(doc, fill, y + 1, footerMaxY, {
+  y += resolveOrcamentoAfterPriceGap(typography.valorLineStep);
+  y = drawOrcamentoIvaTotals(doc, fill, y, footerMaxY, {
     lineStep: Math.max(4, typography.valorLineStep),
     fontSize: typography.fontSize,
+    alignMoney: true,
   });
-  y += 1;
+  y += ORC_AFTER_PRICE_TOTALS_GAP * 0.55;
 
   pdfSetFont(doc, 'normal');
   doc.setFontSize(typography.fontSize);
@@ -1891,7 +1905,6 @@ function drawManutencaoBateriaFooter(doc, fill, layout = {}) {
 function drawManutencaoMaquinaFooter(doc, fill, layout = {}) {
   const footerMinY = layout.footerStartY ?? MAQUINA_FOOTER_ANCHOR_Y;
   const footerMaxY = layout.footerMaxY ?? PROPOSTA_FOOTER_MAX_Y;
-  const gapAbove = layout.gapBeforeFooter ?? MAQUINA_FOOTER_GAP_ABOVE;
   const availableHeight = Math.max(20, footerMaxY - footerMinY);
 
   const precoTable =
@@ -1903,13 +1916,6 @@ function drawManutencaoMaquinaFooter(doc, fill, layout = {}) {
     resolveManutencaoMaquinaFooterTypography(availableHeight, precoTable);
 
   let y = footerMinY + typography.separatorGap;
-
-  if (gapAbove >= 3 && y - gapAbove > MARGIN) {
-    doc.setDrawColor(...PDF_TABLE_LINE);
-    doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
-    const lineY = y - typography.separatorGap + 1.5;
-    doc.line(MARGIN, lineY, MARGIN + CONTENT_W, lineY);
-  }
 
   pdfSetFont(doc, 'normal');
   doc.setFontSize(typography.fontSize);
@@ -2169,7 +2175,7 @@ export async function renderOrcamentoPDF(report) {
       allowPagination: true,
     });
     doc.setPage(tables.page);
-    let footerY = tables.y + 4;
+    let footerY = tables.y;
     const footerH = estimateOrcamentoFooterHeight(fill);
     if (footerY + footerH > ORC_TABLE_PAGE_MAX_Y) {
       doc.addPage();
