@@ -270,6 +270,15 @@ export async function sendOrcamentoLoteForReports(reports = [], options = {}) {
     }
   }
 
+  try {
+    const { syncFolhaObraFromOrcamentoReport } = await import('./folha-obra-orcamento.js');
+    for (const report of saved) {
+      await syncFolhaObraFromOrcamentoReport(report);
+    }
+  } catch (err) {
+    console.warn('[Orçamentos] Sync folha após lote:', err);
+  }
+
   return { reports: saved, recipients, numeros };
 }
 

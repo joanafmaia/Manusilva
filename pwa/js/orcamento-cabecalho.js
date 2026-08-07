@@ -9,6 +9,7 @@ import { reportIsStandaloneOrcamento } from './orcamento-standalone.js';
 import { suggestEquipamentoCampos } from './orcamento-equipamento-campos.js';
 import {
   hasOrcamentoMaquinaData,
+  MAX_ORCAMENTO_EQUIPAMENTOS,
   normalizeOrcamentoMaquina,
   normalizeOrcamentoMaquinasList,
   readOrcamentoMaquinasFromDom,
@@ -164,6 +165,13 @@ export function mergeOrcamentoMetaWithCabecalho(rawMeta = {}, cab = {}, { templa
   return { ...cabCore, ...rawMeta };
 }
 
+/** Limita sugestões novas a 1 equipamento; meta já guardada (legado) mantém-se. */
+function capSuggestedMaquinasForNewProposal(list = []) {
+  const max = Math.max(1, Number(MAX_ORCAMENTO_EQUIPAMENTOS) || 1);
+  if (!Array.isArray(list) || list.length <= max) return list;
+  return list.slice(0, max);
+}
+
 export function suggestOrcamentoMaquinas(report) {
   const meta = readOrcamentoMeta(report);
   const campos = suggestEquipamentoCampos(report);
@@ -192,7 +200,7 @@ export function suggestOrcamentoMaquinas(report) {
         ),
       )
       .filter((row) => hasOrcamentoMaquinaData(row, campos));
-    if (fromReport.length) return fromReport;
+    if (fromReport.length) return capSuggestedMaquinasForNewProposal(fromReport);
   }
 
   if (serviceType === 'manutencao_baterias_grandes') {
@@ -210,7 +218,7 @@ export function suggestOrcamentoMaquinas(report) {
           ),
         )
         .filter((row) => hasOrcamentoMaquinaData(row, campos));
-      if (fromBaterias.length) return fromBaterias;
+      if (fromBaterias.length) return capSuggestedMaquinasForNewProposal(fromBaterias);
     }
   }
 
@@ -398,12 +406,16 @@ function syncDerivedEquipamento(cabecalho, maquinas = []) {
 export function resolveOrcamentoClienteNome(report) {
   const values = report?.data?.values || {};
   const meta = report?.data?.orcamento || {};
-  const fromReport = String(
-    values.nome_empresa || values.cliente || meta.clienteNome || '',
-  ).trim();
-  if (fromReport) return fromReport;
+  const metaNome = String(meta.clienteNome || '').trim();
+  const valuesNome = String(values.nome_empresa || values.cliente || '').trim();
   const clientId = String(report?.clientId || '').trim();
-  if (!clientId) return '—';
+
+  // Sem ficha: preferir o nome do editor (meta) para a pasta acompanhar o autosave.
+  if (!clientId) {
+    return metaNome || valuesNome || '—';
+  }
+
+  if (valuesNome || metaNome) return valuesNome || metaNome;
   const client = getClient(clientId);
   return String(client?.name || client?.Nome || '').trim() || '—';
 }

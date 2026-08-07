@@ -77,6 +77,9 @@ export async function initOrcamentoPage() {
     onUpdated: (updated) => {
       report = updated;
       syncTitle(updated);
+      void import('./folha-obra-orcamento.js')
+        .then(({ syncFolhaObraFromOrcamentoReport }) => syncFolhaObraFromOrcamentoReport(updated))
+        .catch((err) => console.warn('[Orçamento] sync folha:', err));
     },
     onNumeroChange: (num) => {
       if (titleNum) {

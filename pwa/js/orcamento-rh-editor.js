@@ -1139,10 +1139,19 @@ export function bindOrcamentoEditor(container, { report, onUpdated, onSaved, onS
       try {
         const meta = readOrcamentoFormFromDom(root, currentReport);
         const { updateRelatorio, mergeReportInCache } = await import('./relatorios-db.js');
+        const dataPatch = { orcamento: meta };
+        if (reportUsesFreeformOrcamentoCliente(currentReport)) {
+          const nome = String(meta.clienteNome || '').trim();
+          if (nome) {
+            dataPatch.values = {
+              ...(currentReport.data?.values || {}),
+              nome_empresa: nome,
+              cliente: nome,
+            };
+          }
+        }
         const saved = await updateRelatorio(currentReport.id, {
-          data: {
-            orcamento: meta,
-          },
+          data: dataPatch,
         });
         if (!saved) return;
         mergeReportInCache(saved);

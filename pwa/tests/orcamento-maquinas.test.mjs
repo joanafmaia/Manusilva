@@ -38,7 +38,7 @@ describe('orcamento-maquinas', () => {
     assert.equal(hasOrcamentoMaquinaData(row), true);
   });
 
-  it('sugere várias máquinas da preventiva empilhadores', () => {
+  it('sugere só 1 máquina da preventiva (1 equipamento por proposta)', () => {
     const report = {
       serviceType: 'manutencao_preventiva_empilhadores',
       data: {
@@ -51,9 +51,8 @@ describe('orcamento-maquinas', () => {
       },
     };
     const rows = suggestOrcamentoMaquinas(report);
-    assert.equal(rows.length, 2);
+    assert.equal(rows.length, 1);
     assert.equal(rows[0].marca, 'Toyota');
-    assert.equal(rows[1].marca, 'Linde');
   });
 
   it('usa intro plural com várias máquinas no docx', () => {

@@ -7,6 +7,7 @@ import {
   formatClienteAcForPdf,
   mergeOrcamentoMetaWithCabecalho,
   normalizeClienteAc,
+  resolveOrcamentoClienteNome,
   resolveOrcamentoTextoIntroForPdf,
   resolveReportObservacoesTecnico,
   suggestOrcamentoMaquinas,
@@ -107,6 +108,19 @@ describe('suggestOrcamentoMaquinas — template manutenção máquinas', () => {
       data: { orcamento: { maquinas } },
     };
     assert.equal(suggestOrcamentoMaquinas(report).length, 4);
+  });
+});
+
+describe('resolveOrcamentoClienteNome', () => {
+  it('sem ficha preferir meta.clienteNome (autosave) sobre values antigos', () => {
+    const report = {
+      clientId: '',
+      data: {
+        values: { nome_empresa: 'Nome Antigo', cliente: 'Nome Antigo' },
+        orcamento: { clienteNome: 'SAP METAL' },
+      },
+    };
+    assert.equal(resolveOrcamentoClienteNome(report), 'SAP METAL');
   });
 });
 
