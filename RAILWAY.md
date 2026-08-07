@@ -17,12 +17,19 @@ Em **Variables**:
 | `SUPABASE_URL` | Sim | URL do projeto Supabase |
 | `SUPABASE_ANON_KEY` | Sim | Chave anon |
 | `SUPABASE_SERVICE_ROLE_KEY` | Sim | Técnicos + avaliações |
-| `EMAIL_USER` | Sim | Conta Gmail |
-| `EMAIL_PASS` | Sim | App Password (2FA) |
+| `EMAIL_USER` | Sim | Conta Gmail (ex. `manusilva.lda@gmail.com`) |
+| `EMAIL_PASS` | Sim | **App Password** do Google (conta com 2FA) — não a password normal |
 | `APP_BASE_URL` | Recomendado | URL público (sem `/` final), ex. `https://manusilva-production.up.railway.app` |
 | `MAPBOX_ACCESS_TOKEN` | Opcional | Mapas / deslocação |
-| `SMTP_HOST` / `SMTP_PORT` | Opcional | Só se não for Gmail |
+| `SMTP_HOST` / `SMTP_PORT` | Opcional | Só se **não** for Gmail. Com Gmail a app usa `smtp.gmail.com` (587 → fallback 465, IPv4) |
 | `AVALIACAO_TOKEN_SECRET` | Opcional | Tokens dos links de avaliação |
+
+### E-mail (Gmail)
+
+1. Conta Google → Segurança → verificação em 2 passos **ligada**
+2. Criar **App Password** → copiar para `EMAIL_PASS` na Railway (sem espaços)
+3. `EMAIL_USER` = o mesmo endereço Gmail
+4. Se aparecer `ETIMEDOUT` / SMTP inacessível: confirme as variáveis no serviço Railway (não só no `.env` local) e veja os logs do deploy. A app tenta a porta **587** e depois **465**.
 
 A Railway define `PORT` automaticamente — não precisas de a criar. `RAILWAY_PUBLIC_DOMAIN` também pode ser usada como fallback de URL base.
 

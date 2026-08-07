@@ -20,16 +20,115 @@ const SMTP_PORT = Number(process.env.SMTP_PORT || 465);
 const EMAIL_USER = process.env.EMAIL_USER;
 const EMAIL_PASS = process.env.EMAIL_PASS;
 
-/** Tamanho máximo do PDF decodificado (evita timeouts no servidor). */
-const MAX_PDF_BYTES = 3 * 1024 * 1024;
-/** Limite conservador do string base64 (~4/3 do binário + padding). */
-const MAX_PDF_BASE64_LEN = Math.ceil((MAX_PDF_BYTES / 3) * 4) + 8;
+const SMTP_TIMEOUTS = {
+  connectionTimeout: 20000,
+  greetingTimeout: 15000,
+  socketTimeout: 45000,
+};
+
+function isGmailAccount() {
+  const user = String(EMAIL_USER || '');
+  const host = String(SMTP_HOST || '').toLowerCase();
+  return /@gmail\.com$/i.test(user) || /@googlemail\.com$/i.test(user) || host.includes('gmail');
+}
+
+function isSmtpNetworkError(err) {
+  const code = String(err?.code || '');
+  const msg = String(err?.message || '');
+  return /ECONNREFUSED|ETIMEDOUT|ESOCKET|ECONNECTION|ENOTFOUND/i.test(code || msg);
+}
+
+/**
+ * Gmail/Google: forçar IPv4 + STARTTLS (587). Em hosts cloud o IPv6/465 costuma dar ETIMEDOUT.
+ */
+function buildGmailTransportOptions(port) {
+  const emailPass = String(EMAIL_PASS || '').replace(/\s+/g, '');
+  const use465 = Number(port) === 465;
+  return {
+    host: 'smtp.gmail.com',
+    port: use465 ? 465 : 587,
+    secure: use465,
+    requireTLS: !use465,
+    auth: {
+      user: EMAIL_USER,
+      pass: emailPass,
+    },
+    tls: { minVersion: 'TLSv1.2', servername: 'smtp.gmail.com' },
+    // Evita timeout IPv6 em alguns ambientes Railway/Docker.
+    family: 4,
+    ...SMTP_TIMEOUTS,
+  };
+}
+
+function buildCustomSmtpTransportOptions() {
+  const emailPass = String(EMAIL_PASS || '').replace(/\s+/g, '');
+  const port = Number(SMTP_PORT) || 465;
+  return {
+    host: SMTP_HOST,
+    port,
+    secure: port === 465,
+    requireTLS: port === 587,
+    auth: {
+      user: EMAIL_USER,
+      pass: emailPass,
+    },
+    family: 4,
+    ...SMTP_TIMEOUTS,
+  };
+}
+
+function createMailTransport(options) {
+  return nodemailer.createTransport(options);
+}
+
+async function sendMailWithSmtpFallback(mailOptions) {
+  if (isGmailAccount()) {
+    // 587 STARTTLS primeiro — mais fiável na Railway do que 465/SMTPS.
+    const attempts = [587, 465];
+    let lastErr = null;
+    for (let i = 0; i < attempts.length; i += 1) {
+      const port = attempts[i];
+      try {
+        const transporter = createMailTransport(buildGmailTransportOptions(port));
+        const info = await transporter.sendMail(mailOptions);
+        if (i > 0) {
+          console.warn(`[API /enviar-email] Gmail OK na porta ${port} (fallback após falha).`);
+        }
+        return info;
+      } catch (err) {
+        lastErr = err;
+        console.warn(
+          `[API /enviar-email] Gmail porta ${port} falhou:`,
+          err?.code || err?.message || err,
+        );
+        if (!isSmtpNetworkError(err) || i === attempts.length - 1) throw err;
+      }
+    }
+    throw lastErr;
+  }
+
+  if (!SMTP_HOST) {
+    const err = new Error('SMTP_HOST em falta (conta não-Gmail).');
+    err.code = 'ESMTPCONFIG';
+    throw err;
+  }
+
+  const transporter = createMailTransport(buildCustomSmtpTransportOptions());
+  return transporter.sendMail(mailOptions);
+}
 
 /** Rodapé dos e-mails (alinhado com COMPANY em mock_data.js / PDFs) */
 const CONTACT_EMAIL =
   process.env.COMPANY_EMAIL || process.env.EMAIL_USER || 'manusilva.lda@gmail.com';
 const CONTACT_PHONE = process.env.COMPANY_PHONE || '+351 229 811 990';
 const CONTACT_WEBSITE = process.env.COMPANY_WEBSITE || 'www.manusilva.pt';
+
+/** Tamanho máximo do PDF decodificado (evita timeouts no servidor). */
+const MAX_PDF_BYTES = 3 * 1024 * 1024;
+/** Limite conservador do string base64 (~4/3 do binário + padding). */
+const MAX_PDF_BASE64_LEN = Math.ceil((MAX_PDF_BYTES / 3) * 4) + 8;
+/** Tamanho máximo combinado de todos os anexos PDF (evita timeouts no servidor). */
+const MAX_TOTAL_PDF_BYTES = 8 * 1024 * 1024;
 
 async function supabaseGet(path, token) {
   const { getSupabaseUrl, getSupabaseAnonKey } = require('../server-lib/supabase-env');
@@ -102,9 +201,6 @@ function parseEmailRecipients(raw) {
   }
   return out;
 }
-
-/** Tamanho máximo combinado de todos os anexos PDF (evita timeouts no servidor). */
-const MAX_TOTAL_PDF_BYTES = 8 * 1024 * 1024;
 
 function validatePdfAttachment(pdfBase64, pdfFilename) {
   if (!pdfBase64 && !pdfFilename) return { ok: true, content: null, filename: null };
@@ -655,7 +751,6 @@ module.exports = async function handler(req, res) {
       return res.status(403).json({ error: 'Acesso reservado a Recursos Humanos ou Admin autenticados.' });
     }
 
-    const emailPass = String(EMAIL_PASS).replace(/\s+/g, '');
     const payload = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : req.body || {};
 
     const reportId = String(payload.reportId || '').trim();
@@ -704,34 +799,6 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: pdfResolved.error });
     }
 
-    const isGmail =
-      /@gmail\.com$/i.test(EMAIL_USER) ||
-      String(SMTP_HOST || '').toLowerCase().includes('gmail');
-
-    const transporter = isGmail
-      ? nodemailer.createTransport({
-          service: 'gmail',
-          auth: {
-            user: EMAIL_USER,
-            pass: emailPass,
-          },
-          connectionTimeout: 20000,
-          greetingTimeout: 15000,
-          socketTimeout: 45000,
-        })
-      : nodemailer.createTransport({
-          host: SMTP_HOST,
-          port: SMTP_PORT,
-          secure: SMTP_PORT === 465,
-          auth: {
-            user: EMAIL_USER,
-            pass: emailPass,
-          },
-          connectionTimeout: 20000,
-          greetingTimeout: 15000,
-          socketTimeout: 45000,
-        });
-
     const jobDate = report.trabalho_id ? await fetchTrabalhoDate(report.trabalho_id, token) : null;
     const interventionDate = resolveReportInterventionDatePt(report, jobDate);
     const emailPayload = {
@@ -771,7 +838,7 @@ module.exports = async function handler(req, res) {
       }
     }
 
-    await transporter.sendMail({
+    await sendMailWithSmtpFallback({
       from: EMAIL_USER,
       to: recipients.join(', '),
       subject: buildSubject(emailPayload),
@@ -795,11 +862,14 @@ module.exports = async function handler(req, res) {
     if (responseCode === 552 && response.includes('BlockedMessage')) {
       hint = 'Gmail bloqueou o anexo/conteúdo (BlockedMessage).';
     } else if (responseCode === 535) {
-      hint = 'Falha de autenticação SMTP (ver App Password / 2FA).';
+      hint = 'Falha de autenticação SMTP (ver App Password / 2FA na conta EMAIL_USER).';
     } else if (/SUPABASE_URL|SUPABASE_ANON_KEY/i.test(detail)) {
       hint = 'Configure SUPABASE_URL e SUPABASE_ANON_KEY nas variáveis de ambiente do servidor.';
-    } else if (/ECONNREFUSED|ETIMEDOUT|ESOCKET/i.test(code || '')) {
-      hint = 'Servidor SMTP inacessível. Verifique SMTP_HOST e SMTP_PORT.';
+    } else if (/ECONNREFUSED|ETIMEDOUT|ESOCKET|ECONNECTION/i.test(code || detail || '')) {
+      hint =
+        'Não foi possível ligar ao Gmail SMTP (timeout). Confirme EMAIL_USER/EMAIL_PASS (App Password) na Railway; se persistir, a rede do host pode estar a bloquear portas 465/587.';
+    } else if (code === 'ESMTPCONFIG') {
+      hint = 'Defina SMTP_HOST (e SMTP_PORT) para contas que não sejam Gmail.';
     }
 
     const error =
