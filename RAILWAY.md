@@ -30,6 +30,14 @@ Em **Variables**:
 
 A App Password do Gmail pode estar **certa** e mesmo assim falhar: a Railway bloqueia SMTP (portas 465/587).
 
+**Verificar se a chave chegou ao servidor:** abra `https://SEU-DOMINIO/api/health` — deve aparecer `"email": { "active": "brevo", "brevo": true, ... }`. Se `active` for `"smtp"` ou `"none"`, a variável **não** está no serviço em execução.
+
+Checklist se ainda falhar:
+1. Nome **exato**: `BREVO_API_KEY` (não “Brevo API Key” nem chave SMTP do Brevo)
+2. Variável no **serviço** da app (não só no projeto) → Variables → Shared / Service
+3. Após guardar: **Redeploy** (Deployments → Redeploy)
+4. Valor = chave de **API** em Brevo → SMTP & API → API keys (`xkeysib-...`), não a password SMTP
+
 #### Opção A — Brevo (mais simples com Gmail)
 
 1. Criar conta em [brevo.com](https://www.brevo.com) (free)
@@ -38,7 +46,7 @@ A App Password do Gmail pode estar **certa** e mesmo assim falhar: a Railway blo
 4. Na Railway → Variables:
    - `BREVO_API_KEY` = a chave
    - `EMAIL_USER` = `manusilva.lda@gmail.com`
-5. Redeploy e testar envio de orçamento / relatório
+5. Redeploy → confirmar `/api/health` com `"active":"brevo"` → testar envio
 
 #### Opção B — Resend
 
@@ -59,7 +67,7 @@ A Railway define `PORT` automaticamente. `RAILWAY_PUBLIC_DOMAIN` serve de fallba
 ## 4. Após o deploy
 
 - `https://SEU-DOMINIO/` → login
-- `https://SEU-DOMINIO/api/health` → `{ "ok": true }`
+- `https://SEU-DOMINIO/api/health` → `{ "ok": true, "email": { "active": "brevo", ... } }`
 
 ## 5. Local
 

@@ -45,10 +45,15 @@ function wrapHandler(handler, { mapParamsToQuery } = {}) {
 }
 
 app.get('/api/health', (_req, res) => {
+  const email =
+    typeof enviarEmail.getEmailProviderStatus === 'function'
+      ? enviarEmail.getEmailProviderStatus()
+      : null;
   res.status(200).json({
     ok: true,
     service: 'manusilva',
     uptime: process.uptime(),
+    email,
   });
 });
 

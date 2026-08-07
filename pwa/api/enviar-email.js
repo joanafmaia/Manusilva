@@ -19,9 +19,19 @@ const SMTP_HOST = process.env.SMTP_HOST;
 const SMTP_PORT = Number(process.env.SMTP_PORT || 465);
 const EMAIL_USER = process.env.EMAIL_USER;
 const EMAIL_PASS = process.env.EMAIL_PASS;
+
+function cleanEnvSecret(value) {
+  return String(value || '')
+    .trim()
+    .replace(/^["']|["']$/g, '')
+    .replace(/\s+/g, '');
+}
+
 /** API HTTPS (recomendado na Railway — SMTP Gmail costuma dar ETIMEDOUT). */
-const RESEND_API_KEY = String(process.env.RESEND_API_KEY || '').trim();
-const BREVO_API_KEY = String(process.env.BREVO_API_KEY || process.env.SENDINBLUE_API_KEY || '').trim();
+const RESEND_API_KEY = cleanEnvSecret(process.env.RESEND_API_KEY);
+const BREVO_API_KEY = cleanEnvSecret(
+  process.env.BREVO_API_KEY || process.env.SENDINBLUE_API_KEY || process.env.BREVO_KEY,
+);
 const EMAIL_FROM = String(process.env.EMAIL_FROM || '').trim();
 const EMAIL_REPLY_TO = String(process.env.EMAIL_REPLY_TO || EMAIL_USER || '').trim();
 
@@ -45,6 +55,17 @@ function hasHttpsEmailConfig() {
 
 function hasSmtpConfig() {
   return Boolean(EMAIL_USER && EMAIL_PASS);
+}
+
+/** Estado do fornecedor de e-mail (sem expor segredos) — útil em /api/health. */
+function getEmailProviderStatus() {
+  return {
+    brevo: hasBrevoConfig(),
+    resend: hasResendConfig(),
+    smtp: hasSmtpConfig(),
+    emailUser: Boolean(String(EMAIL_USER || '').trim()),
+    active: hasBrevoConfig() ? 'brevo' : hasResendConfig() ? 'resend' : hasSmtpConfig() ? 'smtp' : 'none',
+  };
 }
 
 function resolveFromAddress() {
@@ -297,39 +318,32 @@ async function sendMailWithSmtpFallback(mailOptions) {
   return transporter.sendMail(mailOptions);
 }
 
-/** Preferir Brevo/Resend (HTTPS); SMTP só se não houver API key. */
+/** Preferir Brevo/Resend (HTTPS). Nunca cair para SMTP se houver API key — na Railway o SMTP falha com ETIMEDOUT. */
 async function sendMail(mailOptions) {
   const from = resolveFromAddress();
   const options = { ...mailOptions, from };
+  const status = getEmailProviderStatus();
+  console.info('[API /enviar-email] fornecedor:', status.active, status);
 
   if (hasBrevoConfig()) {
-    try {
-      return await sendMailViaBrevo(options);
-    } catch (err) {
-      console.error('[API /enviar-email] Brevo falhou:', err?.message || err);
-      if (!hasResendConfig() && !hasSmtpConfig()) throw err;
-      console.warn('[API /enviar-email] A tentar outro fornecedor após falha Brevo…');
-    }
+    return sendMailViaBrevo(options);
   }
 
   if (hasResendConfig()) {
-    try {
-      return await sendMailViaResend(options);
-    } catch (err) {
-      console.error('[API /enviar-email] Resend falhou:', err?.message || err);
-      if (!hasSmtpConfig()) throw err;
-      console.warn('[API /enviar-email] A tentar SMTP após falha Resend…');
-    }
+    return sendMailViaResend(options);
   }
 
   if (!hasSmtpConfig()) {
     const err = new Error(
-      'E-mail não configurado. Defina BREVO_API_KEY ou RESEND_API_KEY (recomendado na Railway), ou EMAIL_USER + EMAIL_PASS.',
+      'E-mail não configurado. Defina BREVO_API_KEY na Railway (Variables do serviço) e faça redeploy.',
     );
     err.code = 'EEMAILCONFIG';
     throw err;
   }
 
+  console.warn(
+    '[API /enviar-email] Sem BREVO_API_KEY/RESEND_API_KEY — a usar SMTP (pode falhar na Railway).',
+  );
   return sendMailWithSmtpFallback(options);
 }
 
@@ -941,7 +955,7 @@ function buildHtmlBody(payload = {}, options = {}) {
 </html>`;
 }
 
-module.exports = async function handler(req, res) {
+async function handler(req, res) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', ['POST']);
     return res.status(405).json({ error: 'Método não permitido.' });
@@ -952,6 +966,7 @@ module.exports = async function handler(req, res) {
         error: 'E-mail não configurado.',
         hint:
           'Na Railway, defina BREVO_API_KEY (fácil com Gmail) ou RESEND_API_KEY. SMTP Gmail costuma dar ETIMEDOUT.',
+        emailProvider: getEmailProviderStatus(),
       });
     }
 
@@ -1105,6 +1120,10 @@ module.exports = async function handler(req, res) {
       code,
       responseCode,
       hint,
+      emailProvider: getEmailProviderStatus(),
     });
   }
 };
+
+module.exports = handler;
+module.exports.getEmailProviderStatus = getEmailProviderStatus;
