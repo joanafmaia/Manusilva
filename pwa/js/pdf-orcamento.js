@@ -1162,16 +1162,12 @@ function drawManutencaoMaquinaPrecoTable(doc, table, startY, maxY, options = {})
   });
 
   if (hasDeslocacao && rowTop + lineStep + 1 <= maxY) {
-    // Fecha a tabela e centra o separador no espaço até à Deslocação.
+    // Fecha a grelha; o espaço até à Deslocação basta para separar (sem linha extra).
     doc.setDrawColor(...PDF_TABLE_LINE);
     doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
     doc.line(MARGIN, rowTop, MARGIN + CONTENT_W, rowTop);
 
     const gap = Math.min(MAQUINA_DESLOCACAO_GAP, Math.max(2.4, lineStep * 0.55));
-    const separatorY = rowTop + gap / 2;
-    doc.setDrawColor(...PDF_COLOR_SLATE_LINE);
-    doc.setLineWidth(0.35);
-    doc.line(MARGIN, separatorY, MARGIN + CONTENT_W, separatorY);
     rowTop += gap;
 
     if (rowTop + lineStep > maxY) {
@@ -1179,9 +1175,6 @@ function drawManutencaoMaquinaPrecoTable(doc, table, startY, maxY, options = {})
       doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
       return rowTop;
     }
-
-    doc.setDrawColor(...PDF_TABLE_LINE);
-    doc.setLineWidth(PDF_TABLE_LINE_WIDTH);
 
     const textY = manutencaoFooterRowTextY(rowTop, lineStep, fontSize);
     drawOrcamentoMoneyRow(doc, 'Deslocação:', table.deslocacao, textY, {
