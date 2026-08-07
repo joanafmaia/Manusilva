@@ -176,21 +176,44 @@ function getRhReviewScrollEl(panel = document.getElementById('rh-review-panel'))
   return panel?.querySelector('.rh-review-stack-wrap') || null;
 }
 
+/** Último scroll conhecido — sobrevive a re-renders e a painel momentaneamente oculto. */
+let rhReviewSavedScrollTop = 0;
+
 function captureRhReviewScroll(panel) {
   const el = getRhReviewScrollEl(panel);
-  return el ? el.scrollTop : 0;
+  if (!el) return rhReviewSavedScrollTop;
+  // Painel oculto / sem layout: browsers reportam scrollTop 0 — não apagar a posição.
+  if (el.clientHeight > 0) {
+    rhReviewSavedScrollTop = el.scrollTop;
+  }
+  return rhReviewSavedScrollTop;
 }
 
-function restoreRhReviewScroll(panel, top) {
+function restoreRhReviewScroll(panel, top = rhReviewSavedScrollTop) {
   const el = getRhReviewScrollEl(panel);
   if (!el) return;
   const y = Math.max(0, Number(top) || 0);
+  rhReviewSavedScrollTop = y;
   el.scrollTop = y;
-  if (y > 0 && el.scrollTop !== y) {
+  requestAnimationFrame(() => {
+    el.scrollTop = y;
     requestAnimationFrame(() => {
       el.scrollTop = y;
     });
-  }
+  });
+}
+
+function bindRhReviewScrollPersist(panel = document.getElementById('rh-review-panel')) {
+  const el = getRhReviewScrollEl(panel);
+  if (!el || el.dataset.scrollPersist === '1') return;
+  el.dataset.scrollPersist = '1';
+  el.addEventListener(
+    'scroll',
+    () => {
+      rhReviewSavedScrollTop = el.scrollTop;
+    },
+    { passive: true },
+  );
 }
 
 function queueRhReviewStackRender(options = {}) {
@@ -481,9 +504,10 @@ export function setAdminTab(tab, options = {}) {
     document.querySelector('.admin-main')?.scrollTo({ top: 0, behavior: 'auto' });
   }
   if (tab === 'relatorios' && tabChanged) {
+    // Não re-renderizar a pilha — só ajustar altura. Re-render zerava o scroll.
     requestAnimationFrame(() => {
       syncReviewPanelHeight();
-      queueRhReviewStackRender({ preserveScroll: true });
+      restoreRhReviewScroll(document.getElementById('rh-review-panel'));
     });
   }
 }
@@ -1359,10 +1383,12 @@ async function renderRhReviewStack(options = {}) {
 
   if (token !== rhReviewStackRenderToken) return;
   panel.innerHTML = html;
+  bindRhReviewScrollPersist(panel);
   restoreRhReviewScroll(panel, preserveScroll ? prevScroll : 0);
   requestAnimationFrame(() => {
     if (preserveScroll) restoreRhReviewScroll(panel, prevScroll);
     syncReviewPanelHeight();
+    if (preserveScroll) restoreRhReviewScroll(panel, prevScroll);
   });
   updateRhBatchToolbar(panel);
 
@@ -1400,7 +1426,8 @@ async function enrichRhReviewAvaliacoes(token, reports, servicoIds) {
     const stackWrap = panel?.querySelector('.rh-review-stack-wrap');
     if (!stackWrap) return;
 
-    const prevScroll = stackWrap.scrollTop;
+    const prevScroll = Math.max(stackWrap.scrollTop, rhReviewSavedScrollTop);
+    rhReviewSavedScrollTop = prevScroll;
     const dayCollapseState = loadRhDayCollapseState();
     const cards = buildRhReviewGroupedStack(reports, {
       getJobFn: getJob,
@@ -1408,10 +1435,8 @@ async function enrichRhReviewAvaliacoes(token, reports, servicoIds) {
       dayCollapseState,
     });
     stackWrap.innerHTML = `<div class="rh-review-stack" role="list">${cards}</div>`;
-    stackWrap.scrollTop = prevScroll;
-    requestAnimationFrame(() => {
-      stackWrap.scrollTop = prevScroll;
-    });
+    bindRhReviewScrollPersist(panel);
+    restoreRhReviewScroll(panel, prevScroll);
     updateRhBatchToolbar(panel);
   } catch (err) {
     console.warn('[Admin] Avaliações no painel RH:', err);
