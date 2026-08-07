@@ -17,21 +17,37 @@ Em **Variables**:
 | `SUPABASE_URL` | Sim | URL do projeto Supabase |
 | `SUPABASE_ANON_KEY` | Sim | Chave anon |
 | `SUPABASE_SERVICE_ROLE_KEY` | Sim | Técnicos + avaliações |
-| `EMAIL_USER` | Sim | Conta Gmail (ex. `manusilva.lda@gmail.com`) |
-| `EMAIL_PASS` | Sim | **App Password** do Google (conta com 2FA) — não a password normal |
-| `APP_BASE_URL` | Recomendado | URL público (sem `/` final), ex. `https://manusilva-production.up.railway.app` |
+| `BREVO_API_KEY` | **Recomendada** | Envio HTTPS ([brevo.com](https://www.brevo.com)) — mantém remetente Gmail |
+| `RESEND_API_KEY` | Alternativa | [resend.com](https://resend.com) — para clientes convém verificar `manusilva.pt` |
+| `EMAIL_USER` | Sim (com Brevo) | `manusilva.lda@gmail.com` — remetente / reply-to |
+| `EMAIL_FROM` | Opcional | Ex. `ManuSilva <manusilva.lda@gmail.com>` |
+| `EMAIL_PASS` | Opcional | App Password Gmail (SMTP); **na Railway costuma falhar com ETIMEDOUT** |
+| `APP_BASE_URL` | Recomendado | URL público sem `/` final |
 | `MAPBOX_ACCESS_TOKEN` | Opcional | Mapas / deslocação |
-| `SMTP_HOST` / `SMTP_PORT` | Opcional | Só se **não** for Gmail. Com Gmail a app usa `smtp.gmail.com` (587 → fallback 465, IPv4) |
-| `AVALIACAO_TOKEN_SECRET` | Opcional | Tokens dos links de avaliação |
+| `AVALIACAO_TOKEN_SECRET` | Opcional | Tokens de avaliação |
 
-### E-mail (Gmail)
+### E-mail na Railway (obrigatório se aparecer ETIMEDOUT)
 
-1. Conta Google → Segurança → verificação em 2 passos **ligada**
-2. Criar **App Password** → copiar para `EMAIL_PASS` na Railway (sem espaços)
-3. `EMAIL_USER` = o mesmo endereço Gmail
-4. Se aparecer `ETIMEDOUT` / SMTP inacessível: confirme as variáveis no serviço Railway (não só no `.env` local) e veja os logs do deploy. A app tenta a porta **587** e depois **465**.
+A App Password do Gmail pode estar **certa** e mesmo assim falhar: a Railway bloqueia SMTP (portas 465/587).
 
-A Railway define `PORT` automaticamente — não precisas de a criar. `RAILWAY_PUBLIC_DOMAIN` também pode ser usada como fallback de URL base.
+#### Opção A — Brevo (mais simples com Gmail)
+
+1. Criar conta em [brevo.com](https://www.brevo.com) (free)
+2. **Senders** → adicionar `manusilva.lda@gmail.com` → confirmar o e-mail que o Brevo envia
+3. **SMTP & API** → API keys → criar chave
+4. Na Railway → Variables:
+   - `BREVO_API_KEY` = a chave
+   - `EMAIL_USER` = `manusilva.lda@gmail.com`
+5. Redeploy e testar envio de orçamento / relatório
+
+#### Opção B — Resend
+
+1. Conta em [resend.com](https://resend.com) → API Key (`re_...`)
+2. Railway: `RESEND_API_KEY=re_...`
+3. Teste: `EMAIL_FROM=ManuSilva <onboarding@resend.dev>` (só envia para o vosso e-mail de conta)
+4. Produção: Domains → verificar `manusilva.pt` → `EMAIL_FROM=ManuSilva <orcamentos@manusilva.pt>`
+
+A Railway define `PORT` automaticamente. `RAILWAY_PUBLIC_DOMAIN` serve de fallback de URL base.
 
 ## 3. Domínio
 
@@ -42,12 +58,8 @@ A Railway define `PORT` automaticamente — não precisas de a criar. `RAILWAY_P
 
 ## 4. Após o deploy
 
-Abrir:
-
 - `https://SEU-DOMINIO/` → login
 - `https://SEU-DOMINIO/api/health` → `{ "ok": true }`
-
-Testar envio de e-mail no painel RH.
 
 ## 5. Local
 
@@ -57,4 +69,4 @@ npm run build
 npm start
 ```
 
-Abrir http://localhost:3000
+Abrir http://localhost:3000 — podes usar Brevo/Resend ou `EMAIL_USER` + `EMAIL_PASS`.

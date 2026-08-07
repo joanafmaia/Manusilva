@@ -19,12 +19,51 @@ const SMTP_HOST = process.env.SMTP_HOST;
 const SMTP_PORT = Number(process.env.SMTP_PORT || 465);
 const EMAIL_USER = process.env.EMAIL_USER;
 const EMAIL_PASS = process.env.EMAIL_PASS;
+/** API HTTPS (recomendado na Railway — SMTP Gmail costuma dar ETIMEDOUT). */
+const RESEND_API_KEY = String(process.env.RESEND_API_KEY || '').trim();
+const BREVO_API_KEY = String(process.env.BREVO_API_KEY || process.env.SENDINBLUE_API_KEY || '').trim();
+const EMAIL_FROM = String(process.env.EMAIL_FROM || '').trim();
+const EMAIL_REPLY_TO = String(process.env.EMAIL_REPLY_TO || EMAIL_USER || '').trim();
 
 const SMTP_TIMEOUTS = {
   connectionTimeout: 20000,
   greetingTimeout: 15000,
   socketTimeout: 45000,
 };
+
+function hasResendConfig() {
+  return Boolean(RESEND_API_KEY);
+}
+
+function hasBrevoConfig() {
+  return Boolean(BREVO_API_KEY);
+}
+
+function hasHttpsEmailConfig() {
+  return hasBrevoConfig() || hasResendConfig();
+}
+
+function hasSmtpConfig() {
+  return Boolean(EMAIL_USER && EMAIL_PASS);
+}
+
+function resolveFromAddress() {
+  if (EMAIL_FROM) return EMAIL_FROM;
+  if (hasResendConfig() && !hasBrevoConfig()) {
+    // Domínio de teste da Resend — só envia para o e-mail da conta Resend até verificarem domínio.
+    return 'ManuSilva <onboarding@resend.dev>';
+  }
+  return EMAIL_USER || 'ManuSilva <onboarding@resend.dev>';
+}
+
+function parseFromAddress(fromRaw) {
+  const raw = String(fromRaw || '').trim();
+  const match = raw.match(/^(.+?)\s*<([^>]+)>$/);
+  if (match) {
+    return { name: match[1].trim().replace(/^["']|["']$/g, ''), email: match[2].trim() };
+  }
+  return { name: 'ManuSilva', email: raw };
+}
 
 function isGmailAccount() {
   const user = String(EMAIL_USER || '');
@@ -81,6 +120,147 @@ function createMailTransport(options) {
   return nodemailer.createTransport(options);
 }
 
+function normalizeToList(to) {
+  if (Array.isArray(to)) return to.map((v) => String(v).trim()).filter(Boolean);
+  return String(to || '')
+    .split(/[,;]+/)
+    .map((v) => v.trim())
+    .filter(Boolean);
+}
+
+/** Envio via HTTPS (Brevo) — permite remetente Gmail verificado sem DNS. */
+async function sendMailViaBrevo(mailOptions) {
+  const toList = normalizeToList(mailOptions.to);
+  if (!toList.length) {
+    const err = new Error('Destinatário em falta para Brevo.');
+    err.code = 'EBREVO';
+    throw err;
+  }
+  if (!EMAIL_USER || !isValidEmailAddress(normalizeEmail(EMAIL_USER))) {
+    const err = new Error('EMAIL_USER (remetente) em falta ou inválido para Brevo.');
+    err.code = 'EBREVO';
+    throw err;
+  }
+
+  const sender = parseFromAddress(resolveFromAddress());
+  if (!sender.email || sender.email.includes('resend.dev')) {
+    sender.email = normalizeEmail(EMAIL_USER);
+    sender.name = sender.name || 'ManuSilva';
+  }
+
+  const attachments = Array.isArray(mailOptions.attachments)
+    ? mailOptions.attachments
+        .map((att) => {
+          const name = String(att.filename || 'anexo.pdf').slice(0, 180);
+          let content = att.content;
+          if (Buffer.isBuffer(content)) content = content.toString('base64');
+          else if (typeof content !== 'string' || !content) return null;
+          return { name, content };
+        })
+        .filter(Boolean)
+    : [];
+
+  const body = {
+    sender: { name: sender.name || 'ManuSilva', email: sender.email },
+    to: toList.map((email) => ({ email })),
+    subject: String(mailOptions.subject || 'ManuSilva'),
+    htmlContent: String(mailOptions.html || ''),
+  };
+  const replyTo = EMAIL_REPLY_TO && isValidEmailAddress(normalizeEmail(EMAIL_REPLY_TO))
+    ? normalizeEmail(EMAIL_REPLY_TO)
+    : null;
+  if (replyTo) body.replyTo = { email: replyTo };
+  if (attachments.length) body.attachment = attachments;
+
+  const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+    method: 'POST',
+    headers: {
+      'api-key': BREVO_API_KEY,
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(60000),
+  });
+
+  const payload = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const err = new Error(
+      payload?.message || payload?.error || `Brevo HTTP ${res.status}`,
+    );
+    err.code = 'EBREVO';
+    err.responseCode = res.status;
+    err.detail = typeof payload === 'object' ? JSON.stringify(payload).slice(0, 400) : '';
+    throw err;
+  }
+
+  return { messageId: payload?.messageId || null, provider: 'brevo' };
+}
+
+/** Envio via HTTPS (Resend) — não usa portas SMTP bloqueadas na Railway. */
+async function sendMailViaResend(mailOptions) {
+  const to = normalizeToList(mailOptions.to);
+  if (!to.length) {
+    const err = new Error('Destinatário em falta para Resend.');
+    err.code = 'ERESEND';
+    throw err;
+  }
+
+  const attachments = Array.isArray(mailOptions.attachments)
+    ? mailOptions.attachments
+        .map((att) => {
+          const filename = String(att.filename || 'anexo.pdf').slice(0, 180);
+          let content = att.content;
+          if (Buffer.isBuffer(content)) {
+            content = content.toString('base64');
+          } else if (typeof content === 'string') {
+            // já base64 ou raw — se Buffer foi stringificado noutro sítio
+            content = content.includes('\u0000')
+              ? Buffer.from(content, 'binary').toString('base64')
+              : content;
+          } else {
+            return null;
+          }
+          return { filename, content };
+        })
+        .filter(Boolean)
+    : [];
+
+  const body = {
+    from: resolveFromAddress(),
+    to,
+    subject: String(mailOptions.subject || 'ManuSilva'),
+    html: String(mailOptions.html || ''),
+  };
+  if (EMAIL_REPLY_TO && isValidEmailAddress(normalizeEmail(EMAIL_REPLY_TO))) {
+    body.reply_to = normalizeEmail(EMAIL_REPLY_TO);
+  }
+  if (attachments.length) body.attachments = attachments;
+
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${RESEND_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(60000),
+  });
+
+  const payload = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const err = new Error(
+      payload?.message || payload?.error || `Resend HTTP ${res.status}`,
+    );
+    err.code = 'ERESEND';
+    err.responseCode = res.status;
+    err.detail = typeof payload === 'object' ? JSON.stringify(payload).slice(0, 400) : '';
+    throw err;
+  }
+
+  return { messageId: payload?.id || null, provider: 'resend' };
+}
+
 async function sendMailWithSmtpFallback(mailOptions) {
   if (isGmailAccount()) {
     // 587 STARTTLS primeiro — mais fiável na Railway do que 465/SMTPS.
@@ -115,6 +295,42 @@ async function sendMailWithSmtpFallback(mailOptions) {
 
   const transporter = createMailTransport(buildCustomSmtpTransportOptions());
   return transporter.sendMail(mailOptions);
+}
+
+/** Preferir Brevo/Resend (HTTPS); SMTP só se não houver API key. */
+async function sendMail(mailOptions) {
+  const from = resolveFromAddress();
+  const options = { ...mailOptions, from };
+
+  if (hasBrevoConfig()) {
+    try {
+      return await sendMailViaBrevo(options);
+    } catch (err) {
+      console.error('[API /enviar-email] Brevo falhou:', err?.message || err);
+      if (!hasResendConfig() && !hasSmtpConfig()) throw err;
+      console.warn('[API /enviar-email] A tentar outro fornecedor após falha Brevo…');
+    }
+  }
+
+  if (hasResendConfig()) {
+    try {
+      return await sendMailViaResend(options);
+    } catch (err) {
+      console.error('[API /enviar-email] Resend falhou:', err?.message || err);
+      if (!hasSmtpConfig()) throw err;
+      console.warn('[API /enviar-email] A tentar SMTP após falha Resend…');
+    }
+  }
+
+  if (!hasSmtpConfig()) {
+    const err = new Error(
+      'E-mail não configurado. Defina BREVO_API_KEY ou RESEND_API_KEY (recomendado na Railway), ou EMAIL_USER + EMAIL_PASS.',
+    );
+    err.code = 'EEMAILCONFIG';
+    throw err;
+  }
+
+  return sendMailWithSmtpFallback(options);
 }
 
 /** Rodapé dos e-mails (alinhado com COMPANY em mock_data.js / PDFs) */
@@ -731,10 +947,11 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: 'Método não permitido.' });
   }
   try {
-    if (!EMAIL_USER || !EMAIL_PASS) {
+    if (!hasHttpsEmailConfig() && !hasSmtpConfig()) {
       return res.status(500).json({
-        error: 'Variáveis SMTP não configuradas.',
-        hint: 'Configure EMAIL_USER e EMAIL_PASS no servidor (Gmail: use App Password com 2FA).',
+        error: 'E-mail não configurado.',
+        hint:
+          'Na Railway, defina BREVO_API_KEY (fácil com Gmail) ou RESEND_API_KEY. SMTP Gmail costuma dar ETIMEDOUT.',
       });
     }
 
@@ -838,8 +1055,7 @@ module.exports = async function handler(req, res) {
       }
     }
 
-    await sendMailWithSmtpFallback({
-      from: EMAIL_USER,
+    await sendMail({
       to: recipients.join(', '),
       subject: buildSubject(emailPayload),
       html: buildHtmlBody(emailPayload, {
@@ -856,7 +1072,7 @@ module.exports = async function handler(req, res) {
     const responseCode = err?.responseCode || null;
     const code = err?.code || null;
     const response = typeof err?.response === 'string' ? err.response : '';
-    const detail = String(err?.message || '').trim();
+    const detail = String(err?.message || err?.detail || '').trim();
 
     let hint = null;
     if (responseCode === 552 && response.includes('BlockedMessage')) {
@@ -865,15 +1081,21 @@ module.exports = async function handler(req, res) {
       hint = 'Falha de autenticação SMTP (ver App Password / 2FA na conta EMAIL_USER).';
     } else if (/SUPABASE_URL|SUPABASE_ANON_KEY/i.test(detail)) {
       hint = 'Configure SUPABASE_URL e SUPABASE_ANON_KEY nas variáveis de ambiente do servidor.';
+    } else if (code === 'EBREVO') {
+      hint =
+        'Erro na API Brevo. Confirme BREVO_API_KEY e que manusilva.lda@gmail.com está verificado como remetente em app.brevo.com.';
+    } else if (code === 'ERESEND') {
+      hint =
+        'Erro na API Resend. Confirme RESEND_API_KEY. Com onboarding@resend.dev só envia para o vosso e-mail; para clientes, verifique o domínio manusilva.pt.';
     } else if (/ECONNREFUSED|ETIMEDOUT|ESOCKET|ECONNECTION/i.test(code || detail || '')) {
       hint =
-        'Não foi possível ligar ao Gmail SMTP (timeout). Confirme EMAIL_USER/EMAIL_PASS (App Password) na Railway; se persistir, a rede do host pode estar a bloquear portas 465/587.';
-    } else if (code === 'ESMTPCONFIG') {
-      hint = 'Defina SMTP_HOST (e SMTP_PORT) para contas que não sejam Gmail.';
+        'SMTP bloqueado na Railway (ETIMEDOUT). Configure BREVO_API_KEY ou RESEND_API_KEY — envio por HTTPS. Ver RAILWAY.md.';
+    } else if (code === 'ESMTPCONFIG' || code === 'EEMAILCONFIG') {
+      hint = detail || 'Defina BREVO_API_KEY / RESEND_API_KEY ou EMAIL_USER + EMAIL_PASS.';
     }
 
     const error =
-      detail && (/em falta|não configurad/i.test(detail) || /SUPABASE_|SMTP/i.test(detail))
+      detail && (/em falta|não configurad|Resend|RESEND/i.test(detail) || /SUPABASE_|SMTP/i.test(detail))
         ? detail
         : 'Falha ao enviar e-mail.';
 
