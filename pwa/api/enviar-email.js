@@ -215,6 +215,7 @@ function sanitizePdfAttachmentFilename(filename, index) {
 async function fetchPdfAttachmentsFromUrls(urlEntries = []) {
   const attachments = [];
   let totalBytes = 0;
+  const PDF_FETCH_TIMEOUT_MS = 25000;
 
   for (let index = 0; index < urlEntries.length; index += 1) {
     const entry = urlEntries[index];
@@ -222,7 +223,7 @@ async function fetchPdfAttachmentsFromUrls(urlEntries = []) {
     if (!isSafeHttpUrl(url)) continue;
 
     try {
-      const res = await fetch(url);
+      const res = await fetch(url, { signal: AbortSignal.timeout(PDF_FETCH_TIMEOUT_MS) });
       if (!res.ok) {
         console.warn('[API /enviar-email] PDF indisponível:', url, res.status);
         continue;
@@ -678,7 +679,12 @@ module.exports = async function handler(req, res) {
     }
 
     const registeredEmail = await fetchClienteEmail(report.cliente_id, token);
-    const clientDomains = await fetchClientEmailDomains(token);
+    const recipientsNeedDomainCheck = recipients.some(
+      (recipient) => !registeredEmail || recipient !== registeredEmail,
+    );
+    const clientDomains = recipientsNeedDomainCheck
+      ? await fetchClientEmailDomains(token)
+      : new Set();
     const allowManualRecipients =
       tipoRelatorio === 'orcamento' || tipoRelatorio === 'orcamento_lote';
     for (const recipient of recipients) {
@@ -709,6 +715,9 @@ module.exports = async function handler(req, res) {
             user: EMAIL_USER,
             pass: emailPass,
           },
+          connectionTimeout: 20000,
+          greetingTimeout: 15000,
+          socketTimeout: 45000,
         })
       : nodemailer.createTransport({
           host: SMTP_HOST,
@@ -718,6 +727,9 @@ module.exports = async function handler(req, res) {
             user: EMAIL_USER,
             pass: emailPass,
           },
+          connectionTimeout: 20000,
+          greetingTimeout: 15000,
+          socketTimeout: 45000,
         });
 
     const jobDate = report.trabalho_id ? await fetchTrabalhoDate(report.trabalho_id, token) : null;

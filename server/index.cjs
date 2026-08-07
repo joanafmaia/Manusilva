@@ -108,6 +108,12 @@ app.use(
 app.use((err, _req, res, _next) => {
   console.error('[server]', err);
   if (res.headersSent) return;
+  if (err?.type === 'entity.too.large' || err?.status === 413) {
+    return res.status(413).json({
+      error: 'Pedido demasiado grande.',
+      hint: 'Envie o PDF por URL do Storage em vez de base64.',
+    });
+  }
   res.status(500).json({ error: 'Erro interno do servidor.' });
 });
 

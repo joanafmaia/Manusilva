@@ -42,7 +42,7 @@ export function buildReportEmailPdfPayload(pdfEntries = []) {
 const EMAIL_PDF_MAX_BASE64_LEN = 3_000_000;
 
 /**
- * Prepara payload de e-mail com anexos em base64 (browser → API, sem depender de fetch no servidor).
+ * Prepara payload de e-mail. Com URLs no Storage, não embute base64 (evita 502 no proxy).
  * @param {Array<{ blob?: Blob, filename: string, publicUrl?: string, machineLabel?: string, base64?: string }>} pdfEntries
  */
 export async function prepareEmailPdfPayload(pdfEntries = []) {
@@ -58,6 +58,14 @@ export async function prepareEmailPdfPayload(pdfEntries = []) {
       filename: entry.filename || '',
       label: entry.machineLabel || entry.filename || '',
     }));
+
+  if (pdfUrls.length === entries.length) {
+    return {
+      pdfUrl: pdfUrls[0]?.url || null,
+      pdfUrls,
+      pdfAttachments: [],
+    };
+  }
 
   const pdfAttachments = [];
   for (const entry of entries) {

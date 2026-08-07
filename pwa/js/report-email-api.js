@@ -7,8 +7,20 @@ import { formatInterventionDatePt } from './report-intervention-date.js';
 /**
  * @param {{ tipoRelatorio?: string, reportId?: string, clienteNome?: string, nome_empresa?: string, tecnico?: string, dataConclusao?: string, to?: string | string[], serieFrota?: string, numeroOrdem?: number | null, pdfUrl?: string, pdfUrls?: Array<string | { url: string, filename?: string, label?: string }>, pdfFilename?: string, pdfBase64?: string, pdfAttachments?: Array<{ pdfFilename: string, pdfBase64: string }>, orcamentoNumero?: string }} [meta]
  */
-function formatEmailApiError(err = {}) {
-  return [err.error, err.hint, err.detail, err.code, err.responseCode].filter(Boolean).join(' | ');
+function formatEmailApiError(err = {}, status = 0) {
+  const details = [err.error, err.hint, err.detail, err.code, err.responseCode]
+    .filter((part) => part != null && String(part).trim() !== '')
+    .map((part) => String(part).trim())
+    .join(' | ');
+  if (details) return details;
+  if (status === 502 || status === 504) {
+    return `Servidor de e-mail indisponível ou demorou demasiado (HTTP ${status}). Tente «Reenviar e-mail» daqui a momentos.`;
+  }
+  if (status === 413) {
+    return 'Pedido de e-mail demasiado grande. O PDF será anexado a partir do Storage — tente reenviar.';
+  }
+  if (status) return `Falha ao enviar e-mail pela API (código de erro: ${status}).`;
+  return 'Falha ao enviar e-mail pela API.';
 }
 
 export async function sendOfficialReportEmail(meta = {}) {
@@ -24,37 +36,47 @@ export async function sendOfficialReportEmail(meta = {}) {
   const tipoRelatorio = meta.tipoRelatorio || 'outro';
   const serieFrota = meta.serieFrota || '';
 
+  // Preferir URLs do Storage — base64 no body provoca 502/timeout no proxy.
+  const body = {
+    to: meta.to,
+    reportId: meta.reportId,
+    clienteNome,
+    tecnico,
+    dataConclusao: dateStamp,
+    tipoRelatorio,
+    serieFrota,
+    numeroOrdem: meta.numeroOrdem ?? null,
+    orcamentoNumero: meta.orcamentoNumero,
+    pdfUrl: meta.pdfUrl,
+    pdfUrls: meta.pdfUrls,
+    servicoId: meta.servicoId || null,
+    includeRatingLinks: meta.includeRatingLinks !== false,
+    skipRatingLink: Boolean(meta.skipRatingLink),
+  };
+  const hasUrls =
+    Boolean(meta.pdfUrl) || (Array.isArray(meta.pdfUrls) && meta.pdfUrls.length > 0);
+  if (!hasUrls) {
+    if (meta.pdfFilename && meta.pdfBase64) {
+      body.pdfFilename = meta.pdfFilename;
+      body.pdfBase64 = meta.pdfBase64;
+    }
+    if (Array.isArray(meta.pdfAttachments) && meta.pdfAttachments.length) {
+      body.pdfAttachments = meta.pdfAttachments;
+    }
+  }
+
   const response = await fetch('/api/enviar-email', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({
-      to: meta.to,
-      reportId: meta.reportId,
-      clienteNome,
-      tecnico,
-      dataConclusao: dateStamp,
-      tipoRelatorio,
-      serieFrota,
-      numeroOrdem: meta.numeroOrdem ?? null,
-      orcamentoNumero: meta.orcamentoNumero,
-      pdfUrl: meta.pdfUrl,
-      pdfUrls: meta.pdfUrls,
-      pdfFilename: meta.pdfFilename,
-      pdfBase64: meta.pdfBase64,
-      pdfAttachments: meta.pdfAttachments,
-      servicoId: meta.servicoId || null,
-      includeRatingLinks: meta.includeRatingLinks !== false,
-      skipRatingLink: Boolean(meta.skipRatingLink),
-    }),
+    body: JSON.stringify(body),
   });
 
   if (!response.ok) {
     const err = await response.json().catch(() => ({}));
-    const details = formatEmailApiError(err);
-    throw new Error(details || `Falha ao enviar e-mail pela API (código de erro: ${response.status}).`);
+    throw new Error(formatEmailApiError(err, response.status));
   }
 
   return true;
@@ -98,12 +120,16 @@ export async function sendOrcamentoProposalEmail(meta = {}) {
     pdfUrl: meta.pdfUrl,
     pdfUrls: meta.pdfUrls,
   };
-  if (meta.pdfBase64 && meta.pdfFilename) {
-    payload.pdfBase64 = meta.pdfBase64;
-    payload.pdfFilename = meta.pdfFilename;
-  }
-  if (Array.isArray(meta.pdfAttachments) && meta.pdfAttachments.length) {
-    payload.pdfAttachments = meta.pdfAttachments;
+  const hasUrls =
+    Boolean(meta.pdfUrl) || (Array.isArray(meta.pdfUrls) && meta.pdfUrls.length > 0);
+  if (!hasUrls) {
+    if (meta.pdfBase64 && meta.pdfFilename) {
+      payload.pdfBase64 = meta.pdfBase64;
+      payload.pdfFilename = meta.pdfFilename;
+    }
+    if (Array.isArray(meta.pdfAttachments) && meta.pdfAttachments.length) {
+      payload.pdfAttachments = meta.pdfAttachments;
+    }
   }
 
   const response = await fetch('/api/enviar-email', {
@@ -117,8 +143,7 @@ export async function sendOrcamentoProposalEmail(meta = {}) {
 
   if (!response.ok) {
     const err = await response.json().catch(() => ({}));
-    const details = formatEmailApiError(err);
-    throw new Error(details || `Falha ao enviar e-mail da proposta (código de erro: ${response.status}).`);
+    throw new Error(formatEmailApiError(err, response.status));
   }
 
   return true;

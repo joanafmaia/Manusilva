@@ -155,7 +155,7 @@ export function isObservationsField(field) {
 
 /** Normaliza texto legado ou linhas com chaves antigas para [{ artigo, qtd }] */
 export function normalizeMaterialRows(value) {
-  if (value === undefined || value === null) return value;
+  if (value === undefined || value === null || value === '') return [];
 
   if (typeof value === 'string') {
     const trimmed = value.trim();
@@ -163,7 +163,7 @@ export function normalizeMaterialRows(value) {
     return [{ artigo: trimmed, qtd: '' }];
   }
 
-  if (!Array.isArray(value)) return value;
+  if (!Array.isArray(value)) return [];
 
   return value.map((row) => {
     if (!row || typeof row !== 'object' || Array.isArray(row)) {

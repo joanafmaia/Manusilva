@@ -28,7 +28,6 @@ import { sendOfficialReportEmail } from './report-email-api.js';
 import { resolveAuditActor } from './audit-actor.js';
 import {
   buildReportEmailPdfPayload,
-  blobToBase64,
   generateAndUploadApprovedReportPdfs,
 } from './report-email-pdf.js';
 import { formatPdfStorageError } from './pdf-storage.js';
@@ -401,12 +400,7 @@ async function approveReportOnce(reportId, options = {}) {
     const urlPdfs = pdfEntries.map((entry) => entry.publicUrl);
     const pdfFilenames = pdfEntries.map((entry) => entry.filename);
 
-    const emailPdfPayload =
-      pdfEntries.length > 1
-        ? buildReportEmailPdfPayload(pdfEntries)
-        : buildReportEmailPdfPayload([
-            { ...pdfEntries[0], base64: await blobToBase64(pdfEntries[0].blob) },
-          ]);
+    const emailPdfPayload = buildReportEmailPdfPayload(pdfEntries);
 
     const servicoId =
       resolveServicoIdForReport(reportForPdf) ||

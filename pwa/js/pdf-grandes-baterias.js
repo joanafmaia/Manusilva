@@ -286,9 +286,8 @@ export async function drawGrandesBateriasBody(doc, y, service, values) {
 function collectGrandesConsumableRows(service, values) {
   const materialField = (service?.fields || []).find((f) => isMaterialTableField(f));
   if (!materialField) return [];
-  return normalizeMaterialRows(values[materialField.id]).filter(
-    (row) => String(row.artigo || '').trim() || row.qtd,
-  );
+  const rows = normalizeMaterialRows(values?.[materialField.id]);
+  return rows.filter((row) => String(row.artigo || '').trim() || row.qtd);
 }
 
 export async function drawGrandesBateriasClosingSection(doc, y, opts) {
