@@ -60,6 +60,14 @@ describe('orcamento reclamação garantia', () => {
     assert.match(html, /data-orc-field="reclamacaoGarantia"/);
     assert.match(html, /Avaria \/ reclamação em garantia/);
     assert.match(html, /value="sim"[^>]*selected|selected[^>]*value="sim"/);
+    assert.match(html, /value="na"/);
+    assert.match(html, />N\/A</);
+  });
+
+  it('permite selecionar N/A em orçamento que não é proposta de venda', () => {
+    const html = renderReclamacaoGarantiaField({ reclamacaoGarantia: 'na' });
+    assert.match(html, /<select/);
+    assert.match(html, /value="na"[^>]*selected|selected[^>]*value="na"/);
   });
 
   it('exporta coluna Em garantia no CSV de auditoria', () => {

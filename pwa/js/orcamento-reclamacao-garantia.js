@@ -184,17 +184,15 @@ export function renderReclamacaoGarantiaField(meta = {}, { suggested = '' } = {}
 
   const stored = normalizeReclamacaoGarantia(meta.reclamacaoGarantia);
   const suggestion = normalizeReclamacaoGarantia(suggested);
-  const current = stored === 'na' ? '' : stored || (suggestion === 'na' ? '' : suggestion);
-  const options = RECLAMACAO_GARANTIA_OPTIONS.filter((o) => o.value !== 'na')
-    .map(
-      ({ value, label }) =>
-        `<option value="${value}"${value === current ? ' selected' : ''}>${label}</option>`,
-    )
-    .join('');
+  const current = stored || (suggestion && suggestion !== 'na' ? suggestion : '');
+  const options = RECLAMACAO_GARANTIA_OPTIONS.map(
+    ({ value, label }) =>
+      `<option value="${value}"${value === current ? ' selected' : ''}>${label}</option>`,
+  ).join('');
   const hint =
     !stored && suggestion && suggestion !== 'na'
       ? `Sugerido pelo histórico (${suggestion === 'sim' ? 'Sim' : 'Não'}) — confirme ou altere. Registo para auditoria — não entra no PDF ao cliente.`
-      : 'Decisão RH com base no histórico. Registo para auditoria — não entra no PDF ao cliente.';
+      : 'Sim / Não / N/A. Registo para auditoria — não entra no PDF ao cliente.';
   return `
     <label class="review-orc-field review-orc-field--reclamacao-garantia" data-orc-garantia-wrap>
       <span>Avaria / reclamação em garantia?</span>
