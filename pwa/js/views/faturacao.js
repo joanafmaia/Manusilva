@@ -57,7 +57,7 @@ import { getReportOrcamentoPdfUrl } from '../pedido-orcamento.js';
 import { renderClientCombobox, bindClientComboboxes } from '../client-combobox.js';
 import { formatOrdemLabel, formatOpLabel } from '../report-review-ui.js';
 import { reportIsStandaloneOrcamento } from '../orcamento-standalone.js';
-import { STATUS_RECEBIMENTO_OPCOES, labelStatusRecebimento } from '../billing-constants.js';
+import { STATUS_RECEBIMENTO_OPCOES, FATURA_CONDICAO_OPCOES, labelStatusRecebimento, condicaoFromClientCatalog } from '../billing-constants.js';
 import {
   formatFolhaObraOrdemLabel,
   getFolhaObra,
@@ -1638,6 +1638,10 @@ function openRegisterManualInvoiceModal() {
     (opt) =>
       `<option value="${opt.value}"${opt.value === 'pendente' ? ' selected' : ''}>${escapeHtml(opt.label)}</option>`,
   ).join('');
+  const condicaoOptions = FATURA_CONDICAO_OPCOES.map(
+    (opt) =>
+      `<option value="${opt.value}"${opt.value === 'pronto_pagamento' ? ' selected' : ''}>${escapeHtml(opt.label)}</option>`,
+  ).join('');
 
   const content = `
     <form id="register-manual-invoice-form" class="faturacao-invoice-form">
@@ -1662,6 +1666,10 @@ function openRegisterManualInvoiceModal() {
       <div class="form-group">
         <label class="form-label" for="manual-invoice-data">Data de Emissão</label>
         <input type="date" class="form-input" id="manual-invoice-data" required value="${today}">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="manual-invoice-condicao">Condição de pagamento</label>
+        <select class="form-input" id="manual-invoice-condicao" required>${condicaoOptions}</select>
       </div>
       <div class="form-group">
         <label class="form-label" for="manual-invoice-status">Estado de Recebimento</label>
@@ -1694,6 +1702,7 @@ function openRegisterManualInvoiceModal() {
     const data = overlay.querySelector('#manual-invoice-data')?.value?.trim();
     const valor = overlay.querySelector('#manual-invoice-valor')?.value?.trim() || '';
     const statusRecebimento = overlay.querySelector('#manual-invoice-status')?.value;
+    const condicaoPagamento = overlay.querySelector('#manual-invoice-condicao')?.value;
     const descricao = overlay.querySelector('#manual-invoice-trabalho')?.value?.trim() || '';
     const btn = overlay.querySelector('#btn-save-manual-invoice');
 
@@ -1725,6 +1734,7 @@ function openRegisterManualInvoiceModal() {
         dataFatura: data,
         valorFaturado: valor,
         statusRecebimento,
+        condicaoPagamento,
         descricao,
       });
       closeModal();
@@ -1741,16 +1751,24 @@ function openRegisterManualInvoiceModal() {
 function openRegisterInvoiceModalCore({
   title,
   defaultValor,
-  _client,
+  client,
   hint,
   extraHtml = '',
   onSave,
 }) {
   const today = new Date().toISOString().split('T')[0];
+  const defaultCondicao = condicaoFromClientCatalog(
+    client?.condicao_pagamento || client?.condicaoPagamento || '',
+  );
 
   const statusOptions = STATUS_RECEBIMENTO_OPCOES.map(
     (opt) =>
       `<option value="${opt.value}"${opt.value === 'pendente' ? ' selected' : ''}>${escapeHtml(opt.label)}</option>`,
+  ).join('');
+
+  const condicaoOptions = FATURA_CONDICAO_OPCOES.map(
+    (opt) =>
+      `<option value="${opt.value}"${opt.value === defaultCondicao ? ' selected' : ''}>${escapeHtml(opt.label)}</option>`,
   ).join('');
 
   const content = `
@@ -1769,6 +1787,12 @@ function openRegisterInvoiceModalCore({
       <div class="form-group">
         <label class="form-label" for="invoice-data">Data de Emissão</label>
         <input type="date" class="form-input" id="invoice-data" name="data" required value="${today}">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="invoice-condicao">Condição de pagamento</label>
+        <select class="form-input" id="invoice-condicao" name="condicao" required>
+          ${condicaoOptions}
+        </select>
       </div>
       <div class="form-group">
         <label class="form-label" for="invoice-status">Estado de Recebimento</label>
@@ -1794,6 +1818,7 @@ function openRegisterInvoiceModalCore({
     const data = document.getElementById('invoice-data')?.value?.trim();
     const valor = document.getElementById('invoice-valor')?.value?.trim() || '';
     const statusRecebimento = document.getElementById('invoice-status')?.value;
+    const condicaoPagamento = document.getElementById('invoice-condicao')?.value;
     const btn = document.getElementById('btn-save-invoice');
 
     if (!numero || !data) {
@@ -1815,6 +1840,7 @@ function openRegisterInvoiceModalCore({
         dataFatura: data,
         valorFaturado: valor,
         statusRecebimento,
+        condicaoPagamento,
       });
       closeModal();
       showToast('Fatura registada. Controlo financeiro atualizado.', 'success');

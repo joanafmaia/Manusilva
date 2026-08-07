@@ -32,8 +32,8 @@ function reportStatusLabel(report) {
   if (report.status === 'draft' && isServicoReportTechnicianComplete(report)) {
     return 'Concluído — aguarda visita';
   }
-  if (report.status === 'draft') return 'Em aberto';
-  if (report.status === 'pending_review') return 'À espera de aprovação';
+  if (report.status === 'draft') return 'Em curso';
+  if (report.status === 'pending_review') return 'Pendente RH';
   if (report.status === 'approved') return 'Aprovado';
   if (report.status === 'rejected') return 'Rejeitado — corrigir';
   return report.status;
@@ -219,9 +219,9 @@ export async function openTechServicoDetail(servicoId) {
     </dl>
     <h4 style="margin:0 0 0.5rem;font-size:0.9375rem">Relatórios desta visita</h4>
     <div class="tech-servico-reports-legend" role="list" aria-label="Legenda de estados">
-      <span class="tech-servico-reports-legend__item tech-servico-reports-legend__item--incomplete">Em aberto</span>
-      <span class="tech-servico-reports-legend__item tech-servico-reports-legend__item--ready">Concluído</span>
-      <span class="tech-servico-reports-legend__item tech-servico-reports-legend__item--pending">À espera RH</span>
+      <span class="tech-servico-reports-legend__item tech-servico-reports-legend__item--incomplete">Em curso</span>
+      <span class="tech-servico-reports-legend__item tech-servico-reports-legend__item--ready">Pronto — aguarda visita</span>
+      <span class="tech-servico-reports-legend__item tech-servico-reports-legend__item--pending">Pendente RH</span>
     </div>
     <div class="tech-servico-reports-list">${reportsHtml}</div>
     ${

@@ -55,7 +55,7 @@ describe('billing-workflow', () => {
     assert.equal(isPendingBilling(proposta), false);
   });
 
-  it('isPendingBilling — inclui relatório técnico com pedido de orçamento (intervenção)', () => {
+  it('isPendingBilling — exclui relatório técnico com pedido de orçamento (vai para Orçamentos)', () => {
     const relatorio = {
       id: 'r-pedido-39',
       status: 'approved',
@@ -68,7 +68,7 @@ describe('billing-workflow', () => {
         orcamento: { enviadoEm: '2026-06-29T12:00:00.000Z' },
       },
     };
-    assert.equal(isPendingBilling(relatorio), true);
+    assert.equal(isPendingBilling(relatorio), false);
   });
 
   it('isPendingBilling — exclui relatório com faturacaoStatus dispensado', () => {

@@ -55,6 +55,14 @@ export function renderClientFormSection(options = {}) {
           <label class="form-label" for="rh-client-pais">País / Região</label>
           <input type="text" class="form-input" id="rh-client-pais" value="Portugal" autocomplete="country-name">
         </div>
+        <div class="form-group">
+          <label class="form-label" for="rh-client-condicao">Condição de pagamento</label>
+          <select class="form-select" id="rh-client-condicao" aria-label="Condição de pagamento">
+            <option value="pronto_pagamento" selected>Pronto-pagamento</option>
+            <option value="30_dias">30 Dias</option>
+            <option value="60_dias">60 Dias</option>
+          </select>
+        </div>
         <button type="submit" class="btn-primary rh-register-submit">Adicionar cliente</button>
       </form>
     </section>
@@ -90,12 +98,15 @@ export function mountClientForm(root, callbacks = {}) {
         'Código postal': form.querySelector('#rh-client-cp')?.value,
         Localidade: form.querySelector('#rh-client-localidade')?.value,
         'País/Região': form.querySelector('#rh-client-pais')?.value,
+        condicao_pagamento: form.querySelector('#rh-client-condicao')?.value || 'pronto_pagamento',
       });
 
       if (record) {
         form.reset();
         const pais = form.querySelector('#rh-client-pais');
         if (pais) pais.value = 'Portugal';
+        const condicao = form.querySelector('#rh-client-condicao');
+        if (condicao) condicao.value = 'pronto_pagamento';
         callbacks.onSuccess?.(record);
       }
     } finally {

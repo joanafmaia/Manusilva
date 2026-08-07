@@ -127,7 +127,7 @@ export async function submitFolhaObraForBilling(folhaId) {
 
 export async function registerFolhaObraInvoice(
   folhaId,
-  { numeroFatura, dataFatura, valorFaturado, statusRecebimento },
+  { numeroFatura, dataFatura, valorFaturado, statusRecebimento, condicaoPagamento },
 ) {
   const folha = getFolhaObra(folhaId);
   if (!folha) throw new Error('Folha de obra não encontrada.');
@@ -141,7 +141,17 @@ export async function registerFolhaObraInvoice(
   if (!numero) throw new Error('Indique o número da fatura.');
   if (!data) throw new Error('Indique a data de emissão da fatura.');
 
-  const billing = resolveInvoiceBillingFields(statusRecebimento, data);
+  const { getClient } = await import('./entity-lookups.js');
+  const { condicaoFromClientCatalog } = await import('./billing-constants.js');
+  const client = folha.clientId ? getClient(folha.clientId) : null;
+  const fromClient = condicaoFromClientCatalog(
+    client?.condicao_pagamento || client?.condicaoPagamento || '',
+  );
+  const billing = resolveInvoiceBillingFields(
+    statusRecebimento,
+    data,
+    condicaoPagamento || fromClient,
+  );
 
   return updateFolhaObra(folhaId, {
     estado: 'faturado',

@@ -80,8 +80,8 @@ import {
 /** @deprecated Preferir `resolveWorkStateFromReport` + `getCalendarEventStateMeta` */
 export const REPORT_STATUS_PANEL_META = {
   pending_review: { label: 'Pendente RH', cardClass: 'rh-card--pending work-state-card--pending' },
-  draft: { label: 'Em aberto', cardClass: 'rh-card--draft work-state-card--draft' },
-  approved: { label: 'Concluído', cardClass: 'rh-card--approved work-state-card--approved' },
+  draft: { label: 'Em curso', cardClass: 'rh-card--draft work-state-card--draft' },
+  approved: { label: 'Aprovado', cardClass: 'rh-card--approved work-state-card--approved' },
   rejected: { label: 'Rejeitado', cardClass: 'rh-card--rejected work-state-card--rejected' },
 };
 
@@ -111,8 +111,8 @@ const RH_FILTER_TABS = [
   { id: 'pending_review', label: 'Pendente RH', icon: 'pending' },
   { id: 'all', label: 'Todos' },
   { id: 'orcamento_pendente', label: 'Orçamento', icon: 'euro' },
-  { id: 'draft', label: 'Em aberto', icon: 'draft' },
-  { id: 'approved', label: 'Concluído', icon: 'approved' },
+  { id: 'draft', label: 'Em curso', icon: 'draft' },
+  { id: 'approved', label: 'Aprovado', icon: 'approved' },
   { id: 'rejected', label: 'Rejeitado', icon: 'rejected' },
 ];
 
@@ -326,7 +326,12 @@ export function buildRhVisitaFolder({
   if (state.pending) statusParts.push(`${state.pending} pendente${state.pending === 1 ? '' : 's'}`);
   if (state.approved) statusParts.push(`${state.approved} aprovado${state.approved === 1 ? '' : 's'}`);
   if (state.rejected) statusParts.push(`${state.rejected} rejeitado${state.rejected === 1 ? '' : 's'}`);
-  if (state.draft) statusParts.push(`${state.draft} rascunho${state.draft === 1 ? '' : 's'}`);
+  if (state.draft) statusParts.push(`${state.draft} em curso`);
+
+  const incompleteHint =
+    state.pending && state.draft
+      ? `<span class="rh-visita-folder__email-hint rh-visita-folder__email-hint--pending" title="Há relatórios em curso nesta visita">Visita incompleta</span>`
+      : '';
 
   const pendingEmails = countReportsWithPendingClienteEmail(reports);
   const emailHint =
@@ -370,6 +375,7 @@ export function buildRhVisitaFolder({
           </div>
         </div>
         <div class="rh-visita-folder__actions">
+          ${incompleteHint}
           ${emailHint}
           ${avaliacaoHint}
           ${resendVisitBtn}

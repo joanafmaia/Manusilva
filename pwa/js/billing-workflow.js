@@ -9,10 +9,10 @@ import {
   updateRelatorio,
 } from './relatorios-db.js';
 import { showToast } from './toast-modal.js';
-import { normalizeStatusRecebimento } from './billing-constants.js';
+import { normalizeFaturaCondicao, normalizeStatusRecebimento, condicaoFromClientCatalog } from './billing-constants.js';
 import { sameEntityId } from './entity-id.js';
 import { getReportOrcamentoMeta } from './orcamento-linhas.js';
-import { getClient } from './entity-lookups.js';
+import { getClient, getJob } from './entity-lookups.js';
 import { resolveAuditActor } from './audit-actor.js';
 import {
   getReportOrcamentoPdfUrl,
@@ -23,8 +23,13 @@ import {
 } from './pedido-orcamento.js';
 import { isPendingOrcamentoBilling } from './orcamento-billing-workflow.js';
 import { getInvoicedServicos } from './servicos-db.js';
-import { getJob } from './entity-lookups.js';
 import { resolveServicoIdForReport, getReportNumeroOrdem } from './servicos-panel-utils.js';
+
+function condicaoFromClientRecord(client) {
+  return condicaoFromClientCatalog(
+    client?.condicao_pagamento || client?.condicaoPagamento || '',
+  );
+}
 
 function findReport(reportId) {
   return getReportsSnapshot().find((r) => sameEntityId(r.id, reportId)) || null;
@@ -176,19 +181,42 @@ export function getPendingBillingReports() {
 }
 
 /**
- * Campos financeiros da fatura — pronto-pagamento fixo; vencimento = data de emissão.
+ * @param {string} [condicaoPagamento]
+ * @param {string} dataEmissao — YYYY-MM-DD
  */
-export function resolveInvoiceDueDate(_condicaoPagamento, dataEmissao) {
-  return dataEmissao;
+export function resolveInvoiceDueDate(condicaoPagamento, dataEmissao) {
+  const base = String(dataEmissao || '').trim();
+  if (!base) return base;
+  const days =
+    condicaoPagamento === '60_dias' ? 60 : condicaoPagamento === '30_dias' ? 30 : 0;
+  if (!days) return base;
+  const d = new Date(`${base}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return base;
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
 }
 
-/** Estado de recebimento + vencimento (condição de pagamento removida da UI — sempre pronto-pagamento). */
-export function resolveInvoiceBillingFields(statusRecebimento, dataEmissao) {
+/**
+ * @param {string} statusRecebimento
+ * @param {string} dataEmissao
+ * @param {string} [condicaoPagamento]
+ */
+export function resolveInvoiceBillingFields(
+  statusRecebimento,
+  dataEmissao,
+  condicaoPagamento = 'pronto_pagamento',
+) {
   const status = normalizeStatusRecebimento(statusRecebimento);
+  let condicao = 'pronto_pagamento';
+  try {
+    condicao = normalizeFaturaCondicao(condicaoPagamento || 'pronto_pagamento');
+  } catch {
+    condicao = 'pronto_pagamento';
+  }
   return {
-    faturaCondicaoPagamento: 'pronto_pagamento',
+    faturaCondicaoPagamento: condicao,
     statusRecebimento: status,
-    dataVencimento: resolveInvoiceDueDate('pronto_pagamento', dataEmissao),
+    dataVencimento: resolveInvoiceDueDate(condicao, dataEmissao),
   };
 }
 
@@ -241,7 +269,7 @@ export function normalizeInvoiceAmountInput(valorFaturado) {
 /** Regista fatura emitida externamente — contas a receber */
 export async function registerReportInvoice(
   reportId,
-  { numeroFatura, dataFatura, valorFaturado, statusRecebimento },
+  { numeroFatura, dataFatura, valorFaturado, statusRecebimento, condicaoPagamento },
 ) {
   const report = findReport(reportId);
   if (!report) throw new Error('Relatório não encontrado.');
@@ -255,7 +283,13 @@ export async function registerReportInvoice(
   if (!numero) throw new Error('Indique o número da fatura.');
   if (!data) throw new Error('Indique a data de emissão da fatura.');
 
-  const billing = resolveInvoiceBillingFields(statusRecebimento, data);
+  const client = report.clientId ? getClient(report.clientId) : null;
+  const fromClient = condicaoFromClientRecord(client);
+  const billing = resolveInvoiceBillingFields(
+    statusRecebimento,
+    data,
+    condicaoPagamento || fromClient,
+  );
 
   await updateRelatorio(reportId, {
     faturacaoStatus: 'faturado',

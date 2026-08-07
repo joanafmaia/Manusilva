@@ -10,22 +10,14 @@ import {
   getAllJobs,
   getWeekDates,
   getAllTechnicians,
-  getReportsSnapshot,
 } from '../app.js';
 import {
   getProductionClientsCatalog,
   isProductionCatalogReady,
 } from '../clients-catalog.js';
 import { getTeamStatsSummary } from '../team-stats.js';
+import { countOrcamentosPorPreparar } from './orcamentos.js';
 import { computeExtendedRhMetrics } from '../rh-panel-utils.js';
-import { dedupeReportsForDisplay } from '../relatorios-db.js';
-import { isRhOrcamentoQueueReport, reportOrcamentoPorPreparar } from '../pedido-orcamento.js';
-
-function countPendingOrcamentos() {
-  return dedupeReportsForDisplay(
-    getReportsSnapshot().filter((report) => isRhOrcamentoQueueReport(report)),
-  ).filter(reportOrcamentoPorPreparar).length;
-}
 
 export function computeDashboardMetrics(db = getDB()) {
   const catalog = isProductionCatalogReady()
@@ -40,7 +32,7 @@ export function computeDashboardMetrics(db = getDB()) {
   const base = {
     totalClients: catalog.length,
     pendingReports: pending.length,
-    pendingOrcamentos: countPendingOrcamentos(),
+    pendingOrcamentos: countOrcamentosPorPreparar(),
     jobsToday: jobs.filter((j) => j.date === today).length,
     jobsThisWeek: jobs.filter((j) => weekSet.has(j.date)).length,
     scheduled: jobs.filter((j) => j.status === 'scheduled').length,
@@ -105,7 +97,7 @@ export function renderMetricsSection(metrics) {
 
   const secondaryCards = [
     {
-      label: 'Concluídos esta semana',
+      label: 'Aprovados esta semana',
       value: metrics.completedThisWeek,
       accent: 'success',
       size: 'secondary',

@@ -69,6 +69,9 @@ export async function addClient(payload) {
       telemovel:
         String(payload?.telemovel ?? payload?.Telemovel ?? payload?.phone ?? '').trim() ||
         null,
+      condicao_pagamento:
+        String(payload?.condicao_pagamento ?? payload?.condicaoPagamento ?? '').trim() ||
+        'pronto_pagamento',
     };
 
     const supabase = await getSupabaseClient();

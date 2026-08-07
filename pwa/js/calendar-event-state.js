@@ -30,7 +30,7 @@ export const CALENDAR_EVENT_STATES = {
     className: 'cal-event--pending',
     cardClass: 'work-state-card--pending',
     badgeClass: 'work-state-badge--pending',
-    label: 'À espera de aprovação',
+    label: 'Pendente RH',
     color: WORK_STATE_COLORS.pending,
   },
   rejected: {
@@ -44,7 +44,7 @@ export const CALENDAR_EVENT_STATES = {
     className: 'cal-event--approved',
     cardClass: 'work-state-card--approved',
     badgeClass: 'work-state-badge--approved',
-    label: 'Realizado',
+    label: 'Aprovado',
     color: WORK_STATE_COLORS.approved,
   },
 };

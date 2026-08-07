@@ -211,6 +211,7 @@ export async function registerManualInvoice({
   dataFatura,
   valorFaturado,
   statusRecebimento,
+  condicaoPagamento,
   descricao,
 }) {
   const clienteId = String(clientId ?? '').trim();
@@ -222,7 +223,17 @@ export async function registerManualInvoice({
   if (!numero) throw new Error('Indique o número da fatura.');
   if (!data) throw new Error('Indique a data de emissão da fatura.');
 
-  const billing = resolveInvoiceBillingFields(statusRecebimento, data);
+  const { getClient } = await import('./entity-lookups.js');
+  const { condicaoFromClientCatalog } = await import('./billing-constants.js');
+  const client = getClient(clienteId);
+  const fromClient = condicaoFromClientCatalog(
+    client?.condicao_pagamento || client?.condicaoPagamento || '',
+  );
+  const billing = resolveInvoiceBillingFields(
+    statusRecebimento,
+    data,
+    condicaoPagamento || fromClient,
+  );
   const descricaoTrim = String(descricao ?? '').trim();
   if (!descricaoTrim) throw new Error('Indique do que é a fatura (Visita / Relatório).');
 

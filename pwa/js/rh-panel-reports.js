@@ -33,14 +33,13 @@ function buildServicosWithDraftReports(reports) {
 }
 
 function getPendingReviewReportsSnapshot() {
-  const raw = getRhPanelReportsRaw();
-  const servicosWithDrafts = buildServicosWithDraftReports(raw);
-  return raw.filter((report) => {
-    if (report.status !== 'pending_review') return false;
-    const servicoId = resolveServicoIdForReport(report);
-    if (!servicoId) return true;
-    return !servicosWithDrafts.has(String(servicoId));
-  });
+  // Inclui pendentes mesmo com draft no mesmo serviço (antes ficavam ocultos).
+  return getRhPanelReportsRaw().filter((report) => report.status === 'pending_review');
+}
+
+/** Serviços com rascunho em aberto — para badge «Visita incompleta» no painel RH. */
+export function getServicosWithDraftReports() {
+  return buildServicosWithDraftReports(getRhPanelReportsRaw());
 }
 
 function getRhPanelReports() {

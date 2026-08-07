@@ -142,7 +142,7 @@ export async function markServicoPendingBillingIfReady(servicoId) {
 /** Regista fatura emitida externamente — ao nível da visita. */
 export async function registerServicoInvoice(
   servicoId,
-  { numeroFatura, dataFatura, valorFaturado, statusRecebimento },
+  { numeroFatura, dataFatura, valorFaturado, statusRecebimento, condicaoPagamento },
 ) {
   const servico = getServico(servicoId);
   if (!servico) throw new Error('Visita não encontrada.');
@@ -156,7 +156,17 @@ export async function registerServicoInvoice(
   if (!numero) throw new Error('Indique o número da fatura.');
   if (!data) throw new Error('Indique a data de emissão da fatura.');
 
-  const billing = resolveInvoiceBillingFields(statusRecebimento, data);
+  const { getClient } = await import('./entity-lookups.js');
+  const { condicaoFromClientCatalog } = await import('./billing-constants.js');
+  const client = servico.clientId ? getClient(servico.clientId) : null;
+  const fromClient = condicaoFromClientCatalog(
+    client?.condicao_pagamento || client?.condicaoPagamento || '',
+  );
+  const billing = resolveInvoiceBillingFields(
+    statusRecebimento,
+    data,
+    condicaoPagamento || fromClient,
+  );
 
   await updateServico(servicoId, {
     faturacao_status: 'faturado',

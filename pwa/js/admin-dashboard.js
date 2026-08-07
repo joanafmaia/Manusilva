@@ -132,10 +132,11 @@ let rhReviewSearch = savedRhFilters.search || '';
 const RH_EMPTY_MESSAGES = {
   all: 'Nenhum relatório no histórico.',
   pending_review: 'Nenhum relatório pendente de aprovação neste momento.',
-  draft: 'Nenhum rascunho em curso.',
+  draft: 'Nenhum relatório em curso.',
   approved: 'Nenhum relatório aprovado.',
   rejected: 'Nenhum relatório recusado.',
-  orcamento_pendente: 'Nenhuma proposta comercial por preparar.',
+  orcamento_pendente:
+    'Nenhum pedido técnico à espera de proposta. Propostas standalone estão na aba Orçamentos.',
 };
 
 const AGENDA_SWIPE_OPEN_PX = 88;
@@ -1598,6 +1599,8 @@ async function approveSelectedRhReports(panel) {
 
   let approved = 0;
   let skippedEmail = 0;
+  /** @type {{ reportId: string, name: string }[]} */
+  const skippedEmailItems = [];
   const total = ids.length;
   for (let i = 0; i < ids.length; i += 1) {
     const reportId = ids[i];
@@ -1609,6 +1612,10 @@ async function approveSelectedRhReports(panel) {
     const clientEmail = String(client?.email || client?.['E-mail'] || '').trim();
     if (!isValidClientEmail(clientEmail)) {
       skippedEmail += 1;
+      skippedEmailItems.push({
+        reportId,
+        name: client?.name || client?.Nome || reportId,
+      });
       continue;
     }
     const ok = await approveReport(reportId, { clientEmail });
@@ -1620,6 +1627,16 @@ async function approveSelectedRhReports(panel) {
     btn.textContent = 'Aprovar selecionados';
   }
 
+  const skippedSummary = () => {
+    const names = skippedEmailItems
+      .slice(0, 5)
+      .map((item) => item.name)
+      .join(', ');
+    const more =
+      skippedEmailItems.length > 5 ? ` (+${skippedEmailItems.length - 5})` : '';
+    return names ? `${names}${more}` : '';
+  };
+
   if (approved > 0) {
     showToast(
       approved === 1 ? '1 relatório aprovado.' : `${approved} relatórios aprovados.`,
@@ -1628,22 +1645,23 @@ async function approveSelectedRhReports(panel) {
     );
     if (skippedEmail > 0) {
       showToast(
-        skippedEmail === 1
-          ? '1 relatório ignorado — e-mail do cliente em falta ou inválido.'
-          : `${skippedEmail} relatórios ignorados — e-mail do cliente em falta ou inválido.`,
+        `Sem e-mail válido: ${skippedSummary()}. Abra «Rever» para corrigir.`,
         'warning',
-        8000,
+        10000,
       );
     }
     await rhReviewModalCallbacks().onApproved?.();
   } else if (skippedEmail > 0) {
     showToast(
-      skippedEmail === 1
-        ? 'Relatório ignorado — e-mail do cliente em falta ou inválido.'
-        : `${skippedEmail} relatórios ignorados — e-mail do cliente em falta ou inválido.`,
+      `Sem e-mail válido: ${skippedSummary()}. A abrir o primeiro para corrigir…`,
       'warning',
-      8000,
+      10000,
     );
+    const firstId = skippedEmailItems[0]?.reportId;
+    if (firstId) {
+      const { openRhReviewModal } = await import('./report-review-rh-modal.js');
+      await openRhReviewModal(firstId, rhReviewModalCallbacks());
+    }
   } else {
     showToast('Nenhum relatório foi aprovado.', 'warning', 5000);
   }

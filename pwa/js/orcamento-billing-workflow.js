@@ -109,12 +109,13 @@ export async function markOrcamentoAceitePendingBilling(reportId) {
   const aceiteEm = meta.respostaClienteEm || new Date().toISOString();
   const total = resolveOrcamentoBillingTotal({ ...report, data: { ...report.data, orcamento: meta } });
 
+  // Não sobrescrever approvedAt (aprovação RH) com a data de aceite comercial.
   const saved = await updateRelatorio(reportId, {
     faturacaoStatus: 'pendente',
-    approvedAt: aceiteEm,
     data: {
       faturacaoValorSugerido: total > 0 ? total : null,
       faturacaoOrigem: 'orcamento_aceite',
+      faturacaoAceiteEm: aceiteEm,
     },
   });
 

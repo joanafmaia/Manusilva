@@ -613,7 +613,6 @@ async function approveReportOnce(reportId, options = {}) {
 
     const approvedReport = getReport(reportId) || reportForPdf;
     if (
-      testClient &&
       reportHasPedidoOrcamento(approvedReport) &&
       reportOrcamentoPorPreparar(approvedReport)
     ) {
@@ -623,23 +622,12 @@ async function approveReportOnce(reportId, options = {}) {
       } catch {
         window.setTimeout(() => {
           showToast(
-            'Cliente teste com pedido de orçamento — abra a aba Orçamentos para preparar a proposta.',
+            'Há pedido de orçamento — abra a aba Orçamentos para preparar a proposta.',
             'info',
             9000,
           );
         }, 1200);
       }
-    } else if (
-      reportHasPedidoOrcamento(approvedReport) &&
-      reportOrcamentoPorPreparar(approvedReport)
-    ) {
-      window.setTimeout(() => {
-        showToast(
-          'Há pedido de orçamento: abra a aba Orçamentos na barra lateral para preparar a proposta comercial.',
-          'info',
-          9000,
-        );
-      }, 2800);
     }
 
     return filename;

@@ -16,6 +16,7 @@ import {
 } from '../client-audit.js';
 import { mapClientToLegacy, DEMO_CLIENT_FORKLIFTS } from '../mock_data.js';
 import { formatEquipamentoLabel } from '../cliente-equipamentos.js';
+import { FATURA_CONDICAO_OPCOES, labelFaturaCondicao, condicaoFromClientCatalog } from '../billing-constants.js';
 
 const COPY_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>`;
 
@@ -56,6 +57,13 @@ function enrichLegacyClient(clientId, catalogRecord) {
     legacy?.plusCode || legacy?.plus_code || catalogRecord?.plusCode || catalogRecord?.plus_code || '';
   const zonaRota =
     legacy?.zonaRota || legacy?.zona_rota || catalogRecord?.zonaRota || catalogRecord?.zona_rota || '';
+  const condicaoRaw =
+    legacy?.condicao_pagamento ||
+    legacy?.condicaoPagamento ||
+    catalogRecord?.condicao_pagamento ||
+    catalogRecord?.condicaoPagamento ||
+    '';
+  const condicaoSlug = condicaoFromClientCatalog(condicaoRaw);
 
   return {
     id: clientId,
@@ -73,6 +81,8 @@ function enrichLegacyClient(clientId, catalogRecord) {
     plusCodeRaw: plusCode || '',
     zonaRota: zonaRota || '—',
     zonaRotaRaw: zonaRota || '',
+    condicaoPagamento: condicaoSlug,
+    condicaoPagamentoLabel: labelFaturaCondicao(condicaoSlug),
     forklifts: legacy?.forklifts || [],
     equipamentos: [],
   };
@@ -206,6 +216,19 @@ function renderEditableField(label, inputId, value, inputType = 'text') {
   `;
 }
 
+function renderCondicaoEditBlock(profile) {
+  const options = FATURA_CONDICAO_OPCOES.map(
+    (opt) =>
+      `<option value="${escapeHtml(opt.value)}"${opt.value === profile.condicaoPagamento ? ' selected' : ''}>${escapeHtml(opt.label)}</option>`,
+  ).join('');
+  return `
+    <section class="client-ficha-block">
+      <label class="client-ficha-label ms-label" for="client-ficha-condicao">Condição de pagamento</label>
+      <select class="form-input client-profile-edit-input" id="client-ficha-condicao">${options}</select>
+    </section>
+  `;
+}
+
 function renderAddressEditBlock(profile) {
   return `
     ${renderEditableField('Morada', 'client-ficha-morada', profile.moradaRaw, 'text')}
@@ -215,6 +238,7 @@ function renderAddressEditBlock(profile) {
     </div>
     ${renderEditableField('Plus Code', 'client-ficha-plus-code', profile.plusCodeRaw, 'text')}
     ${renderEditableField('Zona / Rota', 'client-ficha-zona-rota', profile.zonaRotaRaw, 'text')}
+    ${renderCondicaoEditBlock(profile)}
   `;
 }
 
@@ -289,6 +313,7 @@ export function renderClientProfilePanel(profile, { editing = false } = {}) {
           { copyValue: profile.plusCode !== '—' ? profile.plusCode : '', copyLabel: 'Plus Code' },
         )}
         ${renderViewField('Zona / Rota', escapeHtml(profile.zonaRota))}
+        ${renderViewField('Condição de pagamento', escapeHtml(profile.condicaoPagamentoLabel || '—'))}
       `;
 
   const emailBlock = editing
@@ -387,6 +412,7 @@ function readEditForm(shell) {
     zona_rota: shell.querySelector('#client-ficha-zona-rota')?.value?.trim() ?? '',
     email: shell.querySelector('#client-ficha-email')?.value?.trim() ?? '',
     telemovel: shell.querySelector('#client-ficha-phone')?.value?.trim() ?? '',
+    condicao_pagamento: shell.querySelector('#client-ficha-condicao')?.value?.trim() ?? '',
   };
 }
 
@@ -412,6 +438,7 @@ function bindClientProfilePanel(shell, profile, options = {}) {
     zona_rota: p.zonaRotaRaw || '',
     email: p.emailRaw || '',
     telemovel: p.phoneRaw || '',
+    condicao_pagamento: p.condicaoPagamento || 'pronto_pagamento',
   });
 
   const repaint = async (editing) => {

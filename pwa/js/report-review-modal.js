@@ -61,10 +61,12 @@ export async function openReportReviewModal(reportId, options = {}) {
     report.status === 'approved'
       ? 'Aprovado'
       : report.status === 'pending_review'
-        ? 'Aguarda aprovação (RH)'
+        ? 'Pendente RH'
         : report.status === 'draft'
-          ? 'Rascunho'
-          : report.status;
+          ? 'Em curso'
+          : report.status === 'rejected'
+            ? 'Rejeitado'
+            : report.status;
 
   const showWorkflow =
     options.showWorkflowActions !== false && report.status === 'pending_review';
