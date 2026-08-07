@@ -37,16 +37,18 @@ Checklist se ainda falhar:
 2. Variável no **serviço** da app (não só no projeto) → Variables → Shared / Service
 3. Após guardar: **Redeploy** (Deployments → Redeploy)
 4. Valor = chave de **API** em Brevo → SMTP & API → API keys (`xkeysib-...`), não a password SMTP
+5. Se o erro mencionar **unrecognised IP** / `authorised_ips`: em [Security → Authorised IPs](https://app.brevo.com/security/authorised_ips) **desative** a restrição de IPs (o IP da Railway muda nos redeploys). Alternativa: adicionar o IP temporariamente.
 
 #### Opção A — Brevo (mais simples com Gmail)
 
 1. Criar conta em [brevo.com](https://www.brevo.com) (free)
 2. **Senders** → adicionar `manusilva.lda@gmail.com` → confirmar o e-mail que o Brevo envia
 3. **SMTP & API** → API keys → criar chave
-4. Na Railway → Variables:
+4. **Security → Authorised IPs**: desativar bloqueio por IP (obrigatório na Railway)
+5. Na Railway → Variables:
    - `BREVO_API_KEY` = a chave
    - `EMAIL_USER` = `manusilva.lda@gmail.com`
-5. Redeploy → confirmar `/api/health` com `"active":"brevo"` → testar envio
+6. Redeploy → confirmar `/api/health` com `"active":"brevo"` → testar envio
 
 #### Opção B — Resend
 

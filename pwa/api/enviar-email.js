@@ -1097,8 +1097,13 @@ async function handler(req, res) {
     } else if (/SUPABASE_URL|SUPABASE_ANON_KEY/i.test(detail)) {
       hint = 'Configure SUPABASE_URL e SUPABASE_ANON_KEY nas variáveis de ambiente do servidor.';
     } else if (code === 'EBREVO') {
-      hint =
-        'Erro na API Brevo. Confirme BREVO_API_KEY e que manusilva.lda@gmail.com está verificado como remetente em app.brevo.com.';
+      if (/authorised_ips|authorized_ip|unrecognised IP|unrecognized IP/i.test(detail)) {
+        hint =
+          'Brevo bloqueou o IP da Railway. Em app.brevo.com → Security → Authorised IPs: desative a restrição de IPs (recomendado na cloud) ou adicione o IP indicado na mensagem. Ver RAILWAY.md.';
+      } else {
+        hint =
+          'Erro na API Brevo. Confirme BREVO_API_KEY e que manusilva.lda@gmail.com está verificado como remetente em app.brevo.com.';
+      }
     } else if (code === 'ERESEND') {
       hint =
         'Erro na API Resend. Confirme RESEND_API_KEY. Com onboarding@resend.dev só envia para o vosso e-mail; para clientes, verifique o domínio manusilva.pt.';
