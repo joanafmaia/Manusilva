@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
+  applyOrcamentoLoteEnvioMeta,
   filterOrcamentoLoteReports,
   formatOrcamentoLoteNumeros,
   isOrcamentoLoteEnviado,
@@ -96,5 +97,24 @@ describe('orcamento-email-lote', () => {
     row.clientId = '';
     row.data.values = { nome_empresa: 'SAP METAL' };
     assert.equal(resolveOrcamentoLoteEmailSuggestion([row]), 'compras@sapmetal.pt');
+  });
+
+  it('reenvio preserva enviadoEm e grava reenviadoEm', () => {
+    const first = '2026-07-01T10:00:00.000Z';
+    const again = '2026-08-07T12:00:00.000Z';
+    const meta = applyOrcamentoLoteEnvioMeta(
+      { enviadoEm: first, numeroFormatado: '1.0/2026' },
+      { mode: 'reenvio', emailStored: 'a@b.pt', now: again },
+    );
+    assert.equal(meta.enviadoEm, first);
+    assert.equal(meta.reenviadoEm, again);
+    assert.equal(meta.emailDestinatario, 'a@b.pt');
+
+    const firstSend = applyOrcamentoLoteEnvioMeta(
+      { numeroFormatado: '2.0/2026' },
+      { mode: 'pendentes', emailStored: 'a@b.pt', now: again },
+    );
+    assert.equal(firstSend.enviadoEm, again);
+    assert.equal(firstSend.reenviadoEm, undefined);
   });
 });

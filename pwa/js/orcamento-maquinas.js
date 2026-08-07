@@ -371,12 +371,12 @@ export function resolveOrcamentoLinhasColunaTituloFromRoot(root, fallbackMeta = 
 export function formatOrcamentoCatalogHint(maquinas = [], campos = null, tituloColuna = TITULO_COLUNA_ARTIGOS_DEFAULT) {
   const titulo = String(tituloColuna || '').trim() || TITULO_COLUNA_ARTIGOS_DEFAULT;
   if (shouldGroupOrcamentoLinhasByEquipamento(maquinas, campos)) {
-    return 'Com várias máquinas, cada equipamento tem a sua secção. Use «+ Linha» em cada máquina para os artigos dessa máquina.';
+    return 'Cada equipamento tem a sua secção de artigos. Use «+ Linha» nessa secção.';
   }
   if (shouldShowLinhaEquipamentoColumn(maquinas, campos)) {
-    return `Na coluna «${titulo}», escreva para pesquisar no catálogo. Com várias máquinas, indique o equipamento em cada linha.`;
+    return `Na coluna «${titulo}», escreva para pesquisar no catálogo e indique o equipamento em cada linha.`;
   }
-  return `Na coluna «${titulo}», escreva para pesquisar no catálogo.`;
+  return `Na coluna «${titulo}», escreva para pesquisar no catálogo. Uma máquina/bateria por proposta — para outro equipamento, crie outra proposta.`;
 }
 
 export function syncOrcamentoLinhasColunaTitulo(root, fallbackMeta = null) {

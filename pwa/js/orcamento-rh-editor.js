@@ -489,7 +489,7 @@ function renderManutencaoMaquinaOrcamentoEditor(report, ctx) {
         <button type="button" class="btn-primary btn-touch" id="review-orc-save">Guardar proposta</button>
         <button type="button" class="btn-outline btn-touch" id="orcamento-pdf">Ver PDF da proposta</button>
       </div>
-      <p class="text-muted review-orcamento-editor__hint">Identifique cada máquina, preços por máquina e uma deslocação única para a proposta.
+      <p class="text-muted review-orcamento-editor__hint">Identifique a máquina, os preços e a deslocação desta proposta.
         O envio ao cliente faz-se na pasta do cliente, com todas as propostas preparadas.
         <span class="orcamento-autosave-status" data-orc-autosave-status aria-live="polite"></span>
       </p>

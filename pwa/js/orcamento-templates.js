@@ -592,7 +592,7 @@ export function renderManutencaoMaquinaTemplatePreview(meta = {}, cabecalho = {}
       <summary class="review-orc-template-preview__summary">Texto da proposta (como no PDF)</summary>
       <div class="review-orc-template-preview__body">
         <p data-orc-maquina-intro-preview>${escapeHtml(intro)}</p>
-        <p class="text-muted">As máquinas aparecem no PDF junto aos valores (rodapé).</p>
+        <p class="text-muted">A máquina aparece no PDF junto aos valores (rodapé).</p>
         <p><strong>${MANUTENCAO_MAQUINA_PLANO_TITULO}</strong></p>
         <p>– ${MANUTENCAO_MAQUINA_PLANO_DETALHE}</p>
         <p><strong>${MANUTENCAO_MAQUINA_ESPECIFICACAO_TITULO}</strong></p>

@@ -309,7 +309,7 @@ export function resolveReportEquipamentoFields(report) {
   return { marca, modelo, tipo, numeroSerie, numeroInterno, maquina, matricula };
 }
 
-/** Texto introdutório do PDF — editável pelo RH; plural com várias máquinas. */
+/** Texto introdutório do PDF — editável pelo RH; singular/plural conforme equipamentos. */
 export function suggestOrcamentoTextoIntro(report, machineCount = null) {
   const meta = readOrcamentoMeta(report);
   const saved = String(meta.textoIntro || '').trim();

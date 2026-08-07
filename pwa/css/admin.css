@@ -5203,6 +5203,28 @@ body .admin-rh-page .btn-primary, body .admin-rh-page .btn-secondary, body .admi
   flex-direction: column;
   gap: 0.65rem;
 }
+.orcamentos-pasta-dup-warn {
+  margin: 0 0 0.85rem;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid #fcd34d;
+  border-radius: 8px;
+  background: #fffbeb;
+}
+.orcamentos-pasta-dup-warn__title {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 650;
+  color: #92400e;
+}
+.orcamentos-pasta-dup-warn__lead {
+  margin: 0.25rem 0 0.45rem;
+  font-size: 0.8rem;
+}
+.orcamentos-pasta-dup-warn__list {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.82rem;
+}
 .orcamentos-client-folder .rh-visita-folder__header {
   cursor: default;
 }

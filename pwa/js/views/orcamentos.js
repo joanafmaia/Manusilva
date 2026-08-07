@@ -81,6 +81,7 @@ import {
   resolveOrcamentoClienteNome,
   resolveOrcamentoPastaIdentity,
   resolveOrcamentoPastaKey,
+  normalizeOrcamentoClienteNomeKey,
 } from '../orcamento-cabecalho.js';
 import { getSession } from '../session.js';
 import {
@@ -717,11 +718,51 @@ function renderClientFolderCard(group) {
     </article>`;
 }
 
+function findDuplicatePastaWarnings(groups = []) {
+  const byNome = new Map();
+  for (const group of groups) {
+    const key = normalizeOrcamentoClienteNomeKey(group?.name || '');
+    if (!key || key === 'sem nome de cliente') continue;
+    if (!byNome.has(key)) byNome.set(key, []);
+    byNome.get(key).push(group);
+  }
+  const warnings = [];
+  for (const list of byNome.values()) {
+    if (list.length < 2) continue;
+    const hasFicha = list.some((g) => Boolean(g.clientId));
+    const hasLivre = list.some((g) => !g.clientId);
+    if (!hasFicha || !hasLivre) continue;
+    warnings.push({
+      name: list.find((g) => g.name)?.name || list[0].name,
+      count: list.length,
+    });
+  }
+  return warnings.sort((a, b) => a.name.localeCompare(b.name, 'pt'));
+}
+
+function renderDuplicatePastaWarnings(groups) {
+  const warnings = findDuplicatePastaWarnings(groups);
+  if (!warnings.length) return '';
+  const items = warnings
+    .map(
+      (w) =>
+        `<li><strong>${escapeHtml(w.name)}</strong> — ${w.count} pastas (ficha + nome livre)</li>`,
+    )
+    .join('');
+  return `
+    <div class="orcamentos-pasta-dup-warn" role="status">
+      <p class="orcamentos-pasta-dup-warn__title">Pastas possivelmente duplicadas</p>
+      <p class="text-muted orcamentos-pasta-dup-warn__lead">O mesmo nome aparece com ficha de cliente e também só com nome escrito. Confirme se devem ser o mesmo cliente antes de enviar lotes.</p>
+      <ul class="orcamentos-pasta-dup-warn__list">${items}</ul>
+    </div>`;
+}
+
 function renderClientFolders(groups) {
   if (!groups.length) {
     return '<p class="text-muted orcamentos-client-empty">Nenhuma pasta com estes filtros.</p>';
   }
   return `
+    ${renderDuplicatePastaWarnings(groups)}
     <div class="orcamentos-client-folders" role="list" aria-label="Pastas por cliente">
       ${groups.map(renderClientFolderCard).join('')}
     </div>`;

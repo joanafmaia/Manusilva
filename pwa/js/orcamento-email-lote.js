@@ -114,6 +114,26 @@ export function formatOrcamentoLoteNumeros(reports = []) {
 }
 
 /**
+ * Meta após envio/reenvio do lote — preserva a data do 1.º envio no reenvio.
+ * @param {object} existing
+ * @param {{ mode?: 'pendentes'|'reenvio', emailStored?: string, now?: string }} options
+ */
+export function applyOrcamentoLoteEnvioMeta(existing = {}, { mode = 'pendentes', emailStored = '', now = '' } = {}) {
+  const stamp = String(now || new Date().toISOString());
+  const meta = {
+    ...(existing && typeof existing === 'object' ? existing : {}),
+    emailDestinatario: String(emailStored || '').trim() || existing?.emailDestinatario || '',
+  };
+  if (mode === 'reenvio') {
+    meta.reenviadoEm = stamp;
+    if (!meta.enviadoEm) meta.enviadoEm = stamp;
+  } else {
+    meta.enviadoEm = stamp;
+  }
+  return meta;
+}
+
+/**
  * Garante PDF em Storage para cada proposta do lote.
  * @param {object[]} reports
  * @returns {Promise<object[]>}
@@ -223,15 +243,15 @@ export async function sendOrcamentoLoteForReports(reports = [], options = {}) {
     ...emailPdfPayload,
   });
 
-  const enviadoEm = new Date().toISOString();
+  const now = new Date().toISOString();
   const emailStored = formatEmailListForStorage(recipients);
   const saved = [];
   for (const report of withPdfs) {
-    const meta = {
-      ...(getReportOrcamentoMeta(report) || {}),
-      emailDestinatario: emailStored,
-      enviadoEm,
-    };
+    const meta = applyOrcamentoLoteEnvioMeta(getReportOrcamentoMeta(report) || {}, {
+      mode,
+      emailStored,
+      now,
+    });
     const updated = await updateRelatorio(report.id, {
       data: {
         orcamento: meta,
