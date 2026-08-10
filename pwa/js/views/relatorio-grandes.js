@@ -307,17 +307,13 @@ export function getColumnKeys() {
   return GRANDES_BATTERY_COLUMNS.map((c) => c.key);
 }
 
-/** Rótulo legível para associar consumível à máquina da identificação bateria. */
+/** Rótulo do select de consumíveis — só matrícula (fallback: nome/tipo). */
 export function formatGrandesMaquinaOptionLabel(row = {}) {
-  const maquina = String(row.maquina ?? '').trim();
   const matricula = String(row.matricula ?? '').trim();
-  const tipo = String(row.tipo ?? '').trim();
-  if (!maquina && !matricula && !tipo) return '';
-  const parts = [];
-  if (maquina) parts.push(maquina);
-  if (matricula) parts.push(matricula);
-  if (!maquina && tipo) parts.push(tipo);
-  return parts.join(' · ');
+  if (matricula) return matricula;
+  const maquina = String(row.maquina ?? '').trim();
+  if (maquina) return maquina;
+  return String(row.tipo ?? '').trim();
 }
 
 /** Valor do select de consumíveis — guarda nome e matrícula em separado. */
@@ -353,16 +349,27 @@ export function decodeGrandesMaquinaSelectValue(raw) {
       matricula: text.slice(idx + sep.length).trim(),
     };
   }
-  return { maquina: text, matricula: '' };
+  return { maquina: '', matricula: text };
 }
 
 /** Resolve nome/matrícula a partir da linha de consumível (incl. legado). */
 export function resolveGrandesConsumivelMaquina(row = {}) {
-  const storedMatricula = String(row.matricula ?? '').trim();
-  const decoded = decodeGrandesMaquinaSelectValue(row.maquina);
+  const rawMaquina = String(row.maquina ?? '').trim();
+  const rawMatricula = String(row.matricula ?? '').trim();
+
+  if (rawMatricula.startsWith('{')) {
+    return decodeGrandesMaquinaSelectValue(rawMatricula);
+  }
+  if (rawMaquina.startsWith('{') || rawMaquina.includes(' · ')) {
+    const decoded = decodeGrandesMaquinaSelectValue(rawMaquina);
+    return {
+      maquina: decoded.maquina,
+      matricula: rawMatricula || decoded.matricula,
+    };
+  }
   return {
-    maquina: decoded.maquina,
-    matricula: storedMatricula || decoded.matricula,
+    maquina: rawMaquina,
+    matricula: rawMatricula,
   };
 }
 
@@ -390,6 +397,7 @@ export function readGrandesBatteryMaquinaOptionsFromOverlay(overlay) {
 function selectValueMatchesOption(current, option) {
   if (!current) return false;
   if (current === option.value || current === option.label) return true;
+  if (option.matricula && current === option.matricula) return true;
   const decoded = decodeGrandesMaquinaSelectValue(current);
   return (
     decoded.maquina === option.maquina &&
@@ -398,7 +406,7 @@ function selectValueMatchesOption(current, option) {
   );
 }
 
-/** Atualiza os selects «Máquina» nos consumíveis após alterar a identificação bateria. */
+/** Atualiza os selects de matrícula nos consumíveis após alterar a identificação bateria. */
 export function refreshGrandesMachineSelectsInOverlay(overlay) {
   if (!overlay) return;
   const options = readGrandesBatteryMaquinaOptionsFromOverlay(overlay);
@@ -417,9 +425,12 @@ export function refreshGrandesMachineSelectsInOverlay(overlay) {
       return;
     }
     if (current) {
-      const decoded = decodeGrandesMaquinaSelectValue(current);
-      const orphanValue = encodeGrandesMaquinaSelectValue(decoded) || current;
-      const orphanLabel = formatGrandesMaquinaOptionLabel(decoded) || current;
+      const resolved =
+        current.startsWith('{') || current.includes(' · ')
+          ? decodeGrandesMaquinaSelectValue(current)
+          : { maquina: '', matricula: current };
+      const orphanValue = encodeGrandesMaquinaSelectValue(resolved) || current;
+      const orphanLabel = formatGrandesMaquinaOptionLabel(resolved) || current;
       select.insertAdjacentHTML(
         'beforeend',
         `<option value="${escapeHtml(orphanValue)}" selected>${escapeHtml(orphanLabel)} (já não na lista)</option>`,

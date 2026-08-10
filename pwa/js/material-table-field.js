@@ -1,3 +1,5 @@
+import { LABEL_MATRICULA } from './field-labels.js';
+
 /**
  * Tabela dinâmica de material — formato unificado [{ artigo, qtd }]
  */
@@ -16,7 +18,10 @@ export function emptyMaterialRow() {
 }
 
 export function fieldHasMaquinaColumn(field) {
-  return (field?.columns || []).some((col) => columnKey(col) === 'maquina');
+  return (field?.columns || []).some((col) => {
+    const key = columnKey(col);
+    return key === 'maquina' || key === 'matricula';
+  });
 }
 
 export function emptyMaterialRowForField(field) {
@@ -28,18 +33,18 @@ export function emptyMaterialRowForField(field) {
   return row;
 }
 
-/** Consumíveis Clientes Grandes — máquina escolhida a partir de «Identificação Bateria». */
+/** Consumíveis Clientes Grandes — identificação só pela matrícula. */
 export function createGrandesConsumiveisField() {
   return createMaterialTableField({
     id: 'consumiveis_utilizados',
     columns: [
-      { id: 'maquina', label: 'Máquina' },
+      { id: 'matricula', label: LABEL_MATRICULA },
       { id: 'artigo', label: 'Artigo / Descrição' },
       { id: 'qtd', label: 'Quantidade' },
     ],
-    columnTypes: { qtd: 'number', maquina: 'grandes_maquina_select' },
+    columnTypes: { qtd: 'number', matricula: 'grandes_maquina_select' },
     machineSourceFieldId: 'identificacao_baterias',
-    fieldHint: 'Escolha a máquina registada em Identificação Bateria.',
+    fieldHint: 'Escolha a matrícula registada em Identificação Bateria.',
   });
 }
 
@@ -204,12 +209,17 @@ export function normalizeMaterialRows(value) {
     let maquina = rawMaquina;
     let matricula = rawMatricula;
 
-    if (rawMaquina.startsWith('{') || (!rawMatricula && rawMaquina.includes(' · '))) {
+    const encodedSource = rawMatricula.startsWith('{')
+      ? rawMatricula
+      : rawMaquina.startsWith('{') || rawMaquina.includes(' · ')
+        ? rawMaquina
+        : '';
+    if (encodedSource) {
       try {
-        const decoded = decodeGrandesMaquinaParts(rawMaquina);
+        const decoded = decodeGrandesMaquinaParts(encodedSource);
         if (decoded.maquina || decoded.matricula) {
-          maquina = decoded.maquina;
-          if (!matricula) matricula = decoded.matricula;
+          maquina = decoded.maquina || (rawMaquina.startsWith('{') ? '' : rawMaquina);
+          matricula = decoded.matricula || (rawMatricula.startsWith('{') ? '' : rawMatricula);
         }
       } catch {
         /* manter texto */

@@ -149,7 +149,7 @@ export function buildFormPrefill(service, job, _forklift, context = {}) {
     return {
       data_de_conclusao: job?.date || '',
       [GRANDES_BATTERY_FIELD_ID]: [{}],
-      consumiveis_utilizados: [emptyMaterialRowForField({ columns: [{ id: 'maquina' }, { id: 'artigo' }, { id: 'qtd' }] })],
+      consumiveis_utilizados: [emptyMaterialRowForField({ columns: [{ id: 'matricula' }, { id: 'artigo' }, { id: 'qtd' }] })],
       visitas_realizadas: 1,
       estado_maquina: 'Operacional',
     };
