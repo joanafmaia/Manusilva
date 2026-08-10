@@ -161,42 +161,37 @@ async function drawGrandesConsumablesTableAt(doc, startY, rows, x, width) {
     ...row,
     ...resolveGrandesConsumivelMaquina(row),
   }));
-  const hasMaquina = resolvedRows.some(
-    (row) => String(row.maquina || '').trim() || String(row.matricula || '').trim(),
-  );
+  const hasMatricula = resolvedRows.some((row) => String(row.matricula || '').trim());
   const normalized = rows.length
-    ? hasMaquina
+    ? hasMatricula
       ? resolvedRows.map((row) => [
-          pdfDisplayValue(row.maquina),
           pdfDisplayValue(row.matricula),
           pdfDisplayValue(row.artigo),
           pdfDisplayValue(row.qtd),
         ])
       : rows.map((row) => [pdfDisplayValue(row.artigo), pdfDisplayValue(row.qtd)])
-    : hasMaquina
-      ? [['—', '—', '—', '—']]
+    : hasMatricula
+      ? [['—', '—', '—']]
       : [['—', '—']];
 
-  const qtdW = Math.max(12, width * 0.12);
-  const matW = hasMaquina ? Math.max(18, width * 0.2) : 0;
-  const maqW = hasMaquina ? Math.max(20, width * 0.22) : 0;
-  const artW = width - qtdW - matW - maqW;
+  const qtdW = Math.max(12, width * 0.14);
+  const matW = hasMatricula ? Math.max(22, width * 0.26) : 0;
+  const artW = width - qtdW - matW;
 
   let y = await drawGrandesSectionBar(doc, startY, 'Consumíveis Utilizados', { x, width });
   const pack = grandesTableStylePack(doc);
-  const columnStyles = hasMaquina
+  const columnStyles = hasMatricula
     ? {
-        0: { cellWidth: maqW, halign: 'left', fontSize: PDF_FONT_TABLE, overflow: 'linebreak' },
-        1: { cellWidth: matW, halign: 'left', fontSize: PDF_FONT_TABLE, overflow: 'linebreak' },
-        2: { cellWidth: artW, halign: 'left', fontSize: PDF_FONT_TABLE, overflow: 'linebreak' },
-        3: { cellWidth: qtdW, halign: 'center', fontSize: PDF_FONT_TABLE },
+        0: { cellWidth: matW, halign: 'left', fontSize: PDF_FONT_TABLE, overflow: 'linebreak' },
+        1: { cellWidth: artW, halign: 'left', fontSize: PDF_FONT_TABLE, overflow: 'linebreak' },
+        2: { cellWidth: qtdW, halign: 'center', fontSize: PDF_FONT_TABLE },
       }
     : {
         0: { cellWidth: artW, halign: 'left', fontSize: PDF_FONT_TABLE },
         1: { cellWidth: qtdW, halign: 'center', fontSize: PDF_FONT_TABLE },
       };
   const endY = await drawPdfGridTable(doc, y, {
-    head: [hasMaquina ? ['Máquina', 'Matríc.', 'Artigo / Desc.', 'Qtd.'] : ['Artigo / Desc.', 'Qtd.']],
+    head: [hasMatricula ? ['Matrícula', 'Artigo / Desc.', 'Qtd.'] : ['Artigo / Desc.', 'Qtd.']],
     body: normalized,
     marginLeft: x,
     marginRight: PAGE_W - x - width,
