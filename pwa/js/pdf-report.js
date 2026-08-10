@@ -883,11 +883,13 @@ function normalizeReportValues(data) {
   });
 
   const machineKeys = [
+    'maquina',
     'marca',
     'modelo',
     'numero_de_serie',
     'num_serie',
     'n_interno',
+    'matricula',
     'horas',
     'data_fabrico',
   ];
@@ -895,12 +897,18 @@ function normalizeReportValues(data) {
     if (data[key] !== undefined && values[key] === undefined) values[key] = data[key];
   });
 
-  const nested = data.maquina || data.machine;
+  const nested = data.machine;
   if (nested && typeof nested === 'object') {
     machineKeys.forEach((key) => {
       if (nested[key] !== undefined && values[key] === undefined) values[key] = nested[key];
     });
-    values.maquina = nested;
+  }
+  if (data.maquina && typeof data.maquina === 'object') {
+    machineKeys.forEach((key) => {
+      if (data.maquina[key] !== undefined && values[key] === undefined) values[key] = data.maquina[key];
+    });
+  } else if (data.maquina !== undefined && values.maquina === undefined) {
+    values.maquina = data.maquina;
   }
 
   if (values.num_serie && !values.numero_de_serie) values.numero_de_serie = values.num_serie;

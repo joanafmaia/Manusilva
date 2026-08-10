@@ -16,7 +16,8 @@ import {
   LABEL_MARCA,
   LABEL_MODELO,
   LABEL_NUMERO_SERIE,
-  LABEL_N_INTERNO,
+  LABEL_MATRICULA,
+  LABEL_MAQUINA,
   LABEL_HORAS,
 } from '../field-labels.js';
 
@@ -24,14 +25,16 @@ export const EMPILHADORES_MAQUINAS_FIELD_ID = 'maquinas';
 export const EMPILHADORES_SERVICE_TYPE = 'manutencao_preventiva_empilhadores';
 
 export const EMPILHADORES_ID_COLUMNS = [
+  { key: 'maquina', label: LABEL_MAQUINA, input: 'text' },
   { key: 'marca', label: LABEL_MARCA, input: 'text' },
   { key: 'modelo', label: LABEL_MODELO, input: 'text' },
   { key: 'numero_de_serie', label: LABEL_NUMERO_SERIE, input: 'text' },
-  { key: 'n_interno', label: LABEL_N_INTERNO, input: 'text' },
+  { key: 'n_interno', label: LABEL_MATRICULA, input: 'text' },
   { key: 'horas', label: LABEL_HORAS, input: 'number' },
 ];
 
 const LEGACY_SCALAR_KEYS = [
+  'maquina',
   'marca',
   'modelo',
   'numero_de_serie',
@@ -94,10 +97,11 @@ function hasConsumiveisRows(rows) {
 
 function legacyRowFromValues(values = {}) {
   return normalizeEmpilhadoresMaquinaRow({
+    maquina: values.maquina,
     marca: values.marca,
     modelo: values.modelo,
     numero_de_serie: values.numero_de_serie,
-    n_interno: values.n_interno,
+    n_interno: values.n_interno || values.matricula,
     horas: values.horas,
     componentes_externos: values.componentes_externos,
     componentes_internos: values.componentes_internos,
@@ -148,6 +152,7 @@ function defaultVerificationMap(items = []) {
 
 export function emptyEmpilhadoresMaquinaRow() {
   return {
+    maquina: '',
     marca: '',
     modelo: '',
     numero_de_serie: '',
@@ -177,6 +182,12 @@ export function normalizeEmpilhadoresMaquinaRow(raw = {}) {
     const v = raw[col.key];
     base[col.key] = v === undefined || v === null ? '' : String(v);
   });
+  if (!String(base.n_interno || '').trim() && raw.matricula != null) {
+    base.n_interno = String(raw.matricula);
+  }
+  if (!String(base.maquina || '').trim() && raw.nome_maquina != null) {
+    base.maquina = String(raw.nome_maquina);
+  }
 
   LEGACY_OBJECT_KEYS.forEach((key) => {
     const nested = parseEmpilhadoresNestedValue(raw[key]);
@@ -261,31 +272,41 @@ export function isEmpilhadoresMultiMaquinaReport(report) {
 /** Segmento do nome do ficheiro PDF, ex.: M1-Linde-E20 */
 export function buildEmpilhadoresMachineFilenameTag(row = {}, index = 0) {
   const parts = [`M${index + 1}`];
+  const nome = sanitizePdfFilenameSegment(row.maquina);
   const marca = sanitizePdfFilenameSegment(row.marca);
   const modelo = sanitizePdfFilenameSegment(row.modelo);
-  if (marca) parts.push(marca);
-  if (modelo) parts.push(modelo);
+  if (nome) parts.push(nome);
+  else {
+    if (marca) parts.push(marca);
+    if (modelo) parts.push(modelo);
+  }
   if (parts.length === 1) {
-    const interno = sanitizePdfFilenameSegment(row.n_interno);
+    const matricula = sanitizePdfFilenameSegment(row.n_interno);
     const serie = sanitizePdfFilenameSegment(row.numero_de_serie);
-    if (interno) parts.push(interno);
+    if (matricula) parts.push(matricula);
     else if (serie) parts.push(serie);
   }
   return parts.join('-');
 }
 
 export function maquinaRowLabel(row = {}, index = 0) {
-  const parts = [
+  const nome = String(row.maquina || '').trim();
+  const matricula = String(row.n_interno || '').trim();
+  if (nome || matricula) {
+    const parts = [];
+    if (nome) parts.push(nome);
+    if (matricula) parts.push(matricula);
+    return `Máquina ${index + 1} — ${parts.join(' · ')}`;
+  }
+  const brandParts = [
     String(row.marca || '').trim(),
     String(row.modelo || '').trim(),
   ].filter(Boolean);
-  const interno = String(row.n_interno || '').trim();
   const serie = String(row.numero_de_serie || '').trim();
-  if (parts.length) {
-    const suffix = interno ? ` (${interno})` : serie ? ` (${serie})` : '';
-    return `Máquina ${index + 1} — ${parts.join(' ')}${suffix}`;
+  if (brandParts.length) {
+    const suffix = serie ? ` (${serie})` : '';
+    return `Máquina ${index + 1} — ${brandParts.join(' ')}${suffix}`;
   }
-  if (interno) return `Máquina ${index + 1} — ${LABEL_N_INTERNO} ${interno}`;
   if (serie) return `Máquina ${index + 1} — ${LABEL_NUMERO_SERIE} ${serie}`;
   return `Máquina ${index + 1}`;
 }
@@ -295,11 +316,12 @@ export function getEmpilhadoresPerMachineFieldDefs() {
 }
 
 export const EMPILHADORES_MACHINE_ID_FIELD_DEFS = [
+  { type: 'text', id: 'maquina', label: LABEL_MAQUINA, section: 'Informações da Máquina' },
   { type: 'text', id: 'marca', label: LABEL_MARCA, section: 'Informações da Máquina' },
   { type: 'text', id: 'modelo', label: LABEL_MODELO, section: 'Informações da Máquina' },
   { type: 'text', id: 'numero_de_serie', label: LABEL_NUMERO_SERIE, section: 'Informações da Máquina' },
+  { type: 'text', id: 'n_interno', label: LABEL_MATRICULA, section: 'Informações da Máquina' },
   { type: 'number', id: 'horas', label: LABEL_HORAS, section: 'Informações da Máquina', min: 0, step: 1, placeholder: '0' },
-  { type: 'text', id: 'n_interno', label: LABEL_N_INTERNO, section: 'Informações da Máquina' },
 ];
 
 /** Serviço virtual com campos escalares para PDF (1 máquina por documento). */

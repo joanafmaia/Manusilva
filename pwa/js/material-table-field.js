@@ -21,7 +21,10 @@ export function fieldHasMaquinaColumn(field) {
 
 export function emptyMaterialRowForField(field) {
   const row = emptyMaterialRow();
-  if (fieldHasMaquinaColumn(field)) row.maquina = '';
+  if (fieldHasMaquinaColumn(field)) {
+    row.maquina = '';
+    row.matricula = '';
+  }
   return row;
 }
 
@@ -187,14 +190,61 @@ export function normalizeMaterialRows(value) {
       delete out.tipo;
     }
 
+    const hasMaquina = Object.prototype.hasOwnProperty.call(out, 'maquina');
+    const hasMatricula = Object.prototype.hasOwnProperty.call(out, 'matricula');
+    if (!hasMaquina && !hasMatricula) {
+      return {
+        artigo: materialCellText(out.artigo),
+        qtd: materialCellText(out.qtd),
+      };
+    }
+
+    const rawMaquina = materialCellText(out.maquina);
+    const rawMatricula = materialCellText(out.matricula);
+    let maquina = rawMaquina;
+    let matricula = rawMatricula;
+
+    if (rawMaquina.startsWith('{') || (!rawMatricula && rawMaquina.includes(' · '))) {
+      try {
+        const decoded = decodeGrandesMaquinaParts(rawMaquina);
+        if (decoded.maquina || decoded.matricula) {
+          maquina = decoded.maquina;
+          if (!matricula) matricula = decoded.matricula;
+        }
+      } catch {
+        /* manter texto */
+      }
+    }
+
     return {
       artigo: materialCellText(out.artigo),
       qtd: materialCellText(out.qtd),
-      ...(Object.prototype.hasOwnProperty.call(out, 'maquina')
-        ? { maquina: materialCellText(out.maquina) }
-        : {}),
+      maquina,
+      matricula,
     };
   });
+}
+
+/** Decodifica valor JSON ou «Nome · Matrícula» sem import circular com relatorio-grandes. */
+function decodeGrandesMaquinaParts(raw) {
+  const text = String(raw ?? '').trim();
+  if (!text) return { maquina: '', matricula: '' };
+  if (text.startsWith('{')) {
+    const parsed = JSON.parse(text);
+    return {
+      maquina: String(parsed?.maquina ?? '').trim(),
+      matricula: String(parsed?.matricula ?? '').trim(),
+    };
+  }
+  const sep = ' · ';
+  const idx = text.indexOf(sep);
+  if (idx >= 0) {
+    return {
+      maquina: text.slice(0, idx).trim(),
+      matricula: text.slice(idx + sep.length).trim(),
+    };
+  }
+  return { maquina: text, matricula: '' };
 }
 
 function materialCellText(val) {

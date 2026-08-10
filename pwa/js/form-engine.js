@@ -41,6 +41,11 @@ import {
 } from './preventiva-empilhadores-items.js';
 import { escapeHtml } from './html-utils.js';
 import {
+  encodeGrandesMaquinaSelectValue,
+  formatGrandesMaquinaOptionLabel,
+  resolveGrandesConsumivelMaquina,
+} from './views/relatorio-grandes.js';
+import {
   EMPILHADORES_SERVICE_ID,
   isBatteryService,
   REPORT_SECTIONS,
@@ -883,6 +888,13 @@ function getFieldUnit(field) {
   return '';
 }
 
+function resolveGrandesSelectDisplay(row = {}) {
+  const resolved = resolveGrandesConsumivelMaquina(row);
+  const value = encodeGrandesMaquinaSelectValue(resolved);
+  const label = formatGrandesMaquinaOptionLabel(resolved);
+  return { value, label: label || value };
+}
+
 function renderDynamicTableCell(field, col, key, row) {
   const val = formatDynamicCellDisplayValue(row[key]);
   const inputType = getDynamicColumnInputType(field, key);
@@ -907,8 +919,9 @@ function renderDynamicTableCell(field, col, key, row) {
       value="${escapeHtml(val)}" placeholder="0" min="0" ${numberInputAttrs({}, step)}>`;
   }
   if (inputType === 'grandes_maquina_select') {
-    const selected = val
-      ? `<option value="${escapeHtml(val)}" selected>${escapeHtml(val)}</option>`
+    const resolved = resolveGrandesSelectDisplay(row);
+    const selected = resolved.value
+      ? `<option value="${escapeHtml(resolved.value)}" selected>${escapeHtml(resolved.label)}</option>`
       : '';
     return `<select class="form-input form-input-sm dynamic-table-maquina-select" data-col="${key}" data-maquina-select="1" aria-label="${escapeHtml(colLabel)}">
       <option value="">—</option>

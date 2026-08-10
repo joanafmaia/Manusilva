@@ -247,6 +247,7 @@ export function extractEquipamentosFromReport(report) {
 
 function equipamentoToFormFields(equipamento = {}) {
   const out = {};
+  if (norm(equipamento.maquina)) out.maquina = equipamento.maquina;
   if (norm(equipamento.marca)) out.marca = equipamento.marca;
   if (norm(equipamento.modelo)) out.modelo = equipamento.modelo;
   if (norm(equipamento.numero_serie)) {
@@ -254,6 +255,7 @@ function equipamentoToFormFields(equipamento = {}) {
     out.num_serie = equipamento.numero_serie;
   }
   if (norm(equipamento.n_interno)) out.n_interno = equipamento.n_interno;
+  else if (norm(equipamento.matricula)) out.n_interno = equipamento.matricula;
   if (norm(equipamento.tipo)) out.tipo = equipamento.tipo;
   if (norm(equipamento.data_fabrico)) out.data_fabrico = equipamento.data_fabrico;
   if (equipamento.horas != null && equipamento.horas !== '') out.horas = equipamento.horas;

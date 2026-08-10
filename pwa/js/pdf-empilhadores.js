@@ -33,7 +33,8 @@ import {
   LABEL_MARCA,
   LABEL_MODELO,
   LABEL_NUMERO_SERIE,
-  LABEL_N_INTERNO,
+  LABEL_MATRICULA,
+  LABEL_MAQUINA,
   LABEL_HORAS,
 } from './field-labels.js';
 import { cleanPdfText, pdfDisplayValue } from './pdf-format-utils.js';
@@ -43,17 +44,22 @@ import { drawPdfGridTable } from './pdf-grid-table.js';
 
 export const EMPILHADORES_SERVICE_ID = 'manutencao_preventiva_empilhadores';
 
-/** Informações da Máquina — PDF empilhadores (inclui Horas) */
+/** Informações da Máquina — PDF empilhadores (modelo + matrícula bem visíveis) */
 export const EMPILHADORES_MACHINE_PDF_SPECS = [
+  { id: 'maquina', label: LABEL_MAQUINA },
   { id: 'marca', label: LABEL_MARCA },
   { id: 'modelo', label: LABEL_MODELO },
+  {
+    id: 'n_interno',
+    label: LABEL_MATRICULA,
+    aliases: ['matricula', 'num_interno'],
+  },
   {
     id: 'numero_de_serie',
     label: LABEL_NUMERO_SERIE,
     aliases: ['num_serie', 'numero_serie', 'n_serie'],
   },
   { id: 'horas', label: LABEL_HORAS, aliases: ['horas_gastas'] },
-  { id: 'n_interno', label: LABEL_N_INTERNO, aliases: ['num_interno'] },
 ];
 
 const EMPILHADORES_DUAL_VERIFY_GAP_MM = 5.3;

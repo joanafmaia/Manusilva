@@ -320,20 +320,82 @@ export function formatGrandesMaquinaOptionLabel(row = {}) {
   return parts.join(' · ');
 }
 
+/** Valor do select de consumíveis — guarda nome e matrícula em separado. */
+export function encodeGrandesMaquinaSelectValue(row = {}) {
+  const maquina = String(row.maquina ?? '').trim();
+  const matricula = String(row.matricula ?? '').trim();
+  if (!maquina && !matricula) return '';
+  return JSON.stringify({ maquina, matricula });
+}
+
+/** Lê valor do select (JSON novo ou texto legado «Nome · Matrícula»). */
+export function decodeGrandesMaquinaSelectValue(raw) {
+  const text = String(raw ?? '').trim();
+  if (!text) return { maquina: '', matricula: '' };
+  if (text.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(text);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        return {
+          maquina: String(parsed.maquina ?? '').trim(),
+          matricula: String(parsed.matricula ?? '').trim(),
+        };
+      }
+    } catch {
+      /* texto livre */
+    }
+  }
+  const sep = ' · ';
+  const idx = text.indexOf(sep);
+  if (idx >= 0) {
+    return {
+      maquina: text.slice(0, idx).trim(),
+      matricula: text.slice(idx + sep.length).trim(),
+    };
+  }
+  return { maquina: text, matricula: '' };
+}
+
+/** Resolve nome/matrícula a partir da linha de consumível (incl. legado). */
+export function resolveGrandesConsumivelMaquina(row = {}) {
+  const storedMatricula = String(row.matricula ?? '').trim();
+  const decoded = decodeGrandesMaquinaSelectValue(row.maquina);
+  return {
+    maquina: decoded.maquina,
+    matricula: storedMatricula || decoded.matricula,
+  };
+}
+
 export function listGrandesBatteryMaquinaOptions(rows = []) {
   const options = [];
   const seen = new Set();
   rows.forEach((row) => {
+    const maquina = String(row.maquina ?? '').trim();
+    const matricula = String(row.matricula ?? '').trim();
     const label = formatGrandesMaquinaOptionLabel(row);
-    if (!label || seen.has(label)) return;
-    seen.add(label);
-    options.push(label);
+    if (!label) return;
+    const value = encodeGrandesMaquinaSelectValue({ maquina, matricula });
+    const key = value || label;
+    if (seen.has(key)) return;
+    seen.add(key);
+    options.push({ value: value || label, label, maquina, matricula });
   });
   return options;
 }
 
 export function readGrandesBatteryMaquinaOptionsFromOverlay(overlay) {
   return listGrandesBatteryMaquinaOptions(collect(overlay));
+}
+
+function selectValueMatchesOption(current, option) {
+  if (!current) return false;
+  if (current === option.value || current === option.label) return true;
+  const decoded = decodeGrandesMaquinaSelectValue(current);
+  return (
+    decoded.maquina === option.maquina &&
+    decoded.matricula === option.matricula &&
+    (decoded.maquina || decoded.matricula)
+  );
 }
 
 /** Atualiza os selects «Máquina» nos consumíveis após alterar a identificação bateria. */
@@ -343,17 +405,24 @@ export function refreshGrandesMachineSelectsInOverlay(overlay) {
   overlay.querySelectorAll('[data-maquina-select]').forEach((select) => {
     const current = select.value?.trim() || '';
     const optionHtml = options
-      .map((label) => `<option value="${escapeHtml(label)}">${escapeHtml(label)}</option>`)
+      .map(
+        (opt) =>
+          `<option value="${escapeHtml(opt.value)}">${escapeHtml(opt.label)}</option>`,
+      )
       .join('');
     select.innerHTML = `<option value="">—</option>${optionHtml}`;
-    if (current && options.includes(current)) {
-      select.value = current;
+    const match = options.find((opt) => selectValueMatchesOption(current, opt));
+    if (match) {
+      select.value = match.value;
       return;
     }
     if (current) {
+      const decoded = decodeGrandesMaquinaSelectValue(current);
+      const orphanValue = encodeGrandesMaquinaSelectValue(decoded) || current;
+      const orphanLabel = formatGrandesMaquinaOptionLabel(decoded) || current;
       select.insertAdjacentHTML(
         'beforeend',
-        `<option value="${escapeHtml(current)}" selected>${escapeHtml(current)} (já não na lista)</option>`,
+        `<option value="${escapeHtml(orphanValue)}" selected>${escapeHtml(orphanLabel)} (já não na lista)</option>`,
       );
     }
   });

@@ -38,7 +38,7 @@ import { drawInterventionFotografiasSection } from './pdf-intervention-fotos.js'
 import { drawSignaturesFooter } from './pdf-signatures-footer.js';
 import { drawPdfGridTable } from './pdf-grid-table.js';
 import { isMaterialTableField, normalizeMaterialRows } from './material-table-field.js';
-import { getColumnKeys } from './views/relatorio-grandes.js';
+import { getColumnKeys, resolveGrandesConsumivelMaquina } from './views/relatorio-grandes.js';
 import { LABEL_HORAS, labelWithValue } from './field-labels.js';
 import {
   pdfEstadoGridDidParseCell,
@@ -157,36 +157,46 @@ async function drawGrandesBatteryTable(doc, y, rows) {
 }
 
 async function drawGrandesConsumablesTableAt(doc, startY, rows, x, width) {
-  const hasMaquina = rows.some((row) => String(row.maquina || '').trim());
+  const resolvedRows = rows.map((row) => ({
+    ...row,
+    ...resolveGrandesConsumivelMaquina(row),
+  }));
+  const hasMaquina = resolvedRows.some(
+    (row) => String(row.maquina || '').trim() || String(row.matricula || '').trim(),
+  );
   const normalized = rows.length
     ? hasMaquina
-      ? rows.map((row) => [
+      ? resolvedRows.map((row) => [
           pdfDisplayValue(row.maquina),
+          pdfDisplayValue(row.matricula),
           pdfDisplayValue(row.artigo),
           pdfDisplayValue(row.qtd),
         ])
       : rows.map((row) => [pdfDisplayValue(row.artigo), pdfDisplayValue(row.qtd)])
     : hasMaquina
-      ? [['—', '—', '—']]
+      ? [['—', '—', '—', '—']]
       : [['—', '—']];
-  const artW = width * (hasMaquina ? 0.5 : 0.72);
-  const maqW = hasMaquina ? width * 0.28 : 0;
-  const qtdW = width - artW - maqW;
+
+  const qtdW = Math.max(12, width * 0.12);
+  const matW = hasMaquina ? Math.max(18, width * 0.2) : 0;
+  const maqW = hasMaquina ? Math.max(20, width * 0.22) : 0;
+  const artW = width - qtdW - matW - maqW;
 
   let y = await drawGrandesSectionBar(doc, startY, 'Consumíveis Utilizados', { x, width });
   const pack = grandesTableStylePack(doc);
   const columnStyles = hasMaquina
     ? {
-        0: { cellWidth: maqW, halign: 'left', fontSize: PDF_FONT_TABLE },
-        1: { cellWidth: artW, halign: 'left', fontSize: PDF_FONT_TABLE },
-        2: { cellWidth: qtdW, halign: 'center', fontSize: PDF_FONT_TABLE },
+        0: { cellWidth: maqW, halign: 'left', fontSize: PDF_FONT_TABLE, overflow: 'linebreak' },
+        1: { cellWidth: matW, halign: 'left', fontSize: PDF_FONT_TABLE, overflow: 'linebreak' },
+        2: { cellWidth: artW, halign: 'left', fontSize: PDF_FONT_TABLE, overflow: 'linebreak' },
+        3: { cellWidth: qtdW, halign: 'center', fontSize: PDF_FONT_TABLE },
       }
     : {
         0: { cellWidth: artW, halign: 'left', fontSize: PDF_FONT_TABLE },
         1: { cellWidth: qtdW, halign: 'center', fontSize: PDF_FONT_TABLE },
       };
   const endY = await drawPdfGridTable(doc, y, {
-    head: [hasMaquina ? ['Máquina', 'Artigo / Desc.', 'Qtd.'] : ['Artigo / Desc.', 'Qtd.']],
+    head: [hasMaquina ? ['Máquina', 'Matríc.', 'Artigo / Desc.', 'Qtd.'] : ['Artigo / Desc.', 'Qtd.']],
     body: normalized,
     marginLeft: x,
     marginRight: PAGE_W - x - width,

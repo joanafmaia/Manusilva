@@ -8,12 +8,13 @@ import {
   applyEquipamentoToForm,
   formatEquipamentoLabel,
 } from './cliente-equipamentos.js';
-import { LABEL_NUMERO_SERIE, LABEL_N_INTERNO } from './field-labels.js';
+import { LABEL_NUMERO_SERIE, LABEL_MATRICULA } from './field-labels.js';
 
 const INPUT_DEBOUNCE_MS = 120;
 const MAX_DROPDOWN_RESULTS = 12;
 
 const COMBOBOX_FIELD_IDS = new Set([
+  'maquina',
   'marca',
   'modelo',
   'numero_de_serie',
@@ -39,18 +40,26 @@ function equipamentoFieldValue(equipamento, fieldId) {
   if (fieldId === 'numero_de_serie' || fieldId === 'num_serie') {
     return norm(equipamento.numero_serie);
   }
+  if (fieldId === 'n_interno') {
+    return norm(equipamento.n_interno) || norm(equipamento.matricula);
+  }
+  if (fieldId === 'maquina') {
+    return norm(equipamento.maquina);
+  }
   return norm(equipamento[fieldId]);
 }
 
 function formatOptionMeta(equipamento, fieldId) {
   const parts = [];
+  if (fieldId !== 'maquina' && norm(equipamento.maquina)) parts.push(norm(equipamento.maquina));
   if (fieldId !== 'marca' && norm(equipamento.marca)) parts.push(norm(equipamento.marca));
   if (fieldId !== 'modelo' && norm(equipamento.modelo)) parts.push(norm(equipamento.modelo));
   if (fieldId !== 'numero_de_serie' && fieldId !== 'num_serie' && norm(equipamento.numero_serie)) {
     parts.push(`${LABEL_NUMERO_SERIE}: ${norm(equipamento.numero_serie)}`);
   }
-  if (fieldId !== 'n_interno' && norm(equipamento.n_interno)) {
-    parts.push(`${LABEL_N_INTERNO}: ${norm(equipamento.n_interno)}`);
+  const matricula = norm(equipamento.n_interno) || norm(equipamento.matricula);
+  if (fieldId !== 'n_interno' && matricula) {
+    parts.push(`${LABEL_MATRICULA}: ${matricula}`);
   }
   if (parts.length) return parts.join(' · ');
   return formatEquipamentoLabel(equipamento);
