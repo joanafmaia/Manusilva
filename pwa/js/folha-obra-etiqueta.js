@@ -40,23 +40,23 @@ const ETIQUETA_STYLES = `
   .folha-etiqueta {
     width: ${ETIQUETA_PRINT_WIDTH_MM}mm;
     height: ${ETIQUETA_PRINT_HEIGHT_MM}mm;
-    padding: 1.2mm 2.4mm 1.2mm;
+    padding: 0.8mm 2mm 0.8mm;
     display: flex;
     flex-direction: column;
-    gap: 0.7mm;
+    gap: 0.45mm;
     overflow: hidden;
     border: 0.25mm solid #cbd5e1;
-    border-top: 1.1mm solid #1d4ed8;
-    border-radius: 0.8mm;
+    border-top: 0.9mm solid #1d4ed8;
+    border-radius: 0.6mm;
     background: #fff;
   }
   .folha-etiqueta__badge {
     flex-shrink: 0;
-    font-size: 10pt;
+    font-size: 8pt;
     font-weight: 800;
     line-height: 1;
-    padding: 0.6mm 1.1mm;
-    border-radius: 0.6mm;
+    padding: 0.4mm 0.9mm;
+    border-radius: 0.5mm;
     letter-spacing: 0.02em;
   }
   .folha-etiqueta__badge--ms {
@@ -70,24 +70,25 @@ const ETIQUETA_STYLES = `
     border: 0.12mm solid #fdba74;
   }
   .folha-etiqueta__etq-wrap {
-    padding: 1mm 1.8mm 0.8mm;
-    border: 0.22mm solid #bfdbfe;
-    border-radius: 0.8mm;
+    flex-shrink: 0;
+    padding: 0.55mm 1.2mm 0.5mm;
+    border: 0.2mm solid #bfdbfe;
+    border-radius: 0.6mm;
     background: linear-gradient(180deg, #f8fbff 0%, #eef5ff 100%);
     display: flex;
     flex-direction: column;
     justify-content: center;
-    gap: 0.5mm;
+    gap: 0.2mm;
   }
   .folha-etiqueta__etq-top {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 1.2mm;
-    min-height: 4.8mm;
+    gap: 1mm;
+    min-height: 3.6mm;
   }
   .folha-etiqueta__brand {
-    font-size: 7.5pt;
+    font-size: 6.5pt;
     font-weight: 700;
     letter-spacing: 0.04em;
     text-transform: uppercase;
@@ -105,31 +106,31 @@ const ETIQUETA_STYLES = `
     align-items: center;
   }
   .folha-etiqueta__etq {
-    font-size: 22pt;
+    font-size: 18pt;
     font-weight: 800;
-    line-height: 0.95;
-    letter-spacing: 0.04em;
+    line-height: 0.92;
+    letter-spacing: 0.03em;
     color: #0f172a;
   }
   .folha-etiqueta__fo {
-    font-size: 8.5pt;
+    font-size: 7.5pt;
     color: #334155;
     font-weight: 700;
-    line-height: 1.1;
-    margin-top: 0.15mm;
+    line-height: 1;
+    margin-top: 0;
   }
   .folha-etiqueta__cliente {
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
-    gap: 0.35mm;
-    padding: 1mm 1.4mm;
-    border-radius: 0.7mm;
-    border: 0.28mm solid #1d4ed8;
+    gap: 0.15mm;
+    padding: 0.55mm 1.1mm;
+    border-radius: 0.55mm;
+    border: 0.25mm solid #1d4ed8;
     background: #eff6ff;
   }
   .folha-etiqueta__cliente-label {
-    font-size: 6.2pt;
+    font-size: 5.5pt;
     font-weight: 800;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -137,10 +138,10 @@ const ETIQUETA_STYLES = `
     line-height: 1;
   }
   .folha-etiqueta__cliente-name {
-    font-size: 12.5pt;
+    font-size: 11pt;
     font-weight: 800;
-    line-height: 1.1;
-    max-height: 8.5mm;
+    line-height: 1.05;
+    max-height: 6.2mm;
     overflow: hidden;
     word-break: break-word;
     color: #0f172a;
@@ -148,17 +149,19 @@ const ETIQUETA_STYLES = `
   .folha-etiqueta__equip {
     display: flex;
     flex-direction: column;
-    gap: 0.45mm;
-    padding-top: 0.35mm;
-    border-top: 0.18mm solid #e2e8f0;
-    flex: 0 0 auto;
+    gap: 0.25mm;
+    padding-top: 0.2mm;
+    border-top: 0.15mm solid #e2e8f0;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
   }
   .folha-etiqueta__row {
-    font-size: 10pt;
-    line-height: 1.1;
+    font-size: 8.5pt;
+    line-height: 1.05;
     display: grid;
-    grid-template-columns: 18mm 1fr;
-    gap: 1mm;
+    grid-template-columns: 16.5mm 1fr;
+    gap: 0.8mm;
     align-items: start;
     min-width: 0;
   }
@@ -167,9 +170,9 @@ const ETIQUETA_STYLES = `
     font-weight: 700;
     color: #475569;
     text-transform: uppercase;
-    font-size: 6pt;
-    letter-spacing: 0.03em;
-    line-height: 1.15;
+    font-size: 5.4pt;
+    letter-spacing: 0.02em;
+    line-height: 1.1;
     padding-top: 0.1mm;
   }
   .folha-etiqueta__row-value {
@@ -177,25 +180,27 @@ const ETIQUETA_STYLES = `
     font-weight: 700;
     color: #0f172a;
     overflow: hidden;
-    word-break: break-word;
+    white-space: nowrap;
+    text-overflow: ellipsis;
   }
   .folha-etiqueta__people {
+    flex-shrink: 0;
     display: flex;
     flex-direction: column;
-    gap: 0.4mm;
+    gap: 0.25mm;
     align-items: stretch;
-    padding-top: 0.35mm;
-    border-top: 0.18mm solid #e2e8f0;
-    margin-top: 0;
+    padding-top: 0.2mm;
+    border-top: 0.15mm solid #e2e8f0;
+    margin-top: auto;
   }
   .folha-etiqueta__person {
-    font-size: 8.5pt;
-    line-height: 1.1;
+    font-size: 7.8pt;
+    line-height: 1.05;
     word-break: break-word;
     background: #f8fafc;
-    border: 0.16mm solid #e2e8f0;
-    border-radius: 0.5mm;
-    padding: 0.4mm 0.8mm;
+    border: 0.14mm solid #e2e8f0;
+    border-radius: 0.4mm;
+    padding: 0.3mm 0.7mm;
   }
   .folha-etiqueta__person-label {
     font-weight: 700;
@@ -261,9 +266,18 @@ function renderEquipRow(label, value) {
   `;
 }
 
+function formatEtiquetaDate(iso) {
+  if (!iso) return '—';
+  const s = String(iso);
+  const day = s.includes('T') ? s.split('T')[0] : s.slice(0, 10);
+  const [y, m, d] = day.split('-');
+  if (!y || !m || !d) return formatDate(iso);
+  return `${d}/${m}/${y}`;
+}
+
 function buildFolhaObraEtiquetaBody(folha) {
   const cliente = resolveClientName(folha);
-  const entrada = folha?.dataRececao ? formatDate(folha.dataRececao) : '—';
+  const entrada = formatEtiquetaDate(folha?.dataRececao);
   const etq = resolveEtqLabel(folha);
   const fo = formatFolhaObraOrdemLabel(folha);
   const msRc = formatFolhaResponsabilidadeLabel(folha?.responsabilidade);
@@ -291,9 +305,9 @@ function buildFolhaObraEtiquetaBody(folha) {
       </div>
       <div class="folha-etiqueta__equip">
         ${renderEquipRow('Tipo', folha?.tipo)}
-        ${renderEquipRow('Marca / Modelo', folha?.marcaModelo)}
-        ${renderEquipRow('Número de série', folha?.numeroSerie)}
-        ${renderEquipRow('Data de entrada', entrada)}
+        ${renderEquipRow('Marca', folha?.marcaModelo)}
+        ${renderEquipRow('N.º série', folha?.numeroSerie)}
+        ${renderEquipRow('Entrada', entrada)}
       </div>
       ${
         people.length
