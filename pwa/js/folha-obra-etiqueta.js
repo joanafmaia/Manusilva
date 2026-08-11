@@ -152,9 +152,7 @@ const ETIQUETA_STYLES = `
     gap: 0.25mm;
     padding-top: 0.2mm;
     border-top: 0.15mm solid #e2e8f0;
-    flex: 1 1 auto;
-    min-height: 0;
-    overflow: hidden;
+    flex: 0 0 auto;
   }
   .folha-etiqueta__row {
     font-size: 8.5pt;
@@ -189,9 +187,9 @@ const ETIQUETA_STYLES = `
     flex-direction: column;
     gap: 0.25mm;
     align-items: stretch;
-    padding-top: 0.2mm;
+    padding-top: 0.35mm;
     border-top: 0.15mm solid #e2e8f0;
-    margin-top: auto;
+    margin-top: 0;
   }
   .folha-etiqueta__person {
     font-size: 7.8pt;
