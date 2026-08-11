@@ -1,5 +1,5 @@
 /**
- * Secção RH — folhas R.C à espera de orçamento (aba Orçamentos).
+ * Secção RH — folhas de obra à espera de orçamento (aba Orçamentos).
  */
 
 import { escapeHtml } from '../html-utils.js';
@@ -58,8 +58,8 @@ export function renderFolhaObraRhSection(folhas = getFolhasObraAguardaOrcamento(
   if (!folhas.length) {
     return `
       <section class="folha-obra-rh-section rh-section glass-card">
-        <h3 class="ms-h2 faturacao-section-title folha-obra-rh-title">Oficina — R.C por orçamentar</h3>
-        <p class="text-muted faturacao-empty">Nenhum equipamento R.C aguarda orçamento.</p>
+        <h3 class="ms-h2 faturacao-section-title folha-obra-rh-title">Oficina — por orçamentar</h3>
+        <p class="text-muted faturacao-empty">Nenhuma folha de obra aguarda orçamento.</p>
       </section>
     `;
   }
@@ -68,9 +68,9 @@ export function renderFolhaObraRhSection(folhas = getFolhasObraAguardaOrcamento(
 
   return `
     <section class="folha-obra-rh-section rh-section glass-card">
-      <h3 class="ms-h2 faturacao-section-title folha-obra-rh-title">Oficina — R.C por orçamentar <span class="badge-count">${folhas.length}</span></h3>
+      <h3 class="ms-h2 faturacao-section-title folha-obra-rh-title">Oficina — por orçamentar <span class="badge-count">${folhas.length}</span></h3>
       <p class="text-muted folha-obra-rh-lead">
-        Diagnóstico concluído sem proposta. Crie o MS.015; depois continue na lista ou no quadro (origem «Folha de obra R.C»).
+        Diagnóstico enviado pelo Armazém sem proposta. Crie o MS.015; depois continue na lista ou no quadro (origem «Folha de obra»).
       </p>
       <div class="faturacao-table-wrap rh-table-scroll${scrollClass}">
         <table class="rh-data-table rh-data-table--compact faturacao-table faturacao-table--compact folha-obra-data-table faturacao-table--dense">

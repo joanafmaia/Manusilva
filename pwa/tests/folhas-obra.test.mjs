@@ -138,7 +138,7 @@ describe('folhas-obra-db validate', () => {
 });
 
 describe('folha-obra-orcamento', () => {
-  it('M.S em reparação; R.C passa por diagnóstico antes do RH', async () => {
+  it('Após entrada: diagnóstico; técnico escolhe orçamento ou faturação', async () => {
     const {
       resolveFolhaObraEstadoAfterEntrada,
       submitFolhaObraDiagnosticoForOrcamento,
@@ -151,7 +151,7 @@ describe('folha-obra-orcamento', () => {
     } = await import('../js/folha-obra-orcamento.js');
     const { validateFolhaObraPayload } = await import('../js/folhas-obra-db.js');
 
-    assert.equal(resolveFolhaObraEstadoAfterEntrada('MS'), 'em_reparacao');
+    assert.equal(resolveFolhaObraEstadoAfterEntrada('MS'), 'em_diagnostico');
     assert.equal(resolveFolhaObraEstadoAfterEntrada('RC'), 'em_diagnostico');
     assert.equal(isFolhaObraVisibleToArmazem({ estado: 'em_diagnostico' }), true);
     assert.equal(isFolhaObraVisibleToArmazem({ estado: 'em_reparacao' }), true);
@@ -164,7 +164,7 @@ describe('folha-obra-orcamento', () => {
     );
     assert.equal(
       isFolhaObraDiagnosticoEditable({ estado: 'em_diagnostico', responsabilidade: 'MS' }),
-      false,
+      true,
     );
     assert.equal(normalizeFolhaResponsabilidade('ms'), 'MS');
     assert.equal(formatFolhaResponsabilidadeLabel('RC'), 'R.C');

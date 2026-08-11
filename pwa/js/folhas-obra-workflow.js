@@ -9,7 +9,7 @@ import {
   assignFolhaObraEtq,
   validateFolhaObraPayload,
 } from './folhas-obra-db.js';
-import { FOLHA_RESPONSABILIDADE, normalizeFolhaResponsabilidade } from './folha-obra-orcamento.js';
+import { normalizeFolhaResponsabilidade } from './folha-obra-orcamento.js';
 import {
   normalizeInvoiceAmountInput,
   resolveInvoiceBillingFields,
@@ -40,18 +40,15 @@ export function estimateFolhaObraValue(folha) {
   return DEFAULT_ESTIMATE_EUR;
 }
 
-export function resolveFolhaObraEstadoAfterEntrada(responsabilidade) {
-  return normalizeFolhaResponsabilidade(responsabilidade) === FOLHA_RESPONSABILIDADE.MS
-    ? 'em_reparacao'
-    : 'em_diagnostico';
+export function resolveFolhaObraEstadoAfterEntrada(_responsabilidade) {
+  // Após a entrada, o técnico preenche diagnóstico/consumíveis e escolhe:
+  // orçamento RH ou concluir para faturação (M.S/R.C só identifica a máquina).
+  return 'em_diagnostico';
 }
 
 export async function submitFolhaObraDiagnosticoForOrcamento(folhaId, payload = null) {
   const existing = getFolhaObra(folhaId);
   if (!existing) throw new Error('Folha de obra não encontrada.');
-  if (normalizeFolhaResponsabilidade(existing.responsabilidade) !== FOLHA_RESPONSABILIDADE.RC) {
-    throw new Error('Só equipamentos R.C seguem para orçamento RH.');
-  }
   if (existing.estado !== 'em_diagnostico') {
     throw new Error('Esta folha já não está em diagnóstico técnico.');
   }
@@ -114,8 +111,8 @@ export async function submitFolhaObraForBilling(folhaId) {
   if (folha.estado === 'rascunho') {
     throw new Error('Registe primeiro a entrada do equipamento.');
   }
-  if (folha.estado !== 'em_reparacao') {
-    throw new Error('A folha só pode ser concluída durante a reparação.');
+  if (folha.estado !== 'em_reparacao' && folha.estado !== 'em_diagnostico') {
+    throw new Error('A folha só pode ser concluída durante o diagnóstico ou a reparação.');
   }
   validateFolhaObraPayload(folha, 'concluir');
 

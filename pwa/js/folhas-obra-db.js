@@ -430,6 +430,9 @@ export function validateFolhaObraPayload(payload, mode = 'draft') {
   }
 
   if (mode === 'concluir') {
+    if (!String(payload?.diagnosticoTecnico || '').trim()) {
+      throw new Error('Preencha o diagnóstico técnico antes de concluir.');
+    }
     if (!String(payload?.maquinaConcluidaEm || '').trim()) {
       throw new Error('Indique a data em que a máquina foi concluída.');
     }

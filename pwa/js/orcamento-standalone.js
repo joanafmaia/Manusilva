@@ -266,7 +266,7 @@ export function standaloneOrcamentoLabel() {
 }
 
 export function reportOrcamentoQueueLabel(report) {
-  if (reportLooksLikeFolhaObraOrcamento(report)) return 'Folha de obra R.C';
+  if (reportLooksLikeFolhaObraOrcamento(report)) return 'Folha de obra';
   if (reportIsStandaloneOrcamento(report)) return standaloneOrcamentoLabel();
   if (report?.status === 'approved') return 'Relatório aprovado';
   if (report?.status === 'pending_review') return 'Aguarda aprovação RH';

@@ -55,10 +55,7 @@ export function isFolhaObraVisibleToArmazem(folha) {
 }
 
 export function isFolhaObraDiagnosticoEditable(folha) {
-  return (
-    (folha?.estado || 'rascunho') === 'em_diagnostico' &&
-    normalizeFolhaResponsabilidade(folha?.responsabilidade) === FOLHA_RESPONSABILIDADE.RC
-  );
+  return (folha?.estado || 'rascunho') === 'em_diagnostico';
 }
 
 export function isFolhaObraAguardaOrcamentoEstado(folhaOrEstado) {
@@ -71,13 +68,12 @@ export function isFolhaObraRepairEditable(folha) {
 }
 
 /**
- * Folhas R.C. ainda sem proposta MS.015 — a lista de Orçamentos trata as que já têm report.
+ * Folhas ainda sem proposta MS.015 — a lista de Orçamentos trata as que já têm report.
  */
 export function getFolhasObraAguardaOrcamento() {
   return getFolhasObraSnapshot()
     .filter(
       (f) =>
-        normalizeFolhaResponsabilidade(f.responsabilidade) === FOLHA_RESPONSABILIDADE.RC &&
         f.estado === 'aguarda_orcamento' &&
         !String(f.orcamentoReportId || '').trim(),
     )
@@ -152,9 +148,6 @@ function buildFolhaObraOrcamentoDraft(folha) {
 export async function createOrcamentoFromFolhaObra(folhaId) {
   const folha = getFolhaObra(folhaId);
   if (!folha) throw new Error('Folha de obra não encontrada.');
-  if (normalizeFolhaResponsabilidade(folha.responsabilidade) !== FOLHA_RESPONSABILIDADE.RC) {
-    throw new Error('Só equipamentos R.C precisam de orçamento.');
-  }
   if (!['aguarda_orcamento', 'orcamento_enviado'].includes(folha.estado || '')) {
     throw new Error('Esta folha já não está à espera de orçamento.');
   }

@@ -50,7 +50,7 @@ describe('orcamento-origem', () => {
     };
     assert.equal(reportMatchesOrcamentoOrigem(folha, 'folha'), true);
     assert.equal(reportMatchesOrcamentoOrigem(folha, 'rh'), false);
-    assert.equal(formatOrcamentoOrigemLabel(folha), 'Folha de obra R.C');
+    assert.equal(formatOrcamentoOrigemLabel(folha), 'Folha de obra');
   });
 });
 

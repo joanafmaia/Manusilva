@@ -14,7 +14,7 @@ export const ORCAMENTO_ORIGEM = Object.freeze({
 export const ORCAMENTO_ORIGEM_OPTIONS = [
   { value: ORCAMENTO_ORIGEM.RH, label: 'Proposta RH' },
   { value: ORCAMENTO_ORIGEM.PEDIDO, label: 'Pedido técnico' },
-  { value: ORCAMENTO_ORIGEM.FOLHA, label: 'Folha de obra R.C' },
+  { value: ORCAMENTO_ORIGEM.FOLHA, label: 'Folha de obra' },
 ];
 
 const LABEL_BY_ID = new Map(ORCAMENTO_ORIGEM_OPTIONS.map((o) => [o.value, o.label]));
