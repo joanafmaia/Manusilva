@@ -198,6 +198,7 @@ describe('folha-obra-etiqueta', () => {
 
     const msHtml = buildFolhaObraEtiquetaHtml({
       clientId: '5',
+      clientName: 'Metalúrgica Norte Lda',
       tipo: 'Empilhador',
       marcaModelo: 'Toyota',
       numeroSerie: 'SN-1',
@@ -210,12 +211,15 @@ describe('folha-obra-etiqueta', () => {
     assert.match(msHtml, /M\.S/);
     assert.match(msHtml, /Empilhador/);
     assert.match(msHtml, /ETQ-2/);
+    assert.match(msHtml, /Metalúrgica Norte Lda/);
+    assert.match(msHtml, /folha-etiqueta__cliente/);
     assert.match(msHtml, /Entrada/);
     assert.match(msHtml, /Hugo/);
     assert.doesNotMatch(msHtml, /Trouxe/);
 
     const rcHtml = buildFolhaObraEtiquetaHtml({
       clientId: '5',
+      clientName: 'Cliente Teste SA',
       tipo: 'Bateria',
       marcaModelo: 'Hoppecke',
       numeroSerie: 'SN-9',
@@ -226,6 +230,7 @@ describe('folha-obra-etiqueta', () => {
       responsavel: 'Ana',
     });
     assert.match(rcHtml, /R\.C/);
+    assert.match(rcHtml, /Cliente Teste SA/);
     assert.match(rcHtml, /Entrada/);
     assert.match(rcHtml, /Ana/);
 

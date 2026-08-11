@@ -105,43 +105,60 @@ const ETIQUETA_STYLES = `
     align-items: center;
   }
   .folha-etiqueta__etq {
-    font-size: 28pt;
+    font-size: 22pt;
     font-weight: 800;
     line-height: 0.95;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.04em;
     color: #0f172a;
   }
   .folha-etiqueta__fo {
-    font-size: 10pt;
+    font-size: 8.5pt;
     color: #334155;
     font-weight: 700;
     line-height: 1.1;
-    margin-top: 0.2mm;
+    margin-top: 0.15mm;
   }
   .folha-etiqueta__cliente {
-    font-size: 13.5pt;
-    font-weight: 700;
-    line-height: 1.12;
-    max-height: 9mm;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35mm;
+    padding: 1mm 1.4mm;
+    border-radius: 0.7mm;
+    border: 0.28mm solid #1d4ed8;
+    background: #eff6ff;
+  }
+  .folha-etiqueta__cliente-label {
+    font-size: 6.2pt;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #1d4ed8;
+    line-height: 1;
+  }
+  .folha-etiqueta__cliente-name {
+    font-size: 12.5pt;
+    font-weight: 800;
+    line-height: 1.1;
+    max-height: 8.5mm;
     overflow: hidden;
     word-break: break-word;
-    padding: 0.2mm 0;
     color: #0f172a;
   }
   .folha-etiqueta__equip {
     display: flex;
     flex-direction: column;
-    gap: 0.7mm;
-    padding-top: 0.5mm;
+    gap: 0.45mm;
+    padding-top: 0.35mm;
     border-top: 0.18mm solid #e2e8f0;
     flex: 0 0 auto;
   }
   .folha-etiqueta__row {
-    font-size: 11.5pt;
-    line-height: 1.12;
+    font-size: 10pt;
+    line-height: 1.1;
     display: grid;
-    grid-template-columns: 20mm 1fr;
-    gap: 1.2mm;
+    grid-template-columns: 18mm 1fr;
+    gap: 1mm;
     align-items: start;
     min-width: 0;
   }
@@ -150,10 +167,10 @@ const ETIQUETA_STYLES = `
     font-weight: 700;
     color: #475569;
     text-transform: uppercase;
-    font-size: 6.8pt;
+    font-size: 6pt;
     letter-spacing: 0.03em;
     line-height: 1.15;
-    padding-top: 0.15mm;
+    padding-top: 0.1mm;
   }
   .folha-etiqueta__row-value {
     display: block;
@@ -165,20 +182,20 @@ const ETIQUETA_STYLES = `
   .folha-etiqueta__people {
     display: flex;
     flex-direction: column;
-    gap: 0.6mm;
+    gap: 0.4mm;
     align-items: stretch;
-    padding-top: 0.5mm;
+    padding-top: 0.35mm;
     border-top: 0.18mm solid #e2e8f0;
     margin-top: 0;
   }
   .folha-etiqueta__person {
-    font-size: 9.4pt;
-    line-height: 1.12;
+    font-size: 8.5pt;
+    line-height: 1.1;
     word-break: break-word;
     background: #f8fafc;
     border: 0.16mm solid #e2e8f0;
     border-radius: 0.5mm;
-    padding: 0.5mm 0.9mm;
+    padding: 0.4mm 0.8mm;
   }
   .folha-etiqueta__person-label {
     font-weight: 700;
@@ -193,8 +210,12 @@ const ETIQUETA_STYLES = `
 `;
 
 function resolveClientName(folha) {
+  const fromPayload = String(
+    folha?.clientName || folha?.clienteNome || folha?.cliente || '',
+  ).trim();
+  if (fromPayload && fromPayload !== '—') return fromPayload;
   const client = folha?.clientId ? getClient(folha.clientId) : null;
-  return client?.Nome || client?.name || '—';
+  return String(client?.Nome || client?.name || client?.nome || '').trim() || '—';
 }
 
 function resolveEtqLabel(folha) {
@@ -264,7 +285,10 @@ function buildFolhaObraEtiquetaBody(folha) {
           ${fo && fo !== '—' && fo !== etq ? `<div class="folha-etiqueta__fo">${escapeHtml(fo)}</div>` : ''}
         </div>
       </div>
-      <div class="folha-etiqueta__cliente">${escapeHtml(cliente)}</div>
+      <div class="folha-etiqueta__cliente">
+        <span class="folha-etiqueta__cliente-label">Cliente</span>
+        <span class="folha-etiqueta__cliente-name">${escapeHtml(cliente)}</span>
+      </div>
       <div class="folha-etiqueta__equip">
         ${renderEquipRow('Tipo', folha?.tipo)}
         ${renderEquipRow('Marca / Modelo', folha?.marcaModelo)}

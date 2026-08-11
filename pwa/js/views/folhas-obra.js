@@ -245,6 +245,7 @@ function renderTecnicoReparacaoSelect(folha, session, { disabled = false } = {})
 function collectFolhaFromForm(form, technicianId, session = null) {
   const combo = form.querySelector('[data-client-combobox]');
   const clientId = combo?.querySelector('.client-combobox-id')?.value?.trim() || '';
+  const clientName = combo?.querySelector('.client-combobox-input')?.value?.trim() || '';
   const tipo = form.querySelector('[name="tipo"]')?.value?.trim() || '';
   const marcaModelo = form.querySelector('[name="marca_modelo"]')?.value?.trim() || '';
   const numeroSerie = form.querySelector('[name="numero_serie"]')?.value?.trim() || '';
@@ -265,6 +266,7 @@ function collectFolhaFromForm(form, technicianId, session = null) {
 
   return {
     clientId,
+    clientName,
     technicianId: technicianFromForm || technicianId || '',
     tipo,
     marcaModelo,
@@ -564,7 +566,7 @@ function renderFolhaObraFooterHtml(folha, { isLocked } = {}) {
 function mergeFolhaPayload(form, session, baseFolha, folhaId) {
   const draft = collectFolhaFromForm(form, session?.technicianId || '', session);
   const cached = folhaId ? getFolhaObra(folhaId) : null;
-  return {
+  const merged = {
     ...(baseFolha || cached || {}),
     ...draft,
     id: cached?.id || baseFolha?.id || folhaId || 'draft',
@@ -575,6 +577,13 @@ function mergeFolhaPayload(form, session, baseFolha, folhaId) {
     entreguePor: cached?.entreguePor || draft.entreguePor || baseFolha?.entreguePor || '',
     tecnicoReparacao: cached?.tecnicoReparacao || draft.tecnicoReparacao || baseFolha?.tecnicoReparacao || '',
     estado: cached?.estado || draft.estado || baseFolha?.estado || 'rascunho',
+  };
+  const clientName =
+    draft.clientName ||
+    resolveFolhaClientName(merged);
+  return {
+    ...merged,
+    clientName: clientName && clientName !== '—' ? clientName : draft.clientName || '',
   };
 }
 
@@ -726,15 +735,22 @@ export function openFolhaObraEditor(folhaId, session, { onClose } = {}) {
             }
             const saved = await registerFolhaObraEntrada(state.id, payload);
             state.folha = saved;
+            const etiquetaPayload = {
+              ...saved,
+              clientName:
+                payload.clientName ||
+                resolveFolhaClientName(saved) ||
+                '',
+            };
             const entradaMsg =
               'Entrada registada. Preencha o diagnóstico e escolha orçamento ou faturação.';
             try {
-              await printFolhaObraEtiqueta(saved);
+              await printFolhaObraEtiqueta(etiquetaPayload);
               showToast(`${entradaMsg} Etiqueta enviada para impressão.`, 'success', 6000, { force: true });
               ctx.repaint();
               afterClose?.();
             } catch {
-              openFolhaObraEtiquetaPreview(saved);
+              openFolhaObraEtiquetaPreview(etiquetaPayload);
               showToast(
                 `Entrada registada (${saved.etq || 'ETQ'}). Confirme a impressão da etiqueta e preencha o diagnóstico.`,
                 'info',
