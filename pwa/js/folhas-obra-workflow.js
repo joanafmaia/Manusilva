@@ -61,6 +61,7 @@ export async function submitFolhaObraDiagnosticoForOrcamento(folhaId, payload = 
 
   return updateFolhaObra(folhaId, {
     diagnosticoTecnico: String(merged.diagnosticoTecnico || '').trim(),
+    intervencoes: merged.intervencoes || [],
     observacoes: merged.observacoes ?? existing.observacoes ?? '',
     estado: 'aguarda_orcamento',
   });

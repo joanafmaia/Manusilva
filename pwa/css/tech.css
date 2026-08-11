@@ -9264,6 +9264,11 @@ body.folha-obra-open {
   width: 2.5rem;
   text-align: center;
 }
+.folha-obra-consumiveis-empty {
+  color: var(--ms-text-muted);
+  font-style: italic;
+  text-align: center;
+}
 .form-input--sm {
   padding: 0.35rem 0.45rem;
   font-size: 0.85rem;

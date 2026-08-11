@@ -89,24 +89,83 @@ function matchesFolhaSearch(folha, query) {
   return haystack.includes(q);
 }
 
-function renderIntervencaoRows(rows, technicianName) {
-  const list = rows?.length ? rows : [emptyIntervencaoRow(technicianName)];
+function renderConsumiveisRows(rows, technicianName, { editable = true } = {}) {
+  const list = rows?.length ? rows : editable ? [emptyIntervencaoRow(technicianName)] : [];
+  if (!list.length) {
+    return `<tr><td colspan="4" class="folha-obra-consumiveis-empty">Sem consumíveis registados.</td></tr>`;
+  }
   return list
-    .map(
-      (row, index) => `
+    .map((row, index) => {
+      if (!editable) {
+        return `
+    <tr data-intervencao-row="${index}">
+      <td>
+        ${escapeHtml(row.data_intervencao || '—')}
+        <input type="hidden" data-field="data_intervencao" value="${escapeHtml(row.data_intervencao || '')}">
+      </td>
+      <td>
+        ${escapeHtml(row.material_servico || '—')}
+        <input type="hidden" data-field="material_servico" value="${escapeHtml(row.material_servico || '')}">
+      </td>
+      <td>
+        ${escapeHtml(row.quantidade || '—')}
+        <input type="hidden" data-field="quantidade" value="${escapeHtml(row.quantidade || '')}">
+      </td>
+      <td>
+        ${escapeHtml(row.horas || '—')}
+        <input type="hidden" data-field="horas" value="${escapeHtml(row.horas || '')}">
+        <input type="hidden" data-field="realizado_por" value="${escapeHtml(row.realizado_por || technicianName || '')}">
+      </td>
+    </tr>`;
+      }
+      return `
     <tr data-intervencao-row="${index}">
       <td><input type="date" class="form-input form-input--sm" data-field="data_intervencao" value="${escapeHtml(row.data_intervencao || '')}"></td>
       <td><input type="text" class="form-input form-input--sm" data-field="material_servico" value="${escapeHtml(row.material_servico || '')}" placeholder="Material ou serviço"></td>
       <td><input type="text" class="form-input form-input--sm" data-field="quantidade" value="${escapeHtml(row.quantidade || '')}" placeholder="Qtd."></td>
       <td><input type="number" class="form-input form-input--sm" data-field="horas" value="${escapeHtml(row.horas || '')}" min="0" step="0.5" placeholder="h"></td>
-      <td><input type="text" class="form-input form-input--sm" data-field="realizado_por" value="${escapeHtml(row.realizado_por || technicianName || '')}" placeholder="Técnico"></td>
       <td class="folha-obra-intervencao-actions">
+        <input type="hidden" data-field="realizado_por" value="${escapeHtml(row.realizado_por || technicianName || '')}">
         <button type="button" class="btn-icon btn-icon--danger" data-remove-intervencao="${index}" title="Remover linha" aria-label="Remover linha">×</button>
       </td>
-    </tr>
-  `,
-    )
+    </tr>`;
+    })
     .join('');
+}
+
+function renderConsumiveisSectionHtml(folha, technicianName, { editable = true } = {}) {
+  return `
+      <section class="folha-obra-section folha-obra-section--consumiveis">
+        <div class="folha-obra-section-head">
+          <h3 class="folha-obra-section-title">Consumíveis</h3>
+          ${editable ? '<button type="button" class="btn-outline btn-sm" id="folha-add-intervencao">+ Linha</button>' : ''}
+        </div>
+        <div class="folha-obra-table-wrap">
+          <table class="folha-obra-intervencoes-table">
+            <thead>
+              <tr>
+                <th>Data da Intervenção</th>
+                <th>Material/Serviço Colocado</th>
+                <th>Quantidade</th>
+                <th>Horas</th>
+                ${editable ? '<th></th>' : ''}
+              </tr>
+            </thead>
+            <tbody id="folha-intervencoes-body">
+              ${renderConsumiveisRows(folha?.intervencoes, technicianName, { editable })}
+            </tbody>
+          </table>
+        </div>
+      </section>`;
+}
+
+function renderDiagnosticoReadonlyHtml(folha) {
+  if (!folha?.diagnosticoTecnico) return '';
+  return `
+      <section class="folha-obra-section folha-obra-section--diagnostico-readonly">
+        <h3 class="folha-obra-section-title">Diagnóstico técnico</h3>
+        <p class="folha-obra-diagnostico-readonly">${escapeHtml(folha.diagnosticoTecnico)}</p>
+      </section>`;
 }
 
 function renderResponsabilidadeField(folha, { disabled = false } = {}) {
@@ -128,14 +187,17 @@ function renderResponsabilidadeField(folha, { disabled = false } = {}) {
   `;
 }
 
-function collectIntervencoesFromForm(form) {
+function collectIntervencoesFromForm(form, technicianName = '') {
   const rows = [];
   form.querySelectorAll('[data-intervencao-row]').forEach((tr) => {
     const row = {};
     tr.querySelectorAll('[data-field]').forEach((input) => {
       row[input.dataset.field] = input.value?.trim() || '';
     });
-    const hasContent = Object.values(row).some((v) => String(v).trim());
+    if (!row.realizado_por) row.realizado_por = technicianName || '';
+    const hasContent = ['data_intervencao', 'material_servico', 'quantidade', 'horas'].some(
+      (key) => String(row[key] || '').trim(),
+    );
     if (hasContent) rows.push(row);
   });
   return rows;
@@ -180,7 +242,7 @@ function renderTecnicoReparacaoSelect(folha, session, { disabled = false } = {})
   `;
 }
 
-function collectFolhaFromForm(form, technicianId) {
+function collectFolhaFromForm(form, technicianId, session = null) {
   const combo = form.querySelector('[data-client-combobox]');
   const clientId = combo?.querySelector('.client-combobox-id')?.value?.trim() || '';
   const tipo = form.querySelector('[name="tipo"]')?.value?.trim() || '';
@@ -199,6 +261,7 @@ function collectFolhaFromForm(form, technicianId) {
     form.querySelector('[name="responsabilidade"]:checked')?.value ||
     form.querySelector('[name="responsabilidade"]')?.value ||
     'RC';
+  const technicianName = session?.name || session?.username || responsavel || '';
 
   return {
     clientId,
@@ -207,7 +270,7 @@ function collectFolhaFromForm(form, technicianId) {
     marcaModelo,
     numeroSerie,
     dataRececao,
-    intervencoes: collectIntervencoesFromForm(form),
+    intervencoes: collectIntervencoesFromForm(form, technicianName),
     maquinaConcluidaEm,
     responsavel,
     tecnicoReparacao,
@@ -255,6 +318,8 @@ function renderFolhaObraFormHtml(folha, session) {
   const emDiagnostico = isFolhaObraDiagnosticoEditable(folha);
   const entradaLocked = isLocked || estado !== 'rascunho';
   const podeReparar = isFolhaObraRepairEditable(folha);
+  const showConsumiveis = emDiagnostico || aguardaOrcamento || podeReparar || isLocked;
+  const consumiveisEditable = (emDiagnostico || podeReparar) && !isLocked;
   const etqValue = folha?.etq || '';
   const etqPlaceholder = etqValue ? '' : 'Gerado ao dar entrada (ex.: ETQ-12)';
 
@@ -340,47 +405,22 @@ function renderFolhaObraFormHtml(folha, session) {
       <p class="folha-obra-phase-hint glass-card folha-obra-phase-hint--wait">
         Equipamento <strong>R.C</strong> enviado ao RH. Aguarda orçamento e aceite do cliente — a reparação no Armazém só começa depois.
       </p>
+      ${renderDiagnosticoReadonlyHtml(folha)}
+      `
+          : ''
+      }
+
       ${
-        folha?.diagnosticoTecnico
-          ? `
-      <section class="folha-obra-section folha-obra-section--diagnostico-readonly">
-        <h3 class="folha-obra-section-title">Diagnóstico técnico</h3>
-        <p class="folha-obra-diagnostico-readonly">${escapeHtml(folha.diagnosticoTecnico)}</p>
-      </section>
-      `
+        (podeReparar || isLocked) && !emDiagnostico && !aguardaOrcamento
+          ? renderDiagnosticoReadonlyHtml(folha)
           : ''
       }
-      `
-          : ''
-      }
+
+      ${showConsumiveis ? renderConsumiveisSectionHtml(folha, technicianName, { editable: consumiveisEditable }) : ''}
 
       ${
         podeReparar
           ? `
-      <section class="folha-obra-section">
-        <div class="folha-obra-section-head">
-          <h3 class="folha-obra-section-title">Intervenções</h3>
-          ${isLocked ? '' : '<button type="button" class="btn-outline btn-sm" id="folha-add-intervencao">+ Linha</button>'}
-        </div>
-        <div class="folha-obra-table-wrap">
-          <table class="folha-obra-intervencoes-table">
-            <thead>
-              <tr>
-                <th>Data de Intervenção</th>
-                <th>Material Colocado / Serviço</th>
-                <th>Quantidades</th>
-                <th>Horas</th>
-                <th>Realizado Por</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody id="folha-intervencoes-body">
-              ${renderIntervencaoRows(folha?.intervencoes, technicianName)}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
       <section class="folha-obra-section folha-obra-section--closing">
         <h3 class="folha-obra-section-title">Conclusão do serviço</h3>
         <div class="folha-obra-closing-grid">
@@ -418,12 +458,15 @@ function bindFolhaObraForm(form, { getFolhaId, session }) {
 
   const tbody = form.querySelector('#folha-intervencoes-body');
   const technicianName = session?.name || session?.username || '';
+  const canEditConsumiveis = Boolean(form.querySelector('#folha-add-intervencao'));
 
   form.querySelector('#folha-add-intervencao')?.addEventListener('click', () => {
     if (!tbody) return;
     const index = tbody.querySelectorAll('[data-intervencao-row]').length;
     const wrapper = document.createElement('tbody');
-    wrapper.innerHTML = renderIntervencaoRows([emptyIntervencaoRow(technicianName)], technicianName);
+    wrapper.innerHTML = renderConsumiveisRows([emptyIntervencaoRow(technicianName)], technicianName, {
+      editable: true,
+    });
     const tr = wrapper.querySelector('tr');
     if (!tr) return;
     tr.dataset.intervencaoRow = String(index);
@@ -433,14 +476,14 @@ function bindFolhaObraForm(form, { getFolhaId, session }) {
   });
 
   function bindRemoveButtons(root) {
-    if (!tbody) return;
+    if (!tbody || !canEditConsumiveis) return;
     root.querySelectorAll('[data-remove-intervencao]').forEach((btn) => {
       if (btn.dataset.bound) return;
       btn.dataset.bound = '1';
       btn.addEventListener('click', () => {
         const rows = tbody.querySelectorAll('[data-intervencao-row]');
         if (rows.length <= 1) {
-          showToast('Deve existir pelo menos uma linha de intervenção.', 'warning', 4000, { force: true });
+          showToast('Deve existir pelo menos uma linha de consumíveis.', 'warning', 4000, { force: true });
           return;
         }
         btn.closest('tr')?.remove();

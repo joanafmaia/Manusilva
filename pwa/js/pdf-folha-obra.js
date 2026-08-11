@@ -189,23 +189,21 @@ export async function generateFolhaObraPDFBlob(folha) {
           pdfDisplayValue(row.material_servico),
           pdfDisplayValue(row.quantidade),
           pdfDisplayValue(row.horas),
-          pdfDisplayValue(row.realizado_por),
         ])
-      : [['—', '—', '—', '—', '—']];
+      : [['—', '—', '—', '—']];
 
-  const iw = CONTENT_W / 5;
+  const iw = CONTENT_W / 4;
   y = await drawSectionTable(
     doc,
     y,
-    'Intervenções',
-    ['Data', 'Material / Serviço', 'Qtd.', 'Horas', 'Realizado por'],
+    'Consumíveis',
+    ['Data da Intervenção', 'Material/Serviço Colocado', 'Quantidade', 'Horas'],
     interBody,
     {
-      0: { cellWidth: iw * 0.9 },
-      1: { cellWidth: iw * 1.6 },
-      2: { cellWidth: iw * 0.7 },
-      3: { cellWidth: iw * 0.7 },
-      4: { cellWidth: iw * 1.1 },
+      0: { cellWidth: iw * 0.95 },
+      1: { cellWidth: iw * 1.35 },
+      2: { cellWidth: iw * 0.85 },
+      3: { cellWidth: iw * 0.85 },
     },
   );
 

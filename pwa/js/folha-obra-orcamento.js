@@ -84,6 +84,25 @@ export function getFolhasObraAguardaOrcamento() {
     .sort((a, b) => String(b.dataRececao || '').localeCompare(String(a.dataRececao || '')));
 }
 
+function formatFolhaConsumiveisForOrcamento(folha) {
+  const rows = Array.isArray(folha?.intervencoes) ? folha.intervencoes : [];
+  const lines = rows
+    .map((row) => {
+      const material = String(row?.material_servico || '').trim();
+      if (!material) return '';
+      const parts = [
+        row?.data_intervencao || '',
+        material,
+        row?.quantidade ? `qtd ${row.quantidade}` : '',
+        row?.horas ? `${row.horas}h` : '',
+      ].filter(Boolean);
+      return `• ${parts.join(' — ')}`;
+    })
+    .filter(Boolean);
+  if (!lines.length) return '';
+  return `Consumíveis:\n${lines.join('\n')}`;
+}
+
 function buildFolhaObraOrcamentoDraft(folha) {
   const client = getClient(folha.clientId);
   const nome = String(client?.Nome || client?.name || '').trim();
@@ -115,6 +134,7 @@ function buildFolhaObraOrcamentoDraft(folha) {
           String(folha.diagnosticoTecnico || '').trim()
             ? `Diagnóstico técnico:\n${String(folha.diagnosticoTecnico).trim()}`
             : '',
+          formatFolhaConsumiveisForOrcamento(folha),
         ]
           .filter(Boolean)
           .join('\n\n'),
