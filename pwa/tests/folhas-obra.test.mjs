@@ -213,7 +213,7 @@ describe('folha-obra-etiqueta', () => {
     assert.match(msHtml, /ETQ-2/);
     assert.match(msHtml, /Metalúrgica Norte Lda/);
     assert.match(msHtml, /folha-etiqueta__cliente/);
-    assert.match(msHtml, /Entrada/);
+    assert.match(msHtml, /Técnico/);
     assert.match(msHtml, /Hugo/);
     assert.doesNotMatch(msHtml, /Trouxe/);
 
@@ -231,7 +231,7 @@ describe('folha-obra-etiqueta', () => {
     });
     assert.match(rcHtml, /R\.C/);
     assert.match(rcHtml, /Cliente Teste SA/);
-    assert.match(rcHtml, /Entrada/);
+    assert.match(rcHtml, /Técnico/);
     assert.match(rcHtml, /Ana/);
 
     assert.deepEqual(
