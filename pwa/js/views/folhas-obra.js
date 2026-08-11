@@ -521,21 +521,19 @@ function renderFolhaObraFooterHtml(folha, { isLocked } = {}) {
   const deleteBtn = canDelete
     ? '<button type="button" class="btn-danger" id="folha-obra-delete">Eliminar</button>'
     : '';
-  const showEtiquetaPdf = emDiagnostico || emReparacaoAtiva;
+  const showEtiqueta = emDiagnostico || emReparacaoAtiva;
 
   if (isLocked) {
     return `
       ${deleteBtn}
       <button type="button" class="btn-outline" id="folha-obra-etiqueta">Imprimir etiqueta</button>
-      <button type="button" class="btn-outline" id="folha-obra-pdf">Gerar PDF</button>
       <p class="folha-obra-locked-hint">Enviada para faturação — apenas consulta.</p>
     `;
   }
 
   return `
     ${deleteBtn}
-    ${showEtiquetaPdf ? '<button type="button" class="btn-outline" id="folha-obra-etiqueta">Imprimir etiqueta</button>' : ''}
-    ${showEtiquetaPdf ? '<button type="button" class="btn-outline" id="folha-obra-pdf">Gerar PDF</button>' : ''}
+    ${showEtiqueta ? '<button type="button" class="btn-outline" id="folha-obra-etiqueta">Imprimir etiqueta</button>' : ''}
     ${
       aguardaEntrada
         ? `
@@ -690,13 +688,6 @@ export function openFolhaObraEditor(folhaId, session, { onClose } = {}) {
       const { editorState: state, session: sess, runtime: rt, close, onClose: afterClose } = ctx;
 
       try {
-        if (btn.id === 'folha-obra-pdf') {
-          const payload = mergeFolhaPayload(form, sess, state.folha, state.id);
-          const { previewFolhaObraPDF } = await import('../pdf-preview.js');
-          await previewFolhaObraPDF(payload);
-          return;
-        }
-
         if (btn.id === 'folha-obra-etiqueta') {
           const payload = mergeFolhaPayload(form, sess, state.folha, state.id);
           prepareFolhaObraEtiquetaPrint();
@@ -815,7 +806,6 @@ export function openFolhaObraEditor(folhaId, session, { onClose } = {}) {
         }
       } catch (err) {
         const messages = {
-          'folha-obra-pdf': 'Não foi possível gerar o PDF.',
           'folha-obra-etiqueta': 'Não foi possível imprimir a etiqueta.',
           'folha-obra-save': 'Erro ao guardar.',
           'folha-obra-entrada': 'Erro ao registar entrada.',
