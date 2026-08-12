@@ -21,6 +21,7 @@ import {
   LABEL_MARCA,
   LABEL_MODELO,
   LABEL_NUMERO_SERIE,
+  LABEL_N_INTERNO,
   LABEL_HORAS,
   LABEL_ESTADO_MAQUINA,
   labelWithValue,
@@ -92,12 +93,32 @@ async function drawCorretivaMachineBlock(doc, y, values, pdfContext = null) {
       serieFallback,
     ),
   );
+  const nInterno = pdfDisplayValue(
+    resolvePdfStandardFieldValue(values, {
+      id: 'n_interno',
+      aliases: ['matricula', 'num_interno'],
+    }),
+  );
+  const horas = pdfDisplayValue(
+    resolvePdfStandardFieldValue(values, { id: 'horas', aliases: ['horas_gastas'] }),
+  );
   const colW = CONTENT_W / 3;
 
   y = await drawCorretivaSectionBar(doc, y, PDF_MACHINE_SECTION);
   const pack = corretivaTableStylePack(doc);
   return drawPdfGridTable(doc, y, {
-    body: [[labelWithValue(LABEL_MARCA, marca), labelWithValue(LABEL_MODELO, modelo), labelWithValue(LABEL_NUMERO_SERIE, serie)]],
+    body: [
+      [
+        labelWithValue(LABEL_MARCA, marca),
+        labelWithValue(LABEL_MODELO, modelo),
+        labelWithValue(LABEL_NUMERO_SERIE, serie),
+      ],
+      [
+        labelWithValue(LABEL_N_INTERNO, nInterno),
+        labelWithValue(LABEL_HORAS, horas),
+        '',
+      ],
+    ],
     columnStyles: {
       0: { cellWidth: colW, halign: 'left', fontSize: PDF_FONT_TABLE },
       1: { cellWidth: colW, halign: 'left', fontSize: PDF_FONT_TABLE },
@@ -169,19 +190,14 @@ async function drawCorretivaObservationsBox(doc, y, value) {
 }
 
 async function drawCorretivaResumoRow(doc, y, values) {
-  const horas = pdfDisplayValue(
-    resolvePdfStandardFieldValue(values, { id: 'horas', aliases: ['horas_gastas'] }),
-  );
   const estado = pdfDisplayValue(resolvePdfStandardFieldValue(values, { id: 'estado_maquina' }));
-  const colW = CONTENT_W / 2;
 
   y = await drawCorretivaSectionBar(doc, y, 'Resumo da Intervenção');
   const pack = corretivaTableStylePack(doc);
   return drawPdfGridTable(doc, y, {
-    body: [[labelWithValue(LABEL_HORAS, horas), labelWithValue(LABEL_ESTADO_MAQUINA, estado)]],
+    body: [[labelWithValue(LABEL_ESTADO_MAQUINA, estado)]],
     columnStyles: {
-      0: { cellWidth: colW, halign: 'left', fontSize: PDF_FONT_TABLE },
-      1: { cellWidth: colW, halign: 'left', fontSize: PDF_FONT_TABLE },
+      0: { cellWidth: CONTENT_W, halign: 'left', fontSize: PDF_FONT_TABLE },
     },
     gapAfter: PDF_SECTION_GAP_MM,
     ...pack,

@@ -166,6 +166,15 @@ export const MANUTENCAO_CORRETIVA_MAQUINAS = {
     { type: 'text', id: 'numero_de_serie', label: LABEL_NUMERO_SERIE, section: 'Informações da Máquina' },
     { type: 'text', id: 'n_interno', label: LABEL_N_INTERNO, section: 'Informações da Máquina' },
     {
+      type: 'number',
+      id: 'horas',
+      label: LABEL_HORAS,
+      section: 'Informações da Máquina',
+      min: 0,
+      step: 0.5,
+      placeholder: '0',
+    },
+    {
       type: 'verification_toggles',
       id: 'lista_de_verificacoes',
       label: 'Verificações Efetuadas',
@@ -185,15 +194,6 @@ export const MANUTENCAO_CORRETIVA_MAQUINAS = {
       ],
     },
     { type: 'textarea', id: 'observacoes', label: 'Observações' },
-    {
-      type: 'number',
-      id: 'horas',
-      label: LABEL_HORAS,
-      section: 'Resumo da Intervenção',
-      min: 0,
-      step: 0.5,
-      placeholder: '0',
-    },
     {
       type: 'status_pills',
       id: 'estado_maquina',
