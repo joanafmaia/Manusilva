@@ -245,6 +245,9 @@ body.warehouse-page.folha-obra-open #toast-container,
 body.warehouse-page.folha-obra-open #admin-toast-container {
   z-index: 13000;
 }
+body.warehouse-page.folha-obra-open .modal-overlay {
+  z-index: 12500;
+}
 
 body.warehouse-page .folha-obra-overlay {
   display: flex;

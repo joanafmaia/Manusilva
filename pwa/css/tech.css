@@ -9058,6 +9058,10 @@ body.folha-obra-open #toast-container,
 body.folha-obra-open #admin-toast-container {
   z-index: 13000;
 }
+/* Modal por cima da folha de obra (overlay da folha = 1200) */
+body.folha-obra-open .modal-overlay {
+  z-index: 12500;
+}
 .folha-obra-editor-status {
   flex: 1 1 100%;
   margin: 0 0 0.65rem;
