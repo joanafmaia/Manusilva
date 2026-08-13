@@ -318,9 +318,9 @@ export function buildFolhaObraEtiquetaPreviewHtml(folha) {
       </style>
       ${buildFolhaObraEtiquetaBody(folha)}
       <p class="folha-etiqueta-preview-note">
-        Layout ${ETIQUETA_PRINT_WIDTH_MM} × ${ETIQUETA_PRINT_HEIGHT_MM} mm para fita contínua 62 mm.
-        <br><strong>No diálogo de impressão</strong>, em Tamanho do papel, escolha
-        <strong>«62 mm Fita contínua»</strong> (não 29×90 nem 62×60).
+        Layout ${ETIQUETA_PRINT_WIDTH_MM} × ${ETIQUETA_PRINT_HEIGHT_MM} mm (fita 62 mm).
+        <br>Na Brother: <strong>Comprimento 60 mm</strong>, orientação <strong>Vertical</strong>,
+        papel <strong>62 mm Fita contínua</strong>.
       </p>
     </div>
   `;
@@ -379,18 +379,20 @@ function writeFrameAndPrint(frame, html) {
 function buildEtiquetaPrintHelpHtml() {
   return `
     <div class="folha-etiqueta-print-help">
-      <p><strong>A Brother QL-800 tem fita contínua 62&nbsp;mm.</strong></p>
-      <p>Se o Windows enviar <code>29×90</code> ou <code>62×60</code>, a impressora recusa.</p>
-      <ol>
-        <li>No diálogo de impressão, abra <strong>Mais definições</strong>.</li>
-        <li>Em <strong>Tamanho do papel</strong>, escolha exactamente
-          <strong>«62 mm Fita contínua»</strong>.</li>
-        <li>Escala a <strong>100%</strong> (sem ajustar à página).</li>
-      </ol>
+      <p><strong>Definições correctas na Brother QL-800</strong> (Preferências de impressão):</p>
+      <ul>
+        <li><strong>Formato do papel:</strong> 62mm</li>
+        <li><strong>Comprimento:</strong> <strong>60 mm</strong> (não 89,8 mm)</li>
+        <li><strong>Orientação:</strong> <strong>Vertical</strong> (não Horizontal)</li>
+        <li><strong>Alimentação:</strong> 3,0 mm (pode manter)</li>
+        <li><strong>Cortar em cada:</strong> 1</li>
+      </ul>
+      <p>
+        No diálogo do browser, tamanho do papel =
+        <strong>«62 mm Fita contínua»</strong> — nunca 29×90.
+      </p>
       <p class="folha-etiqueta-print-help__tip">
-        Para não repetir isto: Windows → Impressoras → Brother QL-800 →
-        Preferências de impressão → tamanho por defeito =
-        <strong>62 mm Fita contínua</strong>.
+        Guarde estas preferências como predefinição da impressora para não repetir.
       </p>
     </div>
   `;
