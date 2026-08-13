@@ -79,7 +79,7 @@ export async function sendOfficialReportEmail(meta = {}) {
     throw new Error(formatEmailApiError(err, response.status));
   }
 
-  return true;
+  return response.json().catch(() => ({ ok: true }));
 }
 
 /** Envia proposta comercial MS.015 por e-mail (1 ou N PDFs). */

@@ -403,6 +403,11 @@ const MAX_PDF_BYTES = 3 * 1024 * 1024;
 const MAX_PDF_BASE64_LEN = Math.ceil((MAX_PDF_BYTES / 3) * 4) + 8;
 /** Tamanho máximo combinado de todos os anexos PDF (evita timeouts no servidor). */
 const MAX_TOTAL_PDF_BYTES = 8 * 1024 * 1024;
+/**
+ * Acima deste número de PDFs, anexar todos falha quase sempre (limite 8 MB + timeout).
+ * O e-mail vai só com links no corpo.
+ */
+const MAX_PDF_ATTACHMENTS_COUNT = 8;
 
 async function supabaseGet(path, token) {
   const { getSupabaseUrl, getSupabaseAnonKey } = require('../server-lib/supabase-env');
@@ -631,18 +636,22 @@ async function resolveEmailPdfAttachments(payload = {}) {
   const urlEntries = normalizePdfUrlEntries(payload);
 
   if (urlEntries.length > 1) {
-    const fetched = await fetchPdfAttachmentsFromUrls(urlEntries);
-    if (fetched.length < urlEntries.length) {
-      return {
-        ok: false,
-        error: `Só foi possível obter ${fetched.length} de ${urlEntries.length} PDFs para anexar. Tente reenviar o e-mail.`,
-      };
+    if (urlEntries.length > MAX_PDF_ATTACHMENTS_COUNT) {
+      console.info(
+        `[API /enviar-email] ${urlEntries.length} PDFs — envio só com links (máx. ${MAX_PDF_ATTACHMENTS_COUNT} anexos).`,
+      );
+      return { ok: true, attachments: [], linkOnly: true };
     }
-    if (fetched.length) return { ok: true, attachments: fetched };
-    return {
-      ok: false,
-      error: 'Não foi possível obter os PDFs do Storage para anexar ao e-mail.',
-    };
+
+    const fetched = await fetchPdfAttachmentsFromUrls(urlEntries);
+    if (fetched.length === urlEntries.length) {
+      return { ok: true, attachments: fetched };
+    }
+    // Visitas grandes / PDFs pesados: não falhar — o HTML já inclui os links.
+    console.warn(
+      `[API /enviar-email] Anexos incompletos (${fetched.length}/${urlEntries.length}); fallback para links.`,
+    );
+    return { ok: true, attachments: [], linkOnly: true };
   }
 
   const pdfCheck = validatePdfAttachments(payload);
@@ -1131,7 +1140,11 @@ async function handler(req, res) {
       attachments: attachments.length ? attachments : undefined,
     });
 
-    return res.status(200).json({ ok: true });
+    return res.status(200).json({
+      ok: true,
+      linkOnly: Boolean(pdfResolved.linkOnly) || attachments.length === 0,
+      attachmentCount: attachments.length,
+    });
   } catch (err) {
     console.error('[API /enviar-email]', err);
     const responseCode = err?.responseCode || null;

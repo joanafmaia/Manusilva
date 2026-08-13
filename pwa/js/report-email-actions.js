@@ -334,7 +334,7 @@ export async function sendSelectedReportsEmail(reportIds, options = {}) {
 
   try {
     const servicoId = resolveServicoIdForReport(reports[0]) || null;
-    await sendOfficialReportEmail({
+    const sendResult = await sendOfficialReportEmail({
       ...buildReportEmailMeta(reports[0], {
         client,
         job: firstJob,
@@ -356,7 +356,16 @@ export async function sendSelectedReportsEmail(reportIds, options = {}) {
       });
     }
 
-    showToast(`E-mail enviado para ${recipientsLabel} com ${pdfEntries.length} anexo(s).`, 'success', 7000);
+    const usedLinksOnly =
+      Boolean(sendResult?.linkOnly) ||
+      (pdfEntries.length > 1 && !Number(sendResult?.attachmentCount));
+    showToast(
+      usedLinksOnly
+        ? `E-mail enviado para ${recipientsLabel} com ${pdfEntries.length} link(s) para PDF (sem anexos — limite de tamanho).`
+        : `E-mail enviado para ${recipientsLabel} com ${pdfEntries.length} anexo(s).`,
+      'success',
+      8000,
+    );
     window.dispatchEvent(new CustomEvent('db-updated'));
     return true;
   } catch (err) {
