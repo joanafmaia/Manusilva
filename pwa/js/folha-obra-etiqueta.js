@@ -1,7 +1,6 @@
 /**
  * Etiqueta de entrada — equipamento recebido na oficina.
- * Impressão via iframe oculto (sem pop-ups).
- * Formato: etiqueta 62 × 58 mm — compatível com impressoras de etiquetas térmicas.
+ * Impressão em PDF 62 × 58 mm (fita contínua Brother QL / 62 mm).
  */
 
 import { escapeHtml } from './html-utils.js';
@@ -14,12 +13,14 @@ import {
   normalizeFolhaResponsabilidade,
 } from './folha-obra-orcamento.js';
 import { closeModal, openModal, showToast } from './toast-modal.js';
+import { loadJsPDF } from './pdf-jspdf-loader.js';
+import { ensurePdfFonts, pdfSafeText, pdfSetFont } from './pdf-font.js';
 
 const PRINT_FRAME_ID = 'folha-obra-etiqueta-print-frame';
 
-/** Largura da etiqueta (fita 62 mm). */
+/** Largura da fita (Brother QL — fita contínua 62 mm). */
 export const ETIQUETA_PRINT_WIDTH_MM = 62;
-/** Comprimento da etiqueta no sentido vertical. */
+/** Comprimento do corte ao longo da fita. */
 export const ETIQUETA_PRINT_HEIGHT_MM = 58;
 
 const ETIQUETA_STYLES = `
@@ -205,7 +206,6 @@ export function validateFolhaObraEtiqueta(folha) {
   if (!folha?.tipo?.trim()) throw new Error('Indique o tipo de equipamento.');
   if (!folha?.marcaModelo?.trim()) throw new Error('Indique a marca/modelo.');
   if (!folha?.dataRececao) throw new Error('Indique a data de entrada.');
-
 }
 
 function renderEquipRow(label, value) {
@@ -226,17 +226,28 @@ function formatEtiquetaDate(iso) {
   return `${d}/${m}/${y}`;
 }
 
-function buildFolhaObraEtiquetaBody(folha) {
+function buildEtiquetaContent(folha) {
   const cliente = resolveClientName(folha);
   const dataEntrada = formatEtiquetaDate(folha?.dataRececao);
   const etq = resolveEtqLabel(folha);
   const fo = formatFolhaObraOrdemLabel(folha);
   const msRc = formatFolhaResponsabilidadeLabel(folha?.responsabilidade);
-  const badgeClass =
-    normalizeFolhaResponsabilidade(folha?.responsabilidade) === FOLHA_RESPONSABILIDADE.MS
-      ? 'folha-etiqueta__badge--ms'
-      : 'folha-etiqueta__badge--rc';
+  const isMs =
+    normalizeFolhaResponsabilidade(folha?.responsabilidade) === FOLHA_RESPONSABILIDADE.MS;
   const tecnico = resolveEntradaEtiqueta(folha);
+  const rows = [
+    ['Tipo', folha?.tipo || '—'],
+    ['Marca', folha?.marcaModelo || '—'],
+    ['Série', folha?.numeroSerie || '—'],
+    ['Data', dataEntrada],
+  ];
+  if (tecnico) rows.push(['Técnico', tecnico]);
+  return { cliente, etq, fo, msRc, isMs, rows };
+}
+
+function buildFolhaObraEtiquetaBody(folha) {
+  const { cliente, etq, fo, msRc, isMs, rows } = buildEtiquetaContent(folha);
+  const badgeClass = isMs ? 'folha-etiqueta__badge--ms' : 'folha-etiqueta__badge--rc';
 
   return `
     <div class="folha-etiqueta">
@@ -255,11 +266,7 @@ function buildFolhaObraEtiquetaBody(folha) {
         <span class="folha-etiqueta__cliente-name">${escapeHtml(cliente)}</span>
       </div>
       <div class="folha-etiqueta__equip">
-        ${renderEquipRow('Tipo', folha?.tipo)}
-        ${renderEquipRow('Marca', folha?.marcaModelo)}
-        ${renderEquipRow('Série', folha?.numeroSerie)}
-        ${renderEquipRow('Data', dataEntrada)}
-        ${tecnico ? renderEquipRow('Técnico', tecnico) : ''}
+        ${rows.map(([label, value]) => renderEquipRow(label, value)).join('')}
       </div>
     </div>
   `;
@@ -300,9 +307,110 @@ export function buildFolhaObraEtiquetaPreviewHtml(folha) {
         ${ETIQUETA_STYLES}
       </style>
       ${buildFolhaObraEtiquetaBody(folha)}
-      <p class="folha-etiqueta-preview-note">Formato de impressão: ${ETIQUETA_PRINT_WIDTH_MM} × ${ETIQUETA_PRINT_HEIGHT_MM} mm</p>
+      <p class="folha-etiqueta-preview-note">
+        Fita contínua 62 mm · página ${ETIQUETA_PRINT_WIDTH_MM} × ${ETIQUETA_PRINT_HEIGHT_MM} mm
+        <br>Na Brother QL escolha «62 mm Fita contínua» (não 29×90).
+      </p>
     </div>
   `;
+}
+
+/**
+ * PDF com página exacta 62×58 mm — evita o driver Brother cair no default 29×90.
+ */
+export async function generateFolhaObraEtiquetaPDFBlob(folha) {
+  validateFolhaObraEtiqueta(folha);
+  const { cliente, etq, fo, msRc, isMs, rows } = buildEtiquetaContent(folha);
+  const jsPDF = await loadJsPDF();
+  const doc = new jsPDF({
+    unit: 'mm',
+    format: [ETIQUETA_PRINT_WIDTH_MM, ETIQUETA_PRINT_HEIGHT_MM],
+    orientation: 'portrait',
+  });
+  await ensurePdfFonts(doc);
+
+  const padX = 2.2;
+  const contentW = ETIQUETA_PRINT_WIDTH_MM - padX * 2;
+  let y = 2.2;
+
+  doc.setDrawColor(29, 78, 216);
+  doc.setLineWidth(0.9);
+  doc.line(0, 0.5, ETIQUETA_PRINT_WIDTH_MM, 0.5);
+
+  pdfSetFont(doc, 'bold');
+  doc.setFontSize(7);
+  doc.setTextColor(29, 78, 216);
+  doc.text(pdfSafeText('MANUSILVA'), padX, y + 1.8);
+
+  const badgeW = 9;
+  const badgeH = 3.6;
+  const badgeX = ETIQUETA_PRINT_WIDTH_MM - padX - badgeW;
+  if (isMs) {
+    doc.setFillColor(219, 234, 254);
+    doc.setDrawColor(147, 197, 253);
+    doc.setTextColor(30, 58, 95);
+  } else {
+    doc.setFillColor(255, 237, 213);
+    doc.setDrawColor(253, 186, 116);
+    doc.setTextColor(124, 45, 18);
+  }
+  doc.setLineWidth(0.18);
+  doc.roundedRect(badgeX, y, badgeW, badgeH, 0.4, 0.4, 'FD');
+  doc.setFontSize(8);
+  doc.text(pdfSafeText(msRc), badgeX + badgeW / 2, y + 2.5, { align: 'center' });
+
+  y += 6.2;
+  doc.setTextColor(15, 23, 42);
+  doc.setFontSize(20);
+  pdfSetFont(doc, 'bold');
+  doc.text(pdfSafeText(etq), ETIQUETA_PRINT_WIDTH_MM / 2, y, { align: 'center' });
+  y += 4.2;
+  if (fo && fo !== '—' && fo !== etq) {
+    doc.setFontSize(8);
+    doc.setTextColor(71, 85, 105);
+    doc.text(pdfSafeText(fo), ETIQUETA_PRINT_WIDTH_MM / 2, y, { align: 'center' });
+    y += 3.2;
+  } else {
+    y += 1.2;
+  }
+
+  doc.setDrawColor(203, 213, 225);
+  doc.setLineWidth(0.25);
+  doc.line(padX, y, ETIQUETA_PRINT_WIDTH_MM - padX, y);
+  y += 2.2;
+  doc.setFontSize(5.8);
+  doc.setTextColor(29, 78, 216);
+  pdfSetFont(doc, 'bold');
+  doc.text(pdfSafeText('CLIENTE'), padX, y);
+  y += 3.4;
+  doc.setFontSize(11);
+  doc.setTextColor(15, 23, 42);
+  const clientLines = doc.splitTextToSize(pdfSafeText(cliente), contentW);
+  doc.text(clientLines.slice(0, 2), padX, y);
+  y += Math.min(clientLines.length, 2) * 3.6 + 1.2;
+  doc.setDrawColor(203, 213, 225);
+  doc.line(padX, y, ETIQUETA_PRINT_WIDTH_MM - padX, y);
+  y += 3;
+
+  const labelW = 14;
+  rows.forEach(([label, value]) => {
+    pdfSetFont(doc, 'bold');
+    doc.setFontSize(5.6);
+    doc.setTextColor(100, 116, 139);
+    doc.text(pdfSafeText(String(label).toUpperCase()), padX, y);
+    doc.setFontSize(9);
+    doc.setTextColor(15, 23, 42);
+    const valueText = doc.splitTextToSize(pdfSafeText(value || '—'), contentW - labelW)[0] || '—';
+    doc.text(valueText, padX + labelW, y);
+    y += 3.6;
+  });
+
+  const blob = doc.output('blob');
+  return {
+    blob,
+    blobUrl: URL.createObjectURL(blob),
+    filename: `etiqueta-${etq || 'folha'}.pdf`,
+  };
 }
 
 /** Criar iframe de impressão no clique — antes de operações async. */
@@ -320,11 +428,11 @@ export function prepareFolhaObraEtiquetaPrint() {
   return frame;
 }
 
-function writeFrameAndPrint(frame, html) {
+function printPdfBlobUrl(blobUrl) {
   return new Promise((resolve, reject) => {
+    const frame = prepareFolhaObraEtiquetaPrint();
     const win = frame.contentWindow;
-    const doc = frame.contentDocument || win?.document;
-    if (!win || !doc) {
+    if (!win) {
       reject(new Error('Não foi possível preparar a impressão da etiqueta.'));
       return;
     }
@@ -343,23 +451,22 @@ function writeFrameAndPrint(frame, html) {
         } catch (err) {
           reject(err);
         }
-      }, 200);
+      }, 350);
     };
 
     frame.onload = doPrint;
-    doc.open();
-    doc.write(html);
-    doc.close();
-
-    if (doc.readyState === 'complete') doPrint();
+    frame.src = blobUrl;
   });
 }
 
-export function printFolhaObraEtiqueta(folha) {
+export async function printFolhaObraEtiqueta(folha) {
   validateFolhaObraEtiqueta(folha);
-  const html = buildFolhaObraEtiquetaHtml(folha);
-  const frame = prepareFolhaObraEtiquetaPrint();
-  return writeFrameAndPrint(frame, html);
+  const { blobUrl } = await generateFolhaObraEtiquetaPDFBlob(folha);
+  try {
+    await printPdfBlobUrl(blobUrl);
+  } finally {
+    window.setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
+  }
 }
 
 export function openFolhaObraEtiquetaPreview(folha) {
