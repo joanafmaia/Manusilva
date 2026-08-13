@@ -281,10 +281,10 @@ async function sendMailViaGmailApi(mailOptions) {
 
   const accessToken = await getGmailAccessToken();
   const mimeBuf = buildMimeMessage(mailOptions);
-  // Limite prático abaixo do máximo Gmail (~25–35 MB) para caber na Railway.
-  if (mimeBuf.length > 18 * 1024 * 1024) {
+  // Gmail ~25 MB; deixamos margem sob MAX_GMAIL_MIME_BYTES.
+  if (mimeBuf.length > MAX_GMAIL_MIME_BYTES) {
     const err = new Error(
-      `Mensagem demasiado grande para envio (${Math.round(mimeBuf.length / (1024 * 1024))} MB). Reduza o PDF.`,
+      `Mensagem demasiado grande para envio (${Math.round(mimeBuf.length / (1024 * 1024))} MB). Máx. ~${Math.round(MAX_GMAIL_MIME_BYTES / (1024 * 1024))} MB.`,
     );
     err.code = 'EGMAIL';
     throw err;
@@ -307,7 +307,7 @@ async function sendMailViaGmailApi(mailOptions) {
         'Content-Length': String(mimeBuf.length),
       },
       body: mimeBuf,
-      signal: AbortSignal.timeout(90000),
+      signal: AbortSignal.timeout(120000),
     },
   );
 
@@ -401,13 +401,16 @@ const CONTACT_WEBSITE = process.env.COMPANY_WEBSITE || 'www.manusilva.pt';
 const MAX_PDF_BYTES = 3 * 1024 * 1024;
 /** Limite conservador do string base64 (~4/3 do binário + padding). */
 const MAX_PDF_BASE64_LEN = Math.ceil((MAX_PDF_BYTES / 3) * 4) + 8;
-/** Tamanho máximo combinado de todos os anexos PDF (evita timeouts no servidor). */
-const MAX_TOTAL_PDF_BYTES = 8 * 1024 * 1024;
 /**
- * Acima deste número de PDFs, anexar todos falha quase sempre (limite 8 MB + timeout).
- * O e-mail vai só com links no corpo.
+ * Tamanho máximo combinado dos PDFs em binário.
+ * Gmail aceita ~25 MB na mensagem; com base64 MIME fica ~4/3 — manter folga sob 24 MB MIME.
  */
-const MAX_PDF_ATTACHMENTS_COUNT = 8;
+const MAX_TOTAL_PDF_BYTES = 20 * 1024 * 1024;
+/** Limite da mensagem MIME enviada pela Gmail API. */
+const MAX_GMAIL_MIME_BYTES = 24 * 1024 * 1024;
+/** Com muitos PDFs, 1 ZIP com todos os ficheiros é mais fiável do que dezenas de anexos. */
+const ZIP_WHEN_PDF_COUNT_GT = 8;
+const PDF_FETCH_CONCURRENCY = 8;
 
 async function supabaseGet(path, token) {
   const { getSupabaseUrl, getSupabaseAnonKey } = require('../server-lib/supabase-env');
@@ -588,24 +591,30 @@ function sanitizePdfAttachmentFilename(filename, index) {
 }
 
 async function fetchPdfAttachmentsFromUrls(urlEntries = []) {
-  const attachments = [];
-  let totalBytes = 0;
   const PDF_FETCH_TIMEOUT_MS = 25000;
+  const results = new Array(urlEntries.length).fill(null);
+  let cursor = 0;
 
-  for (let index = 0; index < urlEntries.length; index += 1) {
+  async function fetchOne(index) {
     const entry = urlEntries[index];
     const url = String(entry?.url || '').trim();
-    if (!isSafeHttpUrl(url)) continue;
+    if (!isSafeHttpUrl(url)) return;
 
     try {
       const res = await fetch(url, { signal: AbortSignal.timeout(PDF_FETCH_TIMEOUT_MS) });
       if (!res.ok) {
         console.warn('[API /enviar-email] PDF indisponível:', url, res.status);
-        continue;
+        return;
       }
       const content = Buffer.from(await res.arrayBuffer());
-      if (!content.length || content.length > MAX_PDF_BYTES) continue;
-      if (totalBytes + content.length > MAX_TOTAL_PDF_BYTES) break;
+      if (!content.length || content.length > MAX_PDF_BYTES) {
+        console.warn(
+          '[API /enviar-email] PDF ignorado (vazio ou >3MB):',
+          url,
+          content.length,
+        );
+        return;
+      }
 
       let filename = String(entry.filename || '').trim();
       if (!filename.toLowerCase().endsWith('.pdf')) {
@@ -613,45 +622,173 @@ async function fetchPdfAttachmentsFromUrls(urlEntries = []) {
         filename = fromUrl.toLowerCase().endsWith('.pdf') ? fromUrl : '';
       }
 
-      attachments.push({
+      results[index] = {
         filename: sanitizePdfAttachmentFilename(filename, index),
         content,
         contentType: 'application/pdf',
-      });
-      totalBytes += content.length;
+      };
     } catch (err) {
       console.warn('[API /enviar-email] fetch PDF:', url, err?.message || err);
     }
   }
 
-  return attachments;
+  async function worker() {
+    while (cursor < urlEntries.length) {
+      const index = cursor;
+      cursor += 1;
+      await fetchOne(index);
+    }
+  }
+
+  const workers = Math.min(PDF_FETCH_CONCURRENCY, Math.max(1, urlEntries.length));
+  await Promise.all(Array.from({ length: workers }, () => worker()));
+
+  return results.filter(Boolean);
+}
+
+function tryRequireJSZip() {
+  try {
+    return require('jszip');
+  } catch {
+    try {
+      return require('../../node_modules/jszip');
+    } catch {
+      return null;
+    }
+  }
+}
+
+function uniqueZipEntryName(rawName, used) {
+  let base = String(rawName || 'relatorio.pdf').replace(/[\\/]+/g, '_');
+  if (!base.toLowerCase().endsWith('.pdf')) base = `${base}.pdf`;
+  if (!used.has(base.toLowerCase())) {
+    used.add(base.toLowerCase());
+    return base;
+  }
+  const dot = base.lastIndexOf('.');
+  const stem = dot > 0 ? base.slice(0, dot) : base;
+  const ext = dot > 0 ? base.slice(dot) : '.pdf';
+  let n = 2;
+  let candidate = `${stem}_${n}${ext}`;
+  while (used.has(candidate.toLowerCase())) {
+    n += 1;
+    candidate = `${stem}_${n}${ext}`;
+  }
+  used.add(candidate.toLowerCase());
+  return candidate;
+}
+
+/**
+ * Empacota vários PDFs num único ZIP (o cliente recebe todos os ficheiros).
+ * @returns {Promise<{ attachments: object[], zipped: boolean, originalCount: number } | null>}
+ */
+async function packPdfAttachmentsAsZip(attachments = []) {
+  if (attachments.length < 2) return null;
+  const JSZip = tryRequireJSZip();
+  if (!JSZip) {
+    console.warn('[API /enviar-email] jszip indisponível — a anexar PDFs individuais.');
+    return null;
+  }
+
+  const zip = new JSZip();
+  const used = new Set();
+  for (const att of attachments) {
+    const name = uniqueZipEntryName(att.filename, used);
+    zip.file(name, att.content);
+  }
+
+  const content = Buffer.from(
+    await zip.generateAsync({
+      type: 'nodebuffer',
+      compression: 'DEFLATE',
+      compressionOptions: { level: 6 },
+    }),
+  );
+
+  if (!content.length || content.length > MAX_TOTAL_PDF_BYTES) {
+    console.warn(
+      '[API /enviar-email] ZIP demasiado grande:',
+      content.length,
+      'máx=',
+      MAX_TOTAL_PDF_BYTES,
+    );
+    return null;
+  }
+
+  return {
+    attachments: [
+      {
+        filename: `relatorios_manusilva_${attachments.length}_pdfs.zip`,
+        content,
+        contentType: 'application/zip',
+      },
+    ],
+    zipped: true,
+    originalCount: attachments.length,
+  };
+}
+
+function totalAttachmentBytes(attachments = []) {
+  return attachments.reduce((sum, att) => sum + (att?.content?.length || 0), 0);
+}
+
+async function finalizeMultiPdfAttachments(fetched, expectedCount) {
+  if (!fetched.length) {
+    return {
+      ok: false,
+      error: 'Não foi possível obter os PDFs do Storage para anexar ao e-mail.',
+    };
+  }
+
+  if (fetched.length < expectedCount) {
+    console.warn(
+      `[API /enviar-email] Anexos incompletos (${fetched.length}/${expectedCount}); fallback para links.`,
+    );
+    return { ok: true, attachments: [], linkOnly: true };
+  }
+
+  const totalBytes = totalAttachmentBytes(fetched);
+  const shouldZip =
+    fetched.length > ZIP_WHEN_PDF_COUNT_GT || totalBytes > 10 * 1024 * 1024;
+
+  if (shouldZip) {
+    const zipped = await packPdfAttachmentsAsZip(fetched);
+    if (zipped) {
+      console.info(
+        `[API /enviar-email] ${fetched.length} PDFs empacotados em ZIP (${Math.round(zipped.attachments[0].content.length / 1024)} KB).`,
+      );
+      return { ok: true, ...zipped };
+    }
+  }
+
+  if (totalBytes > MAX_TOTAL_PDF_BYTES) {
+    const zipped = await packPdfAttachmentsAsZip(fetched);
+    if (zipped) return { ok: true, ...zipped };
+    console.warn(
+      `[API /enviar-email] ${fetched.length} PDFs = ${Math.round(totalBytes / (1024 * 1024))} MB > limite; fallback para links.`,
+    );
+    return { ok: true, attachments: [], linkOnly: true };
+  }
+
+  return { ok: true, attachments: fetched, zipped: false, originalCount: fetched.length };
 }
 
 async function resolveEmailPdfAttachments(payload = {}) {
   const fromPayload = validatePdfAttachments(payload);
   if (fromPayload.ok && fromPayload.attachments?.length) {
+    const list = fromPayload.attachments;
+    if (list.length > ZIP_WHEN_PDF_COUNT_GT) {
+      const finalized = await finalizeMultiPdfAttachments(list, list.length);
+      return finalized;
+    }
     return fromPayload;
   }
 
   const urlEntries = normalizePdfUrlEntries(payload);
 
   if (urlEntries.length > 1) {
-    if (urlEntries.length > MAX_PDF_ATTACHMENTS_COUNT) {
-      console.info(
-        `[API /enviar-email] ${urlEntries.length} PDFs — envio só com links (máx. ${MAX_PDF_ATTACHMENTS_COUNT} anexos).`,
-      );
-      return { ok: true, attachments: [], linkOnly: true };
-    }
-
     const fetched = await fetchPdfAttachmentsFromUrls(urlEntries);
-    if (fetched.length === urlEntries.length) {
-      return { ok: true, attachments: fetched };
-    }
-    // Visitas grandes / PDFs pesados: não falhar — o HTML já inclui os links.
-    console.warn(
-      `[API /enviar-email] Anexos incompletos (${fetched.length}/${urlEntries.length}); fallback para links.`,
-    );
-    return { ok: true, attachments: [], linkOnly: true };
+    return finalizeMultiPdfAttachments(fetched, urlEntries.length);
   }
 
   const pdfCheck = validatePdfAttachments(payload);
@@ -863,11 +1000,14 @@ function buildHtmlBody(payload = {}, options = {}) {
       : '';
 
   const attachmentCount = Number(options.attachmentCount) || (hasAttachment ? 1 : 0);
+  const zippedCount = Number(options.zippedOriginalCount) || 0;
   const isOrcamentoTipo = tipoRelatorio === 'orcamento' || tipoRelatorio === 'orcamento_lote';
   const attachmentNote = attachmentCount > 0
     ? `<p style="margin:12px 0 0 0;font-size:13px;line-height:1.5;color:#64748b;">
         ${
-          attachmentCount > 1
+          zippedCount > 1
+            ? `Os ${zippedCount} relatórios em PDF estão no ficheiro ZIP em anexo — extraia o ZIP para os abrir todos.`
+            : attachmentCount > 1
             ? isOrcamentoTipo
               ? `As ${attachmentCount} propostas comerciais encontram-se em anexo a este e-mail.`
               : `Os ${attachmentCount} relatórios encontram-se em anexo a este e-mail.`
@@ -1102,6 +1242,8 @@ async function handler(req, res) {
     };
 
     const attachments = pdfResolved.attachments || [];
+    const zippedOriginalCount = Number(pdfResolved.originalCount) || 0;
+    const zipped = Boolean(pdfResolved.zipped);
 
     let ratingBlockHtml = '';
     const skipRatingLink = Boolean(payload.skipRatingLink);
@@ -1135,6 +1277,7 @@ async function handler(req, res) {
       html: buildHtmlBody(emailPayload, {
         hasPdfAttachment: attachments.length > 0,
         attachmentCount: attachments.length,
+        zippedOriginalCount: zipped ? zippedOriginalCount : 0,
         ratingBlockHtml,
       }),
       attachments: attachments.length ? attachments : undefined,
@@ -1144,6 +1287,8 @@ async function handler(req, res) {
       ok: true,
       linkOnly: Boolean(pdfResolved.linkOnly) || attachments.length === 0,
       attachmentCount: attachments.length,
+      zipped,
+      originalPdfCount: zipped ? zippedOriginalCount : attachments.length,
     });
   } catch (err) {
     console.error('[API /enviar-email]', err);

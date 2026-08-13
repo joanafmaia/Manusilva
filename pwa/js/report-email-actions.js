@@ -359,10 +359,14 @@ export async function sendSelectedReportsEmail(reportIds, options = {}) {
     const usedLinksOnly =
       Boolean(sendResult?.linkOnly) ||
       (pdfEntries.length > 1 && !Number(sendResult?.attachmentCount));
+    const zipped = Boolean(sendResult?.zipped);
+    const pdfCount = Number(sendResult?.originalPdfCount) || pdfEntries.length;
     showToast(
       usedLinksOnly
         ? `E-mail enviado para ${recipientsLabel} com ${pdfEntries.length} link(s) para PDF (sem anexos — limite de tamanho).`
-        : `E-mail enviado para ${recipientsLabel} com ${pdfEntries.length} anexo(s).`,
+        : zipped
+          ? `E-mail enviado para ${recipientsLabel} com ZIP contendo ${pdfCount} PDF(s).`
+          : `E-mail enviado para ${recipientsLabel} com ${pdfEntries.length} anexo(s).`,
       'success',
       8000,
     );
