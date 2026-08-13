@@ -42,7 +42,8 @@ const ETIQUETA_STYLES = `
   .folha-etiqueta {
     width: ${ETIQUETA_PRINT_WIDTH_MM}mm;
     height: ${ETIQUETA_PRINT_HEIGHT_MM}mm;
-    padding: 1.8mm 2.4mm 2mm;
+    /* Top ≥ alimentação Brother (~3 mm) para o MANUSILVA não cortar */
+    padding: 4.2mm 2.4mm 2mm;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
@@ -55,6 +56,7 @@ const ETIQUETA_STYLES = `
     align-items: flex-start;
     justify-content: space-between;
     gap: 1.5mm;
+    flex-shrink: 0;
   }
   .folha-etiqueta__brand {
     font-size: 7pt;
@@ -62,7 +64,8 @@ const ETIQUETA_STYLES = `
     letter-spacing: 0.06em;
     text-transform: uppercase;
     color: #1d4ed8;
-    line-height: 1.1;
+    line-height: 1.15;
+    padding-top: 0.2mm;
   }
   .folha-etiqueta__badge {
     flex-shrink: 0;
@@ -84,10 +87,10 @@ const ETIQUETA_STYLES = `
   }
   .folha-etiqueta__etq-main {
     text-align: center;
-    padding: 0.8mm 0 1mm;
+    padding: 0.5mm 0 0.6mm;
   }
   .folha-etiqueta__etq {
-    font-size: 18pt;
+    font-size: 17pt;
     font-weight: 800;
     line-height: 0.95;
     letter-spacing: 0.02em;
