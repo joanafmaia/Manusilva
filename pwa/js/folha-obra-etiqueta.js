@@ -376,17 +376,60 @@ function writeFrameAndPrint(frame, html) {
   });
 }
 
-export function printFolhaObraEtiqueta(folha) {
+function buildEtiquetaPrintHelpHtml() {
+  return `
+    <div class="folha-etiqueta-print-help">
+      <p><strong>A Brother QL-800 tem fita contínua 62&nbsp;mm.</strong></p>
+      <p>Se o Windows enviar <code>29×90</code> ou <code>62×60</code>, a impressora recusa.</p>
+      <ol>
+        <li>No diálogo de impressão, abra <strong>Mais definições</strong>.</li>
+        <li>Em <strong>Tamanho do papel</strong>, escolha exactamente
+          <strong>«62 mm Fita contínua»</strong>.</li>
+        <li>Escala a <strong>100%</strong> (sem ajustar à página).</li>
+      </ol>
+      <p class="folha-etiqueta-print-help__tip">
+        Para não repetir isto: Windows → Impressoras → Brother QL-800 →
+        Preferências de impressão → tamanho por defeito =
+        <strong>62 mm Fita contínua</strong>.
+      </p>
+    </div>
+  `;
+}
+
+function confirmEtiquetaPrintMedia() {
+  return new Promise((resolve) => {
+    const actions = `
+      <button type="button" class="btn-outline" data-modal-cancel>Cancelar</button>
+      <button type="button" class="btn-primary" id="folha-etiqueta-print-confirm">Já escolhi fita contínua — imprimir</button>
+    `;
+    const overlay = openModal(
+      'Brother QL — fita contínua 62 mm',
+      buildEtiquetaPrintHelpHtml(),
+      actions,
+    );
+    const finish = (ok) => {
+      closeModal();
+      resolve(ok);
+    };
+    overlay.querySelector('[data-modal-cancel]')?.addEventListener('click', () => finish(false));
+    overlay.querySelector('.modal-close')?.addEventListener('click', () => finish(false));
+    overlay.querySelector('#folha-etiqueta-print-confirm')?.addEventListener('click', () => finish(true));
+  });
+}
+
+/**
+ * Imprime a etiqueta. O browser não consegue escolher «Fita contínua» sozinho —
+ * o utilizador (ou a predefinição Windows da Brother) tem de o fazer.
+ */
+export async function printFolhaObraEtiqueta(folha) {
   validateFolhaObraEtiqueta(folha);
+  const confirmed = await confirmEtiquetaPrintMedia();
+  if (!confirmed) return false;
+
   const html = buildFolhaObraEtiquetaHtml(folha);
   const frame = prepareFolhaObraEtiquetaPrint();
-  showToast(
-    'Na Brother QL: tamanho do papel = «62 mm Fita contínua» (não 62×60 nem 29×90).',
-    'info',
-    7000,
-    { force: true },
-  );
-  return writeFrameAndPrint(frame, html);
+  await writeFrameAndPrint(frame, html);
+  return true;
 }
 
 export function openFolhaObraEtiquetaPreview(folha) {
@@ -401,7 +444,9 @@ export function openFolhaObraEtiquetaPreview(folha) {
   overlay.querySelector('.modal-close')?.addEventListener('click', closeModal);
   overlay.querySelector('#folha-etiqueta-print-btn')?.addEventListener('click', () => {
     printFolhaObraEtiqueta(folha)
-      .then(() => showToast('Etiqueta enviada para impressão.', 'success', 4000, { force: true }))
+      .then((printed) => {
+        if (printed) showToast('Etiqueta enviada para impressão.', 'success', 4000, { force: true });
+      })
       .catch((err) => showToast(err?.message || 'Não foi possível imprimir.', 'error', 6000, { force: true }));
   });
   return overlay;
