@@ -1,6 +1,10 @@
 /**
  * Etiqueta de entrada — equipamento recebido na oficina.
- * Impressão em PDF 62 × 58 mm (fita contínua Brother QL / 62 mm).
+ * Layout 62 × 60 mm para fita contínua Brother QL (62 mm).
+ *
+ * Não forçar @page size fixo (ex.: 62×60) — a Brother trata isso como rolo
+ * pré-cortado e falha com «fita contínua» instalada. O tamanho do papel
+ * deve ser «62 mm Fita contínua» no diálogo / predefinição da impressora.
  */
 
 import { escapeHtml } from './html-utils.js';
@@ -13,19 +17,16 @@ import {
   normalizeFolhaResponsabilidade,
 } from './folha-obra-orcamento.js';
 import { closeModal, openModal, showToast } from './toast-modal.js';
-import { loadJsPDF } from './pdf-jspdf-loader.js';
-import { ensurePdfFonts, pdfSafeText, pdfSetFont } from './pdf-font.js';
 
 const PRINT_FRAME_ID = 'folha-obra-etiqueta-print-frame';
 
 /** Largura da fita (Brother QL — fita contínua 62 mm). */
 export const ETIQUETA_PRINT_WIDTH_MM = 62;
-/** Comprimento do corte — alinhado ao tamanho 62×60 mm da Brother QL. */
+/** Comprimento do corte ao longo da fita contínua. */
 export const ETIQUETA_PRINT_HEIGHT_MM = 60;
 
 const ETIQUETA_STYLES = `
   @page {
-    size: ${ETIQUETA_PRINT_WIDTH_MM}mm ${ETIQUETA_PRINT_HEIGHT_MM}mm;
     margin: 0;
   }
   * { box-sizing: border-box; }
@@ -41,14 +42,12 @@ const ETIQUETA_STYLES = `
   .folha-etiqueta {
     width: ${ETIQUETA_PRINT_WIDTH_MM}mm;
     height: ${ETIQUETA_PRINT_HEIGHT_MM}mm;
-    padding: 1.6mm 2.2mm 1.8mm;
+    padding: 1.8mm 2.4mm 2mm;
     display: flex;
     flex-direction: column;
-    justify-content: flex-start;
-    gap: 1.2mm;
+    justify-content: space-between;
+    gap: 0;
     overflow: hidden;
-    border: 0.3mm solid #94a3b8;
-    border-top: 1mm solid #1d4ed8;
     background: #fff;
   }
   .folha-etiqueta__head {
@@ -85,10 +84,10 @@ const ETIQUETA_STYLES = `
   }
   .folha-etiqueta__etq-main {
     text-align: center;
-    padding: 0.4mm 0 0.8mm;
+    padding: 0.8mm 0 1mm;
   }
   .folha-etiqueta__etq {
-    font-size: 20pt;
+    font-size: 18pt;
     font-weight: 800;
     line-height: 0.95;
     letter-spacing: 0.02em;
@@ -99,13 +98,12 @@ const ETIQUETA_STYLES = `
     color: #475569;
     font-weight: 700;
     line-height: 1.1;
-    margin-top: 0.3mm;
+    margin-top: 0.35mm;
   }
   .folha-etiqueta__cliente {
     border-top: 0.25mm solid #cbd5e1;
     border-bottom: 0.25mm solid #cbd5e1;
-    padding: 1mm 0;
-    background: transparent;
+    padding: 1.2mm 0;
   }
   .folha-etiqueta__cliente-label {
     display: block;
@@ -115,14 +113,14 @@ const ETIQUETA_STYLES = `
     text-transform: uppercase;
     color: #1d4ed8;
     line-height: 1;
-    margin-bottom: 0.35mm;
+    margin-bottom: 0.4mm;
   }
   .folha-etiqueta__cliente-name {
     display: block;
     font-size: 12pt;
     font-weight: 800;
     line-height: 1.1;
-    max-height: 7mm;
+    max-height: 7.5mm;
     overflow: hidden;
     word-break: break-word;
     color: #0f172a;
@@ -130,13 +128,15 @@ const ETIQUETA_STYLES = `
   .folha-etiqueta__equip {
     display: flex;
     flex-direction: column;
-    gap: 0.55mm;
-    padding: 1.1mm 0 0;
-    flex: 0 0 auto;
+    justify-content: space-evenly;
+    gap: 0.7mm;
+    padding-top: 1mm;
+    flex: 1 1 auto;
+    min-height: 0;
   }
   .folha-etiqueta__row {
     display: grid;
-    grid-template-columns: 14mm 1fr;
+    grid-template-columns: 15mm 1fr;
     column-gap: 1.2mm;
     align-items: baseline;
     min-width: 0;
@@ -145,13 +145,13 @@ const ETIQUETA_STYLES = `
     font-weight: 700;
     color: #64748b;
     text-transform: uppercase;
-    font-size: 5.6pt;
+    font-size: 5.8pt;
     letter-spacing: 0.03em;
     line-height: 1.15;
   }
   .folha-etiqueta__row-value {
     font-weight: 700;
-    font-size: 9pt;
+    font-size: 9.5pt;
     color: #0f172a;
     line-height: 1.15;
     overflow: hidden;
@@ -162,6 +162,8 @@ const ETIQUETA_STYLES = `
     html, body {
       width: ${ETIQUETA_PRINT_WIDTH_MM}mm;
       height: ${ETIQUETA_PRINT_HEIGHT_MM}mm;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
     }
   }
 `;
@@ -304,133 +306,24 @@ export function buildFolhaObraEtiquetaPreviewHtml(folha) {
           border: 0.35mm solid #94a3b8;
           border-radius: 1mm;
         }
+        .folha-etiqueta-preview-note {
+          margin: 2.6rem 1rem 0;
+          max-width: 28rem;
+          text-align: center;
+          color: #475569;
+          font-size: 0.92rem;
+          line-height: 1.45;
+        }
         ${ETIQUETA_STYLES}
       </style>
       ${buildFolhaObraEtiquetaBody(folha)}
       <p class="folha-etiqueta-preview-note">
-        Fita contínua 62 mm · página ${ETIQUETA_PRINT_WIDTH_MM} × ${ETIQUETA_PRINT_HEIGHT_MM} mm
-        <br>Na Brother QL escolha «62 mm Fita contínua» (não 29×90).
+        Layout ${ETIQUETA_PRINT_WIDTH_MM} × ${ETIQUETA_PRINT_HEIGHT_MM} mm para fita contínua 62 mm.
+        <br><strong>No diálogo de impressão</strong>, em Tamanho do papel, escolha
+        <strong>«62 mm Fita contínua»</strong> (não 29×90 nem 62×60).
       </p>
     </div>
   `;
-}
-
-/**
- * PDF com página exacta 62×60 mm — tamanho da fita contínua Brother QL.
- */
-export async function generateFolhaObraEtiquetaPDFBlob(folha) {
-  validateFolhaObraEtiqueta(folha);
-  const { cliente, etq, fo, msRc, isMs, rows } = buildEtiquetaContent(folha);
-  const jsPDF = await loadJsPDF();
-  const doc = new jsPDF({
-    unit: 'mm',
-    format: [ETIQUETA_PRINT_WIDTH_MM, ETIQUETA_PRINT_HEIGHT_MM],
-    orientation: 'portrait',
-  });
-  await ensurePdfFonts(doc);
-
-  const padX = 2.4;
-  const padTop = 2.8;
-  const padBottom = 2.4;
-  const contentW = ETIQUETA_PRINT_WIDTH_MM - padX * 2;
-  const usableH = ETIQUETA_PRINT_HEIGHT_MM - padTop - padBottom;
-
-  // Blocos: cabeçalho ETQ, cliente, linhas de equipamento
-  const hasFo = Boolean(fo && fo !== '—' && fo !== etq);
-  const clientLines = doc.splitTextToSize(pdfSafeText(cliente), contentW).slice(0, 2);
-  const headH = 3.2 + 5.2 + (hasFo ? 3.2 : 0.8);
-  const clientH = 2.2 + 3.2 + clientLines.length * 3.8 + 1.4;
-  const rowH = 4.2;
-  const equipH = rows.length * rowH;
-  const contentH = headH + clientH + equipH;
-  const free = Math.max(0, usableH - contentH);
-  const gapAfterHead = free * 0.35;
-  const gapAfterClient = free * 0.35;
-  const gapBetweenRows = rows.length > 1 ? (free * 0.3) / (rows.length - 1) : 0;
-
-  let y = padTop;
-
-  doc.setDrawColor(29, 78, 216);
-  doc.setLineWidth(0.7);
-  doc.line(0, 0.6, ETIQUETA_PRINT_WIDTH_MM, 0.6);
-
-  pdfSetFont(doc, 'bold');
-  doc.setFontSize(7);
-  doc.setTextColor(29, 78, 216);
-  doc.text(pdfSafeText('MANUSILVA'), padX, y + 1.6);
-
-  const badgeW = 9;
-  const badgeH = 3.4;
-  const badgeX = ETIQUETA_PRINT_WIDTH_MM - padX - badgeW;
-  if (isMs) {
-    doc.setFillColor(219, 234, 254);
-    doc.setDrawColor(147, 197, 253);
-    doc.setTextColor(30, 58, 95);
-  } else {
-    doc.setFillColor(255, 237, 213);
-    doc.setDrawColor(253, 186, 116);
-    doc.setTextColor(124, 45, 18);
-  }
-  doc.setLineWidth(0.18);
-  doc.roundedRect(badgeX, y, badgeW, badgeH, 0.4, 0.4, 'FD');
-  doc.setFontSize(8);
-  doc.text(pdfSafeText(msRc), badgeX + badgeW / 2, y + 2.35, { align: 'center' });
-
-  y += 5.4;
-  doc.setTextColor(15, 23, 42);
-  doc.setFontSize(18);
-  pdfSetFont(doc, 'bold');
-  doc.text(pdfSafeText(etq), ETIQUETA_PRINT_WIDTH_MM / 2, y, { align: 'center' });
-  y += 3.8;
-  if (hasFo) {
-    doc.setFontSize(8);
-    doc.setTextColor(71, 85, 105);
-    doc.text(pdfSafeText(fo), ETIQUETA_PRINT_WIDTH_MM / 2, y, { align: 'center' });
-    y += 2.8;
-  } else {
-    y += 0.6;
-  }
-
-  y += gapAfterHead;
-  doc.setDrawColor(203, 213, 225);
-  doc.setLineWidth(0.25);
-  doc.line(padX, y, ETIQUETA_PRINT_WIDTH_MM - padX, y);
-  y += 2.4;
-  doc.setFontSize(5.8);
-  doc.setTextColor(29, 78, 216);
-  pdfSetFont(doc, 'bold');
-  doc.text(pdfSafeText('CLIENTE'), padX, y);
-  y += 3.4;
-  doc.setFontSize(12);
-  doc.setTextColor(15, 23, 42);
-  doc.text(clientLines, padX, y);
-  y += clientLines.length * 3.8 + 1.2;
-
-  y += gapAfterClient;
-  doc.setDrawColor(203, 213, 225);
-  doc.line(padX, y, ETIQUETA_PRINT_WIDTH_MM - padX, y);
-  y += 3.2;
-
-  const labelW = 15;
-  rows.forEach(([label, value], index) => {
-    pdfSetFont(doc, 'bold');
-    doc.setFontSize(6);
-    doc.setTextColor(100, 116, 139);
-    doc.text(pdfSafeText(String(label).toUpperCase()), padX, y);
-    doc.setFontSize(9.5);
-    doc.setTextColor(15, 23, 42);
-    const valueText = doc.splitTextToSize(pdfSafeText(value || '—'), contentW - labelW)[0] || '—';
-    doc.text(valueText, padX + labelW, y);
-    y += rowH;
-    if (index < rows.length - 1) y += gapBetweenRows;
-  });
-
-  const blob = doc.output('blob');
-  return {
-    blob,
-    blobUrl: URL.createObjectURL(blob),
-    filename: `etiqueta-${etq || 'folha'}.pdf`,
-  };
 }
 
 /** Criar iframe de impressão no clique — antes de operações async. */
@@ -448,11 +341,11 @@ export function prepareFolhaObraEtiquetaPrint() {
   return frame;
 }
 
-function printPdfBlobUrl(blobUrl) {
+function writeFrameAndPrint(frame, html) {
   return new Promise((resolve, reject) => {
-    const frame = prepareFolhaObraEtiquetaPrint();
     const win = frame.contentWindow;
-    if (!win) {
+    const doc = frame.contentDocument || win?.document;
+    if (!win || !doc) {
       reject(new Error('Não foi possível preparar a impressão da etiqueta.'));
       return;
     }
@@ -471,22 +364,29 @@ function printPdfBlobUrl(blobUrl) {
         } catch (err) {
           reject(err);
         }
-      }, 350);
+      }, 200);
     };
 
     frame.onload = doPrint;
-    frame.src = blobUrl;
+    doc.open();
+    doc.write(html);
+    doc.close();
+
+    if (doc.readyState === 'complete') doPrint();
   });
 }
 
-export async function printFolhaObraEtiqueta(folha) {
+export function printFolhaObraEtiqueta(folha) {
   validateFolhaObraEtiqueta(folha);
-  const { blobUrl } = await generateFolhaObraEtiquetaPDFBlob(folha);
-  try {
-    await printPdfBlobUrl(blobUrl);
-  } finally {
-    window.setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
-  }
+  const html = buildFolhaObraEtiquetaHtml(folha);
+  const frame = prepareFolhaObraEtiquetaPrint();
+  showToast(
+    'Na Brother QL: tamanho do papel = «62 mm Fita contínua» (não 62×60 nem 29×90).',
+    'info',
+    7000,
+    { force: true },
+  );
+  return writeFrameAndPrint(frame, html);
 }
 
 export function openFolhaObraEtiquetaPreview(folha) {

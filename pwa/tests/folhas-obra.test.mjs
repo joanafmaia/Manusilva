@@ -249,9 +249,6 @@ describe('folha-obra-etiqueta', () => {
     );
     assert.equal(ETIQUETA_PRINT_WIDTH_MM, 62);
     assert.equal(ETIQUETA_PRINT_HEIGHT_MM, 60);
-
-    const { generateFolhaObraEtiquetaPDFBlob } = await import('../js/folha-obra-etiqueta.js');
-    assert.equal(typeof generateFolhaObraEtiquetaPDFBlob, 'function');
   });
 });
 
