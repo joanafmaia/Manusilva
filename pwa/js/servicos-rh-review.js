@@ -4,7 +4,7 @@
 
 import { formatDateLong, isToday, addDaysToIsoDate } from './date-utils.js';
 import { getClient } from './entity-lookups.js';
-import { dedupeReportsForDisplay } from './relatorios-db.js';
+import { uniqueReportsById } from './relatorios-db.js';
 import { getServico } from './servicos-db.js';
 import { getReportsForServico, resolveServicoIdForReport, shouldDeferRhReviewForServicoReport } from './servicos-panel-utils.js';
 
@@ -113,16 +113,7 @@ function sortReportsChronologically(reports) {
 
 /** Contagens por estado dos relatórios de uma visita. */
 export function summarizeServicoReviewState(reports = []) {
-  // Não usar dedupe por OP/job: visitas multi-máquina partilham a mesma OP.
-  const seen = new Set();
-  const list = [];
-  for (const report of reports || []) {
-    if (!report?.id) continue;
-    const id = String(report.id);
-    if (seen.has(id)) continue;
-    seen.add(id);
-    list.push(report);
-  }
+  const list = uniqueReportsById(reports);
   const pending = list.filter((r) => r.status === 'pending_review').length;
   const approved = list.filter((r) => r.status === 'approved').length;
   const rejected = list.filter((r) => r.status === 'rejected').length;
@@ -145,7 +136,7 @@ export function summarizeServicoReviewState(reports = []) {
  * @param {object[]} filteredReports
  */
 export function groupReportsForRhStack(filteredReports) {
-  const list = dedupeReportsForDisplay(filteredReports || []);
+  const list = uniqueReportsById(filteredReports || []);
   if (!list.length) return [];
 
   const folderServicos = new Set();
@@ -191,7 +182,7 @@ export function groupReportsForRhStack(filteredReports) {
 
 /** Metadados de pasta para relatório avulso (sem visita no calendário). */
 export function buildStandaloneFolderMeta(reports = [], getJobFn = null) {
-  const list = dedupeReportsForDisplay(reports);
+  const list = uniqueReportsById(reports);
   const report = list[0];
   const client = getClient(report?.clientId);
   const dateIso = resolveReportDisplayDateIso(report, getJobFn);
@@ -226,7 +217,7 @@ export function getFirstPendingReportIdForServico(servicoId) {
  */
 export function getNextPendingReportId(currentId, reports) {
   const pending = sortReportsChronologically(
-    dedupeReportsForDisplay(reports || []).filter((r) => r.status === 'pending_review'),
+    uniqueReportsById(reports || []).filter((r) => r.status === 'pending_review'),
   );
   if (!pending.length) return null;
 

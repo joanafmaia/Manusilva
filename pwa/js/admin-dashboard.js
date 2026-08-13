@@ -544,11 +544,7 @@ export function setAdminTab(tab, options = {}) {
     document.querySelector('.admin-main')?.scrollTo({ top: 0, behavior: 'auto' });
   }
   if (tab === 'relatorios' && tabChanged) {
-    // Não re-renderizar a pilha — só ajustar altura. Re-render zerava o scroll.
-    requestAnimationFrame(() => {
-      syncReviewPanelHeight();
-      restoreRhReviewScroll(document.getElementById('rh-review-panel'));
-    });
+    renderRhReviewStack({ syncCatalog: true, preserveScroll: true }).catch(console.error);
   }
 }
 
@@ -1369,6 +1365,11 @@ async function renderRhReviewStack(options = {}) {
   if (syncCatalog) {
     try {
       await syncTechniciansCatalog({ silent: true });
+      const { ensureReportsLoaded, mergePendingReportsFromSupabase } = await import(
+        './relatorios-db.js'
+      );
+      await ensureReportsLoaded(true);
+      await mergePendingReportsFromSupabase();
     } catch (err) {
       console.warn('[Admin] Dados para painel de relatórios:', err);
     }

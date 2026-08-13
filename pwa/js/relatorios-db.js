@@ -139,6 +139,23 @@ export function dedupeReportsForDisplay(reports = []) {
   return dedupeReportsByNumeroOrdem(dedupeReportsByJobPreferNewest(reports));
 }
 
+/**
+ * Fila RH / pastas de visita: um cartão por id.
+ * Não colapsa por OP/job — isso escondia relatórios distintos (ex.: várias máquinas).
+ */
+export function uniqueReportsById(reports = []) {
+  const seen = new Set();
+  const out = [];
+  for (const report of reports || []) {
+    if (!report?.id) continue;
+    const id = String(report.id);
+    if (seen.has(id)) continue;
+    seen.add(id);
+    out.push(report);
+  }
+  return out;
+}
+
 function parseClientId(clientId) {
   if (clientId == null || clientId === '') return null;
   const n = Number(clientId);
@@ -550,6 +567,47 @@ async function loadReportsFromSupabase() {
   return reportsCache;
 }
 
+/**
+ * Garante que todos os `pending_review` estão no cache (query dedicada + paginação).
+ * Complementa o SELECT completo — a fila RH não depende só do lote geral.
+ */
+export async function mergePendingReportsFromSupabase() {
+  const supabase = await getAuthenticatedSupabaseClient();
+  let from = 0;
+  let merged = 0;
+
+  for (;;) {
+    const to = from + RELATORIOS_FETCH_PAGE_SIZE - 1;
+    const { data, error } = await supabase
+      .from('relatorios')
+      .select('*')
+      .eq('estado', 'pending_review')
+      .order('submetido_em', { ascending: false, nullsFirst: false })
+      .range(from, to);
+
+    if (error) {
+      console.error('[ManuSilva] Erro ao carregar pendentes RH:', error);
+      throw new Error(formatRelatoriosError(error));
+    }
+
+    const batch = data || [];
+    if (!reportsCache) reportsCache = [];
+    for (const row of batch) {
+      const report = mapRowToReport(row);
+      if (!report || isReportLocallyDeleted(report)) continue;
+      upsertCacheEntry(report);
+      merged += 1;
+    }
+    if (batch.length < RELATORIOS_FETCH_PAGE_SIZE) break;
+    from += RELATORIOS_FETCH_PAGE_SIZE;
+  }
+
+  reportsFullyLoaded = true;
+  invalidateReportsJobIndex();
+  console.info(`[ManuSilva] ${merged} pendente(s) RH sincronizado(s) do Supabase.`);
+  return merged;
+}
+
 export function invalidateReportsCache() {
   reportsCache = null;
   reportsLoadPromise = null;
@@ -565,6 +623,16 @@ function reportsShareSameSlot(a, b) {
   }
   if (a.jobId && b.jobId && sameEntityId(a.jobId, b.jobId)) {
     if (a.servicoId || b.servicoId) return false;
+    // Dois pendentes distintos com o mesmo trabalho: manter ambos na fila RH
+    if (
+      a.status === 'pending_review' &&
+      b.status === 'pending_review' &&
+      a.id &&
+      b.id &&
+      !sameEntityId(a.id, b.id)
+    ) {
+      return false;
+    }
     if (a.serviceType && b.serviceType && a.serviceType !== b.serviceType) return false;
     return true;
   }

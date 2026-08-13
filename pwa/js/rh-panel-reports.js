@@ -2,7 +2,7 @@
  * Fila e filtros de relatórios no painel RH.
  */
 
-import { dedupeReportsForDisplay, getReportsSnapshot } from './relatorios-db.js';
+import { getReportsSnapshot, uniqueReportsById } from './relatorios-db.js';
 import { isRhOrcamentoQueueReport, reportIsStandaloneOrcamento } from './pedido-orcamento.js';
 import { resolveServicoIdForReport } from './servicos-panel-utils.js';
 
@@ -43,13 +43,12 @@ export function getServicosWithDraftReports() {
 }
 
 function getRhPanelReports() {
-  return dedupeReportsForDisplay(getRhPanelReportsRaw());
+  // Por id — nunca colapsar por OP/job na fila RH.
+  return uniqueReportsById(getRhPanelReportsRaw());
 }
 
 function getRhOrcamentoQueueReports() {
-  return dedupeReportsForDisplay(
-    getRhPanelReportsRaw().filter(isRhOrcamentoQueueReport),
-  );
+  return uniqueReportsById(getRhPanelReportsRaw().filter(isRhOrcamentoQueueReport));
 }
 
 /** Mais antigo primeiro — prioridade FIFO na fila RH */
@@ -60,15 +59,13 @@ function sortReportsForRhPanel(a, b) {
 }
 
 export function getPendingReports() {
-  return dedupeReportsForDisplay(getPendingReviewReportsSnapshot());
+  return uniqueReportsById(getPendingReviewReportsSnapshot());
 }
 
 /** Relatórios visíveis no painel RH (com filtro opcional por estado) */
 export function getAdminReviewReports(filter = 'all') {
   if (filter === 'pending_review') {
-    return dedupeReportsForDisplay(getPendingReviewReportsSnapshot()).sort(
-      sortReportsForRhPanel,
-    );
+    return uniqueReportsById(getPendingReviewReportsSnapshot()).sort(sortReportsForRhPanel);
   }
   if (filter === 'orcamento_pendente') {
     return getRhOrcamentoQueueReports().sort(sortReportsForRhPanel);
@@ -81,7 +78,7 @@ export function getAdminReviewReports(filter = 'all') {
 /** Contagens por estado para filtros rápidos do painel RH */
 export function getRhPanelReportCounts() {
   const list = getRhPanelReports();
-  const pendingReview = dedupeReportsForDisplay(getPendingReviewReportsSnapshot());
+  const pendingReview = uniqueReportsById(getPendingReviewReportsSnapshot());
   let draft = 0;
   let approved = 0;
   let rejected = 0;

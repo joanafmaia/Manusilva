@@ -263,4 +263,19 @@ describe('dedupeReportsForDisplay', () => {
     const deduped = dedupeReportsForDisplay(reports);
     assert.equal(deduped.length, 2);
   });
+
+  it('uniqueReportsById mantém pendentes distintos com a mesma OP/job', async () => {
+    const { uniqueReportsById } = await import('../js/relatorios-db.js');
+    const reports = [
+      { id: 'a', jobId: 'job-1', numeroOrdem: 10, status: 'pending_review' },
+      { id: 'b', jobId: 'job-2', numeroOrdem: 10, status: 'pending_review' },
+      { id: 'a', jobId: 'job-1', numeroOrdem: 10, status: 'pending_review' },
+    ];
+    const unique = uniqueReportsById(reports);
+    assert.equal(unique.length, 2);
+    assert.deepEqual(
+      unique.map((r) => r.id).sort(),
+      ['a', 'b'],
+    );
+  });
 });
