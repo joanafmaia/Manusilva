@@ -20,8 +20,8 @@ const PRINT_FRAME_ID = 'folha-obra-etiqueta-print-frame';
 
 /** Largura da fita (Brother QL — fita contínua 62 mm). */
 export const ETIQUETA_PRINT_WIDTH_MM = 62;
-/** Comprimento do corte ao longo da fita. */
-export const ETIQUETA_PRINT_HEIGHT_MM = 58;
+/** Comprimento do corte — alinhado ao tamanho 62×60 mm da Brother QL. */
+export const ETIQUETA_PRINT_HEIGHT_MM = 60;
 
 const ETIQUETA_STYLES = `
   @page {
@@ -41,11 +41,11 @@ const ETIQUETA_STYLES = `
   .folha-etiqueta {
     width: ${ETIQUETA_PRINT_WIDTH_MM}mm;
     height: ${ETIQUETA_PRINT_HEIGHT_MM}mm;
-    padding: 1.4mm 2.2mm 1.6mm;
+    padding: 1.6mm 2.2mm 1.8mm;
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
-    gap: 0;
+    justify-content: flex-start;
+    gap: 1.2mm;
     overflow: hidden;
     border: 0.3mm solid #94a3b8;
     border-top: 1mm solid #1d4ed8;
@@ -316,7 +316,7 @@ export function buildFolhaObraEtiquetaPreviewHtml(folha) {
 }
 
 /**
- * PDF com página exacta 62×58 mm — evita o driver Brother cair no default 29×90.
+ * PDF com página exacta 62×60 mm — tamanho da fita contínua Brother QL.
  */
 export async function generateFolhaObraEtiquetaPDFBlob(folha) {
   validateFolhaObraEtiqueta(folha);
@@ -329,21 +329,38 @@ export async function generateFolhaObraEtiquetaPDFBlob(folha) {
   });
   await ensurePdfFonts(doc);
 
-  const padX = 2.2;
+  const padX = 2.4;
+  const padTop = 2.8;
+  const padBottom = 2.4;
   const contentW = ETIQUETA_PRINT_WIDTH_MM - padX * 2;
-  let y = 2.2;
+  const usableH = ETIQUETA_PRINT_HEIGHT_MM - padTop - padBottom;
+
+  // Blocos: cabeçalho ETQ, cliente, linhas de equipamento
+  const hasFo = Boolean(fo && fo !== '—' && fo !== etq);
+  const clientLines = doc.splitTextToSize(pdfSafeText(cliente), contentW).slice(0, 2);
+  const headH = 3.2 + 5.2 + (hasFo ? 3.2 : 0.8);
+  const clientH = 2.2 + 3.2 + clientLines.length * 3.8 + 1.4;
+  const rowH = 4.2;
+  const equipH = rows.length * rowH;
+  const contentH = headH + clientH + equipH;
+  const free = Math.max(0, usableH - contentH);
+  const gapAfterHead = free * 0.35;
+  const gapAfterClient = free * 0.35;
+  const gapBetweenRows = rows.length > 1 ? (free * 0.3) / (rows.length - 1) : 0;
+
+  let y = padTop;
 
   doc.setDrawColor(29, 78, 216);
-  doc.setLineWidth(0.9);
-  doc.line(0, 0.5, ETIQUETA_PRINT_WIDTH_MM, 0.5);
+  doc.setLineWidth(0.7);
+  doc.line(0, 0.6, ETIQUETA_PRINT_WIDTH_MM, 0.6);
 
   pdfSetFont(doc, 'bold');
   doc.setFontSize(7);
   doc.setTextColor(29, 78, 216);
-  doc.text(pdfSafeText('MANUSILVA'), padX, y + 1.8);
+  doc.text(pdfSafeText('MANUSILVA'), padX, y + 1.6);
 
   const badgeW = 9;
-  const badgeH = 3.6;
+  const badgeH = 3.4;
   const badgeX = ETIQUETA_PRINT_WIDTH_MM - padX - badgeW;
   if (isMs) {
     doc.setFillColor(219, 234, 254);
@@ -357,52 +374,55 @@ export async function generateFolhaObraEtiquetaPDFBlob(folha) {
   doc.setLineWidth(0.18);
   doc.roundedRect(badgeX, y, badgeW, badgeH, 0.4, 0.4, 'FD');
   doc.setFontSize(8);
-  doc.text(pdfSafeText(msRc), badgeX + badgeW / 2, y + 2.5, { align: 'center' });
+  doc.text(pdfSafeText(msRc), badgeX + badgeW / 2, y + 2.35, { align: 'center' });
 
-  y += 6.2;
+  y += 5.4;
   doc.setTextColor(15, 23, 42);
-  doc.setFontSize(20);
+  doc.setFontSize(18);
   pdfSetFont(doc, 'bold');
   doc.text(pdfSafeText(etq), ETIQUETA_PRINT_WIDTH_MM / 2, y, { align: 'center' });
-  y += 4.2;
-  if (fo && fo !== '—' && fo !== etq) {
+  y += 3.8;
+  if (hasFo) {
     doc.setFontSize(8);
     doc.setTextColor(71, 85, 105);
     doc.text(pdfSafeText(fo), ETIQUETA_PRINT_WIDTH_MM / 2, y, { align: 'center' });
-    y += 3.2;
+    y += 2.8;
   } else {
-    y += 1.2;
+    y += 0.6;
   }
 
+  y += gapAfterHead;
   doc.setDrawColor(203, 213, 225);
   doc.setLineWidth(0.25);
   doc.line(padX, y, ETIQUETA_PRINT_WIDTH_MM - padX, y);
-  y += 2.2;
+  y += 2.4;
   doc.setFontSize(5.8);
   doc.setTextColor(29, 78, 216);
   pdfSetFont(doc, 'bold');
   doc.text(pdfSafeText('CLIENTE'), padX, y);
   y += 3.4;
-  doc.setFontSize(11);
+  doc.setFontSize(12);
   doc.setTextColor(15, 23, 42);
-  const clientLines = doc.splitTextToSize(pdfSafeText(cliente), contentW);
-  doc.text(clientLines.slice(0, 2), padX, y);
-  y += Math.min(clientLines.length, 2) * 3.6 + 1.2;
+  doc.text(clientLines, padX, y);
+  y += clientLines.length * 3.8 + 1.2;
+
+  y += gapAfterClient;
   doc.setDrawColor(203, 213, 225);
   doc.line(padX, y, ETIQUETA_PRINT_WIDTH_MM - padX, y);
-  y += 3;
+  y += 3.2;
 
-  const labelW = 14;
-  rows.forEach(([label, value]) => {
+  const labelW = 15;
+  rows.forEach(([label, value], index) => {
     pdfSetFont(doc, 'bold');
-    doc.setFontSize(5.6);
+    doc.setFontSize(6);
     doc.setTextColor(100, 116, 139);
     doc.text(pdfSafeText(String(label).toUpperCase()), padX, y);
-    doc.setFontSize(9);
+    doc.setFontSize(9.5);
     doc.setTextColor(15, 23, 42);
     const valueText = doc.splitTextToSize(pdfSafeText(value || '—'), contentW - labelW)[0] || '—';
     doc.text(valueText, padX + labelW, y);
-    y += 3.6;
+    y += rowH;
+    if (index < rows.length - 1) y += gapBetweenRows;
   });
 
   const blob = doc.output('blob');
