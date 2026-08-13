@@ -62,23 +62,30 @@ function compareReportsForDisplayDedupe(a, b) {
   return oa - ob;
 }
 
+/** Relatório de visita (calendário) — vários por serviço, mesmo jobId/OP. */
+function reportBelongsToVisit(report) {
+  if (String(report?.servicoId || '').trim()) return true;
+  const jobKey = report?.jobId ? String(report.jobId) : '';
+  if (!jobKey) return false;
+  return getServicosSnapshot().some((s) => String(s.id) === jobKey);
+}
+
 /** Evita listar o mesmo trabalho duas vezes no painel RH (submissões duplicadas). */
 export function dedupeReportsByJobPreferNewest(reports = []) {
   const byJob = new Map();
   const withoutJob = [];
-  const servicoIds = new Set(getServicosSnapshot().map((s) => String(s.id)));
 
   for (const report of reports) {
     if (!report?.jobId) {
       withoutJob.push(report);
       continue;
     }
-    const key = String(report.jobId);
     // Visitas: vários relatórios podem partilhar jobId = id da visita — não colapsar
-    if (servicoIds.has(key)) {
+    if (reportBelongsToVisit(report)) {
       withoutJob.push(report);
       continue;
     }
+    const key = String(report.jobId);
     const existing = byJob.get(key);
     if (!existing || compareReportsForDisplayDedupe(existing, report) < 0) {
       byJob.set(key, report);
@@ -101,12 +108,17 @@ function resolveReportNumeroOrdem(report) {
 /**
  * Uma OP oficial por número — evita duplicados quando existem vários relatórios/trabalhos
  * com o mesmo numero_ordem (erro de dados ou submissões repetidas).
+ * Visitas multi-relatório partilham a mesma OP: não colapsar.
  */
 export function dedupeReportsByNumeroOrdem(reports = []) {
   const byOrdem = new Map();
   const rest = [];
 
   for (const report of reports) {
+    if (reportBelongsToVisit(report)) {
+      rest.push(report);
+      continue;
+    }
     const ordem = resolveReportNumeroOrdem(report);
     if (ordem == null) {
       rest.push(report);
@@ -504,19 +516,34 @@ export async function ensureRelatoriosForServicos(servicoIds = []) {
   return loaded;
 }
 
+const RELATORIOS_FETCH_PAGE_SIZE = 1000;
+
 async function loadReportsFromSupabase() {
   const supabase = await getAuthenticatedSupabaseClient();
-  const { data, error } = await supabase
-    .from('relatorios')
-    .select('*')
-    .order('atualizado_em', { ascending: false, nullsFirst: false });
+  const rows = [];
+  let from = 0;
 
-  if (error) {
-    console.error('[ManuSilva] Erro ao carregar relatórios:', error);
-    throw new Error(formatRelatoriosError(error));
+  // PostgREST limita tipicamente a 1000 linhas por pedido — paginar até ao fim.
+  for (;;) {
+    const to = from + RELATORIOS_FETCH_PAGE_SIZE - 1;
+    const { data, error } = await supabase
+      .from('relatorios')
+      .select('*')
+      .order('atualizado_em', { ascending: false, nullsFirst: false })
+      .range(from, to);
+
+    if (error) {
+      console.error('[ManuSilva] Erro ao carregar relatórios:', error);
+      throw new Error(formatRelatoriosError(error));
+    }
+
+    const batch = data || [];
+    rows.push(...batch);
+    if (batch.length < RELATORIOS_FETCH_PAGE_SIZE) break;
+    from += RELATORIOS_FETCH_PAGE_SIZE;
   }
 
-  reportsCache = filterOutLocallyDeletedReports((data || []).map(mapRowToReport).filter(Boolean));
+  reportsCache = filterOutLocallyDeletedReports(rows.map(mapRowToReport).filter(Boolean));
   reportsFullyLoaded = true;
   invalidateReportsJobIndex();
   console.info(`[ManuSilva] ${reportsCache.length} relatório(s) carregados do Supabase.`);

@@ -113,7 +113,16 @@ function sortReportsChronologically(reports) {
 
 /** Contagens por estado dos relatórios de uma visita. */
 export function summarizeServicoReviewState(reports = []) {
-  const list = dedupeReportsForDisplay(reports);
+  // Não usar dedupe por OP/job: visitas multi-máquina partilham a mesma OP.
+  const seen = new Set();
+  const list = [];
+  for (const report of reports || []) {
+    if (!report?.id) continue;
+    const id = String(report.id);
+    if (seen.has(id)) continue;
+    seen.add(id);
+    list.push(report);
+  }
   const pending = list.filter((r) => r.status === 'pending_review').length;
   const approved = list.filter((r) => r.status === 'approved').length;
   const rejected = list.filter((r) => r.status === 'rejected').length;

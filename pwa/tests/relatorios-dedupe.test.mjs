@@ -208,4 +208,59 @@ describe('dedupeReportsForDisplay', () => {
       ['r-a', 'r-b', 'r-c'],
     );
   });
+
+  it('mantém todos os relatórios de visita com a mesma OP oficial', async () => {
+    const { dedupeReportsForDisplay } = await import('../js/relatorios-db.js');
+    const { mergeServicoInCache, invalidateServicosCache } = await import('../js/servicos-db.js');
+    invalidateServicosCache();
+    mergeServicoInCache({
+      id: 'svc-same-op',
+      clientId: '10',
+      date: '2026-08-11',
+      technicianIds: 'Filipe',
+      status: 'pending_review',
+      numeroOrdem: 120,
+      data: {},
+    });
+
+    const reports = Array.from({ length: 5 }, (_, i) => ({
+      id: `r-op-${i}`,
+      jobId: `job-${i}`,
+      servicoId: 'svc-same-op',
+      serviceType: 'manutencao_preventiva_empilhadores',
+      status: 'pending_review',
+      clientId: '10',
+      numeroOrdem: 120,
+      submittedAt: `2026-08-11T1${i}:00:00.000Z`,
+    }));
+
+    const deduped = dedupeReportsForDisplay(reports);
+    assert.equal(deduped.length, 5);
+  });
+
+  it('mantém visita mesmo sem servicos em cache se servicoId estiver no relatório', async () => {
+    const { dedupeReportsForDisplay } = await import('../js/relatorios-db.js');
+    const { invalidateServicosCache } = await import('../js/servicos-db.js');
+    invalidateServicosCache();
+
+    const reports = [
+      {
+        id: 'r1',
+        jobId: 'job-1',
+        servicoId: 'svc-offline',
+        status: 'pending_review',
+        numeroOrdem: 55,
+      },
+      {
+        id: 'r2',
+        jobId: 'job-2',
+        servicoId: 'svc-offline',
+        status: 'pending_review',
+        numeroOrdem: 55,
+      },
+    ];
+
+    const deduped = dedupeReportsForDisplay(reports);
+    assert.equal(deduped.length, 2);
+  });
 });
