@@ -7,9 +7,10 @@
  */
 
 import { getAuthenticatedSupabaseClient } from './supabase-client.js';
-import { mergeJobFromRealtime, removeJobFromCache } from './trabalhos-db.js';
+import { mergeJobFromRealtime, removeJobFromCache, mapRowToJob } from './trabalhos-db.js';
 import {
   mergeReportFromRealtime,
+  mapRowToReport,
   removeReportFromCache,
   removeReportsForJobFromCache,
   removeReportsForServicoFromCache,
@@ -27,12 +28,13 @@ import {
   maybeNotifyTechReportApproved,
   maybeNotifyTechReportRejected,
 } from './tech-notifications.js';
-import { jobMatchesTechnician } from './job-technician-utils.js';
+import { jobMatchesTechnician, reportMatchesTechnicianTeam } from './job-technician-utils.js';
 import { getJob, getTechnician } from './tech-app-core.js';
 import { getReportsForServico, servicoToCalendarItem } from './servicos-panel-utils.js';
 import { getSession } from './session.js';
 
 let channel = null;
+let pageHideBound = false;
 
 function currentTechMatch() {
   const session = getSession();
@@ -150,9 +152,12 @@ export async function initTechRealtime() {
       'postgres_changes',
       { event: 'INSERT', schema: 'public', table: 'trabalhos' },
       (payload) => {
-        const job = mergeJobFromRealtime(payload.new);
         const match = currentTechMatch();
-        if (job && match) maybeNotifyTechJobScheduled(job, match);
+        const job = mapRowToJob(payload.new);
+        if (!job) return;
+        if (match && !jobMatchesTechnician(job.technicianId, match)) return;
+        mergeJobFromRealtime(payload.new);
+        maybeNotifyTechJobScheduled(job, match);
         notifyChange();
       },
     )
@@ -160,6 +165,13 @@ export async function initTechRealtime() {
       'postgres_changes',
       { event: 'UPDATE', schema: 'public', table: 'trabalhos' },
       (payload) => {
+        const match = currentTechMatch();
+        const job = mapRowToJob(payload.new);
+        if (!job) return;
+        if (match && !jobMatchesTechnician(job.technicianId, match)) {
+          removeJobFromCache(job.id);
+          return;
+        }
         mergeJobFromRealtime(payload.new);
         notifyChange();
       },
@@ -175,6 +187,10 @@ export async function initTechRealtime() {
       'postgres_changes',
       { event: 'INSERT', schema: 'public', table: 'relatorios' },
       (payload) => {
+        const match = currentTechMatch();
+        const report = mapRowToReport(payload.new);
+        const job = report?.jobId ? getJob(report.jobId) : null;
+        if (match && report && !reportMatchesTechnicianTeam(report, job, match)) return;
         mergeReportFromRealtime(payload.new);
         notifyChange();
       },
@@ -183,10 +199,14 @@ export async function initTechRealtime() {
       'postgres_changes',
       { event: 'UPDATE', schema: 'public', table: 'relatorios' },
       (payload) => {
+        const match = currentTechMatch();
+        const preview = mapRowToReport(payload.new);
+        const jobPreview = preview?.jobId ? getJob(preview.jobId) : null;
+        if (match && preview && !reportMatchesTechnicianTeam(preview, jobPreview, match)) return;
+
         const prevStatus = payload.old?.estado ?? payload.old?.status;
         const report = mergeReportFromRealtime(payload.new);
-        const job = report?.jobId ? getJob(report.jobId) : null;
-        const match = currentTechMatch();
+        const job = report?.jobId ? getJob(report.jobId) : jobPreview;
         if (report?.status === 'rejected' && prevStatus !== 'rejected') {
           removeAllLocalDraftsForReport(report).catch((err) => {
             console.warn('[Técnico Realtime] Limpar rascunho após reprovação:', err);
@@ -215,11 +235,32 @@ export async function initTechRealtime() {
       }
     });
 
+  if (!pageHideBound && typeof window !== 'undefined') {
+    pageHideBound = true;
+    window.addEventListener('pagehide', () => {
+      void teardownTechRealtime();
+    });
+  }
+
   return channel;
 }
 
-export function teardownTechRealtime() {
+export async function teardownTechRealtime() {
   if (!channel) return;
-  channel.unsubscribe();
+  const active = channel;
   channel = null;
+  try {
+    const supabase = await getAuthenticatedSupabaseClient();
+    if (typeof supabase.removeChannel === 'function') {
+      await supabase.removeChannel(active);
+      return;
+    }
+  } catch {
+    /* ignore */
+  }
+  try {
+    active.unsubscribe();
+  } catch {
+    /* ignore */
+  }
 }

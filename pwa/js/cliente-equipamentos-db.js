@@ -3,6 +3,7 @@
  */
 
 import { getAuthenticatedSupabaseClient } from './supabase-client.js';
+import { CLIENTE_EQUIPAMENTOS_SELECT } from './supabase-query.js';
 import { extractEquipamentosFromReport, reconcileEquipamentoChaves } from './cliente-equipamentos.js';
 
 const cache = new Map();
@@ -60,9 +61,10 @@ export async function fetchClienteEquipamentos(clientId) {
     const supabase = await getAuthenticatedSupabaseClient();
     const { data, error } = await supabase
       .from('cliente_equipamentos')
-      .select('*')
+      .select(CLIENTE_EQUIPAMENTOS_SELECT)
       .eq('cliente_id', numericId)
-      .order('ultima_intervencao_em', { ascending: false });
+      .order('ultima_intervencao_em', { ascending: false })
+      .limit(300);
 
     if (error) {
       if (error.code === '42P01') {

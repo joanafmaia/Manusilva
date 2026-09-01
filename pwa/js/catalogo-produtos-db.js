@@ -4,6 +4,7 @@
  */
 
 import { getAuthenticatedSupabaseClient } from './supabase-client.js';
+import { fetchAllPaged } from './supabase-query.js';
 
 function norm(value) {
   return String(value ?? '').trim();
@@ -61,10 +62,12 @@ export function mapDbRowToCatalogItem(row) {
 /** @returns {Promise<object[]>} */
 export async function fetchCatalogoProdutosFromDb() {
   const supabase = await getAuthenticatedSupabaseClient();
-  const { data, error } = await supabase
-    .from('catalogo_produtos')
-    .select('tipo, codigo, descricao, unidade, preco_venda')
-    .order('descricao', { ascending: true });
+  const { data, error } = await fetchAllPaged(() =>
+    supabase
+      .from('catalogo_produtos')
+      .select('tipo, codigo, descricao, unidade, preco_venda')
+      .order('descricao', { ascending: true }),
+  );
 
   if (error) {
     if (error.code === 'PGRST205' || /does not exist/i.test(String(error.message || ''))) {

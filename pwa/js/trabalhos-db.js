@@ -4,6 +4,7 @@
 
 import { getAuthenticatedSupabaseClient } from './supabase-client.js';
 import { getServico } from './servicos-db.js';
+import { fetchAllPaged, TRABALHOS_SELECT } from './supabase-query.js';
 
 let jobsCache = null;
 let jobsLoadPromise = null;
@@ -122,11 +123,13 @@ export async function ensureJobsLoaded(force = false) {
 
 async function loadJobsFromSupabase() {
   const supabase = await getAuthenticatedSupabaseClient();
-  const { data, error } = await supabase
-    .from('trabalhos')
-    .select('*')
-    .order('data', { ascending: true })
-    .order('hora', { ascending: true });
+  const { data, error } = await fetchAllPaged(() =>
+    supabase
+      .from('trabalhos')
+      .select(TRABALHOS_SELECT)
+      .order('data', { ascending: true })
+      .order('hora', { ascending: true }),
+  );
 
   if (error) {
     console.error('[ManuSilva] Erro ao carregar trabalhos:', error);
@@ -200,7 +203,7 @@ export async function ensureTrabalhosSemana(technicianId, startDate, endDate) {
   const supabase = await getAuthenticatedSupabaseClient();
   const { data, error } = await supabase
     .from('trabalhos')
-    .select('*')
+    .select(TRABALHOS_SELECT)
     .ilike('tecnico_id', `%${techName}%`)
     .gte('data', startDate)
     .lte('data', endDate)
@@ -241,7 +244,7 @@ export async function insertTrabalho(jobData) {
   const supabase = await getAuthenticatedSupabaseClient();
   const row = mapJobToRow(jobData, { estado: 'scheduled', nota_rejeicao: null });
 
-  const { data, error } = await supabase.from('trabalhos').insert(row).select();
+  const { data, error } = await supabase.from('trabalhos').insert(row).select(TRABALHOS_SELECT);
 
   if (error) {
     console.error('[ManuSilva] Erro ao criar trabalho:', error);

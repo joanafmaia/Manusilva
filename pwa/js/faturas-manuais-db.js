@@ -14,6 +14,7 @@ import {
   normalizeInvoiceAmountInput,
   resolveInvoiceBillingFields,
 } from './billing-workflow.js';
+import { FATURAS_MANUAIS_SELECT, fetchAllPaged } from './supabase-query.js';
 
 let faturasManuaisCache = null;
 let faturasManuaisLoadPromise = null;
@@ -143,11 +144,13 @@ export async function ensureFaturasManuaisLoadedSafe(force = false) {
 
 async function loadFaturasManuaisFromSupabase() {
   const supabase = await getAuthenticatedSupabaseClient();
-  const { data, error } = await supabase
-    .from('faturas_manuais')
-    .select('*')
-    .order('data_fatura', { ascending: false })
-    .order('criado_em', { ascending: false });
+  const { data, error } = await fetchAllPaged(() =>
+    supabase
+      .from('faturas_manuais')
+      .select(FATURAS_MANUAIS_SELECT)
+      .order('data_fatura', { ascending: false })
+      .order('criado_em', { ascending: false }),
+  );
 
   if (error) {
     console.error('[ManuSilva] Erro ao carregar faturas manuais:', error);
@@ -253,11 +256,14 @@ export async function registerManualInvoice({
   let { data: inserted, error } = await supabase
     .from('faturas_manuais')
     .insert(insertRow)
-    .select();
+    .select(FATURAS_MANUAIS_SELECT);
 
   if (error && isMissingAuditColumnError(error)) {
     const { patch } = stripAuditColumns(insertRow, AUDIT_MANUAL_COLUMNS);
-    ({ data: inserted, error } = await supabase.from('faturas_manuais').insert(patch).select());
+    ({ data: inserted, error } = await supabase
+      .from('faturas_manuais')
+      .insert(patch)
+      .select(FATURAS_MANUAIS_SELECT));
   }
 
   if (error) {
@@ -294,7 +300,7 @@ export async function confirmManualInvoicePayment(invoiceId, { dataRecebimento }
       atualizado_em: new Date().toISOString(),
     })
     .eq('id', invoiceId)
-    .select();
+    .select(FATURAS_MANUAIS_SELECT);
 
   if (error) {
     console.error('[ManuSilva] confirmManualInvoicePayment:', error);

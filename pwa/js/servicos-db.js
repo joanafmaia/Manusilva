@@ -12,6 +12,7 @@ import {
   stripAuditColumns,
   withOptionalAuditColumns,
 } from './audit-fields.js';
+import { fetchAllPaged, SERVICOS_SELECT } from './supabase-query.js';
 
 let servicosCache = null;
 let servicosLoadPromise = null;
@@ -211,7 +212,7 @@ export async function ensureServicosSemana(technicianId, startDate, endDate) {
   const supabase = await getAuthenticatedSupabaseClient();
   const { data, error } = await supabase
     .from('servicos')
-    .select('*')
+    .select(SERVICOS_SELECT)
     .ilike('tecnico_ids', `%${techName}%`)
     .gte('data', startDate)
     .lte('data', endDate)
@@ -240,11 +241,13 @@ export async function ensureServicosSemana(technicianId, startDate, endDate) {
 
 async function loadServicosFromSupabase() {
   const supabase = await getAuthenticatedSupabaseClient();
-  const { data, error } = await supabase
-    .from('servicos')
-    .select('*')
-    .order('data', { ascending: false })
-    .order('criado_em', { ascending: false });
+  const { data, error } = await fetchAllPaged(() =>
+    supabase
+      .from('servicos')
+      .select(SERVICOS_SELECT)
+      .order('data', { ascending: false })
+      .order('criado_em', { ascending: false }),
+  );
 
   if (error) {
     console.error('[ManuSilva] Erro ao carregar serviços:', error);
@@ -293,7 +296,7 @@ export async function insertServico(servicoData) {
   const supabase = await getAuthenticatedSupabaseClient();
   let row = mapServicoToRow(servicoData, { estado: 'scheduled' });
 
-  let { data, error } = await supabase.from('servicos').insert(row).select();
+  let { data, error } = await supabase.from('servicos').insert(row).select(SERVICOS_SELECT);
 
   if (error && isMissingAuditColumnError(error)) {
     const { patch: stripped, audit } = stripAuditColumns(row, AUDIT_SERVICO_COLUMNS);
@@ -301,7 +304,7 @@ export async function insertServico(servicoData) {
       Object.keys(audit).length > 0
         ? { ...stripped, dados: mergeAuditIntoDados(stripped.dados || {}, audit) }
         : stripped;
-    ({ data, error } = await supabase.from('servicos').insert(row).select());
+    ({ data, error } = await supabase.from('servicos').insert(row).select(SERVICOS_SELECT));
   }
 
   if (error) {
@@ -323,7 +326,7 @@ export async function updateServico(servicoId, patch) {
     .from('servicos')
     .update(payload)
     .eq('id', servicoId)
-    .select();
+    .select(SERVICOS_SELECT);
 
   if (error && isMissingAuditColumnError(error)) {
     const { patch: stripped, audit } = stripAuditColumns(patch, AUDIT_SERVICO_COLUMNS);
@@ -338,7 +341,7 @@ export async function updateServico(servicoId, patch) {
         .from('servicos')
         .update(payload)
         .eq('id', servicoId)
-        .select());
+        .select(SERVICOS_SELECT));
     }
   }
 

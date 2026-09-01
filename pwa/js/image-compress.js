@@ -2,8 +2,9 @@
  * Compressão de fotos para relatórios — reduz peso antes de IndexedDB / upload.
  */
 
-export const IMAGE_COMPRESS_MAX_WIDTH = 1280;
-export const IMAGE_COMPRESS_QUALITY = 0.7;
+/** Largura/altura máx. — quota Storage 1 GB no plano free. */
+export const IMAGE_COMPRESS_MAX_WIDTH = 1024;
+export const IMAGE_COMPRESS_QUALITY = 0.62;
 
 function loadImageElement(src) {
   return new Promise((resolve, reject) => {
@@ -14,14 +15,13 @@ function loadImageElement(src) {
   });
 }
 
-function scaledDimensions(width, height, maxWidth) {
-  if (!width || width <= maxWidth) {
-    return { width: width || maxWidth, height: height || maxWidth };
-  }
-  const ratio = maxWidth / width;
+function scaledDimensions(width, height, maxWidth, maxHeight = maxWidth) {
+  const sourceW = width || maxWidth;
+  const sourceH = height || maxWidth;
+  const ratio = Math.min(maxWidth / sourceW, maxHeight / sourceH, 1);
   return {
-    width: maxWidth,
-    height: Math.max(1, Math.round(height * ratio)),
+    width: Math.max(1, Math.round(sourceW * ratio)),
+    height: Math.max(1, Math.round(sourceH * ratio)),
   };
 }
 

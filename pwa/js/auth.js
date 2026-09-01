@@ -354,6 +354,19 @@ export async function forceLogout() {
     }
 
     if (supabase?.auth) {
+      try {
+        const { teardownAdminRealtime } = await import('./admin-realtime.js');
+        await teardownAdminRealtime();
+      } catch {
+        /* painel técnico não carrega este módulo */
+      }
+      try {
+        const { teardownTechRealtime } = await import('./tech-realtime.js');
+        await teardownTechRealtime();
+      } catch {
+        /* painel RH não carrega este módulo */
+      }
+
       await Promise.race([
         supabase.auth.signOut(),
         new Promise((_, reject) =>

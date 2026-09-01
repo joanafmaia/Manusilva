@@ -10,6 +10,7 @@ import { mergeFolhaFromRealtime, removeFolhaFromCache } from './folhas-obra-db.j
 import { shouldNotifyRhPendingForServicoReport } from './servicos-panel-utils.js';
 
 let channel = null;
+let pageHideBound = false;
 const recentlyNotifiedReports = new Set();
 
 function isPendingReviewEstado(estado) {
@@ -164,13 +165,34 @@ export async function initAdminRealtime(callbacks = {}) {
       }
     });
 
+  if (!pageHideBound && typeof window !== 'undefined') {
+    pageHideBound = true;
+    window.addEventListener('pagehide', () => {
+      void teardownAdminRealtime();
+    });
+  }
+
   return channel;
 }
 
-export function teardownAdminRealtime() {
+export async function teardownAdminRealtime() {
   if (!channel) return;
-  channel.unsubscribe();
+  const active = channel;
   channel = null;
+  try {
+    const supabase = await getAuthenticatedSupabaseClient();
+    if (typeof supabase.removeChannel === 'function') {
+      await supabase.removeChannel(active);
+      return;
+    }
+  } catch {
+    /* cliente pode já estar em teardown */
+  }
+  try {
+    active.unsubscribe();
+  } catch {
+    /* ignore */
+  }
 }
 
 export { playNotificationBeep };

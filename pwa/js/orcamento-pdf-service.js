@@ -84,7 +84,9 @@ export async function attachOrcamentoPdfToReport(report, options = {}) {
   const doc = await renderOrcamentoPDF(workingReport);
   const pdfBlob = doc.output('blob');
   const pdfFilename = buildOrcamentoPdfFilename(workingReport, job);
-  const pdfUploaded = await uploadTrabalhoPdf(pdfBlob, pdfFilename);
+  const pdfUploaded = await uploadTrabalhoPdf(pdfBlob, pdfFilename, {
+    replaceUrl: workingReport.data?.urlPdfOrcamento,
+  });
   const pdfUrl = withOrcamentoUrlCacheBust(pdfUploaded.publicUrl, version);
 
   const saved = await updateRelatorio(workingReport.id, {

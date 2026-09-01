@@ -117,7 +117,11 @@ function persistAppSessionTokens(session) {
 export async function getSupabaseClient() {
   const sdk = await waitForSupabaseSdk();
   if (!supabaseClient) {
-    supabaseClient = sdk.createClient(SUPABASE_URL, SUPABASE_KEY);
+    supabaseClient = sdk.createClient(SUPABASE_URL, SUPABASE_KEY, {
+      realtime: {
+        params: { eventsPerSecond: 4 },
+      },
+    });
   }
   return supabaseClient;
 }

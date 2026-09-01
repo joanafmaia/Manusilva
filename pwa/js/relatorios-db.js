@@ -21,6 +21,8 @@ import {
   stripAuditFromRelatorioRow,
   withOptionalAuditColumns,
 } from './audit-fields.js';
+import { fetchAllPaged, RELATORIOS_SELECT } from './supabase-query.js';
+import { stripHeavyReportDados } from './report-payload-gc.js';
 
 let reportsCache = null;
 /** Índice lazy jobId → relatório canónico (deduplicado). */
@@ -165,7 +167,9 @@ function parseClientId(clientId) {
 /** Linha Supabase → formato da app (manusilva_db.reports) */
 export function mapRowToReport(row) {
   if (!row) return null;
-  const dados = row.dados && typeof row.dados === 'object' ? row.dados : {};
+  const dados = stripHeavyReportDados(
+    row.dados && typeof row.dados === 'object' ? row.dados : {},
+  );
 
   return {
     id: String(row.id),
@@ -244,7 +248,7 @@ function resolveServicoIdForReport(report) {
 export function mapReportToRow(report) {
   const data = report.data || {};
   const dados = buildRelatorioAuditDados(
-    {
+    stripHeavyReportDados({
       values: data.values || {},
       signatures: data.signatures || {},
       photos: Array.isArray(data.photos) ? data.photos : [],
@@ -263,7 +267,7 @@ export function mapReportToRow(report) {
       orcamentoOrigem: data.orcamentoOrigem || null,
       technicianCompleted: data.technicianCompleted === true ? true : null,
       audit: data.audit && typeof data.audit === 'object' ? data.audit : undefined,
-    },
+    }),
     report,
   );
   return withOptionalAuditColumns(
@@ -473,7 +477,10 @@ export async function ensureRelatoriosForTrabalhos(jobIds = []) {
 
   for (let offset = 0; offset < ids.length; offset += RELATORIOS_IN_BATCH_SIZE) {
     const batch = ids.slice(offset, offset + RELATORIOS_IN_BATCH_SIZE);
-    const { data, error } = await supabase.from('relatorios').select('*').in('trabalho_id', batch);
+    const { data, error } = await supabase
+      .from('relatorios')
+      .select(RELATORIOS_SELECT)
+      .in('trabalho_id', batch);
 
     if (error) {
       console.error('[ManuSilva] Erro ao carregar relatórios dos trabalhos:', error);
@@ -514,7 +521,7 @@ export async function ensureRelatoriosForServicos(servicoIds = []) {
     const orFilter = batch
       .flatMap((id) => [`servico_id.eq.${id}`, `trabalho_id.eq.${id}`])
       .join(',');
-    const { data, error } = await supabase.from('relatorios').select('*').or(orFilter);
+    const { data, error } = await supabase.from('relatorios').select(RELATORIOS_SELECT).or(orFilter);
 
     if (error) {
       console.error('[ManuSilva] Erro ao carregar relatórios dos serviços:', error);
@@ -533,33 +540,25 @@ export async function ensureRelatoriosForServicos(servicoIds = []) {
   return loaded;
 }
 
-const RELATORIOS_FETCH_PAGE_SIZE = 1000;
+const RELATORIOS_FETCH_PAGE_SIZE = 500;
 
 async function loadReportsFromSupabase() {
   const supabase = await getAuthenticatedSupabaseClient();
-  const rows = [];
-  let from = 0;
+  const { data, error } = await fetchAllPaged(
+    () =>
+      supabase
+        .from('relatorios')
+        .select(RELATORIOS_SELECT)
+        .order('atualizado_em', { ascending: false, nullsFirst: false }),
+    RELATORIOS_FETCH_PAGE_SIZE,
+  );
 
-  // PostgREST limita tipicamente a 1000 linhas por pedido — paginar até ao fim.
-  for (;;) {
-    const to = from + RELATORIOS_FETCH_PAGE_SIZE - 1;
-    const { data, error } = await supabase
-      .from('relatorios')
-      .select('*')
-      .order('atualizado_em', { ascending: false, nullsFirst: false })
-      .range(from, to);
-
-    if (error) {
-      console.error('[ManuSilva] Erro ao carregar relatórios:', error);
-      throw new Error(formatRelatoriosError(error));
-    }
-
-    const batch = data || [];
-    rows.push(...batch);
-    if (batch.length < RELATORIOS_FETCH_PAGE_SIZE) break;
-    from += RELATORIOS_FETCH_PAGE_SIZE;
+  if (error) {
+    console.error('[ManuSilva] Erro ao carregar relatórios:', error);
+    throw new Error(formatRelatoriosError(error));
   }
 
+  const rows = data || [];
   reportsCache = filterOutLocallyDeletedReports(rows.map(mapRowToReport).filter(Boolean));
   reportsFullyLoaded = true;
   invalidateReportsJobIndex();
@@ -580,7 +579,7 @@ export async function mergePendingReportsFromSupabase() {
     const to = from + RELATORIOS_FETCH_PAGE_SIZE - 1;
     const { data, error } = await supabase
       .from('relatorios')
-      .select('*')
+      .select(RELATORIOS_SELECT)
       .eq('estado', 'pending_review')
       .order('submetido_em', { ascending: false, nullsFirst: false })
       .range(from, to);
@@ -782,13 +781,13 @@ async function persistRelatorioRow(supabase, { existingId, row, linkedReport }) 
 
   const execute = () => {
     if (existingId) {
-      return supabase.from('relatorios').update(currentRow).eq('id', existingId).select();
+      return supabase.from('relatorios').update(currentRow).eq('id', existingId).select(RELATORIOS_SELECT);
     }
     const insertRow =
       linkedReport.id && isUuid(linkedReport.id)
         ? { id: linkedReport.id, ...currentRow }
         : currentRow;
-    return supabase.from('relatorios').insert(insertRow).select();
+    return supabase.from('relatorios').insert(insertRow).select(RELATORIOS_SELECT);
   };
 
   ({ data, error } = await execute());
@@ -815,7 +814,11 @@ export async function upsertRelatorio(report) {
     const cached = reportsCache?.find((r) => sameEntityId(r.id, existingId));
     if (cached) return cached;
     const supabase = await getAuthenticatedSupabaseClient();
-    const { data } = await supabase.from('relatorios').select('*').eq('id', existingId).maybeSingle();
+    const { data } = await supabase
+      .from('relatorios')
+      .select(RELATORIOS_SELECT)
+      .eq('id', existingId)
+      .maybeSingle();
     if (data) {
       const saved = mapRowToReport(data);
       upsertCacheEntry(saved);
@@ -843,10 +846,10 @@ export async function upsertRelatorio(report) {
 
   if (!inserted && resolvedExistingId) {
     let insertRow = { id: resolvedExistingId, ...row };
-    ({ data, error } = await supabase.from('relatorios').insert(insertRow).select());
+    ({ data, error } = await supabase.from('relatorios').insert(insertRow).select(RELATORIOS_SELECT));
     if (error && isMissingAuditColumnError(error)) {
       insertRow = { id: resolvedExistingId, ...stripAuditFromRelatorioRow(row) };
-      ({ data, error } = await supabase.from('relatorios').insert(insertRow).select());
+      ({ data, error } = await supabase.from('relatorios').insert(insertRow).select(RELATORIOS_SELECT));
     }
     if (error) {
       console.error('[ManuSilva] Erro ao inserir relatório (fallback):', error);

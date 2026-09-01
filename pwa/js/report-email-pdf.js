@@ -121,7 +121,9 @@ export async function generateAndUploadApprovedReportPdfs(report, job, service) 
     const pdfs = await pdfReport.generateEmpilhadoresPdfBlobs(report);
     const uploaded = [];
     for (const item of pdfs) {
-      const stored = await uploadTrabalhoPdf(item.blob, item.filename);
+      const stored = await uploadTrabalhoPdf(item.blob, item.filename, {
+        replaceUrl: report?.data?.urlPdfs?.[uploaded.length],
+      });
       uploaded.push({
         blob: item.blob,
         filename: item.filename,
@@ -135,7 +137,9 @@ export async function generateAndUploadApprovedReportPdfs(report, job, service) 
   const doc = await pdfReport.renderInterventionPDF(report);
   const filename = buildReportPdfFilename(job, report, { serviceTitle });
   const blob = doc.output('blob');
-  const stored = await uploadTrabalhoPdf(blob, filename);
+  const stored = await uploadTrabalhoPdf(blob, filename, {
+    replaceUrl: report?.data?.urlPdfs?.[0] || job?.urlPdf,
+  });
   return [{ blob, filename, publicUrl: stored.publicUrl }];
 }
 

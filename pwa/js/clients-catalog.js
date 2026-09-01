@@ -3,6 +3,7 @@
  */
 
 import { ensureSupabaseAuthSession, getSupabaseClient } from './supabase-client.js';
+import { CLIENTES_SELECT, fetchAllPaged } from './supabase-query.js';
 
 const MAX_DROPDOWN_RESULTS = 10;
 
@@ -145,10 +146,9 @@ export function formatClientUpdateError(err) {
 async function fetchClientsFromSupabase() {
   await ensureSupabaseAuthSession();
   const supabase = await getSupabaseClient();
-  const { data, error } = await supabase
-    .from('clientes')
-    .select('*')
-    .order('nome_empresa', { ascending: true });
+  const { data, error } = await fetchAllPaged(() =>
+    supabase.from('clientes').select(CLIENTES_SELECT).order('nome_empresa', { ascending: true }),
+  );
 
   if (error) {
     console.error('[ManuSilva] Erro ao carregar clientes do Supabase:', error);

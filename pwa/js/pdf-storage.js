@@ -4,6 +4,7 @@
 
 import { getSupabaseClient } from './supabase-client.js';
 import { resolvePdfNumeroOrdem } from './pdf-header-blocks.js';
+import { removeStorageObject, storagePathFromPublicUrl } from './supabase-storage-gc.js';
 
 export const PDF_BUCKET = 'pdfs_trabalhos';
 
@@ -75,9 +76,10 @@ export function formatPdfStorageError(err) {
 /**
  * @param {Blob} blob
  * @param {string} [filename] ex.: trabalho_1712345678901.pdf
+ * @param {{ replaceUrl?: string }} [options] — apaga o objecto anterior se o path mudou
  * @returns {Promise<{ path: string, publicUrl: string }>}
  */
-export async function uploadTrabalhoPdf(blob, filename) {
+export async function uploadTrabalhoPdf(blob, filename, options = {}) {
   if (!blob || !(blob instanceof Blob)) {
     throw new Error('PDF inválido para upload.');
   }
@@ -100,6 +102,11 @@ export async function uploadTrabalhoPdf(blob, filename) {
   const publicUrl = data?.publicUrl;
   if (!publicUrl) {
     throw new Error('Não foi possível obter o URL público do PDF.');
+  }
+
+  const oldPath = storagePathFromPublicUrl(options.replaceUrl, PDF_BUCKET);
+  if (oldPath && oldPath !== path) {
+    await removeStorageObject(PDF_BUCKET, oldPath);
   }
 
   return { path, publicUrl };

@@ -3,6 +3,7 @@
  */
 
 import { getSupabaseClient } from './supabase-client.js';
+import { CLIENTES_SELECT } from './supabase-query.js';
 import { showToast } from './toast-modal.js';
 import { isRhOrAdminSession, isWarehouseSession } from './auth-roles-core.js';
 import { getSession } from './session.js';
@@ -75,7 +76,7 @@ export async function addClient(payload) {
     };
 
     const supabase = await getSupabaseClient();
-    const { data, error } = await supabase.from('clientes').insert(row).select();
+    const { data, error } = await supabase.from('clientes').insert(row).select(CLIENTES_SELECT);
 
     if (error) {
       console.error('[ManuSilva] Erro ao gravar cliente no Supabase:', error);
@@ -193,7 +194,7 @@ export async function updateClient(clientId, patch = {}, options = {}) {
       .from('clientes')
       .update(row)
       .eq('id', numericId)
-      .select();
+      .select(CLIENTES_SELECT);
 
     if (error) {
       console.error('[ManuSilva] Erro ao atualizar cliente no Supabase:', error);

@@ -93,7 +93,7 @@ module.exports = async function handler(req, res) {
 
   try {
     const response = await fetch(
-      `${SUPABASE_URL}/rest/v1/clientes?id=eq.${queryId}`,
+      `${SUPABASE_URL}/rest/v1/clientes?id=eq.${queryId}&select=id,nome_empresa,nif,email,morada,codigo_postal,localidade,telemovel,condicao_pagamento,plus_code,zona_rota,eh_teste`,
       {
         method: 'PATCH',
         headers: {

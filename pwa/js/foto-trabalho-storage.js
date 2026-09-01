@@ -5,6 +5,7 @@
 import { getSupabaseClient } from './supabase-client.js';
 import { patchTrabalho } from './trabalhos-db.js';
 import { compressImageFile } from './image-compress.js';
+import { removeStorageObject } from './supabase-storage-gc.js';
 
 export const FOTOS_BUCKET = 'fotos_trabalhos';
 
@@ -37,14 +38,25 @@ export async function uploadFotoTrabalho(file, filename) {
     throw new Error('Ficheiro de imagem inválido.');
   }
 
-  const path = filename || `foto_${Date.now()}.${extFromFile(file)}`;
-  const contentType = file.type || 'image/jpeg';
+  let payload = file;
+  let path = filename || `foto_${Date.now()}.${extFromFile(file)}`;
+  try {
+    const compressed = await compressImageFile(file, {
+      filename: filename || file.name || 'foto',
+    });
+    payload = compressed.file;
+    path = String(path).replace(/\.[^.]+$/, '.jpg');
+  } catch (err) {
+    console.warn('[ManuSilva] Compressão de foto falhou — upload original:', err);
+  }
+
+  const contentType = payload.type || 'image/jpeg';
   const supabase = await getSupabaseClient();
 
-  const { error: uploadError } = await supabase.storage.from(FOTOS_BUCKET).upload(path, file, {
+  const { error: uploadError } = await supabase.storage.from(FOTOS_BUCKET).upload(path, payload, {
     contentType,
     cacheControl: '3600',
-    upsert: false,
+    upsert: true,
   });
 
   if (uploadError) {
@@ -76,7 +88,10 @@ export async function syncJobFotosAntesDepois(jobId, opts = {}) {
     patch.fotoAntes = null;
     fotoAntes = null;
   } else if (opts.antesFile) {
-    const uploaded = await uploadFotoTrabalho(opts.antesFile, `antes_${Date.now()}.${extFromFile(opts.antesFile)}`);
+    if (opts.fotoAntesUrl) {
+      await removeStorageObject(FOTOS_BUCKET, opts.fotoAntesUrl);
+    }
+    const uploaded = await uploadFotoTrabalho(opts.antesFile, `antes_${Date.now()}.jpg`);
     patch.fotoAntes = uploaded.publicUrl;
     fotoAntes = uploaded.publicUrl;
   }
@@ -85,7 +100,10 @@ export async function syncJobFotosAntesDepois(jobId, opts = {}) {
     patch.fotoDepois = null;
     fotoDepois = null;
   } else if (opts.depoisFile) {
-    const uploaded = await uploadFotoTrabalho(opts.depoisFile, `depois_${Date.now()}.${extFromFile(opts.depoisFile)}`);
+    if (opts.fotoDepoisUrl) {
+      await removeStorageObject(FOTOS_BUCKET, opts.fotoDepoisUrl);
+    }
+    const uploaded = await uploadFotoTrabalho(opts.depoisFile, `depois_${Date.now()}.jpg`);
     patch.fotoDepois = uploaded.publicUrl;
     fotoDepois = uploaded.publicUrl;
   }

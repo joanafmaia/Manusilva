@@ -10,6 +10,7 @@ import {
   stripAuditColumns,
   withOptionalAuditColumns,
 } from './audit-fields.js';
+import { FOLHAS_OBRA_SELECT, fetchAllPaged } from './supabase-query.js';
 
 let folhasObraCache = null;
 let folhasObraLoadPromise = null;
@@ -212,10 +213,9 @@ export async function ensureFolhasObraLoadedSafe(force = false) {
 
 async function loadFolhasObraFromSupabase() {
   const supabase = await getAuthenticatedSupabaseClient();
-  const { data, error } = await supabase
-    .from('folhas_obra')
-    .select('*')
-    .order('criado_em', { ascending: false });
+  const { data, error } = await fetchAllPaged(() =>
+    supabase.from('folhas_obra').select(FOLHAS_OBRA_SELECT).order('criado_em', { ascending: false }),
+  );
 
   if (error) {
     console.error('[ManuSilva] Erro ao carregar folhas de obra:', error);
@@ -240,7 +240,11 @@ export async function insertFolhaObra(payload) {
   const row = mapFolhaObraToRow({ ...payload, etq: '' });
   delete row.atualizado_em;
 
-  const { data, error } = await supabase.from('folhas_obra').insert(row).select('*').single();
+  const { data, error } = await supabase
+    .from('folhas_obra')
+    .insert(row)
+    .select(FOLHAS_OBRA_SELECT)
+    .single();
   if (error) throw new Error(formatFolhasObraError(error));
 
   const folha = mapRowToFolhaObra(data);
@@ -263,7 +267,7 @@ export async function updateFolhaObra(id, updates) {
     .from('folhas_obra')
     .update(row)
     .eq('id', id)
-    .select('*')
+    .select(FOLHAS_OBRA_SELECT)
     .single();
 
   if (error && isMissingAuditColumnError(error)) {
@@ -272,7 +276,7 @@ export async function updateFolhaObra(id, updates) {
       .from('folhas_obra')
       .update(stripped)
       .eq('id', id)
-      .select('*')
+      .select(FOLHAS_OBRA_SELECT)
       .single());
   }
 
