@@ -33,6 +33,8 @@ Na Railway o SMTP Gmail (portas 465/587) costuma falhar. A app envia só pela **
 
 **Verificar:** `https://SEU-DOMINIO/api/health` → `"email": { "active": "gmail_api", ... }`.
 
+Se o envio falhar com **invalid_grant** / token expirado: o ecrã OAuth em modo **Testing** caduca o refresh token **aos 7 dias**. Volte a correr `npm run gmail:oauth` e atualize `GOOGLE_REFRESH_TOKEN`. Para deixar de caducar, publique a app no Google Cloud (OAuth consent → Production).
+
 #### Configurar OAuth (uma vez)
 
 1. [Google Cloud Console](https://console.cloud.google.com/) → projeto

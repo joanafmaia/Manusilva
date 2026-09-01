@@ -28,11 +28,9 @@ function cleanEnvSecret(value) {
 }
 
 /** Gmail API (OAuth2) — envio por HTTPS; fica nos Enviados do Gmail. */
-const GOOGLE_CLIENT_ID = String(process.env.GOOGLE_CLIENT_ID || '').trim();
+const GOOGLE_CLIENT_ID = cleanEnvSecret(process.env.GOOGLE_CLIENT_ID);
 const GOOGLE_CLIENT_SECRET = cleanEnvSecret(process.env.GOOGLE_CLIENT_SECRET);
-const GOOGLE_REFRESH_TOKEN = String(process.env.GOOGLE_REFRESH_TOKEN || '')
-  .trim()
-  .replace(/^["']|["']$/g, '');
+const GOOGLE_REFRESH_TOKEN = cleanEnvSecret(process.env.GOOGLE_REFRESH_TOKEN);
 const EMAIL_FROM = String(process.env.EMAIL_FROM || '').trim();
 const EMAIL_REPLY_TO = String(process.env.EMAIL_REPLY_TO || EMAIL_USER || '').trim();
 /** Cópia oculta (só relevante sem Gmail API). Desligar: EMAIL_BCC=off */
@@ -169,25 +167,76 @@ function resolveArchiveBcc(toList, { allowDefault = true } = {}) {
     .filter((email) => email && isValidEmailAddress(email) && !toSet.has(email));
 }
 
-function encodeRfc2047Utf8(text) {
-  const raw = String(text || '');
-  if (!/[^\x20-\x7E]/.test(raw)) return raw;
-  return `=?UTF-8?B?${Buffer.from(raw, 'utf8').toString('base64')}?=`;
+function guessAttachmentContentType(filename) {
+  const lower = String(filename || '').toLowerCase();
+  if (lower.endsWith('.zip')) return 'application/zip';
+  if (lower.endsWith('.pdf')) return 'application/pdf';
+  return 'application/octet-stream';
 }
 
-function encodeHeaderAddress(name, email) {
-  const safeEmail = String(email || '').trim();
-  const safeName = String(name || '').trim();
-  if (!safeName) return safeEmail;
-  return `${encodeRfc2047Utf8(safeName)} <${safeEmail}>`;
+function toBase64Url(buf) {
+  return Buffer.from(buf)
+    .toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/g, '');
 }
 
-function wrapBase64(b64) {
-  const clean = String(b64 || '').replace(/\s+/g, '');
-  return clean.replace(/.{1,76}/g, (line) => `${line}\r\n`).trimEnd();
+function googleErrorText(payload, fallback) {
+  if (typeof payload?.error_description === 'string' && payload.error_description.trim()) {
+    return payload.error_description.trim();
+  }
+  if (typeof payload?.error === 'string' && payload.error.trim()) {
+    return payload.error.trim();
+  }
+  const nested = payload?.error;
+  if (nested && typeof nested === 'object') {
+    const parts = [nested.message, nested.status, nested.errors?.[0]?.reason]
+      .map((part) => String(part || '').trim())
+      .filter(Boolean);
+    if (parts.length) return [...new Set(parts)].join(' — ');
+  }
+  if (typeof payload?.message === 'string' && payload.message.trim()) {
+    return payload.message.trim();
+  }
+  return fallback;
 }
 
-function buildMimeMessage(mailOptions) {
+function googleErrorCode(payload) {
+  if (typeof payload?.error === 'string') return payload.error;
+  const nested = payload?.error;
+  if (nested && typeof nested === 'object') {
+    return String(nested.status || nested.errors?.[0]?.reason || nested.message || '').trim();
+  }
+  return '';
+}
+
+function throwGmailError(payload, status, stage) {
+  const fallback = stage === 'oauth' ? `Google OAuth HTTP ${status}` : `Gmail API HTTP ${status}`;
+  const raw = googleErrorText(payload, fallback);
+  const googleErr = googleErrorCode(payload);
+  const combined = `${googleErr} ${raw}`;
+  let message = raw;
+  if (stage === 'oauth') {
+    if (/invalid_grant/i.test(combined)) {
+      message = 'Token Google expirado ou revogado (invalid_grant).';
+    } else if (/invalid_client/i.test(combined)) {
+      message = 'GOOGLE_CLIENT_ID ou GOOGLE_CLIENT_SECRET inválidos.';
+    } else {
+      message = `Falha OAuth Google: ${raw}`;
+    }
+  }
+  const err = new Error(message);
+  err.code = 'EGMAIL';
+  err.responseCode = status;
+  err.gmailStage = stage;
+  err.googleError = googleErr;
+  err.detail = typeof payload === 'object' ? JSON.stringify(payload).slice(0, 500) : '';
+  throw err;
+}
+
+async function buildMimeMessage(mailOptions) {
+  const MailComposer = require('nodemailer/lib/mail-composer');
   const toList = normalizeToList(mailOptions.to);
   const bccList = normalizeToList(mailOptions.bcc);
   const fromParsed = parseFromAddress(mailOptions.from || resolveFromAddress());
@@ -199,44 +248,30 @@ function buildMimeMessage(mailOptions) {
       ? normalizeEmail(EMAIL_REPLY_TO)
       : null;
 
-  const boundary = `manusilva_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
-  const parts = [
-    `From: ${encodeHeaderAddress(fromName, fromEmail)}`,
-    `To: ${toList.join(', ')}`,
-  ];
-  if (bccList.length) parts.push(`Bcc: ${bccList.join(', ')}`);
-  if (replyTo) parts.push(`Reply-To: ${replyTo}`);
-  parts.push(
-    `Subject: ${encodeRfc2047Utf8(String(mailOptions.subject || 'ManuSilva'))}`,
-    'MIME-Version: 1.0',
-    `Content-Type: multipart/mixed; boundary="${boundary}"`,
-    '',
-    `--${boundary}`,
-    'Content-Type: text/html; charset="UTF-8"',
-    'Content-Transfer-Encoding: base64',
-    '',
-    wrapBase64(Buffer.from(String(mailOptions.html || ''), 'utf8').toString('base64')),
-  );
+  const attachments = Array.isArray(mailOptions.attachments)
+    ? mailOptions.attachments
+        .map((att) => {
+          const filename = String(att.filename || 'anexo.pdf').replace(/[\r\n"]/g, '_').slice(0, 180);
+          if (!att?.content) return null;
+          return {
+            filename,
+            content: att.content,
+            contentType: att.contentType || guessAttachmentContentType(filename),
+          };
+        })
+        .filter(Boolean)
+    : [];
 
-  const attachments = Array.isArray(mailOptions.attachments) ? mailOptions.attachments : [];
-  for (const att of attachments) {
-    const filename = String(att.filename || 'anexo.pdf').replace(/[\r\n"]/g, '_').slice(0, 180);
-    let contentB64 = att.content;
-    if (Buffer.isBuffer(contentB64)) contentB64 = contentB64.toString('base64');
-    else if (typeof contentB64 !== 'string' || !contentB64) continue;
-    parts.push(
-      '',
-      `--${boundary}`,
-      `Content-Type: application/pdf; name="${filename}"`,
-      'Content-Transfer-Encoding: base64',
-      `Content-Disposition: attachment; filename="${filename}"`,
-      '',
-      wrapBase64(contentB64),
-    );
-  }
-
-  parts.push('', `--${boundary}--`, '');
-  return Buffer.from(parts.join('\r\n'), 'utf8');
+  const composer = new MailComposer({
+    from: { name: fromName, address: fromEmail },
+    to: toList.map((address) => ({ address })),
+    bcc: bccList.length ? bccList.map((address) => ({ address })) : undefined,
+    replyTo: replyTo || undefined,
+    subject: String(mailOptions.subject || 'ManuSilva'),
+    html: String(mailOptions.html || ''),
+    attachments,
+  });
+  return composer.compile().build();
 }
 
 async function getGmailAccessToken() {
@@ -254,18 +289,46 @@ async function getGmailAccessToken() {
   });
   const payload = await res.json().catch(() => ({}));
   if (!res.ok || !payload.access_token) {
-    const err = new Error(
-      payload?.error_description || payload?.error || `Google OAuth HTTP ${res.status}`,
-    );
-    err.code = 'EGMAIL';
-    err.responseCode = res.status;
-    err.detail = typeof payload === 'object' ? JSON.stringify(payload).slice(0, 400) : '';
-    throw err;
+    throwGmailError(payload, res.status, 'oauth');
   }
   return payload.access_token;
 }
 
-/** Envio via Gmail API (upload media) — evita JSON gigante que provoca 502/OOM na Railway. */
+async function sendMimeViaGmailJson(accessToken, mimeBuf) {
+  const res = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ raw: toBase64Url(mimeBuf) }),
+    signal: AbortSignal.timeout(120000),
+  });
+  const payload = await res.json().catch(() => ({}));
+  if (!res.ok) throwGmailError(payload, res.status, 'send');
+  return payload;
+}
+
+/** Upload media — mensagens grandes (evita JSON gigante / 413). */
+async function sendMimeViaGmailMedia(accessToken, mimeBuf) {
+  const res = await fetch(
+    'https://gmail.googleapis.com/upload/gmail/v1/users/me/messages/send?uploadType=media',
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'message/rfc822',
+      },
+      body: Uint8Array.from(mimeBuf),
+      signal: AbortSignal.timeout(120000),
+    },
+  );
+  const payload = await res.json().catch(() => ({}));
+  if (!res.ok) throwGmailError(payload, res.status, 'send');
+  return payload;
+}
+
+/** Envio via Gmail API. JSON raw para mensagens normais; media só acima de ~3 MB. */
 async function sendMailViaGmailApi(mailOptions) {
   const toList = normalizeToList(mailOptions.to);
   if (!toList.length) {
@@ -280,8 +343,7 @@ async function sendMailViaGmailApi(mailOptions) {
   }
 
   const accessToken = await getGmailAccessToken();
-  const mimeBuf = buildMimeMessage(mailOptions);
-  // Gmail ~25 MB; deixamos margem sob MAX_GMAIL_MIME_BYTES.
+  const mimeBuf = await buildMimeMessage(mailOptions);
   if (mimeBuf.length > MAX_GMAIL_MIME_BYTES) {
     const err = new Error(
       `Mensagem demasiado grande para envio (${Math.round(mimeBuf.length / (1024 * 1024))} MB). Máx. ~${Math.round(MAX_GMAIL_MIME_BYTES / (1024 * 1024))} MB.`,
@@ -290,36 +352,29 @@ async function sendMailViaGmailApi(mailOptions) {
     throw err;
   }
 
+  const useJson = mimeBuf.length <= GMAIL_JSON_RAW_MAX_BYTES;
   console.info(
-    '[API /enviar-email] Gmail upload:',
+    '[API /enviar-email] Gmail',
+    useJson ? 'json:' : 'upload:',
     `${Math.round(mimeBuf.length / 1024)} KB`,
     'to=',
     toList.join(','),
   );
 
-  const res = await fetch(
-    'https://gmail.googleapis.com/upload/gmail/v1/users/me/messages/send?uploadType=media',
-    {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'message/rfc822',
-        'Content-Length': String(mimeBuf.length),
-      },
-      body: mimeBuf,
-      signal: AbortSignal.timeout(120000),
-    },
-  );
-
-  const payload = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    const err = new Error(
-      payload?.error?.message || payload?.message || `Gmail API HTTP ${res.status}`,
-    );
-    err.code = 'EGMAIL';
-    err.responseCode = res.status;
-    err.detail = typeof payload === 'object' ? JSON.stringify(payload).slice(0, 400) : '';
-    throw err;
+  let payload;
+  if (useJson) {
+    payload = await sendMimeViaGmailJson(accessToken, mimeBuf);
+  } else {
+    try {
+      payload = await sendMimeViaGmailMedia(accessToken, mimeBuf);
+    } catch (err) {
+      if (err?.responseCode === 400 && mimeBuf.length <= GMAIL_JSON_RAW_MAX_BYTES * 2) {
+        console.warn('[API /enviar-email] Gmail media 400 — a tentar JSON raw.');
+        payload = await sendMimeViaGmailJson(accessToken, mimeBuf);
+      } else {
+        throw err;
+      }
+    }
   }
 
   return { messageId: payload?.id || null, provider: 'gmail_api' };
@@ -408,6 +463,8 @@ const MAX_PDF_BASE64_LEN = Math.ceil((MAX_PDF_BYTES / 3) * 4) + 8;
 const MAX_TOTAL_PDF_BYTES = 20 * 1024 * 1024;
 /** Limite da mensagem MIME enviada pela Gmail API. */
 const MAX_GMAIL_MIME_BYTES = 24 * 1024 * 1024;
+/** Abaixo disto usa JSON `{ raw }` (mais fiável); acima usa upload media. */
+const GMAIL_JSON_RAW_MAX_BYTES = 3 * 1024 * 1024;
 /** Com muitos PDFs, 1 ZIP com todos os ficheiros é mais fiável do que dezenas de anexos. */
 const ZIP_WHEN_PDF_COUNT_GT = 8;
 const PDF_FETCH_CONCURRENCY = 8;
@@ -1305,8 +1362,18 @@ async function handler(req, res) {
     } else if (/SUPABASE_URL|SUPABASE_ANON_KEY/i.test(detail)) {
       hint = 'Configure SUPABASE_URL e SUPABASE_ANON_KEY nas variáveis de ambiente do servidor.';
     } else if (code === 'EGMAIL') {
-      hint =
-        'Erro na Gmail API. Confirme GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET e GOOGLE_REFRESH_TOKEN (npm run gmail:oauth) e que EMAIL_USER é a conta autorizada. Ver RAILWAY.md.';
+      const stage = err?.gmailStage || '';
+      const googleErr = String(err?.googleError || detail || '');
+      if (
+        stage === 'oauth' ||
+        /invalid_grant|invalid_client|invalid_request|unauthorized_client/i.test(googleErr)
+      ) {
+        hint =
+          'Token Google inválido ou expirado. No PC: npm run gmail:oauth e atualize GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET e GOOGLE_REFRESH_TOKEN na Railway. Se o ecrã OAuth estiver em Testing, o token caduca aos 7 dias.';
+      } else {
+        hint =
+          'A Gmail API recusou a mensagem. Tente «Reenviar e-mail». Confirme o destinatário e, se persistir, GOOGLE_* na Railway (RAILWAY.md).';
+      }
     } else if (/ECONNREFUSED|ETIMEDOUT|ESOCKET|ECONNECTION/i.test(code || detail || '')) {
       hint =
         'SMTP bloqueado na Railway (ETIMEDOUT). Use Gmail API (GOOGLE_*). Ver RAILWAY.md.';
@@ -1316,7 +1383,9 @@ async function handler(req, res) {
 
     const error =
       detail &&
-      (/em falta|não configurad|Gmail|Google|OAuth/i.test(detail) || /SUPABASE_|SMTP/i.test(detail))
+      (code === 'EGMAIL' ||
+        /em falta|não configurad|Gmail|Google|OAuth/i.test(detail) ||
+        /SUPABASE_|SMTP/i.test(detail))
         ? detail
         : 'Falha ao enviar e-mail.';
 
@@ -1326,6 +1395,7 @@ async function handler(req, res) {
       code,
       responseCode,
       hint,
+      gmailStage: err?.gmailStage || undefined,
       emailProvider: getEmailProviderStatus(),
     });
   }
@@ -1333,3 +1403,8 @@ async function handler(req, res) {
 
 module.exports = handler;
 module.exports.getEmailProviderStatus = getEmailProviderStatus;
+module.exports.cleanEnvSecret = cleanEnvSecret;
+module.exports.buildMimeMessage = buildMimeMessage;
+module.exports.googleErrorText = googleErrorText;
+module.exports.googleErrorCode = googleErrorCode;
+module.exports.toBase64Url = toBase64Url;
