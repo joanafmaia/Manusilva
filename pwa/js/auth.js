@@ -212,18 +212,65 @@ function profileFromAuthUser(user, roleFiltro) {
   };
 }
 
-function formatAuthError(err) {
+const TRANSIENT_AUTH_RETRY_MS = 800;
+
+const MSG_TRANSIENT_AUTH =
+  'O servidor de autenticação não respondeu a tempo. A palavra-passe não foi recusada — tente novamente daqui a uns segundos.';
+
+function isInvalidCredentialsError(err) {
+  const msg = String(err?.message || err?.code || '').toLowerCase();
+  return msg.includes('invalid login credentials') || msg.includes('invalid_credentials');
+}
+
+/** Timeout, 5xx ou falha de rede — não é palavra-passe errada. */
+export function isTransientAuthError(err) {
+  if (!err) return false;
+  if (isInvalidCredentialsError(err)) return false;
+  const status = Number(err.status ?? err.statusCode ?? 0);
+  if ([408, 425, 429, 500, 502, 503, 504].includes(status)) return true;
+  const name = String(err.name || '');
+  if (name === 'AuthRetryableFetchError' || name === 'AbortError') return true;
+  const msg = String(err.message || err.error_description || err.code || '').toLowerCase();
+  if (msg.includes('email not confirmed')) return false;
+  return /(?:\b|http\s)(?:408|425|429|500|502|503|504)\b|gateway|timeout|timed out|failed to fetch|networkerror|load failed|authretryable|temporarily unavailable|overloaded|sdk supabase não carregou/.test(
+    msg,
+  );
+}
+
+export function formatAuthError(err) {
   const msg = String(err?.message || '').toLowerCase();
-  if (msg.includes('invalid login credentials') || msg.includes('invalid_credentials')) {
+  if (isInvalidCredentialsError(err)) {
     return 'Utilizador ou palavra-passe incorretos.';
   }
   if (msg.includes('email not confirmed')) {
     return 'Confirme o seu e-mail antes de entrar.';
   }
-  if (msg.includes('too many requests')) {
+  if (msg.includes('too many requests') || Number(err?.status) === 429) {
     return 'Demasiadas tentativas. Aguarde alguns minutos.';
   }
+  if (isTransientAuthError(err)) {
+    return MSG_TRANSIENT_AUTH;
+  }
   return err?.message || 'Não foi possível iniciar sessão.';
+}
+
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function signInWithPasswordOnce(supabase, email, password) {
+  try {
+    return await supabase.auth.signInWithPassword({ email, password });
+  } catch (err) {
+    return { data: { user: null, session: null }, error: err };
+  }
+}
+
+async function signInWithPasswordRetry(supabase, email, password) {
+  const first = await signInWithPasswordOnce(supabase, email, password);
+  if (!first.error || !isTransientAuthError(first.error)) return first;
+  await delay(TRANSIENT_AUTH_RETRY_MS);
+  return signInWithPasswordOnce(supabase, email, password);
 }
 
 export const AuthService = {
@@ -244,26 +291,38 @@ export const AuthService = {
       };
     }
 
-    const supabase = await getSupabaseClient();
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      return {
+        success: false,
+        error: 'Sem ligação à internet. Verifique a rede e tente novamente.',
+        transient: true,
+      };
+    }
+
+    let supabase;
+    try {
+      supabase = await getSupabaseClient();
+    } catch (err) {
+      return {
+        success: false,
+        error: formatAuthError(err),
+        transient: true,
+      };
+    }
+
     let data = null;
     let lastError = null;
     let usedEmail = candidates[0];
 
     for (const email of candidates) {
-      const result = await supabase.auth.signInWithPassword({
-        email,
-        password: pass,
-      });
+      const result = await signInWithPasswordRetry(supabase, email, pass);
       if (!result.error && result.data?.user) {
         data = result.data;
         usedEmail = email;
         break;
       }
       lastError = result.error;
-      const msg = String(result.error?.message || '').toLowerCase();
-      const retryable =
-        msg.includes('invalid login credentials') || msg.includes('invalid_credentials');
-      if (!retryable) break;
+      if (!isInvalidCredentialsError(result.error)) break;
     }
 
     if (!data?.user) {
@@ -271,6 +330,7 @@ export const AuthService = {
         success: false,
         error: formatAuthError(lastError),
         email: usedEmail,
+        transient: isTransientAuthError(lastError),
       };
     }
 

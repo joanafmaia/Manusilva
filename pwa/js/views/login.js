@@ -224,12 +224,30 @@ export const LoginView = {
       const password = passwordInput.value;
       const roleFiltro = mapUiRoleToDb(selectedUiRole);
 
-      const resultado = await AuthService.login(identifier, password, roleFiltro);
+      let resultado;
+      try {
+        resultado = await AuthService.login(identifier, password, roleFiltro);
+      } catch (err) {
+        setLoginLocked(false);
+        showError(
+          'Não foi possível iniciar sessão. Tente novamente daqui a uns segundos.',
+        );
+        shakeCard();
+        console.warn('[Login]', err);
+        return;
+      }
 
       if (resultado.success) {
         resetFailedCount(loginKeyRole, identifier);
         saveLoginPrefs({ role: selectedUiRole, identifier });
         window.location.replace(getPanelUrlForUiRole(selectedUiRole));
+        return;
+      }
+
+      if (resultado.transient) {
+        setLoginLocked(false);
+        showError(resultado.error);
+        shakeCard();
         return;
       }
 

@@ -8,6 +8,8 @@ import {
   resolveLoginEmailCandidates,
   SYSTEM_LOGIN_EMAIL_DOMAIN,
   LEGACY_RH_LOGIN_EMAIL_DOMAIN,
+  isTransientAuthError,
+  formatAuthError,
 } from '../js/auth.js';
 import { FILIPA_AUTH_EMAIL, FILIPA_LEGACY_AUTH_EMAIL } from '../js/mock_data.js';
 
@@ -64,5 +66,25 @@ describe('resolveLoginEmailCandidates', () => {
 
   it('não promove a RH só por metadata.nome (alinhado com is_rh_admin / 036)', () => {
     assert.doesNotMatch(authSrc, /isRhOrAdminName\s*\(/);
+  });
+});
+
+describe('erros de autenticação transitórios', () => {
+  it('trata HTTP 504 como erro temporário, não como credenciais', () => {
+    assert.equal(isTransientAuthError({ message: 'HTTP 504', status: 504 }), true);
+    assert.equal(
+      isTransientAuthError({ name: 'AuthRetryableFetchError', message: 'Failed to fetch' }),
+      true,
+    );
+    assert.equal(
+      isTransientAuthError({ message: 'Invalid login credentials', status: 400 }),
+      false,
+    );
+  });
+
+  it('não mostra o código HTTP cru no ecrã de login', () => {
+    const msg = formatAuthError({ message: 'HTTP 504', status: 504 });
+    assert.equal(msg.includes('504'), false);
+    assert.match(msg, /não respondeu a tempo/i);
   });
 });

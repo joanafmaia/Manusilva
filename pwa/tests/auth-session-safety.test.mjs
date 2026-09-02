@@ -27,4 +27,9 @@ describe('auth session safety', () => {
     assert.match(authSrc, /clearAuthStorage\(\)/);
     assert.match(supabaseClientSrc, /clearAuthStorage\(\)/);
   });
+
+  it('não gasta tentativas de lockout em timeout/5xx do Auth', () => {
+    assert.match(loginSrc, /resultado\.transient/);
+    assert.match(authSrc, /transient:\s*isTransientAuthError/);
+  });
 });
