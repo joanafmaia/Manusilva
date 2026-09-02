@@ -14,7 +14,7 @@ import {
   normalizeInvoiceAmountInput,
   resolveInvoiceBillingFields,
 } from './billing-workflow.js';
-import { FATURAS_MANUAIS_SELECT, fetchAllPaged } from './supabase-query.js';
+import { FATURAS_MANUAIS_SELECT, fetchAllPaged, formatRetryablePostgrestMessage, isRetryablePostgrestError } from './supabase-query.js';
 
 let faturasManuaisCache = null;
 let faturasManuaisLoadPromise = null;
@@ -66,6 +66,8 @@ export function mapManualInvoiceToRow(invoice) {
 
 export function formatFaturasManuaisError(err) {
   if (!err) return 'Erro ao aceder às faturas manuais.';
+  const retryable = formatRetryablePostgrestMessage(err) || formatRetryablePostgrestMessage(err.cause);
+  if (retryable) return retryable;
   const msg = String(err.message || err.details || err.hint || '').trim();
   const code = err.code || '';
 
@@ -131,6 +133,10 @@ export async function ensureFaturasManuaisLoadedSafe(force = false) {
   try {
     return await ensureFaturasManuaisLoaded(force);
   } catch (err) {
+    if (isRetryablePostgrestError(err) || isRetryablePostgrestError(err?.cause)) {
+      console.warn('[ManuSilva] Faturas manuais: servidor indisponível — a usar cache local.');
+      return faturasManuaisCache || [];
+    }
     const msg = formatFaturasManuaisError(err);
     if (/tabela "faturas_manuais" não encontrada|Could not find the table|relation.*faturas_manuais/i.test(msg)) {
       console.warn('[ManuSilva] Tabela faturas_manuais ainda não existe — executar migração 022.');

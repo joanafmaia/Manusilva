@@ -9,6 +9,7 @@ import { ensureProductionCatalog } from './clients-catalog.js';
 import { ensureJobsLoaded, getJobsSnapshot } from './trabalhos-db.js';
 import { ensureReportsLoaded, getReportsSnapshot } from './relatorios-db.js';
 import { initErrorMonitoring } from './error-monitor.js';
+import { isRetryablePostgrestError, isPostgrestCircuitOpen, MSG_POSTGREST_UNAVAILABLE } from './supabase-query.js';
 
 const DB_KEY = 'manusilva_db';
 
@@ -124,25 +125,46 @@ export async function warmOperacoes() {
 
   await ensureSupabaseAuthSession();
 
-  if (isEffectivelyOffline()) {
-    await Promise.all([
-      ensureJobsLoaded(),
-      ensureReportsLoaded(),
-      ensureProductionCatalog(),
-      ensureServicosLoadedSafe(),
-      ensureFolhasObraLoadedSafe(),
-    ]);
-    return;
+  const loaders = isEffectivelyOffline()
+    ? [
+        ensureJobsLoaded(),
+        ensureReportsLoaded(),
+        ensureProductionCatalog(),
+        ensureServicosLoadedSafe(),
+        ensureFolhasObraLoadedSafe(),
+      ]
+    : [
+        ensureJobsLoaded(),
+        ensureReportsLoaded(),
+        ensureProductionCatalog(),
+        ensureServicosLoadedSafe(),
+        ensureFaturasManuaisLoadedSafe(),
+        ensureFolhasObraLoadedSafe(),
+      ];
+
+  const results = await Promise.allSettled(loaders);
+  const rejected = results.filter((result) => result.status === 'rejected');
+  if (rejected.length) {
+    scheduleWarmOperacoesRetry();
+    const firstError = rejected[0].reason;
+    if (rejected.length === results.length) {
+      throw firstError;
+    }
+    console.warn(
+      '[ManuSilva] Arranque parcial — algumas tabelas não carregaram:',
+      rejected.map((result) => result.reason?.message || result.reason),
+    );
+  } else if (isPostgrestCircuitOpen()) {
+    scheduleWarmOperacoesRetry();
+    try {
+      const { showToast } = await import('./toast-modal.js');
+      showToast(MSG_POSTGREST_UNAVAILABLE, 'error', 9000);
+    } catch {
+      /* toast indisponível no arranque */
+    }
   }
 
-  await Promise.all([
-    ensureJobsLoaded(),
-    ensureReportsLoaded(),
-    ensureProductionCatalog(),
-    ensureServicosLoadedSafe(),
-    ensureFaturasManuaisLoadedSafe(),
-    ensureFolhasObraLoadedSafe(),
-  ]);
+  if (isEffectivelyOffline()) return;
 
   try {
     await ensureFullClientsInStorage();
@@ -153,10 +175,27 @@ export async function warmOperacoes() {
   }
 }
 
+let warmOperacoesRetryTimer = null;
+
+function scheduleWarmOperacoesRetry() {
+  if (warmOperacoesRetryTimer) return;
+  warmOperacoesRetryTimer = setTimeout(() => {
+    warmOperacoesRetryTimer = null;
+    warmOperacoes().catch((err) => {
+      console.warn('[ManuSilva] Retry após PostgREST indisponível:', err?.message || err);
+    });
+  }, 12_000);
+}
+
 export async function handleFatalDashboardError(error) {
+  const msg = String(error?.message || '').toLowerCase();
+  if (isRetryablePostgrestError(error) || /schema cache|temporariamente indisponível/i.test(msg)) {
+    console.warn('[ManuSilva] Arranque com base de dados indisponível:', error?.message || error);
+    return false;
+  }
+
   console.error('Erro fatal ao iniciar dashboard:', error);
 
-  const msg = String(error?.message || '').toLowerCase();
   const isSessionError =
     error?.code === 'AUTH_SESSION_MISSING' ||
     msg.includes('sessão') ||

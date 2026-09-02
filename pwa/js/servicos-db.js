@@ -8,6 +8,8 @@ import {
   SERVICOS_SELECT,
   createKeyedFetchGate,
   fetchAllPaged,
+  formatRetryablePostgrestMessage,
+  isRetryablePostgrestError,
 } from './supabase-query.js';
 import {
   AUDIT_SERVICO_COLUMNS,
@@ -115,6 +117,8 @@ export function mapServicoToRow(servico, overrides = {}) {
 
 export function formatServicosError(err) {
   if (!err) return 'Erro ao aceder aos serviços.';
+  const retryable = formatRetryablePostgrestMessage(err) || formatRetryablePostgrestMessage(err.cause);
+  if (retryable) return retryable;
   const msg = String(err.message || err.details || err.hint || '').trim();
   const code = err.code || '';
 
@@ -138,8 +142,6 @@ export function replaceServicosCache(servicos = []) {
 }
 
 async function tryHydrateServicosFromOfflineSnapshot() {
-  const { isEffectivelyOffline } = await import('./network-status.js');
-  if (!isEffectivelyOffline()) return false;
   const { hydrateOpsSnapshot } = await import('./ops-snapshot.js');
   return hydrateOpsSnapshot();
 }
@@ -163,7 +165,10 @@ export async function ensureServicosLoaded(force = false) {
     servicosLoadPromise = loadServicosFromSupabase().catch(async (err) => {
       servicosLoadPromise = null;
       const hydrated = await tryHydrateServicosFromOfflineSnapshot();
-      if (hydrated && servicosCache?.length) return servicosCache;
+      if (hydrated && servicosCache?.length) {
+        servicosFullyLoaded = false;
+        return servicosCache;
+      }
       throw err;
     });
   }
@@ -175,6 +180,10 @@ export async function ensureServicosLoadedSafe(force = false) {
   try {
     return await ensureServicosLoaded(force);
   } catch (err) {
+    if (isRetryablePostgrestError(err) || isRetryablePostgrestError(err?.cause)) {
+      console.warn('[ManuSilva] Serviços: servidor indisponível — a usar cache local.');
+      return servicosCache || [];
+    }
     const msg = formatServicosError(err);
     if (/tabela "servicos" não encontrada|Could not find the table|relation.*servicos/i.test(msg)) {
       console.warn('[ManuSilva] Tabela servicos ainda não existe — executar migração 020.');

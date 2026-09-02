@@ -179,27 +179,137 @@ export const CLIENTE_EQUIPAMENTOS_SELECT = [
   'ultima_intervencao_em',
 ].join(',');
 
+export const MSG_POSTGREST_UNAVAILABLE =
+  'A base de dados está temporariamente indisponível. Os dados locais mantêm-se — tente novamente daqui a uns segundos.';
+
+export const POSTGREST_RETRY_DELAYS_MS = [800, 2000];
+const POSTGREST_CIRCUIT_MS = 10_000;
+const MAX_CONCURRENT_REST_FETCHES = 2;
+
+let circuitOpenUntil = 0;
+let lastCircuitError = null;
+let activeRestFetches = 0;
+const restFetchWaiters = [];
+
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Timeout, 5xx ou schema cache do PostgREST (PGRST002) — vale a pena repetir. */
+export function isRetryablePostgrestError(err) {
+  if (!err) return false;
+  const nested = err.cause && typeof err.cause === 'object' ? err.cause : null;
+  const code = String(err.code || nested?.code || '');
+  const status = Number(err.status ?? err.statusCode ?? nested?.status ?? 0);
+  if (code === 'PGRST002') return true;
+  if ([408, 425, 429, 500, 502, 503, 504].includes(status)) return true;
+  const msg = String(
+    err.message || err.details || err.hint || nested?.message || '',
+  ).toLowerCase();
+  return /pgrst002|schema cache|could not query the database|service unavailable|temporariamente indisponível|(?:\b|http\s)(?:408|425|429|500|502|503|504)\b|gateway timeout|failed to fetch|networkerror|load failed/.test(
+    msg,
+  );
+}
+
+export function formatRetryablePostgrestMessage(err) {
+  return isRetryablePostgrestError(err) ? MSG_POSTGREST_UNAVAILABLE : null;
+}
+
+export function resetPostgrestCircuit() {
+  circuitOpenUntil = 0;
+  lastCircuitError = null;
+}
+
+export function isPostgrestCircuitOpen() {
+  return Date.now() < circuitOpenUntil && Boolean(lastCircuitError);
+}
+
+function peekCircuitError() {
+  if (Date.now() < circuitOpenUntil && lastCircuitError) return lastCircuitError;
+  return null;
+}
+
+function openCircuit(error, ms = POSTGREST_CIRCUIT_MS) {
+  lastCircuitError = error;
+  circuitOpenUntil = Math.max(circuitOpenUntil, Date.now() + ms);
+}
+
+function closeCircuit() {
+  circuitOpenUntil = 0;
+  lastCircuitError = null;
+}
+
+async function withRestConcurrency(fn) {
+  if (activeRestFetches >= MAX_CONCURRENT_REST_FETCHES) {
+    await new Promise((resolve) => {
+      restFetchWaiters.push(resolve);
+    });
+  }
+  activeRestFetches += 1;
+  try {
+    return await fn();
+  } finally {
+    activeRestFetches -= 1;
+    const next = restFetchWaiters.shift();
+    if (next) next();
+  }
+}
+
 /**
  * Percorre a tabela em páginas (limite PostgREST ~1000).
  * @param {() => import('@supabase/supabase-js').PostgrestFilterBuilder} buildQuery
+ * @param {number} [pageSize]
+ * @param {{ retryDelaysMs?: number[] }} [options]
  * @returns {Promise<{ data: object[]|null, error: object|null }>}
  */
-export async function fetchAllPaged(buildQuery, pageSize = SUPABASE_PAGE_SIZE) {
+export async function fetchAllPaged(buildQuery, pageSize = SUPABASE_PAGE_SIZE, options = {}) {
   const size = Math.min(Math.max(Number(pageSize) || SUPABASE_PAGE_SIZE, 1), 1000);
-  const rows = [];
-  let from = 0;
+  const retryDelays = Array.isArray(options.retryDelaysMs)
+    ? options.retryDelaysMs
+    : POSTGREST_RETRY_DELAYS_MS;
 
-  for (;;) {
-    const to = from + size - 1;
-    const { data, error } = await buildQuery().range(from, to);
-    if (error) return { data: null, error };
-    const batch = Array.isArray(data) ? data : [];
-    rows.push(...batch);
-    if (batch.length < size) break;
-    from += size;
-  }
+  const blocked = peekCircuitError();
+  if (blocked) return { data: null, error: blocked };
 
-  return { data: rows, error: null };
+  return withRestConcurrency(async () => {
+    const blockedInner = peekCircuitError();
+    if (blockedInner) return { data: null, error: blockedInner };
+
+    const rows = [];
+    let from = 0;
+
+    for (;;) {
+      const to = from + size - 1;
+      let batch = null;
+      let lastError = null;
+
+      for (let attempt = 0; attempt <= retryDelays.length; attempt += 1) {
+        const { data, error } = await buildQuery().range(from, to);
+        if (!error) {
+          closeCircuit();
+          batch = Array.isArray(data) ? data : [];
+          lastError = null;
+          break;
+        }
+        lastError = error;
+        if (!isRetryablePostgrestError(error) || attempt >= retryDelays.length) {
+          break;
+        }
+        await delay(retryDelays[attempt]);
+      }
+
+      if (lastError) {
+        if (isRetryablePostgrestError(lastError)) openCircuit(lastError);
+        return { data: null, error: lastError };
+      }
+
+      rows.push(...batch);
+      if (batch.length < size) break;
+      from += size;
+    }
+
+    return { data: rows, error: null };
+  });
 }
 
 /** TTL para refetch parcial (semana do técnico, IDs já pedidos). */

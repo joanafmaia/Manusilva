@@ -10,7 +10,12 @@ import {
   stripAuditColumns,
   withOptionalAuditColumns,
 } from './audit-fields.js';
-import { FOLHAS_OBRA_SELECT, fetchAllPaged } from './supabase-query.js';
+import {
+  FOLHAS_OBRA_SELECT,
+  fetchAllPaged,
+  formatRetryablePostgrestMessage,
+  isRetryablePostgrestError,
+} from './supabase-query.js';
 
 let folhasObraCache = null;
 let folhasObraLoadPromise = null;
@@ -128,6 +133,8 @@ export function mapFolhaObraToRow(folha, overrides = {}) {
 
 export function formatFolhasObraError(err) {
   if (!err) return 'Erro ao aceder às folhas de obra.';
+  const retryable = formatRetryablePostgrestMessage(err) || formatRetryablePostgrestMessage(err.cause);
+  if (retryable) return retryable;
   const msg = String(err.message || err.details || err.hint || '').trim();
   const code = err.code || '';
 
@@ -200,6 +207,10 @@ export async function ensureFolhasObraLoadedSafe(force = false) {
   try {
     return await ensureFolhasObraLoaded(force);
   } catch (err) {
+    if (isRetryablePostgrestError(err) || isRetryablePostgrestError(err?.cause)) {
+      console.warn('[ManuSilva] Folhas de obra: servidor indisponível — a usar cache local.');
+      return folhasObraCache || [];
+    }
     const msg = formatFolhasObraError(err);
     if (/tabela "folhas_obra" não encontrada|Could not find the table|relation.*folhas_obra/i.test(msg)) {
       console.warn('[ManuSilva] Tabela folhas_obra ainda não existe — executar migração 025.');

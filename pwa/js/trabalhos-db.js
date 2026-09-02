@@ -9,6 +9,8 @@ import {
   TRABALHOS_SEMANA_SELECT,
   createKeyedFetchGate,
   fetchAllPaged,
+  formatRetryablePostgrestMessage,
+  isRetryablePostgrestError,
 } from './supabase-query.js';
 
 let jobsCache = null;
@@ -74,6 +76,8 @@ function mapJobToRow(jobData, overrides = {}) {
 
 export function formatTrabalhosError(err) {
   if (!err) return 'Erro ao aceder aos trabalhos.';
+  const retryable = formatRetryablePostgrestMessage(err) || formatRetryablePostgrestMessage(err.cause);
+  if (retryable) return retryable;
   const msg = String(err.message || err.details || err.hint || '').trim();
   const code = err.code || '';
 
@@ -97,8 +101,6 @@ export function replaceJobsCache(jobs = []) {
 }
 
 async function tryHydrateJobsFromOfflineSnapshot() {
-  const { isEffectivelyOffline } = await import('./network-status.js');
-  if (!isEffectivelyOffline()) return false;
   const { hydrateOpsSnapshot } = await import('./ops-snapshot.js');
   return hydrateOpsSnapshot();
 }
@@ -120,7 +122,14 @@ export async function ensureJobsLoaded(force = false) {
     jobsLoadPromise = loadJobsFromSupabase().catch(async (err) => {
       jobsLoadPromise = null;
       const hydrated = await tryHydrateJobsFromOfflineSnapshot();
-      if (hydrated && jobsCache?.length) return jobsCache;
+      if (hydrated && jobsCache?.length) {
+        jobsFullyLoaded = false;
+        return jobsCache;
+      }
+      if (isRetryablePostgrestError(err) || isRetryablePostgrestError(err?.cause)) {
+        console.warn('[ManuSilva] Trabalhos: servidor indisponível — a usar cache local.');
+        return jobsCache || [];
+      }
       throw err;
     });
   }

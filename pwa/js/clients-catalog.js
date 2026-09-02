@@ -3,7 +3,7 @@
  */
 
 import { ensureSupabaseAuthSession, getSupabaseClient } from './supabase-client.js';
-import { CLIENTES_SELECT, fetchAllPaged } from './supabase-query.js';
+import { CLIENTES_SELECT, fetchAllPaged, formatRetryablePostgrestMessage, isRetryablePostgrestError } from './supabase-query.js';
 
 const MAX_DROPDOWN_RESULTS = 10;
 
@@ -71,6 +71,9 @@ export function resetProductionCatalogCache() {
 /** Mensagem legível para toasts / consola (F12) */
 export function formatClientsLoadError(err) {
   if (!err) return 'Erro desconhecido ao carregar clientes.';
+
+  const retryable = formatRetryablePostgrestMessage(err) || formatRetryablePostgrestMessage(err.cause);
+  if (retryable) return retryable;
 
   const msg = String(err.message || err.details || err.hint || err).trim();
   const code = err.code || err.status || '';
@@ -305,6 +308,10 @@ export async function ensureProductionCatalog() {
       catalogLoadPromise = null;
       if (hydrateProductionCatalogFromLocalStorage()) {
         return productionCatalog;
+      }
+      if (isRetryablePostgrestError(err) || isRetryablePostgrestError(err?.cause)) {
+        console.warn('[ManuSilva] Clientes: servidor indisponível — a usar cache local.');
+        return productionCatalog || [];
       }
       throw err;
     });

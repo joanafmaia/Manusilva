@@ -8,6 +8,8 @@ import {
   createCoalescedIdFetcher,
   createIdTtlCache,
   fetchAllPaged,
+  formatRetryablePostgrestMessage,
+  isRetryablePostgrestError,
 } from './supabase-query.js';
 import {
   ensureJobsLoaded,
@@ -320,6 +322,8 @@ export function mapReportToRow(report) {
 
 export function formatRelatoriosError(err) {
   if (!err) return 'Erro ao aceder aos relatórios.';
+  const retryable = formatRetryablePostgrestMessage(err) || formatRetryablePostgrestMessage(err.cause);
+  if (retryable) return retryable;
   const msg = String(err.message || err.details || err.hint || '').trim();
   const code = err.code || '';
 
@@ -407,8 +411,6 @@ export function replaceReportsCache(reports = []) {
 }
 
 async function tryHydrateReportsFromOfflineSnapshot() {
-  const { isEffectivelyOffline } = await import('./network-status.js');
-  if (!isEffectivelyOffline()) return false;
   const { hydrateOpsSnapshot } = await import('./ops-snapshot.js');
   return hydrateOpsSnapshot();
 }
@@ -456,8 +458,14 @@ export async function ensureReportsLoaded(force = false) {
         reportsLoadPromise = null;
         const hydrated = await tryHydrateReportsFromOfflineSnapshot();
         if (hydrated && reportsCache?.length) {
+          reportsFullyLoaded = false;
           await hydrateLocalReportsIfBrowser();
           return reportsCache;
+        }
+        if (isRetryablePostgrestError(err) || isRetryablePostgrestError(err?.cause)) {
+          console.warn('[ManuSilva] Relatórios: servidor indisponível — a usar cache local.');
+          await hydrateLocalReportsIfBrowser();
+          return reportsCache || [];
         }
         throw err;
       });
