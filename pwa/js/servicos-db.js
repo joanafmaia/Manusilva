@@ -5,6 +5,11 @@
 
 import { getAuthenticatedSupabaseClient } from './supabase-client.js';
 import {
+  SERVICOS_SELECT,
+  createKeyedFetchGate,
+  fetchAllPaged,
+} from './supabase-query.js';
+import {
   AUDIT_SERVICO_COLUMNS,
   isMissingAuditColumnError,
   mergeAuditIntoDados,
@@ -12,11 +17,11 @@ import {
   stripAuditColumns,
   withOptionalAuditColumns,
 } from './audit-fields.js';
-import { fetchAllPaged, SERVICOS_SELECT } from './supabase-query.js';
 
 let servicosCache = null;
 let servicosLoadPromise = null;
 let servicosFullyLoaded = false;
+const servicosSemanaGate = createKeyedFetchGate();
 
 function formatDateOnly(value) {
   if (!value) return '';
@@ -198,45 +203,57 @@ export async function ensureServicosSemana(technicianId, startDate, endDate) {
   const tech = getTechnician(technicianId);
   const techName = String(tech?.name || technicianId).toLowerCase();
 
-  const { isEffectivelyOffline } = await import('./network-status.js');
-  if (isEffectivelyOffline()) {
-    await ensureServicosLoaded();
-    return getServicosSnapshot().filter((servico) => {
+  const filterWeekServicos = () =>
+    getServicosSnapshot().filter((servico) => {
       const date = String(servico.date || '');
       if (!date || date < startDate || date > endDate) return false;
       const assigned = String(servico.technicianIds || servico.tecnicoIds || '').toLowerCase();
       return assigned.includes(techName) || assigned.includes(String(technicianId).toLowerCase());
     });
+
+  const { isEffectivelyOffline } = await import('./network-status.js');
+  if (isEffectivelyOffline()) {
+    await ensureServicosLoaded();
+    return filterWeekServicos();
   }
 
-  const supabase = await getAuthenticatedSupabaseClient();
-  const { data, error } = await supabase
-    .from('servicos')
-    .select(SERVICOS_SELECT)
-    .ilike('tecnico_ids', `%${techName}%`)
-    .gte('data', startDate)
-    .lte('data', endDate)
-    .order('data', { ascending: true })
-    .order('hora', { ascending: true });
+  const key = `${technicianId}:${startDate}:${endDate}`;
+  const result = await servicosSemanaGate.run(key, async () => {
+    const supabase = await getAuthenticatedSupabaseClient();
+    const { data, error } = await fetchAllPaged(() =>
+      supabase
+        .from('servicos')
+        .select(SERVICOS_SELECT)
+        .ilike('tecnico_ids', `%${techName}%`)
+        .gte('data', startDate)
+        .lte('data', endDate)
+        .order('data', { ascending: true })
+        .order('hora', { ascending: true }),
+    );
 
-  if (error) {
-    const msg = formatServicosError(error);
-    if (/tabela "servicos" não encontrada|Could not find the table|relation.*servicos/i.test(msg)) {
-      console.warn('[ManuSilva] Tabela servicos ainda não existe — executar migração 020.');
-      return [];
+    if (error) {
+      const msg = formatServicosError(error);
+      if (/tabela "servicos" não encontrada|Could not find the table|relation.*servicos/i.test(msg)) {
+        console.warn('[ManuSilva] Tabela servicos ainda não existe — executar migração 020.');
+        return [];
+      }
+      console.error('[ManuSilva] Erro ao carregar semana de serviços:', error);
+      throw new Error(msg);
     }
-    console.error('[ManuSilva] Erro ao carregar semana de serviços:', error);
-    throw new Error(msg);
-  }
 
-  const weekServicos = (data || []).map(mapRowToServico).filter(Boolean);
-  if (!servicosCache) servicosCache = [];
+    const rows = data || [];
+    const weekServicos = rows.map(mapRowToServico).filter(Boolean);
+    if (!servicosCache) servicosCache = [];
 
-  weekServicos.forEach((servico) => {
-    mergeServicoInCache(servico);
+    weekServicos.forEach((servico) => {
+      mergeServicoInCache(servico);
+    });
+
+    return weekServicos;
   });
 
-  return weekServicos;
+  if (result.skipped) return filterWeekServicos();
+  return result.value || [];
 }
 
 async function loadServicosFromSupabase() {
@@ -264,6 +281,7 @@ export function invalidateServicosCache() {
   servicosCache = null;
   servicosLoadPromise = null;
   servicosFullyLoaded = false;
+  servicosSemanaGate.invalidate();
 }
 
 export function mergeServicoInCache(servico) {

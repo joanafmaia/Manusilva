@@ -2831,10 +2831,10 @@ export async function refreshFaturacaoPanel(options = {}) {
     const { ensureReportsLoaded } = await import('../relatorios-db.js');
     const { ensureServicosLoadedSafe } = await import('../servicos-db.js');
     await Promise.all([
-      ensureReportsLoaded(true),
-      ensureServicosLoadedSafe(true),
-      ensureFaturasManuaisLoadedSafe(true),
-      ensureFolhasObraLoadedSafe(true),
+      ensureReportsLoaded(),
+      ensureServicosLoadedSafe(),
+      ensureFaturasManuaisLoadedSafe(),
+      ensureFolhasObraLoadedSafe(),
     ]);
     await repairOrcamentoAceiteBillingQueue();
   }

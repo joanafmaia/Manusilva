@@ -47,9 +47,12 @@ export async function syncLocalReportDraftsToServer(options = {}) {
     return { synced: 0, remaining };
   }
 
-  const { upsertRelatorio, mergeReportInCache } = await import('./relatorios-db.js');
+  const { upsertRelatorio, mergeReportInCache, ensureReportsLoaded, isRelatorioLockedOnServer } =
+    await import('./relatorios-db.js');
   const drafts = await getAllLocalReportDrafts();
   let synced = 0;
+
+  await ensureReportsLoaded();
 
   for (const draft of drafts) {
     const status = draft.status || 'draft';
@@ -64,8 +67,6 @@ export async function syncLocalReportDraftsToServer(options = {}) {
 
     const key = reportDraftStorageKey(draft);
     try {
-      const { ensureReportsLoaded, isRelatorioLockedOnServer } = await import('./relatorios-db.js');
-      await ensureReportsLoaded(true);
       if (await isRelatorioLockedOnServer(draft)) {
         console.warn('[ManuSilva] Rascunho local descartado — relatório já revisto no servidor:', key);
         await removeLocalReportDraft(key);

@@ -22,6 +22,22 @@ export const TRABALHOS_SELECT = [
   'foto_depois',
 ].join(',');
 
+/** Semana do técnico — sem fotos (evita re-descarregar base64 em cada poll). */
+export const TRABALHOS_SEMANA_SELECT = [
+  'id',
+  'numero_ordem',
+  'servico_id',
+  'tecnico_id',
+  'cliente_id',
+  'numero_serie',
+  'tipo_servico',
+  'data',
+  'hora',
+  'estado',
+  'nota_rejeicao',
+  'url_pdf',
+].join(',');
+
 export const SERVICOS_SELECT = [
   'id',
   'numero_ordem',
@@ -184,4 +200,118 @@ export async function fetchAllPaged(buildQuery, pageSize = SUPABASE_PAGE_SIZE) {
   }
 
   return { data: rows, error: null };
+}
+
+/** TTL para refetch parcial (semana do técnico, IDs já pedidos). */
+export const PARTIAL_FETCH_TTL_MS = 120_000;
+
+/**
+ * Impede refetch da mesma chave enquanto corre, e durante `ttlMs` após sucesso.
+ * @param {number} [ttlMs]
+ */
+export function createKeyedFetchGate(ttlMs = PARTIAL_FETCH_TTL_MS) {
+  const inFlight = new Map();
+  const lastOk = new Map();
+
+  return {
+    /**
+     * @template T
+     * @param {string} key
+     * @param {() => Promise<T>} fn
+     * @param {{ force?: boolean }} [options]
+     * @returns {Promise<{ skipped: boolean, value: T|undefined }>}
+     */
+    async run(key, fn, options = {}) {
+      const force = options.force === true;
+      if (!force) {
+        const ts = lastOk.get(key);
+        if (ts != null && Date.now() - ts < ttlMs) {
+          return { skipped: true, value: undefined };
+        }
+        const pending = inFlight.get(key);
+        if (pending) return pending;
+      }
+
+      const pending = (async () => {
+        const value = await fn();
+        lastOk.set(key, Date.now());
+        return { skipped: false, value };
+      })().finally(() => {
+        inFlight.delete(key);
+      });
+
+      inFlight.set(key, pending);
+      return pending;
+    },
+
+    invalidate(key) {
+      if (key == null) {
+        lastOk.clear();
+        return;
+      }
+      lastOk.delete(String(key));
+    },
+  };
+}
+
+/**
+ * Marca IDs como recentemente pedidos — evita repetir o mesmo IN/OR em loop.
+ * @param {number} [ttlMs]
+ */
+export function createIdTtlCache(ttlMs = PARTIAL_FETCH_TTL_MS) {
+  const at = new Map();
+
+  return {
+    isFresh(id) {
+      const ts = at.get(String(id));
+      return ts != null && Date.now() - ts < ttlMs;
+    },
+    mark(ids = []) {
+      const now = Date.now();
+      for (const id of ids) {
+        if (id == null || id === '') continue;
+        at.set(String(id), now);
+      }
+    },
+    clear() {
+      at.clear();
+    },
+  };
+}
+
+/**
+ * Junta pedidos concorrentes com os mesmos IDs numa só ronda de fetch.
+ * @param {(ids: string[]) => Promise<unknown>} fetchIds
+ * @param {ReturnType<typeof createIdTtlCache>} ttlCache
+ */
+export function createCoalescedIdFetcher(fetchIds, ttlCache) {
+  let queue = [];
+  let inflight = null;
+
+  return async function ensureIds(ids = [], options = {}) {
+    const unique = [...new Set(ids.map((id) => String(id || '').trim()).filter(Boolean))];
+    const force = options.force === true;
+    const needed = force ? unique : unique.filter((id) => !ttlCache.isFresh(id));
+    if (!needed.length) return;
+
+    queue.push(...needed);
+    if (inflight) return inflight;
+
+    inflight = (async () => {
+      try {
+        while (queue.length) {
+          const batch = [...new Set(queue)];
+          queue = [];
+          const stale = force ? batch : batch.filter((id) => !ttlCache.isFresh(id));
+          if (!stale.length) continue;
+          await fetchIds(stale);
+          ttlCache.mark(stale);
+        }
+      } finally {
+        inflight = null;
+      }
+    })();
+
+    return inflight;
+  };
 }

@@ -111,7 +111,7 @@ export async function syncOfflineQueue() {
   });
 
   if (result.processedCount > 0) {
-    await ensureReportsLoaded(true);
+    await ensureReportsLoaded();
     window.dispatchEvent(new CustomEvent('db-updated'));
   }
 

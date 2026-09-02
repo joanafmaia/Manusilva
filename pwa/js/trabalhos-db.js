@@ -4,12 +4,18 @@
 
 import { getAuthenticatedSupabaseClient } from './supabase-client.js';
 import { getServico } from './servicos-db.js';
-import { fetchAllPaged, TRABALHOS_SELECT } from './supabase-query.js';
+import {
+  TRABALHOS_SELECT,
+  TRABALHOS_SEMANA_SELECT,
+  createKeyedFetchGate,
+  fetchAllPaged,
+} from './supabase-query.js';
 
 let jobsCache = null;
 let jobsLoadPromise = null;
 /** true só depois de um SELECT completo à tabela trabalhos (não cargas parciais). */
 let jobsFullyLoaded = false;
+const trabalhosSemanaGate = createKeyedFetchGate();
 
 function parseClientId(clientId) {
   if (clientId == null || clientId === '') return null;
@@ -157,6 +163,7 @@ export function invalidateJobsCache() {
   jobsCache = null;
   jobsLoadPromise = null;
   jobsFullyLoaded = false;
+  trabalhosSemanaGate.invalidate();
 }
 
 /**
@@ -183,9 +190,7 @@ export function removeJobFromCache(jobId) {
 export async function ensureTrabalhosSemana(technicianId, startDate, endDate) {
   if (!technicianId || !startDate || !endDate) return [];
 
-  const { isEffectivelyOffline } = await import('./network-status.js');
-  if (isEffectivelyOffline()) {
-    await ensureJobsLoaded();
+  const filterWeekJobs = async () => {
     const { getTechnician } = await import('./entity-lookups.js');
     const tech = getTechnician(technicianId);
     const techName = String(tech?.name || technicianId).toLowerCase();
@@ -194,37 +199,54 @@ export async function ensureTrabalhosSemana(technicianId, startDate, endDate) {
       const assigned = String(job.technicianId || '').toLowerCase();
       return assigned.includes(techName) || assigned === String(technicianId).toLowerCase();
     });
+  };
+
+  const { isEffectivelyOffline } = await import('./network-status.js');
+  if (isEffectivelyOffline()) {
+    await ensureJobsLoaded();
+    return filterWeekJobs();
   }
 
-  const { getTechnician } = await import('./entity-lookups.js');
-  const tech = getTechnician(technicianId);
-  const techName = tech?.name || String(technicianId);
+  const key = `${technicianId}:${startDate}:${endDate}`;
+  const result = await trabalhosSemanaGate.run(key, async () => {
+    const { getTechnician } = await import('./entity-lookups.js');
+    const tech = getTechnician(technicianId);
+    const techName = tech?.name || String(technicianId);
 
-  const supabase = await getAuthenticatedSupabaseClient();
-  const { data, error } = await supabase
-    .from('trabalhos')
-    .select(TRABALHOS_SELECT)
-    .ilike('tecnico_id', `%${techName}%`)
-    .gte('data', startDate)
-    .lte('data', endDate)
-    .order('data', { ascending: true })
-    .order('hora', { ascending: true });
+    const supabase = await getAuthenticatedSupabaseClient();
+    const { data, error } = await fetchAllPaged(() =>
+      supabase
+        .from('trabalhos')
+        .select(TRABALHOS_SEMANA_SELECT)
+        .ilike('tecnico_id', `%${techName}%`)
+        .gte('data', startDate)
+        .lte('data', endDate)
+        .order('data', { ascending: true })
+        .order('hora', { ascending: true }),
+    );
+    if (error) {
+      console.error('[ManuSilva] Erro ao carregar semana de trabalhos:', error);
+      throw new Error(formatTrabalhosError(error));
+    }
+    const rows = data || [];
 
-  if (error) {
-    console.error('[ManuSilva] Erro ao carregar semana de trabalhos:', error);
-    throw new Error(formatTrabalhosError(error));
-  }
+    const weekJobs = rows.map(mapRowToJob).filter(Boolean);
+    if (!jobsCache) jobsCache = [];
 
-  const weekJobs = (data || []).map(mapRowToJob).filter(Boolean);
-  if (!jobsCache) jobsCache = [];
+    weekJobs.forEach((job) => {
+      const idx = jobsCache.findIndex((j) => j.id === job.id);
+      if (idx >= 0) {
+        jobsCache[idx] = { ...jobsCache[idx], ...job };
+      } else {
+        jobsCache.push(job);
+      }
+    });
 
-  weekJobs.forEach((job) => {
-    const idx = jobsCache.findIndex((j) => j.id === job.id);
-    if (idx >= 0) jobsCache[idx] = job;
-    else jobsCache.push(job);
+    return weekJobs;
   });
 
-  return weekJobs;
+  if (result.skipped) return filterWeekJobs();
+  return result.value || [];
 }
 
 /** Datas (YYYY-MM-DD) com pelo menos um trabalho do técnico na semana indicada */

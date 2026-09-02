@@ -193,17 +193,34 @@ export async function syncFolhaObraFromOrcamentoReport(report) {
 
   const meta = getReportOrcamentoMeta(report) || {};
   const resposta = String(meta.respostaCliente || '').trim().toLowerCase();
-  const patch = {
-    orcamentoReportId: folha.orcamentoReportId || report.id,
-  };
+  let nextEstado = folha.estado;
+  let nextAceite = folha.orcamentoAceiteEm;
+  const nextReportId = folha.orcamentoReportId || report.id;
 
   if (resposta === ORCAMENTO_RESPOSTA.ACEITE) {
-    patch.estado = 'em_reparacao';
-    patch.orcamentoAceiteEm = meta.respostaClienteEm || new Date().toISOString();
+    nextEstado = 'em_reparacao';
+    nextAceite = meta.respostaClienteEm || folha.orcamentoAceiteEm || new Date().toISOString();
   } else if (meta.enviadoEm && folha.estado === 'aguarda_orcamento') {
-    patch.estado = 'orcamento_enviado';
+    nextEstado = 'orcamento_enviado';
   } else if (!meta.enviadoEm && folha.estado === 'orcamento_enviado' && !resposta) {
-    patch.estado = 'aguarda_orcamento';
+    nextEstado = 'aguarda_orcamento';
+  }
+
+  if (
+    String(nextEstado) === String(folha.estado) &&
+    String(nextAceite || '') === String(folha.orcamentoAceiteEm || '') &&
+    String(nextReportId || '') === String(folha.orcamentoReportId || '')
+  ) {
+    return folha;
+  }
+
+  const patch = {
+    orcamentoReportId: nextReportId,
+  };
+
+  if (nextEstado !== folha.estado) patch.estado = nextEstado;
+  if (nextAceite && nextAceite !== folha.orcamentoAceiteEm) {
+    patch.orcamentoAceiteEm = nextAceite;
   }
 
   return updateFolhaObra(folhaId, patch);

@@ -347,7 +347,7 @@ export async function sincronizarTrabalhosOffline(options = {}) {
     }
 
     if (synced > 0) {
-      await ensureReportsLoaded(true);
+      await ensureReportsLoaded();
       const { syncLocalReportDraftsToServer } = await import('./report-draft-sync.js');
       await syncLocalReportDraftsToServer({ notify: false });
       window.dispatchEvent(new CustomEvent('db-updated'));

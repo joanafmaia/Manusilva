@@ -66,6 +66,8 @@ let techCalendarView = 'week';
 let selectedDate = new Date().toISOString().split('T')[0];
 let weekDates = getWeekDates(currentWeekDate);
 let periodJobsCacheKey = null;
+let periodJobsCacheAt = 0;
+const PERIOD_JOBS_CACHE_TTL_MS = 5 * 60_000;
 let techCalendarNavBound = false;
 
 const TECH_MONTH_WEEKDAYS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
@@ -133,8 +135,6 @@ function scheduleTechDashboardRefresh() {
   if (techDashboardRefreshTimer) clearTimeout(techDashboardRefreshTimer);
   techDashboardRefreshTimer = setTimeout(() => {
     techDashboardRefreshTimer = null;
-    periodJobsCacheKey = null;
-    techTabDataCacheKey = null;
     invalidateTechListCaches();
     refreshTechCalendar().catch(console.error);
   }, 280);
@@ -152,9 +152,12 @@ async function refreshTechDashboardChrome() {
 
 function startTechRemoteDataPoll() {
   if (techRemotePollTimer) return;
-  const POLL_MS = 60_000;
+  const POLL_MS = 5 * 60_000;
   techRemotePollTimer = setInterval(() => {
     if (document.visibilityState !== 'visible' || !navigator.onLine) return;
+    periodJobsCacheKey = null;
+    periodJobsCacheAt = 0;
+    techTabDataCacheKey = null;
     scheduleTechDashboardRefresh();
   }, POLL_MS);
 }
@@ -463,9 +466,6 @@ async function loadTechTabData() {
     await ensureJobsLoaded();
     await ensureServicosLoadedSafe();
   } else if (techJobsTab === 'agendados') {
-    const { ensureReportsLoaded } = await import('./relatorios-db.js');
-    await ensureReportsLoaded();
-    // Garante a semana do dia selecionado (para a lista «resto da semana»)
     const weekOfSelected = getWeekDates(new Date(`${selectedDate}T12:00:00`));
     await ensureTrabalhosSemana(
       session.technicianId,
@@ -1475,7 +1475,12 @@ async function loadPeriodJobsFromSupabase() {
     cacheKey = `${session.technicianId}:week:${startDate}:${endDate}`;
   }
 
-  if (periodJobsCacheKey === cacheKey) return;
+  if (
+    periodJobsCacheKey === cacheKey &&
+    Date.now() - periodJobsCacheAt < PERIOD_JOBS_CACHE_TTL_MS
+  ) {
+    return;
+  }
 
   await Promise.all([
     ensureTrabalhosSemana(session.technicianId, startDate, endDate),
@@ -1490,6 +1495,7 @@ async function loadPeriodJobsFromSupabase() {
   }
 
   periodJobsCacheKey = cacheKey;
+  periodJobsCacheAt = Date.now();
 }
 
 async function refreshTechCalendar() {

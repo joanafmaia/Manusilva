@@ -291,6 +291,9 @@ function scheduleOrcamentosRealtimeRefresh() {
 
 /** Avaliações do cliente por visita — cache para calendário e painel RH. */
 let calendarAvaliacoesMap = new Map();
+let calendarAvaliacoesLoadPromise = null;
+let calendarAvaliacoesLoadedAt = 0;
+const CALENDAR_AVALIACOES_TTL_MS = 60_000;
 
 function isOpsTabActive() {
   return currentTab === 'calendario' || currentTab === 'relatorios';
@@ -302,7 +305,7 @@ function refreshOpsTab() {
       renderCalendar();
       renderSidebar();
       updateAdminChrome();
-      renderRhReviewStack({ syncCatalog: true }).catch(console.error);
+      queueRhReviewStackRender();
       if (currentTab === 'calendario') {
         refreshMetricsPanel(getMetricActionHandlers()).catch(console.error);
       }
@@ -312,7 +315,7 @@ function refreshOpsTab() {
       renderCalendar();
       renderSidebar();
       updateAdminChrome();
-      renderRhReviewStack({ syncCatalog: true }).catch(console.error);
+      queueRhReviewStackRender();
     });
 }
 
@@ -323,9 +326,24 @@ async function loadCalendarAvaliacoes() {
     calendarAvaliacoesMap = new Map();
     return calendarAvaliacoesMap;
   }
-  const { fetchAvaliacoesByServicoIds } = await import('./avaliacoes-db.js');
-  calendarAvaliacoesMap = await fetchAvaliacoesByServicoIds(servicoIds);
-  return calendarAvaliacoesMap;
+  if (
+    calendarAvaliacoesLoadPromise == null &&
+    calendarAvaliacoesLoadedAt &&
+    Date.now() - calendarAvaliacoesLoadedAt < CALENDAR_AVALIACOES_TTL_MS
+  ) {
+    return calendarAvaliacoesMap;
+  }
+  if (calendarAvaliacoesLoadPromise) return calendarAvaliacoesLoadPromise;
+
+  calendarAvaliacoesLoadPromise = (async () => {
+    const { fetchAvaliacoesByServicoIds } = await import('./avaliacoes-db.js');
+    calendarAvaliacoesMap = await fetchAvaliacoesByServicoIds(servicoIds);
+    calendarAvaliacoesLoadedAt = Date.now();
+    return calendarAvaliacoesMap;
+  })().finally(() => {
+    calendarAvaliacoesLoadPromise = null;
+  });
+  return calendarAvaliacoesLoadPromise;
 }
 
 function getCalendarAvaliacao(job) {
@@ -1365,11 +1383,6 @@ async function renderRhReviewStack(options = {}) {
   if (syncCatalog) {
     try {
       await syncTechniciansCatalog({ silent: true });
-      const { ensureReportsLoaded, mergePendingReportsFromSupabase } = await import(
-        './relatorios-db.js'
-      );
-      await ensureReportsLoaded(true);
-      await mergePendingReportsFromSupabase();
     } catch (err) {
       console.warn('[Admin] Dados para painel de relatórios:', err);
     }

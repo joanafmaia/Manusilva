@@ -46,20 +46,24 @@ export async function fetchAvaliacoesByServicoIds(servicoIds = []) {
   const supabase = await getAuthenticatedSupabaseClient();
   if (!supabase) return new Map();
 
-  const { data, error } = await supabase
-    .from('avaliacoes_servico')
-    .select('id,servico_id,cliente_id,score,comentario,criado_em')
-    .in('servico_id', unique);
-
-  if (error) {
-    console.warn('[avaliacoes-db] fetch:', error.message);
-    return new Map();
-  }
-
   const map = new Map();
-  for (const row of data || []) {
-    const mapped = mapRow(row);
-    if (mapped?.servicoId) map.set(mapped.servicoId, mapped);
+  const BATCH = 80;
+  for (let offset = 0; offset < unique.length; offset += BATCH) {
+    const batch = unique.slice(offset, offset + BATCH);
+    const { data, error } = await supabase
+      .from('avaliacoes_servico')
+      .select('id,servico_id,cliente_id,score,comentario,criado_em')
+      .in('servico_id', batch);
+
+    if (error) {
+      console.warn('[avaliacoes-db] fetch:', error.message);
+      return map;
+    }
+
+    for (const row of data || []) {
+      const mapped = mapRow(row);
+      if (mapped?.servicoId) map.set(mapped.servicoId, mapped);
+    }
   }
   return map;
 }

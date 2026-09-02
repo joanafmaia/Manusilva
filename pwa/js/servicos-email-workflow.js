@@ -102,11 +102,8 @@ async function waitForVisitReportsReady(servicoId, { maxAttempts = 6, delayMs = 
 
 async function loadVisitReportsForEmail(servicoId) {
   await ensureServicosLoadedSafe();
-  const { ensureRelatoriosForServicos, ensureReportsLoaded } = await import('./relatorios-db.js');
-  const { ensureJobsLoaded } = await import('./trabalhos-db.js');
-  await ensureJobsLoaded(true);
-  await ensureReportsLoaded(true);
-  await ensureRelatoriosForServicos([servicoId]);
+  const { ensureRelatoriosForServicos } = await import('./relatorios-db.js');
+  await ensureRelatoriosForServicos([servicoId], { force: true });
   return getApprovedReportsForServico(servicoId);
 }
 

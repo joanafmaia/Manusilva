@@ -4,6 +4,12 @@
 
 import { getAuthenticatedSupabaseClient } from './supabase-client.js';
 import {
+  RELATORIOS_SELECT,
+  createCoalescedIdFetcher,
+  createIdTtlCache,
+  fetchAllPaged,
+} from './supabase-query.js';
+import {
   ensureJobsLoaded,
   getJobsSnapshot,
   insertTrabalhoFromReport,
@@ -21,7 +27,6 @@ import {
   stripAuditFromRelatorioRow,
   withOptionalAuditColumns,
 } from './audit-fields.js';
-import { fetchAllPaged, RELATORIOS_SELECT } from './supabase-query.js';
 import { stripHeavyReportDados } from './report-payload-gc.js';
 
 let reportsCache = null;
@@ -32,6 +37,11 @@ let reportsByServicoIdIndex = null;
 /** true só depois de um SELECT completo à tabela relatorios (não rascunhos locais). */
 let reportsFullyLoaded = false;
 let reportsLoadPromise = null;
+let pendingReportsMergePromise = null;
+let pendingReportsMergedAt = 0;
+
+const relatoriosByTrabalhoTtl = createIdTtlCache();
+const relatoriosByServicoTtl = createIdTtlCache();
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -456,22 +466,9 @@ export async function ensureReportsLoaded(force = false) {
 }
 
 const RELATORIOS_IN_BATCH_SIZE = 80;
+const PENDING_REPORTS_MERGE_TTL_MS = 120_000;
 
-/**
- * Carrega relatórios só dos trabalhos indicados (merge no cache).
- * Útil no arranque do técnico — evita descarregar todos os relatórios de imediato.
- */
-export async function ensureRelatoriosForTrabalhos(jobIds = []) {
-  const ids = [...new Set(jobIds.map((id) => String(id || '').trim()).filter(Boolean))];
-  if (!ids.length) return [];
-
-  const { isEffectivelyOffline } = await import('./network-status.js');
-  if (isEffectivelyOffline()) {
-    await ensureReportsLoaded();
-    const idSet = new Set(ids);
-    return getReportsSnapshot().filter((report) => idSet.has(String(report.jobId || '')));
-  }
-
+async function fetchRelatoriosByTrabalhoIds(ids) {
   const supabase = await getAuthenticatedSupabaseClient();
   const loaded = [];
 
@@ -499,20 +496,7 @@ export async function ensureRelatoriosForTrabalhos(jobIds = []) {
   return loaded;
 }
 
-/**
- * Carrega relatórios ligados a serviços (servico_id) — merge no cache.
- */
-export async function ensureRelatoriosForServicos(servicoIds = []) {
-  const ids = [...new Set(servicoIds.map((id) => String(id || '').trim()).filter(Boolean))];
-  if (!ids.length) return [];
-
-  const { isEffectivelyOffline } = await import('./network-status.js');
-  if (isEffectivelyOffline()) {
-    await ensureReportsLoaded();
-    const idSet = new Set(ids);
-    return getReportsSnapshot().filter((report) => idSet.has(String(report.servicoId || '')));
-  }
-
+async function fetchRelatoriosByServicoIds(ids) {
   const supabase = await getAuthenticatedSupabaseClient();
   const loaded = [];
 
@@ -540,17 +524,61 @@ export async function ensureRelatoriosForServicos(servicoIds = []) {
   return loaded;
 }
 
-const RELATORIOS_FETCH_PAGE_SIZE = 500;
+const ensureRelatoriosForTrabalhosFetch = createCoalescedIdFetcher(
+  fetchRelatoriosByTrabalhoIds,
+  relatoriosByTrabalhoTtl,
+);
+const ensureRelatoriosForServicosFetch = createCoalescedIdFetcher(
+  fetchRelatoriosByServicoIds,
+  relatoriosByServicoTtl,
+);
+
+/**
+ * Carrega relatórios só dos trabalhos indicados (merge no cache).
+ * Útil no arranque do técnico — evita descarregar todos os relatórios de imediato.
+ */
+export async function ensureRelatoriosForTrabalhos(jobIds = [], options = {}) {
+  const ids = [...new Set(jobIds.map((id) => String(id || '').trim()).filter(Boolean))];
+  if (!ids.length) return [];
+
+  const { isEffectivelyOffline } = await import('./network-status.js');
+  if (isEffectivelyOffline()) {
+    await ensureReportsLoaded();
+    const idSet = new Set(ids);
+    return getReportsSnapshot().filter((report) => idSet.has(String(report.jobId || '')));
+  }
+
+  await ensureRelatoriosForTrabalhosFetch(ids, options);
+  const idSet = new Set(ids);
+  return getReportsSnapshot().filter((report) => idSet.has(String(report.jobId || '')));
+}
+
+/**
+ * Carrega relatórios ligados a serviços (servico_id) — merge no cache.
+ */
+export async function ensureRelatoriosForServicos(servicoIds = [], options = {}) {
+  const ids = [...new Set(servicoIds.map((id) => String(id || '').trim()).filter(Boolean))];
+  if (!ids.length) return [];
+
+  const { isEffectivelyOffline } = await import('./network-status.js');
+  if (isEffectivelyOffline()) {
+    await ensureReportsLoaded();
+    const idSet = new Set(ids);
+    return getReportsSnapshot().filter((report) => idSet.has(String(report.servicoId || '')));
+  }
+
+  await ensureRelatoriosForServicosFetch(ids, options);
+  const idSet = new Set(ids);
+  return getReportsSnapshot().filter((report) => idSet.has(String(report.servicoId || '')));
+}
 
 async function loadReportsFromSupabase() {
   const supabase = await getAuthenticatedSupabaseClient();
-  const { data, error } = await fetchAllPaged(
-    () =>
-      supabase
-        .from('relatorios')
-        .select(RELATORIOS_SELECT)
-        .order('atualizado_em', { ascending: false, nullsFirst: false }),
-    RELATORIOS_FETCH_PAGE_SIZE,
+  const { data, error } = await fetchAllPaged(() =>
+    supabase
+      .from('relatorios')
+      .select(RELATORIOS_SELECT)
+      .order('atualizado_em', { ascending: false, nullsFirst: false }),
   );
 
   if (error) {
@@ -571,46 +599,58 @@ async function loadReportsFromSupabase() {
  * Complementa o SELECT completo — a fila RH não depende só do lote geral.
  */
 export async function mergePendingReportsFromSupabase() {
-  const supabase = await getAuthenticatedSupabaseClient();
-  let from = 0;
-  let merged = 0;
+  if (
+    pendingReportsMergedAt &&
+    Date.now() - pendingReportsMergedAt < PENDING_REPORTS_MERGE_TTL_MS
+  ) {
+    return 0;
+  }
+  if (pendingReportsMergePromise) return pendingReportsMergePromise;
 
-  for (;;) {
-    const to = from + RELATORIOS_FETCH_PAGE_SIZE - 1;
-    const { data, error } = await supabase
-      .from('relatorios')
-      .select(RELATORIOS_SELECT)
-      .eq('estado', 'pending_review')
-      .order('submetido_em', { ascending: false, nullsFirst: false })
-      .range(from, to);
-
+  pendingReportsMergePromise = (async () => {
+    const supabase = await getAuthenticatedSupabaseClient();
+    const { data, error } = await fetchAllPaged(() =>
+      supabase
+        .from('relatorios')
+        .select(RELATORIOS_SELECT)
+        .eq('estado', 'pending_review')
+        .order('submetido_em', { ascending: false, nullsFirst: false }),
+    );
     if (error) {
       console.error('[ManuSilva] Erro ao carregar pendentes RH:', error);
       throw new Error(formatRelatoriosError(error));
     }
+    const rows = data || [];
 
-    const batch = data || [];
+    let merged = 0;
     if (!reportsCache) reportsCache = [];
-    for (const row of batch) {
+    for (const row of rows) {
       const report = mapRowToReport(row);
       if (!report || isReportLocallyDeleted(report)) continue;
       upsertCacheEntry(report);
       merged += 1;
     }
-    if (batch.length < RELATORIOS_FETCH_PAGE_SIZE) break;
-    from += RELATORIOS_FETCH_PAGE_SIZE;
-  }
 
-  reportsFullyLoaded = true;
-  invalidateReportsJobIndex();
-  console.info(`[ManuSilva] ${merged} pendente(s) RH sincronizado(s) do Supabase.`);
-  return merged;
+    reportsFullyLoaded = true;
+    invalidateReportsJobIndex();
+    pendingReportsMergedAt = Date.now();
+    console.info(`[ManuSilva] ${merged} pendente(s) RH sincronizado(s) do Supabase.`);
+    return merged;
+  })().finally(() => {
+    pendingReportsMergePromise = null;
+  });
+
+  return pendingReportsMergePromise;
 }
 
 export function invalidateReportsCache() {
   reportsCache = null;
   reportsLoadPromise = null;
   reportsFullyLoaded = false;
+  pendingReportsMergedAt = 0;
+  pendingReportsMergePromise = null;
+  relatoriosByTrabalhoTtl.clear();
+  relatoriosByServicoTtl.clear();
   invalidateReportsJobIndex();
 }
 
