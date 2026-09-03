@@ -3,9 +3,8 @@
 -- Supabase → SQL Editor → colar TUDO → Run
 -- ═══════════════════════════════════════════════════════════════════
 --
--- A app também cria o bucket pelo servidor (service role) ao aprovar.
--- Este SQL é o plano B no dashboard e alinha as políticas RLS.
---
+-- Pacote único para o SQL Editor: pwa/supabase-permissoes.sql
+-- (Storage PDFs + fotos + RLS de todas as tabelas).
 -- NOTA: Não uses ALTER TABLE storage.objects — dá erro 42501.
 
 -- ─── 1) Bucket público ───

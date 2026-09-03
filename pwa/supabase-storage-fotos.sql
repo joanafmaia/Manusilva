@@ -14,7 +14,8 @@ INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_typ
 VALUES ('fotos_trabalhos', 'fotos_trabalhos', true, 10485760, NULL)
 ON CONFLICT (id) DO UPDATE SET public = true;
 
--- ─── 2) Políticas Storage (apenas authenticated — ver migrations/007_lockdown_anon.sql) ───
+-- ─── 2) Políticas (authenticated escreve; URLs públicas para leitura) ───
+-- Pacote completo: pwa/supabase-permissoes.sql
 DROP POLICY IF EXISTS "anon_upload_fotos_trabalhos" ON storage.objects;
 DROP POLICY IF EXISTS "anon_update_fotos_trabalhos" ON storage.objects;
 DROP POLICY IF EXISTS "anon_read_fotos_trabalhos" ON storage.objects;
@@ -25,6 +26,7 @@ DROP POLICY IF EXISTS "authenticated_update_fotos_trabalhos" ON storage.objects;
 DROP POLICY IF EXISTS "authenticated_read_fotos_trabalhos" ON storage.objects;
 DROP POLICY IF EXISTS "authenticated_delete_fotos_trabalhos" ON storage.objects;
 DROP POLICY IF EXISTS "authenticated_all_fotos_trabalhos" ON storage.objects;
+DROP POLICY IF EXISTS "public_read_fotos_trabalhos" ON storage.objects;
 
 CREATE POLICY "authenticated_all_fotos_trabalhos"
   ON storage.objects
@@ -33,11 +35,18 @@ CREATE POLICY "authenticated_all_fotos_trabalhos"
   USING (bucket_id = 'fotos_trabalhos')
   WITH CHECK (bucket_id = 'fotos_trabalhos');
 
+-- Leitura pública das URLs em relatórios/e-mails (bucket public).
+CREATE POLICY "public_read_fotos_trabalhos"
+  ON storage.objects
+  FOR SELECT
+  TO anon, authenticated
+  USING (bucket_id = 'fotos_trabalhos');
+
 -- ─── 3) Colunas na tabela trabalhos ───
 ALTER TABLE public.trabalhos ADD COLUMN IF NOT EXISTS foto_antes text;
 ALTER TABLE public.trabalhos ADD COLUMN IF NOT EXISTS foto_depois text;
 
--- ─── 4) Verificação (deve listar 1 política authenticated) ───
+-- ─── 4) Verificação (authenticated_all + public_read) ───
 SELECT policyname, roles, cmd
 FROM pg_policies
 WHERE schemaname = 'storage'

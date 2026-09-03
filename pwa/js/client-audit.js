@@ -2,7 +2,7 @@
  * Auditoria de alterações a clientes (tabela cliente_alteracoes no Supabase).
  */
 
-import { getSupabaseClient } from './supabase-client.js';
+import { getAuthenticatedSupabaseClient } from './supabase-client.js';
 import { resolveAuditActor } from './audit-actor.js';
 
 const FIELD_LABELS = {
@@ -59,7 +59,7 @@ export async function fetchClientAlteracoes(clientId, options = {}) {
   const limit = Math.min(Math.max(Number(options.limit) || 200, 1), 500);
 
   try {
-    const supabase = await getSupabaseClient();
+    const supabase = await getAuthenticatedSupabaseClient();
     if (!supabase) return [];
 
     const queryId = /^\d+$/.test(id) ? Number(id) : id;
@@ -128,7 +128,7 @@ export async function logClientChanges(clientId, before, after, meta = {}) {
   if (!rows.length) return;
 
   try {
-    const supabase = await getSupabaseClient();
+    const supabase = await getAuthenticatedSupabaseClient();
     const { error } = await supabase.from('cliente_alteracoes').insert(rows);
     if (error) {
       console.warn('[Auditoria] Não foi possível registar alterações:', error.message);

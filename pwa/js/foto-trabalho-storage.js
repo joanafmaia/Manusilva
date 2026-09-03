@@ -2,7 +2,7 @@
  * Upload de fotos Antes/Depois — bucket público fotos_trabalhos
  */
 
-import { getSupabaseClient } from './supabase-client.js';
+import { getAuthenticatedSupabaseClient } from './supabase-client.js';
 import { patchTrabalho } from './trabalhos-db.js';
 import { compressImageFile } from './image-compress.js';
 import { removeStorageObject } from './supabase-storage-gc.js';
@@ -51,7 +51,7 @@ export async function uploadFotoTrabalho(file, filename) {
   }
 
   const contentType = payload.type || 'image/jpeg';
-  const supabase = await getSupabaseClient();
+  const supabase = await getAuthenticatedSupabaseClient();
 
   const { error: uploadError } = await supabase.storage.from(FOTOS_BUCKET).upload(path, payload, {
     contentType,
