@@ -108,25 +108,6 @@ html.ms-booting .brand-logo-slot.brand-logo-slot--ready {
   background: var(--ms-red-100, #fee2e2);
   border-color: #fecaca;
 }
-.tech-panel-link {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 40px;
-  padding: 0.45rem 0.75rem;
-  border: 1px solid var(--border-subtle, #e2e8f0);
-  border-radius: var(--ms-radius-lg, 0.5rem);
-  background: #fff;
-  color: var(--ms-text, #0f172a);
-  font-family: inherit;
-  font-size: 0.875rem;
-  font-weight: 700;
-  text-decoration: none;
-  flex-shrink: 0;
-}
-.tech-panel-link:hover {
-  background: var(--ms-surface-muted, #f8fafc);
-}
 .tech-logout-icon {
   width: 1.5rem;
   height: 1.5rem;

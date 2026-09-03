@@ -49,7 +49,6 @@ describe('warehouse role auth source', () => {
     assert.match(html, /btn-force-app-refresh/);
     assert.match(auth, /warehouse\.html/);
     assert.match(dashboard, /bindAppRefreshButton/);
-    assert.match(dashboard, /getHomePanelUrlForSession/);
   });
 
   it('folha de obra permite criar novo cliente', async () => {

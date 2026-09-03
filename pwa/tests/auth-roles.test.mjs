@@ -7,9 +7,7 @@ import {
   isRhOrAdminSession,
   isWarehouseSession,
   isEmployeeDbRole,
-  canOpenWarehousePanel,
   resolveRoleForLoginFilter,
-  getHomePanelUrlForSession,
   normalizeDbRole,
   mapDbRoleToUi,
   mapUiRoleToDb,
@@ -66,19 +64,12 @@ describe('auth-roles', () => {
     assert.equal(isWarehouseSession({ role: 'warehouse' }), true);
   });
 
-  it('qualquer funcionário pode abrir o painel Armazém', () => {
+  it('login no perfil Armazém aceita qualquer funcionário', () => {
     assert.equal(isEmployeeDbRole('RH'), true);
     assert.equal(isEmployeeDbRole('Tecnico'), true);
     assert.equal(isEmployeeDbRole('Armazem'), true);
-    assert.equal(canOpenWarehousePanel({ role: 'admin' }), true);
-    assert.equal(canOpenWarehousePanel({ role: 'technician' }), true);
-    assert.equal(canOpenWarehousePanel({ role: 'warehouse' }), true);
-    assert.equal(canOpenWarehousePanel(null), false);
     assert.equal(resolveRoleForLoginFilter('RH', 'Armazem'), 'Armazem');
     assert.equal(resolveRoleForLoginFilter('Tecnico', 'Armazem'), 'Armazem');
     assert.equal(resolveRoleForLoginFilter('RH', 'RH'), 'RH');
-    assert.equal(getHomePanelUrlForSession({ role: 'admin' }), 'admin.html');
-    assert.equal(getHomePanelUrlForSession({ role: 'technician' }), 'dashboard.html');
-    assert.equal(getHomePanelUrlForSession({ role: 'warehouse' }), '');
   });
 });

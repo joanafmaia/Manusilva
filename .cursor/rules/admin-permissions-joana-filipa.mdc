@@ -24,7 +24,7 @@ Joana e Filipa são **RH e Administração**. Devem ter acesso total sem bloquei
 - Verificações: `pwa/js/auth-roles-core.js` e `pwa/server-lib/auth-roles.js` (sync via `pwa/shared/rh-admin-config.json`)
 - API clientes: `isRhOrAdminAuthUser`, não apenas `role === 'RH'`
 - RLS Postgres: função `public.is_rh_admin()`
-- Qualquer funcionário (RH, técnico ou Armazém) pode abrir o painel Armazém — login com perfil Armazém, ou atalho nos painéis RH/técnico
+- Qualquer funcionário (RH, técnico ou Armazém) pode entrar no painel Armazém pelo **login** (perfil Armazém + a própria conta)
 
 
 Ao adicionar nova administradora RH, atualizar `UTILIZADORES`, `RH_ADMIN_EMAILS` (via `rh-admin-config.json` + `npm run sync:rh-config`) e a migração SQL.
