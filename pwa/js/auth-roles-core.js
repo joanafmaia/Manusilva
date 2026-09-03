@@ -109,6 +109,44 @@ export function isWarehouseSession(session) {
   return Boolean(session && session.role === 'warehouse');
 }
 
+const EMPLOYEE_DB_ROLES = new Set(['RH', 'Tecnico', 'Armazem']);
+
+/** Conta da empresa (RH, técnico ou armazém). */
+export function isEmployeeDbRole(role) {
+  return EMPLOYEE_DB_ROLES.has(normalizeDbRole(role));
+}
+
+/** Qualquer funcionário autenticado pode usar o painel Armazém. */
+export function canOpenWarehousePanel(session) {
+  if (!session?.role) return false;
+  return (
+    session.role === 'admin' ||
+    session.role === 'technician' ||
+    session.role === 'warehouse' ||
+    isEmployeeDbRole(session.role)
+  );
+}
+
+/**
+ * Login no perfil Armazém: RH e técnicos entram com a própria conta.
+ * @param {string|null} baseRole role real da conta (RH | Tecnico | Armazem)
+ * @param {string|null} roleFiltro perfil escolhido no ecrã de login
+ */
+export function resolveRoleForLoginFilter(baseRole, roleFiltro) {
+  const filter = normalizeDbRole(roleFiltro);
+  const role = normalizeDbRole(baseRole);
+  if (filter === 'Armazem' && isEmployeeDbRole(role)) return 'Armazem';
+  return role;
+}
+
+/** Painel de origem quando o funcionário abre o Armazém sem mudar de perfil. */
+export function getHomePanelUrlForSession(session) {
+  if (!session) return 'index.html';
+  if (session.role === 'admin' || isRhOrAdminSession(session)) return 'admin.html';
+  if (session.role === 'technician') return 'dashboard.html';
+  return '';
+}
+
 /** Exposto para testes de sincronização com a API */
 export function getRhAdminConfigSnapshot() {
   return {

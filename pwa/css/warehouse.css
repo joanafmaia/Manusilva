@@ -70,6 +70,11 @@ body.warehouse-page {
   white-space: nowrap;
 }
 
+.warehouse-home-link {
+  white-space: nowrap;
+  text-decoration: none;
+}
+
 .warehouse-refresh-btn {
   white-space: nowrap;
 }

@@ -44,7 +44,8 @@ AS $$
     ELSE
       public.is_rh_admin()
       OR COALESCE(auth.jwt() -> 'user_metadata' ->> 'role', '') IN (
-        'Armazem', 'armazem', 'warehouse'
+        'Armazem', 'armazem', 'warehouse',
+        'Tecnico', 'tecnico', 'technician'
       )
   END;
 $$;

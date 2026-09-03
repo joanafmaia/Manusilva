@@ -4,6 +4,7 @@
 
 import { requireAuth, warmOperacoes, showToast } from './tech-app-core.js';
 import { initLogoutButton, renderUserGreeting } from './auth.js';
+import { getHomePanelUrlForSession } from './auth-roles-core.js';
 import { bindAppRefreshButton } from './app-refresh-ui.js';
 import { finishAppBoot } from './bootstrap-entry.js';
 import { openFolhaObraEditor, mountFolhasObraTab } from './views/folhas-obra.js';
@@ -29,6 +30,13 @@ export async function initWarehouseDashboard() {
 
   initLogoutButton();
   renderUserGreeting('user-name');
+  const homeLink = document.getElementById('warehouse-home-link');
+  const homeUrl = getHomePanelUrlForSession(session);
+  if (homeLink && homeUrl) {
+    homeLink.hidden = false;
+    homeLink.href = homeUrl;
+    homeLink.textContent = session.role === 'admin' ? 'Painel RH' : 'Painel técnico';
+  }
   bindAppRefreshButton('btn-force-app-refresh', {
     notifyStyle: 'banner',
     updateHint: 'Nova versão disponível — clique em Atualizar.',

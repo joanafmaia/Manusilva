@@ -3,7 +3,7 @@
  */
 
 import { getSession } from './session.js';
-import { isRhOrAdminSession, mapDbRoleToUi } from './auth-roles-core.js';
+import { canOpenWarehousePanel, isRhOrAdminSession, mapDbRoleToUi } from './auth-roles-core.js';
 
 function normalizeRequiredRole(role) {
   return mapDbRoleToUi(role) || role;
@@ -42,9 +42,12 @@ export function requireAuth(role) {
     window.location.href = dashboardUrlForSession(session);
     return null;
   }
-  if (required === 'warehouse' && session.role !== 'warehouse') {
-    window.location.href = dashboardUrlForSession(session);
-    return null;
+  if (required === 'warehouse') {
+    if (!canOpenWarehousePanel(session)) {
+      window.location.href = dashboardUrlForSession(session);
+      return null;
+    }
+    return session;
   }
   if (required && session.role !== required) {
     window.location.href = dashboardUrlForSession(session);

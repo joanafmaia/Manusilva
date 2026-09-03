@@ -36,6 +36,7 @@ describe('warehouse role auth source', () => {
     const fs = await import('node:fs/promises');
     const src = await fs.readFile(new URL('../js/views/login.js', import.meta.url), 'utf8');
     assert.match(src, /data-role="warehouse"/);
+    assert.match(src, /todos os funcionários/);
   });
 
   it('armazém tem página desktop dedicada', async () => {
@@ -48,6 +49,7 @@ describe('warehouse role auth source', () => {
     assert.match(html, /btn-force-app-refresh/);
     assert.match(auth, /warehouse\.html/);
     assert.match(dashboard, /bindAppRefreshButton/);
+    assert.match(dashboard, /getHomePanelUrlForSession/);
   });
 
   it('folha de obra permite criar novo cliente', async () => {

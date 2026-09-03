@@ -5,7 +5,7 @@
 import { getAuthenticatedSupabaseClient } from './supabase-client.js';
 import { CLIENTES_SELECT } from './supabase-query.js';
 import { showToast } from './toast-modal.js';
-import { isRhOrAdminSession, isWarehouseSession } from './auth-roles-core.js';
+import { canOpenWarehousePanel, isRhOrAdminSession } from './auth-roles-core.js';
 import { getSession } from './session.js';
 import { updateDB } from './local-db.js';
 import {
@@ -21,8 +21,8 @@ import {
 
 export async function addClient(payload) {
   const session = getSession();
-  if (!isRhOrAdminSession(session) && !isWarehouseSession(session)) {
-    showToast('Apenas RH ou Armazém podem criar clientes.', 'error');
+  if (!canOpenWarehousePanel(session)) {
+    showToast('Inicie sessão para criar clientes.', 'error');
     return null;
   }
 

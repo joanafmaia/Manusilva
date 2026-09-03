@@ -71,7 +71,7 @@ export const LoginView = {
             </button>
             <button type="button" class="role-pick" data-role="warehouse" aria-pressed="false">
               <strong class="role-pick-title">Armazém</strong>
-              <span class="role-pick-hint">Conta partilhada · Oficina</span>
+              <span class="role-pick-hint">Oficina · todos os funcionários</span>
             </button>
             <button type="button" class="role-pick" data-role="admin" aria-pressed="false">
               <strong class="role-pick-title">Recursos Humanos</strong>

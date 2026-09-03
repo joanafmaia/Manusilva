@@ -646,8 +646,9 @@ function applyAdminInitialTab() {
 function bindAdminNavigation() {
   document.querySelectorAll('.nav-item').forEach((item) => {
     item.addEventListener('click', (e) => {
+      const href = item.getAttribute('href') || '';
+      if (!item.dataset.adminTab && !href.startsWith('#')) return;
       e.preventDefault();
-      const href = item.getAttribute('href');
       const tab = item.dataset.adminTab || ADMIN_TAB_BY_NAV[href];
       if (tab) setAdminTab(tab);
     });
