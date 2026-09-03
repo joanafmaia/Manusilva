@@ -1,21 +1,14 @@
--- ═══════════════════════════════════════════════════════════════════
--- PDFs de relatórios — bucket pdfs_trabalhos
--- Supabase → SQL Editor → colar TUDO → Run
--- ═══════════════════════════════════════════════════════════════════
---
--- A app também cria o bucket pelo servidor (service role) ao aprovar.
--- Este SQL é o plano B no dashboard e alinha as políticas RLS.
---
--- NOTA: Não uses ALTER TABLE storage.objects — dá erro 42501.
+-- 039 — Storage PDFs: políticas completas (incl. DELETE) + leitura pública
+-- Equivale a pwa/supabase-storage-pdfs.sql
 
--- ─── 1) Bucket público ───
+BEGIN;
+
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 VALUES ('pdfs_trabalhos', 'pdfs_trabalhos', true, 8388608, NULL)
 ON CONFLICT (id) DO UPDATE
 SET public = true,
     file_size_limit = EXCLUDED.file_size_limit;
 
--- ─── 2) Políticas (authenticated: ler/escrever/apagar; público: ler URL) ───
 DROP POLICY IF EXISTS "anon_upload_pdfs_trabalhos" ON storage.objects;
 DROP POLICY IF EXISTS "anon_update_pdfs_trabalhos" ON storage.objects;
 DROP POLICY IF EXISTS "anon_read_pdfs_trabalhos" ON storage.objects;
@@ -34,17 +27,10 @@ CREATE POLICY "authenticated_all_pdfs_trabalhos"
   USING (bucket_id = 'pdfs_trabalhos')
   WITH CHECK (bucket_id = 'pdfs_trabalhos');
 
--- Leitura pública das URLs enviadas por e-mail (bucket public).
 CREATE POLICY "public_read_pdfs_trabalhos"
   ON storage.objects
   FOR SELECT
   TO anon, authenticated
   USING (bucket_id = 'pdfs_trabalhos');
 
--- ─── 3) Verificação ───
-SELECT policyname, roles, cmd
-FROM pg_policies
-WHERE schemaname = 'storage'
-  AND tablename = 'objects'
-  AND policyname LIKE '%pdfs_trabalhos%'
-ORDER BY policyname;
+COMMIT;

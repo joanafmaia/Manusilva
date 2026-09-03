@@ -2,7 +2,7 @@
  * Remove objectos antigos do Storage quando se substitui PDF/foto.
  */
 
-import { getSupabaseClient } from './supabase-client.js';
+import { getAuthenticatedSupabaseClient } from './supabase-client.js';
 
 export function storagePathFromPublicUrl(publicUrl, bucket) {
   const url = String(publicUrl || '');
@@ -27,7 +27,7 @@ export async function removeStorageObject(bucket, pathOrUrl) {
   if (!path || path.includes('..')) return false;
 
   try {
-    const supabase = await getSupabaseClient();
+    const supabase = await getAuthenticatedSupabaseClient();
     const { error } = await supabase.storage.from(bucket).remove([path]);
     if (error) {
       console.warn('[Storage GC]', bucket, path, error.message || error);

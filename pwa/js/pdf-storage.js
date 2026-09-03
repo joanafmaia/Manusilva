@@ -2,7 +2,8 @@
  * Upload de PDFs para Supabase Storage (bucket público pdfs_trabalhos)
  */
 
-import { getSupabaseClient } from './supabase-client.js';
+import { getAuthenticatedSupabaseClient, getFreshAccessToken } from './supabase-client.js';
+import { arrayBufferToBase64 } from './base64-utils.js';
 import { resolvePdfNumeroOrdem } from './pdf-header-blocks.js';
 import { removeStorageObject, storagePathFromPublicUrl } from './supabase-storage-gc.js';
 
@@ -61,16 +62,86 @@ export function buildOrdemPdfStorageFilename(job, report, tipoTrabalhoLabel) {
   return buildReportPdfFilename(job, report, { tipoTrabalhoLabel });
 }
 
+export function isPdfStoragePermissionError(err) {
+  const msg = String(err?.message || err?.error || err?.statusText || err || '').trim();
+  const status = Number(err?.statusCode ?? err?.status ?? 0);
+  return (
+    status === 401 ||
+    status === 403 ||
+    /permission|policy|row-level security|not allowed|unauthorized|403|401|bucket not found/i.test(
+      msg,
+    )
+  );
+}
+
 export function formatPdfStorageError(err) {
   if (!err) return 'Erro ao guardar o PDF no Storage.';
   const msg = String(err.message || err.error || err.statusText || '').trim();
   if (/Bucket not found|404/i.test(msg)) {
     return 'Bucket "pdfs_trabalhos" não encontrado. Cria o bucket público no Supabase Storage.';
   }
-  if (/permission|policy|403|401/i.test(msg)) {
-    return 'Sem permissão no Storage. Executa pwa/supabase-storage-pdfs.sql no Supabase.';
+  if (isPdfStoragePermissionError(err)) {
+    return 'Sem permissão no Storage. A app tenta gravar pelo servidor; se persistir, executa pwa/supabase-storage-pdfs.sql no Supabase.';
   }
   return msg || 'Erro ao guardar o PDF no Storage.';
+}
+
+async function uploadTrabalhoPdfViaApi(blob, filename, options = {}) {
+  const token = await getFreshAccessToken();
+  if (!token) {
+    throw new Error('Sessão expirada. Inicie sessão novamente para guardar o PDF.');
+  }
+
+  const pdfBase64 = arrayBufferToBase64(await blob.arrayBuffer());
+  const response = await fetch('/api/upload-pdf', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      filename,
+      pdfBase64,
+      replaceUrl: options.replaceUrl || null,
+    }),
+  });
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const err = new Error(payload.error || `Falha no upload do PDF (HTTP ${response.status}).`);
+    err.status = response.status;
+    throw err;
+  }
+  if (!payload?.publicUrl) {
+    throw new Error('O servidor não devolveu o URL do PDF.');
+  }
+  return { path: payload.path || filename, publicUrl: payload.publicUrl };
+}
+
+async function uploadTrabalhoPdfDirect(blob, filename, options = {}) {
+  const supabase = await getAuthenticatedSupabaseClient();
+  const { error: uploadError } = await supabase.storage.from(PDF_BUCKET).upload(filename, blob, {
+    contentType: 'application/pdf',
+    cacheControl: '3600',
+    upsert: true,
+  });
+
+  if (uploadError) {
+    throw uploadError;
+  }
+
+  const { data } = supabase.storage.from(PDF_BUCKET).getPublicUrl(filename);
+  const publicUrl = data?.publicUrl;
+  if (!publicUrl) {
+    throw new Error('Não foi possível obter o URL público do PDF.');
+  }
+
+  const oldPath = storagePathFromPublicUrl(options.replaceUrl, PDF_BUCKET);
+  if (oldPath && oldPath !== filename) {
+    await removeStorageObject(PDF_BUCKET, oldPath);
+  }
+
+  return { path: filename, publicUrl };
 }
 
 /**
@@ -85,29 +156,16 @@ export async function uploadTrabalhoPdf(blob, filename, options = {}) {
   }
 
   const path = filename || `trabalho_${Date.now()}.pdf`;
-  const supabase = await getSupabaseClient();
 
-  const { error: uploadError } = await supabase.storage.from(PDF_BUCKET).upload(path, blob, {
-    contentType: 'application/pdf',
-    cacheControl: '3600',
-    upsert: true,
-  });
-
-  if (uploadError) {
-    console.error('[ManuSilva] Upload PDF:', uploadError);
-    throw new Error(formatPdfStorageError(uploadError));
+  try {
+    return await uploadTrabalhoPdfDirect(blob, path, options);
+  } catch (directErr) {
+    console.warn('[ManuSilva] Upload PDF direto falhou, a tentar API:', directErr);
+    try {
+      return await uploadTrabalhoPdfViaApi(blob, path, options);
+    } catch (apiErr) {
+      console.error('[ManuSilva] Upload PDF API:', apiErr);
+      throw new Error(formatPdfStorageError(directErr || apiErr));
+    }
   }
-
-  const { data } = supabase.storage.from(PDF_BUCKET).getPublicUrl(path);
-  const publicUrl = data?.publicUrl;
-  if (!publicUrl) {
-    throw new Error('Não foi possível obter o URL público do PDF.');
-  }
-
-  const oldPath = storagePathFromPublicUrl(options.replaceUrl, PDF_BUCKET);
-  if (oldPath && oldPath !== path) {
-    await removeStorageObject(PDF_BUCKET, oldPath);
-  }
-
-  return { path, publicUrl };
 }

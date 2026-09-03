@@ -64,19 +64,17 @@ CREATE POLICY "rh_update_clientes"
 
 -- ─── Storage PDFs ───
 DROP POLICY IF EXISTS "authenticated_upload_pdfs_trabalhos" ON storage.objects;
-CREATE POLICY "authenticated_upload_pdfs_trabalhos"
-  ON storage.objects FOR INSERT TO authenticated
-  WITH CHECK (bucket_id = 'pdfs_trabalhos');
-
 DROP POLICY IF EXISTS "authenticated_update_pdfs_trabalhos" ON storage.objects;
-CREATE POLICY "authenticated_update_pdfs_trabalhos"
-  ON storage.objects FOR UPDATE TO authenticated
+DROP POLICY IF EXISTS "authenticated_read_pdfs_trabalhos" ON storage.objects;
+DROP POLICY IF EXISTS "authenticated_delete_pdfs_trabalhos" ON storage.objects;
+DROP POLICY IF EXISTS "authenticated_all_pdfs_trabalhos" ON storage.objects;
+DROP POLICY IF EXISTS "public_read_pdfs_trabalhos" ON storage.objects;
+CREATE POLICY "authenticated_all_pdfs_trabalhos"
+  ON storage.objects FOR ALL TO authenticated
   USING (bucket_id = 'pdfs_trabalhos')
   WITH CHECK (bucket_id = 'pdfs_trabalhos');
-
-DROP POLICY IF EXISTS "authenticated_read_pdfs_trabalhos" ON storage.objects;
-CREATE POLICY "authenticated_read_pdfs_trabalhos"
-  ON storage.objects FOR SELECT TO authenticated
+CREATE POLICY "public_read_pdfs_trabalhos"
+  ON storage.objects FOR SELECT TO anon, authenticated
   USING (bucket_id = 'pdfs_trabalhos');
 
 -- ─── Storage fotos (ver também pwa/supabase-storage-fotos.sql) ───

@@ -11,6 +11,7 @@ const enviarEmail = require('../pwa/api/enviar-email.js');
 const avaliacao = require('../pwa/api/avaliacao.js');
 const technicians = require('../pwa/api/technicians/index.js');
 const clientsId = require('../pwa/api/clients/[id].js');
+const uploadPdf = require('../pwa/api/upload-pdf.js');
 
 const ROOT = path.join(__dirname, '..');
 const PWA_ROOT = path.join(ROOT, 'pwa');
@@ -21,7 +22,7 @@ const app = express();
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
 
-app.use(express.json({ limit: '8mb' }));
+app.use(express.json({ limit: '12mb' }));
 app.use(express.urlencoded({ extended: true, limit: '2mb' }));
 
 function noStore(res) {
@@ -60,6 +61,7 @@ app.get('/api/health', (_req, res) => {
 app.all('/api/enviar-email', wrapHandler(enviarEmail));
 app.all('/api/avaliacao', wrapHandler(avaliacao));
 app.all('/api/technicians', wrapHandler(technicians));
+app.all('/api/upload-pdf', wrapHandler(uploadPdf));
 app.all(
   '/api/clients/:id',
   wrapHandler(clientsId, {

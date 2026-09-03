@@ -51,7 +51,7 @@ async function resolveReportEmailPdfSources(report, job, service) {
         sources = regenerated;
         await updateRelatorio(report.id, {
           data: {
-            urlPdfs: regenerated.map((entry) => entry.publicUrl),
+            urlPdfs: regenerated.map((entry) => entry.publicUrl).filter(Boolean),
             pdfFilenames: regenerated.map((entry) => entry.filename),
           },
         });
@@ -143,7 +143,7 @@ export async function resendApprovedReportEmail(reportId, options = {}) {
         pdfSources = regenerated;
         await updateRelatorio(reportId, {
           data: {
-            urlPdfs: regenerated.map((entry) => entry.publicUrl),
+            urlPdfs: regenerated.map((entry) => entry.publicUrl).filter(Boolean),
             pdfFilenames: regenerated.map((entry) => entry.filename),
           },
         });

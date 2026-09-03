@@ -23,6 +23,20 @@ async function getAuthenticatedUser(token) {
   return res.json();
 }
 
+async function requireAuthenticatedUser(req) {
+  const token = getBearerToken(req);
+  if (!token) {
+    return { error: { status: 401, message: 'Autenticação obrigatória (Authorization: Bearer <JWT>).' } };
+  }
+
+  const user = await getAuthenticatedUser(token);
+  if (!user) {
+    return { error: { status: 401, message: 'Sessão inválida ou expirada.' } };
+  }
+
+  return { token, user };
+}
+
 async function requireRhUser(req) {
   const token = getBearerToken(req);
   if (!token) {
@@ -45,5 +59,6 @@ async function requireRhUser(req) {
 module.exports = {
   getBearerToken,
   getAuthenticatedUser,
+  requireAuthenticatedUser,
   requireRhUser,
 };
