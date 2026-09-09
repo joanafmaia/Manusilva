@@ -6,8 +6,6 @@ import {
   isRhOrAdminAuthUser,
   isRhOrAdminSession,
   isWarehouseSession,
-  isEmployeeDbRole,
-  resolveRoleForLoginFilter,
   normalizeDbRole,
   mapDbRoleToUi,
   mapUiRoleToDb,
@@ -62,14 +60,5 @@ describe('auth-roles', () => {
     assert.equal(isRhOrAdminSession({ role: 'admin', username: 'joanamaia97@gmail.com' }), true);
     assert.equal(isRhOrAdminSession({ role: 'technician' }), false);
     assert.equal(isWarehouseSession({ role: 'warehouse' }), true);
-  });
-
-  it('login no perfil Armazém aceita qualquer funcionário', () => {
-    assert.equal(isEmployeeDbRole('RH'), true);
-    assert.equal(isEmployeeDbRole('Tecnico'), true);
-    assert.equal(isEmployeeDbRole('Armazem'), true);
-    assert.equal(resolveRoleForLoginFilter('RH', 'Armazem'), 'Armazem');
-    assert.equal(resolveRoleForLoginFilter('Tecnico', 'Armazem'), 'Armazem');
-    assert.equal(resolveRoleForLoginFilter('RH', 'RH'), 'RH');
   });
 });

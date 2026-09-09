@@ -5,45 +5,22 @@
  * 1. Criar projeto → APIs & Services → Enable "Gmail API"
  * 2. OAuth consent screen (External) → Add test user: manusilva.lda@gmail.com
  * 3. Credentials → Create OAuth client ID → Application type: Desktop app
- * 4. Copiar Client ID e Client Secret (ou descarregar o JSON)
+ * 4. Copiar Client ID e Client Secret
  *
  * Uso:
- *   $env:GOOGLE_CLIENT_ID="....apps.googleusercontent.com"
- *   $env:GOOGLE_CLIENT_SECRET="GOCSPX-..."
- *   npm run gmail:oauth
- *
- * Ou com o JSON descarregado do Google Cloud:
- *   $env:GOOGLE_OAUTH_JSON="C:\Users\...\client_secret_....json"
- *   npm run gmail:oauth
+ *   set GOOGLE_CLIENT_ID=...
+ *   set GOOGLE_CLIENT_SECRET=...
+ *   node scripts/gmail-oauth-setup.mjs
  *
  * Depois cola Client ID, Secret e Refresh Token nas Variables da Railway.
  */
-import fs from 'node:fs';
 import http from 'node:http';
 import { URL } from 'node:url';
 
-function cleanSecret(value) {
-  return String(value || '')
-    .trim()
-    .replace(/^["']+|["']+$/g, '')
-    .replace(/\s+/g, '');
-}
-
-function loadFromJsonFile(filePath) {
-  const raw = fs.readFileSync(filePath, 'utf8');
-  const json = JSON.parse(raw);
-  const creds = json.installed || json.web || json;
-  return {
-    clientId: cleanSecret(creds.client_id),
-    clientSecret: cleanSecret(creds.client_secret),
-  };
-}
-
-const jsonPath = String(process.env.GOOGLE_OAUTH_JSON || '').trim().replace(/^["']|["']$/g, '');
-const fromJson = jsonPath ? loadFromJsonFile(jsonPath) : { clientId: '', clientSecret: '' };
-
-const CLIENT_ID = fromJson.clientId || cleanSecret(process.env.GOOGLE_CLIENT_ID);
-const CLIENT_SECRET = fromJson.clientSecret || cleanSecret(process.env.GOOGLE_CLIENT_SECRET);
+const CLIENT_ID = String(process.env.GOOGLE_CLIENT_ID || '').trim();
+const CLIENT_SECRET = String(process.env.GOOGLE_CLIENT_SECRET || '')
+  .trim()
+  .replace(/^["']|["']$/g, '');
 const PORT = Number(process.env.GMAIL_OAUTH_PORT || 53682);
 const REDIRECT_URI = `http://127.0.0.1:${PORT}/oauth2callback`;
 const SCOPE = 'https://www.googleapis.com/auth/gmail.send';
@@ -52,27 +29,11 @@ if (!CLIENT_ID || !CLIENT_SECRET) {
   console.error(`
 Falta GOOGLE_CLIENT_ID ou GOOGLE_CLIENT_SECRET.
 
-PowerShell (valores novos do Google Cloud → Credentials → Desktop app):
-  $env:GOOGLE_CLIENT_ID="123456789-abc.apps.googleusercontent.com"
+PowerShell:
+  $env:GOOGLE_CLIENT_ID="xxx.apps.googleusercontent.com"
   $env:GOOGLE_CLIENT_SECRET="GOCSPX-..."
-  npm run gmail:oauth
-
-Ou descarrega o JSON do cliente e:
-  $env:GOOGLE_OAUTH_JSON="C:\\caminho\\client_secret.json"
-  npm run gmail:oauth
+  node scripts/gmail-oauth-setup.mjs
 `);
-  process.exit(1);
-}
-
-if (CLIENT_ID.startsWith('GOCSPX-') || CLIENT_SECRET.includes('.apps.googleusercontent.com')) {
-  console.error('Client ID e Client Secret estão trocados. O ID termina em .apps.googleusercontent.com; o secret começa por GOCSPX-.');
-  process.exit(1);
-}
-
-if (!CLIENT_ID.endsWith('.apps.googleusercontent.com')) {
-  console.error(
-    `GOOGLE_CLIENT_ID inválido (não termina em .apps.googleusercontent.com):\n  ${CLIENT_ID}\n\nNão uses API key (AIza...) nem o valor da Railway se o cliente já foi apagado no Google Cloud. Cria um cliente Desktop novo e cola o ID completo.`,
-  );
   process.exit(1);
 }
 
@@ -168,16 +129,10 @@ EMAIL_USER=manusilva.lda@gmail.com</pre>
 
 server.listen(PORT, '127.0.0.1', () => {
   console.log(`
-Client ID em uso:
-  ${CLIENT_ID}
-
 1. Abre este URL no browser (conta manusilva.lda@gmail.com):
 ${authUrl.toString()}
 
 2. Autoriza o acesso (scope: gmail.send).
 3. Esta janela termina quando o Google redirecionar para ${REDIRECT_URI}
-
-Se aparecer 401 invalid_client: o ID acima não existe no Google Cloud.
-Cria um cliente Desktop novo e volta a correr (não reutilizes o da Railway se o cliente foi apagado).
 `);
 });

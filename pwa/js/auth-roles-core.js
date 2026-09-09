@@ -109,25 +109,6 @@ export function isWarehouseSession(session) {
   return Boolean(session && session.role === 'warehouse');
 }
 
-const EMPLOYEE_DB_ROLES = new Set(['RH', 'Tecnico', 'Armazem']);
-
-/** Conta da empresa (RH, técnico ou armazém). */
-export function isEmployeeDbRole(role) {
-  return EMPLOYEE_DB_ROLES.has(normalizeDbRole(role));
-}
-
-/**
- * Login no perfil Armazém: qualquer funcionário entra com a própria conta.
- * @param {string|null} baseRole role real da conta (RH | Tecnico | Armazem)
- * @param {string|null} roleFiltro perfil escolhido no ecrã de login
- */
-export function resolveRoleForLoginFilter(baseRole, roleFiltro) {
-  const filter = normalizeDbRole(roleFiltro);
-  const role = normalizeDbRole(baseRole);
-  if (filter === 'Armazem' && isEmployeeDbRole(role)) return 'Armazem';
-  return role;
-}
-
 /** Exposto para testes de sincronização com a API */
 export function getRhAdminConfigSnapshot() {
   return {

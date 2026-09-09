@@ -12,7 +12,6 @@ import {
   isRhOrAdminEmail,
   isRhOrAdminRole,
   normalizeDbRole,
-  resolveRoleForLoginFilter,
 } from './auth-roles-core.js';
 
 export const AUTH_BUILD = '2026-08-06-rh-rls-align';
@@ -178,7 +177,11 @@ function profileFromAuthUser(user, roleFiltro) {
           : technicianIdFor({ email, role: 'Tecnico' })
             ? 'Tecnico'
             : null;
-  let role = resolveRoleForLoginFilter(baseRole, normalizedFilter);
+  let role = baseRole;
+  // Intencional: técnicos podem entrar no painel Armazém (PC da oficina).
+  if (normalizedFilter === 'Armazem' && baseRole === 'Tecnico') {
+    role = 'Armazem';
+  }
   const nome = meta.nome || meta.name || fromPool?.nome || email;
   const technicianId = meta.technician_id || meta.technicianId || null;
 

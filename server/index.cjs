@@ -1,31 +1,29 @@
 /**
  * Servidor Node para Railway — PWA estática + rotas /api (handlers em pwa/api).
  *
- * Arranque: node server/index.cjs
+ * Arranque: npm start
  * Build:   npm run build
  */
 const http = require('http');
 const path = require('path');
 const express = require('express');
 
+const enviarEmail = require('../pwa/api/enviar-email.js');
+const avaliacao = require('../pwa/api/avaliacao.js');
+const technicians = require('../pwa/api/technicians/index.js');
+const clientsId = require('../pwa/api/clients/[id].js');
+
 const ROOT = path.join(__dirname, '..');
 const PWA_ROOT = path.join(ROOT, 'pwa');
 const PORT = Number(process.env.PORT || 3000);
 
 const app = express();
+
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
 
-app.get('/api/health', (_req, res) => {
-  res.status(200).json({
-    ok: true,
-    service: 'manusilva',
-    uptime: process.uptime(),
-    email: app.locals.emailStatus || null,
-  });
-});
-
-const server = http.createServer(app);
+app.use(express.json({ limit: '8mb' }));
+app.use(express.urlencoded({ extended: true, limit: '2mb' }));
 
 function noStore(res) {
   res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
@@ -47,86 +45,85 @@ function wrapHandler(handler, { mapParamsToQuery } = {}) {
   };
 }
 
-function loadRoutes() {
-  const enviarEmail = require('../pwa/api/enviar-email.js');
-  const avaliacao = require('../pwa/api/avaliacao.js');
-  const technicians = require('../pwa/api/technicians/index.js');
-  const clientsId = require('../pwa/api/clients/[id].js');
-  const uploadPdf = require('../pwa/api/upload-pdf.js');
+app.get('/api/health', (_req, res) => {
+  const email =
+    typeof enviarEmail.getEmailProviderStatus === 'function'
+      ? enviarEmail.getEmailProviderStatus()
+      : null;
+  res.status(200).json({
+    ok: true,
+    service: 'manusilva',
+    uptime: process.uptime(),
+    email,
+  });
+});
 
-  if (typeof enviarEmail.getEmailProviderStatus === 'function') {
-    app.locals.emailStatus = enviarEmail.getEmailProviderStatus();
-  }
+app.all('/api/enviar-email', wrapHandler(enviarEmail));
+app.all('/api/avaliacao', wrapHandler(avaliacao));
+app.all('/api/technicians', wrapHandler(technicians));
+app.all(
+  '/api/clients/:id',
+  wrapHandler(clientsId, {
+    mapParamsToQuery(req) {
+      req.query = { ...(req.query || {}), id: req.params.id };
+    },
+  }),
+);
 
-  app.use(express.json({ limit: '12mb' }));
-  app.use(express.urlencoded({ extended: true, limit: '2mb' }));
+const CLEAN_HTML = new Set([
+  'index',
+  'admin',
+  'dashboard',
+  'avaliar',
+  'warehouse',
+  'orcamento',
+]);
 
-  app.all('/api/enviar-email', wrapHandler(enviarEmail));
-  app.all('/api/avaliacao', wrapHandler(avaliacao));
-  app.all('/api/technicians', wrapHandler(technicians));
-  app.all('/api/upload-pdf', wrapHandler(uploadPdf));
-  app.all(
-    '/api/clients/:id',
-    wrapHandler(clientsId, {
-      mapParamsToQuery(req) {
-        req.query = { ...(req.query || {}), id: req.params.id };
-      },
-    }),
-  );
+app.get('/', (req, res) => {
+  noStore(res);
+  res.sendFile(path.join(PWA_ROOT, 'index.html'));
+});
 
-  const CLEAN_HTML = new Set([
-    'index',
-    'admin',
-    'dashboard',
-    'avaliar',
-    'warehouse',
-    'orcamento',
-  ]);
-
-  app.get('/', (_req, res) => {
+CLEAN_HTML.forEach((name) => {
+  app.get(`/${name}`, (req, res) => {
     noStore(res);
-    res.sendFile(path.join(PWA_ROOT, 'index.html'));
+    res.sendFile(path.join(PWA_ROOT, `${name}.html`));
   });
+});
 
-  CLEAN_HTML.forEach((name) => {
-    app.get(`/${name}`, (_req, res) => {
-      noStore(res);
-      res.sendFile(path.join(PWA_ROOT, `${name}.html`));
+app.use(
+  express.static(PWA_ROOT, {
+    index: false,
+    extensions: ['html'],
+    setHeaders(res, filePath) {
+      const rel = path.relative(PWA_ROOT, filePath).replace(/\\/g, '/');
+      if (
+        rel.endsWith('.html') ||
+        rel === 'sw.js' ||
+        rel === 'js/build-version.js' ||
+        rel === 'js/force-refresh-page.js' ||
+        rel.startsWith('css/') ||
+        rel.startsWith('js/')
+      ) {
+        noStore(res);
+      }
+    },
+  }),
+);
+
+app.use((err, _req, res, _next) => {
+  console.error('[server]', err);
+  if (res.headersSent) return;
+  if (err?.type === 'entity.too.large' || err?.status === 413) {
+    return res.status(413).json({
+      error: 'Pedido demasiado grande.',
+      hint: 'Envie o PDF por URL do Storage em vez de base64.',
     });
-  });
+  }
+  res.status(500).json({ error: 'Erro interno do servidor.' });
+});
 
-  app.use(
-    express.static(PWA_ROOT, {
-      index: false,
-      extensions: ['html'],
-      setHeaders(res, filePath) {
-        const rel = path.relative(PWA_ROOT, filePath).replace(/\\/g, '/');
-        if (
-          rel.endsWith('.html') ||
-          rel === 'sw.js' ||
-          rel === 'js/build-version.js' ||
-          rel === 'js/force-refresh-page.js' ||
-          rel.startsWith('css/') ||
-          rel.startsWith('js/')
-        ) {
-          noStore(res);
-        }
-      },
-    }),
-  );
-
-  app.use((err, _req, res, _next) => {
-    console.error('[server]', err);
-    if (res.headersSent) return;
-    if (err?.type === 'entity.too.large' || err?.status === 413) {
-      return res.status(413).json({
-        error: 'Pedido demasiado grande.',
-        hint: 'Envie o PDF por URL do Storage em vez de base64.',
-      });
-    }
-    res.status(500).json({ error: 'Erro interno do servidor.' });
-  });
-}
+const server = http.createServer(app);
 
 function listen(opts, fallback) {
   const onError = (err) => {
@@ -141,15 +138,9 @@ function listen(opts, fallback) {
     console.log(`[Manusilva] node ${process.version} PORT=${PORT}`);
     console.log('[Manusilva] a escutar', server.address());
     console.log(`[Manusilva] PWA: ${PWA_ROOT}`);
-    try {
-      loadRoutes();
-    } catch (err) {
-      console.error('[Manusilva] falha a carregar rotas', err);
-    }
   });
 }
 
-// Dual-stack (:: + IPv4) para o healthcheck no Railway Metal; fallback IPv4.
 listen({ port: PORT, host: '::', ipv6Only: false }, () => {
   listen({ port: PORT, host: '0.0.0.0' });
 });

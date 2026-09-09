@@ -106,16 +106,6 @@ export async function blobToBase64(blob) {
   return arrayBufferToBase64(buffer);
 }
 
-async function storeApprovedPdf(blob, filename, replaceUrl, extra = {}) {
-  try {
-    const stored = await uploadTrabalhoPdf(blob, filename, { replaceUrl });
-    return { blob, filename, publicUrl: stored.publicUrl, ...extra };
-  } catch (err) {
-    console.error('[ManuSilva] Upload PDF Storage:', err);
-    return { blob, filename, publicUrl: null, uploadError: err, ...extra };
-  }
-}
-
 /**
  * @param {object} report
  * @param {object} job
@@ -131,14 +121,15 @@ export async function generateAndUploadApprovedReportPdfs(report, job, service) 
     const pdfs = await pdfReport.generateEmpilhadoresPdfBlobs(report);
     const uploaded = [];
     for (const item of pdfs) {
-      uploaded.push(
-        await storeApprovedPdf(
-          item.blob,
-          item.filename,
-          report?.data?.urlPdfs?.[uploaded.length],
-          { machineLabel: item.machineLabel },
-        ),
-      );
+      const stored = await uploadTrabalhoPdf(item.blob, item.filename, {
+        replaceUrl: report?.data?.urlPdfs?.[uploaded.length],
+      });
+      uploaded.push({
+        blob: item.blob,
+        filename: item.filename,
+        publicUrl: stored.publicUrl,
+        machineLabel: item.machineLabel,
+      });
     }
     return uploaded;
   }
@@ -146,9 +137,10 @@ export async function generateAndUploadApprovedReportPdfs(report, job, service) 
   const doc = await pdfReport.renderInterventionPDF(report);
   const filename = buildReportPdfFilename(job, report, { serviceTitle });
   const blob = doc.output('blob');
-  return [
-    await storeApprovedPdf(blob, filename, report?.data?.urlPdfs?.[0] || job?.urlPdf),
-  ];
+  const stored = await uploadTrabalhoPdf(blob, filename, {
+    replaceUrl: report?.data?.urlPdfs?.[0] || job?.urlPdf,
+  });
+  return [{ blob, filename, publicUrl: stored.publicUrl }];
 }
 
 export function resolveApprovedReportPdfSources(report, job) {

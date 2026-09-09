@@ -27,7 +27,7 @@ import {
 import { sendOfficialReportEmail } from './report-email-api.js';
 import { resolveAuditActor } from './audit-actor.js';
 import {
-  prepareEmailPdfPayload,
+  buildReportEmailPdfPayload,
   generateAndUploadApprovedReportPdfs,
 } from './report-email-pdf.js';
 import { formatPdfStorageError } from './pdf-storage.js';
@@ -382,28 +382,25 @@ async function approveReportOnce(reportId, options = {}) {
 
     showToast('A gerar folha de intervenção em PDF...', 'info', 2500);
 
-    const pdfEntries = await generateAndUploadApprovedReportPdfs(reportForPdf, job, service);
+    let pdfEntries;
+    try {
+      pdfEntries = await generateAndUploadApprovedReportPdfs(reportForPdf, job, service);
+    } catch (storageErr) {
+      console.error('[ManuSilva] Upload PDF Storage:', storageErr);
+      showToast(formatPdfStorageError(storageErr), 'error', 9000);
+      return null;
+    }
     if (!pdfEntries.length) {
       showToast('Não foi possível gerar os PDFs do relatório.', 'error');
       return null;
     }
 
-    const storedCount = pdfEntries.filter((entry) => entry.publicUrl).length;
-    if (storedCount < pdfEntries.length) {
-      const firstError = pdfEntries.find((entry) => entry.uploadError)?.uploadError;
-      showToast(
-        `${formatPdfStorageError(firstError)} O relatório será aprovado na mesma e o PDF vai no e-mail.`,
-        'warning',
-        9000,
-      );
-    }
-
-    const publicPdfUrl = pdfEntries.find((entry) => entry.publicUrl)?.publicUrl || null;
+    const publicPdfUrl = pdfEntries[0].publicUrl;
     const filename = pdfEntries[0].filename;
-    const urlPdfs = pdfEntries.map((entry) => entry.publicUrl).filter(Boolean);
+    const urlPdfs = pdfEntries.map((entry) => entry.publicUrl);
     const pdfFilenames = pdfEntries.map((entry) => entry.filename);
 
-    const emailPdfPayload = await prepareEmailPdfPayload(pdfEntries);
+    const emailPdfPayload = buildReportEmailPdfPayload(pdfEntries);
 
     const servicoId =
       resolveServicoIdForReport(reportForPdf) ||
@@ -435,12 +432,11 @@ async function approveReportOnce(reportId, options = {}) {
     }
 
     if (createdTrabalhoId) {
-      const trabalhoPatch = {
+      await patchTrabalho(createdTrabalhoId, {
         status: 'completed',
         rejectionNote: null,
-      };
-      if (publicPdfUrl) trabalhoPatch.urlPdf = publicPdfUrl;
-      await patchTrabalho(createdTrabalhoId, trabalhoPatch);
+        urlPdf: publicPdfUrl,
+      });
     }
 
     window.dispatchEvent(new CustomEvent('db-updated'));

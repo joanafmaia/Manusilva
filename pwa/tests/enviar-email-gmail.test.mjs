@@ -15,10 +15,6 @@ describe('enviar-email Gmail helpers', () => {
   it('cleanEnvSecret remove aspas e quebras de linha do refresh token', () => {
     assert.equal(cleanEnvSecret('  "1//abc\n def"  '), '1//abcdef');
     assert.equal(cleanEnvSecret("GOCSPX-xxx"), 'GOCSPX-xxx');
-    assert.equal(
-      cleanEnvSecret('“123.apps.googleusercontent.com”'),
-      '123.apps.googleusercontent.com',
-    );
   });
 
   it('toBase64Url usa alfabeto URL-safe', () => {

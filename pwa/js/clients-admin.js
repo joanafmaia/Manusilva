@@ -2,7 +2,7 @@
  * CRUD de clientes (Supabase) — apenas RH/Admin.
  */
 
-import { getAuthenticatedSupabaseClient } from './supabase-client.js';
+import { getSupabaseClient } from './supabase-client.js';
 import { CLIENTES_SELECT } from './supabase-query.js';
 import { showToast } from './toast-modal.js';
 import { isRhOrAdminSession, isWarehouseSession } from './auth-roles-core.js';
@@ -75,7 +75,7 @@ export async function addClient(payload) {
         'pronto_pagamento',
     };
 
-    const supabase = await getAuthenticatedSupabaseClient();
+    const supabase = await getSupabaseClient();
     const { data, error } = await supabase.from('clientes').insert(row).select(CLIENTES_SELECT);
 
     if (error) {
@@ -188,7 +188,7 @@ export async function updateClient(clientId, patch = {}, options = {}) {
       zona_rota: existing?.zonaRota || '',
     };
 
-    const supabase = await getAuthenticatedSupabaseClient();
+    const supabase = await getSupabaseClient();
     const numericId = /^\d+$/.test(id) ? Number(id) : id;
     const { data, error } = await supabase
       .from('clientes')
