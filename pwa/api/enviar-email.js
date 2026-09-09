@@ -22,9 +22,10 @@ const EMAIL_PASS = process.env.EMAIL_PASS;
 
 function cleanEnvSecret(value) {
   return String(value || '')
+    .replace(/^\uFEFF/, '')
     .trim()
-    .replace(/^["']|["']$/g, '')
-    .replace(/\s+/g, '');
+    .replace(/^[\s"'`“”‘’]+|[\s"'`“”‘’]+$/g, '')
+    .replace(/[\s\u200B\u200C\u200D\uFEFF]+/g, '');
 }
 
 /** Gmail API (OAuth2) — envio por HTTPS; fica nos Enviados do Gmail. */
@@ -54,6 +55,20 @@ function hasSmtpConfig() {
   return Boolean(EMAIL_USER && EMAIL_PASS);
 }
 
+function gmailCredentialShape() {
+  return {
+    clientIdOk: GOOGLE_CLIENT_ID.endsWith('.apps.googleusercontent.com'),
+    secretOk: GOOGLE_CLIENT_SECRET.startsWith('GOCSPX-'),
+    refreshOk: GOOGLE_REFRESH_TOKEN.startsWith('1//'),
+    swapped:
+      GOOGLE_CLIENT_ID.startsWith('GOCSPX-') ||
+      GOOGLE_CLIENT_SECRET.includes('.apps.googleusercontent.com'),
+    clientIdLen: GOOGLE_CLIENT_ID.length,
+    secretLen: GOOGLE_CLIENT_SECRET.length,
+    refreshLen: GOOGLE_REFRESH_TOKEN.length,
+  };
+}
+
 /** Estado do fornecedor de e-mail (sem expor segredos) — útil em /api/health. */
 function getEmailProviderStatus() {
   return {
@@ -61,6 +76,7 @@ function getEmailProviderStatus() {
     smtp: hasSmtpConfig(),
     emailUser: Boolean(String(EMAIL_USER || '').trim()),
     active: hasGmailApiConfig() ? 'gmail_api' : hasSmtpConfig() ? 'smtp' : 'none',
+    gmail: gmailCredentialShape(),
   };
 }
 
@@ -1364,9 +1380,12 @@ async function handler(req, res) {
     } else if (code === 'EGMAIL') {
       const stage = err?.gmailStage || '';
       const googleErr = String(err?.googleError || detail || '');
-      if (
+      if (stage === 'oauth' && /invalid_client/i.test(googleErr)) {
+        hint =
+          'Client ID ou Secret recusados pelo Google. Os três GOOGLE_* têm de ser do mesmo cliente Desktop (depois de npm run gmail:oauth). Na Railway: Variables do serviço (não outro projeto), sem aspas, depois Redeploy/Restart — o processo só lê as variáveis ao arrancar.';
+      } else if (
         stage === 'oauth' ||
-        /invalid_grant|invalid_client|invalid_request|unauthorized_client/i.test(googleErr)
+        /invalid_grant|invalid_request|unauthorized_client/i.test(googleErr)
       ) {
         hint =
           'Token Google inválido ou expirado. No PC: npm run gmail:oauth e atualize GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET e GOOGLE_REFRESH_TOKEN na Railway. Se o ecrã OAuth estiver em Testing, o token caduca aos 7 dias.';

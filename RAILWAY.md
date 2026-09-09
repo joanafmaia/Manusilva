@@ -6,7 +6,7 @@
 2. Escolher o repositório `Manusilva`
 3. Plano **Hobby** ($5/mês)
 
-O `railway.toml` na raiz define build (`npm run build`) e start (`npm start`).
+O `railway.toml` na raiz define build (`npm run build`) e start (`node server/index.cjs`). O servidor escuta em IPv6 (`::`) para o healthcheck no Railway Metal.
 
 ## 2. Variáveis de ambiente
 
@@ -52,6 +52,8 @@ npm run gmail:oauth
 6. Autorizar com `manusilva.lda@gmail.com` → copiar `GOOGLE_REFRESH_TOKEN` para a Railway
 7. Redeploy → testar envio
 
+**Erro 401 `invalid_client`:** o Google não reconhece o Client ID/Secret (valor incompleto, aspas, ID e secret trocados, cliente apagado, ou o serviço **não reiniciou**). Cria um cliente **Desktop app**, corre `npm run gmail:oauth` até aparecer «OK», cola **os três** `GOOGLE_*` do mesmo cliente nas Variables **do serviço** e faz **Restart/Redeploy**. Sem restart o processo continua com os valores antigos. Não uses API key (`AIza…`). Em Testing, `manusilva.lda@gmail.com` tem de estar em **Test users**.
+
 Podes **apagar** `BREVO_API_KEY` / `RESEND_API_KEY` se existirem — já não são usadas.
 
 A Railway define `PORT` automaticamente. `RAILWAY_PUBLIC_DOMAIN` serve de fallback de URL base.
@@ -67,6 +69,8 @@ A Railway define `PORT` automaticamente. `RAILWAY_PUBLIC_DOMAIN` serve de fallba
 
 - `https://SEU-DOMINIO/` → login
 - `https://SEU-DOMINIO/api/health` → `{ "ok": true, "email": { "active": "gmail_api", ... } }`
+
+Avisos `SecretsUsedInArgOrEnv` no build Docker são do Nixpacks (copia variáveis para a imagem). Não falham o deploy. Podes desligar «Available at build time» em `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN`, `AVALIACAO_TOKEN_SECRET` e `SUPABASE_SERVICE_ROLE_KEY` — só `MAPBOX_ACCESS_TOKEN` e as chaves públicas do Supabase são precisas no `npm run build`.
 
 ## 5. Local
 

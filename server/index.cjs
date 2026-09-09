@@ -124,7 +124,12 @@ app.use((err, _req, res, _next) => {
   res.status(500).json({ error: 'Erro interno do servidor.' });
 });
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`[Manusilva] a escutar em 0.0.0.0:${PORT}`);
+// Railway Metal sonda o healthcheck em IPv6. 0.0.0.0 é só IPv4 → "service unavailable".
+const server = app.listen(PORT, '::', () => {
+  console.log(`[Manusilva] a escutar em [::]:${PORT}`);
   console.log(`[Manusilva] PWA: ${PWA_ROOT}`);
+});
+server.on('error', (err) => {
+  console.error('[Manusilva] falha a escutar', err);
+  process.exit(1);
 });
