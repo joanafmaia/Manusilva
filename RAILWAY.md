@@ -6,7 +6,7 @@
 2. Escolher o repositório `Manusilva`
 3. Plano **Hobby** ($5/mês)
 
-O `railway.toml` na raiz define build (`npm run build`) e start (`node server/index.cjs`). O servidor escuta em IPv6 (`::`) para o healthcheck no Railway Metal.
+O `railway.toml` na raiz define o builder **Railpack** (não Nixpacks), build (`npm run build`) e start (`node server/index.cjs`). O servidor escuta em dual-stack (`::`) para o healthcheck no Railway Metal.
 
 ## 2. Variáveis de ambiente
 
