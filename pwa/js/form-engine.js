@@ -833,7 +833,14 @@ function resolveDynamicRowDefaults(field, context = {}) {
   return resolved;
 }
 
+function isConsumableQtyColumn(field, key) {
+  if (key === 'qtd') return true;
+  if (key !== 'quantidade') return false;
+  return isMaterialTableField(field) || MATERIAL_FIELD_IDS.has(field?.id);
+}
+
 function getDynamicColumnInputType(field, key) {
+  if (isConsumableQtyColumn(field, key)) return 'text';
   if (field?.columnTypes?.[key]) {
     const t = field.columnTypes[key];
     return t === 'datetime' ? 'datetime-local' : t;

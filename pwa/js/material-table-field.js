@@ -42,7 +42,7 @@ export function createGrandesConsumiveisField() {
       { id: 'artigo', label: 'Artigo / Descrição' },
       { id: 'qtd', label: 'Quantidade' },
     ],
-    columnTypes: { qtd: 'number', matricula: 'grandes_maquina_select' },
+    columnTypes: { matricula: 'grandes_maquina_select' },
     machineSourceFieldId: 'identificacao_baterias',
     fieldHint: 'Escolha a matrícula registada em Identificação Bateria.',
   });
@@ -90,7 +90,6 @@ export function createMaterialTableField(overrides = {}) {
     id: 'material_utilizado',
     label: MATERIAL_TABLE_PDF_LABEL,
     columns: MATERIAL_UTILIZADO_COLUMNS,
-    columnTypes: { qtd: 'number' },
     tableVariant: 'material',
     addButtonLabel: 'Adicionar linha',
     ...overrides,
