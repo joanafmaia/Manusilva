@@ -1375,7 +1375,6 @@ function renderBillingTable(rows) {
             <tr>
               <th scope="col">Cliente</th>
               <th scope="col">Detalhe</th>
-              <th scope="col" class="faturacao-col-money">Estimativa</th>
               <th scope="col" class="faturacao-col-action">Ações</th>
             </tr>
           </thead>
@@ -1417,7 +1416,6 @@ function renderBillingTable(rows) {
                   <code class="faturacao-ordem">${escapeHtml(row.ordem)}</code>
                   <span class="faturacao-cell-detail">${escapeHtml(row.detail)}${row.approvedLabel ? ` · ${escapeHtml(row.approvedLabel)}` : ''}</span>
                 </td>
-                <td class="faturacao-cell-money">${escapeHtml(Number(row.estimate) > 0 ? formatCurrencyEur(row.estimate) : '—')}</td>
                 <td class="faturacao-col-action">
                   <div class="faturacao-billing-actions">
                     ${servicoPdfId ? `<button type="button" class="btn-outline btn-sm faturacao-btn-compact" data-billing-pdf-servico="${escapeHtml(servicoPdfId)}" title="${escapeHtml(pdfTitle)}">PDF</button>` : ''}
