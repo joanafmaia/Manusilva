@@ -5797,6 +5797,9 @@ body .admin-panel .rh-section, body .rh-section {
     opacity: 1;
   }
 }
+.client-ficha-panel--settled {
+  animation: none !important;
+}
 .client-ficha-tabs {
   display: flex;
   flex-wrap: wrap;
@@ -5815,6 +5818,7 @@ body .admin-panel .rh-section, body .rh-section {
   padding: 0.45rem 0.55rem;
   border-radius: 0.4rem 0.4rem 0 0;
   cursor: pointer;
+  transition: color 0.12s ease, box-shadow 0.12s ease;
 }
 .client-ficha-tab.is-active {
   color: var(--ms-primary, #1e4d72);
@@ -5847,9 +5851,13 @@ body .admin-panel .rh-section, body .rh-section {
   border-radius: 0.55rem;
   padding: 0.65rem 0.75rem;
   cursor: pointer;
+  transition: border-color 0.12s ease, background 0.12s ease;
 }
 .client-ficha-hub-item:hover {
   border-color: color-mix(in srgb, var(--ms-primary) 28%, var(--ms-border-md));
+}
+.client-ficha-hub-item:active {
+  background: var(--surface-accent, #eef4f8);
 }
 .client-ficha-hub-item-main {
   display: grid;
@@ -5903,7 +5911,7 @@ body .admin-panel .rh-section, body .rh-section {
 }
 .client-ficha-body {
   flex: 1;
-  min-height: 0;
+  min-height: 10rem;
   overflow-y: auto;
   display: flex;
   flex-direction: column;

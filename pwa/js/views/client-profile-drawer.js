@@ -367,8 +367,7 @@ function renderAlteracoesSection(profile) {
   `;
 }
 
-export function renderClientProfilePanel(profile, { editing = false, activeTab = 'contactos' } = {}) {
-  const tab = editing ? 'contactos' : activeTab || 'contactos';
+function renderTabBody(profile, tab, editing = false) {
   const moradaBlock = editing
     ? renderAddressEditBlock(profile)
     : `
@@ -404,7 +403,8 @@ export function renderClientProfilePanel(profile, { editing = false, activeTab =
           : '—',
       );
 
-  const contactosBody = `
+  if (editing || tab === 'contactos') {
+    return `
         ${renderViewField('Nome da empresa', escapeHtml(profile.nome))}
 
         <section class="client-ficha-block">
@@ -419,31 +419,60 @@ export function renderClientProfilePanel(profile, { editing = false, activeTab =
         ${emailBlock}
         ${phoneBlock}
         ${editing ? '' : renderAlteracoesSection(profile)}
-  `;
+    `;
+  }
 
-  const tabBody =
-    tab === 'equipamentos'
-      ? `<section class="client-ficha-block client-ficha-block--machines">
+  if (tab === 'equipamentos') {
+    return `<section class="client-ficha-block client-ficha-block--machines">
           <h3 class="client-ficha-label ms-label">Equipamentos associados</h3>
           ${renderEquipamentosList(profile)}
-        </section>`
-      : tab === 'visitas'
-        ? renderHubList(profile.hub?.visitas, 'Sem visitas ou trabalhos registados.', {
-            actionAttr: 'data-hub-visit',
-          })
-        : tab === 'propostas'
-          ? renderHubList(profile.hub?.propostas, 'Sem propostas comerciais para este cliente.', {
-              actionAttr: 'data-hub-orcamento',
-            })
-          : tab === 'faturas'
-            ? renderHubList(profile.hub?.faturas, 'Sem faturas emitidas neste controlo.', {
-                actionAttr: 'data-hub-fatura',
-              })
-            : tab === 'avaliacoes'
-              ? renderHubList(profile.hub?.avaliacoes, 'Ainda não há avaliações deste cliente.', {
-                  actionAttr: 'data-hub-avaliacao',
-                })
-              : contactosBody;
+        </section>`;
+  }
+  if (tab === 'visitas') {
+    return renderHubList(profile.hub?.visitas, 'Sem visitas ou trabalhos registados.', {
+      actionAttr: 'data-hub-visit',
+    });
+  }
+  if (tab === 'propostas') {
+    return renderHubList(profile.hub?.propostas, 'Sem propostas comerciais para este cliente.', {
+      actionAttr: 'data-hub-orcamento',
+    });
+  }
+  if (tab === 'faturas') {
+    return renderHubList(profile.hub?.faturas, 'Sem faturas emitidas neste controlo.', {
+      actionAttr: 'data-hub-fatura',
+    });
+  }
+  if (tab === 'avaliacoes') {
+    return renderHubList(profile.hub?.avaliacoes, 'Ainda não há avaliações deste cliente.', {
+      actionAttr: 'data-hub-avaliacao',
+    });
+  }
+  return '';
+}
+
+function applyHubTab(shell, profile, tab) {
+  const panel = shell.querySelector('.client-ficha-panel');
+  if (!panel || panel.dataset.editing === 'true') return;
+  const next = HUB_TABS.some((item) => item.id === tab) ? tab : 'contactos';
+  const state = shell._fichaState;
+  if (state) state.activeTab = next;
+  panel.dataset.activeTab = next;
+  panel.querySelectorAll('[data-client-ficha-tab]').forEach((btn) => {
+    const on = btn.getAttribute('data-client-ficha-tab') === next;
+    btn.classList.toggle('is-active', on);
+    btn.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
+  const body = panel.querySelector('.client-ficha-body');
+  if (body) body.innerHTML = renderTabBody(profile, next, false);
+}
+
+function settleClientFichaPanel(shell) {
+  shell.querySelector('.client-ficha-panel')?.classList.add('client-ficha-panel--settled');
+}
+
+export function renderClientProfilePanel(profile, { editing = false, activeTab = 'contactos' } = {}) {
+  const tab = editing ? 'contactos' : activeTab || 'contactos';
 
   const footer = editing
     ? `
@@ -471,7 +500,7 @@ export function renderClientProfilePanel(profile, { editing = false, activeTab =
       ${renderHubTabs(profile, tab, editing)}
 
       <div class="client-ficha-body">
-        ${tabBody}
+        ${renderTabBody(profile, tab, editing)}
       </div>
 
       <footer class="client-ficha-footer client-ficha-footer--actions">
@@ -520,11 +549,8 @@ async function confirmDiscardEdits() {
   return window.confirm('Existem alterações por guardar. Deseja descartá-las?');
 }
 
-function bindClientProfilePanel(shell, profile, options = {}) {
-  const clientId = profile.id;
-  const state = shell._fichaState || (shell._fichaState = { editSnapshot: null, activeTab: options.initialTab || 'contactos' });
-
-  const snapshotFromProfile = (p) => ({
+function snapshotFromProfile(p) {
+  return {
     morada: p.moradaRaw || '',
     codigo_postal: p.cpRaw || '',
     localidade: p.localidadeRaw || '',
@@ -533,24 +559,31 @@ function bindClientProfilePanel(shell, profile, options = {}) {
     email: p.emailRaw || '',
     telemovel: p.phoneRaw || '',
     condicao_pagamento: p.condicaoPagamento || '30_dias',
+  };
+}
+
+function replaceSettledPanel(shell, html) {
+  const panel = shell.querySelector('.client-ficha-panel');
+  if (panel) panel.outerHTML = html;
+  settleClientFichaPanel(shell);
+}
+
+function gotoAdminBehindDrawer(detail) {
+  window.dispatchEvent(new CustomEvent('ms-admin-goto', { detail }));
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => closeClientProfilePanel());
   });
+}
+
+function bindClientProfilePanel(shell, profile, options = {}) {
+  const state = shell._fichaState || (shell._fichaState = { editSnapshot: null, activeTab: options.initialTab || 'contactos' });
+  shell._fichaCtx = { profile, options, state };
 
   const repaint = async (editing, tab = state.activeTab) => {
-    const fresh = editing ? profile : await resolveClientProfile(clientId);
-    if (!editing) {
-      fresh.alteracoes = await fetchClientAlteracoes(clientId);
-      fresh.hub = profile.hub || (await loadClientHub(clientId));
-    } else {
-      fresh.hub = profile.hub;
-    }
-    if (!editing) Object.assign(profile, fresh);
-    state.activeTab = tab;
-    const panel = shell.querySelector('.client-ficha-panel');
-    if (panel) {
-      panel.outerHTML = renderClientProfilePanel(fresh, { editing, activeTab: tab });
-    }
-    state.editSnapshot = editing ? snapshotFromProfile(fresh) : null;
-    bindClientProfilePanel(shell, fresh, options);
+    const current = shell._fichaCtx.profile;
+    state.activeTab = editing ? 'contactos' : tab;
+    replaceSettledPanel(shell, renderClientProfilePanel(current, { editing, activeTab: state.activeTab }));
+    state.editSnapshot = editing ? snapshotFromProfile(current) : null;
   };
 
   const tryClose = async () => {
@@ -562,121 +595,146 @@ function bindClientProfilePanel(shell, profile, options = {}) {
     closeClientProfilePanel();
   };
 
-  shell.querySelectorAll('[data-client-ficha-close]').forEach((el) => {
-    el.addEventListener('click', () => {
-      tryClose();
-    });
-  });
+  if (shell._fichaDelegated) return;
+  shell._fichaDelegated = true;
 
-  shell.querySelectorAll('[data-copy-value]').forEach((btn) => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      copyToClipboard(btn.dataset.copyValue);
-    });
-  });
+  shell.addEventListener('click', (e) => {
+    const ctx = shell._fichaCtx;
+    if (!ctx?.profile) return;
+    const current = ctx.profile;
+    const clientId = current.id;
 
-  shell.querySelector('[data-client-ficha-export-audit]')?.addEventListener('click', () => {
-    const rows = Array.isArray(profile.alteracoes) ? profile.alteracoes : [];
-    if (!rows.length) {
-      showToast('Não há alterações para exportar.', 'info');
+    const closeEl = e.target.closest('[data-client-ficha-close]');
+    if (closeEl) {
+      void tryClose();
       return;
     }
-    const { content, filename } = buildClientAlteracoesCsv(rows, profile.nome);
-    const blob = new Blob([content], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    link.click();
-    URL.revokeObjectURL(url);
-    showToast('Histórico exportado.', 'success', 3000);
-  });
 
-  shell.querySelector('[data-client-ficha-history]')?.addEventListener('click', () => {
-    closeClientProfilePanel();
-    options.onHistory?.(clientId);
-  });
+    const copyBtn = e.target.closest('[data-copy-value]');
+    if (copyBtn) {
+      e.stopPropagation();
+      copyToClipboard(copyBtn.dataset.copyValue);
+      return;
+    }
 
-  shell.querySelectorAll('[data-client-ficha-tab]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const next = btn.getAttribute('data-client-ficha-tab') || 'contactos';
+    const exportBtn = e.target.closest('[data-client-ficha-export-audit]');
+    if (exportBtn) {
+      const rows = Array.isArray(current.alteracoes) ? current.alteracoes : [];
+      if (!rows.length) {
+        showToast('Não há alterações para exportar.', 'info');
+        return;
+      }
+      const { content, filename } = buildClientAlteracoesCsv(rows, current.nome);
+      const blob = new Blob([content], { type: 'text/csv;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      link.click();
+      URL.revokeObjectURL(url);
+      showToast('Histórico exportado.', 'success', 3000);
+      return;
+    }
+
+    const historyBtn = e.target.closest('[data-client-ficha-history]');
+    if (historyBtn) {
+      closeClientProfilePanel();
+      ctx.options.onHistory?.(clientId);
+      return;
+    }
+
+    const tabBtn = e.target.closest('[data-client-ficha-tab]');
+    if (tabBtn) {
+      const next = tabBtn.getAttribute('data-client-ficha-tab') || 'contactos';
       if (next === state.activeTab) return;
-      void repaint(false, next);
-    });
-  });
+      applyHubTab(shell, current, next);
+      return;
+    }
 
-  const gotoAdmin = (detail) => {
-    closeClientProfilePanel();
-    window.dispatchEvent(new CustomEvent('ms-admin-goto', { detail }));
-  };
-
-  shell.querySelectorAll('[data-hub-visit]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const id = btn.getAttribute('data-hub-visit');
-      gotoAdmin({
+    const visitBtn = e.target.closest('[data-hub-visit]');
+    if (visitBtn) {
+      gotoAdminBehindDrawer({
         tab: 'calendario',
         calendar: {
-          jobId: id,
-          visitDate: btn.getAttribute('data-hub-date') || '',
-          clientName: profile.nome,
+          jobId: visitBtn.getAttribute('data-hub-visit'),
+          visitDate: visitBtn.getAttribute('data-hub-date') || '',
+          clientName: current.nome,
         },
       });
-    });
-  });
+      return;
+    }
 
-  shell.querySelectorAll('[data-hub-orcamento]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      gotoAdmin({ tab: 'orcamentos', orcamentoReportId: btn.getAttribute('data-hub-orcamento') });
-    });
-  });
+    const orcBtn = e.target.closest('[data-hub-orcamento]');
+    if (orcBtn) {
+      gotoAdminBehindDrawer({
+        tab: 'orcamentos',
+        orcamentoReportId: orcBtn.getAttribute('data-hub-orcamento'),
+      });
+      return;
+    }
 
-  shell.querySelectorAll('[data-hub-fatura]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const title = btn.querySelector('.client-ficha-hub-item-title')?.textContent || '';
-      gotoAdmin({
+    const faturaBtn = e.target.closest('[data-hub-fatura]');
+    if (faturaBtn) {
+      const title = faturaBtn.querySelector('.client-ficha-hub-item-title')?.textContent || '';
+      gotoAdminBehindDrawer({
         tab: 'faturacao',
         faturacaoClientId: clientId,
-        faturacaoClientNome: profile.nome,
+        faturacaoClientNome: current.nome,
         faturacaoSearch: title,
       });
-    });
-  });
-
-  shell.querySelectorAll('[data-hub-avaliacao]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      gotoAdmin({ tab: 'avaliacoes' });
-      void btn;
-    });
-  });
-
-  shell.querySelector('[data-client-ficha-edit]')?.addEventListener('click', () => {
-    repaint(true);
-  });
-
-  shell.querySelector('[data-client-ficha-cancel]')?.addEventListener('click', async () => {
-    if (editFormDirty(shell, state.editSnapshot)) {
-      const discard = await confirmDiscardEdits();
-      if (!discard) return;
+      return;
     }
-    await repaint(false);
-  });
 
-  shell.querySelector('[data-client-ficha-save]')?.addEventListener('click', async () => {
-    const btn = shell.querySelector('[data-client-ficha-save]');
-    const patch = readEditForm(shell);
-    btn.disabled = true;
-    btn.textContent = 'A guardar…';
+    const avaliacaoBtn = e.target.closest('[data-hub-avaliacao]');
+    if (avaliacaoBtn) {
+      gotoAdminBehindDrawer({ tab: 'avaliacoes' });
+      return;
+    }
 
-    try {
-      await putClient(clientId, patch);
-      showToast('Dados do cliente atualizados com sucesso.', 'success', 3500);
-      await repaint(false);
-    } catch (err) {
-      console.error('[Ficha Cliente] Guardar:', err);
-      showToast(err?.message || 'Não foi possível guardar as alterações.', 'error');
-    } finally {
-      btn.disabled = false;
-      btn.textContent = 'Guardar alterações';
+    if (e.target.closest('[data-client-ficha-edit]')) {
+      void repaint(true);
+      return;
+    }
+
+    if (e.target.closest('[data-client-ficha-cancel]')) {
+      void (async () => {
+        if (editFormDirty(shell, state.editSnapshot)) {
+          const discard = await confirmDiscardEdits();
+          if (!discard) return;
+        }
+        await repaint(false);
+      })();
+      return;
+    }
+
+    const saveBtn = e.target.closest('[data-client-ficha-save]');
+    if (saveBtn) {
+      void (async () => {
+        const btn = shell.querySelector('[data-client-ficha-save]');
+        const patch = readEditForm(shell);
+        if (btn) {
+          btn.disabled = true;
+          btn.textContent = 'A guardar…';
+        }
+        try {
+          await putClient(clientId, patch);
+          showToast('Dados do cliente atualizados com sucesso.', 'success', 3500);
+          const fresh = await resolveClientProfile(clientId);
+          fresh.alteracoes = await fetchClientAlteracoes(clientId);
+          fresh.hub = current.hub;
+          ctx.profile = fresh;
+          state.activeTab = 'contactos';
+          replaceSettledPanel(shell, renderClientProfilePanel(fresh, { editing: false, activeTab: 'contactos' }));
+          state.editSnapshot = null;
+        } catch (err) {
+          console.error('[Ficha Cliente] Guardar:', err);
+          showToast(err?.message || 'Não foi possível guardar as alterações.', 'error');
+          if (btn) {
+            btn.disabled = false;
+            btn.textContent = 'Guardar alterações';
+          }
+        }
+      })();
     }
   });
 }
@@ -703,10 +761,7 @@ export async function openClientProfilePanel(clientId, options = {}) {
   document.body.classList.add('client-ficha-open');
   document.body.style.overflow = 'hidden';
   shell._fichaState = { editSnapshot: null, activeTab: options.initialTab || 'contactos' };
-
-  shell.querySelectorAll('[data-client-ficha-close]').forEach((el) => {
-    el.addEventListener('click', closeClientProfilePanel);
-  });
+  bindClientProfilePanel(shell, { id: clientId, nome: '', hub: {} }, options);
 
   let profile;
   try {
@@ -724,11 +779,13 @@ export async function openClientProfilePanel(clientId, options = {}) {
     return;
   }
 
+  if (activeDrawer !== shell) return;
+
   const panel = shell.querySelector('.client-ficha-panel');
   if (panel) {
     panel.outerHTML = renderClientProfilePanel(profile, { activeTab: options.initialTab || 'contactos' });
   }
-
+  settleClientFichaPanel(shell);
   bindClientProfilePanel(shell, profile, options);
 
   const onKey = (e) => {
