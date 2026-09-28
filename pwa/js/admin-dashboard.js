@@ -67,6 +67,7 @@ import {
 } from './views/orcamentos.js';
 import { consumeAdminPendingTab } from './orcamento-modal.js';
 import { initAvaliacoesPanel, refreshAvaliacoesPanel } from './views/avaliacoes.js';
+import { initAdminCommandPalette } from './admin-command-palette.js';
 import {
   loadRhReviewFilters,
   saveRhReviewFilters,
@@ -714,6 +715,7 @@ export async function initAdminDashboard() {
     bindAssignWork();
     bindOpsMobileToggle();
     bindHeaderShortcuts();
+    initAdminCommandPalette();
     bindRhNotificationPermissionOnGesture();
     bindCalTodayBtn();
     updateAdminChrome();
@@ -834,6 +836,29 @@ export async function initAdminDashboard() {
 
   window.addEventListener('admin-open-calendar-item', (event) => {
     void focusCalendarVisit(event?.detail || {});
+  });
+
+  window.addEventListener('ms-admin-goto', (event) => {
+    const detail = event?.detail || {};
+    if (detail.tab) setAdminTab(detail.tab, { resetScroll: true });
+    if (detail.calendar) {
+      void focusCalendarVisit(detail.calendar);
+    }
+    if (detail.orcamentoReportId) {
+      queueOrcamentoReportFocus(detail.orcamentoReportId);
+      refreshOrcamentosPanel({ soft: true }).catch(console.error);
+    }
+    if (detail.faturacaoClientId || detail.faturacaoSearch) {
+      import('./views/faturacao.js')
+        .then((m) =>
+          m.focusFaturacaoClient(
+            detail.faturacaoClientId || '',
+            detail.faturacaoClientNome || '',
+            detail.faturacaoSearch || '',
+          ),
+        )
+        .catch(console.error);
+    }
   });
 
   window.addEventListener('db-updated', handleAdminDbUpdated);

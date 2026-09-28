@@ -3052,6 +3052,19 @@ function exportFilteredInvoicesCsv() {
   showToast(`${invoices.length} linha(s) exportada(s).`, 'success');
 }
 
+export function applyFaturacaoClientFilter(clientId, clientNome = '', search = '') {
+  billingFilters.clientId = String(clientId || '');
+  billingFilters.clientNome = String(clientNome || '');
+  billingFilters.search = String(search || '');
+  billingFilters.recebimentoStatus = billingFilters.clientId ? 'all' : billingFilters.recebimentoStatus;
+  resetInvoicesListPagination();
+}
+
+export async function focusFaturacaoClient(clientId, clientNome = '', search = '') {
+  applyFaturacaoClientFilter(clientId, clientNome, search);
+  if (mountRoot) await refreshFaturacaoPanel({ soft: true });
+}
+
 /** Destaca visita ou relatório após refresh do painel de faturação. */
 export function queueBillingReportFocus(reportId) {
   const target = resolveBillingFocusTarget(reportId, getReport);

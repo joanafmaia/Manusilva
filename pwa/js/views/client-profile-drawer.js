@@ -17,6 +17,7 @@ import {
 import { mapClientToLegacy, DEMO_CLIENT_FORKLIFTS } from '../mock_data.js';
 import { formatEquipamentoLabel } from '../cliente-equipamentos.js';
 import { FATURA_CONDICAO_OPCOES, labelFaturaCondicao, condicaoFromClientCatalog } from '../billing-constants.js';
+import { loadClientHub } from '../client-hub-data.js';
 
 const COPY_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>`;
 
@@ -125,6 +126,74 @@ export async function resolveClientProfile(clientId) {
 
 function escapeAttr(str) {
   return String(str ?? '').replace(/"/g, '&quot;');
+}
+
+function formatHubDate(iso) {
+  const raw = String(iso || '').split('T')[0];
+  const [y, m, d] = raw.split('-');
+  if (!d || !m) return '—';
+  return `${d}/${m}/${y}`;
+}
+
+const HUB_TABS = [
+  { id: 'contactos', label: 'Contactos' },
+  { id: 'equipamentos', label: 'Equipamentos' },
+  { id: 'visitas', label: 'Visitas' },
+  { id: 'propostas', label: 'Propostas' },
+  { id: 'faturas', label: 'Faturas' },
+  { id: 'avaliacoes', label: 'Avaliações' },
+];
+
+function hubCount(profile, tabId) {
+  if (tabId === 'equipamentos') {
+    return (profile.equipamentos?.length || profile.forklifts?.length || 0);
+  }
+  return Number(profile.hub?.counts?.[tabId] || profile.hub?.[tabId]?.length || 0);
+}
+
+function renderHubTabs(profile, activeTab, editing) {
+  if (editing) return '';
+  return `
+    <nav class="client-ficha-tabs" role="tablist" aria-label="Secções da ficha">
+      ${HUB_TABS.map((tab) => {
+        const count = hubCount(profile, tab.id);
+        const selected = tab.id === activeTab;
+        return `<button type="button" class="client-ficha-tab${selected ? ' is-active' : ''}" role="tab" aria-selected="${selected}" data-client-ficha-tab="${tab.id}">
+          ${escapeHtml(tab.label)}${count ? `<span class="client-ficha-tab-count">${count}</span>` : ''}
+        </button>`;
+      }).join('')}
+    </nav>
+  `;
+}
+
+function renderHubList(items, emptyText, { actionAttr } = {}) {
+  if (!items?.length) {
+    return `<p class="client-ficha-muted ms-label">${escapeHtml(emptyText)}</p>`;
+  }
+  return `
+    <ul class="client-ficha-hub-list" role="list">
+      ${items
+        .slice(0, 12)
+        .map((item) => {
+          const extra = actionAttr
+            ? ` ${actionAttr}="${escapeAttr(item.id)}" data-hub-kind="${escapeAttr(item.kind)}" data-hub-date="${escapeAttr(item.date || '')}"`
+            : '';
+          return `<li>
+            <button type="button" class="client-ficha-hub-item"${extra}>
+              <span class="client-ficha-hub-item-main">
+                <span class="client-ficha-hub-item-title">${escapeHtml(item.title)}</span>
+                <span class="client-ficha-hub-item-sub">${escapeHtml(item.subtitle || '')}</span>
+              </span>
+              <span class="client-ficha-hub-item-meta">
+                <span>${escapeHtml(formatHubDate(item.date))}</span>
+                <span class="client-ficha-hub-status">${escapeHtml(item.status || '')}</span>
+              </span>
+            </button>
+          </li>`;
+        })
+        .join('')}
+    </ul>
+  `;
 }
 
 function renderCopyButton(value, label) {
@@ -298,7 +367,8 @@ function renderAlteracoesSection(profile) {
   `;
 }
 
-export function renderClientProfilePanel(profile, { editing = false } = {}) {
+export function renderClientProfilePanel(profile, { editing = false, activeTab = 'contactos' } = {}) {
+  const tab = editing ? 'contactos' : activeTab || 'contactos';
   const moradaBlock = editing
     ? renderAddressEditBlock(profile)
     : `
@@ -334,30 +404,7 @@ export function renderClientProfilePanel(profile, { editing = false } = {}) {
           : '—',
       );
 
-  const footer = editing
-    ? `
-        <button type="button" class="btn-ghost client-ficha-cancel-btn" data-client-ficha-cancel>Cancelar</button>
-        <button type="button" class="btn-primary client-ficha-save-btn" data-client-ficha-save>Guardar alterações</button>
-      `
-    : `
-        <button type="button" class="btn-primary client-ficha-edit-btn" data-client-ficha-edit>Editar Dados</button>
-        <button type="button" class="btn-secondary client-ficha-history-btn" data-client-ficha-history>
-          Ver histórico de relatórios
-        </button>
-      `;
-
-  return `
-    <div class="client-ficha-panel" role="dialog" aria-labelledby="client-ficha-title" aria-modal="true" data-editing="${editing ? 'true' : 'false'}">
-      <header class="client-ficha-header">
-        <div>
-          <p class="client-ficha-eyebrow ms-label">Ficha cadastral</p>
-          <h2 id="client-ficha-title" class="client-ficha-title ms-h2">${escapeHtml(profile.nome)}</h2>
-          <p class="client-ficha-subtitle ms-label">${editing ? 'Edição de dados cadastrais' : 'Consulta rápida — dados da empresa'}</p>
-        </div>
-        <button type="button" class="btn-ghost client-ficha-close" data-client-ficha-close aria-label="Fechar ficha">&times;</button>
-      </header>
-
-      <div class="client-ficha-body">
+  const contactosBody = `
         ${renderViewField('Nome da empresa', escapeHtml(profile.nome))}
 
         <section class="client-ficha-block">
@@ -371,13 +418,60 @@ export function renderClientProfilePanel(profile, { editing = false } = {}) {
         ${moradaBlock}
         ${emailBlock}
         ${phoneBlock}
+        ${editing ? '' : renderAlteracoesSection(profile)}
+  `;
 
-        <section class="client-ficha-block client-ficha-block--machines">
+  const tabBody =
+    tab === 'equipamentos'
+      ? `<section class="client-ficha-block client-ficha-block--machines">
           <h3 class="client-ficha-label ms-label">Equipamentos associados</h3>
           ${renderEquipamentosList(profile)}
-        </section>
+        </section>`
+      : tab === 'visitas'
+        ? renderHubList(profile.hub?.visitas, 'Sem visitas ou trabalhos registados.', {
+            actionAttr: 'data-hub-visit',
+          })
+        : tab === 'propostas'
+          ? renderHubList(profile.hub?.propostas, 'Sem propostas comerciais para este cliente.', {
+              actionAttr: 'data-hub-orcamento',
+            })
+          : tab === 'faturas'
+            ? renderHubList(profile.hub?.faturas, 'Sem faturas emitidas neste controlo.', {
+                actionAttr: 'data-hub-fatura',
+              })
+            : tab === 'avaliacoes'
+              ? renderHubList(profile.hub?.avaliacoes, 'Ainda não há avaliações deste cliente.', {
+                  actionAttr: 'data-hub-avaliacao',
+                })
+              : contactosBody;
 
-        ${editing ? '' : renderAlteracoesSection(profile)}
+  const footer = editing
+    ? `
+        <button type="button" class="btn-ghost client-ficha-cancel-btn" data-client-ficha-cancel>Cancelar</button>
+        <button type="button" class="btn-primary client-ficha-save-btn" data-client-ficha-save>Guardar alterações</button>
+      `
+    : `
+        <button type="button" class="btn-primary client-ficha-edit-btn" data-client-ficha-edit>Editar Dados</button>
+        <button type="button" class="btn-secondary client-ficha-history-btn" data-client-ficha-history>
+          Histórico completo
+        </button>
+      `;
+
+  return `
+    <div class="client-ficha-panel client-ficha-panel--hub" role="dialog" aria-labelledby="client-ficha-title" aria-modal="true" data-editing="${editing ? 'true' : 'false'}" data-active-tab="${escapeAttr(tab)}">
+      <header class="client-ficha-header">
+        <div>
+          <p class="client-ficha-eyebrow ms-label">Ficha do cliente</p>
+          <h2 id="client-ficha-title" class="client-ficha-title ms-h2">${escapeHtml(profile.nome)}</h2>
+          <p class="client-ficha-subtitle ms-label">${editing ? 'Edição de dados cadastrais' : 'Contactos, equipamentos, visitas, propostas e faturas'}</p>
+        </div>
+        <button type="button" class="btn-ghost client-ficha-close" data-client-ficha-close aria-label="Fechar ficha">&times;</button>
+      </header>
+
+      ${renderHubTabs(profile, tab, editing)}
+
+      <div class="client-ficha-body">
+        ${tabBody}
       </div>
 
       <footer class="client-ficha-footer client-ficha-footer--actions">
@@ -428,7 +522,7 @@ async function confirmDiscardEdits() {
 
 function bindClientProfilePanel(shell, profile, options = {}) {
   const clientId = profile.id;
-  const state = shell._fichaState || (shell._fichaState = { editSnapshot: null });
+  const state = shell._fichaState || (shell._fichaState = { editSnapshot: null, activeTab: options.initialTab || 'contactos' });
 
   const snapshotFromProfile = (p) => ({
     morada: p.moradaRaw || '',
@@ -441,15 +535,19 @@ function bindClientProfilePanel(shell, profile, options = {}) {
     condicao_pagamento: p.condicaoPagamento || '30_dias',
   });
 
-  const repaint = async (editing) => {
+  const repaint = async (editing, tab = state.activeTab) => {
     const fresh = editing ? profile : await resolveClientProfile(clientId);
     if (!editing) {
       fresh.alteracoes = await fetchClientAlteracoes(clientId);
+      fresh.hub = profile.hub || (await loadClientHub(clientId));
+    } else {
+      fresh.hub = profile.hub;
     }
     if (!editing) Object.assign(profile, fresh);
+    state.activeTab = tab;
     const panel = shell.querySelector('.client-ficha-panel');
     if (panel) {
-      panel.outerHTML = renderClientProfilePanel(fresh, { editing });
+      panel.outerHTML = renderClientProfilePanel(fresh, { editing, activeTab: tab });
     }
     state.editSnapshot = editing ? snapshotFromProfile(fresh) : null;
     bindClientProfilePanel(shell, fresh, options);
@@ -499,6 +597,58 @@ function bindClientProfilePanel(shell, profile, options = {}) {
     options.onHistory?.(clientId);
   });
 
+  shell.querySelectorAll('[data-client-ficha-tab]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const next = btn.getAttribute('data-client-ficha-tab') || 'contactos';
+      if (next === state.activeTab) return;
+      void repaint(false, next);
+    });
+  });
+
+  const gotoAdmin = (detail) => {
+    closeClientProfilePanel();
+    window.dispatchEvent(new CustomEvent('ms-admin-goto', { detail }));
+  };
+
+  shell.querySelectorAll('[data-hub-visit]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const id = btn.getAttribute('data-hub-visit');
+      gotoAdmin({
+        tab: 'calendario',
+        calendar: {
+          jobId: id,
+          visitDate: btn.getAttribute('data-hub-date') || '',
+          clientName: profile.nome,
+        },
+      });
+    });
+  });
+
+  shell.querySelectorAll('[data-hub-orcamento]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      gotoAdmin({ tab: 'orcamentos', orcamentoReportId: btn.getAttribute('data-hub-orcamento') });
+    });
+  });
+
+  shell.querySelectorAll('[data-hub-fatura]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const title = btn.querySelector('.client-ficha-hub-item-title')?.textContent || '';
+      gotoAdmin({
+        tab: 'faturacao',
+        faturacaoClientId: clientId,
+        faturacaoClientNome: profile.nome,
+        faturacaoSearch: title,
+      });
+    });
+  });
+
+  shell.querySelectorAll('[data-hub-avaliacao]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      gotoAdmin({ tab: 'avaliacoes' });
+      void btn;
+    });
+  });
+
   shell.querySelector('[data-client-ficha-edit]')?.addEventListener('click', () => {
     repaint(true);
   });
@@ -534,7 +684,7 @@ function bindClientProfilePanel(shell, profile, options = {}) {
 /**
  * Abre painel lateral (tablet/PC) ou modal (mobile) com ficha do cliente.
  * @param {string} clientId
- * @param {{ onHistory?: (clientId: string) => void }} [options]
+ * @param {{ onHistory?: (clientId: string) => void, initialTab?: string }} [options]
  */
 export async function openClientProfilePanel(clientId, options = {}) {
   if (!clientId) return;
@@ -552,6 +702,7 @@ export async function openClientProfilePanel(clientId, options = {}) {
   activeDrawer = shell;
   document.body.classList.add('client-ficha-open');
   document.body.style.overflow = 'hidden';
+  shell._fichaState = { editSnapshot: null, activeTab: options.initialTab || 'contactos' };
 
   shell.querySelectorAll('[data-client-ficha-close]').forEach((el) => {
     el.addEventListener('click', closeClientProfilePanel);
@@ -560,7 +711,12 @@ export async function openClientProfilePanel(clientId, options = {}) {
   let profile;
   try {
     profile = await resolveClientProfile(clientId);
-    profile.alteracoes = await fetchClientAlteracoes(clientId);
+    const [alteracoes, hub] = await Promise.all([
+      fetchClientAlteracoes(clientId),
+      loadClientHub(clientId),
+    ]);
+    profile.alteracoes = alteracoes;
+    profile.hub = hub;
   } catch (err) {
     console.error('[Ficha Cliente]', err);
     showToast('Não foi possível carregar a ficha do cliente.', 'error');
@@ -570,7 +726,7 @@ export async function openClientProfilePanel(clientId, options = {}) {
 
   const panel = shell.querySelector('.client-ficha-panel');
   if (panel) {
-    panel.outerHTML = renderClientProfilePanel(profile);
+    panel.outerHTML = renderClientProfilePanel(profile, { activeTab: options.initialTab || 'contactos' });
   }
 
   bindClientProfilePanel(shell, profile, options);

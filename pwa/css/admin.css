@@ -5565,3 +5565,104 @@ body.admin-rh-page .modal-overlay {
   -webkit-backdrop-filter: none;
 }
 
+.admin-search-kbd {
+  display: inline-block;
+  margin-left: 0.4rem;
+  padding: 0.05rem 0.35rem;
+  border: 1px solid var(--ms-border-md);
+  border-radius: 0.3rem;
+  font-size: 0.68rem;
+  font-family: inherit;
+  opacity: 0.8;
+}
+.admin-cmd-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1180;
+  background: rgba(15, 23, 42, 0.35);
+  display: flex;
+  justify-content: center;
+  padding: 12vh 1rem 1rem;
+}
+.admin-cmd-dialog {
+  width: min(36rem, 100%);
+  background: var(--ms-card-bg, #fff);
+  border-radius: 0.85rem;
+  box-shadow: 0 18px 50px rgba(15, 23, 42, 0.22);
+  padding: 0.85rem 0.9rem 0.7rem;
+}
+.admin-cmd-eyebrow {
+  margin: 0 0 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ms-text-muted, #64748b);
+}
+.admin-cmd-input {
+  width: 100%;
+  border: 1px solid var(--ms-border-md);
+  border-radius: 0.55rem;
+  padding: 0.7rem 0.8rem;
+  font-size: 1rem;
+}
+.admin-cmd-list {
+  list-style: none;
+  margin: 0.55rem 0 0;
+  padding: 0;
+  max-height: min(22rem, 50vh);
+  overflow: auto;
+}
+.admin-cmd-item {
+  width: 100%;
+  display: flex;
+  gap: 0.7rem;
+  align-items: flex-start;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  border-radius: 0.5rem;
+  padding: 0.55rem 0.5rem;
+  cursor: pointer;
+}
+.admin-cmd-item:hover,
+.admin-cmd-item.is-active {
+  background: var(--surface-accent, #eef4f8);
+}
+.admin-cmd-kind {
+  flex: 0 0 6.4rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--ms-primary, #1e4d72);
+  padding-top: 0.15rem;
+}
+.admin-cmd-copy {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
+}
+.admin-cmd-title {
+  font-weight: 650;
+  font-size: 0.9rem;
+}
+.admin-cmd-sub {
+  font-size: 0.75rem;
+  color: var(--ms-text-muted, #64748b);
+}
+.admin-cmd-empty,
+.admin-cmd-hint {
+  margin: 0.45rem 0 0;
+  font-size: 0.75rem;
+  color: var(--ms-text-muted, #64748b);
+}
+@media (max-width: 720px) {
+  .admin-search-kbd {
+    display: none;
+  }
+  .admin-cmd-kind {
+    flex-basis: 4.8rem;
+  }
+}
+

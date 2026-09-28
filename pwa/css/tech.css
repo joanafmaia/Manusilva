@@ -5797,6 +5797,84 @@ body .admin-panel .rh-section, body .rh-section {
     opacity: 1;
   }
 }
+.client-ficha-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  padding: 0 0 0.35rem;
+  margin: 0 0 0.85rem;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--ms-border-md, #e4e0d8);
+}
+.client-ficha-tab {
+  border: 0;
+  background: transparent;
+  color: var(--ms-text-muted, #64748b);
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.45rem 0.55rem;
+  border-radius: 0.4rem 0.4rem 0 0;
+  cursor: pointer;
+}
+.client-ficha-tab.is-active {
+  color: var(--ms-primary, #1e4d72);
+  box-shadow: inset 0 -2px 0 var(--ms-primary, #1e4d72);
+}
+.client-ficha-tab-count {
+  display: inline-flex;
+  min-width: 1.1rem;
+  margin-left: 0.2rem;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  background: rgba(30, 77, 114, 0.1);
+}
+.client-ficha-hub-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.4rem;
+}
+.client-ficha-hub-item {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  text-align: left;
+  border: 1px solid var(--ms-border-md, #e4e0d8);
+  background: var(--ms-card-bg, #fff);
+  border-radius: 0.55rem;
+  padding: 0.65rem 0.75rem;
+  cursor: pointer;
+}
+.client-ficha-hub-item:hover {
+  border-color: color-mix(in srgb, var(--ms-primary) 28%, var(--ms-border-md));
+}
+.client-ficha-hub-item-main {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+.client-ficha-hub-item-title {
+  font-weight: 650;
+  font-size: 0.86rem;
+}
+.client-ficha-hub-item-sub,
+.client-ficha-hub-item-meta {
+  font-size: 0.75rem;
+  color: var(--ms-text-muted, #64748b);
+}
+.client-ficha-hub-item-meta {
+  display: grid;
+  justify-items: end;
+  gap: 0.15rem;
+  flex-shrink: 0;
+}
+.client-ficha-hub-status {
+  font-weight: 600;
+  color: var(--ms-text-700, #334155);
+}
 .client-ficha-header {
   display: flex;
   align-items: flex-start;
@@ -6041,6 +6119,9 @@ body .admin-panel .rh-section, body .rh-section {
       -12px 0 32px rgba(15, 23, 42, 0.14),
       0 20px 25px -5px rgba(15, 23, 42, 0.1);
     animation: client-ficha-slide-in 0.24s ease-out;
+  }
+  .client-ficha-panel--hub {
+    max-width: 32rem;
   }
 
   @keyframes client-ficha-slide-in {
