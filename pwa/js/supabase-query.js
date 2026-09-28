@@ -84,6 +84,7 @@ export const RELATORIOS_SELECT = [
   'numero_fatura',
   'data_fatura',
   'valor_faturado',
+  'valor_recebido',
   'condicao_pagamento',
   'prazo_pagamento',
   'status_recebimento',
