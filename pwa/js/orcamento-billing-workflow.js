@@ -10,9 +10,9 @@ import { ORCAMENTO_RESPOSTA } from './orcamento-workflow.js';
 import { reportHasPedidoOrcamento, reportIsRhOrcamento, reportIsStandaloneOrcamento } from './pedido-orcamento.js';
 import { reportIsFolhaObraOrcamento } from './folha-obra-orcamento.js';
 import {
-  dedupeReportsForDisplay,
   formatRelatoriosError,
   getReportsSnapshot,
+  uniqueReportsById,
   updateRelatorio,
 } from './relatorios-db.js';
 import { showToast } from './toast-modal.js';
@@ -77,7 +77,7 @@ export async function repairOrcamentoAceiteBillingQueue() {
 }
 
 export function getPendingOrcamentoBillingReports() {
-  return dedupeReportsForDisplay(getReportsSnapshot().filter(isPendingOrcamentoBilling)).sort(
+  return uniqueReportsById(getReportsSnapshot().filter(isPendingOrcamentoBilling)).sort(
     (a, b) => {
       const da =
         getReportOrcamentoMeta(a)?.respostaClienteEm ||

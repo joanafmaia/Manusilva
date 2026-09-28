@@ -44,6 +44,16 @@ export async function assignServico(data) {
       showToast('Serviço criado e guardado na base de dados.', 'success');
     }
 
+    void import('./web-push-client.js')
+      .then((m) =>
+        m.notifyTechniciansAssigned({
+          technicianStored: servico.technicianIds || data.technicianId,
+          clientId: servico.clientId || data.clientId,
+          date: servico.date || data.date,
+          servicoId: servico.id,
+        }),
+      )
+      .catch((err) => console.warn('[Push] Atribuição serviço:', err));
     window.dispatchEvent(new CustomEvent('db-updated'));
     return servico.id;
   } catch (err) {
@@ -74,6 +84,17 @@ export async function rescheduleServico(servicoId, newDate) {
 
   try {
     await updateServico(servicoId, { data: date });
+    void import('./web-push-client.js')
+      .then((m) =>
+        m.notifyTechniciansAssigned({
+          technicianStored: servico.technicianIds,
+          clientId: servico.clientId,
+          date,
+          servicoId,
+          rescheduled: true,
+        }),
+      )
+      .catch((err) => console.warn('[Push] Reagendar serviço:', err));
     window.dispatchEvent(new CustomEvent('db-updated'));
     showToast(`Serviço reagendado para ${formatDateLong(date)}.`, 'success');
     return true;

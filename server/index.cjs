@@ -12,6 +12,7 @@ const enviarEmail = require('../pwa/api/enviar-email.js');
 const avaliacao = require('../pwa/api/avaliacao.js');
 const technicians = require('../pwa/api/technicians/index.js');
 const clientsId = require('../pwa/api/clients/[id].js');
+const push = require('../pwa/api/push.js');
 
 const ROOT = path.join(__dirname, '..');
 const PWA_ROOT = path.join(ROOT, 'pwa');
@@ -55,12 +56,16 @@ app.get('/api/health', (_req, res) => {
     service: 'manusilva',
     uptime: process.uptime(),
     email,
+    push: {
+      configured: typeof push.hasVapidConfig === 'function' ? push.hasVapidConfig() : false,
+    },
   });
 });
 
 app.all('/api/enviar-email', wrapHandler(enviarEmail));
 app.all('/api/avaliacao', wrapHandler(avaliacao));
 app.all('/api/technicians', wrapHandler(technicians));
+app.all('/api/push', wrapHandler(push));
 app.all(
   '/api/clients/:id',
   wrapHandler(clientsId, {

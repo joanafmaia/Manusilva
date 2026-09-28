@@ -1,6 +1,6 @@
 /**
  * Notificações do sistema (Windows/macOS) — painel RH.
- * Requer o separador admin aberto (ou PWA instalada); não substitui push com browser fechado.
+ * Com a PWA fechada usa Web Push (VAPID) via /api/push.
  */
 
 import {
@@ -57,21 +57,39 @@ function postRhNotification(title, body, tag) {
   }
 }
 
+async function subscribeWebPushIfGranted(permission) {
+  if (permission !== 'granted') return;
+  try {
+    const { ensureWebPushSubscription } = await import('./web-push-client.js');
+    await ensureWebPushSubscription();
+  } catch (err) {
+    console.warn('[RH] Web Push:', err);
+  }
+}
+
 export async function requestRhNotificationPermission() {
   if (!('Notification' in window)) return 'unsupported';
-  if (Notification.permission === 'granted') return 'granted';
+  if (Notification.permission === 'granted') {
+    await subscribeWebPushIfGranted('granted');
+    return 'granted';
+  }
   if (Notification.permission === 'denied') return 'denied';
   if (localStorage.getItem(RH_NOTIF_ASKED_KEY) === '1') return 'default';
 
   localStorage.setItem(RH_NOTIF_ASKED_KEY, '1');
   try {
-    return await Notification.requestPermission();
+    const result = await Notification.requestPermission();
+    await subscribeWebPushIfGranted(result);
+    return result;
   } catch {
     return 'default';
   }
 }
 
 export function bindRhNotificationPermissionOnGesture() {
+  if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+    requestRhNotificationPermission().catch(() => {});
+  }
   const ask = () => {
     requestRhNotificationPermission().catch(() => {});
   };

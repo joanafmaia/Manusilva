@@ -16,7 +16,7 @@ Manusilva/
 │   ├── warehouse.html          Painel armazém / folhas de obra
 │   ├── js/                     Módulos ES (relatórios, serviços, PDF, faturação…)
 │   ├── api/                    Endpoints (e-mail, clientes, técnicos, avaliações)
-│   ├── supabase/migrations/    SQL versionado (fonte de verdade; até 036)
+│   ├── supabase/migrations/    SQL versionado (fonte de verdade; até 043)
 │   ├── tests/                  Testes Node (`*.test.mjs`)
 │   ├── css/                    Estilos (base / tech / admin / warehouse)
 │   └── sw.js                   Service worker
@@ -69,7 +69,7 @@ npm test
 - Joana e Filipa: role **`RH`** (ou e-mail na allowlist) — acesso total
 - Verificações partilhadas: `pwa/js/auth-roles-core.js` + `pwa/server-lib/auth-roles.js` (`npm run sync:rh-config`)
 - Técnicos podem usar o painel **Armazém**
-- Após Auth no Supabase, aplicar migrations em `pwa/supabase/migrations/` (incl. **036** para `is_rh_admin` sem bypass só por nome)
+- Após Auth no Supabase, aplicar migrations em `pwa/supabase/migrations/` (incl. **036** `is_rh_admin`, **042** faturação só RH e **043** Web Push)
 
 Ficheiros SQL soltos em `pwa/supabase-*.sql` são referência legada — a fonte de verdade são as migrations.
 
@@ -79,7 +79,7 @@ Executar no Supabase → SQL Editor, por ordem numérica em `pwa/supabase/migrat
 
 Há dois pares com o mesmo prefixo (`007_*`, `022_*`) — aplicar **ambos** (ordem alfabética dentro do número).
 
-A **020** é obrigatória para o modelo serviço/visita. A **036** alinha RLS RH com a app.
+A **020** é obrigatória para o modelo serviço/visita. A **036** alinha RLS RH com a app. A **042** impede técnicos de alterar faturas. A **043** guarda as subscrições Web Push (avisos com a app fechada).
 
 ## Scripts úteis
 
@@ -89,9 +89,10 @@ A **020** é obrigatória para o modelo serviço/visita. A **036** alinha RLS RH
 | `npm run lint` | ESLint em `pwa/js` e `pwa/api` |
 | `npm run sync:rh-config` | Sincroniza config RH (`shared/rh-admin-config.json`) |
 | `npm run import:catalogo` | Importa catálogo de produtos |
+| `npm run vapid:keys` | Gera chaves VAPID para avisos com a PWA fechada |
 
 ## Deploy
 
 **Railway:** ver [`RAILWAY.md`](RAILWAY.md) — PWA + API no mesmo serviço (`npm run build` / `npm start`).
 
-Variáveis: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `EMAIL_USER`, `EMAIL_PASS`, `APP_BASE_URL`, etc.
+Variáveis: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `EMAIL_USER`, `EMAIL_PASS`, `APP_BASE_URL`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, etc.

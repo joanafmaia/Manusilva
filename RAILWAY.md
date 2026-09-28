@@ -26,6 +26,9 @@ Em **Variables**:
 | `APP_BASE_URL` | Recomendado | URL público sem `/` final |
 | `MAPBOX_ACCESS_TOKEN` | Opcional | Mapas / deslocação |
 | `AVALIACAO_TOKEN_SECRET` | Opcional | Tokens de avaliação |
+| `VAPID_PUBLIC_KEY` | **Sim (avisos fechados)** | `npm run vapid:keys` — chave pública Web Push |
+| `VAPID_PRIVATE_KEY` | **Sim (avisos fechados)** | Chave privada (não commitar) |
+| `VAPID_SUBJECT` | Opcional | Default: `mailto:manusilva.lda@gmail.com` |
 
 ### E-mail — Gmail API
 
@@ -54,6 +57,18 @@ npm run gmail:oauth
 
 Podes **apagar** `BREVO_API_KEY` / `RESEND_API_KEY` se existirem — já não são usadas.
 
+### Web Push — avisos com a app fechada
+
+Técnicos e RH recebem aviso do sistema (trabalho atribuído, relatório pendente, rejeição/aprovação) mesmo com o browser fechado.
+
+1. No PC: `npm run vapid:keys` → copiar as variáveis para a Railway
+2. No Supabase → SQL Editor: executar `pwa/supabase/migrations/043_push_subscriptions.sql`
+3. Redeploy
+4. Na app: o primeiro clique pede permissão de notificações (uma vez)
+5. iPhone: instalar a PWA no ecrã inicial (Safari). O Chrome no iOS não recebe Web Push
+
+Verificar: `https://SEU-DOMINIO/api/health` → `"push": { "configured": true }`.
+
 A Railway define `PORT` automaticamente. `RAILWAY_PUBLIC_DOMAIN` serve de fallback de URL base.
 
 ## 3. Domínio
@@ -66,7 +81,7 @@ A Railway define `PORT` automaticamente. `RAILWAY_PUBLIC_DOMAIN` serve de fallba
 ## 4. Após o deploy
 
 - `https://SEU-DOMINIO/` → login
-- `https://SEU-DOMINIO/api/health` → `{ "ok": true, "email": { "active": "gmail_api", ... } }`
+- `https://SEU-DOMINIO/api/health` → `{ "ok": true, "email": { "active": "gmail_api", ... }, "push": { "configured": true } }`
 
 ## 5. Local
 

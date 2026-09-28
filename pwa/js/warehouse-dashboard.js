@@ -7,6 +7,7 @@ import { initLogoutButton, renderUserGreeting } from './auth.js';
 import { bindAppRefreshButton } from './app-refresh-ui.js';
 import { finishAppBoot } from './bootstrap-entry.js';
 import { openFolhaObraEditor, mountFolhasObraTab } from './views/folhas-obra.js';
+import { requestTechNotificationPermission } from './tech-notifications.js';
 
 async function renderWarehouseHome(session) {
   const mount = document.getElementById('warehouse-app-mount');
@@ -39,6 +40,17 @@ export async function initWarehouseDashboard() {
   });
 
   finishAppBoot();
+  if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+    requestTechNotificationPermission().catch(() => {});
+  } else {
+    document.addEventListener(
+      'click',
+      () => {
+        requestTechNotificationPermission().catch(() => {});
+      },
+      { once: true, passive: true },
+    );
+  }
   await renderWarehouseHome(session);
 
   void warmOperacoes()

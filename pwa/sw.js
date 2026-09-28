@@ -4,7 +4,7 @@
  * Online: rede primeiro (JS/HTML atualizados).
  * Offline: cache local (arranque e módulos já visitados).
  */
-const CACHE_VERSION = '653ad1e-clickfix';
+const CACHE_VERSION = 'e389865-webpush';
 const CACHE_SHELL = `manusilva-shell-${CACHE_VERSION}`;
 const CACHE_RUNTIME = `manusilva-runtime-${CACHE_VERSION}`;
 
@@ -109,6 +109,62 @@ async function navigateWithCache(request) {
     throw new Error('offline');
   }
 }
+
+self.addEventListener('push', (event) => {
+  event.waitUntil(
+    (async () => {
+      let data = { title: 'ManuSilva', body: '', url: '/dashboard.html', tag: 'mfs' };
+      try {
+        data = { ...data, ...(event.data ? event.data.json() : {}) };
+      } catch {
+        try {
+          data.body = event.data ? await event.data.text() : '';
+        } catch {
+          /* ignore */
+        }
+      }
+
+      const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      const visible = windows.some((client) => client.visibilityState === 'visible');
+      if (visible) return;
+
+      await self.registration.showNotification(data.title || 'ManuSilva', {
+        body: data.body || '',
+        tag: data.tag || 'mfs-push',
+        icon: './assets/icons/icon-192.png',
+        badge: './assets/icons/icon-192.png',
+        data: { url: data.url || '/dashboard.html' },
+        renotify: true,
+      });
+    })(),
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const target = event.notification?.data?.url || '/dashboard.html';
+  event.waitUntil(
+    (async () => {
+      const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      for (const client of windows) {
+        if ('focus' in client) {
+          await client.focus();
+          if (client.navigate && target) {
+            try {
+              await client.navigate(target);
+            } catch {
+              /* ignore */
+            }
+          }
+          return;
+        }
+      }
+      if (self.clients.openWindow) {
+        await self.clients.openWindow(target);
+      }
+    })(),
+  );
+});
 
 self.addEventListener('fetch', (event) => {
   const { request } = event;

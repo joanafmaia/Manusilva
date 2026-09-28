@@ -23,7 +23,7 @@ async function getAuthenticatedUser(token) {
   return res.json();
 }
 
-async function requireRhUser(req) {
+async function requireAuthenticatedUser(req) {
   const token = getBearerToken(req);
   if (!token) {
     return { error: { status: 401, message: 'Autenticação obrigatória (Authorization: Bearer <JWT>).' } };
@@ -33,17 +33,25 @@ async function requireRhUser(req) {
   if (!user) {
     return { error: { status: 401, message: 'Sessão inválida ou expirada.' } };
   }
-  if (!isRhOrAdminAuthUser(user)) {
+
+  return { token, user };
+}
+
+async function requireRhUser(req) {
+  const auth = await requireAuthenticatedUser(req);
+  if (auth.error) return auth;
+  if (!isRhOrAdminAuthUser(auth.user)) {
     return {
       error: { status: 403, message: 'Acesso reservado a Recursos Humanos ou Admin autenticados.' },
     };
   }
 
-  return { token, user };
+  return auth;
 }
 
 module.exports = {
   getBearerToken,
   getAuthenticatedUser,
+  requireAuthenticatedUser,
   requireRhUser,
 };

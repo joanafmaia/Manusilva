@@ -1023,7 +1023,7 @@ function bindFotoInputs(overlay) {
   });
 }
 
-async function persistOptionalJobFotos(jobId, overlay = null) {
+async function persistOptionalJobFotos(jobId, overlay = null, { abortOnError = false } = {}) {
   const hasFotoWork =
     fotoAntesState.file ||
     fotoDepoisState.file ||
@@ -1045,10 +1045,16 @@ async function persistOptionalJobFotos(jobId, overlay = null) {
   } catch (err) {
     console.error('[Form] Upload fotos (opcional):', err);
     showToast(
-      'Não foi possível guardar as fotos — pode concluir o relatório na mesma.',
-      'warning',
+      abortOnError
+        ? 'Não foi possível guardar as fotos. O relatório não foi enviado — tente outra vez.'
+        : 'Não foi possível guardar as fotos — pode concluir o relatório na mesma.',
+      abortOnError ? 'error' : 'warning',
       7000,
     );
+    if (abortOnError) {
+      err.alreadyToasted = true;
+      throw err;
+    }
     return {
       fotoAntes: fotoAntesState.remoteUrl || null,
       fotoDepois: fotoDepoisState.remoteUrl || null,
@@ -1541,7 +1547,7 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport, opt
         return;
       }
 
-      const fotoResult = await persistOptionalJobFotos(job.id, overlay);
+      const fotoResult = await persistOptionalJobFotos(job.id, overlay, { abortOnError: true });
       report.data.fotoAntesUrl =
         fotoResult.fotoAntes || report.data.fotoAntesUrl || fotoAntesState.remoteUrl || null;
       report.data.fotoDepoisUrl =
@@ -1561,8 +1567,11 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport, opt
         window.dispatchEvent(new CustomEvent('db-updated'));
         window.dispatchEvent(new CustomEvent('trabalhos-pendentes-changed'));
       }
-    } catch {
-      /* toast já mostrado */
+    } catch (err) {
+      console.error('[Form] Submeter relatório:', err);
+      if (!err?.alreadyToasted) {
+        showToast(err?.message || 'Não foi possível enviar o relatório.', 'error', 7000);
+      }
     } finally {
       if (submitBtn) submitBtn.disabled = false;
     }

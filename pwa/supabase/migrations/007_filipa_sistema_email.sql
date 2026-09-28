@@ -34,7 +34,7 @@ SET
 WHERE lower(email) = 'filipa@rh.manusilva.internal';
 
 -- Conta nova (se ainda não existir): Dashboard → Authentication → Users → Add user
---   E-mail: filipa@sistema.com  |  Password: Filipa.2026
+--   E-mail: filipa@sistema.com  |  palavra-passe definida no Dashboard (não no git)
 --   User Metadata: {"role":"RH","nome":"Filipa"}
 UPDATE auth.users
 SET raw_user_meta_data = COALESCE(raw_user_meta_data, '{}'::jsonb) || jsonb_build_object(

@@ -257,6 +257,14 @@ export async function dismissPendingBillingServico(servicoId) {
 
   try {
     await updateServico(servicoId, { faturacao_status: 'dispensado' });
+    const reports = getServicoActiveReports(servicoId).filter((r) => r.status === 'approved');
+    await Promise.all(
+      reports.map((r) =>
+        updateRelatorio(r.id, {
+          faturacaoStatus: 'dispensado',
+        }),
+      ),
+    );
     window.dispatchEvent(new CustomEvent('db-updated'));
     showToast('Visita retirada da lista por faturar.', 'success');
     return true;

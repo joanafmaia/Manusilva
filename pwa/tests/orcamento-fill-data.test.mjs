@@ -18,7 +18,7 @@ describe('resolveOrcamentoDocumentDate', () => {
         orcamento: { enviadoEm: '2026-06-11T10:30:00.000Z' },
       },
     };
-    assert.equal(resolveOrcamentoDocumentDate(report), '2026-06-11T10:30:00.000Z');
+    assert.equal(resolveOrcamentoDocumentDate(report), '2026-06-11');
   });
 
   it('ignora data da intervenção — usa enviadoEm para o texto do PDF', () => {

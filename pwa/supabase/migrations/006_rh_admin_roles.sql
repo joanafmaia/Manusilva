@@ -34,7 +34,7 @@ WHERE lower(email) = 'joanamaia97@gmail.com';
 
 -- Filipa (sem e-mail pessoal): identificador interno só para o Supabase Auth.
 -- Dashboard → Authentication → Users → Add user:
---   E-mail: filipa@rh.manusilva.internal  |  Password: Filipa.2026
+--   E-mail: filipa@rh.manusilva.internal  |  palavra-passe definida no Dashboard (não no git)
 --   User Metadata: {"role":"RH","nome":"Filipa"}
 -- Ela entra na app com o nome «Filipa» + palavra-passe (nunca precisa do e-mail interno).
 UPDATE auth.users

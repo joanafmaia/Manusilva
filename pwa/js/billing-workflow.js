@@ -3,9 +3,9 @@
  */
 
 import {
-  dedupeReportsForDisplay,
   formatRelatoriosError,
   getReportsSnapshot,
+  uniqueReportsById,
   updateRelatorio,
 } from './relatorios-db.js';
 import { showToast } from './toast-modal.js';
@@ -184,7 +184,7 @@ export function isPendingBilling(report, allReports = null) {
 
 export function getPendingBillingReports() {
   const snapshot = getReportsSnapshot();
-  return dedupeReportsForDisplay(snapshot.filter((r) => isPendingBilling(r, snapshot))).sort(
+  return uniqueReportsById(snapshot.filter((r) => isPendingBilling(r, snapshot))).sort(
     (a, b) => String(a.approvedAt || '').localeCompare(String(b.approvedAt || '')),
   );
 }
@@ -231,7 +231,7 @@ export function resolveInvoiceBillingFields(
 
 /** Relatórios já faturados com cobrança em aberto */
 export function getPendingPaymentInvoices() {
-  return dedupeReportsForDisplay(
+  return uniqueReportsById(
     getReportsSnapshot().filter(
       (r) => r.faturacaoStatus === 'faturado' && isInvoiceAwaitingReceipt(r),
     ),
@@ -252,7 +252,7 @@ function accumulateInvoiceMetrics(entity, totals) {
 
 /** Métricas de fluxo de caixa (faturas emitidas na app — relatórios, visitas e manuais). */
 export function getBillingFinancialMetrics(getManualInvoicesFn = () => []) {
-  const invoicedReports = dedupeReportsForDisplay(
+  const invoicedReports = uniqueReportsById(
     getReportsSnapshot().filter((r) => r.faturacaoStatus === 'faturado' && !r.servicoId),
   );
   const totals = { totalFaturado: 0, totalRecebido: 0, totalDivida: 0 };
@@ -264,10 +264,12 @@ export function getBillingFinancialMetrics(getManualInvoicesFn = () => []) {
   return totals;
 }
 
-/** Valor da faturação pode ficar em branco quando a fatura agrega vários relatórios. */
+/** Valor da fatura é obrigatório — em branco distorce dívida e KPIs. */
 export function normalizeInvoiceAmountInput(valorFaturado) {
   const valorRaw = String(valorFaturado ?? '').trim().replace(',', '.');
-  if (!valorRaw) return { value: null, isBlank: true };
+  if (!valorRaw) {
+    throw new Error('Indique o valor total faturado.');
+  }
   const value = Number(valorRaw);
   if (!Number.isFinite(value) || value < 0) {
     throw new Error('Indique um valor total faturado válido.');

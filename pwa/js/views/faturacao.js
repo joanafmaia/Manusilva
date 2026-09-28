@@ -15,7 +15,7 @@ import {
   formatDate,
   showToast,
 } from '../app.js';
-import { dedupeReportsForDisplay } from '../relatorios-db.js';
+import { uniqueReportsById } from '../relatorios-db.js';
 import { getInvoicedServicos, getServico } from '../servicos-db.js';
 import {
   confirmManualInvoicePayment,
@@ -57,7 +57,7 @@ import { getReportOrcamentoPdfUrl } from '../pedido-orcamento.js';
 import { renderClientCombobox, bindClientComboboxes } from '../client-combobox.js';
 import { formatOrdemLabel, formatOpLabel } from '../report-review-ui.js';
 import { reportIsStandaloneOrcamento } from '../orcamento-standalone.js';
-import { STATUS_RECEBIMENTO_OPCOES, FATURA_CONDICAO_OPCOES, labelStatusRecebimento, condicaoFromClientCatalog } from '../billing-constants.js';
+import { STATUS_RECEBIMENTO_OPCOES, FATURA_CONDICAO_OPCOES, labelStatusRecebimento, labelFaturaCondicao, condicaoFromClientCatalog } from '../billing-constants.js';
 import {
   formatFolhaObraOrdemLabel,
   getFolhaObra,
@@ -77,6 +77,7 @@ import {
   listAvailableBillingYears,
 } from '../faturacao-stats.js';
 import {
+  allocateReceiptAcrossInvoices,
   describeInvoicePayment,
   isInvoiceAwaitingReceipt,
   isInvoiceFullyPaid,
@@ -464,7 +465,7 @@ function reportDateOf(report) {
 
 /** Todas as faturas registadas — relatórios legados + visitas (serviços). */
 function getInvoicedReports() {
-  return dedupeReportsForDisplay(
+  return uniqueReportsById(
     getReportsSnapshot().filter((r) => r.faturacaoStatus === 'faturado' && !r.servicoId),
   );
 }
@@ -1119,7 +1120,7 @@ function formatHistoryDate(isoDate) {
   return `${d}/${m}/${y}`;
 }
 
-function renderInvoiceRow(row, acumulado, showAcum) {
+function renderInvoiceRow(row, acumulado, showAcum, showReceiptSelect) {
   const {
     entity,
     nome,
@@ -1169,9 +1170,18 @@ function renderInvoiceRow(row, acumulado, showAcum) {
   const receiveBtn = pago
     ? ''
     : `<button type="button" class="btn-success btn-sm faturacao-btn-compact" ${paymentKindAttr} title="Registar valor recebido">Receber</button>`;
+  const selectCell =
+    showReceiptSelect && !pago
+      ? `<td class="faturacao-cell-select">
+          <input type="checkbox" class="faturacao-recibo-check" data-recibo-kind="${escapeHtml(kind)}" data-recibo-id="${escapeHtml(detailId)}" data-recibo-client="${escapeHtml(String(entity.clientId || ''))}" aria-label="Incluir fatura ${escapeHtml(numeroFatura || '')} no recibo conjunto">
+        </td>`
+      : showReceiptSelect
+        ? '<td class="faturacao-cell-select"></td>'
+        : '';
 
   return `
     <tr class="rh-data-table-row faturacao-history-row faturacao-invoice-row faturacao-row--compact${urgentRow ? ' faturacao-row--urgent' : ''}" data-invoice-kind="${kind}" data-invoice-id="${escapeHtml(detailId)}">
+      ${selectCell}
       <td class="rh-cell-date faturacao-cell-date">${escapeHtml(emissaoLabel)}</td>
       <td class="rh-cell-client faturacao-cell-client faturacao-cell-client--wrap">
         <button type="button" class="rh-cell-link-btn faturacao-history-client-btn faturacao-cell-client-name" ${detailAttr} title="Ver detalhe da fatura">
@@ -1237,7 +1247,7 @@ function renderInvoicesViewTabs(counts) {
   `;
 }
 
-function renderInvoicesTable(invoiceRows, invoices, clientActive) {
+function renderInvoicesTable(invoiceRows, invoices, clientActive, showReceiptSelect) {
   let cumulativeByReport = null;
   if (clientActive) {
     cumulativeByReport = new Map();
@@ -1259,6 +1269,13 @@ function renderInvoicesTable(invoiceRows, invoices, clientActive) {
       <table class="rh-data-table rh-data-table--compact faturacao-history-table faturacao-table faturacao-table--compact faturacao-table--invoices faturacao-table--dense">
         <thead>
           <tr>
+            ${
+              showReceiptSelect
+                ? `<th scope="col" class="faturacao-col-select">
+                    <input type="checkbox" id="faturacao-recibo-select-all" title="Selecionar faturas em aberto visíveis" aria-label="Selecionar todas as faturas em aberto visíveis">
+                  </th>`
+                : ''
+            }
             <th scope="col">Emissão</th>
             <th scope="col">Cliente</th>
             <th scope="col">Nº fatura</th>
@@ -1277,6 +1294,7 @@ function renderInvoicesTable(invoiceRows, invoices, clientActive) {
                 row,
                 cumulativeByReport ? cumulativeByReport.get(`${row.kind}:${row.entity.id}`) : null,
                 clientActive,
+                showReceiptSelect,
               ),
             )
             .join('')}
@@ -1303,7 +1321,7 @@ function renderInvoicesSection(invoices = getFilteredInvoices()) {
   let rowsHtml = '<p class="text-muted faturacao-empty">Sem faturas emitidas nos filtros selecionados.</p>';
 
   if (invoiceRows.length) {
-    rowsHtml = renderInvoicesTable(invoiceRows, invoices, clientActive);
+    rowsHtml = renderInvoicesTable(invoiceRows, invoices, clientActive, showAllPending);
     if (usePagination && remaining > 0) {
       rowsHtml += `
         <div class="faturacao-invoices-pagination">
@@ -1322,9 +1340,9 @@ function renderInvoicesSection(invoices = getFilteredInvoices()) {
       : '';
   const pendingHint =
     billingFilters.recebimentoStatus === 'pendente' && pendingCount > 0
-      ? `<p class="text-muted faturacao-invoices-lead">${pendingCount === 1 ? '1 documento em aberto' : `${pendingCount} documentos em aberto`} — vencidos e a vencer primeiro. Use <strong>Receber</strong> para registar o valor e a data.</p>`
+      ? `<p class="text-muted faturacao-invoices-lead">${pendingCount === 1 ? '1 documento em aberto' : `${pendingCount} documentos em aberto`} — vencidos e a vencer primeiro. Use <strong>Receber</strong> numa fatura, ou selecione várias do mesmo cliente para um <strong>recibo conjunto</strong>.</p>`
       : billingFilters.recebimentoStatus === 'vencido'
-        ? `<p class="text-muted faturacao-invoices-lead">${tabCounts.vencido === 1 ? '1 documento com prazo ultrapassado' : `${tabCounts.vencido} documentos com prazo ultrapassado`} — priorize a cobrança.</p>`
+        ? `<p class="text-muted faturacao-invoices-lead">${tabCounts.vencido === 1 ? '1 documento com prazo ultrapassado' : `${tabCounts.vencido} documentos com prazo ultrapassado`} — priorize a cobrança. Pode juntar várias no mesmo recibo.</p>`
       : billingFilters.recebimentoStatus === 'pago'
         ? `<p class="text-muted faturacao-invoices-lead">Documentos liquidados no período filtrado.</p>`
         : `<p class="text-muted faturacao-invoices-lead">Todos os documentos emitidos no período e cliente filtrados.</p>`;
@@ -1337,6 +1355,14 @@ function renderInvoicesSection(invoices = getFilteredInvoices()) {
       </div>
       ${pendingHint}
       ${rendaTotal}
+      ${
+        showAllPending && invoiceRows.length
+          ? `<div class="faturacao-recibo-toolbar">
+              <button type="button" class="btn-success btn-sm" id="faturacao-recibo-conjunto" disabled>Recibo conjunto</button>
+              <span class="text-muted" id="faturacao-recibo-conjunto-hint">Selecione 2 ou mais faturas do mesmo cliente.</span>
+            </div>`
+          : ''
+      }
       ${rowsHtml}
     </section>
   `;
@@ -1595,6 +1621,197 @@ function bindInvoicesSectionActions() {
     invoicesListVisibleCount += INVOICES_LIST_PAGE_SIZE;
     applyBillingFilters().catch(console.error);
   });
+
+  bindReceiptSelection(root);
+}
+
+function collectSelectedReceiptItems() {
+  const checks = [...(mountRoot?.querySelectorAll('.faturacao-recibo-check:checked') || [])];
+  const items = [];
+  for (const input of checks) {
+    const kind = input.getAttribute('data-recibo-kind') || 'report';
+    const id = input.getAttribute('data-recibo-id');
+    const entity = lookupInvoicedEntity(kind, id);
+    if (!entity || isInvoiceFullyPaid(entity)) continue;
+    items.push({ kind, entity });
+  }
+  return items;
+}
+
+function selectedReceiptClientKey(items) {
+  const keys = new Set(items.map((item) => String(item.entity?.clientId ?? '').trim()));
+  if (keys.size !== 1) return null;
+  const [key] = keys;
+  return key || null;
+}
+
+function updateReciboConjuntoToolbar() {
+  const btn = mountRoot?.querySelector('#faturacao-recibo-conjunto');
+  const hint = mountRoot?.querySelector('#faturacao-recibo-conjunto-hint');
+  if (!btn) return;
+  const items = collectSelectedReceiptItems();
+  const clientKey = selectedReceiptClientKey(items);
+  btn.disabled = !(items.length >= 2 && clientKey);
+  if (!hint) return;
+  if (items.length === 0) {
+    hint.textContent = 'Selecione 2 ou mais faturas do mesmo cliente.';
+  } else if (items.length === 1) {
+    hint.textContent = 'Selecione pelo menos mais uma fatura do mesmo cliente.';
+  } else if (!clientKey) {
+    hint.textContent = 'O recibo conjunto só pode incluir faturas do mesmo cliente.';
+  } else {
+    hint.textContent = `${items.length} faturas — o valor entra nas mais antigas primeiro.`;
+  }
+}
+
+function renderCombinedReceiptPreview(items, valorRaw) {
+  try {
+    const allocation = allocateReceiptAcrossInvoices(items, valorRaw);
+    const rows = allocation.lines
+      .map(
+        (line) => `<tr>
+          <td><code class="rh-ordem-badge faturacao-ordem">${escapeHtml(line.entity.numeroFatura || '—')}</code></td>
+          <td class="faturacao-cell-money">${escapeHtml(formatCurrencyEur(line.debt))}</td>
+          <td class="faturacao-cell-money">${escapeHtml(formatCurrencyEur(line.applied))}</td>
+        </tr>`,
+      )
+      .join('');
+    return `<table class="rh-data-table rh-data-table--compact faturacao-recibo-preview-table">
+      <thead><tr><th>Nº fatura</th><th>Em dívida</th><th>Este recibo</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <p class="text-muted faturacao-invoice-hint">Total do recibo: <strong>${escapeHtml(formatCurrencyEur(allocation.total))}</strong> de ${escapeHtml(formatCurrencyEur(allocation.totalDebt))} em dívida.</p>`;
+  } catch (err) {
+    return `<p class="text-muted faturacao-invoice-hint">${escapeHtml(err?.message || 'Valor inválido.')}</p>`;
+  }
+}
+
+function renderCombinedReceiptForm(items) {
+  const today = todayPaymentDateInput();
+  const meta = resolveClientMeta(items[0]?.entity?.clientId);
+  const numeros = items
+    .map((item) => item.entity?.numeroFatura)
+    .filter(Boolean)
+    .join(', ');
+  return `
+    <form id="confirm-combined-receipt-form" class="faturacao-invoice-form faturacao-invoice-form--grid">
+      <p class="text-muted faturacao-invoice-hint faturacao-invoice-form-span">
+        Recibo conjunto de <strong>${escapeHtml(meta.nome)}</strong>
+        — ${items.length} faturas (${escapeHtml(numeros || 'sem número')}).
+        O valor preenche primeiro as faturas com vencimento mais antigo.
+      </p>
+      <div class="form-group">
+        <label class="form-label" for="combined-receipt-valor">Valor do recibo (€)</label>
+        <input type="text" inputmode="decimal" class="form-input" id="combined-receipt-valor" autocomplete="off" placeholder="vazio = liquidar todas">
+        <p class="text-muted faturacao-invoice-hint">Deixe vazio para liquidar o restante das faturas selecionadas.</p>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="combined-receipt-data">Data de recebimento</label>
+        <input type="date" class="form-input" id="combined-receipt-data" required value="${today}">
+      </div>
+      <div class="faturacao-invoice-form-span" id="combined-receipt-preview">
+        ${renderCombinedReceiptPreview(items, '')}
+      </div>
+    </form>
+  `;
+}
+
+function bindCombinedReceiptModal(items) {
+  const valorInput = document.getElementById('combined-receipt-valor');
+  const preview = document.getElementById('combined-receipt-preview');
+  const refreshPreview = () => {
+    if (preview) preview.innerHTML = renderCombinedReceiptPreview(items, valorInput?.value);
+  };
+  valorInput?.addEventListener('input', refreshPreview);
+  document.querySelector('[data-modal-cancel]')?.addEventListener('click', closeModal);
+  document.getElementById('btn-confirm-combined-receipt')?.addEventListener('click', async () => {
+    const data = document.getElementById('combined-receipt-data')?.value?.trim();
+    const valor = valorInput?.value?.trim() || '';
+    const btn = document.getElementById('btn-confirm-combined-receipt');
+    if (!data) {
+      showToast('Indique a data de recebimento.', 'warning');
+      return;
+    }
+    btn.disabled = true;
+    try {
+      const allocation = allocateReceiptAcrossInvoices(items, valor);
+      for (const line of allocation.lines) {
+        const ok = await submitInvoiceReceipt(line.kind, line.entity.id, {
+          dataRecebimento: data,
+          valorRecebido: String(line.applied),
+        });
+        if (!ok) {
+          btn.disabled = false;
+          return;
+        }
+      }
+      closeModal();
+      showToast(
+        `Recibo registado em ${allocation.lines.length} fatura${allocation.lines.length === 1 ? '' : 's'}.`,
+        'success',
+      );
+      await refreshFaturacaoPanel({ soft: true });
+    } catch (err) {
+      console.error('[Faturação] Recibo conjunto:', err);
+      showToast(err?.message || 'Erro ao registar o recibo conjunto.', 'error');
+      btn.disabled = false;
+    }
+  });
+}
+
+function openCombinedReceiptModal() {
+  const items = collectSelectedReceiptItems();
+  const clientKey = selectedReceiptClientKey(items);
+  if (items.length < 2) {
+    showToast('Selecione pelo menos duas faturas.', 'warning');
+    return;
+  }
+  if (!clientKey) {
+    showToast('O recibo conjunto só pode incluir faturas do mesmo cliente.', 'warning');
+    return;
+  }
+  const actions = `
+    <button type="button" class="btn-outline" data-modal-cancel>Cancelar</button>
+    <button type="button" class="btn-success" id="btn-confirm-combined-receipt">Registar recibo</button>
+  `;
+  openModal('Recibo conjunto', renderCombinedReceiptForm(items), actions);
+  bindCombinedReceiptModal(items);
+}
+
+function bindReceiptSelection(root) {
+  const checks = root.querySelectorAll('.faturacao-recibo-check');
+  if (!checks.length) return;
+
+  const syncSelectAll = () => {
+    const selectAll = root.querySelector('#faturacao-recibo-select-all');
+    if (!selectAll) return;
+    const enabled = [...checks];
+    selectAll.checked = enabled.length > 0 && enabled.every((el) => el.checked);
+    selectAll.indeterminate = enabled.some((el) => el.checked) && !selectAll.checked;
+  };
+
+  checks.forEach((input) => {
+    input.addEventListener('click', (e) => e.stopPropagation());
+    input.addEventListener('change', () => {
+      updateReciboConjuntoToolbar();
+      syncSelectAll();
+    });
+  });
+
+  root.querySelector('#faturacao-recibo-select-all')?.addEventListener('change', (e) => {
+    const checked = Boolean(e.target.checked);
+    checks.forEach((input) => {
+      input.checked = checked;
+    });
+    updateReciboConjuntoToolbar();
+    syncSelectAll();
+  });
+
+  root.querySelector('#faturacao-recibo-conjunto')?.addEventListener('click', () => {
+    openCombinedReceiptModal();
+  });
+
+  updateReciboConjuntoToolbar();
 }
 
 function bindFilterEvents() {
@@ -1764,7 +1981,8 @@ function openRegisterManualInvoiceModal() {
       </div>
       <div class="form-group">
         <label class="form-label" for="manual-invoice-valor">Valor Total Faturado (€)</label>
-        <input type="text" inputmode="decimal" class="form-input" id="manual-invoice-valor" placeholder="0,00" autocomplete="off">
+        <input type="text" inputmode="decimal" class="form-input" id="manual-invoice-valor" required
+          placeholder="0,00" autocomplete="off">
       </div>
       <div class="form-group">
         <label class="form-label" for="manual-invoice-data">Data de Emissão</label>
@@ -1821,7 +2039,11 @@ function openRegisterManualInvoiceModal() {
       showToast('Indique do que é a fatura (Visita / Relatório).', 'warning');
       return;
     }
-    if (valor) {
+    if (!valor) {
+      showToast('Indique o valor total faturado.', 'warning');
+      return;
+    }
+    {
       const valorNum = Number(valor.replace(',', '.'));
       if (!Number.isFinite(valorNum) || valorNum < 0) {
         showToast('Indique um valor total faturado válido.', 'warning');
@@ -1886,7 +2108,7 @@ function openRegisterInvoiceModalCore({
       </div>
       <div class="form-group">
         <label class="form-label" for="invoice-valor">Valor Total Faturado (€)</label>
-        <input type="text" inputmode="decimal" class="form-input" id="invoice-valor" name="valor"
+        <input type="text" inputmode="decimal" class="form-input" id="invoice-valor" name="valor" required
           placeholder="${escapeHtml(valorPlaceholder)}" autocomplete="off">
       </div>
       <div class="form-group">
@@ -1929,7 +2151,11 @@ function openRegisterInvoiceModalCore({
       showToast('Preencha o número e a data de emissão.', 'warning');
       return;
     }
-    if (valor) {
+    if (!valor) {
+      showToast('Indique o valor total faturado.', 'warning');
+      return;
+    }
+    {
       const valorNum = Number(valor.replace(',', '.'));
       if (!Number.isFinite(valorNum) || valorNum < 0) {
         showToast('Indique um valor total faturado válido.', 'warning');
@@ -2739,6 +2965,8 @@ function exportFilteredInvoicesCsv() {
     'Recebido (EUR)',
     'Em dívida (EUR)',
     'Estado',
+    'Condição',
+    'Data vencimento',
     'Data recebimento',
     'Aprovado por',
     'Faturado por',
@@ -2763,6 +2991,8 @@ function exportFilteredInvoicesCsv() {
       auditRow.recebido,
       auditRow.divida,
       auditRow.estadoLabel || labelStatusRecebimento(entity.statusRecebimento),
+      labelFaturaCondicao(auditRow.condicaoPagamento || entity.condicaoPagamento),
+      auditRow.dataVencimento || '',
       recebimento,
       auditRow.aprovadoPor || '',
       auditRow.faturadoPor || '',

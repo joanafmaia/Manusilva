@@ -305,7 +305,7 @@ async function syncOnePendingItem(item) {
  * @returns {Promise<{ synced: number, remaining: number, failed: Array<{ id: string, error: string, title: string }> }>}
  */
 export async function sincronizarTrabalhosOffline(options = {}) {
-  const { notify = true } = options;
+  const { notify = true, pushNotify = true } = options;
   const emptyFailed = [];
   if (!canSyncToServer()) {
     return {
@@ -334,6 +334,18 @@ export async function sincronizarTrabalhosOffline(options = {}) {
         await syncOnePendingItem(item);
         await removeTrabalhoPendente(item.id);
         synced++;
+        if (pushNotify && (item.tipo === 'submit' || item.report?.status === 'pending_review')) {
+          const report = item.report;
+          if (report && !report.servicoId) {
+            const { notifyRhPending } = await import('./web-push-client.js');
+            notifyRhPending({
+              techName: report.technicianId,
+              clientId: report.clientId,
+              reportId: report.id,
+              jobId: report.jobId,
+            });
+          }
+        }
       } catch (err) {
         console.error('[ManuSilva] Falha ao sincronizar item offline:', item.id, err);
         const error = await markPendingSyncFailure(item, err);

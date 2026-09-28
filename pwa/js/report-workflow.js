@@ -221,7 +221,7 @@ export async function submitReport(report, options = {}) {
   }
 
   try {
-    await sincronizarTrabalhosOffline({ notify: false });
+    await sincronizarTrabalhosOffline({ notify: false, pushNotify: false });
 
     if (!(await hasTrabalhoPendente(pendingId))) {
       const { reportDraftStorageKey } = await import('./report-local-storage.js');
@@ -242,6 +242,19 @@ export async function submitReport(report, options = {}) {
             : 'Relatório concluído e enviado para aprovação do RH.',
           'success',
         );
+      }
+      if (!fromServicoVisitSubmit) {
+        void import('./web-push-client.js')
+          .then((m) =>
+            m.notifyRhPending({
+              techName: resolveReportTechnicianLabel(syncedReport) || syncedReport.technicianId,
+              clientId: syncedReport.clientId,
+              reportId: syncedReport.id,
+              jobId: syncedReport.jobId,
+              servicoId: syncedReport.servicoId,
+            }),
+          )
+          .catch((err) => console.warn('[Push] Relatório pendente:', err));
       }
       return { queued: false, updated: isCorrection };
     }
@@ -444,6 +457,21 @@ async function approveReportOnce(reportId, options = {}) {
     const { upsertClienteEquipamentosFromReport } = await import('./cliente-equipamentos-db.js');
     void upsertClienteEquipamentosFromReport(reportForPdf);
 
+    const technicianStored =
+      (reportForPdf.jobId ? getJob(reportForPdf.jobId)?.technicianId : '') ||
+      (servicoId ? getServico(servicoId)?.technicianIds : '') ||
+      reportForPdf.technicianId ||
+      report.technicianId;
+    void import('./web-push-client.js')
+      .then((m) =>
+        m.notifyTechnicianReportStatus({
+          technicianStored,
+          report: reportForPdf,
+          rejected: false,
+        }),
+      )
+      .catch((err) => console.warn('[Push] Aprovação:', err));
+
     const skipClientEmail = options.skipClientEmail === true;
 
     let emailSynced = false;
@@ -645,6 +673,21 @@ export async function rejectReport(reportId, note) {
       await patchTrabalhoStatus(report.jobId, { status: 'rejected', rejectionNote: note });
     }
     window.dispatchEvent(new CustomEvent('db-updated'));
+    const servicoId = resolveServicoIdForReport(report);
+    const technicianStored =
+      (report.jobId ? getJob(report.jobId)?.technicianId : '') ||
+      (servicoId ? getServico(servicoId)?.technicianIds : '') ||
+      report.technicianId;
+    void import('./web-push-client.js')
+      .then((m) =>
+        m.notifyTechnicianReportStatus({
+          technicianStored,
+          report,
+          rejected: true,
+          note,
+        }),
+      )
+      .catch((err) => console.warn('[Push] Rejeição:', err));
     showToast('Relatório rejeitado. O técnico foi notificado.', 'error');
     return true;
   } catch (err) {

@@ -4,6 +4,7 @@
 -- Novos clientes e faturas passam a 30 dias.
 -- Clientes já gravados como pronto-pagamento passam a 30 dias;
 -- os que já têm 60 dias mantêm-se. Depois, altere só as excepções na ficha.
+-- As faturas já emitidas NÃO são alteradas aqui — ver 041_faturas_existentes_30_dias.sql.
 
 BEGIN;
 

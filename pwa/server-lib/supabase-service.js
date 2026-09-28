@@ -62,8 +62,23 @@ async function servicePost(path, body, prefer = 'return=minimal') {
   return null;
 }
 
+async function serviceDelete(path) {
+  const res = await fetch(`${getSupabaseUrl()}${path}`, {
+    method: 'DELETE',
+    headers: serviceHeaders(),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    const err = new Error(`Supabase ${res.status}: ${text.slice(0, 300)}`);
+    err.status = res.status;
+    err.responseText = text;
+    throw err;
+  }
+}
+
 module.exports = {
   serviceGet,
   servicePost,
+  serviceDelete,
   hasServiceRoleKey: () => Boolean(SERVICE_ROLE_KEY),
 };

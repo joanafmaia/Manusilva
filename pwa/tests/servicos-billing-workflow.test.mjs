@@ -119,6 +119,17 @@ describe('servicos-billing-workflow', () => {
 
     const relatoriosDb = await import('../js/relatorios-db.js');
     relatoriosDb.mergeReportInCache({
+      id: 'r-tech-visita',
+      servicoId: 'svc-bill',
+      serviceType: 'manutencao_preventiva_empilhadores',
+      status: 'approved',
+      approvedAt: '2026-07-02T08:00:00.000Z',
+      clientId: '10',
+      technicianId: 'Hugo',
+      faturacaoStatus: 'via_servico',
+      data: {},
+    });
+    relatoriosDb.mergeReportInCache({
       id: 'r-orc-visita',
       servicoId: 'svc-bill',
       serviceType: 'folha_intervencao_avarias',

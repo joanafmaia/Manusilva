@@ -10,15 +10,9 @@ import { STANDALONE_ORCAMENTO_ORIGEM, STANDALONE_ORCAMENTO_SERVICE_TYPE } from '
 import { ORCAMENTO_RESPOSTA } from '../js/orcamento-workflow.js';
 
 describe('billing-workflow', () => {
-  it('aceita valor em branco para faturação agrupada', () => {
-    assert.deepEqual(normalizeInvoiceAmountInput(''), {
-      value: null,
-      isBlank: true,
-    });
-    assert.deepEqual(normalizeInvoiceAmountInput('   '), {
-      value: null,
-      isBlank: true,
-    });
+  it('rejeita valor em branco — a fatura precisa de montante', () => {
+    assert.throws(() => normalizeInvoiceAmountInput(''), /valor total faturado/i);
+    assert.throws(() => normalizeInvoiceAmountInput('   '), /valor total faturado/i);
   });
 
   it('aceita valores numéricos com ponto ou vírgula', () => {
@@ -221,5 +215,57 @@ describe('billing-workflow', () => {
       urlPdf: orcamentoUrl,
     }));
     assert.equal(entries.length, 0);
+  });
+
+  it('getPendingBillingReports — mantém dois relatórios pendentes com a mesma OP', async () => {
+    const trabalhosDb = await import('../js/trabalhos-db.js');
+    const relatoriosDb = await import('../js/relatorios-db.js');
+    relatoriosDb.invalidateReportsCache();
+    trabalhosDb.invalidateJobsCache();
+    trabalhosDb.mergeJobFromRealtime({
+      id: 'job-op-88-a',
+      numero_ordem: 88,
+      cliente_id: 10,
+      data: '2026-09-01',
+      tecnico_id: 'Hugo',
+      tipo_servico: 'manutencao_preventiva_empilhadores',
+      estado: 'completed',
+    });
+    trabalhosDb.mergeJobFromRealtime({
+      id: 'job-op-88-b',
+      numero_ordem: 88,
+      cliente_id: 10,
+      data: '2026-09-01',
+      tecnico_id: 'Filipe',
+      tipo_servico: 'reparacao_carregador',
+      estado: 'completed',
+    });
+    relatoriosDb.mergeReportInCache({
+      id: 'rep-op-88-a',
+      jobId: 'job-op-88-a',
+      numeroOrdem: 88,
+      serviceType: 'manutencao_preventiva_empilhadores',
+      status: 'approved',
+      approvedAt: '2026-09-01T10:00:00.000Z',
+      clientId: '10',
+      faturacaoStatus: 'pendente',
+      data: { values: {} },
+    });
+    relatoriosDb.mergeReportInCache({
+      id: 'rep-op-88-b',
+      jobId: 'job-op-88-b',
+      numeroOrdem: 88,
+      serviceType: 'reparacao_carregador',
+      status: 'approved',
+      approvedAt: '2026-09-01T11:00:00.000Z',
+      clientId: '10',
+      faturacaoStatus: 'pendente',
+      data: { values: {} },
+    });
+
+    const { getPendingBillingReports } = await import('../js/billing-workflow.js');
+    const pending = getPendingBillingReports();
+    const ids = pending.map((r) => r.id).sort();
+    assert.deepEqual(ids, ['rep-op-88-a', 'rep-op-88-b']);
   });
 });

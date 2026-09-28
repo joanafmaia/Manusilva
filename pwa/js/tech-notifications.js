@@ -58,15 +58,30 @@ function postTechNotification(title, body, tag) {
   }
 }
 
+async function subscribeWebPushIfGranted(permission) {
+  if (permission !== 'granted') return;
+  try {
+    const { ensureWebPushSubscription } = await import('./web-push-client.js');
+    await ensureWebPushSubscription();
+  } catch (err) {
+    console.warn('[Técnico] Web Push:', err);
+  }
+}
+
 export async function requestTechNotificationPermission() {
   if (!('Notification' in window)) return 'unsupported';
-  if (Notification.permission === 'granted') return 'granted';
+  if (Notification.permission === 'granted') {
+    await subscribeWebPushIfGranted('granted');
+    return 'granted';
+  }
   if (Notification.permission === 'denied') return 'denied';
   if (localStorage.getItem(TECH_NOTIF_ASKED_KEY) === '1') return 'default';
 
   localStorage.setItem(TECH_NOTIF_ASKED_KEY, '1');
   try {
-    return await Notification.requestPermission();
+    const result = await Notification.requestPermission();
+    await subscribeWebPushIfGranted(result);
+    return result;
   } catch {
     return 'default';
   }

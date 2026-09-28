@@ -188,6 +188,9 @@ function bindTechDashboardDataListeners() {
 }
 
 function bindNotificationPermissionOnGesture() {
+  if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+    requestTechNotificationPermission().catch(() => {});
+  }
   const ask = () => {
     requestTechNotificationPermission().catch(() => {});
   };

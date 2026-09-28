@@ -208,6 +208,19 @@ export async function submitServicoVisit(servicoId, signatures) {
     window.dispatchEvent(new CustomEvent('db-updated'));
     window.dispatchEvent(new CustomEvent('jobs-updated'));
 
+    const servico = getServico(servicoId);
+    void import('./web-push-client.js')
+      .then(async (m) => {
+        const { getSession } = await import('./session.js');
+        m.notifyRhPending({
+          techName: getSession()?.name,
+          clientId: servico?.clientId || state.readyDraftReports[0]?.clientId,
+          servicoId,
+          visit: true,
+        });
+      })
+      .catch((err) => console.warn('[Push] Visita pendente:', err));
+
     if (state.readyDraftReports.length) {
       if (!submitted) {
         showToast(

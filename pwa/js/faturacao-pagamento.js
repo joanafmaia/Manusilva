@@ -128,6 +128,76 @@ export function initialValorRecebidoForStatus(statusRecebimento, valorFaturado) 
   return 0;
 }
 
+function receiptAllocationEntity(item) {
+  return item?.entity || item;
+}
+
+function receiptAllocationKind(item) {
+  return item?.kind || 'report';
+}
+
+/** Recibo conjunto: vencimento mais antigo primeiro, depois emissão e nº de fatura. */
+export function sortItemsForReceiptAllocation(items = []) {
+  return [...items].sort((a, b) => {
+    const ea = receiptAllocationEntity(a);
+    const eb = receiptAllocationEntity(b);
+    const da = String(ea?.dataVencimento || ea?.dataFatura || '');
+    const db = String(eb?.dataVencimento || eb?.dataFatura || '');
+    if (da !== db) return da.localeCompare(db);
+    const na = String(ea?.numeroFatura || '');
+    const nb = String(eb?.numeroFatura || '');
+    return na.localeCompare(nb, 'pt');
+  });
+}
+
+/**
+ * Distribui o valor de um recibo por várias faturas (FIFO por vencimento).
+ * Campo vazio = liquida a dívida conjunta das selecionadas.
+ * @param {Array<{ kind?: string, entity?: object } | object>} items
+ * @param {string|number|null} [totalAmountRaw]
+ */
+export function allocateReceiptAcrossInvoices(items = [], totalAmountRaw) {
+  const ranked = sortItemsForReceiptAllocation(items)
+    .map((item) => {
+      const entity = receiptAllocationEntity(item);
+      return {
+        kind: receiptAllocationKind(item),
+        entity,
+        debt: resolveValorDivida(entity),
+      };
+    })
+    .filter((row) => row.entity && row.debt > MONEY_EPS);
+
+  if (ranked.length < 1) {
+    throw new Error('As faturas selecionadas já não têm valor em dívida.');
+  }
+
+  const totalDebt = roundMoney(ranked.reduce((sum, row) => sum + row.debt, 0));
+  const parsed = parseReceiptAmountInput(totalAmountRaw);
+  const total = parsed.isBlank ? totalDebt : parsed.value;
+  if (total > totalDebt + MONEY_EPS) {
+    throw new Error(
+      `O valor excede a dívida conjunta (${totalDebt.toFixed(2).replace('.', ',')} €).`,
+    );
+  }
+
+  let remaining = total;
+  const lines = [];
+  for (const row of ranked) {
+    if (remaining <= MONEY_EPS) break;
+    const applied = roundMoney(Math.min(row.debt, remaining));
+    remaining = roundMoney(remaining - applied);
+    lines.push({
+      kind: row.kind,
+      entity: row.entity,
+      debt: row.debt,
+      applied,
+    });
+  }
+
+  return { total, totalDebt, lines };
+}
+
 export function describeInvoicePayment(entity = {}) {
   const status = resolveStatusRecebimento(entity);
   return {

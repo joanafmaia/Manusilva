@@ -1489,6 +1489,14 @@ export async function initOrcamentosPanel(root) {
 
   bindPanelEvents();
   await ensureFolhasObraLoadedSafe(true);
+  try {
+    const { ensureReportsLoaded } = await import('../relatorios-db.js');
+    const { repairOrcamentoAceiteBillingQueue } = await import('../orcamento-billing-workflow.js');
+    await ensureReportsLoaded();
+    await repairOrcamentoAceiteBillingQueue();
+  } catch (err) {
+    console.warn('[Orçamentos] Reparar fila de aceite:', err);
+  }
   bindFolhaObraRhSection(root, {
     session: getSession(),
     onRefresh: () => refreshOrcamentosPanel().catch(console.error),

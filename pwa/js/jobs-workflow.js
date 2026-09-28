@@ -34,6 +34,16 @@ export async function assignJob(jobData) {
     } else {
       showToast('Trabalho atribuído e guardado na base de dados.', 'success');
     }
+    void import('./web-push-client.js')
+      .then((m) =>
+        m.notifyTechniciansAssigned({
+          technicianStored: job.technicianId || jobData.technicianId,
+          clientId: job.clientId || jobData.clientId,
+          date: job.date || jobData.date,
+          jobId: job.id,
+        }),
+      )
+      .catch((err) => console.warn('[Push] Atribuição:', err));
     window.dispatchEvent(new CustomEvent('db-updated'));
     return job.id;
   } catch (err) {
@@ -64,6 +74,17 @@ export async function rescheduleJob(jobId, newDate) {
 
   try {
     await patchTrabalho(jobId, { date });
+    void import('./web-push-client.js')
+      .then((m) =>
+        m.notifyTechniciansAssigned({
+          technicianStored: job.technicianId,
+          clientId: job.clientId,
+          date,
+          jobId,
+          rescheduled: true,
+        }),
+      )
+      .catch((err) => console.warn('[Push] Reagendar:', err));
     window.dispatchEvent(new CustomEvent('db-updated'));
     showToast(`Trabalho reagendado para ${formatDateLong(date)}.`, 'success');
     return true;
