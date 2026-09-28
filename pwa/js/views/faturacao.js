@@ -1173,7 +1173,9 @@ function renderInvoiceRow(row, acumulado, showAcum, showReceiptSelect) {
   const selectCell =
     showReceiptSelect && !pago
       ? `<td class="faturacao-cell-select">
-          <input type="checkbox" class="faturacao-recibo-check" data-recibo-kind="${escapeHtml(kind)}" data-recibo-id="${escapeHtml(detailId)}" data-recibo-client="${escapeHtml(String(entity.clientId || ''))}" aria-label="Incluir fatura ${escapeHtml(numeroFatura || '')} no recibo conjunto">
+          <label class="faturacao-recibo-check-wrap">
+            <input type="checkbox" class="faturacao-recibo-check" data-recibo-kind="${escapeHtml(kind)}" data-recibo-id="${escapeHtml(String(detailId))}" data-recibo-client="${escapeHtml(String(entity.clientId || ''))}" aria-label="Incluir fatura ${escapeHtml(numeroFatura || '')} no recibo conjunto">
+          </label>
         </td>`
       : showReceiptSelect
         ? '<td class="faturacao-cell-select"></td>'
@@ -1272,7 +1274,9 @@ function renderInvoicesTable(invoiceRows, invoices, clientActive, showReceiptSel
             ${
               showReceiptSelect
                 ? `<th scope="col" class="faturacao-col-select">
-                    <input type="checkbox" id="faturacao-recibo-select-all" title="Selecionar faturas em aberto visíveis" aria-label="Selecionar todas as faturas em aberto visíveis">
+                    <label class="faturacao-recibo-check-wrap">
+                      <input type="checkbox" id="faturacao-recibo-select-all" title="Selecionar faturas em aberto visíveis" aria-label="Selecionar todas as faturas em aberto visíveis">
+                    </label>
                   </th>`
                 : ''
             }
@@ -1358,7 +1362,7 @@ function renderInvoicesSection(invoices = getFilteredInvoices()) {
       ${
         showAllPending && invoiceRows.length
           ? `<div class="faturacao-recibo-toolbar">
-              <button type="button" class="btn-success btn-sm" id="faturacao-recibo-conjunto" disabled>Recibo conjunto</button>
+              <button type="button" class="btn-success btn-sm" id="faturacao-recibo-conjunto">Recibo conjunto</button>
               <span class="text-muted" id="faturacao-recibo-conjunto-hint">Selecione 2 ou mais faturas do mesmo cliente.</span>
             </div>`
           : ''
@@ -1628,10 +1632,16 @@ function bindInvoicesSectionActions() {
 function collectSelectedReceiptItems() {
   const checks = [...(mountRoot?.querySelectorAll('.faturacao-recibo-check:checked') || [])];
   const items = [];
+  const catalog = getAllInvoicedEntities();
   for (const input of checks) {
     const kind = input.getAttribute('data-recibo-kind') || 'report';
-    const id = input.getAttribute('data-recibo-id');
-    const entity = lookupInvoicedEntity(kind, id);
+    const id = String(input.getAttribute('data-recibo-id') || '').trim();
+    if (!id) continue;
+    let entity = lookupInvoicedEntity(kind, id);
+    if (!entity) {
+      entity =
+        catalog.find((item) => item.kind === kind && String(item.entity?.id) === id)?.entity || null;
+    }
     if (!entity || isInvoiceFullyPaid(entity)) continue;
     items.push({ kind, entity });
   }
@@ -1651,7 +1661,9 @@ function updateReciboConjuntoToolbar() {
   if (!btn) return;
   const items = collectSelectedReceiptItems();
   const clientKey = selectedReceiptClientKey(items);
-  btn.disabled = !(items.length >= 2 && clientKey);
+  const ready = items.length >= 2 && Boolean(clientKey);
+  btn.classList.toggle('is-waiting', !ready);
+  btn.setAttribute('aria-disabled', ready ? 'false' : 'true');
   if (!hint) return;
   if (items.length === 0) {
     hint.textContent = 'Selecione 2 ou mais faturas do mesmo cliente.';
@@ -1660,8 +1672,16 @@ function updateReciboConjuntoToolbar() {
   } else if (!clientKey) {
     hint.textContent = 'O recibo conjunto só pode incluir faturas do mesmo cliente.';
   } else {
-    hint.textContent = `${items.length} faturas — o valor entra nas mais antigas primeiro.`;
+    hint.textContent = `${items.length} faturas — clique para registar o recibo.`;
   }
+}
+
+function syncReciboSelectAll(root = mountRoot) {
+  const selectAll = root?.querySelector('#faturacao-recibo-select-all');
+  if (!selectAll) return;
+  const enabled = [...(root.querySelectorAll('.faturacao-recibo-check') || [])];
+  selectAll.checked = enabled.length > 0 && enabled.every((el) => el.checked);
+  selectAll.indeterminate = enabled.some((el) => el.checked) && !selectAll.checked;
 }
 
 function renderCombinedReceiptPreview(items, valorRaw) {
@@ -1717,22 +1737,25 @@ function renderCombinedReceiptForm(items) {
 }
 
 function bindCombinedReceiptModal(items) {
-  const valorInput = document.getElementById('combined-receipt-valor');
-  const preview = document.getElementById('combined-receipt-preview');
+  const overlay = document.getElementById('modal-overlay');
+  const valorInput = overlay?.querySelector('#combined-receipt-valor') || document.getElementById('combined-receipt-valor');
+  const preview = overlay?.querySelector('#combined-receipt-preview') || document.getElementById('combined-receipt-preview');
+  const form = overlay?.querySelector('#confirm-combined-receipt-form');
+  const confirmBtn = overlay?.querySelector('#btn-confirm-combined-receipt');
   const refreshPreview = () => {
     if (preview) preview.innerHTML = renderCombinedReceiptPreview(items, valorInput?.value);
   };
   valorInput?.addEventListener('input', refreshPreview);
-  document.querySelector('[data-modal-cancel]')?.addEventListener('click', closeModal);
-  document.getElementById('btn-confirm-combined-receipt')?.addEventListener('click', async () => {
-    const data = document.getElementById('combined-receipt-data')?.value?.trim();
+  overlay?.querySelector('[data-modal-cancel]')?.addEventListener('click', closeModal);
+
+  const submit = async () => {
+    const data = overlay?.querySelector('#combined-receipt-data')?.value?.trim();
     const valor = valorInput?.value?.trim() || '';
-    const btn = document.getElementById('btn-confirm-combined-receipt');
     if (!data) {
       showToast('Indique a data de recebimento.', 'warning');
       return;
     }
-    btn.disabled = true;
+    if (confirmBtn) confirmBtn.disabled = true;
     try {
       const allocation = allocateReceiptAcrossInvoices(items, valor);
       for (const line of allocation.lines) {
@@ -1741,7 +1764,7 @@ function bindCombinedReceiptModal(items) {
           valorRecebido: String(line.applied),
         });
         if (!ok) {
-          btn.disabled = false;
+          if (confirmBtn) confirmBtn.disabled = false;
           return;
         }
       }
@@ -1754,8 +1777,17 @@ function bindCombinedReceiptModal(items) {
     } catch (err) {
       console.error('[Faturação] Recibo conjunto:', err);
       showToast(err?.message || 'Erro ao registar o recibo conjunto.', 'error');
-      btn.disabled = false;
+      if (confirmBtn) confirmBtn.disabled = false;
     }
+  };
+
+  form?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    void submit();
+  });
+  confirmBtn?.addEventListener('click', (e) => {
+    e.preventDefault();
+    void submit();
   });
 }
 
@@ -1779,39 +1811,48 @@ function openCombinedReceiptModal() {
 }
 
 function bindReceiptSelection(root) {
-  const checks = root.querySelectorAll('.faturacao-recibo-check');
-  if (!checks.length) return;
+  if (!root) return;
 
-  const syncSelectAll = () => {
-    const selectAll = root.querySelector('#faturacao-recibo-select-all');
-    if (!selectAll) return;
-    const enabled = [...checks];
-    selectAll.checked = enabled.length > 0 && enabled.every((el) => el.checked);
-    selectAll.indeterminate = enabled.some((el) => el.checked) && !selectAll.checked;
-  };
+  if (root.dataset.boundReciboConjunto !== '1') {
+    root.dataset.boundReciboConjunto = '1';
 
-  checks.forEach((input) => {
-    input.addEventListener('click', (e) => e.stopPropagation());
-    input.addEventListener('change', () => {
-      updateReciboConjuntoToolbar();
-      syncSelectAll();
+    root.addEventListener('click', (e) => {
+      const conjunto = e.target.closest('#faturacao-recibo-conjunto');
+      if (conjunto && root.contains(conjunto)) {
+        e.preventDefault();
+        openCombinedReceiptModal();
+        return;
+      }
+
+      const row = e.target.closest('tr.faturacao-invoice-row');
+      if (!row || !root.contains(row)) return;
+      if (e.target.closest('button, a, input, label, select, textarea')) return;
+      const check = row.querySelector('.faturacao-recibo-check');
+      if (!check) return;
+      check.checked = !check.checked;
+      check.dispatchEvent(new Event('change', { bubbles: true }));
     });
-  });
 
-  root.querySelector('#faturacao-recibo-select-all')?.addEventListener('change', (e) => {
-    const checked = Boolean(e.target.checked);
-    checks.forEach((input) => {
-      input.checked = checked;
+    root.addEventListener('change', (e) => {
+      const target = e.target;
+      if (!(target instanceof HTMLElement)) return;
+      if (target.id === 'faturacao-recibo-select-all') {
+        const checked = Boolean(target.checked);
+        root.querySelectorAll('.faturacao-recibo-check').forEach((input) => {
+          input.checked = checked;
+        });
+        updateReciboConjuntoToolbar();
+        return;
+      }
+      if (target.classList.contains('faturacao-recibo-check')) {
+        updateReciboConjuntoToolbar();
+        syncReciboSelectAll(root);
+      }
     });
-    updateReciboConjuntoToolbar();
-    syncSelectAll();
-  });
-
-  root.querySelector('#faturacao-recibo-conjunto')?.addEventListener('click', () => {
-    openCombinedReceiptModal();
-  });
+  }
 
   updateReciboConjuntoToolbar();
+  syncReciboSelectAll(root);
 }
 
 function bindFilterEvents() {

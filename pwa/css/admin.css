@@ -4531,20 +4531,34 @@ body .admin-rh-page .btn-primary, body .admin-rh-page .btn-secondary, body .admi
   align-items: center;
   gap: 0.65rem 0.85rem;
   margin: 0 0 0.75rem;
+  position: relative;
+  z-index: 2;
 }
 .faturacao-recibo-toolbar .text-muted {
   font-size: 0.8rem;
 }
+#faturacao-recibo-conjunto.is-waiting {
+  opacity: 0.72;
+}
 .faturacao-col-select,
 .faturacao-cell-select {
-  width: 2.1rem;
+  width: 2.6rem;
   text-align: center;
   vertical-align: middle;
 }
+.faturacao-recibo-check-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.4rem;
+  min-height: 2.4rem;
+  margin: -0.35rem;
+  cursor: pointer;
+}
 .faturacao-recibo-check,
 #faturacao-recibo-select-all {
-  width: 1rem;
-  height: 1rem;
+  width: 1.1rem;
+  height: 1.1rem;
   margin: 0;
   cursor: pointer;
 }
