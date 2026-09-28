@@ -9,7 +9,7 @@ import {
   updateRelatorio,
 } from './relatorios-db.js';
 import { showToast } from './toast-modal.js';
-import { normalizeFaturaCondicao, normalizeStatusRecebimento, condicaoFromClientCatalog } from './billing-constants.js';
+import { normalizeFaturaCondicao, normalizeStatusRecebimento, condicaoFromClientCatalog, DEFAULT_FATURA_CONDICAO } from './billing-constants.js';
 import { sameEntityId } from './entity-id.js';
 import { getReportOrcamentoMeta } from './orcamento-linhas.js';
 import { getClient, getJob } from './entity-lookups.js';
@@ -213,14 +213,14 @@ export function resolveInvoiceDueDate(condicaoPagamento, dataEmissao) {
 export function resolveInvoiceBillingFields(
   statusRecebimento,
   dataEmissao,
-  condicaoPagamento = 'pronto_pagamento',
+  condicaoPagamento = DEFAULT_FATURA_CONDICAO,
 ) {
   const status = normalizeStatusRecebimento(statusRecebimento);
-  let condicao = 'pronto_pagamento';
+  let condicao = DEFAULT_FATURA_CONDICAO;
   try {
-    condicao = normalizeFaturaCondicao(condicaoPagamento || 'pronto_pagamento');
+    condicao = normalizeFaturaCondicao(condicaoPagamento || DEFAULT_FATURA_CONDICAO);
   } catch {
-    condicao = 'pronto_pagamento';
+    condicao = DEFAULT_FATURA_CONDICAO;
   }
   return {
     faturaCondicaoPagamento: condicao,

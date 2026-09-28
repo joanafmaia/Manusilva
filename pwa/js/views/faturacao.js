@@ -1745,7 +1745,7 @@ function openRegisterManualInvoiceModal() {
   ).join('');
   const condicaoOptions = FATURA_CONDICAO_OPCOES.map(
     (opt) =>
-      `<option value="${opt.value}"${opt.value === 'pronto_pagamento' ? ' selected' : ''}>${escapeHtml(opt.label)}</option>`,
+      `<option value="${opt.value}"${opt.value === '30_dias' ? ' selected' : ''}>${escapeHtml(opt.label)}</option>`,
   ).join('');
 
   const content = `

@@ -58,10 +58,11 @@ export function renderClientFormSection(options = {}) {
         <div class="form-group">
           <label class="form-label" for="rh-client-condicao">Condição de pagamento</label>
           <select class="form-select" id="rh-client-condicao" aria-label="Condição de pagamento">
-            <option value="pronto_pagamento" selected>Pronto-pagamento</option>
-            <option value="30_dias">30 Dias</option>
+            <option value="30_dias" selected>30 Dias</option>
+            <option value="pronto_pagamento">Pronto-pagamento</option>
             <option value="60_dias">60 Dias</option>
           </select>
+          <p class="text-muted faturacao-field-hint">Padrão da empresa: 30 dias. Altere só se este cliente for diferente.</p>
         </div>
         <button type="submit" class="btn-primary rh-register-submit">Adicionar cliente</button>
       </form>
@@ -98,7 +99,7 @@ export function mountClientForm(root, callbacks = {}) {
         'Código postal': form.querySelector('#rh-client-cp')?.value,
         Localidade: form.querySelector('#rh-client-localidade')?.value,
         'País/Região': form.querySelector('#rh-client-pais')?.value,
-        condicao_pagamento: form.querySelector('#rh-client-condicao')?.value || 'pronto_pagamento',
+        condicao_pagamento: form.querySelector('#rh-client-condicao')?.value || '30_dias',
       });
 
       if (record) {
@@ -106,7 +107,7 @@ export function mountClientForm(root, callbacks = {}) {
         const pais = form.querySelector('#rh-client-pais');
         if (pais) pais.value = 'Portugal';
         const condicao = form.querySelector('#rh-client-condicao');
-        if (condicao) condicao.value = 'pronto_pagamento';
+        if (condicao) condicao.value = '30_dias';
         callbacks.onSuccess?.(record);
       }
     } finally {

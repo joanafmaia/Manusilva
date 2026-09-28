@@ -438,7 +438,7 @@ function bindClientProfilePanel(shell, profile, options = {}) {
     zona_rota: p.zonaRotaRaw || '',
     email: p.emailRaw || '',
     telemovel: p.phoneRaw || '',
-    condicao_pagamento: p.condicaoPagamento || 'pronto_pagamento',
+    condicao_pagamento: p.condicaoPagamento || '30_dias',
   });
 
   const repaint = async (editing) => {

@@ -1,11 +1,13 @@
 /**
  * Constantes de faturação / contas a receber (relatórios faturados).
- * Condição de pagamento: definida no cliente e aplicada ao registar a fatura.
+ * Condição de pagamento: 30 dias por omissão; o cliente pode ter outro prazo.
  */
 
+export const DEFAULT_FATURA_CONDICAO = '30_dias';
+
 export const FATURA_CONDICAO_OPCOES = [
-  { value: 'pronto_pagamento', label: 'Pronto-pagamento' },
   { value: '30_dias', label: '30 Dias' },
+  { value: 'pronto_pagamento', label: 'Pronto-pagamento' },
   { value: '60_dias', label: '60 Dias' },
 ];
 
@@ -27,12 +29,14 @@ export const STATUS_RECEBIMENTO_LABELS = {
 const CONDICAO_VALIDAS = new Set(FATURA_CONDICAO_OPCOES.map((o) => o.value));
 const STATUS_VALIDOS = new Set(STATUS_RECEBIMENTO_OPCOES.map((o) => o.value));
 
-/** Converte condição do cadastro do cliente para slug da fatura. */
+/** Converte condição do cadastro do cliente para slug da fatura. Vazio → 30 dias. */
 export function condicaoFromClientCatalog(clientCondicao) {
   const raw = String(clientCondicao || '').trim().toLowerCase();
+  if (!raw) return DEFAULT_FATURA_CONDICAO;
   if (raw.includes('60')) return '60_dias';
   if (raw.includes('30')) return '30_dias';
-  return 'pronto_pagamento';
+  if (raw.includes('pronto')) return 'pronto_pagamento';
+  return DEFAULT_FATURA_CONDICAO;
 }
 
 /** Compatibilidade com dados gravados antes da separação de campos (008). */

@@ -72,7 +72,7 @@ export async function addClient(payload) {
         null,
       condicao_pagamento:
         String(payload?.condicao_pagamento ?? payload?.condicaoPagamento ?? '').trim() ||
-        'pronto_pagamento',
+        '30_dias',
     };
 
     const supabase = await getSupabaseClient();
