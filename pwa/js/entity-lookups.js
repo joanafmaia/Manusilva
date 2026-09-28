@@ -72,6 +72,22 @@ export function getAllTechnicians() {
   return merged;
 }
 
+/** Equipa para atribuir trabalho / folhas de obra — sem nomes em falta nem duplicados. */
+export function getAssignableTechnicians() {
+  const seenName = new Set();
+  const list = [];
+  for (const tech of getAllTechnicians()) {
+    const name = String(tech?.name || '').trim();
+    if (!name) continue;
+    const key = name.toLowerCase();
+    if (seenName.has(key)) continue;
+    seenName.add(key);
+    list.push(tech);
+  }
+  list.sort((a, b) => a.name.localeCompare(b.name, 'pt'));
+  return list;
+}
+
 export function getTechnician(id) {
   return getAllTechnicians().find((t) => t.id === id) || null;
 }

@@ -6,7 +6,7 @@ import { escapeHtml } from '../html-utils.js';
 import { formatDate } from '../date-utils.js';
 import { showToast, openModal, closeModal } from '../toast-modal.js';
 import { renderClientCombobox, bindClientComboboxes } from '../client-combobox.js';
-import { getClient } from '../entity-lookups.js';
+import { getClient, getAssignableTechnicians } from '../entity-lookups.js';
 import { canReachServer, isOffline } from '../offline-mode.js';
 import {
   emptyIntervencaoRow,
@@ -33,7 +33,6 @@ import {
 } from '../folha-obra-orcamento.js';
 import { openFolhaObraEtiquetaPreview, prepareFolhaObraEtiquetaPrint, printFolhaObraEtiqueta } from '../folha-obra-etiqueta.js';
 import { renderClientFormSection, mountClientForm } from './rh-client-form.js';
-import { TECHNICIANS } from '../mock_data.js';
 
 const TIPO_OPCOES = ['Empilhador', 'Bateria', 'Carregador', 'Outro equipamento'];
 
@@ -214,17 +213,20 @@ function resolveDefaultTecnicoReparacao(folha) {
 }
 
 function renderResponsavelSelect(folha, session, { disabled = false, name = 'responsavel', id = 'folha-responsavel' } = {}) {
+  const techs = getAssignableTechnicians();
   const selectedName =
     folha?.responsavel ||
-    TECHNICIANS.find((t) => t.id === session?.technicianId)?.name ||
+    techs.find((t) => t.id === session?.technicianId)?.name ||
     '';
   return `
     <select class="form-select" id="${id}" name="${name}" required ${disabled ? 'disabled' : ''}>
       <option value="">— Selecionar técnico —</option>
-      ${TECHNICIANS.map(
-        (tech) =>
-          `<option value="${escapeHtml(tech.name)}" data-tech-id="${escapeHtml(tech.id)}"${selectedName === tech.name ? ' selected' : ''}>${escapeHtml(tech.name)}</option>`,
-      ).join('')}
+      ${techs
+        .map(
+          (tech) =>
+            `<option value="${escapeHtml(tech.name)}" data-tech-id="${escapeHtml(tech.id)}"${selectedName === tech.name ? ' selected' : ''}>${escapeHtml(tech.name)}</option>`,
+        )
+        .join('')}
     </select>
   `;
 }
@@ -234,10 +236,12 @@ function renderTecnicoReparacaoSelect(folha, session, { disabled = false } = {})
   return `
     <select class="form-select" id="folha-tecnico-reparacao" name="tecnico_reparacao" required ${disabled ? 'disabled' : ''}>
       <option value="">— Selecionar técnico —</option>
-      ${TECHNICIANS.map(
-        (tech) =>
-          `<option value="${escapeHtml(tech.name)}"${selectedName === tech.name ? ' selected' : ''}>${escapeHtml(tech.name)}</option>`,
-      ).join('')}
+      ${getAssignableTechnicians()
+        .map(
+          (tech) =>
+            `<option value="${escapeHtml(tech.name)}"${selectedName === tech.name ? ' selected' : ''}>${escapeHtml(tech.name)}</option>`,
+        )
+        .join('')}
     </select>
   `;
 }

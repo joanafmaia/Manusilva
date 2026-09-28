@@ -57,5 +57,17 @@ describe('warehouse role auth source', () => {
     assert.match(src, /\+ Novo cliente/);
     assert.match(src, /folha-obra-delete/);
     assert.match(src, /renderResponsavelSelect/);
+    assert.match(src, /getAssignableTechnicians/);
+    assert.doesNotMatch(src, /from '\.\.\/mock_data\.js'/);
+  });
+});
+
+describe('atribuição de trabalhos', () => {
+  it('usa o catálogo de técnicos, não uma lista fixa Hugo/Filipe/Adelton', async () => {
+    const fs = await import('node:fs/promises');
+    const src = await fs.readFile(new URL('../js/admin-dashboard.js', import.meta.url), 'utf8');
+    assert.doesNotMatch(src, /ASSIGN_TEAM_TECHS/);
+    assert.doesNotMatch(src, /\['Hugo',\s*'Filipe',\s*'Adelton'\]/);
+    assert.match(src, /getAssignableTechnicians/);
   });
 });

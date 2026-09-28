@@ -53,6 +53,7 @@ export { requireAuth } from './auth-guard.js';
 export {
   getClient,
   getAllTechnicians,
+  getAssignableTechnicians,
   getTechnician,
   parseTechnicianNamesFromJob,
   getJobTechnicianLabel,

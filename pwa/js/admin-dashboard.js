@@ -27,6 +27,7 @@ import {
   warmClientsCatalog,
   warmOperacoes,
   getAllTechnicians,
+  getAssignableTechnicians,
   getJobTechnicianLabel,
   getPrimaryTechnicianForJob,
   openModal,
@@ -2341,8 +2342,6 @@ function bindAssignWork() {
   });
 }
 
-const ASSIGN_TEAM_TECHS = ['Hugo', 'Filipe', 'Adelton'];
-
 async function openAssignModal() {
   try {
     await ensureProductionCatalog();
@@ -2352,19 +2351,34 @@ async function openAssignModal() {
     return;
   }
 
-  const techCheckboxes = ASSIGN_TEAM_TECHS.map(
-    (name) => `
+  try {
+    await syncTechniciansCatalog({ silent: true });
+    renderSidebar();
+  } catch (err) {
+    console.warn('[Admin] Catálogo de técnicos para atribuição:', err);
+  }
+
+  const assignableTechs = getAssignableTechnicians();
+  if (!assignableTechs.length) {
+    showToast('Não há técnicos no catálogo. Adicione o funcionário em Funcionários.', 'error', 7000);
+    return;
+  }
+
+  const techCheckboxes = assignableTechs
+    .map(
+      (tech) => `
       <label class="flex items-center gap-2 cursor-pointer">
         <input
           type="checkbox"
           class="assign-tech-checkbox rounded text-blue-600 focus:ring-blue-500"
           name="assign-tech"
-          value="${escapeHtml(name)}"
+          value="${escapeHtml(tech.name)}"
         >
-        ${escapeHtml(name)}
+        ${escapeHtml(tech.name)}
       </label>
     `,
-  ).join('');
+    )
+    .join('');
 
   const content = `
     <form id="assign-form" class="assign-form">
