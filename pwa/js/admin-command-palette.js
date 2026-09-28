@@ -3,9 +3,6 @@
  */
 
 import { searchAdminIndex } from './admin-command-search.js';
-import { buildAdminSearchIndex } from './admin-command-index.js';
-import { openClientProfilePanel } from './views/client-profile-drawer.js';
-import { openReportReviewModal } from './report-review-modal.js';
 import { escapeHtml } from './html-utils.js';
 
 const KIND_LABEL = {
@@ -24,6 +21,7 @@ let activeIndex = 0;
 let currentHits = [];
 let indexCache = [];
 let indexCachedAt = 0;
+let searchGen = 0;
 const INDEX_TTL_MS = 15_000;
 
 function isTypingTarget(el) {
@@ -33,9 +31,10 @@ function isTypingTarget(el) {
   return el.isContentEditable;
 }
 
-function getIndex() {
+async function getIndex() {
   const now = Date.now();
   if (!indexCache.length || now - indexCachedAt > INDEX_TTL_MS) {
+    const { buildAdminSearchIndex } = await import('./admin-command-index.js');
     indexCache = buildAdminSearchIndex();
     indexCachedAt = now;
   }
@@ -75,8 +74,18 @@ function renderHits() {
     .join('');
 }
 
-function refreshHits(query) {
-  currentHits = searchAdminIndex(getIndex(), query, { limit: 20 });
+async function refreshHits(query) {
+  const gen = ++searchGen;
+  const q = String(query || '').trim();
+  if (!q) {
+    currentHits = [];
+    activeIndex = 0;
+    renderHits();
+    return;
+  }
+  const index = await getIndex();
+  if (gen !== searchGen || !overlay) return;
+  currentHits = searchAdminIndex(index, query, { limit: 20 });
   if (activeIndex >= currentHits.length) activeIndex = Math.max(0, currentHits.length - 1);
   renderHits();
 }
@@ -87,11 +96,13 @@ async function runAction(hit) {
   closePalette();
 
   if (action.type === 'client' && action.clientId) {
+    const { openClientProfilePanel } = await import('./views/client-profile-drawer.js');
     await openClientProfilePanel(action.clientId, { initialTab: action.tab || 'contactos' });
     return;
   }
   if (action.type === 'report' && action.reportId) {
     window.dispatchEvent(new CustomEvent('ms-admin-goto', { detail: { tab: 'relatorios' } }));
+    const { openReportReviewModal } = await import('./report-review-modal.js');
     await openReportReviewModal(action.reportId, { showWorkflowActions: true });
     return;
   }
@@ -134,7 +145,6 @@ function openPalette() {
     return;
   }
 
-  indexCache = [];
   overlay = document.createElement('div');
   overlay.id = 'admin-cmd-overlay';
   overlay.className = 'admin-cmd-overlay';
@@ -147,12 +157,12 @@ function openPalette() {
     </div>
   `;
   document.body.appendChild(overlay);
-  refreshHits('');
+  void refreshHits('');
 
   const input = overlay.querySelector('#admin-cmd-input');
   input?.addEventListener('input', () => {
     activeIndex = 0;
-    refreshHits(input.value);
+    void refreshHits(input.value);
   });
   overlay.addEventListener('click', (e) => {
     if (e.target === overlay) closePalette();

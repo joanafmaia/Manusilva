@@ -48,7 +48,7 @@ import {
   getCalendarEventStateClass,
   renderWorkStateBadge,
 } from './calendar-event-state.js';
-import { ensureProductionCatalog, formatClientsLoadError } from './clients-catalog.js';
+import { ensureProductionCatalog, formatClientsLoadError, isProductionCatalogReady } from './clients-catalog.js';
 import { isTestClient } from './client-test-utils.js';
 import { reportPedidoOrcamentoRoutesToOrcamentosTab } from './pedido-orcamento.js';
 import { formatOrdemLabel } from './report-review-ui.js';
@@ -67,7 +67,6 @@ import {
 } from './views/orcamentos.js';
 import { consumeAdminPendingTab } from './orcamento-modal.js';
 import { initAvaliacoesPanel, refreshAvaliacoesPanel } from './views/avaliacoes.js';
-import { initAdminCommandPalette } from './admin-command-palette.js';
 import {
   loadRhReviewFilters,
   saveRhReviewFilters,
@@ -715,7 +714,15 @@ export async function initAdminDashboard() {
     bindAssignWork();
     bindOpsMobileToggle();
     bindHeaderShortcuts();
-    initAdminCommandPalette();
+    const bootCommandPalette = () =>
+      import('./admin-command-palette.js')
+        .then((m) => m.initAdminCommandPalette())
+        .catch((err) => console.warn('[Admin] Pesquisa global:', err));
+    if (typeof requestIdleCallback === 'function') {
+      requestIdleCallback(() => void bootCommandPalette(), { timeout: 1800 });
+    } else {
+      setTimeout(() => void bootCommandPalette(), 1);
+    }
     bindRhNotificationPermissionOnGesture();
     bindCalTodayBtn();
     updateAdminChrome();
@@ -2359,7 +2366,9 @@ function updatePendingCount() {
 
 function bindAssignWork() {
   const btn = document.getElementById('btn-assign-work');
-  btn?.addEventListener('click', () => {
+  if (!btn || btn.dataset.bound === 'true') return;
+  btn.dataset.bound = 'true';
+  btn.addEventListener('click', () => {
     openAssignModal().catch((err) => {
       console.error('[Admin] Criar serviço:', err);
       showToast('Erro ao abrir o formulário de criação de serviço.', 'error');
@@ -2368,26 +2377,32 @@ function bindAssignWork() {
 }
 
 async function openAssignModal() {
-  try {
-    await ensureProductionCatalog();
-  } catch (err) {
-    console.error('[Admin] Clientes para atribuição:', err);
-    showToast(formatClientsLoadError(err), 'error', 9000);
-    return;
+  if (!isProductionCatalogReady()) {
+    try {
+      await ensureProductionCatalog();
+    } catch (err) {
+      console.error('[Admin] Clientes para atribuição:', err);
+      showToast(formatClientsLoadError(err), 'error', 9000);
+      return;
+    }
   }
 
-  try {
-    await syncTechniciansCatalog({ silent: true });
-    renderSidebar();
-  } catch (err) {
-    console.warn('[Admin] Catálogo de técnicos para atribuição:', err);
+  let assignableTechs = getAssignableTechnicians();
+  if (!assignableTechs.length) {
+    try {
+      await syncTechniciansCatalog({ silent: true, force: true });
+    } catch (err) {
+      console.warn('[Admin] Catálogo de técnicos para atribuição:', err);
+    }
+    assignableTechs = getAssignableTechnicians();
   }
-
-  const assignableTechs = getAssignableTechnicians();
   if (!assignableTechs.length) {
     showToast('Não há técnicos no catálogo. Adicione o funcionário em Funcionários.', 'error', 7000);
     return;
   }
+  void syncTechniciansCatalog({ silent: true }).catch((err) => {
+    console.warn('[Admin] Sincronização de técnicos em segundo plano:', err);
+  });
 
   const techCheckboxes = assignableTechs
     .map(

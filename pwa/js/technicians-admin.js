@@ -47,13 +47,33 @@ function mergeTechnicianCatalog(localTechs, remoteTechs) {
   return [...byId.values()];
 }
 
+let techniciansSyncAt = 0;
+const TECHNICIANS_SYNC_TTL_MS = 60_000;
+
+function techniciansFingerprint(list) {
+  return (Array.isArray(list) ? list : [])
+    .map((tech) => `${tech?.id || ''}|${tech?.email || ''}|${tech?.name || ''}|${tech?.phone || ''}|${tech?.authUserId || ''}`)
+    .sort()
+    .join('\n');
+}
+
 export async function syncTechniciansCatalog(options = {}) {
-  const { silent = false } = options;
+  const { silent = false, force = false } = options;
+  if (!force && techniciansSyncAt && Date.now() - techniciansSyncAt < TECHNICIANS_SYNC_TTL_MS) {
+    return getAllTechnicians();
+  }
+
   const { fetchTechnicianAuthCatalog } = await import('./technicians-api.js');
   const remoteTechs = await fetchTechnicianAuthCatalog();
+  const localTechs = getAllTechnicians();
+  const mergedTechs = mergeTechnicianCatalog(localTechs, remoteTechs);
+
+  if (techniciansFingerprint(localTechs) === techniciansFingerprint(mergedTechs)) {
+    techniciansSyncAt = Date.now();
+    return mergedTechs;
+  }
 
   updateDB((d) => {
-    const mergedTechs = mergeTechnicianCatalog(d.technicians || [], remoteTechs);
     d.technicians = mergedTechs;
 
     const others = Array.isArray(d.utilizadores)
@@ -61,6 +81,7 @@ export async function syncTechniciansCatalog(options = {}) {
       : [];
     d.utilizadores = [...others, ...mergedTechs.map(buildUtilizadorFromTechnician)];
   });
+  techniciansSyncAt = Date.now();
 
   if (!silent) {
     showToast(`Catálogo de técnicos sincronizado (${remoteTechs.length}).`, 'success', 4000);
