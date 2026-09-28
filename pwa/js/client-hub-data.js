@@ -10,6 +10,7 @@ import { getManualInvoicesSnapshot } from './faturas-manuais-db.js';
 import { getFolhasObraSnapshot } from './folhas-obra-db.js';
 import { getServiceType } from './entity-lookups.js';
 import { formatOpLabel } from './report-review-ui.js';
+import { pickLinkedReportId } from './admin-command-search.js';
 import { reportIsRhOrcamento } from './pedido-orcamento.js';
 import { getReportOrcamentoMeta } from './orcamento-linhas.js';
 import { resolveOrcamentoWorkflowLabel, resolveOrcamentoWorkflowStatus } from './orcamento-workflow.js';
@@ -63,20 +64,25 @@ export function collectClientHub(clientId) {
       return {
         kind: 'servico',
         id: servico.id,
+        reportId: pickLinkedReportId(linked),
         date: isoDate(servico.date),
         title: formatOpLabel(servico.numeroOrdem) || 'Visita',
         subtitle: servico.technicianIds || '',
         status: servicoStatusLabel(servico, linked),
       };
     }),
-    ...jobs.map((job) => ({
-      kind: 'job',
-      id: job.id,
-      date: isoDate(job.date),
-      title: formatOpLabel(job.numeroOrdem) || getServiceType(job.serviceType)?.label || 'Trabalho',
-      subtitle: job.technicianId || '',
-      status: reportStatusLabel(job.status),
-    })),
+    ...jobs.map((job) => {
+      const linked = reports.filter((r) => sameEntityId(r.jobId, job.id));
+      return {
+        kind: 'job',
+        id: job.id,
+        reportId: pickLinkedReportId(linked),
+        date: isoDate(job.date),
+        title: formatOpLabel(job.numeroOrdem) || getServiceType(job.serviceType)?.label || 'Trabalho',
+        subtitle: job.technicianId || '',
+        status: reportStatusLabel(job.status),
+      };
+    }),
   ].sort((a, b) => String(b.date).localeCompare(String(a.date)));
 
   const propostas = reports
@@ -86,6 +92,7 @@ export function collectClientHub(clientId) {
       return {
         kind: 'orcamento',
         id: report.id,
+        reportId: String(report.id),
         date: isoDate(report.submittedAt || report.approvedAt),
         title: meta?.numeroFormatado ? `Proposta ${meta.numeroFormatado}` : 'Proposta MS.015',
         subtitle: getServiceType(report.serviceType)?.label || '',
@@ -101,6 +108,7 @@ export function collectClientHub(clientId) {
     invoiceRows.push({
       kind: 'servico',
       id: servico.id,
+      reportId: pickLinkedReportId(reports.filter((r) => sameEntityId(r.servicoId, servico.id))),
       date: isoDate(servico.dataFatura),
       title: servico.numeroFatura,
       subtitle: formatEur(servico.valorFaturado),
@@ -113,6 +121,7 @@ export function collectClientHub(clientId) {
     invoiceRows.push({
       kind: 'report',
       id: report.id,
+      reportId: String(report.id),
       date: isoDate(report.dataFatura),
       title: report.numeroFatura,
       subtitle: formatEur(report.valorFaturado),

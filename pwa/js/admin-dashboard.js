@@ -848,6 +848,11 @@ export async function initAdminDashboard() {
   window.addEventListener('ms-admin-goto', (event) => {
     const detail = event?.detail || {};
     if (detail.tab) setAdminTab(detail.tab, { resetScroll: true });
+    if (detail.reportId) {
+      import('./report-review-rh-modal.js')
+        .then(({ openRhReviewModal }) => openRhReviewModal(detail.reportId, rhReviewModalCallbacks()))
+        .catch(console.error);
+    }
     if (detail.calendar) {
       void focusCalendarVisit(detail.calendar);
     }

@@ -176,7 +176,7 @@ function renderHubList(items, emptyText, { actionAttr } = {}) {
         .slice(0, 12)
         .map((item) => {
           const extra = actionAttr
-            ? ` ${actionAttr}="${escapeAttr(item.id)}" data-hub-kind="${escapeAttr(item.kind)}" data-hub-date="${escapeAttr(item.date || '')}"`
+            ? ` ${actionAttr}="${escapeAttr(item.id)}" data-hub-kind="${escapeAttr(item.kind)}" data-hub-date="${escapeAttr(item.date || '')}" data-hub-report="${escapeAttr(item.reportId || '')}"`
             : '';
           return `<li>
             <button type="button" class="client-ficha-hub-item"${extra}>
@@ -653,6 +653,11 @@ function bindClientProfilePanel(shell, profile, options = {}) {
 
     const visitBtn = e.target.closest('[data-hub-visit]');
     if (visitBtn) {
+      const reportId = visitBtn.getAttribute('data-hub-report');
+      if (reportId) {
+        gotoAdminBehindDrawer({ tab: 'relatorios', reportId });
+        return;
+      }
       gotoAdminBehindDrawer({
         tab: 'calendario',
         calendar: {
@@ -666,15 +671,18 @@ function bindClientProfilePanel(shell, profile, options = {}) {
 
     const orcBtn = e.target.closest('[data-hub-orcamento]');
     if (orcBtn) {
-      gotoAdminBehindDrawer({
-        tab: 'orcamentos',
-        orcamentoReportId: orcBtn.getAttribute('data-hub-orcamento'),
-      });
+      const reportId = orcBtn.getAttribute('data-hub-report') || orcBtn.getAttribute('data-hub-orcamento');
+      gotoAdminBehindDrawer({ tab: 'relatorios', reportId });
       return;
     }
 
     const faturaBtn = e.target.closest('[data-hub-fatura]');
     if (faturaBtn) {
+      const reportId = faturaBtn.getAttribute('data-hub-report');
+      if (reportId) {
+        gotoAdminBehindDrawer({ tab: 'relatorios', reportId });
+        return;
+      }
       const title = faturaBtn.querySelector('.client-ficha-hub-item-title')?.textContent || '';
       gotoAdminBehindDrawer({
         tab: 'faturacao',

@@ -95,21 +95,15 @@ async function runAction(hit) {
   if (!action) return;
   closePalette();
 
+  if (action.type === 'report' && action.reportId) {
+    window.dispatchEvent(
+      new CustomEvent('ms-admin-goto', { detail: { tab: 'relatorios', reportId: action.reportId } }),
+    );
+    return;
+  }
   if (action.type === 'client' && action.clientId) {
     const { openClientProfilePanel } = await import('./views/client-profile-drawer.js');
     await openClientProfilePanel(action.clientId, { initialTab: action.tab || 'contactos' });
-    return;
-  }
-  if (action.type === 'report' && action.reportId) {
-    window.dispatchEvent(new CustomEvent('ms-admin-goto', { detail: { tab: 'relatorios' } }));
-    const { openReportReviewModal } = await import('./report-review-modal.js');
-    await openReportReviewModal(action.reportId, { showWorkflowActions: true });
-    return;
-  }
-  if (action.type === 'orcamento' && action.reportId) {
-    window.dispatchEvent(
-      new CustomEvent('ms-admin-goto', { detail: { tab: 'orcamentos', orcamentoReportId: action.reportId } }),
-    );
     return;
   }
   if (action.type === 'invoice') {

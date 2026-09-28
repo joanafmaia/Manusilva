@@ -4,6 +4,7 @@ import {
   normalizeSearchText,
   scoreSearchHaystack,
   searchAdminIndex,
+  pickLinkedReportId,
 } from '../js/admin-command-search.js';
 
 describe('admin-command-search', () => {
@@ -27,5 +28,16 @@ describe('admin-command-search', () => {
     );
     assert.equal(hits[0].id, '2');
     assert.equal(hits.some((h) => h.id === '1'), false);
+  });
+
+  it('escolhe o relatório pendente ligado à visita ou fatura', () => {
+    assert.equal(
+      pickLinkedReportId([
+        { id: 'a', status: 'approved', submittedAt: '2026-09-22' },
+        { id: 'b', status: 'pending_review', submittedAt: '2026-09-20' },
+      ]),
+      'b',
+    );
+    assert.equal(pickLinkedReportId([]), '');
   });
 });

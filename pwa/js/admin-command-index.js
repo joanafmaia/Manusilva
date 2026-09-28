@@ -3,15 +3,16 @@
  */
 
 import { getProductionClientsCatalog } from './clients-catalog.js';
-import { getAllTechnicians, getClient, getServiceType } from './entity-lookups.js';
-import { getReportsSnapshot } from './relatorios-db.js';
+import { getReportsSnapshot, getReportsSnapshotByServicoId } from './relatorios-db.js';
 import { getServicosSnapshot } from './servicos-db.js';
 import { getJobsSnapshot } from './trabalhos-db.js';
 import { getManualInvoicesSnapshot } from './faturas-manuais-db.js';
 import { getFolhasObraSnapshot } from './folhas-obra-db.js';
+import { getAllTechnicians, getClient, getServiceType, getReportForJob } from './entity-lookups.js';
 import { formatOpLabel } from './report-review-ui.js';
 import { reportIsRhOrcamento } from './pedido-orcamento.js';
 import { getReportOrcamentoMeta } from './orcamento-linhas.js';
+import { pickLinkedReportId } from './admin-command-search.js';
 
 function clientName(clientId) {
   const client = getClient(clientId);
@@ -21,6 +22,15 @@ function clientName(clientId) {
 function pushItem(list, item) {
   if (!item?.id || !item.title) return;
   list.push(item);
+}
+
+function reportIdForServico(servicoId) {
+  return pickLinkedReportId(getReportsSnapshotByServicoId(servicoId));
+}
+
+function reportAction(reportId, fallback) {
+  if (reportId) return { type: 'report', reportId };
+  return fallback;
 }
 
 export function buildAdminSearchIndex() {
@@ -74,7 +84,7 @@ export function buildAdminSearchIndex() {
         title,
         subtitle: nome,
         haystack: [title, nome, meta?.numeroFormatado, report.id].filter(Boolean).join(' '),
-        action: { type: 'orcamento', reportId: String(report.id) },
+        action: { type: 'report', reportId: String(report.id) },
       });
     }
     if (report.numeroFatura && !report.servicoId) {
@@ -84,12 +94,7 @@ export function buildAdminSearchIndex() {
         title: String(report.numeroFatura),
         subtitle: nome,
         haystack: [report.numeroFatura, nome, op].filter(Boolean).join(' '),
-        action: {
-          type: 'invoice',
-          clientId: String(report.clientId || ''),
-          clientNome: nome,
-          query: String(report.numeroFatura),
-        },
+        action: { type: 'report', reportId: String(report.id) },
       });
     }
   }
@@ -97,18 +102,20 @@ export function buildAdminSearchIndex() {
   for (const servico of getServicosSnapshot()) {
     const nome = clientName(servico.clientId);
     const op = formatOpLabel(servico.numeroOrdem);
+    const linkedReportId = reportIdForServico(servico.id);
+    const calendarFallback = {
+      type: 'calendar',
+      jobId: String(servico.id),
+      visitDate: servico.date || '',
+      clientName: nome,
+    };
     pushItem(items, {
       kind: 'servico',
       id: String(servico.id),
       title: op || `Visita ${servico.date || ''}`.trim(),
       subtitle: nome,
       haystack: [op, nome, servico.technicianIds, servico.numeroFatura, servico.date].filter(Boolean).join(' '),
-      action: {
-        type: 'calendar',
-        jobId: String(servico.id),
-        visitDate: servico.date || '',
-        clientName: nome,
-      },
+      action: reportAction(linkedReportId, calendarFallback),
     });
     if (servico.numeroFatura) {
       pushItem(items, {
@@ -117,12 +124,12 @@ export function buildAdminSearchIndex() {
         title: String(servico.numeroFatura),
         subtitle: nome,
         haystack: [servico.numeroFatura, nome, op].filter(Boolean).join(' '),
-        action: {
+        action: reportAction(linkedReportId, {
           type: 'invoice',
           clientId: String(servico.clientId || ''),
           clientNome: nome,
           query: String(servico.numeroFatura),
-        },
+        }),
       });
     }
   }
@@ -132,18 +139,19 @@ export function buildAdminSearchIndex() {
     const nome = clientName(job.clientId);
     const op = formatOpLabel(job.numeroOrdem);
     if (!op && !nome) continue;
+    const linked = getReportForJob(job.id);
     pushItem(items, {
       kind: 'job',
       id: String(job.id),
       title: op || getServiceType(job.serviceType)?.label || 'Trabalho',
       subtitle: nome,
       haystack: [op, nome, job.technicianId, job.serviceType].filter(Boolean).join(' '),
-      action: {
+      action: reportAction(linked?.id ? String(linked.id) : '', {
         type: 'calendar',
         jobId: String(job.id),
         visitDate: job.date || '',
         clientName: nome,
-      },
+      }),
     });
   }
 

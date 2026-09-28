@@ -57,3 +57,23 @@ export function searchAdminIndex(items, query, options = {}) {
     .sort((a, b) => b.score - a.score || String(a.title).localeCompare(String(b.title), 'pt'))
     .slice(0, limit);
 }
+
+function reportRank(status) {
+  if (status === 'pending_review') return 0;
+  if (status === 'approved') return 1;
+  if (status === 'rejected') return 2;
+  return 3;
+}
+
+/** Relatório a abrir a partir da pesquisa (pendente > aprovado > mais recente). */
+export function pickLinkedReportId(reports) {
+  if (!Array.isArray(reports) || !reports.length) return '';
+  const sorted = [...reports].sort((a, b) => {
+    const byStatus = reportRank(a?.status) - reportRank(b?.status);
+    if (byStatus) return byStatus;
+    return String(b?.submittedAt || b?.approvedAt || '').localeCompare(
+      String(a?.submittedAt || a?.approvedAt || ''),
+    );
+  });
+  return sorted[0]?.id ? String(sorted[0].id) : '';
+}
