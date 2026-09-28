@@ -4678,6 +4678,35 @@ body .admin-rh-page .btn-primary, body .admin-rh-page .btn-secondary, body .admi
   text-align: right;
   min-width: 0;
 }
+.admin-rh-page .faturacao-table-section--billing .faturacao-table-wrap {
+  overflow-x: hidden;
+}
+.admin-rh-page .faturacao-table-section--billing .faturacao-table-wrap--scroll-y {
+  scrollbar-gutter: stable;
+}
+.admin-rh-page .faturacao-billing-table {
+  table-layout: fixed;
+  width: 100%;
+}
+.admin-rh-page .faturacao-billing-table .faturacao-cell-client {
+  width: 22%;
+  max-width: none;
+  white-space: normal;
+}
+.admin-rh-page .faturacao-billing-table .faturacao-cell-ordem {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.admin-rh-page .faturacao-billing-table .faturacao-ordem {
+  white-space: normal;
+  line-height: 1.35;
+}
+.admin-rh-page .faturacao-billing-table .faturacao-col-money {
+  width: 6.75rem;
+}
+.admin-rh-page .faturacao-billing-table .faturacao-col-action {
+  width: 9.75rem;
+}
 .admin-rh-page .rh-cell-client,
 .admin-rh-page .faturacao-cell-client {
   max-width: 10.5rem;
