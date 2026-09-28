@@ -15,6 +15,7 @@ import {
   resolveInvoiceBillingFields,
 } from './billing-workflow.js';
 import { resolveAuditActor } from './audit-actor.js';
+import { buildReceiptPatch, initialValorRecebidoForStatus, isInvoiceFullyPaid } from './faturacao-pagamento.js';
 import { getReportOrcamentoMeta, computeOrcamentoTotals } from './orcamento-linhas.js';
 import { getReport } from './app.js';
 
@@ -157,33 +158,46 @@ export async function registerFolhaObraInvoice(
     numeroFatura: numero,
     dataFatura: data,
     valorFaturado: valor,
+    valorRecebido: initialValorRecebidoForStatus(billing.statusRecebimento, valor),
     statusRecebimento: billing.statusRecebimento,
     dataVencimento: billing.dataVencimento,
-    dataRecebimento: billing.dataRecebimento,
+    dataRecebimento: billing.statusRecebimento === 'pago' ? data : null,
     faturaCondicaoPagamento: billing.faturaCondicaoPagamento,
     invoicedBy: resolveAuditActor(),
   });
 }
 
-export async function confirmFolhaObraInvoicePayment(folhaId, dataRecebimento) {
+export async function confirmFolhaObraInvoicePayment(folhaId, dataRecebimentoOrOpts = {}, extra = {}) {
   const folha = getFolhaObra(folhaId);
   if (!folha) throw new Error('Folha de obra não encontrada.');
   if (folha.faturacaoStatus !== 'faturado') {
     throw new Error('Esta folha ainda não foi faturada.');
   }
+  if (isInvoiceFullyPaid(folha)) {
+    throw new Error('Este recebimento já foi confirmado.');
+  }
 
-  const data = String(dataRecebimento || new Date().toISOString().split('T')[0]).trim();
+  const opts =
+    dataRecebimentoOrOpts && typeof dataRecebimentoOrOpts === 'object'
+      ? dataRecebimentoOrOpts
+      : { dataRecebimento: dataRecebimentoOrOpts, ...extra };
+
+  const patch = buildReceiptPatch(folha, {
+    valorRecebidoAgora: opts.valorRecebido,
+    dataRecebimento: opts.dataRecebimento,
+  });
 
   return updateFolhaObra(folhaId, {
-    statusRecebimento: 'pago',
-    dataRecebimento: data,
+    statusRecebimento: patch.statusRecebimento,
+    dataRecebimento: patch.dataRecebimento,
+    valorRecebido: patch.valorRecebido,
   });
 }
 
 export async function revertFolhaObraInvoice(folhaId) {
   const folha = getFolhaObra(folhaId);
   if (!folha) throw new Error('Folha de obra não encontrada.');
-  if (folha.statusRecebimento === 'pago') {
+  if (isInvoiceFullyPaid(folha)) {
     throw new Error('Não é possível reverter uma folha já recebida.');
   }
 
@@ -193,6 +207,7 @@ export async function revertFolhaObraInvoice(folhaId) {
     numeroFatura: '',
     dataFatura: '',
     valorFaturado: null,
+    valorRecebido: null,
     statusRecebimento: 'pendente',
     dataVencimento: null,
     dataRecebimento: null,

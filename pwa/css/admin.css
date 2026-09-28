@@ -705,6 +705,9 @@
   outline: 2px solid var(--primary);
   outline-offset: 2px;
 }
+.dashboard-metric-card.is-kpi-active {
+  box-shadow: 0 0 0 2px var(--ms-primary, #1e4d72);
+}
 .dashboard-metric-card--secondary .dashboard-metric-value {
   font-size: 1.15rem;
   font-weight: 700;
@@ -4391,6 +4394,29 @@ body .admin-rh-page .btn-primary, body .admin-rh-page .btn-secondary, body .admi
 }
 .faturacao-header {
   margin-bottom: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem 1.25rem;
+}
+.faturacao-header-copy {
+  min-width: min(100%, 22rem);
+  flex: 1 1 18rem;
+}
+.faturacao-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.5rem 0.65rem;
+}
+.faturacao-audit-year-label {
+  display: grid;
+  gap: 0.2rem;
+}
+.faturacao-audit-year-label .form-label {
+  margin: 0;
+  font-size: 0.72rem;
 }
 .faturacao-lead {
   margin: 0.35rem 0 0;
@@ -4400,8 +4426,18 @@ body .admin-rh-page .btn-primary, body .admin-rh-page .btn-secondary, body .admi
 .faturacao-kpis-grid {
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
-.faturacao-kpis-grid--3 {
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+.faturacao-kpis-grid--4 {
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+.faturacao-kpis .dashboard-metric-label {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+.faturacao-kpis .dashboard-metric-value {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
 }
 .faturacao-invoices-section {
   padding: 1rem 1.15rem;
@@ -4512,7 +4548,7 @@ body .admin-rh-page .btn-primary, body .admin-rh-page .btn-secondary, body .admi
 }
 .faturacao-chart-wrap {
   position: relative;
-  height: 280px;
+  height: 220px;
   width: 100%;
 }
 .faturacao-table-section {
@@ -4569,6 +4605,13 @@ body .admin-rh-page .btn-primary, body .admin-rh-page .btn-secondary, body .admi
   display: inline-flex;
   align-items: center;
   gap: 0.2rem;
+}
+.admin-rh-page .faturacao-inline-amount {
+  width: 5.4rem;
+  min-width: 5.4rem;
+  padding: 0.16rem 0.28rem;
+  font-size: 0.7rem;
+  line-height: 1.2;
 }
 .admin-rh-page .faturacao-inline-date {
   width: 7.6rem;
@@ -4680,6 +4723,17 @@ body .admin-rh-page .btn-primary, body .admin-rh-page .btn-secondary, body .admi
   white-space: nowrap;
   font-size: 0.78rem;
   font-variant-numeric: tabular-nums;
+}
+.admin-rh-page .faturacao-col-money,
+.admin-rh-page .faturacao-cell-money {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.admin-rh-page .faturacao-cell-money.is-divida {
+  color: #b45309;
 }
 .admin-rh-page .rh-ordem-badge,
 .admin-rh-page .faturacao-ordem,
@@ -4827,9 +4881,35 @@ body .admin-rh-page .btn-primary, body .admin-rh-page .btn-secondary, body .admi
 .faturacao-invoice-form .form-group + .form-group {
   margin-top: 0.85rem;
 }
+.faturacao-invoice-form--grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem 1rem;
+  align-items: start;
+}
+.faturacao-invoice-form--grid .form-group {
+  margin: 0;
+}
+.faturacao-invoice-form--grid .form-group + .form-group {
+  margin-top: 0;
+}
+.faturacao-invoice-form--grid > .faturacao-invoice-hint,
+.faturacao-invoice-form--grid > .client-combobox,
+.faturacao-invoice-form--grid > .faturacao-invoice-form-span,
+.faturacao-invoice-form--grid > .faturacao-invoice-report-list {
+  grid-column: 1 / -1;
+}
 .faturacao-invoice-hint {
   margin: 0.75rem 0 0;
   font-size: 0.82rem;
+}
+.faturacao-invoice-form--grid > .faturacao-invoice-hint {
+  margin: 0;
+}
+@media (max-width: 560px) {
+  .faturacao-invoice-form--grid {
+    grid-template-columns: 1fr;
+  }
 }
 /* ─── Filtros do Controlo de Faturação ─── */ .faturacao-filters {
   padding: 0.9rem 1.1rem;
@@ -4936,6 +5016,11 @@ body .admin-rh-page .btn-primary, body .admin-rh-page .btn-secondary, body .admi
   background: rgba(16, 185, 129, 0.12);
   border: 1px solid rgba(16, 185, 129, 0.35);
   color: var(--ws-approved-text);
+}
+.faturacao-history-estado.is-parcial {
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  color: #1d4ed8;
 }
 .faturacao-history-estado.is-pendente {
   background: rgba(245, 158, 11, 0.12);

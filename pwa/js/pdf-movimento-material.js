@@ -10,8 +10,16 @@ import {
   PDF_FONT_TABLE,
   PDF_MARGIN as MARGIN,
   PDF_SECTION_GAP_MM,
+  resolvePdfStandardFieldValue,
 } from './pdf-design-system.js';
-import { LABEL_N_INTERNO, LABEL_TIPO, labelWithValue } from './field-labels.js';
+import {
+  LABEL_MARCA,
+  LABEL_MODELO,
+  LABEL_N_INTERNO,
+  LABEL_NUMERO_SERIE,
+  LABEL_TIPO,
+  labelWithValue,
+} from './field-labels.js';
 import { formatFolhaInterventionDate, pdfDisplayValue } from './pdf-format-utils.js';
 import {
   ensureBlockFitsSafeZone,
@@ -72,14 +80,24 @@ export async function drawMovimentoMaterialBody(doc, y, values) {
     ...movimentoTableStylePack(doc),
   });
 
+  const marca = pdfDisplayValue(resolvePdfStandardFieldValue(values, { id: 'marca' }));
+  const modelo = pdfDisplayValue(resolvePdfStandardFieldValue(values, { id: 'modelo' }));
+  const serie = pdfDisplayValue(
+    resolvePdfStandardFieldValue(values, {
+      id: 'numero_de_serie',
+      aliases: ['num_serie', 'numero_serie', 'n_serie'],
+    }),
+  );
+  const nInterno = pdfDisplayValue(
+    resolvePdfStandardFieldValue(values, { id: 'n_interno', aliases: ['num_interno'] }),
+  );
   const equipColW = CONTENT_W / 2;
-  y = await drawSectionBar(doc, y, 'Equipamento');
+  y = await drawSectionBar(doc, y, 'Informações da Máquina');
   y = await drawPdfGridTable(doc, y, {
     body: [
-      [
-        labelWithValue(LABEL_TIPO, resolveTipoEquipamento(values)),
-        labelWithValue(LABEL_N_INTERNO, pdfDisplayValue(values.n_interno)),
-      ],
+      [labelWithValue(LABEL_MARCA, marca), labelWithValue(LABEL_MODELO, modelo)],
+      [labelWithValue(LABEL_NUMERO_SERIE, serie), labelWithValue(LABEL_N_INTERNO, nInterno)],
+      [labelWithValue(LABEL_TIPO, resolveTipoEquipamento(values)), ''],
     ],
     columnStyles: {
       0: { cellWidth: equipColW, halign: 'left', fontSize: PDF_FONT_TABLE },

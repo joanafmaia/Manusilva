@@ -15,6 +15,15 @@ import { getReportOrcamentoMeta } from './orcamento-linhas.js';
 import { getClient, getJob } from './entity-lookups.js';
 import { resolveAuditActor } from './audit-actor.js';
 import {
+  buildReceiptPatch,
+  initialValorRecebidoForStatus,
+  isInvoiceFullyPaid,
+  isInvoiceAwaitingReceipt,
+  resolveValorDivida,
+  resolveValorFaturado,
+  resolveValorRecebido,
+} from './faturacao-pagamento.js';
+import {
   getReportOrcamentoPdfUrl,
   getReportTechnicalPdfUrl,
   reportHasPedidoOrcamento,
@@ -224,7 +233,7 @@ export function resolveInvoiceBillingFields(
 export function getPendingPaymentInvoices() {
   return dedupeReportsForDisplay(
     getReportsSnapshot().filter(
-      (r) => r.faturacaoStatus === 'faturado' && r.statusRecebimento === 'pendente',
+      (r) => r.faturacaoStatus === 'faturado' && isInvoiceAwaitingReceipt(r),
     ),
   ).sort((a, b) =>
     String(a.dataVencimento || a.dataFatura || '').localeCompare(
@@ -234,11 +243,11 @@ export function getPendingPaymentInvoices() {
 }
 
 function accumulateInvoiceMetrics(entity, totals) {
-  const valor = Number(entity.valorFaturado);
-  if (!Number.isFinite(valor) || valor <= 0) return;
+  const valor = resolveValorFaturado(entity);
+  if (valor <= 0) return;
   totals.totalFaturado += valor;
-  if (entity.statusRecebimento === 'pago') totals.totalRecebido += valor;
-  else if (entity.statusRecebimento === 'pendente') totals.totalDivida += valor;
+  totals.totalRecebido += resolveValorRecebido(entity);
+  totals.totalDivida += resolveValorDivida(entity);
 }
 
 /** Métricas de fluxo de caixa (faturas emitidas na app — relatórios, visitas e manuais). */
@@ -298,7 +307,9 @@ export async function registerReportInvoice(
     valorFaturado: valor == null ? null : Math.round(valor * 100) / 100,
     faturaCondicaoPagamento: billing.faturaCondicaoPagamento,
     statusRecebimento: billing.statusRecebimento,
+    valorRecebido: initialValorRecebidoForStatus(billing.statusRecebimento, valor),
     dataVencimento: billing.dataVencimento,
+    dataRecebimento: billing.statusRecebimento === 'pago' ? data : null,
     invoicedBy: resolveAuditActor(),
   });
   window.dispatchEvent(new CustomEvent('db-updated'));
@@ -329,25 +340,26 @@ export async function dismissPendingBillingReport(reportId) {
   }
 }
 
-/** Confirma recebimento de uma fatura pendente */
-export async function confirmInvoicePayment(reportId, { dataRecebimento } = {}) {
+/** Confirma recebimento de uma fatura pendente (total ou parcial). */
+export async function confirmInvoicePayment(reportId, { dataRecebimento, valorRecebido } = {}) {
   const report = findReport(reportId);
   if (!report) throw new Error('Fatura não encontrada.');
   if (report.faturacaoStatus !== 'faturado') {
     throw new Error('Este relatório ainda não foi faturado.');
   }
-  if (report.statusRecebimento === 'pago') {
+  if (isInvoiceFullyPaid(report)) {
     throw new Error('Este recebimento já foi confirmado.');
   }
 
-  const data = String(dataRecebimento ?? new Date().toISOString()).trim().split('T')[0];
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) {
-    throw new Error('Indique uma data de recebimento válida.');
-  }
+  const patch = buildReceiptPatch(report, {
+    valorRecebidoAgora: valorRecebido,
+    dataRecebimento,
+  });
 
   await updateRelatorio(reportId, {
-    statusRecebimento: 'pago',
-    dataRecebimento: data,
+    statusRecebimento: patch.statusRecebimento,
+    dataRecebimento: patch.dataRecebimento,
+    valorRecebido: patch.valorRecebido,
   });
   window.dispatchEvent(new CustomEvent('db-updated'));
   return true;
@@ -366,7 +378,7 @@ export async function revertReportInvoice(reportId) {
   if (report.faturacaoStatus !== 'faturado') {
     throw new Error('Este relatório ainda não foi faturado.');
   }
-  if (report.statusRecebimento === 'pago') {
+  if (isInvoiceFullyPaid(report)) {
     throw new Error('Não é possível reverter — o recebimento já foi confirmado.');
   }
 
@@ -375,6 +387,7 @@ export async function revertReportInvoice(reportId) {
     numeroFatura: null,
     dataFatura: null,
     valorFaturado: null,
+    valorRecebido: null,
     faturaCondicaoPagamento: null,
     statusRecebimento: null,
     dataVencimento: null,

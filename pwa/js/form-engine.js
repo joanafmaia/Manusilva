@@ -181,12 +181,14 @@ const SERVICES_WITH_MACHINE_FIELDS = new Set([
   SERVICE_IDS.MANUTENCAO_PREVENTIVA_BATERIA,
   SERVICE_IDS.REPARACAO_AVARIAS_BATERIA,
   SERVICE_IDS.REPARACAO_CARREGADOR,
+  SERVICE_IDS.MOVIMENTO_MATERIAL_CLIENTE,
 ]);
 
 const SERVICE_MACHINE_FIELD_SECTIONS = {
   [SERVICE_IDS.REPARACAO_CARREGADOR]: 'Identificação Do Carregador',
   [SERVICE_IDS.REPARACAO_AVARIAS_BATERIA]: REPORT_SECTIONS.BATTERY,
   [SERVICE_IDS.MANUTENCAO_PREVENTIVA_BATERIA]: REPORT_SECTIONS.BATTERY,
+  [SERVICE_IDS.MOVIMENTO_MATERIAL_CLIENTE]: 'Equipamento',
 };
 
 const EMPILHADORES_MACHINE_SECTION = REPORT_SECTIONS.MACHINE;
@@ -258,7 +260,7 @@ export function getReportFieldTab(field, service = null) {
 
 export function analyzeReportFormTabs(service) {
   if (service?.id === SERVICE_IDS.MOVIMENTO_MATERIAL_CLIENTE) {
-    return { geral: true, checklist: false, finalizacao: false };
+    return { geral: true, checklist: false, finalizacao: true };
   }
   const fields = filterReportFields(service?.fields, service);
   const tabs = { geral: true, checklist: false, finalizacao: true };

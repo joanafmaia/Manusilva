@@ -38,4 +38,25 @@ describe('cliente-equipamentos', () => {
     assert.equal(prefill.numero_de_serie, 'SN-002');
     assert.equal(prefill.tipo, 'Exide 3 PzS 180');
   });
+
+  it('pré-preenche marca, modelo e série no relatório de recolha/entrega', () => {
+    const service = { id: 'movimento_material_cliente' };
+    const job = { forkliftSerial: 'SN-001' };
+    const pool = [
+      {
+        categoria: 'empilhador',
+        chave: 'eq:empilhador|toyota|8fb|sn-001|a1',
+        marca: 'Toyota',
+        modelo: '8FB',
+        tipo: 'Empilhador',
+        numero_serie: 'SN-001',
+        n_interno: 'A1',
+      },
+    ];
+    const prefill = buildEquipmentFormPrefill(service, job, pool, {});
+    assert.equal(prefill.marca, 'Toyota');
+    assert.equal(prefill.modelo, '8FB');
+    assert.equal(prefill.numero_de_serie, 'SN-001');
+    assert.equal(prefill.n_interno, 'A1');
+  });
 });

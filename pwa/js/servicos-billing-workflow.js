@@ -14,6 +14,7 @@ import {
 import { getClient } from './entity-lookups.js';
 import { getServicoActiveReports, isServicoVisitFullyApproved } from './servicos-email-workflow.js';
 import { resolveAuditActor } from './audit-actor.js';
+import { buildReceiptPatch, initialValorRecebidoForStatus, isInvoiceFullyPaid } from './faturacao-pagamento.js';
 import { getPendingOrcamentoBillingReports } from './orcamento-billing-workflow.js';
 import { getPendingBillingFolhasObra } from './folhas-obra-db.js';
 import { getReportOrcamentoMeta } from './orcamento-linhas.js';
@@ -175,7 +176,9 @@ export async function registerServicoInvoice(
     valor_faturado: valor == null ? null : Math.round(valor * 100) / 100,
     condicao_pagamento: billing.faturaCondicaoPagamento,
     status_recebimento: billing.statusRecebimento,
+    valor_recebido: initialValorRecebidoForStatus(billing.statusRecebimento, valor),
     data_vencimento: billing.dataVencimento,
+    data_recebimento: billing.statusRecebimento === 'pago' ? data : null,
     faturado_por: resolveAuditActor(),
   });
 
@@ -202,7 +205,7 @@ export async function revertServicoInvoice(servicoId) {
   if (servico.faturacaoStatus !== 'faturado') {
     throw new Error('Esta visita ainda não foi faturada.');
   }
-  if (servico.statusRecebimento === 'pago') {
+  if (isInvoiceFullyPaid(servico)) {
     throw new Error('Não é possível reverter — o recebimento já foi confirmado.');
   }
 
@@ -211,6 +214,7 @@ export async function revertServicoInvoice(servicoId) {
     numero_fatura: null,
     data_fatura: null,
     valor_faturado: null,
+    valor_recebido: null,
     condicao_pagamento: null,
     status_recebimento: null,
     data_vencimento: null,
@@ -226,6 +230,7 @@ export async function revertServicoInvoice(servicoId) {
         numeroFatura: null,
         dataFatura: null,
         valorFaturado: null,
+        valorRecebido: null,
         faturaCondicaoPagamento: null,
         statusRecebimento: null,
         dataVencimento: null,
@@ -263,24 +268,25 @@ export async function dismissPendingBillingServico(servicoId) {
 }
 
 /** Confirma recebimento de fatura pendente ao nível do serviço. */
-export async function confirmServicoInvoicePayment(servicoId, { dataRecebimento } = {}) {
+export async function confirmServicoInvoicePayment(servicoId, { dataRecebimento, valorRecebido } = {}) {
   const servico = getServico(servicoId);
   if (!servico) throw new Error('Fatura não encontrada.');
   if (servico.faturacaoStatus !== 'faturado') {
     throw new Error('Esta visita ainda não foi faturada.');
   }
-  if (servico.statusRecebimento === 'pago') {
+  if (isInvoiceFullyPaid(servico)) {
     throw new Error('Este recebimento já foi confirmado.');
   }
 
-  const data = String(dataRecebimento ?? new Date().toISOString()).trim().split('T')[0];
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) {
-    throw new Error('Indique uma data de recebimento válida.');
-  }
+  const patch = buildReceiptPatch(servico, {
+    valorRecebidoAgora: valorRecebido,
+    dataRecebimento,
+  });
 
   await updateServico(servicoId, {
-    status_recebimento: 'pago',
-    data_recebimento: data,
+    status_recebimento: patch.statusRecebimento,
+    data_recebimento: patch.dataRecebimento,
+    valor_recebido: patch.valorRecebido,
   });
   window.dispatchEvent(new CustomEvent('db-updated'));
   return true;

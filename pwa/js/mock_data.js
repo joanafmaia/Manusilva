@@ -699,6 +699,8 @@ export const MOVIMENTO_MATERIAL_CLIENTE = {
       options: ['Recolha', 'Entrega'],
     },
     { type: 'date', id: 'data_movimento', label: 'Data', section: 'Movimento' },
+    { type: 'text', id: 'marca', label: LABEL_MARCA, section: 'Equipamento' },
+    { type: 'text', id: 'modelo', label: LABEL_MODELO, section: 'Equipamento' },
     {
       type: 'dropdown',
       id: 'tipo',
@@ -713,6 +715,12 @@ export const MOVIMENTO_MATERIAL_CLIENTE = {
       section: 'Equipamento',
       dependency: 'tipo:Outro',
       placeholder: 'Descreva o equipamento movimentado',
+    },
+    {
+      type: 'text',
+      id: 'numero_de_serie',
+      label: LABEL_NUMERO_SERIE,
+      section: 'Equipamento',
     },
     {
       type: 'text',

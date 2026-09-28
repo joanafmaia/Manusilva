@@ -15,6 +15,7 @@ import {
   resolveInvoiceBillingFields,
 } from './billing-workflow.js';
 import { FATURAS_MANUAIS_SELECT, fetchAllPaged, formatRetryablePostgrestMessage, isRetryablePostgrestError } from './supabase-query.js';
+import { buildReceiptPatch, initialValorRecebidoForStatus, isInvoiceFullyPaid } from './faturacao-pagamento.js';
 
 let faturasManuaisCache = null;
 let faturasManuaisLoadPromise = null;
@@ -38,6 +39,10 @@ export function mapRowToManualInvoice(row) {
       row.valor_faturado != null && row.valor_faturado !== ''
         ? Number(row.valor_faturado)
         : null,
+    valorRecebido:
+      row.valor_recebido != null && row.valor_recebido !== ''
+        ? Number(row.valor_recebido)
+        : null,
     faturaCondicaoPagamento: row.condicao_pagamento || null,
     statusRecebimento: row.status_recebimento || 'pendente',
     dataVencimento: formatDateOnly(row.data_vencimento) || null,
@@ -55,6 +60,7 @@ export function mapManualInvoiceToRow(invoice) {
     numero_fatura: invoice.numeroFatura || null,
     data_fatura: formatDateOnly(invoice.dataFatura),
     valor_faturado: invoice.valorFaturado ?? null,
+    valor_recebido: invoice.valorRecebido ?? null,
     condicao_pagamento: invoice.faturaCondicaoPagamento ?? null,
     status_recebimento: invoice.statusRecebimento ?? 'pendente',
     data_vencimento: invoice.dataVencimento ? formatDateOnly(invoice.dataVencimento) : null,
@@ -255,6 +261,8 @@ export async function registerManualInvoice({
     condicao_pagamento: billing.faturaCondicaoPagamento,
     status_recebimento: billing.statusRecebimento,
     data_vencimento: billing.dataVencimento,
+    valor_recebido: initialValorRecebidoForStatus(billing.statusRecebimento, valor),
+    data_recebimento: billing.statusRecebimento === 'pago' ? data : null,
     descricao: descricaoTrim || null,
     registado_por: resolveAuditActor(),
   };
@@ -284,25 +292,26 @@ export async function registerManualInvoice({
   return invoice;
 }
 
-/** Confirma recebimento de fatura manual pendente. */
-export async function confirmManualInvoicePayment(invoiceId, { dataRecebimento } = {}) {
+/** Confirma recebimento de fatura manual pendente (total ou parcial). */
+export async function confirmManualInvoicePayment(invoiceId, { dataRecebimento, valorRecebido } = {}) {
   const invoice = getManualInvoice(invoiceId);
   if (!invoice) throw new Error('Fatura não encontrada.');
-  if (invoice.statusRecebimento === 'pago') {
+  if (isInvoiceFullyPaid(invoice)) {
     throw new Error('Este recebimento já foi confirmado.');
   }
 
-  const data = String(dataRecebimento ?? new Date().toISOString()).trim().split('T')[0];
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) {
-    throw new Error('Indique uma data de recebimento válida.');
-  }
+  const patch = buildReceiptPatch(invoice, {
+    valorRecebidoAgora: valorRecebido,
+    dataRecebimento,
+  });
 
   const supabase = await getAuthenticatedSupabaseClient();
   const { data: updated, error } = await supabase
     .from('faturas_manuais')
     .update({
-      status_recebimento: 'pago',
-      data_recebimento: data,
+      status_recebimento: patch.statusRecebimento,
+      data_recebimento: patch.dataRecebimento,
+      valor_recebido: patch.valorRecebido,
       atualizado_em: new Date().toISOString(),
     })
     .eq('id', invoiceId)

@@ -76,6 +76,11 @@ import {
   filterBillingByYear,
   listAvailableBillingYears,
 } from '../faturacao-stats.js';
+import {
+  describeInvoicePayment,
+  isInvoiceAwaitingReceipt,
+  isInvoiceFullyPaid,
+} from '../faturacao-pagamento.js';
 import { captureAdminMainScroll, restoreAdminMainScroll } from '../admin-ui-stability.js';
 
 const URGENT_DAYS = 3;
@@ -106,7 +111,7 @@ const billingFilters = {
   to: '',
   clientId: '',
   clientNome: '',
-  /** Tabs das faturas emitidas: pendente | pago | all */
+  /** Tabs das faturas emitidas: pendente | vencido | pago | all */
   recebimentoStatus: 'pendente',
   /** Filtro da fila «Por faturar»: all | servico | report | orcamento | folha_obra */
   pendingKind: 'all',
@@ -320,6 +325,11 @@ function vencimentoCellClass(urgency) {
   return '';
 }
 
+function isInvoiceOverdue(entity) {
+  if (!isInvoiceAwaitingReceipt(entity)) return false;
+  return vencimentoUrgency(entity.dataVencimento) === 'overdue';
+}
+
 export function isBillingUrgent(report) {
   if (!report?.approvedAt) return false;
   return daysSince(report.approvedAt) > URGENT_DAYS;
@@ -349,6 +359,64 @@ function formatCurrencyEurNullable(value) {
   const num = Number(value);
   if (!Number.isFinite(num)) return '—';
   return formatCurrencyEur(num);
+}
+
+function invoicePaymentView(entity) {
+  return describeInvoicePayment(entity);
+}
+
+function formatMoneyPlain(value) {
+  return Number(value || 0)
+    .toFixed(2)
+    .replace('.', ',');
+}
+
+function lookupInvoicedEntity(kind, id) {
+  if (kind === 'servico') return getServico(id);
+  if (kind === 'manual') return getManualInvoice(id);
+  if (kind === 'folha_obra') return getFolhaObra(id);
+  return getReport(id);
+}
+
+function receiptSuccessToast(kind, id) {
+  const view = invoicePaymentView(lookupInvoicedEntity(kind, id) || {});
+  if (view.fullyPaid) return 'Recebimento confirmado. Fatura liquidada.';
+  return `Recebido ${formatCurrencyEur(view.recebido)}. Em dívida: ${formatCurrencyEur(view.divida)}.`;
+}
+
+function renderPaymentMoneyRows(entity) {
+  const view = invoicePaymentView(entity);
+  return `
+      <div><dt>Valor faturado</dt><dd>${escapeHtml(formatCurrencyEurNullable(entity.valorFaturado))}</dd></div>
+      <div><dt>Valor recebido</dt><dd>${escapeHtml(formatCurrencyEur(view.recebido))}</dd></div>
+      <div><dt>Em dívida</dt><dd>${escapeHtml(formatCurrencyEur(view.divida))}</dd></div>`;
+}
+
+function renderConfirmPaymentForm(entity, nome) {
+  const view = invoicePaymentView(entity);
+  const today = todayPaymentDateInput();
+  const remaining = formatMoneyPlain(view.divida);
+  return `
+    <form id="confirm-payment-form" class="faturacao-invoice-form faturacao-invoice-form--grid">
+      <p class="text-muted faturacao-invoice-hint">
+        Confirmar recebimento de <strong>${escapeHtml(nome)}</strong>
+        — fatura <strong>${escapeHtml(entity.numeroFatura || '—')}</strong>
+        (${escapeHtml(formatCurrencyEurNullable(entity.valorFaturado))}).
+        ${view.recebido > 0 ? `Já recebido ${escapeHtml(formatCurrencyEur(view.recebido))}. ` : ''}
+        Em dívida: <strong>${escapeHtml(formatCurrencyEur(view.divida))}</strong>.
+      </p>
+      <div class="form-group">
+        <label class="form-label" for="payment-valor">Valor recebido agora (€)</label>
+        <input type="text" inputmode="decimal" class="form-input" id="payment-valor" name="valor"
+          placeholder="${escapeHtml(remaining)}" autocomplete="off">
+        <p class="text-muted faturacao-invoice-hint">Deixe vazio para liquidar o restante (${escapeHtml(formatCurrencyEur(view.divida))}).</p>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="payment-data">Data de recebimento</label>
+        <input type="date" class="form-input" id="payment-data" name="data" required value="${today}">
+      </div>
+    </form>
+  `;
 }
 
 /** Data legível a partir de timestamps ISO completos ou datas puras. */
@@ -429,12 +497,10 @@ function invoiceMatchesPeriodAndClient(item) {
 }
 
 function invoiceMatchesRecebimentoFilter(item) {
-  if (billingFilters.recebimentoStatus === 'pendente' && item.entity.statusRecebimento !== 'pendente') {
-    return false;
-  }
-  if (billingFilters.recebimentoStatus === 'pago' && item.entity.statusRecebimento !== 'pago') {
-    return false;
-  }
+  const status = billingFilters.recebimentoStatus;
+  if (status === 'pendente' && !isInvoiceAwaitingReceipt(item.entity)) return false;
+  if (status === 'pago' && !isInvoiceFullyPaid(item.entity)) return false;
+  if (status === 'vencido' && !isInvoiceOverdue(item.entity)) return false;
   return true;
 }
 
@@ -468,8 +534,9 @@ function getInvoiceTabCounts() {
     .filter(invoiceMatchesPeriodAndClient)
     .filter(invoiceMatchesSearch);
   return {
-    pendente: base.filter((item) => item.entity.statusRecebimento === 'pendente').length,
-    pago: base.filter((item) => item.entity.statusRecebimento === 'pago').length,
+    pendente: base.filter((item) => isInvoiceAwaitingReceipt(item.entity)).length,
+    vencido: base.filter((item) => isInvoiceOverdue(item.entity)).length,
+    pago: base.filter((item) => isInvoiceFullyPaid(item.entity)).length,
     all: base.length,
   };
 }
@@ -502,6 +569,7 @@ function buildAuditInvoiceRow(item) {
           : entity.invoicedBy || '';
   const aprovadoPor =
     item.kind === 'report' ? entity.approvedBy || '' : item.kind === 'servico' ? entity.approvedBy || '' : '';
+  const payment = invoicePaymentView(entity);
   return {
     date: invoiceDateOfEntity(item),
     tipo: resolveInvoiceTipoLabel(item),
@@ -509,9 +577,11 @@ function buildAuditInvoiceRow(item) {
     nif: meta.nif,
     ordem: trabalho.ordem,
     trabalho: trabalho.detail,
-    valor: Number(entity.valorFaturado) || 0,
-    estado: entity.statusRecebimento || 'pendente',
-    estadoLabel: labelStatusRecebimento(entity.statusRecebimento),
+    valor: payment.faturado,
+    recebido: payment.recebido,
+    divida: payment.divida,
+    estado: payment.status,
+    estadoLabel: payment.statusLabel,
     numeroFatura: entity.numeroFatura || '',
     dataRecebimento: String(entity.dataRecebimento || '').split('T')[0],
     dataVencimento: String(entity.dataVencimento || '').split('T')[0],
@@ -559,16 +629,34 @@ function computeFilteredMetrics(invoices = getKpiInvoices()) {
   let totalFaturado = 0;
   let totalRecebido = 0;
   let totalDivida = 0;
+  let totalVencido = 0;
+  let totalAVencer = 0;
 
   invoices.forEach((item) => {
-    const valor = Number(item.entity.valorFaturado);
-    if (!Number.isFinite(valor) || valor <= 0) return;
-    totalFaturado += valor;
-    if (item.entity.statusRecebimento === 'pago') totalRecebido += valor;
-    else if (item.entity.statusRecebimento === 'pendente') totalDivida += valor;
+    const payment = invoicePaymentView(item.entity);
+    if (payment.faturado <= 0) return;
+    totalFaturado += payment.faturado;
+    totalRecebido += payment.recebido;
+    totalDivida += payment.divida;
+    if (payment.divida <= 0) return;
+    const urg = vencimentoUrgency(item.entity.dataVencimento);
+    if (urg === 'overdue') totalVencido += payment.divida;
+    else if (urg === 'soon') totalAVencer += payment.divida;
   });
 
-  return { totalFaturado, totalRecebido, totalDivida };
+  const taxa =
+    totalFaturado > 0 ? Math.round((totalRecebido / totalFaturado) * 100) : 0;
+  const emPrazo = Math.max(0, totalDivida - totalVencido - totalAVencer);
+
+  return {
+    totalFaturado,
+    totalRecebido,
+    totalDivida,
+    totalVencido,
+    totalAVencer,
+    emPrazo,
+    taxa,
+  };
 }
 
 function billingItemMatchesClientFilter(item, filterClientId) {
@@ -648,14 +736,6 @@ function resolveKindBadgeHtml(kind) {
 
 function todayPaymentDateInput() {
   return new Date().toISOString().split('T')[0];
-}
-
-function renderInlinePaymentControls(kind, id) {
-  return `
-    <div class="faturacao-inline-payment">
-      <input type="date" class="form-input form-input-sm faturacao-inline-date" data-payment-date="${escapeHtml(kind)}:${escapeHtml(id)}" value="${todayPaymentDateInput()}" title="Data de recebimento" aria-label="Data de recebimento" />
-      <button type="button" class="btn-success btn-sm faturacao-btn-compact" data-confirm-payment-inline="${escapeHtml(id)}" data-payment-kind="${escapeHtml(kind)}" title="Confirmar recebimento">Recebido</button>
-    </div>`;
 }
 
 async function dismissPendingBillingFolhaObra(folhaId) {
@@ -831,7 +911,8 @@ function buildInvoiceRows(items) {
     const entity = item.entity;
     const meta = resolveClientMeta(entity.clientId);
     const valor = Number(entity.valorFaturado);
-    const pago = entity.statusRecebimento === 'pago';
+    const payment = invoicePaymentView(entity);
+    const pago = payment.fullyPaid;
     const vencimento = entity.dataVencimento || null;
     const vencimentoUrg = pago ? 'none' : vencimentoUrgency(vencimento);
     const trabalho = resolveInvoiceTrabalhoLabel(item);
@@ -843,11 +924,12 @@ function buildInvoiceRows(items) {
       ...meta,
       ...trabalho,
       pago,
+      payment,
       numeroFatura: entity.numeroFatura || '—',
       valor,
       valorLabel: formatCurrencyEurNullable(valor),
       emissaoLabel: formatHistoryDate(String(entity.dataFatura || '').split('T')[0]),
-      statusLabel: labelStatusRecebimento(entity.statusRecebimento),
+      statusLabel: payment.statusLabel,
       vencimentoLabel: pago
         ? '—'
         : formatHistoryDate(String(vencimento || '').split('T')[0]),
@@ -926,24 +1008,36 @@ function sortInvoiceRowsForDisplay(rows) {
   });
 }
 
+function kpiCardClass(filter, extra = '') {
+  const active = billingFilters.recebimentoStatus === filter ? ' is-kpi-active' : '';
+  return `dashboard-metric-card dashboard-metric-card--clickable${extra}${active}`;
+}
+
 function renderKpis(metrics) {
+  const vencidoClass =
+    metrics.totalVencido > 0 ? ' dashboard-metric-card--billing-alert' : '';
   return `
     <section class="faturacao-kpis rh-section" aria-label="Indicadores financeiros">
-      <div class="dashboard-metrics-grid faturacao-kpis-grid faturacao-kpis-grid--3">
-        <article class="dashboard-metric-card dashboard-metric-card--primary">
+      <div class="dashboard-metrics-grid faturacao-kpis-grid faturacao-kpis-grid--4">
+        <article class="${kpiCardClass('all', ' dashboard-metric-card--primary')}" data-kpi-filter="all" role="button" tabindex="0" aria-pressed="${billingFilters.recebimentoStatus === 'all'}">
+          <p class="dashboard-metric-label">Faturado</p>
           <p class="dashboard-metric-value">${formatCurrencyEur(metrics.totalFaturado)}</p>
-          <p class="dashboard-metric-label">Total Faturado</p>
-          <p class="faturacao-kpi-sub">No período e cliente filtrados (pagas + por receber)</p>
+          <p class="faturacao-kpi-sub">Período e cliente filtrados</p>
         </article>
-        <article class="dashboard-metric-card dashboard-metric-card--success">
+        <article class="${kpiCardClass('pago', ' dashboard-metric-card--success')}" data-kpi-filter="pago" role="button" tabindex="0" aria-pressed="${billingFilters.recebimentoStatus === 'pago'}">
+          <p class="dashboard-metric-label">Recebido</p>
           <p class="dashboard-metric-value">${formatCurrencyEur(metrics.totalRecebido)}</p>
-          <p class="dashboard-metric-label">Total Recebido</p>
-          <p class="faturacao-kpi-sub">Já em caixa</p>
+          <p class="faturacao-kpi-sub">Taxa de cobrança ${metrics.taxa}%</p>
         </article>
-        <article class="dashboard-metric-card dashboard-metric-card--warning">
+        <article class="${kpiCardClass('pendente', ' dashboard-metric-card--warning')}" data-kpi-filter="pendente" role="button" tabindex="0" aria-pressed="${billingFilters.recebimentoStatus === 'pendente'}">
+          <p class="dashboard-metric-label">Em dívida</p>
           <p class="dashboard-metric-value">${formatCurrencyEur(metrics.totalDivida)}</p>
-          <p class="dashboard-metric-label">Por receber</p>
-          <p class="faturacao-kpi-sub">Faturado e ainda em aberto</p>
+          <p class="faturacao-kpi-sub">Ainda por receber</p>
+        </article>
+        <article class="${kpiCardClass('vencido', vencidoClass)}" data-kpi-filter="vencido" role="button" tabindex="0" aria-pressed="${billingFilters.recebimentoStatus === 'vencido'}">
+          <p class="dashboard-metric-label">Vencido</p>
+          <p class="dashboard-metric-value">${formatCurrencyEur(metrics.totalVencido)}</p>
+          <p class="faturacao-kpi-sub">${metrics.totalAVencer > 0 ? `${formatCurrencyEur(metrics.totalAVencer)} a vencer` : 'Prazo já ultrapassado'}</p>
         </article>
       </div>
     </section>
@@ -1012,23 +1106,6 @@ function renderFiltersSection() {
           })}
         </div>
       </div>
-      <div class="faturacao-filter-actions">
-        <label class="faturacao-audit-year-label">
-          <span class="form-label">Ano auditoria</span>
-          <select class="form-select-sm" id="faturacao-audit-year">
-            ${renderAuditYearOptions(getAllAuditInvoiceRows())}
-          </select>
-        </label>
-        <button type="button" class="btn-primary btn-sm" id="faturacao-manual-invoice">
-          Registar fatura manual
-        </button>
-        <button type="button" class="btn-outline btn-sm" id="faturacao-export-csv">
-          Exportar CSV
-        </button>
-        <button type="button" class="btn-outline btn-sm" id="faturacao-export-pdf">
-          Exportar PDF anual
-        </button>
-      </div>
     </section>
   `;
 }
@@ -1047,6 +1124,7 @@ function renderInvoiceRow(row, acumulado, showAcum) {
     entity,
     nome,
     pago,
+    payment,
     numeroFatura,
     ordem,
     detail,
@@ -1076,9 +1154,21 @@ function renderInvoiceRow(row, acumulado, showAcum) {
       : pdfReportId
         ? `<button type="button" class="btn-outline btn-sm faturacao-btn-compact" data-history-pdf="${escapeHtml(pdfReportId)}" title="Abrir PDF do relatório ou proposta">PDF</button>`
         : '';
-  const paymentKind =
-    kind === 'servico' ? 'servico' : kind === 'folha_obra' ? 'folha_obra' : kind === 'manual' ? 'manual' : 'report';
+  const paymentKindAttr =
+    kind === 'servico'
+      ? `data-confirm-payment-servico="${escapeHtml(detailId)}"`
+      : kind === 'folha_obra'
+        ? `data-confirm-payment-folha-obra="${escapeHtml(detailId)}"`
+        : kind === 'manual'
+          ? `data-confirm-payment-manual="${escapeHtml(detailId)}"`
+          : `data-confirm-payment="${escapeHtml(detailId)}"`;
   const kindBadge = resolveKindBadgeHtml(kind);
+  const statusClass =
+    payment?.status === 'pago' ? 'is-pago' : payment?.status === 'parcial' ? 'is-parcial' : 'is-pendente';
+  const statusText = payment?.statusLabel || (pago ? 'Pago' : 'Pendente');
+  const receiveBtn = pago
+    ? ''
+    : `<button type="button" class="btn-success btn-sm faturacao-btn-compact" ${paymentKindAttr} title="Registar valor recebido">Receber</button>`;
 
   return `
     <tr class="rh-data-table-row faturacao-history-row faturacao-invoice-row faturacao-row--compact${urgentRow ? ' faturacao-row--urgent' : ''}" data-invoice-kind="${kind}" data-invoice-id="${escapeHtml(detailId)}">
@@ -1090,17 +1180,19 @@ function renderInvoiceRow(row, acumulado, showAcum) {
         <span class="faturacao-row-meta">${kindBadge}${vencimentoUrg === 'soon' ? ' <span class="faturacao-urgent-badge faturacao-urgent-badge--soon">A vencer</span>' : ''}${urgentRow ? ' <span class="faturacao-urgent-badge">Vencida</span>' : ''}</span>
         <span class="faturacao-cell-detail">${escapeHtml(ordem)}${detail ? ` · ${escapeHtml(detail)}` : ''}</span>
       </td>
-      <td class="rh-cell-ordem faturacao-cell-ordem">
+      <td class="rh-cell-ordem faturacao-cell-fatura">
         <code class="rh-ordem-badge faturacao-ordem">${escapeHtml(numeroFatura)}</code>
-        <span class="faturacao-col-valor">${escapeHtml(valorLabel)}</span>
       </td>
+      <td class="faturacao-cell-money">${escapeHtml(valorLabel)}</td>
+      <td class="faturacao-cell-money">${escapeHtml(formatCurrencyEur(payment?.recebido || 0))}</td>
+      <td class="faturacao-cell-money${payment?.divida > 0 ? ' is-divida' : ''}">${escapeHtml(formatCurrencyEur(payment?.divida || 0))}</td>
       <td>
-        <span class="faturacao-history-estado ${pago ? 'is-pago' : 'is-pendente'}">${pago ? 'Pago' : 'Pendente'}</span>
+        <span class="faturacao-history-estado ${statusClass}">${escapeHtml(statusText)}</span>
         ${!pago && vencimentoLabel && vencimentoLabel !== '—' ? `<span class="faturacao-cell-detail ${escapeHtml(vencimentoClass)}">venc. ${escapeHtml(vencimentoLabel)}</span>` : ''}
       </td>
       ${
         showAcum
-          ? `<td class="rh-cell-muted faturacao-history-acum" title="Acumulado do cliente até esta fatura">${acumulado != null ? `Σ ${escapeHtml(formatCurrencyEur(acumulado))}` : '—'}</td>`
+          ? `<td class="rh-cell-muted faturacao-history-acum faturacao-cell-money" title="Acumulado do cliente até esta fatura">${acumulado != null ? escapeHtml(formatCurrencyEur(acumulado)) : '—'}</td>`
           : ''
       }
       <td class="faturacao-col-action">
@@ -1108,22 +1200,22 @@ function renderInvoiceRow(row, acumulado, showAcum) {
           kind === 'manual'
             ? `<div class="faturacao-billing-actions">
                 ${pdfBtn}
-                ${pago ? '' : renderInlinePaymentControls(paymentKind, detailId)}
+                ${receiveBtn}
                 <button type="button" class="btn-ghost btn-sm faturacao-btn-compact faturacao-btn-dismiss" data-delete-manual-invoice="${escapeHtml(detailId)}" title="Eliminar registo">×</button>
               </div>`
-            : pago
-              ? `<div class="faturacao-billing-actions">${pdfBtn || '<span class="text-muted">—</span>'}</div>`
-              : `<div class="faturacao-billing-actions">
-                  ${pdfBtn}
-                  ${renderInlinePaymentControls(paymentKind, detailId)}
-                  ${
-                    kind === 'servico'
-                      ? `<button type="button" class="btn-ghost btn-sm faturacao-btn-compact" data-revert-invoice-servico="${escapeHtml(detailId)}" title="Corrigir">Corrigir</button>`
+            : `<div class="faturacao-billing-actions">
+                ${pdfBtn || ''}
+                ${receiveBtn}
+                ${
+                  pago
+                    ? ''
+                    : kind === 'servico'
+                      ? `<button type="button" class="btn-ghost btn-sm faturacao-btn-compact" data-revert-invoice-servico="${escapeHtml(detailId)}" title="Corrigir fatura">Corrigir</button>`
                       : kind === 'folha_obra'
-                        ? `<button type="button" class="btn-ghost btn-sm faturacao-btn-compact" data-revert-invoice-folha-obra="${escapeHtml(detailId)}" title="Corrigir">Corrigir</button>`
-                        : `<button type="button" class="btn-ghost btn-sm faturacao-btn-compact" data-revert-invoice-report="${escapeHtml(detailId)}" title="Corrigir">Corrigir</button>`
-                  }
-                </div>`
+                        ? `<button type="button" class="btn-ghost btn-sm faturacao-btn-compact" data-revert-invoice-folha-obra="${escapeHtml(detailId)}" title="Corrigir fatura">Corrigir</button>`
+                        : `<button type="button" class="btn-ghost btn-sm faturacao-btn-compact" data-revert-invoice-report="${escapeHtml(detailId)}" title="Corrigir fatura">Corrigir</button>`
+                }
+              </div>`
         }
       </td>
     </tr>
@@ -1138,6 +1230,7 @@ function renderInvoicesViewTabs(counts) {
   return `
     <div class="faturacao-invoices-tabs" role="tablist" aria-label="Filtrar faturas emitidas">
       ${tab('pendente', 'Por receber', counts.pendente)}
+      ${tab('vencido', 'Vencidas', counts.vencido)}
       ${tab('pago', 'Recebidas', counts.pago)}
       ${tab('all', 'Todas', counts.all)}
     </div>
@@ -1168,10 +1261,13 @@ function renderInvoicesTable(invoiceRows, invoices, clientActive) {
           <tr>
             <th scope="col">Emissão</th>
             <th scope="col">Cliente</th>
-            <th scope="col">Fatura</th>
+            <th scope="col">Nº fatura</th>
+            <th scope="col" class="faturacao-col-money">Faturado</th>
+            <th scope="col" class="faturacao-col-money">Recebido</th>
+            <th scope="col" class="faturacao-col-money">Em dívida</th>
             <th scope="col">Estado</th>
-            ${clientActive ? '<th scope="col">Acumulado</th>' : ''}
-            <th scope="col" class="faturacao-col-action">Ação</th>
+            ${clientActive ? '<th scope="col" class="faturacao-col-money">Acumulado</th>' : ''}
+            <th scope="col" class="faturacao-col-action">Ações</th>
           </tr>
         </thead>
         <tbody>
@@ -1194,7 +1290,9 @@ function renderInvoicesSection(invoices = getFilteredInvoices()) {
   const clientActive = Boolean(billingFilters.clientId);
   const tabCounts = getInvoiceTabCounts();
   const allInvoiceRows = sortInvoiceRowsForDisplay(buildInvoiceRows(invoices));
-  const showAllPending = billingFilters.recebimentoStatus === 'pendente';
+  const showAllPending =
+    billingFilters.recebimentoStatus === 'pendente' ||
+    billingFilters.recebimentoStatus === 'vencido';
   const usePagination = !showAllPending && allInvoiceRows.length > INVOICES_LIST_PAGE_SIZE;
   const invoiceRows = usePagination
     ? allInvoiceRows.slice(0, invoicesListVisibleCount)
@@ -1220,19 +1318,21 @@ function renderInvoicesSection(invoices = getFilteredInvoices()) {
   const total = invoices.reduce((sum, item) => sum + (Number(item.entity.valorFaturado) || 0), 0);
   const rendaTotal =
     clientActive && invoices.length
-      ? `<p class="faturacao-history-total">Renda Total — ${escapeHtml(billingFilters.clientNome || 'cliente selecionado')}: <strong>${escapeHtml(formatCurrencyEur(total))}</strong></p>`
+      ? `<p class="faturacao-history-total">Total do cliente ${escapeHtml(billingFilters.clientNome || 'selecionado')}: <strong>${escapeHtml(formatCurrencyEur(total))}</strong></p>`
       : '';
   const pendingHint =
     billingFilters.recebimentoStatus === 'pendente' && pendingCount > 0
-      ? `<p class="text-muted faturacao-invoices-lead">${pendingCount === 1 ? '1 fatura por receber' : `${pendingCount} faturas por receber`} — use «Recebido» quando o pagamento entrar. Vencidas e a vencer aparecem primeiro.</p>`
+      ? `<p class="text-muted faturacao-invoices-lead">${pendingCount === 1 ? '1 documento em aberto' : `${pendingCount} documentos em aberto`} — vencidos e a vencer primeiro. Use <strong>Receber</strong> para registar o valor e a data.</p>`
+      : billingFilters.recebimentoStatus === 'vencido'
+        ? `<p class="text-muted faturacao-invoices-lead">${tabCounts.vencido === 1 ? '1 documento com prazo ultrapassado' : `${tabCounts.vencido} documentos com prazo ultrapassado`} — priorize a cobrança.</p>`
       : billingFilters.recebimentoStatus === 'pago'
-        ? `<p class="text-muted faturacao-invoices-lead">Histórico de faturas já recebidas — carregue mais linhas se precisar de consultar períodos antigos.</p>`
-        : '';
+        ? `<p class="text-muted faturacao-invoices-lead">Documentos liquidados no período filtrado.</p>`
+        : `<p class="text-muted faturacao-invoices-lead">Todos os documentos emitidos no período e cliente filtrados.</p>`;
 
   return `
-    <section class="faturacao-invoices-section rh-section glass-card" aria-label="Faturas emitidas">
+    <section class="faturacao-invoices-section rh-section glass-card" aria-label="Documentos emitidos">
       <div class="faturacao-invoices-head">
-        <h3 class="ms-h2 faturacao-section-title">Faturas emitidas <span class="badge-count">${allInvoiceRows.length}</span></h3>
+        <h3 class="ms-h2 faturacao-section-title">Documentos emitidos <span class="badge-count">${allInvoiceRows.length}</span></h3>
         ${renderInvoicesViewTabs(tabCounts)}
       </div>
       ${pendingHint}
@@ -1244,10 +1344,11 @@ function renderInvoicesSection(invoices = getFilteredInvoices()) {
 
 function renderChartSection() {
   return `
-    <section class="faturacao-chart-section rh-section glass-card" aria-label="Gráfico de fluxo de caixa">
-      <h3 class="ms-h2 faturacao-section-title">Fluxo de caixa</h3>
+    <section class="faturacao-chart-section rh-section glass-card" aria-label="Antiguidade da dívida">
+      <h3 class="ms-h2 faturacao-section-title">Antiguidade da dívida</h3>
+      <p class="text-muted faturacao-invoices-lead">Como está distribuído o valor ainda por receber.</p>
       <div class="faturacao-chart-wrap">
-        <canvas id="faturacao-chart-canvas" aria-label="Gráfico — total faturado, recebido e em dívida"></canvas>
+        <canvas id="faturacao-chart-canvas" aria-label="Gráfico — dívida em prazo, a vencer e vencida"></canvas>
       </div>
     </section>
   `;
@@ -1258,7 +1359,7 @@ function renderBillingTable(rows) {
     return `
       <section class="faturacao-table-section faturacao-table-section--billing rh-section glass-card">
         <h3 class="ms-h2 faturacao-section-title">Por faturar</h3>
-        <p class="text-muted faturacao-empty">Nenhuma visita, proposta ou folha aguarda faturação neste filtro.</p>
+        <p class="text-muted faturacao-empty">Nada aguarda faturação neste filtro.</p>
       </section>
     `;
   }
@@ -1274,7 +1375,8 @@ function renderBillingTable(rows) {
             <tr>
               <th scope="col">Cliente</th>
               <th scope="col">Detalhe</th>
-              <th scope="col" class="faturacao-col-action">Ação</th>
+              <th scope="col" class="faturacao-col-money">Estimativa</th>
+              <th scope="col" class="faturacao-col-action">Ações</th>
             </tr>
           </thead>
           <tbody>
@@ -1315,6 +1417,7 @@ function renderBillingTable(rows) {
                   <code class="faturacao-ordem">${escapeHtml(row.ordem)}</code>
                   <span class="faturacao-cell-detail">${escapeHtml(row.detail)}${row.approvedLabel ? ` · ${escapeHtml(row.approvedLabel)}` : ''}</span>
                 </td>
+                <td class="faturacao-cell-money">${escapeHtml(Number(row.estimate) > 0 ? formatCurrencyEur(row.estimate) : '—')}</td>
                 <td class="faturacao-col-action">
                   <div class="faturacao-billing-actions">
                     ${servicoPdfId ? `<button type="button" class="btn-outline btn-sm faturacao-btn-compact" data-billing-pdf-servico="${escapeHtml(servicoPdfId)}" title="${escapeHtml(pdfTitle)}">PDF</button>` : ''}
@@ -1341,6 +1444,7 @@ function getChartThemeColors() {
     primary: styles.getPropertyValue('--ms-primary').trim() || '#1e4d72',
     success: styles.getPropertyValue('--ms-emerald-600').trim() || '#059669',
     warning: styles.getPropertyValue('--ms-amber-600').trim() || '#d97706',
+    danger: styles.getPropertyValue('--ms-red-600').trim() || '#dc2626',
     gridColor: styles.getPropertyValue('--ms-border').trim() || 'rgba(148,163,184,0.25)',
     textColor: styles.getPropertyValue('--ms-text-muted').trim() || '#64748b',
   };
@@ -1378,9 +1482,9 @@ function buildChartOptions(textColor, gridColor) {
 function financialChartDataset(metrics) {
   const colors = getChartThemeColors();
   return {
-    labels: ['Total Faturado', 'Total Recebido', 'Em Dívida'],
-    values: [metrics.totalFaturado, metrics.totalRecebido, metrics.totalDivida],
-    colors: [colors.primary, colors.success, colors.warning],
+    labels: ['Em prazo', 'A vencer', 'Vencido'],
+    values: [metrics.emPrazo || 0, metrics.totalAVencer || 0, metrics.totalVencido || 0],
+    colors: [colors.primary, colors.warning, colors.danger],
   };
 }
 
@@ -1408,6 +1512,7 @@ async function updateChartData(metrics) {
       billingChart.data.labels = labels;
       billingChart.data.datasets[0].data = values;
       billingChart.data.datasets[0].backgroundColor = colors;
+      billingChart.data.datasets[0].label = 'Em dívida (EUR)';
       billingChart.update('active');
       return;
     }
@@ -1419,7 +1524,7 @@ async function updateChartData(metrics) {
         labels,
         datasets: [
           {
-            label: 'Fluxo de caixa (EUR)',
+            label: 'Em dívida (EUR)',
             data: values,
             backgroundColor: colors,
             borderRadius: 6,
@@ -1644,7 +1749,7 @@ function openRegisterManualInvoiceModal() {
   ).join('');
 
   const content = `
-    <form id="register-manual-invoice-form" class="faturacao-invoice-form">
+    <form id="register-manual-invoice-form" class="faturacao-invoice-form faturacao-invoice-form--grid">
       <p class="text-muted faturacao-invoice-hint">
         Registe uma fatura emitida no programa externo que não está ligada a nenhum relatório ou visita na app.
       </p>
@@ -1661,7 +1766,7 @@ function openRegisterManualInvoiceModal() {
       </div>
       <div class="form-group">
         <label class="form-label" for="manual-invoice-valor">Valor Total Faturado (€)</label>
-        <input type="number" class="form-input" id="manual-invoice-valor" min="0" step="0.01" placeholder="0,00">
+        <input type="text" inputmode="decimal" class="form-input" id="manual-invoice-valor" placeholder="0,00" autocomplete="off">
       </div>
       <div class="form-group">
         <label class="form-label" for="manual-invoice-data">Data de Emissão</label>
@@ -1675,7 +1780,7 @@ function openRegisterManualInvoiceModal() {
         <label class="form-label" for="manual-invoice-status">Estado de Recebimento</label>
         <select class="form-input" id="manual-invoice-status" required>${statusOptions}</select>
       </div>
-      <div class="form-group">
+      <div class="form-group faturacao-invoice-form-span">
         <label class="form-label" for="manual-invoice-trabalho">Visita / Relatório</label>
         <input type="text" class="form-input" id="manual-invoice-trabalho" maxlength="240" required
           placeholder="ex: Material avulso, reparação antiga, manutenção preventiva…" autocomplete="off">
@@ -1686,7 +1791,7 @@ function openRegisterManualInvoiceModal() {
 
   const actions = `
     <button type="button" class="btn-outline" data-modal-cancel>Cancelar</button>
-    <button type="button" class="btn-primary" id="btn-save-manual-invoice">Registar fatura</button>
+    <button type="button" class="btn-primary" id="btn-save-manual-invoice">Guardar fatura</button>
   `;
 
   const overlay = openModal('Registar Fatura Manual', content, actions);
@@ -1771,9 +1876,11 @@ function openRegisterInvoiceModalCore({
       `<option value="${opt.value}"${opt.value === defaultCondicao ? ' selected' : ''}>${escapeHtml(opt.label)}</option>`,
   ).join('');
 
+  const valorPlaceholder = Number(defaultValor).toFixed(2).replace('.', ',');
   const content = `
-    <form id="register-invoice-form" class="faturacao-invoice-form">
-      ${extraHtml}
+    <form id="register-invoice-form" class="faturacao-invoice-form faturacao-invoice-form--grid">
+      ${extraHtml ? `<div class="faturacao-invoice-form-span">${extraHtml}</div>` : ''}
+      <p class="text-muted faturacao-invoice-hint">${escapeHtml(hint)}</p>
       <div class="form-group">
         <label class="form-label" for="invoice-numero">Número da Fatura</label>
         <input type="text" class="form-input" id="invoice-numero" name="numero" required
@@ -1781,8 +1888,8 @@ function openRegisterInvoiceModalCore({
       </div>
       <div class="form-group">
         <label class="form-label" for="invoice-valor">Valor Total Faturado (€)</label>
-        <input type="number" class="form-input" id="invoice-valor" name="valor"
-          min="0" step="0.01" placeholder="${defaultValor.toFixed(2)}">
+        <input type="text" inputmode="decimal" class="form-input" id="invoice-valor" name="valor"
+          placeholder="${escapeHtml(valorPlaceholder)}" autocomplete="off">
       </div>
       <div class="form-group">
         <label class="form-label" for="invoice-data">Data de Emissão</label>
@@ -1794,19 +1901,18 @@ function openRegisterInvoiceModalCore({
           ${condicaoOptions}
         </select>
       </div>
-      <div class="form-group">
+      <div class="form-group faturacao-invoice-form-span">
         <label class="form-label" for="invoice-status">Estado de Recebimento</label>
         <select class="form-input" id="invoice-status" name="status" required>
           ${statusOptions}
         </select>
       </div>
-      <p class="text-muted faturacao-invoice-hint">${escapeHtml(hint)}</p>
     </form>
   `;
 
   const actions = `
     <button type="button" class="btn-outline" data-modal-cancel>Cancelar</button>
-    <button type="button" class="btn-primary" id="btn-save-invoice">Marcar como Faturado</button>
+    <button type="button" class="btn-primary" id="btn-save-invoice">Guardar fatura</button>
   `;
 
   openModal(title, content, actions);
@@ -1977,13 +2083,14 @@ function openInvoiceHistoryDetailModal(reportId) {
 
   const meta = resolveClientMeta(report.clientId);
   const job = report.jobId ? getJob(report.jobId) : null;
-  const pago = report.statusRecebimento === 'pago';
+  const payment = invoicePaymentView(report);
+  const pago = payment.fullyPaid;
   const recebimentoRaw = report.dataRecebimento ? String(report.dataRecebimento).split('T')[0] : '';
   const recebimentoLabel = recebimentoRaw
     ? formatHistoryDate(recebimentoRaw)
     : pago
       ? '—'
-      : 'Pendente';
+      : payment.statusLabel;
 
   const vencimentoLabel = pago
     ? '—'
@@ -1995,26 +2102,28 @@ function openInvoiceHistoryDetailModal(reportId) {
       <div><dt>NIF</dt><dd>${escapeHtml(meta.nif)}</dd></div>
       <div><dt>Nº Fatura</dt><dd><code class="faturacao-ordem">${escapeHtml(report.numeroFatura || '—')}</code></dd></div>
       ${job ? `<div><dt>Ordem de produção</dt><dd>${escapeHtml(formatOrdemLabel(job))}</dd></div>` : ''}
-      <div><dt>Valor faturado</dt><dd>${escapeHtml(formatCurrencyEurNullable(report.valorFaturado))}</dd></div>
+      ${renderPaymentMoneyRows(report)}
       <div><dt>Data do relatório</dt><dd>${escapeHtml(formatHistoryDate(reportDateOf(report)))}</dd></div>
       <div><dt>Data da faturação</dt><dd>${escapeHtml(formatHistoryDate(invoiceDateOf(report)))}</dd></div>
       <div><dt>Data de vencimento</dt><dd>${escapeHtml(vencimentoLabel)}</dd></div>
       <div><dt>Data do recebimento</dt><dd>${escapeHtml(recebimentoLabel)}</dd></div>
-      <div><dt>Estado</dt><dd>${pago ? 'Pago' : 'Pendente'}</dd></div>
+      <div><dt>Estado</dt><dd>${escapeHtml(payment.statusLabel)}</dd></div>
       ${renderAuditActorFields({ aprovadoPor: report.approvedBy, faturadoPor: report.invoicedBy })}
     </dl>
   `;
 
   const canRevert = !pago && !report.servicoId;
   const actions = `
+    ${pago ? '' : `<button type="button" class="btn-success btn-sm" data-detail-receive>Receber</button>`}
     ${canRevert ? `<button type="button" class="btn-warning btn-sm" data-revert-invoice-report-modal="${escapeHtml(reportId)}">Voltar a por faturar</button>` : ''}
     <button type="button" class="btn-secondary" data-modal-cancel>Fechar</button>
   `;
   openModal('Detalhe da fatura', content, actions);
-  document.querySelector('[data-modal-cancel]')?.addEventListener('click', closeModal);
-  document.querySelector('[data-revert-invoice-report-modal]')?.addEventListener('click', () => {
-    closeModal();
-    runRevertReportInvoice(reportId);
+  bindInvoiceDetailModal({
+    kind: 'report',
+    entity: report,
+    revertSelector: '[data-revert-invoice-report-modal]',
+    onRevert: () => runRevertReportInvoice(reportId),
   });
 }
 
@@ -2027,13 +2136,14 @@ function openServicoInvoiceHistoryDetailModal(servicoId) {
 
   const reports = getApprovedReportsForServico(servicoId);
   const meta = resolveClientMeta(servico.clientId);
-  const pago = servico.statusRecebimento === 'pago';
+  const payment = invoicePaymentView(servico);
+  const pago = payment.fullyPaid;
   const recebimentoRaw = servico.dataRecebimento ? String(servico.dataRecebimento).split('T')[0] : '';
   const recebimentoLabel = recebimentoRaw
     ? formatHistoryDate(recebimentoRaw)
     : pago
       ? '—'
-      : 'Pendente';
+      : payment.statusLabel;
   const vencimentoLabel = pago
     ? '—'
     : formatHistoryDate(String(servico.dataVencimento || '').split('T')[0]);
@@ -2048,24 +2158,26 @@ function openServicoInvoiceHistoryDetailModal(servicoId) {
       <div><dt>Visita</dt><dd>${escapeHtml(formatServicoOrdemLabel(servico, reports))} — ${escapeHtml(formatDateSafe(servico.date))}</dd></div>
       <div><dt>Nº Fatura</dt><dd><code class="faturacao-ordem">${escapeHtml(servico.numeroFatura || '—')}</code></dd></div>
       <div><dt>Relatórios</dt><dd><ul class="faturacao-invoice-report-list">${reportList || '<li>—</li>'}</ul></dd></div>
-      <div><dt>Valor faturado</dt><dd>${escapeHtml(formatCurrencyEurNullable(servico.valorFaturado))}</dd></div>
+      ${renderPaymentMoneyRows(servico)}
       <div><dt>Data da faturação</dt><dd>${escapeHtml(formatHistoryDate(String(servico.dataFatura || '').split('T')[0]))}</dd></div>
       <div><dt>Data de vencimento</dt><dd>${escapeHtml(vencimentoLabel)}</dd></div>
       <div><dt>Data do recebimento</dt><dd>${escapeHtml(recebimentoLabel)}</dd></div>
-      <div><dt>Estado</dt><dd>${pago ? 'Pago' : 'Pendente'}</dd></div>
+      <div><dt>Estado</dt><dd>${escapeHtml(payment.statusLabel)}</dd></div>
       ${renderAuditActorFields({ aprovadoPor: servico.approvedBy, faturadoPor: servico.invoicedBy })}
     </dl>
   `;
 
   const actions = `
+    ${pago ? '' : `<button type="button" class="btn-success btn-sm" data-detail-receive>Receber</button>`}
     ${pago ? '' : `<button type="button" class="btn-warning btn-sm" data-revert-invoice-servico-modal="${escapeHtml(servicoId)}">Voltar a por faturar</button>`}
     <button type="button" class="btn-secondary" data-modal-cancel>Fechar</button>
   `;
   openModal('Detalhe da fatura (visita)', content, actions);
-  document.querySelector('[data-modal-cancel]')?.addEventListener('click', closeModal);
-  document.querySelector('[data-revert-invoice-servico-modal]')?.addEventListener('click', () => {
-    closeModal();
-    runRevertServicoInvoice(servicoId);
+  bindInvoiceDetailModal({
+    kind: 'servico',
+    entity: servico,
+    revertSelector: '[data-revert-invoice-servico-modal]',
+    onRevert: () => runRevertServicoInvoice(servicoId),
   });
 }
 
@@ -2077,13 +2189,14 @@ function openManualInvoiceHistoryDetailModal(invoiceId) {
   }
 
   const meta = resolveClientMeta(invoice.clientId);
-  const pago = invoice.statusRecebimento === 'pago';
+  const payment = invoicePaymentView(invoice);
+  const pago = payment.fullyPaid;
   const recebimentoRaw = invoice.dataRecebimento ? String(invoice.dataRecebimento).split('T')[0] : '';
   const recebimentoLabel = recebimentoRaw
     ? formatHistoryDate(recebimentoRaw)
     : pago
       ? '—'
-      : 'Pendente';
+      : payment.statusLabel;
   const vencimentoLabel = pago
     ? '—'
     : formatHistoryDate(String(invoice.dataVencimento || '').split('T')[0]);
@@ -2095,18 +2208,21 @@ function openManualInvoiceHistoryDetailModal(invoiceId) {
       <div><dt>Origem</dt><dd>Registo manual</dd></div>
       <div><dt>Visita / Relatório</dt><dd>${escapeHtml(invoice.descricao || '—')}</dd></div>
       <div><dt>Nº Fatura</dt><dd><code class="faturacao-ordem">${escapeHtml(invoice.numeroFatura || '—')}</code></dd></div>
-      <div><dt>Valor faturado</dt><dd>${escapeHtml(formatCurrencyEurNullable(invoice.valorFaturado))}</dd></div>
+      ${renderPaymentMoneyRows(invoice)}
       <div><dt>Data da faturação</dt><dd>${escapeHtml(formatHistoryDate(String(invoice.dataFatura || '').split('T')[0]))}</dd></div>
       <div><dt>Data de vencimento</dt><dd>${escapeHtml(vencimentoLabel)}</dd></div>
       <div><dt>Data do recebimento</dt><dd>${escapeHtml(recebimentoLabel)}</dd></div>
-      <div><dt>Estado</dt><dd>${pago ? 'Pago' : 'Pendente'}</dd></div>
+      <div><dt>Estado</dt><dd>${escapeHtml(payment.statusLabel)}</dd></div>
       ${renderAuditActorFields({ registadoPor: invoice.registeredBy })}
     </dl>
   `;
 
-  const actions = `<button type="button" class="btn-secondary" data-modal-cancel>Fechar</button>`;
+  const actions = `
+    ${pago ? '' : `<button type="button" class="btn-success btn-sm" data-detail-receive>Receber</button>`}
+    <button type="button" class="btn-secondary" data-modal-cancel>Fechar</button>
+  `;
   openModal('Detalhe da fatura manual', content, actions);
-  document.querySelector('[data-modal-cancel]')?.addEventListener('click', closeModal);
+  bindInvoiceDetailModal({ kind: 'manual', entity: invoice });
 }
 
 function openFolhaObraInvoiceHistoryDetailModal(folhaId) {
@@ -2117,13 +2233,14 @@ function openFolhaObraInvoiceHistoryDetailModal(folhaId) {
   }
 
   const meta = resolveClientMeta(folha.clientId);
-  const pago = folha.statusRecebimento === 'pago';
+  const payment = invoicePaymentView(folha);
+  const pago = payment.fullyPaid;
   const recebimentoRaw = folha.dataRecebimento ? String(folha.dataRecebimento).split('T')[0] : '';
   const recebimentoLabel = recebimentoRaw
     ? formatHistoryDate(recebimentoRaw)
     : pago
       ? '—'
-      : 'Pendente';
+      : payment.statusLabel;
   const vencimentoLabel = pago
     ? '—'
     : formatHistoryDate(String(folha.dataVencimento || '').split('T')[0]);
@@ -2135,46 +2252,69 @@ function openFolhaObraInvoiceHistoryDetailModal(folhaId) {
       <div><dt>Referência</dt><dd>${escapeHtml(formatFolhaObraOrdemLabel(folha))}</dd></div>
       <div><dt>Equipamento</dt><dd>${escapeHtml(folha.tipo || '—')} · ${escapeHtml(folha.marcaModelo || '—')}</dd></div>
       <div><dt>Nº Fatura</dt><dd><code class="faturacao-ordem">${escapeHtml(folha.numeroFatura || '—')}</code></dd></div>
-      <div><dt>Valor faturado</dt><dd>${escapeHtml(formatCurrencyEurNullable(folha.valorFaturado))}</dd></div>
+      ${renderPaymentMoneyRows(folha)}
       <div><dt>Data da faturação</dt><dd>${escapeHtml(formatHistoryDate(String(folha.dataFatura || '').split('T')[0]))}</dd></div>
       <div><dt>Conclusão reparação</dt><dd>${escapeHtml(formatHistoryDate(folha.maquinaConcluidaEm))}</dd></div>
       <div><dt>Data de vencimento</dt><dd>${escapeHtml(vencimentoLabel)}</dd></div>
       <div><dt>Data do recebimento</dt><dd>${escapeHtml(recebimentoLabel)}</dd></div>
-      <div><dt>Estado</dt><dd>${pago ? 'Pago' : 'Pendente'}</dd></div>
+      <div><dt>Estado</dt><dd>${escapeHtml(payment.statusLabel)}</dd></div>
       ${renderAuditActorFields({ faturadoPor: folha.invoicedBy })}
     </dl>
   `;
 
   const canRevert = !pago;
   const actions = `
+    ${pago ? '' : `<button type="button" class="btn-success btn-sm" data-detail-receive>Receber</button>`}
     ${canRevert ? `<button type="button" class="btn-warning btn-sm" data-revert-invoice-folha-obra-modal="${escapeHtml(folhaId)}">Voltar a por faturar</button>` : ''}
     <button type="button" class="btn-secondary" data-modal-cancel>Fechar</button>
   `;
   openModal('Detalhe — Folha de Obra', content, actions);
-  document.querySelector('[data-modal-cancel]')?.addEventListener('click', closeModal);
-  document.querySelector('[data-revert-invoice-folha-obra-modal]')?.addEventListener('click', () => {
-    closeModal();
-    runRevertFolhaObraInvoice(folhaId);
+  bindInvoiceDetailModal({
+    kind: 'folha_obra',
+    entity: folha,
+    revertSelector: '[data-revert-invoice-folha-obra-modal]',
+    onRevert: () => runRevertFolhaObraInvoice(folhaId),
   });
 }
 
-async function runInlinePaymentConfirm(kind, id, dataRecebimento) {
+function bindInvoiceDetailModal({ kind, entity, revertSelector, onRevert }) {
+  document.querySelector('[data-modal-cancel]')?.addEventListener('click', closeModal);
+  document.querySelector('[data-detail-receive]')?.addEventListener('click', () => {
+    closeModal();
+    openEntityPaymentModal(kind, entity);
+  });
+  if (revertSelector && onRevert) {
+    document.querySelector(revertSelector)?.addEventListener('click', () => {
+      closeModal();
+      onRevert();
+    });
+  }
+}
+
+async function submitInvoiceReceipt(kind, id, { dataRecebimento, valorRecebido } = {}) {
   const data = String(dataRecebimento || '').trim();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) {
     showToast('Indique a data de recebimento.', 'warning');
-    return;
+    return false;
   }
+  const opts = { dataRecebimento: data, valorRecebido };
+  if (kind === 'servico') {
+    await confirmServicoInvoicePayment(id, opts);
+  } else if (kind === 'manual') {
+    await confirmManualInvoicePayment(id, opts);
+  } else if (kind === 'folha_obra') {
+    await confirmFolhaObraInvoicePayment(id, opts);
+  } else {
+    await confirmInvoicePayment(id, opts);
+  }
+  return true;
+}
+
+async function runInlinePaymentConfirm(kind, id, dataRecebimento, valorRecebido) {
   try {
-    if (kind === 'servico') {
-      await confirmServicoInvoicePayment(id, { dataRecebimento: data });
-    } else if (kind === 'manual') {
-      await confirmManualInvoicePayment(id, { dataRecebimento: data });
-    } else if (kind === 'folha_obra') {
-      await confirmFolhaObraInvoicePayment(id, data);
-    } else {
-      await confirmInvoicePayment(id, { dataRecebimento: data });
-    }
-    showToast('Recebimento confirmado. Valor movido para caixa.', 'success');
+    const ok = await submitInvoiceReceipt(kind, id, { dataRecebimento, valorRecebido });
+    if (!ok) return;
+    showToast(receiptSuccessToast(kind, id), 'success');
     await refreshFaturacaoPanel({ soft: true });
   } catch (err) {
     console.error('[Faturação] Recebido inline:', err);
@@ -2182,41 +2322,11 @@ async function runInlinePaymentConfirm(kind, id, dataRecebimento) {
   }
 }
 
-function openConfirmPaymentModal(reportId) {
-  const report = getReport(reportId);
-  if (!report) {
-    showToast('Fatura não encontrada.', 'error');
-    return;
-  }
-
-  const meta = resolveClientMeta(report.clientId);
-  const today = new Date().toISOString().split('T')[0];
-
-  const content = `
-    <form id="confirm-payment-form" class="faturacao-invoice-form">
-      <p class="text-muted faturacao-invoice-hint">
-        Confirmar recebimento de <strong>${escapeHtml(meta.nome)}</strong>
-        — fatura <strong>${escapeHtml(report.numeroFatura || '—')}</strong>
-        (${escapeHtml(formatCurrencyEurNullable(report.valorFaturado))}).
-      </p>
-      <div class="form-group">
-        <label class="form-label" for="payment-data">Data de recebimento</label>
-        <input type="date" class="form-input" id="payment-data" name="data" required value="${today}">
-      </div>
-    </form>
-  `;
-
-  const actions = `
-    <button type="button" class="btn-outline" data-modal-cancel>Cancelar</button>
-    <button type="button" class="btn-success" id="btn-confirm-payment">Confirmar recebimento</button>
-  `;
-
-  openModal('Confirmar Recebimento', content, actions);
-
+function bindConfirmPaymentModal(kind, id) {
   document.querySelector('[data-modal-cancel]')?.addEventListener('click', closeModal);
-
   document.getElementById('btn-confirm-payment')?.addEventListener('click', async () => {
     const data = document.getElementById('payment-data')?.value?.trim();
+    const valor = document.getElementById('payment-valor')?.value?.trim();
     const btn = document.getElementById('btn-confirm-payment');
     if (!data) {
       showToast('Indique a data de recebimento.', 'warning');
@@ -2224,9 +2334,13 @@ function openConfirmPaymentModal(reportId) {
     }
     btn.disabled = true;
     try {
-      await confirmInvoicePayment(reportId, { dataRecebimento: data });
+      const ok = await submitInvoiceReceipt(kind, id, { dataRecebimento: data, valorRecebido: valor });
+      if (!ok) {
+        btn.disabled = false;
+        return;
+      }
       closeModal();
-      showToast('Recebimento confirmado. Valor movido para caixa.', 'success');
+      showToast(receiptSuccessToast(kind, id), 'success');
       await refreshFaturacaoPanel({ soft: true });
     } catch (err) {
       console.error('[Faturação] Confirmar recebimento:', err);
@@ -2234,166 +2348,36 @@ function openConfirmPaymentModal(reportId) {
       btn.disabled = false;
     }
   });
+}
+
+function openEntityPaymentModal(kind, entity, title = 'Confirmar Recebimento') {
+  if (!entity) {
+    showToast('Fatura não encontrada.', 'error');
+    return;
+  }
+  const meta = resolveClientMeta(entity.clientId);
+  const actions = `
+    <button type="button" class="btn-outline" data-modal-cancel>Cancelar</button>
+    <button type="button" class="btn-success" id="btn-confirm-payment">Registar recebimento</button>
+  `;
+  openModal(title, renderConfirmPaymentForm(entity, meta.nome), actions);
+  bindConfirmPaymentModal(kind, entity.id);
+}
+
+function openConfirmPaymentModal(reportId) {
+  openEntityPaymentModal('report', getReport(reportId));
 }
 
 function openConfirmServicoPaymentModal(servicoId) {
-  const servico = getServico(servicoId);
-  if (!servico) {
-    showToast('Fatura não encontrada.', 'error');
-    return;
-  }
-
-  const meta = resolveClientMeta(servico.clientId);
-  const today = new Date().toISOString().split('T')[0];
-
-  const content = `
-    <form id="confirm-payment-form" class="faturacao-invoice-form">
-      <p class="text-muted faturacao-invoice-hint">
-        Confirmar recebimento de <strong>${escapeHtml(meta.nome)}</strong>
-        — fatura <strong>${escapeHtml(servico.numeroFatura || '—')}</strong>
-        (${escapeHtml(formatCurrencyEurNullable(servico.valorFaturado))}).
-      </p>
-      <div class="form-group">
-        <label class="form-label" for="payment-data">Data de recebimento</label>
-        <input type="date" class="form-input" id="payment-data" name="data" required value="${today}">
-      </div>
-    </form>
-  `;
-
-  const actions = `
-    <button type="button" class="btn-outline" data-modal-cancel>Cancelar</button>
-    <button type="button" class="btn-success" id="btn-confirm-payment">Confirmar recebimento</button>
-  `;
-
-  openModal('Confirmar Recebimento', content, actions);
-
-  document.querySelector('[data-modal-cancel]')?.addEventListener('click', closeModal);
-
-  document.getElementById('btn-confirm-payment')?.addEventListener('click', async () => {
-    const data = document.getElementById('payment-data')?.value?.trim();
-    const btn = document.getElementById('btn-confirm-payment');
-    if (!data) {
-      showToast('Indique a data de recebimento.', 'warning');
-      return;
-    }
-    btn.disabled = true;
-    try {
-      await confirmServicoInvoicePayment(servicoId, { dataRecebimento: data });
-      closeModal();
-      showToast('Recebimento confirmado. Valor movido para caixa.', 'success');
-      await refreshFaturacaoPanel({ soft: true });
-    } catch (err) {
-      console.error('[Faturação] Confirmar recebimento:', err);
-      showToast(err?.message || 'Erro ao confirmar recebimento.', 'error');
-      btn.disabled = false;
-    }
-  });
+  openEntityPaymentModal('servico', getServico(servicoId));
 }
 
 function openConfirmManualPaymentModal(invoiceId) {
-  const invoice = getManualInvoice(invoiceId);
-  if (!invoice) {
-    showToast('Fatura não encontrada.', 'error');
-    return;
-  }
-
-  const meta = resolveClientMeta(invoice.clientId);
-  const today = new Date().toISOString().split('T')[0];
-
-  const content = `
-    <form id="confirm-payment-form" class="faturacao-invoice-form">
-      <p class="text-muted faturacao-invoice-hint">
-        Confirmar recebimento de <strong>${escapeHtml(meta.nome)}</strong>
-        — fatura <strong>${escapeHtml(invoice.numeroFatura || '—')}</strong>
-        (${escapeHtml(formatCurrencyEurNullable(invoice.valorFaturado))}).
-      </p>
-      <div class="form-group">
-        <label class="form-label" for="payment-data">Data de recebimento</label>
-        <input type="date" class="form-input" id="payment-data" name="data" required value="${today}">
-      </div>
-    </form>
-  `;
-
-  const actions = `
-    <button type="button" class="btn-outline" data-modal-cancel>Cancelar</button>
-    <button type="button" class="btn-success" id="btn-confirm-payment">Confirmar recebimento</button>
-  `;
-
-  openModal('Confirmar Recebimento', content, actions);
-  document.querySelector('[data-modal-cancel]')?.addEventListener('click', closeModal);
-
-  document.getElementById('btn-confirm-payment')?.addEventListener('click', async () => {
-    const data = document.getElementById('payment-data')?.value?.trim();
-    const btn = document.getElementById('btn-confirm-payment');
-    if (!data) {
-      showToast('Indique a data de recebimento.', 'warning');
-      return;
-    }
-    btn.disabled = true;
-    try {
-      await confirmManualInvoicePayment(invoiceId, { dataRecebimento: data });
-      closeModal();
-      showToast('Recebimento confirmado. Valor movido para caixa.', 'success');
-      await refreshFaturacaoPanel({ soft: true });
-    } catch (err) {
-      console.error('[Faturação] Confirmar recebimento manual:', err);
-      showToast(err?.message || 'Erro ao confirmar recebimento.', 'error');
-      btn.disabled = false;
-    }
-  });
+  openEntityPaymentModal('manual', getManualInvoice(invoiceId));
 }
 
 function openConfirmFolhaObraPaymentModal(folhaId) {
-  const folha = getFolhaObra(folhaId);
-  if (!folha) {
-    showToast('Folha de obra não encontrada.', 'error');
-    return;
-  }
-
-  const meta = resolveClientMeta(folha.clientId);
-  const today = new Date().toISOString().split('T')[0];
-
-  const content = `
-    <form id="confirm-payment-form" class="faturacao-invoice-form">
-      <p class="text-muted faturacao-invoice-hint">
-        Confirmar recebimento de <strong>${escapeHtml(meta.nome)}</strong>
-        — fatura <strong>${escapeHtml(folha.numeroFatura || '—')}</strong>
-        (${escapeHtml(formatCurrencyEurNullable(folha.valorFaturado))}).
-      </p>
-      <div class="form-group">
-        <label class="form-label" for="payment-data">Data de recebimento</label>
-        <input type="date" class="form-input" id="payment-data" name="data" required value="${today}">
-      </div>
-    </form>
-  `;
-
-  const actions = `
-    <button type="button" class="btn-outline" data-modal-cancel>Cancelar</button>
-    <button type="button" class="btn-success" id="btn-confirm-payment">Confirmar recebimento</button>
-  `;
-
-  openModal('Confirmar Recebimento', content, actions);
-  document.querySelector('[data-modal-cancel]')?.addEventListener('click', closeModal);
-
-  document.getElementById('btn-confirm-payment')?.addEventListener('click', async () => {
-    const data = document.getElementById('payment-data')?.value?.trim();
-    const btn = document.getElementById('btn-confirm-payment');
-    if (!data) {
-      showToast('Indique a data de recebimento.', 'warning');
-      return;
-    }
-    btn.disabled = true;
-    try {
-      await confirmFolhaObraInvoicePayment(folhaId, data);
-      closeModal();
-      showToast('Recebimento confirmado. Valor movido para caixa.', 'success');
-      await refreshFaturacaoPanel({ soft: true });
-    } catch (err) {
-      console.error('[Faturação] Confirmar recebimento folha de obra:', err);
-      showToast(err?.message || 'Erro ao confirmar recebimento.', 'error');
-      btn.disabled = false;
-    }
-  });
+  openEntityPaymentModal('folha_obra', getFolhaObra(folhaId));
 }
 
 function runRevertServicoInvoice(servicoId) {
@@ -2557,8 +2541,12 @@ function bindConfirmPaymentActions() {
       const dateInput =
         btn.closest('.faturacao-inline-payment')?.querySelector('[data-payment-date]') ||
         mountRoot?.querySelector(`[data-payment-date="${CSS.escape(`${kind}:${id}`)}"]`);
+      const amountInput =
+        btn.closest('.faturacao-inline-payment')?.querySelector('[data-payment-amount]') ||
+        mountRoot?.querySelector(`[data-payment-amount="${CSS.escape(`${kind}:${id}`)}"]`);
       const data = String(dateInput?.value || '').trim();
-      void runInlinePaymentConfirm(kind, id, data);
+      const valor = String(amountInput?.value || '').trim();
+      void runInlinePaymentConfirm(kind, id, data, valor);
     });
   });
 
@@ -2655,7 +2643,37 @@ function bindConfirmPaymentActions() {
   });
 }
 
+function bindKpiFilterActions() {
+  mountRoot?.querySelectorAll('[data-kpi-filter]').forEach((card) => {
+    const apply = () => {
+      const status = card.getAttribute('data-kpi-filter') || 'all';
+      const alreadyActive = status === billingFilters.recebimentoStatus;
+      if (!alreadyActive) {
+        setInvoicesRecebimentoFilter(status);
+        applyBillingFilters()
+          .then(() => {
+            mountRoot
+              ?.querySelector('.faturacao-invoices-section')
+              ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          })
+          .catch(console.error);
+        return;
+      }
+      mountRoot
+        ?.querySelector('.faturacao-invoices-section')
+        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+    card.addEventListener('click', apply);
+    card.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      e.preventDefault();
+      apply();
+    });
+  });
+}
+
 function bindTableActions() {
+  bindKpiFilterActions();
   bindBillingRowActionButtons();
   bindConfirmPaymentActions();
   bindHistoryDetailActions();
@@ -2720,6 +2738,8 @@ function exportFilteredInvoicesCsv() {
     'Visita / Relatório',
     'Nº Fatura',
     'Valor (EUR)',
+    'Recebido (EUR)',
+    'Em dívida (EUR)',
     'Estado',
     'Data recebimento',
     'Aprovado por',
@@ -2742,7 +2762,9 @@ function exportFilteredInvoicesCsv() {
       trabalhoLabel,
       entity.numeroFatura || '',
       Number.isFinite(Number(entity.valorFaturado)) ? Number(entity.valorFaturado) : '',
-      labelStatusRecebimento(entity.statusRecebimento),
+      auditRow.recebido,
+      auditRow.divida,
+      auditRow.estadoLabel || labelStatusRecebimento(entity.statusRecebimento),
       recebimento,
       auditRow.aprovadoPor || '',
       auditRow.faturadoPor || '',
@@ -2807,10 +2829,23 @@ function renderPanel() {
   return `
     <div class="faturacao-panel rh-admin-panel dashboard-panel-inner">
       <header class="faturacao-header rh-section">
-        <h2 class="ms-h2">Controlo de Faturação</h2>
-        <p class="text-muted faturacao-lead">
-          Emita faturas no programa externo e registe aqui o valor, prazo e recebimentos para acompanhar o fluxo de caixa.
-        </p>
+        <div class="faturacao-header-copy">
+          <h2 class="ms-h2">Faturação</h2>
+          <p class="text-muted faturacao-lead">
+            Contas a receber. A fatura legal sai no programa externo; aqui regista valores, prazos e cobranças.
+          </p>
+        </div>
+        <div class="faturacao-header-actions">
+          <label class="faturacao-audit-year-label">
+            <span class="form-label">Ano do PDF</span>
+            <select class="form-select-sm" id="faturacao-audit-year">
+              ${renderAuditYearOptions(getAllAuditInvoiceRows())}
+            </select>
+          </label>
+          <button type="button" class="btn-outline btn-sm" id="faturacao-export-csv">Exportar CSV</button>
+          <button type="button" class="btn-outline btn-sm" id="faturacao-export-pdf">PDF anual</button>
+          <button type="button" class="btn-primary btn-sm" id="faturacao-manual-invoice">Fatura avulsa</button>
+        </div>
       </header>
       ${renderFiltersSection()}
       ${renderKpis(metrics)}

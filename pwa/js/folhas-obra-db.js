@@ -77,6 +77,10 @@ export function mapRowToFolhaObra(row) {
       row.valor_faturado != null && row.valor_faturado !== ''
         ? Number(row.valor_faturado)
         : null,
+    valorRecebido:
+      row.valor_recebido != null && row.valor_recebido !== ''
+        ? Number(row.valor_recebido)
+        : null,
     faturaCondicaoPagamento: row.condicao_pagamento || null,
     statusRecebimento: row.status_recebimento || 'pendente',
     dataVencimento: formatDateOnly(row.data_vencimento) || null,
@@ -114,6 +118,7 @@ export function mapFolhaObraToRow(folha, overrides = {}) {
     numero_fatura: data.numeroFatura ?? overrides.numero_fatura ?? null,
     data_fatura: formatDateOnly(data.dataFatura) || null,
     valor_faturado: data.valorFaturado ?? overrides.valor_faturado ?? null,
+    valor_recebido: data.valorRecebido ?? overrides.valor_recebido ?? null,
     condicao_pagamento: data.faturaCondicaoPagamento ?? overrides.condicao_pagamento ?? null,
     status_recebimento: data.statusRecebimento ?? overrides.status_recebimento ?? null,
     data_vencimento: data.dataVencimento ? formatDateOnly(data.dataVencimento) : null,

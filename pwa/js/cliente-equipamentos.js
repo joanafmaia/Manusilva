@@ -24,6 +24,7 @@ export const SERVICE_CATEGORIA = {
   manutencao_preventiva_bateria: 'bateria',
   reparacao_avarias_bateria: 'bateria',
   reparacao_carregador: 'carregador',
+  movimento_material_cliente: 'empilhador',
 };
 
 const SERVICES_WITH_MACHINE_BLOCK = new Set([
@@ -34,6 +35,7 @@ const SERVICES_WITH_MACHINE_BLOCK = new Set([
   'manutencao_preventiva_bateria',
   'reparacao_avarias_bateria',
   'reparacao_carregador',
+  'movimento_material_cliente',
 ]);
 
 function norm(value) {

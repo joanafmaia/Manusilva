@@ -205,6 +205,10 @@ export function mapRowToReport(row) {
       row.valor_faturado != null && row.valor_faturado !== ''
         ? Number(row.valor_faturado)
         : null,
+    valorRecebido:
+      row.valor_recebido != null && row.valor_recebido !== ''
+        ? Number(row.valor_recebido)
+        : null,
     faturaCondicaoPagamento:
       row.condicao_pagamento ||
       legacyPrazoToCondicao(row.prazo_pagamento) ||
@@ -301,6 +305,10 @@ export function mapReportToRow(report) {
       valor_faturado:
         report.valorFaturado != null && Number.isFinite(Number(report.valorFaturado))
           ? Number(report.valorFaturado)
+          : null,
+      valor_recebido:
+        report.valorRecebido != null && Number.isFinite(Number(report.valorRecebido))
+          ? Number(report.valorRecebido)
           : null,
       condicao_pagamento: report.faturaCondicaoPagamento || null,
       status_recebimento: report.statusRecebimento || null,

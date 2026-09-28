@@ -18,9 +18,11 @@ export const FATURA_CONDICAO_LABELS = Object.fromEntries(
   FATURA_CONDICAO_OPCOES.map((o) => [o.value, o.label]),
 );
 
-export const STATUS_RECEBIMENTO_LABELS = Object.fromEntries(
-  STATUS_RECEBIMENTO_OPCOES.map((o) => [o.value, o.label]),
-);
+export const STATUS_RECEBIMENTO_LABELS = {
+  pendente: 'Pendente',
+  parcial: 'Parcial',
+  pago: 'Pago',
+};
 
 const CONDICAO_VALIDAS = new Set(FATURA_CONDICAO_OPCOES.map((o) => o.value));
 const STATUS_VALIDOS = new Set(STATUS_RECEBIMENTO_OPCOES.map((o) => o.value));

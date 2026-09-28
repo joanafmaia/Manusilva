@@ -273,12 +273,15 @@ describe('pdf-movimento-material', () => {
 });
 
 describe('pdf-format-utils — recolha/entrega', () => {
-  it('não reserva campos de equipamento no PDF de movimento', async () => {
+  it('reserva o cabeçalho de equipamento no PDF de recolha/entrega', async () => {
     const { isPdfLayoutReservedField } = await import('../js/pdf-format-utils.js');
     const service = { id: 'movimento_material_cliente' };
-    assert.equal(isPdfLayoutReservedField('marca', service), false);
-    assert.equal(isPdfLayoutReservedField('tipo', service), false);
-    assert.equal(isPdfLayoutReservedField('numero_de_serie', service), false);
+    assert.equal(isPdfLayoutReservedField('marca', service), true);
+    assert.equal(isPdfLayoutReservedField('modelo', service), true);
+    assert.equal(isPdfLayoutReservedField('tipo', service), true);
+    assert.equal(isPdfLayoutReservedField('numero_de_serie', service), true);
+    assert.equal(isPdfLayoutReservedField('n_interno', service), true);
+    assert.equal(isPdfLayoutReservedField('horas', service), false);
   });
 
   it('usa data_movimento como data do serviço no PDF', async () => {

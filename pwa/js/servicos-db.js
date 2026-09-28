@@ -62,6 +62,10 @@ export function mapRowToServico(row) {
       row.valor_faturado != null && row.valor_faturado !== ''
         ? Number(row.valor_faturado)
         : null,
+    valorRecebido:
+      row.valor_recebido != null && row.valor_recebido !== ''
+        ? Number(row.valor_recebido)
+        : null,
     faturaCondicaoPagamento: row.condicao_pagamento || null,
     statusRecebimento: row.status_recebimento || null,
     dataVencimento: row.data_vencimento || null,
@@ -94,6 +98,7 @@ export function mapServicoToRow(servico, overrides = {}) {
     numero_fatura: servico.numeroFatura ?? overrides.numero_fatura ?? null,
     data_fatura: servico.dataFatura ?? overrides.data_fatura ?? null,
     valor_faturado: servico.valorFaturado ?? overrides.valor_faturado ?? null,
+    valor_recebido: servico.valorRecebido ?? overrides.valor_recebido ?? null,
     condicao_pagamento: servico.faturaCondicaoPagamento ?? overrides.condicao_pagamento ?? null,
     status_recebimento: servico.statusRecebimento ?? overrides.status_recebimento ?? null,
     data_vencimento: servico.dataVencimento ?? overrides.data_vencimento ?? null,

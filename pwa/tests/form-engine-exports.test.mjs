@@ -49,6 +49,16 @@ describe('form-engine exports', () => {
     assert.match(html, /corretiva-verifications-shell/);
   });
 
+  it('mostra Finalização (fotos) no relatório de recolha/entrega', async () => {
+    const { analyzeReportFormTabs, renderReportFormTabsNav } = await import('../js/form-engine.js');
+    const { MOVIMENTO_MATERIAL_CLIENTE } = await import('../js/mock_data.js');
+    const tabs = analyzeReportFormTabs(MOVIMENTO_MATERIAL_CLIENTE);
+    assert.deepEqual(tabs, { geral: true, checklist: false, finalizacao: true });
+    const nav = renderReportFormTabsNav(MOVIMENTO_MATERIAL_CLIENTE);
+    assert.match(nav, /report-tab-finalizacao/);
+    assert.match(nav, /Finalização/);
+  });
+
   it('não duplica Observações/Estado na checklist de empilhadores', async () => {
     const formEngine = await import('../js/form-engine.js');
     const { MANUTENCAO_PREVENTIVA_EMPILHADORES } = await import('../js/mock_data.js');
@@ -90,6 +100,10 @@ describe('form-engine exports', () => {
     } = await import('../js/mock_data.js');
 
     const movimentoHtml = renderReportFields(MOVIMENTO_MATERIAL_CLIENTE, {}, {}, { tab: 'geral' });
+    assert.match(movimentoHtml, /data-field-id="marca"/);
+    assert.match(movimentoHtml, /data-field-id="modelo"/);
+    assert.match(movimentoHtml, /data-field-id="numero_de_serie"/);
+    assert.match(movimentoHtml, /data-field-id="n_interno"/);
     assert.match(movimentoHtml, /form-section-subtitle[^>]*>Observações</);
     assert.equal(
       (movimentoHtml.match(/<label class="form-label">Observações<\/label>/g) || []).length,

@@ -55,4 +55,22 @@ describe('faturacao-stats', () => {
     assert.equal(visita.count, 1);
     assert.equal(visita.valor, 200);
   });
+
+  it('conta recebimentos parciais no total recebido e na dívida', () => {
+    const metrics = computeBillingMetrics([
+      {
+        date: '2026-09-01',
+        tipo: 'Visita',
+        valor: 1000,
+        recebido: 400,
+        divida: 600,
+        estado: 'parcial',
+      },
+    ]);
+    assert.equal(metrics.totalFaturado, 1000);
+    assert.equal(metrics.totalRecebido, 400);
+    assert.equal(metrics.totalDivida, 600);
+    assert.equal(metrics.countPendente, 1);
+    assert.equal(metrics.countPago, 0);
+  });
 });

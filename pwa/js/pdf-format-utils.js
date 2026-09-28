@@ -186,9 +186,21 @@ export function formatPdfServiceDateOnly(report, job, values = {}) {
   return y && m && d ? `${d}/${m}/${y}` : '—';
 }
 
+const MOVIMENTO_PDF_RESERVED_FIELD_IDS = new Set([
+  'tipo_movimento',
+  'data_movimento',
+  'marca',
+  'modelo',
+  'tipo',
+  'tipo_outro',
+  'numero_de_serie',
+  'n_interno',
+  'observacoes',
+]);
+
 export function isPdfLayoutReservedField(fieldId, service = null) {
   if (service?.id === SERVICE_IDS.MOVIMENTO_MATERIAL_CLIENTE) {
-    return false;
+    return MOVIMENTO_PDF_RESERVED_FIELD_IDS.has(fieldId);
   }
   if (
     service?.id === INSPECAO_DL50_SERVICE_ID &&

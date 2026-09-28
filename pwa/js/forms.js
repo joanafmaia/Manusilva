@@ -681,10 +681,15 @@ async function buildFormHTML(job, client, tech, service, existingReport, options
   const antesUrl = fotoDisplayUrl(fotoAntesState);
   const depoisUrl = fotoDisplayUrl(fotoDepoisState);
 
+  const isMovimentoForm = isMovimentoMaterialClienteService(service);
+  const fotoHint = isMovimentoForm
+    ? 'Fotografe o material ou equipamento na recolha/entrega. Pode anexar uma ou duas fotos, ou nenhuma.'
+    : 'Pode anexar só Antes, só Depois, as duas ou nenhuma.';
+
   const fotoSection = `
     <section class="form-section form-section--final form-section-card">
       <h3 class="section-title">Fotos do Trabalho <span class="text-muted section-title-hint">(opcional)</span></h3>
-      <p class="text-muted foto-antes-depois-hint">Pode anexar só Antes, só Depois, as duas ou nenhuma.</p>
+      <p class="text-muted foto-antes-depois-hint">${fotoHint}</p>
       <div class="foto-antes-depois-grid">
         <div class="foto-antes-depois-card">
           <span class="foto-antes-depois-label">Foto Antes</span>
@@ -744,10 +749,12 @@ async function buildFormHTML(job, client, tech, service, existingReport, options
             ? 'rav-closing-shell'
             : isFolhaAvariasForm
               ? 'folha-closing-shell'
-              : '';
+              : isMovimentoForm
+                ? 'folha-closing-shell'
+                : '';
 
   return `
-    <div class="form-workspace form-workspace--report${isCarregadorForm ? ' form-workspace--carregador' : ''}${isCorretivaForm ? ' form-workspace--corretiva' : ''}${isGrandesForm ? ' form-workspace--grandes' : ''}${isRavBateriaForm ? ' form-workspace--rav-bateria' : ''}${isFolhaAvariasForm ? ' form-workspace--folha-avarias' : ''}${isEmpilhadoresForm ? ' form-workspace--empilhadores' : ''}">
+    <div class="form-workspace form-workspace--report${isCarregadorForm ? ' form-workspace--carregador' : ''}${isCorretivaForm ? ' form-workspace--corretiva' : ''}${isGrandesForm ? ' form-workspace--grandes' : ''}${isRavBateriaForm ? ' form-workspace--rav-bateria' : ''}${isFolhaAvariasForm ? ' form-workspace--folha-avarias' : ''}${isEmpilhadoresForm ? ' form-workspace--empilhadores' : ''}${isMovimentoForm ? ' form-workspace--movimento' : ''}">
       ${isEmpilhadoresForm ? '<input type="hidden" data-empilhadores-maquinas-store data-field-id="maquinas" value="">' : ''}
       <div class="form-panel form-panel--premium glass-card">
         <div class="form-panel-header form-panel-header--minimal">

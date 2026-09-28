@@ -48,13 +48,21 @@ export function computeBillingMetrics(rows = []) {
     const valor = Number(row.valor);
     if (!Number.isFinite(valor) || valor <= 0) continue;
     totalFaturado += valor;
-    if (row.estado === 'pago') {
+    const recebido = Number(row.recebido);
+    const hasSplit = Number.isFinite(recebido);
+    if (hasSplit) {
+      const divida = Number.isFinite(Number(row.divida))
+        ? Number(row.divida)
+        : Math.max(0, valor - recebido);
+      totalRecebido += recebido;
+      totalDivida += divida;
+    } else if (row.estado === 'pago') {
       totalRecebido += valor;
-      countPago += 1;
-    } else if (row.estado === 'pendente') {
+    } else if (row.estado === 'pendente' || row.estado === 'parcial') {
       totalDivida += valor;
-      countPendente += 1;
     }
+    if (row.estado === 'pago') countPago += 1;
+    else if (row.estado === 'pendente' || row.estado === 'parcial') countPendente += 1;
   }
 
   return {
@@ -75,7 +83,9 @@ export function buildBillingByTypeRows(rows = []) {
     const valor = Number(row.valor) || 0;
     current.count += 1;
     current.valor += valor;
-    if (row.estado === 'pago') current.recebido += valor;
+    const recebido = Number(row.recebido);
+    if (Number.isFinite(recebido)) current.recebido += recebido;
+    else if (row.estado === 'pago') current.recebido += valor;
     byType.set(tipo, current);
   }
 
@@ -106,8 +116,17 @@ export function buildMonthlyBillingRows(rows = [], year) {
     const valor = Number(row.valor) || 0;
     if (valor <= 0) continue;
     buckets[monthIndex].faturado += valor;
-    if (row.estado === 'pago') buckets[monthIndex].recebido += valor;
-    else if (row.estado === 'pendente') buckets[monthIndex].divida += valor;
+    const recebido = Number(row.recebido);
+    if (Number.isFinite(recebido)) {
+      buckets[monthIndex].recebido += recebido;
+      buckets[monthIndex].divida += Number.isFinite(Number(row.divida))
+        ? Number(row.divida)
+        : Math.max(0, valor - recebido);
+    } else if (row.estado === 'pago') {
+      buckets[monthIndex].recebido += valor;
+    } else if (row.estado === 'pendente' || row.estado === 'parcial') {
+      buckets[monthIndex].divida += valor;
+    }
   }
 
   return MONTH_LABELS_PT.map((month, index) => ({
