@@ -109,6 +109,13 @@ import {
   renderOrcamentoFaturarCheckbox,
   resolveOrcamentoFaturarProposta,
 } from './orcamento-faturar-flag.js';
+import {
+  readOrcamentoValorAceiteFromDom,
+  renderOrcamentoValorAceiteFields,
+  resolveOrcamentoMotivoValorAceite,
+  resolveOrcamentoValorAceiteNumber,
+  resolveOrcamentoValorPropostaOriginal,
+} from './orcamento-valor-aceite.js';
 
 function shouldReturnToOrcamentosMenu() {
   return isOrcamentoDedicatedPage() || Boolean(window.__orcamentoReturnUrl);
@@ -210,17 +217,21 @@ function renderOrcamentoRespostaSection(report) {
         <input type="date" class="review-orc-input" data-orc-field="respostaClienteEm" value="${escapeHtml(dateValue)}" />
         <span class="review-orc-field-hint text-muted">Pode indicar a data real da resposta do cliente (não só a do registo no sistema).</span>
       </label>
+      ${renderOrcamentoValorAceiteFields(report)}
       <div class="review-orc-resposta__actions">
         ${renderOrcamentoFaturarCheckbox(report)}
         <button type="button" class="btn-success btn-sm btn-touch" data-orc-mark-aceite>Marca aceite</button>
         <button type="button" class="btn-danger btn-sm btn-touch" data-orc-mark-recusada>Marca recusada</button>
         ${
           hasResposta
-            ? '<button type="button" class="btn-outline btn-sm btn-touch" data-orc-save-resposta-data>Guardar data</button>'
+            ? '<button type="button" class="btn-outline btn-sm btn-touch" data-orc-save-resposta-data>Guardar resposta</button>'
             : ''
         }
       </div>
-      <p class="text-muted review-orcamento-editor__hint">Registe aqui se o cliente aceitou ou recusou a proposta enviada. A caixa controla se a proposta entra em Faturação.</p>
+      <p class="text-muted review-orcamento-editor__hint">
+        Se o cliente aceitar parcialmente ou negociar, indique o valor aceite e o motivo.
+        A caixa controla se a proposta entra em Faturação.
+      </p>
     </section>`;
 }
 
@@ -255,6 +266,16 @@ function renderOrcamentoSentSummary(report, { client } = {}) {
         ${
           workflow === 'aceite' || workflow === 'recusada'
             ? `<div><dt>${workflow === 'aceite' ? 'Data de aceite' : 'Data de recusa'}</dt><dd>${escapeHtml(formatOrcamentoRespostaDataLabel(meta, { empty: '—' }))}</dd></div>`
+            : ''
+        }
+        ${
+          workflow === 'aceite' && resolveOrcamentoValorAceiteNumber(report) != null
+            ? `<div><dt>Valor aceite</dt><dd>${escapeHtml(formatEuro(resolveOrcamentoValorAceiteNumber(report)))} € <span class="text-muted">(proposta ${escapeHtml(formatEuro(resolveOrcamentoValorPropostaOriginal(report)))} €)</span></dd></div>`
+            : ''
+        }
+        ${
+          workflow === 'aceite' && resolveOrcamentoMotivoValorAceite(report)
+            ? `<div><dt>Motivo</dt><dd>${escapeHtml(resolveOrcamentoMotivoValorAceite(report))}</dd></div>`
             : ''
         }
         <div><dt>Enviada para</dt><dd>${email}</dd></div>
@@ -841,6 +862,14 @@ async function openOrcamentoPdf(report, { saveMeta }) {
 function bindOrcamentoRespostaActions(root, { getReport, onUpdated }) {
   const readRespostaDate = () =>
     root.querySelector('[data-orc-field="respostaClienteEm"]')?.value?.trim() || '';
+  const readValorAceiteOptions = () => {
+    const fromDom = readOrcamentoValorAceiteFromDom(root);
+    if (!fromDom) return {};
+    return {
+      valorAceite: fromDom.valorAceite,
+      motivoValorAceite: fromDom.motivoValorAceite,
+    };
+  };
 
   root.querySelector(`[data-orc-field="faturarProposta"]`)?.addEventListener('change', async (e) => {
     try {
@@ -886,6 +915,7 @@ function bindOrcamentoRespostaActions(root, { getReport, onUpdated }) {
       const saved = await setOrcamentoRespostaCliente(current.id, ORCAMENTO_RESPOSTA.ACEITE, {
         respostaClienteEm: readRespostaDate(),
         faturarProposta: readOrcamentoFaturarFromDom(root, current),
+        ...readValorAceiteOptions(),
       });
       if (!saved) throw new Error('Não foi possível guardar.');
       onUpdated?.(saved);
@@ -927,12 +957,19 @@ function bindOrcamentoRespostaActions(root, { getReport, onUpdated }) {
         showToast('Marque primeiro aceite ou recusada.', 'warning');
         return;
       }
+      const valorOpts = readValorAceiteOptions();
       const saved = await setOrcamentoRespostaCliente(current.id, workflow, {
         respostaClienteEm: readRespostaDate(),
+        faturarProposta: readOrcamentoFaturarFromDom(root, current),
+        ...valorOpts,
       });
       if (!saved) throw new Error('Não foi possível guardar.');
-      onUpdated?.(saved);
-      showToast('Data da resposta atualizada.', 'success');
+      if (workflow === 'aceite') {
+        const { applyOrcamentoValorAceiteChoice } = await import('./orcamento-billing-workflow.js');
+        await applyOrcamentoValorAceiteChoice(current.id, valorOpts);
+      }
+      onUpdated?.(getReport() || saved);
+      showToast('Resposta do cliente atualizada.', 'success');
     } catch (err) {
       const { showToast } = await import('./app.js');
       showToast(err?.message || 'Erro ao guardar.', 'error');

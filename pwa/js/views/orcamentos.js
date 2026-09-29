@@ -34,7 +34,7 @@ import {
   openNovaPropostaModal,
   reportOrcamentoQueueLabel,
 } from '../orcamento-standalone.js';
-import { getReportOrcamentoMeta } from '../orcamento-linhas.js';
+import { getReportOrcamentoMeta, formatEuro } from '../orcamento-linhas.js';
 import {
   getReportReclamacaoGarantia,
   reportHasReclamacaoGarantiaIndicacao,
@@ -64,6 +64,13 @@ import {
   renderOrcamentoFaturarCheckbox,
   resolveOrcamentoFaturarProposta,
 } from '../orcamento-faturar-flag.js';
+import {
+  readOrcamentoValorAceiteFromDom,
+  renderOrcamentoValorAceiteInline,
+  resolveOrcamentoMotivoValorAceite,
+  resolveOrcamentoValorAceiteNumber,
+  resolveOrcamentoValorPropostaOriginal,
+} from '../orcamento-valor-aceite.js';
 import { ensureFolhasObraLoadedSafe } from '../folhas-obra-db.js';
 import {
   bindFolhaObraRhSection,
@@ -305,6 +312,15 @@ function renderInlineRespostaControls(report) {
     !reportIsFolhaObraOrcamento(report) &&
     report.faturacaoStatus !== 'faturado' &&
     (aguarda || workflow === 'aceite');
+  const canEditValor =
+    !reportIsFolhaObraOrcamento(report) &&
+    report.faturacaoStatus !== 'faturado' &&
+    (aguarda || workflow === 'aceite');
+  const valorAceiteN = resolveOrcamentoValorAceiteNumber(report);
+  const valorBadge =
+    workflow === 'aceite' && valorAceiteN != null
+      ? `<span class="orcamentos-valor-negociado" title="${escapeHtml(resolveOrcamentoMotivoValorAceite(report) || 'Valor aceite / negociado')}">${escapeHtml(formatEuro(valorAceiteN))} € aceite</span>`
+      : '';
   return `
     <div class="orcamentos-inline-resposta" data-orc-inline-resposta="${escapeHtml(report.id)}">
       ${
@@ -312,6 +328,8 @@ function renderInlineRespostaControls(report) {
           ? `<input type="date" class="form-input form-input-sm orcamentos-inline-date" data-orc-resposta-date="${escapeHtml(report.id)}" value="${escapeHtml(dateValue)}" title="Data da resposta" aria-label="Data da resposta" />`
           : ''
       }
+      ${canEditValor ? renderOrcamentoValorAceiteInline(report, { idPrefix: `list-${report.id}` }) : ''}
+      ${valorBadge}
       ${
         canToggleFaturar
           ? renderOrcamentoFaturarCheckbox(report, {
@@ -323,7 +341,9 @@ function renderInlineRespostaControls(report) {
       ${
         aguarda || workflow !== 'aceite'
           ? `<button type="button" class="btn-success btn-sm rh-btn-compact faturacao-btn-compact" data-orc-aceite="${escapeHtml(report.id)}" title="Aceite">Aceite</button>`
-          : ''
+          : canEditValor
+            ? `<button type="button" class="btn-outline btn-sm rh-btn-compact faturacao-btn-compact" data-orc-save-valor="${escapeHtml(report.id)}" title="Guardar valor aceite">Guardar valor</button>`
+            : ''
       }
       ${
         aguarda || workflow !== 'recusada'
@@ -366,6 +386,38 @@ async function applyInlineFaturarToggle(reportId, faturarProposta) {
   }
 }
 
+async function applyInlineValorAceite(reportId) {
+  const report = getReport(reportId);
+  if (!report) return;
+  if (report.faturacaoStatus === 'faturado') {
+    showToast('Esta proposta já foi faturada.', 'warning');
+    return;
+  }
+  const wrap = mountRoot?.querySelector(`[data-orc-inline-resposta="${CSS.escape(reportId)}"]`);
+  const fromDom = wrap ? readOrcamentoValorAceiteFromDom(wrap) : null;
+  if (!fromDom) return;
+  try {
+    const { applyOrcamentoValorAceiteChoice } = await import('../orcamento-billing-workflow.js');
+    const saved = await applyOrcamentoValorAceiteChoice(reportId, {
+      valorAceite: fromDom.valorAceite,
+      motivoValorAceite: fromDom.motivoValorAceite,
+    });
+    if (!saved) return;
+    const n = resolveOrcamentoValorAceiteNumber(saved);
+    const orig = resolveOrcamentoValorPropostaOriginal(saved);
+    showToast(
+      n != null && Math.abs(n - orig) > 0.009
+        ? `Valor aceite ${formatEuro(n)} € guardado (proposta ${formatEuro(orig)} €).`
+        : 'Valor da proposta confirmado para faturação.',
+      'success',
+    );
+    await refreshOrcamentosPanel({ soft: true });
+  } catch (err) {
+    console.error('[Orçamentos] valor aceite:', err);
+    showToast(err?.message || 'Não foi possível guardar o valor.', 'error', 9000);
+  }
+}
+
 async function applyInlineResposta(reportId, resposta) {
   const report = getReport(reportId);
   if (
@@ -383,9 +435,16 @@ async function applyInlineResposta(reportId, resposta) {
   const faturarProposta = wrap
     ? readOrcamentoFaturarFromDom(wrap, report)
     : resolveOrcamentoFaturarProposta(report);
+  const valorFromDom = wrap ? readOrcamentoValorAceiteFromDom(wrap) : null;
   const saved = await setOrcamentoRespostaCliente(reportId, resposta, {
     respostaClienteEm: readInlineRespostaDate(reportId),
     faturarProposta,
+    ...(valorFromDom
+      ? {
+          valorAceite: valorFromDom.valorAceite,
+          motivoValorAceite: valorFromDom.motivoValorAceite,
+        }
+      : {}),
   });
   if (!saved) return;
   const msg =
@@ -1381,6 +1440,14 @@ function bindPanelEvents() {
       void applyInlineResposta(reportId, ORCAMENTO_RESPOSTA.ACEITE).catch((err) =>
         showToast(err?.message || 'Erro ao guardar.', 'error'),
       );
+      return;
+    }
+
+    const saveValorBtn = e.target.closest('[data-orc-save-valor]');
+    if (saveValorBtn) {
+      const reportId = saveValorBtn.dataset.orcSaveValor;
+      if (!reportId) return;
+      void applyInlineValorAceite(reportId);
       return;
     }
 

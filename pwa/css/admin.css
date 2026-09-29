@@ -5387,6 +5387,61 @@ body .admin-rh-page .btn-primary, body .admin-rh-page .btn-secondary, body .admi
 .orcamentos-faturar-check--compact span {
   white-space: normal;
 }
+.orcamentos-valor-aceite-inline {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.2rem;
+  max-width: 100%;
+}
+.orcamentos-valor-aceite-inline__valor {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  margin: 0;
+  font-size: 0.7rem;
+  color: var(--ms-text-muted, #64748b);
+}
+.orcamentos-valor-aceite-inline__label {
+  font-weight: 700;
+}
+.orcamentos-valor-aceite-input {
+  width: 4.8rem;
+  min-width: 4.2rem;
+  max-width: 5.5rem;
+  padding: 0.16rem 0.28rem;
+  font-size: 0.7rem;
+}
+.orcamentos-motivo-aceite-input {
+  width: 8.5rem;
+  min-width: 6rem;
+  max-width: 12rem;
+  padding: 0.16rem 0.28rem;
+  font-size: 0.7rem;
+}
+.orcamentos-valor-negociado {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #166534;
+  background: #dcfce7;
+  border-radius: 4px;
+  padding: 0.1rem 0.35rem;
+}
+.review-orc-valor-aceite {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  margin: 0.35rem 0 0.65rem;
+  padding: 0.7rem 0.75rem;
+  border: 1px solid var(--ms-border, #e2e8f0);
+  border-radius: 8px;
+  background: #f8fafc;
+}
+.review-orc-valor-aceite__original {
+  margin: 0;
+  font-size: 0.8125rem;
+}
 .review-orc-faturar-check {
   grid-column: 1 / -1;
   display: flex;

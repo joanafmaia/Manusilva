@@ -1951,7 +1951,7 @@ function openRegisterInvoiceModal(reportId) {
     defaultValor: estimateReportValue(report),
     client: report?.clientId ? getClient(report.clientId) : null,
     hint: isOrcamento
-      ? 'Proposta comercial aceite pelo cliente. O valor sugerido é o total da MS.015 (com IVA). A fatura legal é emitida no programa externo.'
+      ? 'Proposta comercial aceite. O valor sugerido é o aceite/negociado (ou o total MS.015 se não houver valor aceite). A fatura legal é emitida no programa externo.'
       : 'A fatura legal é emitida no programa externo. Se este relatório for faturado em conjunto com outros do mesmo cliente, pode deixar o valor em branco.',
     onSave: (payload) => registerReportInvoice(reportId, payload),
   });

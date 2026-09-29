@@ -6,7 +6,6 @@
  */
 
 import {
-  computeOrcamentoTotals,
   getReportOrcamentoMeta,
 } from './orcamento-linhas.js';
 import { ORCAMENTO_RESPOSTA } from './orcamento-workflow.js';
@@ -29,6 +28,12 @@ import {
   reportIsPedidoOrcamentoFromVisit,
   resolveOrcamentoFaturarProposta,
 } from './orcamento-faturar-flag.js';
+import {
+  ORCAMENTO_MOTIVO_VALOR_FIELD,
+  ORCAMENTO_VALOR_ACEITE_FIELD,
+  normalizeValorAceiteInput,
+  resolveOrcamentoValorParaFaturacao,
+} from './orcamento-valor-aceite.js';
 
 export {
   ORCAMENTO_FATURAR_FIELD,
@@ -45,13 +50,13 @@ export const FATURACAO_AGUARDA_ACEITE_ORCAMENTO = 'aguarda_aceite_orcamento';
 
 export function resolveOrcamentoBillingTotal(report) {
   if (!report) return 0;
+  const negociado = resolveOrcamentoValorParaFaturacao(report);
+  if (Number.isFinite(negociado) && negociado > 0) return negociado;
+
   const stored = Number(report?.data?.faturacaoValorSugerido);
   if (Number.isFinite(stored) && stored > 0) return stored;
 
-  const meta = getReportOrcamentoMeta(report);
-  if (!meta) return 0;
-  const totals = computeOrcamentoTotals(meta.linhas, meta);
-  return totals.total > 0 ? totals.total : 0;
+  return 0;
 }
 
 export function isOrcamentoClienteAceite(report) {
@@ -286,6 +291,55 @@ export async function applyOrcamentoFaturarPropostaChoice(reportId, faturarPropo
     return markOrcamentoAceitePendingBilling(reportId, { faturarProposta: true });
   }
   return markOrcamentoAceiteWithoutBilling(reportId);
+}
+
+/**
+ * Grava valor aceite / negociado + motivo e atualiza o valor sugerido em Faturação.
+ * @param {string} reportId
+ * @param {{ valorAceite?: string | number | null, motivoValorAceite?: string | null }} patch
+ */
+export async function applyOrcamentoValorAceiteChoice(reportId, patch = {}) {
+  const { getReport } = await import('./app.js');
+  const { mergeReportInCache } = await import('./relatorios-db.js');
+
+  const report = getReport(reportId);
+  if (!report || !reportIsRhOrcamento(report)) return null;
+  if (report.faturacaoStatus === 'faturado') {
+    showToast('Esta proposta já foi faturada — o valor da fatura não muda aqui.', 'warning', 7000);
+    return report;
+  }
+
+  const meta = getReportOrcamentoMeta(report) || {};
+  const next = { ...meta };
+  if (patch.valorAceite !== undefined) {
+    next[ORCAMENTO_VALOR_ACEITE_FIELD] =
+      patch.valorAceite == null || String(patch.valorAceite).trim() === ''
+        ? null
+        : normalizeValorAceiteInput(patch.valorAceite);
+  }
+  if (patch.motivoValorAceite !== undefined) {
+    next[ORCAMENTO_MOTIVO_VALOR_FIELD] = String(patch.motivoValorAceite || '').trim() || null;
+  }
+
+  const withMeta = await updateRelatorio(reportId, {
+    data: { orcamento: next },
+  });
+  if (withMeta) mergeReportInCache(withMeta);
+
+  if (isOrcamentoClienteAceite(withMeta || report) && resolveOrcamentoFaturarProposta(withMeta || report)) {
+    const total = resolveOrcamentoBillingTotal(withMeta || report);
+    const synced = await updateRelatorio(reportId, {
+      data: {
+        faturacaoValorSugerido: total > 0 ? total : null,
+      },
+    });
+    if (synced) mergeReportInCache(synced);
+    window.dispatchEvent(new CustomEvent('db-updated'));
+    return synced || withMeta;
+  }
+
+  window.dispatchEvent(new CustomEvent('db-updated'));
+  return withMeta;
 }
 
 /** Retira da fila se o aceite for revertido ou marcado como recusada. */

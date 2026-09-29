@@ -10,6 +10,11 @@ import {
   ORCAMENTO_FATURAR_FIELD,
   resolveOrcamentoFaturarProposta,
 } from './orcamento-billing-workflow.js';
+import {
+  ORCAMENTO_MOTIVO_VALOR_FIELD,
+  ORCAMENTO_VALOR_ACEITE_FIELD,
+  normalizeValorAceiteInput,
+} from './orcamento-valor-aceite.js';
 import { reportOrcamentoGuardado, reportOrcamentoPorPreparar } from './pedido-orcamento.js';
 import { toPortugalIsoDate } from './date-utils.js';
 import { formatInterventionDatePt } from './report-intervention-date.js';
@@ -200,7 +205,12 @@ export function promptOrcamentoRespostaData({
 /**
  * @param {string} reportId
  * @param {'aceite' | 'recusada' | '' | null} resposta
- * @param {{ respostaClienteEm?: string | Date | null, faturarProposta?: boolean }} [options]
+ * @param {{
+ *   respostaClienteEm?: string | Date | null,
+ *   faturarProposta?: boolean,
+ *   valorAceite?: string | number | null,
+ *   motivoValorAceite?: string | null,
+ * }} [options]
  */
 export async function setOrcamentoRespostaCliente(reportId, resposta, options = {}) {
   const { getReport } = await import('./app.js');
@@ -232,15 +242,26 @@ export async function setOrcamentoRespostaCliente(reportId, resposta, options = 
       ? normalizeOrcamentoFaturarProposta(options.faturarProposta, report)
       : resolveOrcamentoFaturarProposta(report);
 
+  const orcamentoPatch = {
+    ...meta,
+    respostaCliente: valid,
+    respostaClienteEm,
+    [ORCAMENTO_FATURAR_FIELD]: faturarProposta,
+  };
+
+  if (options.valorAceite !== undefined) {
+    const parsed =
+      options.valorAceite == null || String(options.valorAceite).trim() === ''
+        ? null
+        : normalizeValorAceiteInput(options.valorAceite);
+    orcamentoPatch[ORCAMENTO_VALOR_ACEITE_FIELD] = parsed;
+  }
+  if (options.motivoValorAceite !== undefined) {
+    orcamentoPatch[ORCAMENTO_MOTIVO_VALOR_FIELD] = String(options.motivoValorAceite || '').trim() || null;
+  }
+
   const saved = await updateRelatorio(reportId, {
-    data: {
-      orcamento: {
-        ...meta,
-        respostaCliente: valid,
-        respostaClienteEm,
-        [ORCAMENTO_FATURAR_FIELD]: faturarProposta,
-      },
-    },
+    data: { orcamento: orcamentoPatch },
   });
 
   if (saved) mergeReportInCache(saved);
@@ -257,7 +278,7 @@ export async function setOrcamentoRespostaCliente(reportId, resposta, options = 
     await clearOrcamentoBillingOnClienteRecusa(reportId);
   }
 
-  return saved;
+  return getReport(reportId) || saved;
 }
 
 export { reportOrcamentoPorPreparar };
