@@ -76,7 +76,6 @@ const TECH_MONTH_JOBS_VISIBLE = 4;
 const TECH_JOBS_TABS = {
   agendados: { id: 'agendados', label: 'Agendados', subtitle: 'Dia selecionado' },
   realizados: { id: 'realizados', label: 'Realizados', subtitle: 'Concluídos' },
-  clientes: { id: 'clientes', label: 'Clientes', subtitle: 'Histórico por empresa' },
 };
 
 const TECH_CAL_COMPACT_KEY = 'tech_calendar_compact';
@@ -366,62 +365,11 @@ function ensureTechJobsShell() {
   updateTechJobsToolbarVisibility();
 }
 
-async function renderTechClientsTab() {
-  ensureTechJobsShell();
-  updateJobsSectionHeader();
-  updateTechJobsToolbarVisibility();
-  updateTechCalendarWrapVisibility();
-
-  const container = document.getElementById('jobs-list');
-  if (!container) return;
-
-  const daySummary = document.getElementById('tech-day-summary');
-  if (daySummary) daySummary.innerHTML = '';
-  const banner = document.getElementById('tech-rejected-banner');
-  if (banner) {
-    banner.hidden = true;
-    banner.innerHTML = '';
-  }
-
-  container.innerHTML = '<div data-tech-clients-mount></div>';
-  const mount = container.querySelector('[data-tech-clients-mount]');
-  if (!mount) return;
-
-  const { ensureProductionCatalog } = await import('./clients-catalog.js');
-  const { mountClientsList } = await import('./views/clients-list.js');
-  await ensureProductionCatalog();
-  await mountClientsList(mount, {
-    hideSearch: true,
-    techMode: true,
-    initialQuery: techJobsSearchQuery,
-    onClientHistory: (clientId) => openTechClientHistory(clientId, { returnTo: 'clientes' }),
-  });
-  container.scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-
-function restoreTechClientsTab() {
-  techJobsTab = 'clientes';
-  document.querySelectorAll('[data-tech-jobs-tab]').forEach((btn) => {
-    const active = btn.dataset.techJobsTab === 'clientes';
-    btn.classList.toggle('is-active', active);
-    btn.setAttribute('aria-selected', active ? 'true' : 'false');
-  });
-
-  const title = document.getElementById('tech-jobs-section-title');
-  if (title) title.textContent = TECH_JOBS_TABS.clientes.label;
-
-  const dateLabel = document.getElementById('selected-date-label');
-  if (dateLabel) dateLabel.textContent = '';
-
-  const searchInput = document.getElementById('tech-jobs-search');
-  if (searchInput) searchInput.value = techJobsSearchQuery;
-
-  updateTechJobsToolbarVisibility();
-  updateTechCalendarWrapVisibility();
-  void renderTechClientsTab();
-}
-
 function setTechJobsTab(tabId) {
+  if (tabId === 'clientes') {
+    restoreTechDashboard();
+    return;
+  }
   if (!TECH_JOBS_TABS[tabId] || techJobsTab === tabId) return;
   techJobsTab = tabId;
   techTabDataCacheKey = null;
@@ -450,11 +398,6 @@ function setTechJobsTab(tabId) {
     return;
   }
 
-  if (tabId === 'clientes') {
-    renderTechClientsTab().catch(console.error);
-    return;
-  }
-
   ensureTechJobsShell();
   loadTechTabData()
     .then(() => renderJobs())
@@ -467,10 +410,7 @@ function updateTechJobsToolbarVisibility() {
   if (!toolbar || !search) return;
   toolbar.hidden = false;
   search.hidden = false;
-  if (techJobsTab === 'clientes') {
-    search.placeholder = 'Pesquisar cliente, NIF ou e-mail…';
-    search.setAttribute('aria-label', 'Pesquisar clientes');
-  } else if (techJobsTab === 'realizados') {
+  if (techJobsTab === 'realizados') {
     search.placeholder = 'Pesquisar cliente ou serviço…';
     search.setAttribute('aria-label', 'Pesquisar realizados');
   } else {
@@ -482,6 +422,8 @@ function updateTechJobsToolbarVisibility() {
 function bindTechJobsTabs() {
   if (techJobsTabsBound) return;
   techJobsTabsBound = true;
+
+  document.querySelectorAll('[data-tech-jobs-tab="clientes"]').forEach((btn) => btn.remove());
 
   document.querySelectorAll('[data-tech-jobs-tab]').forEach((btn) => {
     btn.addEventListener('click', () => setTechJobsTab(btn.dataset.techJobsTab));
@@ -746,7 +688,7 @@ export async function openTechClientHistory(clientId, { returnTo = 'dashboard' }
   if (!app || !clientId) return;
 
   const { mountClientHistoryView } = await import('./views/historico-cliente.js');
-  const onBack = returnTo === 'clientes' ? restoreTechClientsTab : restoreTechDashboard;
+  const onBack = restoreTechDashboard;
 
   await mountClientHistoryView(clientId, app, {
     batteryOnly: false,
@@ -1063,12 +1005,6 @@ function bindTechJobsSearch() {
       void (async () => {
         await yieldToPaint();
         if (gen !== techJobsSearchGen) return;
-        if (techJobsTab === 'clientes') {
-          import('./views/clients-list.js')
-            .then(({ applyClientsListQuery }) => applyClientsListQuery(value))
-            .catch(console.error);
-          return;
-        }
         renderJobs();
       })();
     }, TECH_JOBS_SEARCH_DEBOUNCE_MS);
