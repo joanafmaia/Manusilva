@@ -4,9 +4,12 @@ import assert from 'node:assert/strict';
 import { ORCAMENTO_RESPOSTA } from '../js/orcamento-workflow.js';
 import {
   FATURACAO_AGUARDA_ACEITE_ORCAMENTO,
+  defaultOrcamentoFaturarProposta,
   isPendingOrcamentoBilling,
   getPendingOrcamentoBillingReports,
   resolveOrcamentoBillingTotal,
+  resolveOrcamentoFaturarProposta,
+  shouldClearStandaloneWithoutBilling,
   shouldDetachPedidoOrcamentoFromProposalBilling,
   shouldRepairOrcamentoBilling,
 } from '../js/orcamento-billing-workflow.js';
@@ -88,6 +91,50 @@ describe('orcamento-billing-workflow', () => {
     assert.equal(shouldDetachPedidoOrcamentoFromProposalBilling(report), true);
   });
 
+  it('isPendingOrcamentoBilling — pedido com caixa «vai a faturação» entra na fila', () => {
+    const report = propostaAceite({
+      serviceType: 'reparacao_avarias_bateria',
+      faturacaoStatus: 'pendente',
+      data: {
+        values: { pedido_orcamento: 'Sim' },
+        orcamento: {
+          ...propostaAceite().data.orcamento,
+          faturarProposta: true,
+        },
+        orcamentoOrigem: null,
+      },
+    });
+    assert.equal(resolveOrcamentoFaturarProposta(report), true);
+    assert.equal(isPendingOrcamentoBilling(report), true);
+    assert.equal(shouldDetachPedidoOrcamentoFromProposalBilling(report), false);
+  });
+
+  it('isPendingOrcamentoBilling — proposta RH com caixa desmarcada não entra', () => {
+    const report = propostaAceite({
+      data: {
+        ...propostaAceite().data,
+        orcamento: {
+          ...propostaAceite().data.orcamento,
+          faturarProposta: false,
+        },
+      },
+    });
+    assert.equal(resolveOrcamentoFaturarProposta(report), false);
+    assert.equal(isPendingOrcamentoBilling(report), false);
+    assert.equal(shouldClearStandaloneWithoutBilling(report), true);
+  });
+
+  it('defaults da caixa — RH sim, pedido não', () => {
+    assert.equal(defaultOrcamentoFaturarProposta(propostaAceite()), true);
+    assert.equal(
+      defaultOrcamentoFaturarProposta({
+        serviceType: 'folha_intervencao_avarias',
+        data: { values: { pedido_orcamento: 'Sim' } },
+      }),
+      false,
+    );
+  });
+
   it('shouldRepairOrcamentoBilling — aceite com dispensado legado (migração 021)', () => {
     const report = propostaAceite({
       faturacaoStatus: 'dispensado',
@@ -148,5 +195,15 @@ describe('orcamento-billing-workflow', () => {
     assert.match(sql, /via_servico_visita/);
     assert.match(sql, /pedido_orcamento/);
     assert.match(sql, /proposta_ms015_rh/);
+  });
+
+  it('UI expõe a caixa «Esta proposta vai a faturação»', async () => {
+    const fs = await import('node:fs/promises');
+    const list = await fs.readFile(new URL('../js/views/orcamentos.js', import.meta.url), 'utf8');
+    const editor = await fs.readFile(new URL('../js/orcamento-rh-editor.js', import.meta.url), 'utf8');
+    assert.match(list, /renderOrcamentoFaturarCheckbox/);
+    assert.match(editor, /Esta proposta vai a faturação|renderOrcamentoFaturarCheckbox/);
+    const { renderOrcamentoFaturarCheckbox } = await import('../js/orcamento-faturar-flag.js');
+    assert.match(renderOrcamentoFaturarCheckbox(propostaAceite()), /vai a faturação/);
   });
 });

@@ -29,6 +29,11 @@ import {
   readTituloColunaArtigosFromDom,
   resolveTituloColunaArtigosState,
 } from './orcamento-coluna-artigos.js';
+import {
+  ORCAMENTO_FATURAR_FIELD,
+  normalizeOrcamentoFaturarProposta,
+  resolveOrcamentoFaturarProposta,
+} from './orcamento-faturar-flag.js';
 
 const IVA_RATE = 0.23;
 const MIN_LINHAS_VAZIAS = 3;
@@ -318,6 +323,7 @@ export function buildOrcamentoMetaDraft(report, numeroReservado = null) {
       tituloColunaArtigosPreset: tituloColuna.preset,
       tituloColunaArtigos: tituloColuna.titulo,
     }),
+    [ORCAMENTO_FATURAR_FIELD]: resolveOrcamentoFaturarProposta(report),
   };
 
   if (isManutencaoBateriaTipo(tipoProposta)) {
@@ -404,6 +410,11 @@ export function readOrcamentoFormFromDom(root, report) {
       }
     : readTituloColunaArtigosFromDom(root);
 
+  const faturarEl = root?.querySelector?.(`[data-orc-field="${ORCAMENTO_FATURAR_FIELD}"]`);
+  const faturarProposta = faturarEl
+    ? Boolean(faturarEl.checked)
+    : normalizeOrcamentoFaturarProposta(existing[ORCAMENTO_FATURAR_FIELD], report);
+
   let meta = {
     ...existing,
     ...domMeta,
@@ -419,6 +430,7 @@ export function readOrcamentoFormFromDom(root, report) {
       ...existing,
       ...tituloColunaArtigosFields,
     }),
+    [ORCAMENTO_FATURAR_FIELD]: faturarProposta,
     atualizadoEm: new Date().toISOString(),
   };
 

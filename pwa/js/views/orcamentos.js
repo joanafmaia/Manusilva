@@ -59,6 +59,11 @@ import {
   todayLocalDateInputValue,
   toLocalDateInputValue,
 } from '../orcamento-workflow.js';
+import {
+  readOrcamentoFaturarFromDom,
+  renderOrcamentoFaturarCheckbox,
+  resolveOrcamentoFaturarProposta,
+} from '../orcamento-faturar-flag.js';
 import { ensureFolhasObraLoadedSafe } from '../folhas-obra-db.js';
 import {
   bindFolhaObraRhSection,
@@ -303,6 +308,7 @@ function renderInlineRespostaControls(report) {
           ? `<input type="date" class="form-input form-input-sm orcamentos-inline-date" data-orc-resposta-date="${escapeHtml(report.id)}" value="${escapeHtml(dateValue)}" title="Data da resposta" aria-label="Data da resposta" />`
           : ''
       }
+      ${aguarda ? renderOrcamentoFaturarCheckbox(report, { id: `orc-faturar-list-${report.id}`, compact: true }) : ''}
       ${
         aguarda || workflow !== 'aceite'
           ? `<button type="button" class="btn-success btn-sm rh-btn-compact faturacao-btn-compact" data-orc-aceite="${escapeHtml(report.id)}" title="Aceite">Aceite</button>`
@@ -338,15 +344,22 @@ async function applyInlineResposta(reportId, resposta) {
     );
     if (!ok) return;
   }
+  const wrap = mountRoot?.querySelector(`[data-orc-inline-resposta="${CSS.escape(reportId)}"]`);
+  const faturarProposta = wrap
+    ? readOrcamentoFaturarFromDom(wrap, report)
+    : resolveOrcamentoFaturarProposta(report);
   const saved = await setOrcamentoRespostaCliente(reportId, resposta, {
     respostaClienteEm: readInlineRespostaDate(reportId),
+    faturarProposta,
   });
   if (!saved) return;
   const msg =
     resposta === ORCAMENTO_RESPOSTA.ACEITE
       ? reportIsFolhaObraOrcamento(saved)
         ? 'Proposta aceite. Equipamento libertado para o Armazém.'
-        : 'Proposta marcada como aceite. Adicionada à Faturação.'
+        : resolveOrcamentoFaturarProposta(saved)
+          ? 'Proposta marcada como aceite. Adicionada à Faturação.'
+          : 'Proposta marcada como aceite (sem ir a Faturação).'
       : 'Proposta marcada como recusada.';
   showToast(msg, resposta === ORCAMENTO_RESPOSTA.ACEITE ? 'success' : 'info');
   await refreshOrcamentosPanel({ soft: true });

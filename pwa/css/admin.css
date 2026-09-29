@@ -5357,6 +5357,59 @@ body .admin-rh-page .btn-primary, body .admin-rh-page .btn-secondary, body .admi
   align-items: center;
   gap: 0.2rem;
 }
+.orcamentos-faturar-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--ms-text, #0f172a);
+  cursor: pointer;
+  user-select: none;
+}
+.orcamentos-faturar-check input {
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+  flex-shrink: 0;
+  accent-color: var(--ms-primary, #0b5fff);
+}
+.orcamentos-faturar-check--compact {
+  font-size: 0.7rem;
+  gap: 0.25rem;
+  max-width: 11.5rem;
+  line-height: 1.2;
+  padding: 0.1rem 0.2rem;
+  border-radius: 4px;
+  background: rgba(15, 23, 42, 0.04);
+}
+.orcamentos-faturar-check--compact span {
+  white-space: normal;
+}
+.review-orc-faturar-check {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--ms-border, #e2e8f0);
+  border-radius: 8px;
+  background: #f8fafc;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.review-orc-faturar-check input {
+  margin-top: 0.15rem;
+  width: 1.05rem;
+  height: 1.05rem;
+  accent-color: var(--ms-primary, #0b5fff);
+}
+.review-orc-resposta__actions .review-orc-faturar-check {
+  width: 100%;
+  margin-bottom: 0.35rem;
+}
 .orcamentos-inline-date {
   width: 7.6rem;
   min-width: 7.6rem;

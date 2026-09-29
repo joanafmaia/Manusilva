@@ -104,6 +104,11 @@ import {
   reportHasReclamacaoGarantiaIndicacao,
   suggestReclamacaoGarantia,
 } from './orcamento-reclamacao-garantia.js';
+import {
+  readOrcamentoFaturarFromDom,
+  renderOrcamentoFaturarCheckbox,
+  resolveOrcamentoFaturarProposta,
+} from './orcamento-faturar-flag.js';
 
 function shouldReturnToOrcamentosMenu() {
   return isOrcamentoDedicatedPage() || Boolean(window.__orcamentoReturnUrl);
@@ -206,6 +211,7 @@ function renderOrcamentoRespostaSection(report) {
         <span class="review-orc-field-hint text-muted">Pode indicar a data real da resposta do cliente (não só a do registo no sistema).</span>
       </label>
       <div class="review-orc-resposta__actions">
+        ${renderOrcamentoFaturarCheckbox(report)}
         <button type="button" class="btn-success btn-sm btn-touch" data-orc-mark-aceite>Marca aceite</button>
         <button type="button" class="btn-danger btn-sm btn-touch" data-orc-mark-recusada>Marca recusada</button>
         ${
@@ -214,7 +220,7 @@ function renderOrcamentoRespostaSection(report) {
             : ''
         }
       </div>
-      <p class="text-muted review-orcamento-editor__hint">Registe aqui se o cliente aceitou ou recusou a proposta enviada.</p>
+      <p class="text-muted review-orcamento-editor__hint">Registe aqui se o cliente aceitou ou recusou a proposta enviada. A caixa controla se a proposta entra em Faturação.</p>
     </section>`;
 }
 
@@ -359,6 +365,7 @@ function renderManutencaoBateriaOrcamentoEditor(report, ctx) {
             <input type="text" class="review-orc-input" data-orc-field="validadeOrcamento" value="${escapeHtml(cab.validadeOrcamento)}" placeholder="10 Dias" />
           </label>
           ${renderGarantiaField(report, meta)}
+          ${renderOrcamentoFaturarCheckbox(report)}
         </div>
         <div class="review-orc-template-valor-preview" data-orc-valor-linha-preview>
           ${formatLinhasValorManutencaoBateria(meta, cab)
@@ -461,6 +468,7 @@ function renderManutencaoMaquinaOrcamentoEditor(report, ctx) {
             <input type="text" class="review-orc-input" data-orc-field="validadeOrcamento" value="${escapeHtml(cab.validadeOrcamento)}" placeholder="10 Dias" />
           </label>
           ${renderGarantiaField(report, meta)}
+          ${renderOrcamentoFaturarCheckbox(report)}
         </div>
         <div class="review-orc-template-valor-preview" data-orc-maquina-precos-preview>
           ${renderManutencaoMaquinaPrecoPreviewHtml(meta, cab)}
@@ -674,6 +682,7 @@ export function renderOrcamentoEditor(report, { client } = {}) {
           <input type="text" class="review-orc-input" data-orc-field="validadeOrcamento" value="${escapeHtml(cab.validadeOrcamento)}" placeholder="10 Dias" />
         </label>
         ${renderGarantiaField(report, meta)}
+        ${renderOrcamentoFaturarCheckbox(report)}
       </div>
 
       <div class="review-orcamento-editor__totals" aria-live="polite">
@@ -848,10 +857,17 @@ function bindOrcamentoRespostaActions(root, { getReport, onUpdated }) {
       }
       const saved = await setOrcamentoRespostaCliente(current.id, ORCAMENTO_RESPOSTA.ACEITE, {
         respostaClienteEm: readRespostaDate(),
+        faturarProposta: readOrcamentoFaturarFromDom(root, current),
       });
       if (!saved) throw new Error('Não foi possível guardar.');
       onUpdated?.(saved);
-      showToast('Proposta marcada como aceite.', 'success');
+      const vaiFaturar = resolveOrcamentoFaturarProposta(saved);
+      showToast(
+        vaiFaturar
+          ? 'Proposta marcada como aceite. Adicionada à Faturação.'
+          : 'Proposta marcada como aceite (sem ir a Faturação).',
+        'success',
+      );
     } catch (err) {
       const { showToast } = await import('./app.js');
       showToast(err?.message || 'Erro ao guardar.', 'error');

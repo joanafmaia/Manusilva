@@ -1,6 +1,8 @@
 /**
- * Faturação de propostas MS.015 — só propostas RH sem relatório de visita.
- * Pedido técnico no relatório fatura a visita; folha R.C. fatura a folha.
+ * Faturação de propostas MS.015 — escolha RH + defaults por origem.
+ * Pedido no relatório: por omissão não fatura a proposta (fatura a visita).
+ * Proposta RH do zero: por omissão vai a faturação após aceite.
+ * Folha R.C.: nunca fatura como proposta (fatura a folha).
  */
 
 import {
@@ -8,7 +10,7 @@ import {
   getReportOrcamentoMeta,
 } from './orcamento-linhas.js';
 import { ORCAMENTO_RESPOSTA } from './orcamento-workflow.js';
-import { reportHasPedidoOrcamento, reportIsRhOrcamento, reportIsStandaloneOrcamento } from './pedido-orcamento.js';
+import { reportIsRhOrcamento, reportIsStandaloneOrcamento } from './pedido-orcamento.js';
 import { reportIsFolhaObraOrcamento } from './folha-obra-orcamento.js';
 import { resolveServicoIdForReport } from './servicos-panel-utils.js';
 import {
@@ -18,17 +20,28 @@ import {
   updateRelatorio,
 } from './relatorios-db.js';
 import { showToast } from './toast-modal.js';
+import {
+  ORCAMENTO_FATURAR_FIELD,
+  defaultOrcamentoFaturarProposta,
+  normalizeOrcamentoFaturarProposta,
+  readOrcamentoFaturarFromDom,
+  renderOrcamentoFaturarCheckbox,
+  reportIsPedidoOrcamentoFromVisit,
+  resolveOrcamentoFaturarProposta,
+} from './orcamento-faturar-flag.js';
+
+export {
+  ORCAMENTO_FATURAR_FIELD,
+  defaultOrcamentoFaturarProposta,
+  normalizeOrcamentoFaturarProposta,
+  readOrcamentoFaturarFromDom,
+  renderOrcamentoFaturarCheckbox,
+  reportIsPedidoOrcamentoFromVisit,
+  resolveOrcamentoFaturarProposta,
+};
 
 /** Proposta comercial — aguarda aceite do cliente (não aparece em «por faturar»). */
 export const FATURACAO_AGUARDA_ACEITE_ORCAMENTO = 'aguarda_aceite_orcamento';
-
-/** Pedido de orçamento no relatório da visita — fatura-se a visita, não esta proposta. */
-export function reportIsPedidoOrcamentoFromVisit(report) {
-  if (!reportHasPedidoOrcamento(report)) return false;
-  if (reportIsStandaloneOrcamento(report)) return false;
-  if (reportIsFolhaObraOrcamento(report)) return false;
-  return true;
-}
 
 export function resolveOrcamentoBillingTotal(report) {
   if (!report) return 0;
@@ -48,13 +61,16 @@ export function isOrcamentoClienteAceite(report) {
 }
 
 /**
- * Só propostas RH criadas sem relatório de visita entram em «Por faturar».
- * Pedido técnico e folha R.C. faturam a visita / a folha.
+ * Entra em «Por faturar» se aceite e o RH marcou «vai a faturação»
+ * (default: só propostas RH do zero).
  */
 export function isPendingOrcamentoBilling(report) {
   if (reportIsFolhaObraOrcamento(report)) return false;
-  if (!reportIsStandaloneOrcamento(report)) return false;
   if (!isOrcamentoClienteAceite(report)) return false;
+  if (!resolveOrcamentoFaturarProposta(report)) return false;
+  if (!reportIsStandaloneOrcamento(report) && !reportIsPedidoOrcamentoFromVisit(report)) {
+    return false;
+  }
 
   const fs = report.faturacaoStatus;
   if (fs === 'faturado' || fs === 'dispensado' || fs === 'via_servico') return false;
@@ -65,23 +81,37 @@ export function isPendingOrcamentoBilling(report) {
 export function shouldRepairOrcamentoBilling(report) {
   if (!isOrcamentoClienteAceite(report)) return false;
   if (reportIsFolhaObraOrcamento(report)) return false;
-  if (!reportIsStandaloneOrcamento(report)) return false;
+  if (!resolveOrcamentoFaturarProposta(report)) return false;
+  if (!reportIsStandaloneOrcamento(report) && !reportIsPedidoOrcamentoFromVisit(report)) {
+    return false;
+  }
   const fs = report.faturacaoStatus;
   if (fs === 'faturado' || fs === 'via_servico') return false;
   if (fs === 'pendente' && report.data?.faturacaoOrigem === 'orcamento_aceite') return false;
-  // Inclui «dispensado» legado (migração 021) e «aguarda_aceite_orcamento» após aceite do cliente.
   return true;
 }
 
-/** Proposta de pedido de relatório ainda marcada como fila de faturação da proposta. */
+/** Pedido de relatório sem opção de faturar proposta — alinhar com a visita. */
 export function shouldDetachPedidoOrcamentoFromProposalBilling(report) {
   if (!reportIsPedidoOrcamentoFromVisit(report)) return false;
+  if (resolveOrcamentoFaturarProposta(report)) return false;
   const fs = report.faturacaoStatus;
   if (fs === 'faturado' || fs === 'via_servico' || fs === 'dispensado') return false;
   return fs === 'pendente' || fs === FATURACAO_AGUARDA_ACEITE_ORCAMENTO || !fs;
 }
 
-/** Sincroniza propostas aceites e tira da fila as que vieram de relatório de visita. */
+/** Standalone aceite com «não faturar» ainda em pendente. */
+export function shouldClearStandaloneWithoutBilling(report) {
+  if (!reportIsStandaloneOrcamento(report)) return false;
+  if (reportIsFolhaObraOrcamento(report)) return false;
+  if (!isOrcamentoClienteAceite(report)) return false;
+  if (resolveOrcamentoFaturarProposta(report)) return false;
+  const fs = report.faturacaoStatus;
+  if (fs === 'faturado' || fs === 'dispensado' || fs === 'via_servico') return false;
+  return fs === 'pendente' || fs === FATURACAO_AGUARDA_ACEITE_ORCAMENTO || !fs;
+}
+
+/** Sincroniza propostas aceites e tira da fila as que não devem faturar como proposta. */
 export async function repairOrcamentoAceiteBillingQueue() {
   let repaired = 0;
   for (const report of getReportsSnapshot().filter(shouldRepairOrcamentoBilling)) {
@@ -90,6 +120,10 @@ export async function repairOrcamentoAceiteBillingQueue() {
   }
   for (const report of getReportsSnapshot().filter(shouldDetachPedidoOrcamentoFromProposalBilling)) {
     const saved = await markPedidoOrcamentoViaVisit(report.id);
+    if (saved) repaired += 1;
+  }
+  for (const report of getReportsSnapshot().filter(shouldClearStandaloneWithoutBilling)) {
+    const saved = await markOrcamentoAceiteWithoutBilling(report.id);
     if (saved) repaired += 1;
   }
   return repaired;
@@ -146,28 +180,65 @@ export async function markPedidoOrcamentoViaVisit(reportId) {
   return saved;
 }
 
+/** Aceite sem meter a proposta em «Por faturar». */
+export async function markOrcamentoAceiteWithoutBilling(reportId) {
+  const { getReport } = await import('./app.js');
+  const { mergeReportInCache } = await import('./relatorios-db.js');
+
+  const report = getReport(reportId);
+  if (!report || !reportIsRhOrcamento(report)) return null;
+  if (report.faturacaoStatus === 'faturado') return report;
+  if (reportIsPedidoOrcamentoFromVisit(report)) {
+    return markPedidoOrcamentoViaVisit(reportId);
+  }
+
+  const saved = await updateRelatorio(reportId, {
+    faturacaoStatus: 'dispensado',
+    data: {
+      faturacaoValorSugerido: null,
+      faturacaoOrigem: 'orcamento_sem_faturar',
+    },
+  });
+  if (saved) mergeReportInCache(saved);
+  window.dispatchEvent(new CustomEvent('db-updated'));
+  return saved;
+}
+
 /**
- * Marca proposta aceite como pendente de faturação (valor sugerido = total MS.015).
- * Pedido técnico: não entra na fila — fatura-se a visita.
+ * Marca proposta aceite conforme a caixa «vai a faturação».
  * @param {string} reportId
+ * @param {{ faturarProposta?: boolean }} [options]
  */
-export async function markOrcamentoAceitePendingBilling(reportId) {
+export async function markOrcamentoAceitePendingBilling(reportId, options = {}) {
   const { getReport } = await import('./app.js');
   const { mergeReportInCache } = await import('./relatorios-db.js');
 
   const report = getReport(reportId);
   if (!report || !reportIsRhOrcamento(report)) return null;
   if (reportIsFolhaObraOrcamento(report)) return null;
-  if (reportIsPedidoOrcamentoFromVisit(report)) {
-    return markPedidoOrcamentoViaVisit(reportId);
-  }
-  if (!reportIsStandaloneOrcamento(report)) return null;
 
   const meta = getReportOrcamentoMeta(report) || {};
-  const aceiteEm = meta.respostaClienteEm || new Date().toISOString();
-  const total = resolveOrcamentoBillingTotal({ ...report, data: { ...report.data, orcamento: meta } });
+  const faturar =
+    options.faturarProposta !== undefined
+      ? normalizeOrcamentoFaturarProposta(options.faturarProposta, report)
+      : resolveOrcamentoFaturarProposta(report);
 
-  // Não sobrescrever approvedAt (aprovação RH) com a data de aceite comercial.
+  if (meta[ORCAMENTO_FATURAR_FIELD] !== faturar) {
+    const withFlag = await updateRelatorio(reportId, {
+      data: { orcamento: { ...meta, [ORCAMENTO_FATURAR_FIELD]: faturar } },
+    });
+    if (withFlag) mergeReportInCache(withFlag);
+  }
+
+  if (!faturar) {
+    return markOrcamentoAceiteWithoutBilling(reportId);
+  }
+
+  const fresh = getReport(reportId) || report;
+  const aceiteEm =
+    getReportOrcamentoMeta(fresh)?.respostaClienteEm || new Date().toISOString();
+  const total = resolveOrcamentoBillingTotal(fresh);
+
   const saved = await updateRelatorio(reportId, {
     faturacaoStatus: 'pendente',
     data: {
@@ -187,7 +258,9 @@ export async function clearOrcamentoBillingOnClienteRecusa(reportId) {
   const { getReport } = await import('./app.js');
   const report = getReport(reportId);
   if (!report || !reportIsRhOrcamento(report)) return false;
-  if (reportIsPedidoOrcamentoFromVisit(report)) return false;
+  if (reportIsPedidoOrcamentoFromVisit(report) && !resolveOrcamentoFaturarProposta(report)) {
+    return false;
+  }
   if (report.faturacaoStatus === 'faturado') return false;
   if (!['pendente', FATURACAO_AGUARDA_ACEITE_ORCAMENTO, null, ''].includes(report.faturacaoStatus)) {
     return false;
