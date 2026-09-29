@@ -67,7 +67,7 @@ function servicoBillingSortKey(servico) {
   return dates[dates.length - 1] || String(servico.approvedAt || servico.date || '');
 }
 
-/** Fila «por faturar»: visitas + relatórios legados + propostas standalone aceites. */
+/** Fila «por faturar»: visitas + relatórios legados + propostas RH standalone aceites. */
 export function getPendingBillingItems() {
   const servicos = getPendingBillingServicos().map((servico) => ({
     kind: 'servico',

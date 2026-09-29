@@ -100,7 +100,7 @@ describe('orcamento standalone', () => {
     assert.equal(isRhOrcamentoQueueReport(report), true);
   });
 
-  it('pedido técnico aprovado não entra na faturação de visita', () => {
+  it('pedido técnico aprovado não entra como proposta; conta na visita', async () => {
     const report = {
       id: 'tech-pedido',
       status: 'approved',
@@ -109,8 +109,10 @@ describe('orcamento standalone', () => {
       faturacaoStatus: 'pendente',
       data: { values: { pedido_orcamento: 'Sim' } },
     };
+    const { isServicoReportBillable } = await import('../js/billing-workflow.js');
     assert.equal(isPendingBilling(report), false);
     assert.equal(isPendingOrcamentoBilling(report), false);
+    assert.equal(isServicoReportBillable(report), true);
   });
 
   it('folha aceite não entra na faturação de propostas', () => {

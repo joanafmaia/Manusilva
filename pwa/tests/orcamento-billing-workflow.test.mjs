@@ -7,6 +7,7 @@ import {
   isPendingOrcamentoBilling,
   getPendingOrcamentoBillingReports,
   resolveOrcamentoBillingTotal,
+  shouldDetachPedidoOrcamentoFromProposalBilling,
   shouldRepairOrcamentoBilling,
 } from '../js/orcamento-billing-workflow.js';
 import { isPendingBilling } from '../js/billing-workflow.js';
@@ -71,16 +72,20 @@ describe('orcamento-billing-workflow', () => {
     assert.equal(isPendingOrcamentoBilling(report), false);
   });
 
-  it('isPendingOrcamentoBilling — pedido técnico aceite entra na fila', () => {
+  it('isPendingOrcamentoBilling — pedido técnico aceite não entra na fila (fatura a visita)', () => {
     const report = propostaAceite({
       serviceType: 'reparacao_avarias_bateria',
+      faturacaoStatus: 'pendente',
       data: {
         values: { pedido_orcamento: 'Sim', detalhe_pedido_orcamento: 'Bateria' },
         orcamento: propostaAceite().data.orcamento,
         orcamentoOrigem: null,
+        faturacaoOrigem: 'orcamento_aceite',
       },
     });
-    assert.equal(isPendingOrcamentoBilling(report), true);
+    assert.equal(isPendingOrcamentoBilling(report), false);
+    assert.equal(shouldRepairOrcamentoBilling(report), false);
+    assert.equal(shouldDetachPedidoOrcamentoFromProposalBilling(report), true);
   });
 
   it('shouldRepairOrcamentoBilling — aceite com dispensado legado (migração 021)', () => {
@@ -132,5 +137,16 @@ describe('orcamento-billing-workflow', () => {
     });
     const total = resolveOrcamentoBillingTotal(semStored);
     assert.ok(total > 100, `total com IVA esperado > 100, obteve ${total}`);
+  });
+
+  it('migração 045 tira pedidos de relatório da fila de proposta', async () => {
+    const fs = await import('node:fs/promises');
+    const sql = await fs.readFile(
+      new URL('../supabase/migrations/045_pedido_orcamento_fatura_visita.sql', import.meta.url),
+      'utf8',
+    );
+    assert.match(sql, /via_servico_visita/);
+    assert.match(sql, /pedido_orcamento/);
+    assert.match(sql, /proposta_ms015_rh/);
   });
 });

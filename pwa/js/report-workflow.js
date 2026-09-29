@@ -5,7 +5,12 @@
 import { buildReportEmailMeta } from './report-email-meta.js';
 import { showToast } from './toast-modal.js';
 import { sameEntityId } from './entity-id.js';
-import { reportIsRhOrcamento } from './pedido-orcamento.js';
+import {
+  reportHasPedidoOrcamento,
+  reportIsFolhaObraOrcamento,
+  reportIsStandaloneOrcamento,
+  reportOrcamentoPorPreparar,
+} from './pedido-orcamento.js';
 import { FATURACAO_AGUARDA_ACEITE_ORCAMENTO } from './orcamento-billing-workflow.js';
 import {
   getClient,
@@ -45,8 +50,7 @@ import {
   formatRelatoriosError,
   reserveRelatorioNumeroOrdem,
 } from './relatorios-db.js';
-import { reportHasPedidoOrcamento, reportOrcamentoPorPreparar } from './pedido-orcamento.js';
-import { deleteStandaloneOrcamentoReport, reportIsStandaloneOrcamento } from './orcamento-standalone.js';
+import { deleteStandaloneOrcamentoReport } from './orcamento-standalone.js';
 import { getServicoActiveReports, resolveServicoIdForVisitEmail, shouldDeferServicoVisitEmail } from './servicos-email-workflow.js';
 import { resolveServicoIdForReport, resolveReportTechnicianLabel, buildJobContextForServicoReport } from './servicos-panel-utils.js';
 import { ensureServicosLoadedSafe, getServico } from './servicos-db.js';
@@ -426,12 +430,13 @@ async function approveReportOnce(reportId, options = {}) {
       approvedBy: resolveAuditActor(),
       pdfFilename: filename,
       numeroOrdem: reportForPdf.numeroOrdem ?? undefined,
-      // Pedido / proposta comercial: fatura só após aceite MS.015 (não misturar com visita).
-      faturacaoStatus: reportIsRhOrcamento(report)
-        ? FATURACAO_AGUARDA_ACEITE_ORCAMENTO
-        : servicoId
-          ? 'via_servico'
-          : 'pendente',
+      // Proposta RH do zero / folha R.C.: fatura após aceite. Pedido no relatório: fatura a visita.
+      faturacaoStatus:
+        reportIsStandaloneOrcamento(report) || reportIsFolhaObraOrcamento(report)
+          ? FATURACAO_AGUARDA_ACEITE_ORCAMENTO
+          : servicoId
+            ? 'via_servico'
+            : 'pendente',
       data: {
         ...(report.data || {}),
         urlPdfs,

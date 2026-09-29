@@ -11,6 +11,7 @@ export {
   STANDALONE_ORCAMENTO_ORIGEM,
   STANDALONE_ORCAMENTO_SERVICE_TYPE,
 } from './orcamento-standalone.js';
+export { reportIsFolhaObraOrcamento } from './folha-obra-orcamento.js';
 
 export function reportHasPedidoOrcamento(report) {
   const values = report?.data?.values || {};

@@ -49,7 +49,29 @@ describe('billing-workflow', () => {
     assert.equal(isPendingBilling(proposta), false);
   });
 
-  it('isPendingBilling — exclui relatório técnico com pedido de orçamento (vai para Orçamentos)', () => {
+  it('isServicoReportBillable — pedido de orçamento no relatório da visita conta para a visita', async () => {
+    const { isServicoReportBillable } = await import('../js/billing-workflow.js');
+    assert.equal(
+      isServicoReportBillable({
+        id: 'r-pedido',
+        status: 'approved',
+        serviceType: 'folha_intervencao_avarias',
+        data: { values: { pedido_orcamento: 'Sim' } },
+      }),
+      true,
+    );
+    assert.equal(
+      isServicoReportBillable({
+        id: 'r-rh',
+        status: 'approved',
+        serviceType: STANDALONE_ORCAMENTO_SERVICE_TYPE,
+        data: { orcamentoOrigem: STANDALONE_ORCAMENTO_ORIGEM },
+      }),
+      false,
+    );
+  });
+
+  it('isPendingBilling — exclui relatório técnico com pedido de orçamento (não duplica a visita)', () => {
     const relatorio = {
       id: 'r-pedido-39',
       status: 'approved',

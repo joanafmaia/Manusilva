@@ -28,8 +28,10 @@ import {
   getReportTechnicalPdfUrl,
   reportHasPedidoOrcamento,
   reportIsCommercialOrcamento,
+  reportIsStandaloneOrcamento,
   reportPedidoOrcamentoRoutesToOrcamentosTab,
 } from './pedido-orcamento.js';
+import { reportIsFolhaObraOrcamento } from './folha-obra-orcamento.js';
 import { isPendingOrcamentoBilling } from './orcamento-billing-workflow.js';
 import { getInvoicedServicos } from './servicos-db.js';
 import { resolveServicoIdForReport, getReportNumeroOrdem } from './servicos-panel-utils.js';
@@ -73,11 +75,11 @@ function sharesNumeroOrdemWithCommercialOrcamento(report, allReports) {
   });
 }
 
-/** Relatório aprovado de visita que conta para faturação (exclui proposta MS.015 / pedido de orçamento). */
+/** Relatório aprovado de visita que conta para faturação (exclui proposta RH do zero e folha R.C.). */
 export function isServicoReportBillable(report) {
   if (!report || report.status !== 'approved') return false;
-  if (reportIsCommercialOrcamento(report)) return false;
-  if (reportHasPedidoOrcamento(report)) return false;
+  if (reportIsStandaloneOrcamento(report)) return false;
+  if (reportIsFolhaObraOrcamento(report)) return false;
   return true;
 }
 

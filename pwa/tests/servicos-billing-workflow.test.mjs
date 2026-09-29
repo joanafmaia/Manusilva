@@ -145,6 +145,42 @@ describe('servicos-billing-workflow', () => {
     assert.equal(isServicoPendingBilling(getServico('svc-bill')), true);
   });
 
+  it('isServicoPendingBilling — visita só com pedido de orçamento entra como visita', async () => {
+    const localDb = await import('../js/local-db.js');
+    const db = localDb.getDB();
+    db.clients = db.clients || [];
+    const existing = db.clients.find((c) => String(c.id) === '10');
+    if (existing) {
+      existing.name = 'Cliente Real SA';
+      existing.ehTeste = false;
+      existing.eh_teste = false;
+    } else {
+      db.clients.push({ id: '10', name: 'Cliente Real SA', ehTeste: false });
+    }
+
+    const relatoriosDb = await import('../js/relatorios-db.js');
+    relatoriosDb.mergeReportInCache({
+      id: 'r-so-pedido',
+      servicoId: 'svc-bill',
+      serviceType: 'folha_intervencao_avarias',
+      status: 'approved',
+      approvedAt: '2026-07-02T09:00:00.000Z',
+      clientId: '10',
+      technicianId: 'Hugo',
+      faturacaoStatus: 'via_servico',
+      data: { values: { pedido_orcamento: 'Sim' } },
+    });
+
+    const { isServicoPendingBilling, getPendingBillingItems } = await import(
+      '../js/servicos-billing-workflow.js'
+    );
+    const { getServico } = await import('../js/servicos-db.js');
+    assert.equal(isServicoPendingBilling(getServico('svc-bill')), true);
+    const items = getPendingBillingItems();
+    assert.equal(items.filter((i) => i.kind === 'servico').length, 1);
+    assert.equal(items.filter((i) => i.kind === 'orcamento').length, 0);
+  });
+
   it('isServicoPendingBilling — cliente teste com pedido de orçamento não entra em Faturação', async () => {
     const localDb = await import('../js/local-db.js');
     const db = localDb.getDB();
