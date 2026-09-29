@@ -8,6 +8,7 @@ import {
   consumeModuleCacheBustQuery,
   ensureFreshAppBuild,
   fetchAppBuildId,
+  getCachedAppBuildId,
   registerAppServiceWorker,
   startBuildIdWatch,
 } from './app-version.js';
@@ -71,31 +72,44 @@ async function bootEntry(entry, moduleQ) {
  * @param {(remoteBuildId: string) => void} [options.onRemoteBuild]
  */
 export async function runManusilvaEntry(entry, options = {}) {
-  const v = (await fetchAppBuildId()) || 'dev';
-  applyBuildAssetVersions(v);
+  const cachedBuildId = getCachedAppBuildId();
+  const remotePromise = fetchAppBuildId();
 
-  if (await ensureFreshAppBuild(v)) return;
+  const startBoot = async (buildId) => {
+    const v = buildId || 'dev';
+    applyBuildAssetVersions(v);
+    if (options.registerServiceWorker) {
+      void registerAppServiceWorker(v);
+    }
+    const moduleQ = consumeModuleCacheBustQuery(v);
+    globalThis.__MS_MODULE_Q = moduleQ;
+    await bootEntry(entry, moduleQ);
+    finishAppBoot();
+    clearModuleRecoveryFlag();
+    if (options.onRemoteBuild) {
+      startBuildIdWatch((remote) => {
+        globalThis.__MS_APP_UPDATE_PENDING = true;
+        try {
+          sessionStorage.setItem('manusilva_update_pending', '1');
+        } catch {
+          /* ignore */
+        }
+        options.onRemoteBuild(remote);
+      });
+    }
+  };
 
-  if (options.registerServiceWorker) await registerAppServiceWorker(v);
-
-  const moduleQ = consumeModuleCacheBustQuery(v);
-  globalThis.__MS_MODULE_Q = moduleQ;
-
-  await bootEntry(entry, moduleQ);
-  finishAppBoot();
-  clearModuleRecoveryFlag();
-
-  if (options.onRemoteBuild) {
-    startBuildIdWatch((remote) => {
-      globalThis.__MS_APP_UPDATE_PENDING = true;
-      try {
-        sessionStorage.setItem('manusilva_update_pending', '1');
-      } catch {
-        /* ignore */
-      }
-      options.onRemoteBuild(remote);
-    });
+  if (cachedBuildId) {
+    const bootPromise = startBoot(cachedBuildId);
+    const v = (await remotePromise) || cachedBuildId;
+    if (await ensureFreshAppBuild(v)) return;
+    await bootPromise;
+    return;
   }
+
+  const v = (await remotePromise) || 'dev';
+  if (await ensureFreshAppBuild(v)) return;
+  await startBoot(v);
 }
 
 /**
@@ -110,7 +124,9 @@ export async function bootstrapManusilvaApp({ onReady, registerServiceWorker = f
 
   if (await ensureFreshAppBuild(v)) return;
 
-  if (registerServiceWorker) await registerAppServiceWorker(v);
+  if (registerServiceWorker) {
+    void registerAppServiceWorker(v);
+  }
 
   const moduleQ = consumeModuleCacheBustQuery(v);
   globalThis.__MS_MODULE_Q = moduleQ;

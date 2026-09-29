@@ -8,6 +8,14 @@ const STORAGE_KEY = 'manusilva_app_build_id';
 const RECOVERY_KEY = 'manusilva_module_recovery';
 const FORCE_BUST_KEY = 'manusilva_force_bust';
 
+export function getCachedAppBuildId() {
+  try {
+    return localStorage.getItem(STORAGE_KEY) || '';
+  } catch {
+    return '';
+  }
+}
+
 /** Extrai APP_BUILD_ID do ficheiro gerado no deploy. */
 export function parseBuildIdFromSource(source) {
   const m = String(source || '').match(/APP_BUILD_ID\s*=\s*["']([^"']+)["']/);

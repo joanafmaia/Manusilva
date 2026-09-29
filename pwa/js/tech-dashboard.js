@@ -791,13 +791,26 @@ export async function initTechDashboard() {
   renderTechCalendarUiOnly();
 
   try {
+    const { primeProductionCatalogFromLocalStorage } = await import('./clients-catalog.js');
+    const { hydrateOpsSnapshot, persistOpsSnapshot } = await import('./ops-snapshot.js');
+    primeProductionCatalogFromLocalStorage();
+    const hadSnapshot = await hydrateOpsSnapshot(session.technicianId);
+    if (hadSnapshot) {
+      renderTechCalendarUiOnly();
+      void refreshTechDashboardChrome().catch(() => {});
+      setTechDashboardDataLoading(false);
+      document.documentElement.classList.add('ms-app-ready');
+      document.documentElement.classList.remove('ms-booting');
+    }
+
     const { hydrateLocalReportsIntoCache } = await import('./report-local-storage.js');
     const { initTrabalhosOfflineSync, migrateLegacyOfflineQueue, sincronizarTrabalhosOffline } =
       await import('./trabalhos-offline.js');
     const { getDB, updateDB } = await import('./tech-app-core.js');
 
-    // Offline primeiro — migração, fila e sync imediato (sem atrasar).
-    await migrateLegacyOfflineQueue(getDB, updateDB);
+    migrateLegacyOfflineQueue(getDB, updateDB).catch((err) => {
+      console.warn('[Técnico] Migração fila offline:', err);
+    });
     initTrabalhosOfflineSync();
     sincronizarTrabalhosOffline().catch(console.error);
 
@@ -813,14 +826,14 @@ export async function initTechDashboard() {
     await Promise.all([warmPromise, hydratePromise]);
     await refreshTechCalendar();
     setTechDashboardDataLoading(false);
+    void persistOpsSnapshot(session.technicianId).catch(() => {});
     scheduleWarmFormsModule();
 
-    try {
-      const { initTechRealtime } = await import('./tech-realtime.js');
-      await initTechRealtime();
-    } catch (err) {
-      console.warn('[Técnico] Realtime indisponível (a dashboard continua a funcionar):', err);
-    }
+    import('./tech-realtime.js')
+      .then(({ initTechRealtime }) => initTechRealtime())
+      .catch((err) => {
+        console.warn('[Técnico] Realtime indisponível (a dashboard continua a funcionar):', err);
+      });
 
     scheduleWarmTechDashboardFull();
   } catch (error) {
@@ -1089,7 +1102,7 @@ async function warmTechDashboardInitial(technicianId) {
     const { ensureServicosLoadedSafe } = await import('./servicos-db.js');
     const { ensureReportsLoaded } = await import('./relatorios-db.js');
     await Promise.all([
-      hydrateOpsSnapshot(),
+      hydrateOpsSnapshot(technicianId),
       isProductionCatalogReady() ? Promise.resolve() : ensureProductionCatalog(),
       ensureJobsLoaded(),
       ensureReportsLoaded(),

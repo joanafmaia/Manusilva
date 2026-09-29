@@ -56,18 +56,22 @@ export async function persistOpsSnapshot(technicianId = '') {
  * Repõe caches em memória a partir do snapshot local.
  * @returns {Promise<boolean>}
  */
-export async function hydrateOpsSnapshot() {
+export async function hydrateOpsSnapshot(technicianId = '') {
   const row = await idbGet(STORE_OPS_SNAPSHOT, SNAPSHOT_ID);
   if (!row) return false;
 
+  const wanted = String(technicianId || '');
+  const savedFor = String(row.technicianId || '');
+  if (wanted && savedFor && wanted !== savedFor) return false;
+
   if (Array.isArray(row.jobs) && row.jobs.length) {
-    replaceJobsCache(row.jobs);
+    replaceJobsCache(row.jobs, { fullyLoaded: false });
   }
   if (Array.isArray(row.servicos) && row.servicos.length) {
-    replaceServicosCache(row.servicos);
+    replaceServicosCache(row.servicos, { fullyLoaded: false });
   }
   if (Array.isArray(row.reports)) {
-    replaceReportsCache(row.reports);
+    replaceReportsCache(row.reports, { fullyLoaded: false });
   }
 
   return Boolean(

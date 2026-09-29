@@ -126,15 +126,27 @@ export async function getSupabaseClient() {
   return supabaseClient;
 }
 
-function hasUsableLocalAppSession() {
-  const appSession = getRawSession();
-  return Boolean(appSession?.token && appSession?.refreshToken);
+export function accessTokenLooksFresh(accessToken, skewMs = 60_000) {
+  try {
+    const parts = String(accessToken || '').split('.');
+    if (parts.length < 2) return false;
+    const json = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const pad = json.length % 4 === 0 ? '' : '='.repeat(4 - (json.length % 4));
+    const payload = JSON.parse(atob(json + pad));
+    return typeof payload.exp === 'number' && payload.exp * 1000 > Date.now() + skewMs;
+  } catch {
+    return false;
+  }
 }
 
 async function validateSupabaseSession(supabase, session) {
   if (!session?.access_token) return session;
 
   if (isBrowserOffline()) {
+    return session;
+  }
+
+  if (accessTokenLooksFresh(session.access_token)) {
     return session;
   }
 

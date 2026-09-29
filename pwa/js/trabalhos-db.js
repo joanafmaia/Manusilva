@@ -95,9 +95,9 @@ export function getJobsSnapshot() {
   return jobsCache ? [...jobsCache] : [];
 }
 
-export function replaceJobsCache(jobs = []) {
+export function replaceJobsCache(jobs = [], options = {}) {
   jobsCache = Array.isArray(jobs) ? jobs.map((job) => ({ ...job })) : [];
-  jobsFullyLoaded = jobsCache.length > 0;
+  jobsFullyLoaded = options.fullyLoaded === true;
 }
 
 async function tryHydrateJobsFromOfflineSnapshot() {

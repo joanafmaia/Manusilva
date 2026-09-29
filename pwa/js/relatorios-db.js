@@ -410,11 +410,11 @@ export function getReportsSnapshot() {
   return reportsCache ? [...reportsCache] : [];
 }
 
-export function replaceReportsCache(reports = []) {
+export function replaceReportsCache(reports = [], options = {}) {
   reportsCache = Array.isArray(reports)
     ? filterOutLocallyDeletedReports(reports.map((report) => ({ ...report })))
     : [];
-  reportsFullyLoaded = reportsCache.length > 0;
+  reportsFullyLoaded = options.fullyLoaded === true;
   invalidateReportsJobIndex();
 }
 

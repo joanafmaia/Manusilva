@@ -32,4 +32,15 @@ describe('auth session safety', () => {
     assert.match(loginSrc, /resultado\.transient/);
     assert.match(authSrc, /transient:\s*isTransientAuthError/);
   });
+
+  it('accessTokenLooksFresh — JWT por expirar', async () => {
+    const { accessTokenLooksFresh } = await import('../js/supabase-client.js');
+    const future = Math.floor(Date.now() / 1000) + 3600;
+    const payload = Buffer.from(JSON.stringify({ exp: future })).toString('base64url');
+    assert.equal(accessTokenLooksFresh(`x.${payload}.y`), true);
+    const past = Math.floor(Date.now() / 1000) - 10;
+    const oldPayload = Buffer.from(JSON.stringify({ exp: past })).toString('base64url');
+    assert.equal(accessTokenLooksFresh(`x.${oldPayload}.y`), false);
+    assert.equal(accessTokenLooksFresh(''), false);
+  });
 });

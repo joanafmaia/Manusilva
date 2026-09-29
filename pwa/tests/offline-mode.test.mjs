@@ -79,6 +79,25 @@ describe('clients-catalog offline', () => {
     assert.equal(catalog[0].Nome, 'Cliente Teste');
   });
 
+  it('primeProductionCatalogFromLocalStorage — nomes sem esperar pela rede', async () => {
+    globalThis.localStorage.setItem(
+      'manusilva_db',
+      JSON.stringify({
+        schemaVersion: 25,
+        clients: [{ id: 'c2', Nome: 'Empresa Local', NIF: '999' }],
+        technicians: [],
+        utilizadores: [],
+        offlineQueue: [],
+        settings: { offline: false },
+      }),
+    );
+    const { resetProductionCatalogCache, primeProductionCatalogFromLocalStorage, getProductionClientsCatalog } =
+      await import('../js/clients-catalog.js');
+    resetProductionCatalogCache();
+    assert.equal(primeProductionCatalogFromLocalStorage(), true);
+    assert.equal(getProductionClientsCatalog({ warn: false })[0].Nome, 'Empresa Local');
+  });
+
   it('não deixa o localStorage trocar nomes vindos do Supabase', async () => {
     globalThis.localStorage.setItem(
       'manusilva_db',

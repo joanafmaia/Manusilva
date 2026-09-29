@@ -11,6 +11,7 @@ let productionCatalog = null;
 /** Mapa NIF / id → registo para lookup O(1) */
 let catalogByNif = null;
 let catalogLoadPromise = null;
+let catalogNetworkReady = false;
 
 export { MAX_DROPDOWN_RESULTS };
 
@@ -66,6 +67,7 @@ export function resetProductionCatalogCache() {
   productionCatalog = null;
   catalogByNif = null;
   catalogLoadPromise = null;
+  catalogNetworkReady = false;
 }
 
 /** Mensagem legível para toasts / consola (F12) */
@@ -179,6 +181,10 @@ async function loadCatalogFromSupabase() {
     .filter((r) => r?.Nome);
   buildCatalogIndexes();
   mergeClientsFromStorage();
+  catalogNetworkReady = true;
+  void import('./clients-catalog-storage.js')
+    .then(({ ensureFullClientsInStorage }) => ensureFullClientsInStorage())
+    .catch(() => {});
   return productionCatalog;
 }
 
@@ -294,13 +300,23 @@ function hydrateProductionCatalogFromLocalStorage() {
   }
 }
 
+/** Repõe nomes de clientes já gravados no tablet, sem esperar pela rede. */
+export function primeProductionCatalogFromLocalStorage() {
+  if (productionCatalog?.length) return true;
+  return hydrateProductionCatalogFromLocalStorage();
+}
+
 /** Carrega clientes do Supabase e constrói o catálogo em memória */
 export async function ensureProductionCatalog() {
-  if (productionCatalog) return productionCatalog;
+  if (productionCatalog && catalogNetworkReady) return productionCatalog;
 
   const { isEffectivelyOffline } = await import('./network-status.js');
   if (isEffectivelyOffline() && hydrateProductionCatalogFromLocalStorage()) {
     return productionCatalog;
+  }
+
+  if (!productionCatalog) {
+    hydrateProductionCatalogFromLocalStorage();
   }
 
   if (!catalogLoadPromise) {
@@ -316,6 +332,11 @@ export async function ensureProductionCatalog() {
       throw err;
     });
   }
+
+  if (productionCatalog?.length) {
+    return productionCatalog;
+  }
+
   return catalogLoadPromise;
 }
 

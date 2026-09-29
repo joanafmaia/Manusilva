@@ -141,9 +141,9 @@ export function getServicosSnapshot() {
   return servicosCache ? [...servicosCache] : [];
 }
 
-export function replaceServicosCache(servicos = []) {
+export function replaceServicosCache(servicos = [], options = {}) {
   servicosCache = Array.isArray(servicos) ? servicos.map((s) => ({ ...s })) : [];
-  servicosFullyLoaded = servicosCache.length > 0;
+  servicosFullyLoaded = options.fullyLoaded === true;
 }
 
 async function tryHydrateServicosFromOfflineSnapshot() {
