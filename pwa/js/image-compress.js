@@ -1,5 +1,6 @@
 /**
  * Compressão de fotos para relatórios — reduz peso antes de IndexedDB / upload.
+ * JPEG via canvas.toBlob (assíncrono) para o tablet não ficar congelado.
  */
 
 /** Largura/altura máx. — quota Storage 1 GB no plano free. */
@@ -15,7 +16,7 @@ function loadImageElement(src) {
   });
 }
 
-function scaledDimensions(width, height, maxWidth, maxHeight = maxWidth) {
+export function scaledDimensions(width, height, maxWidth, maxHeight = maxWidth) {
   const sourceW = width || maxWidth;
   const sourceH = height || maxWidth;
   const ratio = Math.min(maxWidth / sourceW, maxHeight / sourceH, 1);
@@ -25,8 +26,37 @@ function scaledDimensions(width, height, maxWidth, maxHeight = maxWidth) {
   };
 }
 
-function canvasToJpegDataUrl(canvas, quality) {
-  return canvas.toDataURL('image/jpeg', quality);
+function canvasToJpegBlob(canvas, quality) {
+  return new Promise((resolve, reject) => {
+    if (typeof canvas.toBlob !== 'function') {
+      try {
+        resolve(dataUrlToBlob(canvas.toDataURL('image/jpeg', quality)));
+      } catch (err) {
+        reject(err);
+      }
+      return;
+    }
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) {
+          reject(new Error('JPEG inválido.'));
+          return;
+        }
+        resolve(blob);
+      },
+      'image/jpeg',
+      quality,
+    );
+  });
+}
+
+function blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(reader.error || new Error('Leitura da foto falhou.'));
+    reader.readAsDataURL(blob);
+  });
 }
 
 function dataUrlToBlob(dataUrl) {
@@ -45,12 +75,7 @@ function dataUrlToBlob(dataUrl) {
  * @param {number} sourceWidth
  * @param {number} sourceHeight
  */
-export function compressImageSource(
-  source,
-  sourceWidth,
-  sourceHeight,
-  options = {},
-) {
+export async function compressImageSource(source, sourceWidth, sourceHeight, options = {}) {
   const maxWidth = options.maxWidth ?? IMAGE_COMPRESS_MAX_WIDTH;
   const quality = options.quality ?? IMAGE_COMPRESS_QUALITY;
   const { width, height } = scaledDimensions(sourceWidth, sourceHeight, maxWidth);
@@ -65,8 +90,8 @@ export function compressImageSource(
   ctx.fillRect(0, 0, width, height);
   ctx.drawImage(source, 0, 0, width, height);
 
-  const dataUrl = canvasToJpegDataUrl(canvas, quality);
-  const blob = dataUrlToBlob(dataUrl);
+  const blob = await canvasToJpegBlob(canvas, quality);
+  const dataUrl = await blobToDataUrl(blob);
   const baseName = options.filename?.replace(/\.[^.]+$/, '') || `foto_${Date.now()}`;
   const file = new File([blob], `${baseName}.jpg`, { type: 'image/jpeg' });
 
@@ -79,13 +104,35 @@ export async function compressImageFile(file, options = {}) {
     throw new Error('Ficheiro de imagem inválido.');
   }
 
+  if (typeof createImageBitmap === 'function') {
+    const bitmap = await createImageBitmap(file);
+    try {
+      return await compressImageSource(
+        bitmap,
+        bitmap.width,
+        bitmap.height,
+        {
+          ...options,
+          filename: options.filename || (file.name || 'foto'),
+        },
+      );
+    } finally {
+      bitmap.close();
+    }
+  }
+
   const objectUrl = URL.createObjectURL(file);
   try {
     const img = await loadImageElement(objectUrl);
-    return compressImageSource(img, img.naturalWidth || img.width, img.naturalHeight || img.height, {
-      ...options,
-      filename: options.filename || (file.name || 'foto'),
-    });
+    return await compressImageSource(
+      img,
+      img.naturalWidth || img.width,
+      img.naturalHeight || img.height,
+      {
+        ...options,
+        filename: options.filename || (file.name || 'foto'),
+      },
+    );
   } finally {
     URL.revokeObjectURL(objectUrl);
   }
@@ -98,7 +145,12 @@ export async function compressDataUrl(dataUrl, options = {}) {
     throw new Error('Imagem em base64 inválida.');
   }
   const img = await loadImageElement(src);
-  return compressImageSource(img, img.naturalWidth || img.width, img.naturalHeight || img.height, options);
+  return compressImageSource(
+    img,
+    img.naturalWidth || img.width,
+    img.naturalHeight || img.height,
+    options,
+  );
 }
 
 export { dataUrlToBlob };

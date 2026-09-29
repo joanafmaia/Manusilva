@@ -74,8 +74,15 @@ describe('quota Supabase — paginação e payload', () => {
     );
   });
 
-  it('fotos comprimidas cabem em 1024px de lado', () => {
+  it('fotos comprimidas cabem em 1024px de lado', async () => {
     assert.equal(IMAGE_COMPRESS_MAX_WIDTH, 1024);
+    const { scaledDimensions } = await import('../js/image-compress.js');
+    const small = scaledDimensions(800, 600, 1024);
+    assert.equal(small.width, 800);
+    assert.equal(small.height, 600);
+    const large = scaledDimensions(4000, 3000, 1024);
+    assert.equal(large.width, 1024);
+    assert.equal(large.height, 768);
   });
 
   it('módulos de dados não usam SELECT *', () => {

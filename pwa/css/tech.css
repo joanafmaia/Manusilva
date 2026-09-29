@@ -906,7 +906,9 @@ html.ms-booting .brand-logo-slot.brand-logo-slot--ready {
   cursor: pointer;
   appearance: none;
   -webkit-appearance: none;
-  transition: all 0.2s ease;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 52px;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
 }
 .tech-job-row:hover, .tech-job-row:focus-visible {
   background-color: var(--surface-hover);
@@ -1065,6 +1067,8 @@ html.ms-booting .brand-logo-slot.brand-logo-slot--ready {
 .job-card {
   padding: 1.125rem;
   cursor: pointer;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 96px;
   transition: transform var(--transition), box-shadow var(--transition);
 }
 .job-card:active { transform: scale(0.98); }

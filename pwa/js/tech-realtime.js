@@ -35,6 +35,11 @@ import { getSession } from './session.js';
 
 let channel = null;
 let pageHideBound = false;
+let realtimeStatus = '';
+
+export function isTechRealtimeActive() {
+  return realtimeStatus === 'SUBSCRIBED';
+}
 
 function currentTechMatch() {
   const session = getSession();
@@ -227,6 +232,7 @@ export async function initTechRealtime() {
       },
     )
     .subscribe((status, err) => {
+      realtimeStatus = String(status || '');
       if (status === 'SUBSCRIBED') {
         console.info('[Técnico Realtime] Subscrição ativa (serviços, trabalhos + relatórios).');
       }
@@ -249,6 +255,7 @@ export async function teardownTechRealtime() {
   if (!channel) return;
   const active = channel;
   channel = null;
+  realtimeStatus = '';
   try {
     const supabase = await getAuthenticatedSupabaseClient();
     if (typeof supabase.removeChannel === 'function') {

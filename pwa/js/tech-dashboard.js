@@ -100,6 +100,11 @@ let techDashboardRefreshTimer = null;
 let techDashboardListenersBound = false;
 let techDashboardRefreshInFlight = false;
 let techRemotePollTimer = null;
+let techRemotePollStarted = false;
+let lastTechDashboardPaintAt = 0;
+const TECH_UI_REFRESH_COOLDOWN_MS = 18_000;
+const TECH_POLL_MS = 5 * 60_000;
+const TECH_POLL_MS_WITH_REALTIME = 15 * 60_000;
 let cachedPendingSyncCount = 0;
 let techOfflineDepsPromise = null;
 let techListCacheGeneration = 0;
@@ -132,8 +137,14 @@ async function refreshPendingSyncCount() {
   return cachedPendingSyncCount;
 }
 
-function scheduleTechDashboardRefresh() {
+function scheduleTechDashboardRefresh(reason = 'data') {
   if (isReportFormOpen()) return;
+  if (
+    (reason === 'visible' || reason === 'focus') &&
+    Date.now() - lastTechDashboardPaintAt < TECH_UI_REFRESH_COOLDOWN_MS
+  ) {
+    return;
+  }
   if (techDashboardRefreshTimer) clearTimeout(techDashboardRefreshTimer);
   techDashboardRefreshTimer = setTimeout(() => {
     techDashboardRefreshTimer = null;
@@ -154,30 +165,48 @@ async function refreshTechDashboardChrome() {
 }
 
 function startTechRemoteDataPoll() {
-  if (techRemotePollTimer) return;
-  const POLL_MS = 5 * 60_000;
-  techRemotePollTimer = setInterval(() => {
+  if (techRemotePollStarted) return;
+  techRemotePollStarted = true;
+
+  const tick = () => {
     if (document.visibilityState !== 'visible' || !navigator.onLine) return;
+    if (isReportFormOpen()) return;
     periodJobsCacheKey = null;
     periodJobsCacheAt = 0;
     techTabDataCacheKey = null;
-    scheduleTechDashboardRefresh();
-  }, POLL_MS);
+    scheduleTechDashboardRefresh('poll');
+  };
+
+  const scheduleNext = () => {
+    let delay = TECH_POLL_MS_WITH_REALTIME;
+    import('./tech-realtime.js')
+      .then(({ isTechRealtimeActive }) => {
+        if (!isTechRealtimeActive()) delay = TECH_POLL_MS;
+      })
+      .catch(() => {
+        delay = TECH_POLL_MS;
+      })
+      .finally(() => {
+        techRemotePollTimer = setTimeout(() => {
+          tick();
+          scheduleNext();
+        }, delay);
+      });
+  };
+
+  scheduleNext();
 }
 
 function bindTechDashboardDataListeners() {
   if (techDashboardListenersBound) return;
   techDashboardListenersBound = true;
 
-  window.addEventListener('jobs-updated', scheduleTechDashboardRefresh);
-  window.addEventListener('db-updated', scheduleTechDashboardRefresh);
+  window.addEventListener('jobs-updated', () => scheduleTechDashboardRefresh('data'));
+  window.addEventListener('db-updated', () => scheduleTechDashboardRefresh('data'));
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible' && navigator.onLine) {
-      scheduleTechDashboardRefresh();
+      scheduleTechDashboardRefresh('visible');
     }
-  });
-  window.addEventListener('focus', () => {
-    if (navigator.onLine) scheduleTechDashboardRefresh();
   });
   window.addEventListener('trabalhos-pendentes-changed', () => {
     refreshTechDashboardChrome().catch(console.error);
@@ -213,6 +242,11 @@ function loadFormsModule() {
 
 function scheduleWarmFormsModule() {
   const run = () => {
+    const active = document.activeElement;
+    if (active instanceof HTMLElement && active.matches('input, textarea, select, [contenteditable="true"]')) {
+      setTimeout(run, 2500);
+      return;
+    }
     void loadFormsModule().catch(() => {});
   };
   if (typeof requestIdleCallback === 'function') {
@@ -1546,6 +1580,7 @@ async function refreshTechCalendar() {
     console.error('[Técnico] Calendário:', err);
   } finally {
     techDashboardRefreshInFlight = false;
+    lastTechDashboardPaintAt = Date.now();
   }
 }
 
