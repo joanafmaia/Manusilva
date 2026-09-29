@@ -60,6 +60,23 @@ describe('warehouse role auth source', () => {
     assert.match(src, /getAssignableTechnicians/);
     assert.doesNotMatch(src, /from '\.\.\/mock_data\.js'/);
   });
+
+  it('técnicos podem entrar no painel Armazém e a migração 044 cobre o RLS', async () => {
+    const fs = await import('node:fs/promises');
+    const auth = await fs.readFile(new URL('../js/auth.js', import.meta.url), 'utf8');
+    const sql = await fs.readFile(
+      new URL('../supabase/migrations/044_armazem_tecnicos_rls.sql', import.meta.url),
+      'utf8',
+    );
+    assert.match(auth, /técnicos podem entrar no painel Armazém/);
+    assert.match(auth, /normalizedFilter === 'Armazem' && baseRole === 'Tecnico'/);
+    assert.match(sql, /is_rh_admin_warehouse_or_technician/);
+    assert.match(sql, /'Tecnico'/);
+    assert.match(sql, /auth_delete_folhas_obra_open/);
+    assert.match(sql, /invoice_status_unchanged/);
+    const { formatClientInsertError } = await import('../js/clients-catalog.js');
+    assert.match(formatClientInsertError({ code: '42501', message: 'permission denied' }), /perfil Armazém/);
+  });
 });
 
 describe('atribuição de trabalhos', () => {

@@ -293,3 +293,39 @@ describe('pdf-folha-obra', () => {
     );
   });
 });
+
+describe('folhas-obra permissões', () => {
+  it('mapFolhaObraToRow envia campos de fatura; strip remove-os', async () => {
+    const { mapFolhaObraToRow, mapRowToFolhaObra } = await import('../js/folhas-obra-db.js');
+    const { stripInvoiceRowFields, rowForInvoiceAwareWrite } = await import('../js/billing-row-fields.js');
+    const folha = mapRowToFolhaObra({
+      id: 'fo-1',
+      cliente_id: 1,
+      tecnico_id: 'Hugo',
+      estado: 'em_reparacao',
+      numero_fatura: null,
+      status_recebimento: null,
+    });
+    const row = mapFolhaObraToRow(folha);
+    assert.equal(row.numero_fatura, '');
+    assert.equal(row.status_recebimento, 'pendente');
+    const forTech = rowForInvoiceAwareWrite(row, false);
+    assert.equal('numero_fatura' in forTech, false);
+    assert.equal('status_recebimento' in forTech, false);
+    assert.equal(forTech.estado, 'em_reparacao');
+    assert.equal('numero_fatura' in stripInvoiceRowFields(row), false);
+    assert.deepEqual(rowForInvoiceAwareWrite(row, true), row);
+  });
+
+  it('formatFolhasObraError distingue trigger de faturação e RLS genérico', async () => {
+    const { formatFolhasObraError } = await import('../js/folhas-obra-db.js');
+    assert.match(
+      formatFolhasObraError({
+        code: '42501',
+        message: 'Só RH / Administração pode alterar dados de faturação',
+      }),
+      /Só RH/,
+    );
+    assert.match(formatFolhasObraError({ code: '42501', message: 'permission denied' }), /perfil Armazém/);
+  });
+});

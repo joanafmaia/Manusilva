@@ -19,6 +19,9 @@ import {
   stripAuditColumns,
   withOptionalAuditColumns,
 } from './audit-fields.js';
+import { getSession } from './session.js';
+import { isRhOrAdminSession } from './auth-roles-core.js';
+import { rowForInvoiceAwareWrite } from './billing-row-fields.js';
 
 let servicosCache = null;
 let servicosLoadPromise = null;
@@ -130,8 +133,14 @@ export function formatServicosError(err) {
   if (code === 'PGRST205' || /Could not find the table|relation.*does not exist/i.test(msg)) {
     return 'Tabela "servicos" não encontrada. Executa pwa/supabase/migrations/020_servicos_multi_relatorio.sql no Supabase.';
   }
+  if (/Só RH/i.test(msg)) {
+    return msg;
+  }
   if (code === '42501' || /permission denied|row-level security/i.test(msg)) {
-    return 'Sem permissão na tabela servicos (RLS).';
+    return (
+      'Sem permissão para gravar este serviço. Se estiveres no Armazém, ' +
+      'entra com o perfil Armazém no login. Só o RH altera dados de faturação.'
+    );
   }
 
   return msg || 'Erro ao aceder aos serviços.';
@@ -352,7 +361,10 @@ export async function insertServico(servicoData) {
 
 export async function updateServico(servicoId, patch) {
   const supabase = await getAuthenticatedSupabaseClient();
-  let payload = { ...patch, atualizado_em: new Date().toISOString() };
+  let payload = rowForInvoiceAwareWrite(
+    { ...patch, atualizado_em: new Date().toISOString() },
+    isRhOrAdminSession(getSession()),
+  );
 
   let { data, error } = await supabase
     .from('servicos')
@@ -361,7 +373,7 @@ export async function updateServico(servicoId, patch) {
     .select(SERVICOS_SELECT);
 
   if (error && isMissingAuditColumnError(error)) {
-    const { patch: stripped, audit } = stripAuditColumns(patch, AUDIT_SERVICO_COLUMNS);
+    const { patch: stripped, audit } = stripAuditColumns(payload, AUDIT_SERVICO_COLUMNS);
     if (Object.keys(audit).length) {
       const current = getServico(servicoId);
       payload = {

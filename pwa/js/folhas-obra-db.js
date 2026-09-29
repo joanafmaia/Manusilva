@@ -16,6 +16,9 @@ import {
   formatRetryablePostgrestMessage,
   isRetryablePostgrestError,
 } from './supabase-query.js';
+import { getSession } from './session.js';
+import { isRhOrAdminSession } from './auth-roles-core.js';
+import { rowForInvoiceAwareWrite } from './billing-row-fields.js';
 
 let folhasObraCache = null;
 let folhasObraLoadPromise = null;
@@ -146,8 +149,15 @@ export function formatFolhasObraError(err) {
   if (code === 'PGRST205' || /Could not find the table|relation.*folhas_obra/i.test(msg)) {
     return 'Tabela "folhas_obra" não encontrada. Executa pwa/supabase/migrations/025_folhas_obra.sql no Supabase.';
   }
+  if (/Só RH/i.test(msg)) {
+    return msg;
+  }
   if (code === '42501' || /permission denied|row-level security/i.test(msg)) {
-    return 'Sem permissão na tabela folhas_obra (RLS).';
+    return (
+      'Sem permissão para gravar esta folha. No login escolhe o perfil Armazém ' +
+      '(não Técnico) e tenta outra vez. Se o erro continuar, o RH precisa de ' +
+      'correr a migração 044 no Supabase.'
+    );
   }
 
   return msg || 'Erro ao aceder às folhas de obra.';
@@ -277,7 +287,10 @@ export async function updateFolhaObra(id, updates) {
   if (existing.estado === 'rascunho' && merged.estado === 'rascunho') {
     merged.etq = '';
   }
-  const row = mapFolhaObraToRow(merged);
+  const row = rowForInvoiceAwareWrite(
+    mapFolhaObraToRow(merged),
+    isRhOrAdminSession(getSession()),
+  );
 
   let { data, error } = await supabase
     .from('folhas_obra')

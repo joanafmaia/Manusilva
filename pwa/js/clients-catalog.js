@@ -118,7 +118,8 @@ export function formatClientInsertError(err) {
   }
   if (code === '42501' || /permission denied|row-level security/i.test(msg)) {
     return (
-      'Sem permissão para inserir (RLS). Executa pwa/supabase-rls-clientes.sql no SQL Editor do Supabase.'
+      'Sem permissão para criar cliente. No login escolhe o perfil Armazém ' +
+      '(não Técnico). Se já estiveres no Armazém, o RH precisa de correr a migração 044 no Supabase.'
     );
   }
   if (code === '23502' || /null value.*id/i.test(msg)) {
