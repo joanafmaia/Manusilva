@@ -1022,16 +1022,20 @@ function getTechCalendarPeriodBounds() {
 }
 
 /**
- * Arranque rápido: catálogo + trabalhos do período visível + relatórios desses trabalhos.
- * O carregamento completo corre em background para a aba Realizados e histórico.
+ * Arranque rápido: trabalhos da semana visível + relatórios desses trabalhos.
+ * O catálogo de clientes (nomes) atualiza em fundo — não bloqueia o calendário.
  */
 async function warmTechDashboardInitial(technicianId) {
   const { ensureSupabaseAuthSession } = await import('./supabase-client.js');
-  const { ensureProductionCatalog, isProductionCatalogReady } = await import('./clients-catalog.js');
+  const { ensureProductionCatalog } = await import('./clients-catalog.js');
   const { isEffectivelyOffline } = await import('./network-status.js');
   const { hydrateOpsSnapshot } = await import('./ops-snapshot.js');
 
   await ensureSupabaseAuthSession();
+
+  void ensureProductionCatalog().catch((err) => {
+    console.warn('[Técnico] Catálogo de clientes:', err);
+  });
 
   if (isEffectivelyOffline()) {
     const { ensureJobsLoaded } = await import('./trabalhos-db.js');
@@ -1039,7 +1043,6 @@ async function warmTechDashboardInitial(technicianId) {
     const { ensureReportsLoaded } = await import('./relatorios-db.js');
     await Promise.all([
       hydrateOpsSnapshot(technicianId),
-      isProductionCatalogReady() ? Promise.resolve() : ensureProductionCatalog(),
       ensureJobsLoaded(),
       ensureReportsLoaded(),
       ensureServicosLoadedSafe(),
@@ -1048,10 +1051,8 @@ async function warmTechDashboardInitial(technicianId) {
   }
 
   const { startDate, endDate } = getTechCalendarPeriodBounds();
-  const catalogTask = isProductionCatalogReady() ? Promise.resolve() : ensureProductionCatalog();
 
   await Promise.all([
-    catalogTask,
     ensureTrabalhosSemana(technicianId, startDate, endDate),
     ensureServicosSemana(technicianId, startDate, endDate),
   ]);
