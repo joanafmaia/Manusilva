@@ -174,7 +174,7 @@ function fotoDisplayUrl(state) {
 
 function fotoPersistPayload(state) {
   if (state.cleared) {
-    return { url: null, base64: null };
+    return { url: null, base64: null, file: null };
   }
   const base64 =
     state.base64 || (String(state.remoteUrl || '').startsWith('data:') ? state.remoteUrl : null);
@@ -183,6 +183,7 @@ function fotoPersistPayload(state) {
   return {
     url: http || base64 || null,
     base64,
+    file: state.file instanceof Blob ? state.file : null,
   };
 }
 
@@ -894,8 +895,10 @@ function buildReportFromForm(overlay, job, existingReport, signaturePads, report
         return {
           fotoAntesUrl: antes.url,
           fotoAntesBase64: antes.base64,
+          fotoAntesFile: antes.file || null,
           fotoDepoisUrl: depois.url,
           fotoDepoisBase64: depois.base64,
+          fotoDepoisFile: depois.file || null,
         };
       })(),
     },

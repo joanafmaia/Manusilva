@@ -205,7 +205,7 @@ export async function mountClientsList(root, options = {}) {
     let debounceTimer;
     input.addEventListener('input', () => {
       clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(() => paint(input.value), 120);
+      debounceTimer = setTimeout(() => paint(input.value), 220);
     });
   }
 

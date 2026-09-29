@@ -22,7 +22,9 @@ let currentHits = [];
 let indexCache = [];
 let indexCachedAt = 0;
 let searchGen = 0;
+let searchTimer = null;
 const INDEX_TTL_MS = 15_000;
+const SEARCH_DEBOUNCE_MS = 120;
 
 function isTypingTarget(el) {
   if (!el || !(el instanceof HTMLElement)) return false;
@@ -42,6 +44,10 @@ async function getIndex() {
 }
 
 function closePalette() {
+  if (searchTimer) {
+    clearTimeout(searchTimer);
+    searchTimer = null;
+  }
   overlay?.remove();
   overlay = null;
   activeIndex = 0;
@@ -156,7 +162,12 @@ function openPalette() {
   const input = overlay.querySelector('#admin-cmd-input');
   input?.addEventListener('input', () => {
     activeIndex = 0;
-    void refreshHits(input.value);
+    const q = input.value;
+    if (searchTimer) clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+      searchTimer = null;
+      void refreshHits(q);
+    }, SEARCH_DEBOUNCE_MS);
   });
   overlay.addEventListener('click', (e) => {
     if (e.target === overlay) closePalette();

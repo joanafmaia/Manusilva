@@ -10,7 +10,7 @@ import {
   searchCatalogoProdutos,
 } from './catalogo-produtos.js';
 
-const INPUT_DEBOUNCE_MS = 120;
+const INPUT_DEBOUNCE_MS = 200;
 
 function debounce(fn, ms) {
   let t;

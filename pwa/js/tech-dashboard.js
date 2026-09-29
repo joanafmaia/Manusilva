@@ -56,6 +56,7 @@ import {
   resolveTechActionLabel,
 } from './tech-panel-utils.js';
 import { requestTechNotificationPermission } from './tech-notifications.js';
+import { isReportFormOpen, yieldToPaint } from './ui-yield.js';
 
 /** Âncora da semana visível no calendário (segunda-feira da semana em foco) */
 let currentWeekDate = startOfLocalDay(new Date());
@@ -86,7 +87,8 @@ let techJobsSearchQuery = '';
 let realizadosStatusFilter = 'all';
 let techConnectivityFailuresBound = false;
 let techJobsSearchTimer = null;
-const TECH_JOBS_SEARCH_DEBOUNCE_MS = 150;
+let techJobsSearchGen = 0;
+const TECH_JOBS_SEARCH_DEBOUNCE_MS = 320;
 
 /** Aba ativa no arranque: Agendados (vista semanal do calendário). */
 let techJobsTab = 'agendados';
@@ -131,9 +133,11 @@ async function refreshPendingSyncCount() {
 }
 
 function scheduleTechDashboardRefresh() {
+  if (isReportFormOpen()) return;
   if (techDashboardRefreshTimer) clearTimeout(techDashboardRefreshTimer);
   techDashboardRefreshTimer = setTimeout(() => {
     techDashboardRefreshTimer = null;
+    if (isReportFormOpen()) return;
     invalidateTechListCaches();
     refreshTechCalendar().catch(console.error);
   }, 280);
@@ -988,23 +992,38 @@ function updateTechCalendarCompactUi() {
   }
 }
 
+function syncTechJobsSearchInput() {
+  const searchInput = document.getElementById('tech-jobs-search');
+  if (!searchInput) return;
+  if (document.activeElement === searchInput) return;
+  if (searchInput.value !== techJobsSearchQuery) {
+    searchInput.value = techJobsSearchQuery;
+  }
+}
+
 function bindTechJobsSearch() {
   const input = document.getElementById('tech-jobs-search');
   if (!input || input.dataset.bound === '1') return;
   input.dataset.bound = '1';
   input.addEventListener('input', () => {
+    const gen = ++techJobsSearchGen;
     const value = input.value || '';
     if (techJobsSearchTimer) clearTimeout(techJobsSearchTimer);
     techJobsSearchTimer = setTimeout(() => {
       techJobsSearchTimer = null;
+      if (gen !== techJobsSearchGen) return;
       techJobsSearchQuery = value;
-      if (techJobsTab === 'clientes') {
-        import('./views/clients-list.js')
-          .then(({ applyClientsListQuery }) => applyClientsListQuery(value))
-          .catch(console.error);
-        return;
-      }
-      renderJobs();
+      void (async () => {
+        await yieldToPaint();
+        if (gen !== techJobsSearchGen) return;
+        if (techJobsTab === 'clientes') {
+          import('./views/clients-list.js')
+            .then(({ applyClientsListQuery }) => applyClientsListQuery(value))
+            .catch(console.error);
+          return;
+        }
+        renderJobs();
+      })();
     }, TECH_JOBS_SEARCH_DEBOUNCE_MS);
   });
 }
@@ -1087,9 +1106,12 @@ function scheduleWarmTechDashboardFull() {
         const { syncLocalReportDraftsToServer } = await import('./report-draft-sync.js');
         const { persistOpsSnapshot } = await import('./ops-snapshot.js');
         const session = requireAuth('technician');
+        if (isReportFormOpen()) return;
         await reconcileLocallyDeletedReports();
         await purgeLocallyDeletedFromCache();
+        if (isReportFormOpen()) return;
         await hydrateLocalReportsIntoCache();
+        if (isReportFormOpen()) return;
         await syncLocalReportDraftsToServer({ notify: false });
         await persistOpsSnapshot(session?.technicianId || '');
       } catch (err) {
@@ -2184,11 +2206,7 @@ function renderJobs() {
   updateJobsSectionHeader();
   updateTechJobsToolbarVisibility();
   const techId = session.technicianId;
-
-  const searchInput = document.getElementById('tech-jobs-search');
-  if (searchInput && searchInput.value !== techJobsSearchQuery) {
-    searchInput.value = techJobsSearchQuery;
-  }
+  syncTechJobsSearchInput();
 
   if (techJobsTab === 'realizados') {
     renderRealizadosPanel(container, techId);

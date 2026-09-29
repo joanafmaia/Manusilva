@@ -505,10 +505,12 @@ export const HistoricoClienteView = {
     });
 
     const searchInput = root.querySelector('#client-history-search');
+    let historySearchTimer = null;
     searchInput?.addEventListener('input', () => {
       historyViewState.search = searchInput.value;
       historyViewState.visibleCount = HISTORY_PAGE_SIZE;
-      repaintResults();
+      clearTimeout(historySearchTimer);
+      historySearchTimer = setTimeout(() => repaintResults(), 280);
     });
 
     root.querySelector('#client-history-type')?.addEventListener('change', (e) => {

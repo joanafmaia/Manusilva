@@ -37,19 +37,49 @@ async function blobToDataUrl(blob) {
   });
 }
 
+/** Impressão barata de um data URL — evita recomprimir a mesma foto a cada auto-save. */
+export function photoInlineFingerprint(value) {
+  const text = String(value || '');
+  if (!text.startsWith('data:image')) return '';
+  return `${text.length}:${text.slice(13, 52)}:${text.slice(-28)}`;
+}
+
+export function shouldReuseExistingPhotoBlob(data, existing, slot) {
+  const base64Key = slot === 'antes' ? 'fotoAntesBase64' : 'fotoDepoisBase64';
+  const urlKey = slot === 'antes' ? 'fotoAntesUrl' : 'fotoDepoisUrl';
+  const blobKey = slot === 'antes' ? 'photoAntes' : 'photoDepois';
+  const fpKey = slot === 'antes' ? 'photoAntesFp' : 'photoDepoisFp';
+  const fileKey = slot === 'antes' ? 'fotoAntesFile' : 'fotoDepoisFile';
+  if (data?.[fileKey] instanceof Blob) return false;
+  if (!(existing?.[blobKey] instanceof Blob)) return false;
+  if (data?.[urlKey] === null && data?.[base64Key] == null) return false;
+  const inline = data?.[base64Key] || data?.[urlKey];
+  if (!inline || !String(inline).startsWith('data:image')) return true;
+  const nextFp = photoInlineFingerprint(inline);
+  const prevFp = String(existing?.[fpKey] || '');
+  return !prevFp || prevFp === nextFp;
+}
+
 async function resolveDraftPhotoBlob(slot, data, existing) {
   const base64Key = slot === 'antes' ? 'fotoAntesBase64' : 'fotoDepoisBase64';
   const urlKey = slot === 'antes' ? 'fotoAntesUrl' : 'fotoDepoisUrl';
   const blobKey = slot === 'antes' ? 'photoAntes' : 'photoDepois';
+  const fileKey = slot === 'antes' ? 'fotoAntesFile' : 'fotoDepoisFile';
   const inline = data[base64Key] || data[urlKey];
 
+  if (data[fileKey] instanceof Blob) {
+    return data[fileKey];
+  }
+  if (data[urlKey] === null && data[base64Key] == null) {
+    return null;
+  }
+  if (shouldReuseExistingPhotoBlob(data, existing, slot)) {
+    return existing[blobKey];
+  }
   if (inline && String(inline).startsWith('data:image')) {
     return photoInputToBlob(inline);
   }
   if (inline && /^https?:\/\//i.test(String(inline))) {
-    return null;
-  }
-  if (data[urlKey] === null && data[base64Key] == null) {
     return null;
   }
   return existing?.[blobKey] instanceof Blob ? existing[blobKey] : null;
@@ -74,6 +104,8 @@ function stripPhotosFromReport(report) {
   const data = copy.data || {};
   delete data.fotoAntesBase64;
   delete data.fotoDepoisBase64;
+  delete data.fotoAntesFile;
+  delete data.fotoDepoisFile;
   copy.data = data;
   return copy;
 }
@@ -180,6 +212,8 @@ export async function saveLocalReportDraft(report) {
     report: entry,
     photoAntes,
     photoDepois,
+    photoAntesFp: photoInlineFingerprint(data.fotoAntesBase64 || data.fotoAntesUrl),
+    photoDepoisFp: photoInlineFingerprint(data.fotoDepoisBase64 || data.fotoDepoisUrl),
   });
 
   window.dispatchEvent(
@@ -352,17 +386,22 @@ export function filterActiveLocalReportDrafts(drafts, technicianId = '') {
  * @param {string} [technicianId]
  */
 export async function countActiveLocalReportDrafts(technicianId = '') {
-  const drafts = await getAllLocalReportDrafts();
+  const drafts = await getAllLocalReportDrafts({ includePhotos: false });
   return filterActiveLocalReportDrafts(drafts, technicianId).length;
 }
 
-export async function getAllLocalReportDrafts() {
+export async function getAllLocalReportDrafts(options = {}) {
+  const includePhotos = options.includePhotos !== false;
   await ensureMigrated();
   const { isReportLocallyDeleted } = await import('./report-deleted-local.js');
   const records = await idbGetAll(STORE_REPORT_DRAFTS);
   const drafts = [];
   for (const record of records) {
-    const merged = await mergePhotosIntoReport(record);
+    const merged = includePhotos
+      ? await mergePhotosIntoReport(record)
+      : record?.report
+        ? cloneJson(record.report)
+        : null;
     if (!merged) continue;
     if (isReportLocallyDeleted(merged)) {
       removeAllLocalDraftsForReport(merged).catch(() => {});
@@ -462,7 +501,7 @@ function isDraftOfDeletedServico(draft) {
  */
 export async function hydrateLocalReportsIntoCache() {
   const { isReportLocallyDeleted } = await import('./report-deleted-local.js');
-  const drafts = await getAllLocalReportDrafts();
+  const drafts = await getAllLocalReportDrafts({ includePhotos: false });
   const serverReports = getReportsSnapshot();
   const serverJobIds = isJobsCacheLoaded()
     ? new Set(getJobsSnapshot().map((j) => String(j.id)))

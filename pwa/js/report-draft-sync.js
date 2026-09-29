@@ -11,6 +11,7 @@ import {
   removeLocalReportDraft,
 } from './report-local-storage.js';
 import { uploadPendingFotosFromReport } from './foto-trabalho-storage.js';
+import { isReportFormOpen } from './ui-yield.js';
 
 /** O servidor confirmou que gravou o mesmo relatório/trabalho/visita. */
 export function isDraftSafelySynced(local, saved) {
@@ -39,11 +40,16 @@ export function isDraftSafelySynced(local, saved) {
  * @returns {Promise<{ synced: number, remaining: number }>}
  */
 export async function syncLocalReportDraftsToServer(options = {}) {
-  const { notify = false } = options;
+  const { notify = false, force = false } = options;
+
+  if (!force && isReportFormOpen()) {
+    const remaining = (await getAllLocalReportDrafts({ includePhotos: false })).length;
+    return { synced: 0, remaining };
+  }
 
   const { canSyncToServer } = await import('./trabalhos-offline.js');
   if (!canSyncToServer()) {
-    const remaining = (await getAllLocalReportDrafts()).length;
+    const remaining = (await getAllLocalReportDrafts({ includePhotos: false })).length;
     return { synced: 0, remaining };
   }
 
@@ -106,9 +112,9 @@ export async function syncLocalReportDraftsToServer(options = {}) {
     }
   }
 
-  return { synced, remaining: (await getAllLocalReportDrafts()).length };
+  return { synced, remaining: (await getAllLocalReportDrafts({ includePhotos: false })).length };
 }
 
 export async function countUnsyncedLocalReportDrafts() {
-  return (await getAllLocalReportDrafts()).length;
+  return (await getAllLocalReportDrafts({ includePhotos: false })).length;
 }

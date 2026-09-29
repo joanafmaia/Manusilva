@@ -24,7 +24,7 @@ const AUTOFILL_BINDINGS = {
   pais_regiao: 'País/Região',
 };
 
-const INPUT_DEBOUNCE_MS = 120;
+const INPUT_DEBOUNCE_MS = 220;
 
 /** @deprecated Usar getProductionClientsCatalog — mantido para compatibilidade */
 export function getClientsCatalog() {

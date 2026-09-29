@@ -5,8 +5,9 @@
 import { saveLocalReportDraft } from './report-local-storage.js';
 import { mergeReportInCache } from './relatorios-db.js';
 import { isReportLocallyDeleted } from './report-deleted-local.js';
+import { scheduleIdle, yieldToPaint } from './ui-yield.js';
 
-const DEBOUNCE_MS = 800;
+const DEBOUNCE_MS = 1600;
 const PHOTO_WAIT_POLL_MS = 50;
 const SAVED_INDICATOR_MS = 12000;
 
@@ -120,6 +121,9 @@ export function initReportFormAutosave({ overlay, job, existingReport, buildRepo
     await waitForPhotoProcessing();
     if (destroyed) return;
 
+    await yieldToPaint();
+    if (destroyed) return;
+
     setStatus('pending');
 
     let report;
@@ -145,8 +149,12 @@ export function initReportFormAutosave({ overlay, job, existingReport, buildRepo
       return;
     }
 
-    await saveLocalReportDraft(report);
-    mergeReportInCache(report);
+    const saved = await saveLocalReportDraft(report);
+    if (!saved) {
+      setStatus('idle');
+      return;
+    }
+    mergeReportInCache(saved);
     setStatus('saved');
   };
 
@@ -166,14 +174,17 @@ export function initReportFormAutosave({ overlay, job, existingReport, buildRepo
       setStatus('pending', 'A processar foto…');
       return;
     }
-    setStatus('pending');
     clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(
-      () => {
-        void enqueuePersist();
-      },
-      immediate ? 0 : DEBOUNCE_MS,
-    );
+    const persist = () => {
+      void enqueuePersist();
+    };
+    if (immediate) {
+      debounceTimer = setTimeout(persist, 0);
+      return;
+    }
+    debounceTimer = setTimeout(() => {
+      scheduleIdle(persist, 1200);
+    }, DEBOUNCE_MS);
   };
 
   const shouldIgnoreActivityTarget = (target) => {

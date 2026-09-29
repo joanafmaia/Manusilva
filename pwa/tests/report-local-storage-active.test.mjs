@@ -71,3 +71,45 @@ describe('report-form-autosave — tombstone', () => {
     assert.equal(canAutosaveReport({ id: 'ok-1', status: 'draft' }, { status: 'scheduled' }), true);
   });
 });
+
+describe('report-local-storage — fotos no auto-save', () => {
+  it('shouldReuseExistingPhotoBlob — reutiliza blob quando o data URL não mudou', async () => {
+    const { shouldReuseExistingPhotoBlob, photoInlineFingerprint } = await import(
+      '../js/report-local-storage.js'
+    );
+    const dataUrl = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wCEAA';
+    const blob = new Blob(['x'], { type: 'image/jpeg' });
+    const existing = {
+      photoAntes: blob,
+      photoAntesFp: photoInlineFingerprint(dataUrl),
+    };
+    assert.equal(
+      shouldReuseExistingPhotoBlob({ fotoAntesBase64: dataUrl }, existing, 'antes'),
+      true,
+    );
+  });
+
+  it('shouldReuseExistingPhotoBlob — não reutiliza se veio um File novo', async () => {
+    const { shouldReuseExistingPhotoBlob } = await import('../js/report-local-storage.js');
+    const blob = new Blob(['x'], { type: 'image/jpeg' });
+    const file = new Blob(['novo'], { type: 'image/jpeg' });
+    const existing = { photoAntes: blob, photoAntesFp: 'old' };
+    assert.equal(
+      shouldReuseExistingPhotoBlob(
+        { fotoAntesBase64: 'data:image/jpeg;base64,abc', fotoAntesFile: file },
+        existing,
+        'antes',
+      ),
+      false,
+    );
+  });
+
+  it('shouldReuseExistingPhotoBlob — não reutiliza quando a foto foi apagada', async () => {
+    const { shouldReuseExistingPhotoBlob } = await import('../js/report-local-storage.js');
+    const existing = { photoAntes: new Blob(['x'], { type: 'image/jpeg' }) };
+    assert.equal(
+      shouldReuseExistingPhotoBlob({ fotoAntesUrl: null, fotoAntesBase64: null }, existing, 'antes'),
+      false,
+    );
+  });
+});

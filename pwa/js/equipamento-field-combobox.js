@@ -10,7 +10,7 @@ import {
 } from './cliente-equipamentos.js';
 import { LABEL_NUMERO_SERIE, LABEL_MATRICULA } from './field-labels.js';
 
-const INPUT_DEBOUNCE_MS = 120;
+const INPUT_DEBOUNCE_MS = 200;
 const MAX_DROPDOWN_RESULTS = 12;
 
 const COMBOBOX_FIELD_IDS = new Set([

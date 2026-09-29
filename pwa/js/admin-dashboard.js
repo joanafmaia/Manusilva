@@ -1735,7 +1735,7 @@ function bindRhReviewPanel() {
       clearTimeout(searchDebounce);
       searchDebounce = setTimeout(() => {
         renderRhReviewStack({ preserveScroll: false }).catch(console.error);
-      }, 280);
+      }, 350);
     }
   });
 

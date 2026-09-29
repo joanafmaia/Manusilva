@@ -1881,7 +1881,7 @@ function bindFilterEvents() {
       billingFilters.search = value;
       resetInvoicesListPagination();
       applyBillingFilters().catch(console.error);
-    }, 220);
+    }, 320);
   });
 
   root.querySelector('#faturacao-export-csv')?.addEventListener('click', () => {
