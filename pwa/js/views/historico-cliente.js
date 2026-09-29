@@ -4,17 +4,14 @@
 
 import {
   getClient,
-  getDB,
-  getServiceType,
   getJob,
-  escapeHtml,
-  formatDateLong,
-  warmOperacoes,
-} from '../app.js';
+  getServiceType,
+} from '../entity-lookups.js';
+import { getDB } from '../local-db.js';
+import { escapeHtml } from '../html-utils.js';
+import { formatDateLong } from '../date-utils.js';
 import { getClientFromCatalog } from '../clients-catalog.js';
 import { mapClientToLegacy } from '../mock_data.js';
-import { openReportReviewModal, downloadReportPDF } from '../report-review-modal.js';
-import { openClientProfilePanel } from './client-profile-drawer.js';
 import { isTestClient, TEST_JOB_ORDEM_LABEL } from '../client-test-utils.js';
 import { dedupeReportsForDisplay } from '../relatorios-db.js';
 import { sameEntityId } from '../entity-id.js';
@@ -419,7 +416,23 @@ export const HistoricoClienteView = {
    * @param {{ onBack?: () => void, showWorkflowActions?: boolean, batteryOnly?: boolean, onDownloadPDF?: (reportId: string) => void }} [options]
    */
   async init(clientId, options = {}) {
-    await warmOperacoes();
+    if (options.skipFullWarm) {
+      try {
+        const { ensureReportsLoaded } = await import('../relatorios-db.js');
+        const { ensureJobsLoaded } = await import('../trabalhos-db.js');
+        const { ensureServicosLoadedSafe } = await import('../servicos-db.js');
+        await Promise.all([
+          ensureReportsLoaded(),
+          ensureJobsLoaded(),
+          ensureServicosLoadedSafe(),
+        ]);
+      } catch (err) {
+        console.warn('[Histórico] Dados para o técnico:', err);
+      }
+    } else {
+      const { warmOperacoes } = await import('../local-db.js');
+      await warmOperacoes();
+    }
 
     const app = document.getElementById('app');
     if (app) {
@@ -432,7 +445,10 @@ export const HistoricoClienteView = {
     const onDownloadPDF =
       typeof options.onDownloadPDF === 'function'
         ? options.onDownloadPDF
-        : (reportId) => downloadReportPDF(reportId);
+        : async (reportId) => {
+            const { downloadReportPDF } = await import('../report-review-modal.js');
+            return downloadReportPDF(reportId);
+          };
 
     activeNavOptions = options;
     const batteryOnly = options.batteryOnly !== false;
@@ -466,11 +482,16 @@ export const HistoricoClienteView = {
     };
 
     root.querySelector('[data-client-ficha]')?.addEventListener('click', () => {
-      openClientProfilePanel(clientId, {
-        onHistory: () => {
-          root.querySelector('.client-history-reports')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        },
-      });
+      import('./client-profile-drawer.js')
+        .then(({ openClientProfilePanel }) =>
+          openClientProfilePanel(clientId, {
+            hub: options.showWorkflowActions !== false,
+            onHistory: () => {
+              root.querySelector('.client-history-reports')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            },
+          }),
+        )
+        .catch(console.error);
     });
 
     root.querySelector('[data-history-back]')?.addEventListener('click', async () => {
@@ -521,7 +542,7 @@ export const HistoricoClienteView = {
  * Monta o histórico partilhado (RH + técnico) num contentor.
  * @param {string} clientId
  * @param {HTMLElement} mountEl
- * @param {{ batteryOnly?: boolean, showWorkflowActions?: boolean, onBack?: () => void, onDownloadPDF?: (reportId: string) => void }} [options]
+ * @param {{ batteryOnly?: boolean, showWorkflowActions?: boolean, skipFullWarm?: boolean, onBack?: () => void, onDownloadPDF?: (reportId: string) => void }} [options]
  */
 export async function mountClientHistoryView(clientId, mountEl, options = {}) {
   if (!mountEl || !clientId) return;
@@ -537,6 +558,7 @@ export async function mountClientHistoryView(clientId, mountEl, options = {}) {
   await HistoricoClienteView.init(clientId, {
     batteryOnly,
     showWorkflowActions,
+    skipFullWarm: options.skipFullWarm === true,
     onBack: options.onBack,
     onDownloadPDF: options.onDownloadPDF,
   });
@@ -552,31 +574,26 @@ function bindListInteractions(root, { showWorkflow, onDownloadPDF, onLoadMore })
       e.stopPropagation();
       const reportId = btn.dataset.openReport;
       if (!reportId) return;
-      openReportReviewModal(reportId, {
-        showWorkflowActions: showWorkflow,
-        onApproved: () => {
-          const app = document.getElementById('app');
-          const clientId = root.dataset.clientId;
-          if (app && clientId) {
-            app.innerHTML = HistoricoClienteView.render(clientId, {
-              batteryOnly: activeNavOptions?.batteryOnly !== false,
-              showWorkflowActions: activeNavOptions?.showWorkflowActions,
-            });
-            void HistoricoClienteView.init(clientId, activeNavOptions || {});
-          }
-        },
-        onRejected: () => {
-          const app = document.getElementById('app');
-          const clientId = root.dataset.clientId;
-          if (app && clientId) {
-            app.innerHTML = HistoricoClienteView.render(clientId, {
-              batteryOnly: activeNavOptions?.batteryOnly !== false,
-              showWorkflowActions: activeNavOptions?.showWorkflowActions,
-            });
-            void HistoricoClienteView.init(clientId, activeNavOptions || {});
-          }
-        },
-      });
+      const reload = () => {
+        const app = document.getElementById('app');
+        const clientId = root.dataset.clientId;
+        if (app && clientId) {
+          app.innerHTML = HistoricoClienteView.render(clientId, {
+            batteryOnly: activeNavOptions?.batteryOnly !== false,
+            showWorkflowActions: activeNavOptions?.showWorkflowActions,
+          });
+          void HistoricoClienteView.init(clientId, activeNavOptions || {});
+        }
+      };
+      import('../report-review-modal.js')
+        .then(({ openReportReviewModal }) =>
+          openReportReviewModal(reportId, {
+            showWorkflowActions: showWorkflow,
+            onApproved: reload,
+            onRejected: reload,
+          }),
+        )
+        .catch(console.error);
     });
   });
 

@@ -7,9 +7,8 @@ import {
   getProductionClientsCatalog,
   searchClients,
 } from '../clients-catalog.js';
-import { escapeHtml } from '../app.js';
+import { escapeHtml } from '../html-utils.js';
 import { msIconHtml } from '../ui-icons.js';
-import { openClientProfilePanel } from './client-profile-drawer.js';
 
 const LIST_PAGE_SIZE = 25;
 
@@ -107,12 +106,16 @@ function renderClientTableRow(c) {
   `;
 }
 
-function bindClientListActions(root, { onClientHistory }) {
+function bindClientListActions(root, { onClientHistory, hub = true }) {
   root.querySelectorAll('[data-client-profile]').forEach((btn) => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       const id = btn.dataset.clientProfile;
-      openClientProfilePanel(id, { onHistory: onClientHistory });
+      import('./client-profile-drawer.js')
+        .then(({ openClientProfilePanel }) =>
+          openClientProfilePanel(id, { onHistory: onClientHistory, hub }),
+        )
+        .catch(console.error);
     });
   });
 
@@ -193,7 +196,7 @@ export async function mountClientsList(root, options = {}) {
 
     cardsMount.innerHTML = items.map((c) => renderClientCard(c)).join('');
     tbody.innerHTML = items.map((c) => renderClientTableRow(c)).join('');
-    bindClientListActions(section, { onClientHistory });
+    bindClientListActions(section, { onClientHistory, hub: !techMode });
   };
 
   activeClientsListPaint = paint;

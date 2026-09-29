@@ -7,7 +7,9 @@ import {
   getProductionClientsCatalog,
   ensureProductionCatalog,
 } from '../clients-catalog.js';
-import { getClient, escapeHtml, showToast } from '../app.js';
+import { getClient } from '../entity-lookups.js';
+import { escapeHtml } from '../html-utils.js';
+import { showToast } from '../toast-modal.js';
 import { putClient } from '../clients-api.js';
 import {
   buildClientAlteracoesCsv,
@@ -17,7 +19,6 @@ import {
 import { mapClientToLegacy, DEMO_CLIENT_FORKLIFTS } from '../mock_data.js';
 import { formatEquipamentoLabel } from '../cliente-equipamentos.js';
 import { FATURA_CONDICAO_OPCOES, labelFaturaCondicao, condicaoFromClientCatalog } from '../billing-constants.js';
-import { loadClientHub } from '../client-hub-data.js';
 
 const COPY_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>`;
 
@@ -144,6 +145,13 @@ const HUB_TABS = [
   { id: 'avaliacoes', label: 'Avaliações' },
 ];
 
+function visibleHubTabs(profile) {
+  if (profile?.lite) {
+    return HUB_TABS.filter((tab) => tab.id === 'contactos' || tab.id === 'equipamentos');
+  }
+  return HUB_TABS;
+}
+
 function hubCount(profile, tabId) {
   if (tabId === 'equipamentos') {
     return (profile.equipamentos?.length || profile.forklifts?.length || 0);
@@ -155,7 +163,7 @@ function renderHubTabs(profile, activeTab, editing) {
   if (editing) return '';
   return `
     <nav class="client-ficha-tabs" role="tablist" aria-label="Secções da ficha">
-      ${HUB_TABS.map((tab) => {
+      ${visibleHubTabs(profile).map((tab) => {
         const count = hubCount(profile, tab.id);
         const selected = tab.id === activeTab;
         return `<button type="button" class="client-ficha-tab${selected ? ' is-active' : ''}" role="tab" aria-selected="${selected}" data-client-ficha-tab="${tab.id}">
@@ -454,7 +462,8 @@ function renderTabBody(profile, tab, editing = false) {
 function applyHubTab(shell, profile, tab) {
   const panel = shell.querySelector('.client-ficha-panel');
   if (!panel || panel.dataset.editing === 'true') return;
-  const next = HUB_TABS.some((item) => item.id === tab) ? tab : 'contactos';
+  const allowed = visibleHubTabs(profile).map((item) => item.id);
+  const next = allowed.includes(tab) ? tab : 'contactos';
   const state = shell._fichaState;
   if (state) state.activeTab = next;
   panel.dataset.activeTab = next;
@@ -472,7 +481,12 @@ function settleClientFichaPanel(shell) {
 }
 
 export function renderClientProfilePanel(profile, { editing = false, activeTab = 'contactos' } = {}) {
-  const tab = editing ? 'contactos' : activeTab || 'contactos';
+  const allowed = visibleHubTabs(profile).map((tab) => tab.id);
+  const tab = editing
+    ? 'contactos'
+    : allowed.includes(activeTab)
+      ? activeTab
+      : 'contactos';
 
   const footer = editing
     ? `
@@ -728,8 +742,13 @@ function bindClientProfilePanel(shell, profile, options = {}) {
           await putClient(clientId, patch);
           showToast('Dados do cliente atualizados com sucesso.', 'success', 3500);
           const fresh = await resolveClientProfile(clientId);
-          fresh.alteracoes = await fetchClientAlteracoes(clientId);
+          fresh.lite = Boolean(current.lite);
           fresh.hub = current.hub;
+          if (!fresh.lite) {
+            fresh.alteracoes = await fetchClientAlteracoes(clientId);
+          } else {
+            fresh.alteracoes = [];
+          }
           ctx.profile = fresh;
           state.activeTab = 'contactos';
           replaceSettledPanel(shell, renderClientProfilePanel(fresh, { editing: false, activeTab: 'contactos' }));
@@ -750,12 +769,13 @@ function bindClientProfilePanel(shell, profile, options = {}) {
 /**
  * Abre painel lateral (tablet/PC) ou modal (mobile) com ficha do cliente.
  * @param {string} clientId
- * @param {{ onHistory?: (clientId: string) => void, initialTab?: string }} [options]
+ * @param {{ onHistory?: (clientId: string) => void, initialTab?: string, hub?: boolean }} [options]
  */
 export async function openClientProfilePanel(clientId, options = {}) {
   if (!clientId) return;
 
   closeClientProfilePanel();
+  const loadHub = options.hub !== false;
 
   const shell = document.createElement('div');
   shell.className = 'client-ficha-drawer';
@@ -769,17 +789,24 @@ export async function openClientProfilePanel(clientId, options = {}) {
   document.body.classList.add('client-ficha-open');
   document.body.style.overflow = 'hidden';
   shell._fichaState = { editSnapshot: null, activeTab: options.initialTab || 'contactos' };
-  bindClientProfilePanel(shell, { id: clientId, nome: '', hub: {} }, options);
+  bindClientProfilePanel(shell, { id: clientId, nome: '', hub: {}, lite: !loadHub }, options);
 
   let profile;
   try {
     profile = await resolveClientProfile(clientId);
-    const [alteracoes, hub] = await Promise.all([
-      fetchClientAlteracoes(clientId),
-      loadClientHub(clientId),
-    ]);
-    profile.alteracoes = alteracoes;
-    profile.hub = hub;
+    profile.lite = !loadHub;
+    if (loadHub) {
+      const { loadClientHub } = await import('../client-hub-data.js');
+      const [alteracoes, hub] = await Promise.all([
+        fetchClientAlteracoes(clientId),
+        loadClientHub(clientId),
+      ]);
+      profile.alteracoes = alteracoes;
+      profile.hub = hub;
+    } else {
+      profile.alteracoes = [];
+      profile.hub = { visitas: [], propostas: [], faturas: [], avaliacoes: [], counts: {} };
+    }
   } catch (err) {
     console.error('[Ficha Cliente]', err);
     showToast('Não foi possível carregar a ficha do cliente.', 'error');

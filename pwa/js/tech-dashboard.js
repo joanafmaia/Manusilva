@@ -17,7 +17,6 @@ import {
   isNetworkOnline,
   canReachServer,
   setOfflineMode,
-  warmOperacoes,
   formatDate,
   formatDateLong,
   getDayLabel,
@@ -468,6 +467,8 @@ async function loadTechTabData() {
     await ensureReportsLoaded();
     await ensureJobsLoaded();
     await ensureServicosLoadedSafe();
+    const { persistOpsSnapshot } = await import('./ops-snapshot.js');
+    void persistOpsSnapshot(session.technicianId).catch(() => {});
   } else if (techJobsTab === 'agendados') {
     const weekOfSelected = getWeekDates(new Date(`${selectedDate}T12:00:00`));
     await ensureTrabalhosSemana(
@@ -712,6 +713,7 @@ export async function openTechClientHistory(clientId, { returnTo = 'dashboard' }
   await mountClientHistoryView(clientId, app, {
     batteryOnly: false,
     showWorkflowActions: false,
+    skipFullWarm: true,
     onBack,
   });
   app.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1075,22 +1077,31 @@ async function warmTechDashboardInitial(technicianId) {
 }
 
 function scheduleWarmTechDashboardFull() {
-  void warmOperacoes()
-    .then(async () => {
-      const { reconcileLocallyDeletedReports, purgeLocallyDeletedFromCache } = await import(
-        './report-deleted-local.js'
-      );
-      const { hydrateLocalReportsIntoCache } = await import('./report-local-storage.js');
-      const { syncLocalReportDraftsToServer } = await import('./report-draft-sync.js');
-      await reconcileLocallyDeletedReports();
-      await purgeLocallyDeletedFromCache();
-      await hydrateLocalReportsIntoCache();
-      await syncLocalReportDraftsToServer({ notify: false });
-      window.dispatchEvent(new CustomEvent('db-updated'));
-    })
-    .catch((err) => {
-      console.warn('[Técnico] Carregamento completo em background:', err);
-    });
+  const run = () => {
+    void (async () => {
+      try {
+        const { reconcileLocallyDeletedReports, purgeLocallyDeletedFromCache } = await import(
+          './report-deleted-local.js'
+        );
+        const { hydrateLocalReportsIntoCache } = await import('./report-local-storage.js');
+        const { syncLocalReportDraftsToServer } = await import('./report-draft-sync.js');
+        const { persistOpsSnapshot } = await import('./ops-snapshot.js');
+        const session = requireAuth('technician');
+        await reconcileLocallyDeletedReports();
+        await purgeLocallyDeletedFromCache();
+        await hydrateLocalReportsIntoCache();
+        await syncLocalReportDraftsToServer({ notify: false });
+        await persistOpsSnapshot(session?.technicianId || '');
+      } catch (err) {
+        console.warn('[Técnico] Snapshot offline em background:', err);
+      }
+    })();
+  };
+  if (typeof requestIdleCallback === 'function') {
+    requestIdleCallback(run, { timeout: 8000 });
+  } else {
+    setTimeout(run, 4000);
+  }
 }
 
 function getRejectedJobsForTech(techId) {
