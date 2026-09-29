@@ -202,8 +202,15 @@ describe('orcamento-billing-workflow', () => {
     const list = await fs.readFile(new URL('../js/views/orcamentos.js', import.meta.url), 'utf8');
     const editor = await fs.readFile(new URL('../js/orcamento-rh-editor.js', import.meta.url), 'utf8');
     assert.match(list, /renderOrcamentoFaturarCheckbox/);
+    assert.match(list, /applyInlineFaturarToggle|applyOrcamentoFaturarPropostaChoice/);
+    assert.match(list, /workflow === 'aceite'/);
     assert.match(editor, /Esta proposta vai a faturação|renderOrcamentoFaturarCheckbox/);
     const { renderOrcamentoFaturarCheckbox } = await import('../js/orcamento-faturar-flag.js');
     assert.match(renderOrcamentoFaturarCheckbox(propostaAceite()), /vai a faturação/);
+  });
+
+  it('applyOrcamentoFaturarPropostaChoice existe para retirar das atuais', async () => {
+    const { applyOrcamentoFaturarPropostaChoice } = await import('../js/orcamento-billing-workflow.js');
+    assert.equal(typeof applyOrcamentoFaturarPropostaChoice, 'function');
   });
 });

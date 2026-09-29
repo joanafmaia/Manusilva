@@ -842,6 +842,34 @@ function bindOrcamentoRespostaActions(root, { getReport, onUpdated }) {
   const readRespostaDate = () =>
     root.querySelector('[data-orc-field="respostaClienteEm"]')?.value?.trim() || '';
 
+  root.querySelector(`[data-orc-field="faturarProposta"]`)?.addEventListener('change', async (e) => {
+    try {
+      const { showToast } = await import('./app.js');
+      const current = getReport();
+      if (!current?.id) return;
+      if (current.faturacaoStatus === 'faturado') {
+        e.target.checked = resolveOrcamentoFaturarProposta(current);
+        showToast('Esta proposta já foi faturada.', 'warning');
+        return;
+      }
+      const workflow = resolveOrcamentoWorkflowStatus(current);
+      if (workflow !== 'aceite') return;
+      const { applyOrcamentoFaturarPropostaChoice } = await import('./orcamento-billing-workflow.js');
+      const saved = await applyOrcamentoFaturarPropostaChoice(current.id, Boolean(e.target.checked));
+      if (!saved) throw new Error('Não foi possível guardar.');
+      onUpdated?.(saved);
+      showToast(
+        e.target.checked
+          ? 'Proposta adicionada à Faturação.'
+          : 'Proposta retirada da Faturação.',
+        'success',
+      );
+    } catch (err) {
+      const { showToast } = await import('./app.js');
+      showToast(err?.message || 'Erro ao guardar.', 'error');
+    }
+  });
+
   root.querySelector('[data-orc-mark-aceite]')?.addEventListener('click', async () => {
     try {
       const { showToast } = await import('./app.js');

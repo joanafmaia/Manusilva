@@ -301,6 +301,10 @@ function renderInlineRespostaControls(report) {
   if (!aguarda && workflow !== 'aceite' && workflow !== 'recusada') return '';
   /* Data editável só enquanto aguarda resposta — em Aceites/Recusadas a data já está na coluna Proposta. */
   const showDateInput = aguarda;
+  const canToggleFaturar =
+    !reportIsFolhaObraOrcamento(report) &&
+    report.faturacaoStatus !== 'faturado' &&
+    (aguarda || workflow === 'aceite');
   return `
     <div class="orcamentos-inline-resposta" data-orc-inline-resposta="${escapeHtml(report.id)}">
       ${
@@ -308,7 +312,14 @@ function renderInlineRespostaControls(report) {
           ? `<input type="date" class="form-input form-input-sm orcamentos-inline-date" data-orc-resposta-date="${escapeHtml(report.id)}" value="${escapeHtml(dateValue)}" title="Data da resposta" aria-label="Data da resposta" />`
           : ''
       }
-      ${aguarda ? renderOrcamentoFaturarCheckbox(report, { id: `orc-faturar-list-${report.id}`, compact: true }) : ''}
+      ${
+        canToggleFaturar
+          ? renderOrcamentoFaturarCheckbox(report, {
+              id: `orc-faturar-list-${report.id}`,
+              compact: true,
+            })
+          : ''
+      }
       ${
         aguarda || workflow !== 'aceite'
           ? `<button type="button" class="btn-success btn-sm rh-btn-compact faturacao-btn-compact" data-orc-aceite="${escapeHtml(report.id)}" title="Aceite">Aceite</button>`
@@ -329,6 +340,30 @@ function readInlineRespostaDate(reportId) {
   const report = getReport(reportId);
   const meta = getReportOrcamentoMeta(report);
   return toLocalDateInputValue(meta?.respostaClienteEm) || todayLocalDateInputValue();
+}
+
+async function applyInlineFaturarToggle(reportId, faturarProposta) {
+  const report = getReport(reportId);
+  if (!report) return;
+  if (report.faturacaoStatus === 'faturado') {
+    showToast('Esta proposta já foi faturada.', 'warning');
+    return;
+  }
+  try {
+    const { applyOrcamentoFaturarPropostaChoice } = await import('../orcamento-billing-workflow.js');
+    const saved = await applyOrcamentoFaturarPropostaChoice(reportId, faturarProposta);
+    if (!saved) return;
+    showToast(
+      faturarProposta
+        ? 'Proposta adicionada à Faturação.'
+        : 'Proposta retirada da Faturação.',
+      'success',
+    );
+    await refreshOrcamentosPanel({ soft: true });
+  } catch (err) {
+    console.error('[Orçamentos] toggle faturação:', err);
+    showToast(err?.message || 'Não foi possível atualizar a faturação.', 'error', 9000);
+  }
 }
 
 async function applyInlineResposta(reportId, resposta) {
@@ -1381,6 +1416,20 @@ function bindPanelEvents() {
     if (exportCsvBtn) {
       exportOrcamentoAuditCsv();
     }
+  });
+
+  mountRoot.addEventListener('change', (e) => {
+    const faturarInput = e.target.closest(`[data-orc-field="faturarProposta"]`);
+    if (!faturarInput) return;
+    const wrap = faturarInput.closest('[data-orc-inline-resposta]');
+    const reportId = wrap?.getAttribute('data-orc-inline-resposta');
+    if (!reportId) return;
+    const report = getReport(reportId);
+    if (!report) return;
+    // Em «aguarda resposta» a caixa só vale ao clicar Aceite; em Aceites aplica já.
+    if (orcamentoAguardaRespostaCliente(report)) return;
+    if (resolveOrcamentoWorkflowStatus(report) !== 'aceite') return;
+    void applyInlineFaturarToggle(reportId, Boolean(faturarInput.checked));
   });
 
   mountRoot.addEventListener('input', (e) => {

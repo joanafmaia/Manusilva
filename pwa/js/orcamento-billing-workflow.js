@@ -253,6 +253,41 @@ export async function markOrcamentoAceitePendingBilling(reportId, options = {}) 
   return saved;
 }
 
+/**
+ * Grava a caixa «vai a faturação» e sincroniza a fila (adicionar ou retirar).
+ * @param {string} reportId
+ * @param {boolean} faturarProposta
+ */
+export async function applyOrcamentoFaturarPropostaChoice(reportId, faturarProposta) {
+  const { getReport } = await import('./app.js');
+  const { mergeReportInCache } = await import('./relatorios-db.js');
+
+  const report = getReport(reportId);
+  if (!report || !reportIsRhOrcamento(report)) return null;
+  if (reportIsFolhaObraOrcamento(report)) return null;
+  if (report.faturacaoStatus === 'faturado') {
+    showToast('Esta proposta já foi faturada — não pode alterar a fila.', 'warning', 7000);
+    return report;
+  }
+
+  const meta = getReportOrcamentoMeta(report) || {};
+  const faturar = normalizeOrcamentoFaturarProposta(faturarProposta, report);
+  const withFlag = await updateRelatorio(reportId, {
+    data: { orcamento: { ...meta, [ORCAMENTO_FATURAR_FIELD]: faturar } },
+  });
+  if (withFlag) mergeReportInCache(withFlag);
+
+  if (!isOrcamentoClienteAceite(withFlag || report)) {
+    window.dispatchEvent(new CustomEvent('db-updated'));
+    return withFlag;
+  }
+
+  if (faturar) {
+    return markOrcamentoAceitePendingBilling(reportId, { faturarProposta: true });
+  }
+  return markOrcamentoAceiteWithoutBilling(reportId);
+}
+
 /** Retira da fila se o aceite for revertido ou marcado como recusada. */
 export async function clearOrcamentoBillingOnClienteRecusa(reportId) {
   const { getReport } = await import('./app.js');

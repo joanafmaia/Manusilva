@@ -333,6 +333,13 @@ export async function dismissPendingBillingReport(reportId) {
   }
 
   try {
+    if (isPendingOrcamentoBilling(report)) {
+      const { applyOrcamentoFaturarPropostaChoice } = await import('./orcamento-billing-workflow.js');
+      const saved = await applyOrcamentoFaturarPropostaChoice(reportId, false);
+      if (!saved) return false;
+      showToast('Proposta retirada da lista por faturar.', 'success');
+      return true;
+    }
     await updateRelatorio(reportId, { faturacaoStatus: 'dispensado' });
     window.dispatchEvent(new CustomEvent('db-updated'));
     showToast('Relatório retirado da lista por faturar.', 'success');
