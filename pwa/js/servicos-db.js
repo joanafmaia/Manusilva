@@ -216,6 +216,38 @@ export function removeServicoFromCache(servicoId) {
 }
 
 /**
+ * Remove do cache local visitas do técnico na semana que já não existem no servidor.
+ * Sem isto, um serviço eliminado pelo RH continua no calendário do tablet.
+ * @returns {number} quantos foram removidos
+ */
+export function pruneServicosCacheForWeek({
+  technicianId,
+  techName = '',
+  startDate,
+  endDate,
+  keepIds = [],
+}) {
+  if (!servicosCache || !startDate || !endDate) return 0;
+  const techKey = String(technicianId || '').toLowerCase();
+  const nameKey = String(techName || '').toLowerCase();
+  const keep = new Set([...keepIds].map((id) => String(id)));
+  const before = servicosCache.length;
+
+  servicosCache = servicosCache.filter((servico) => {
+    const date = String(servico.date || '');
+    if (!date || date < startDate || date > endDate) return true;
+    const assigned = String(servico.technicianIds || servico.tecnicoIds || '').toLowerCase();
+    const belongsToTech =
+      (nameKey && assigned.includes(nameKey)) ||
+      (techKey && assigned.includes(techKey));
+    if (!belongsToTech) return true;
+    return keep.has(String(servico.id));
+  });
+
+  return before - servicosCache.length;
+}
+
+/**
  * Carrega serviços do técnico num intervalo de datas (merge no cache).
  * Espelha ensureTrabalhosSemana — necessário para visitas criadas pelo RH.
  */
@@ -270,6 +302,14 @@ export async function ensureServicosSemana(technicianId, startDate, endDate) {
 
     weekServicos.forEach((servico) => {
       mergeServicoInCache(servico);
+    });
+
+    pruneServicosCacheForWeek({
+      technicianId,
+      techName,
+      startDate,
+      endDate,
+      keepIds: weekServicos.map((s) => s.id),
     });
 
     return weekServicos;

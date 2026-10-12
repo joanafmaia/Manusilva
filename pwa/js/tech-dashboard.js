@@ -149,6 +149,11 @@ function scheduleTechDashboardRefresh(reason = 'data') {
   techDashboardRefreshTimer = setTimeout(() => {
     techDashboardRefreshTimer = null;
     if (isReportFormOpen()) return;
+    /* Força ir ao servidor — senão serviços eliminados pelo RH ficam 5 min no cache local. */
+    if (reason === 'data' || reason === 'poll' || reason === 'visible') {
+      periodJobsCacheKey = null;
+      periodJobsCacheAt = 0;
+    }
     invalidateTechListCaches();
     refreshTechCalendar().catch(console.error);
   }, delay);

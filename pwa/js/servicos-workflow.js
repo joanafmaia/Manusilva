@@ -119,14 +119,27 @@ export async function deleteServico(servicoId, options = {}) {
 
   try {
     await deleteRelatoriosByServico(servicoId);
-    try {
-      await deleteTrabalho(servicoId);
-    } catch {
-      /* trabalho legado pode já não existir */
-    }
 
     const { getAuthenticatedSupabaseClient } = await import('./supabase-client.js');
+    const { removeJobFromCache } = await import('./trabalhos-db.js');
     const supabase = await getAuthenticatedSupabaseClient();
+
+    /* Apaga trabalhos ligados à visita (não só o id legado = servicoId). */
+    const { data: linkedJobs } = await supabase
+      .from('trabalhos')
+      .select('id')
+      .or(`id.eq.${servicoId},servico_id.eq.${servicoId}`);
+    for (const row of linkedJobs || []) {
+      const jobId = row?.id != null ? String(row.id) : '';
+      if (!jobId) continue;
+      try {
+        await deleteTrabalho(jobId);
+      } catch {
+        /* pode já ter sido removido */
+      }
+      removeJobFromCache(jobId);
+    }
+
     const { error } = await supabase.from('servicos').delete().eq('id', servicoId);
     if (error) throw error;
 

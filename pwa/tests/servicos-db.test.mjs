@@ -4,6 +4,9 @@ import {
   deriveServicoStatusFromReports,
   isServicoReadyForClientEmail,
   mapRowToServico,
+  pruneServicosCacheForWeek,
+  replaceServicosCache,
+  getServicosSnapshot,
 } from '../js/servicos-db.js';
 
 describe('servicos-db', () => {
@@ -50,5 +53,46 @@ describe('servicos-db', () => {
     assert.equal(servico.id, 'abc');
     assert.equal(servico.numeroOrdem, 45);
     assert.equal(servico.data.signatures.technician, 'data:image/png;base64,x');
+  });
+
+  it('pruneServicosCacheForWeek — remove visita eliminada pelo RH na semana do técnico', () => {
+    replaceServicosCache([
+      {
+        id: 'keep-1',
+        date: '2026-10-12',
+        technicianIds: 'Hugo',
+        status: 'scheduled',
+      },
+      {
+        id: 'deleted-ghost',
+        date: '2026-10-12',
+        technicianIds: 'Hugo',
+        status: 'scheduled',
+      },
+      {
+        id: 'other-tech',
+        date: '2026-10-12',
+        technicianIds: 'Filipe',
+        status: 'scheduled',
+      },
+      {
+        id: 'other-week',
+        date: '2026-10-20',
+        technicianIds: 'Hugo',
+        status: 'scheduled',
+      },
+    ]);
+
+    const removed = pruneServicosCacheForWeek({
+      technicianId: 'tech-hugo',
+      techName: 'Hugo',
+      startDate: '2026-10-12',
+      endDate: '2026-10-18',
+      keepIds: ['keep-1'],
+    });
+
+    assert.equal(removed, 1);
+    const ids = getServicosSnapshot().map((s) => s.id).sort();
+    assert.deepEqual(ids, ['keep-1', 'other-tech', 'other-week']);
   });
 });

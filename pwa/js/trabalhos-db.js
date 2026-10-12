@@ -193,6 +193,38 @@ export function removeJobFromCache(jobId) {
 }
 
 /**
+ * Remove do cache trabalhos do técnico na semana que já não existem no servidor.
+ * @returns {number}
+ */
+export function pruneJobsCacheForWeek({
+  technicianId,
+  techName = '',
+  startDate,
+  endDate,
+  keepIds = [],
+}) {
+  if (!jobsCache || !startDate || !endDate) return 0;
+  const techKey = String(technicianId || '').toLowerCase();
+  const nameKey = String(techName || '').toLowerCase();
+  const keep = new Set([...keepIds].map((id) => String(id)));
+  const before = jobsCache.length;
+
+  jobsCache = jobsCache.filter((job) => {
+    const date = String(job.date || '');
+    if (!date || date < startDate || date > endDate) return true;
+    const assigned = String(job.technicianId || '').toLowerCase();
+    const belongsToTech =
+      (nameKey && assigned.includes(nameKey)) ||
+      assigned === techKey ||
+      (techKey && assigned.includes(techKey));
+    if (!belongsToTech) return true;
+    return keep.has(String(job.id));
+  });
+
+  return before - jobsCache.length;
+}
+
+/**
  * Carrega trabalhos do técnico num intervalo de datas (semana visível no calendário).
  * Faz merge no cache local sem substituir os restantes trabalhos.
  */
@@ -249,6 +281,14 @@ export async function ensureTrabalhosSemana(technicianId, startDate, endDate) {
       } else {
         jobsCache.push(job);
       }
+    });
+
+    pruneJobsCacheForWeek({
+      technicianId,
+      techName,
+      startDate,
+      endDate,
+      keepIds: weekJobs.map((j) => j.id),
     });
 
     return weekJobs;
