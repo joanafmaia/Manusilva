@@ -305,7 +305,7 @@ async function syncOnePendingItem(item) {
  * @returns {Promise<{ synced: number, remaining: number, failed: Array<{ id: string, error: string, title: string }> }>}
  */
 export async function sincronizarTrabalhosOffline(options = {}) {
-  const { notify = true, pushNotify = true } = options;
+  const { notify = true, pushNotify = true, force = false } = options;
   const emptyFailed = [];
   if (!canSyncToServer()) {
     return {
@@ -313,6 +313,22 @@ export async function sincronizarTrabalhosOffline(options = {}) {
       remaining: await countTrabalhosPendentes(),
       failed: emptyFailed,
     };
+  }
+
+  /* Com formulário aberto, não saturar o tablet com uploads em fundo. */
+  if (!force) {
+    try {
+      const { isReportFormOpen } = await import('./ui-yield.js');
+      if (isReportFormOpen()) {
+        return {
+          synced: 0,
+          remaining: await countTrabalhosPendentes(),
+          failed: emptyFailed,
+        };
+      }
+    } catch {
+      /* ignore */
+    }
   }
 
   const pending = await getTrabalhosPendentes();
@@ -437,13 +453,20 @@ export function initTrabalhosOfflineSync() {
   }
 
   window.addEventListener('online', () => {
-    sincronizarTrabalhosOffline().catch((err) => {
-      console.error('[ManuSilva] Sincronização ao recuperar rede:', err);
-    });
-    import('./report-draft-sync.js')
-      .then((m) => m.syncLocalReportDraftsToServer({ notify: false }))
-      .catch((err) => {
-        console.error('[ManuSilva] Sync rascunhos ao recuperar rede:', err);
+    void import('./ui-yield.js')
+      .then(({ isReportFormOpen }) => {
+        if (isReportFormOpen()) return;
+        sincronizarTrabalhosOffline().catch((err) => {
+          console.error('[ManuSilva] Sincronização ao recuperar rede:', err);
+        });
+        import('./report-draft-sync.js')
+          .then((m) => m.syncLocalReportDraftsToServer({ notify: false }))
+          .catch((err) => {
+            console.error('[ManuSilva] Sync rascunhos ao recuperar rede:', err);
+          });
+      })
+      .catch(() => {
+        sincronizarTrabalhosOffline().catch(console.error);
       });
   });
 }

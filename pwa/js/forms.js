@@ -904,12 +904,22 @@ function accumulateVisitDates(values, existingReport) {
   return values;
 }
 
-function buildReportFromForm(overlay, job, existingReport, signaturePads, reportId) {
+/**
+ * @param {object} [options]
+ * @param {boolean} [options.skipSignatures] — auto-save enquanto escreve (evita toDataURL pesado)
+ */
+function buildReportFromForm(overlay, job, existingReport, signaturePads, reportId, options = {}) {
   const values = collectReportValues(overlay);
   Object.assign(values, normalizeVisitasForService(job.serviceType, values));
   accumulateVisitDates(values, existingReport);
   const editingPending = isEdicaoPendenteAtiva(job.servicoId || job.id);
   const servicoId = job.servicoId || existingReport?.servicoId || '';
+  const skipSignatures = options.skipSignatures === true;
+  const signatures = servicoId
+    ? existingReport?.data?.signatures || {}
+    : skipSignatures
+      ? existingReport?.data?.signatures || {}
+      : resolveFormSignatures(existingReport);
   return {
     id: relatorioIdEmEdicao || reportId || existingReport?.id || null,
     jobId: servicoId ? existingReport?.jobId || '' : job.id,
@@ -925,9 +935,7 @@ function buildReportFromForm(overlay, job, existingReport, signaturePads, report
     submittedAt: existingReport?.submittedAt || new Date().toISOString(),
     data: {
       values,
-      signatures: servicoId
-        ? existingReport?.data?.signatures || {}
-        : resolveFormSignatures(existingReport),
+      signatures,
       ...(() => {
         const antes = fotoPersistPayload(fotoAntesState);
         const depois = fotoPersistPayload(fotoDepoisState);
@@ -1372,7 +1380,8 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport, opt
       overlay,
       job,
       existingReport,
-      buildReport: () => buildReportFromForm(overlay, job, existingReport, signaturePads, draftReportId),
+      buildReport: (opts = {}) =>
+        buildReportFromForm(overlay, job, existingReport, signaturePads, draftReportId, opts),
     });
   }
 

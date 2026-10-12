@@ -7,7 +7,7 @@ import { mergeReportInCache } from './relatorios-db.js';
 import { isReportLocallyDeleted } from './report-deleted-local.js';
 import { scheduleIdle, yieldToPaint } from './ui-yield.js';
 
-const DEBOUNCE_MS = 1600;
+const DEBOUNCE_MS = 2600;
 const PHOTO_WAIT_POLL_MS = 50;
 const SAVED_INDICATOR_MS = 12000;
 
@@ -115,7 +115,10 @@ export function initReportFormAutosave({ overlay, job, existingReport, buildRepo
     }
   };
 
-  const persistToIndexedDB = async () => {
+  /**
+   * @param {{ includeSignatures?: boolean }} [opts]
+   */
+  const persistToIndexedDB = async (opts = {}) => {
     if (destroyed) return;
 
     await waitForPhotoProcessing();
@@ -128,7 +131,8 @@ export function initReportFormAutosave({ overlay, job, existingReport, buildRepo
 
     let report;
     try {
-      report = buildReport();
+      /* Enquanto escreve: não gera PNG das assinaturas (pesado no tablet). */
+      report = buildReport({ skipSignatures: opts.includeSignatures !== true });
     } catch (err) {
       console.error('[Auto-save] buildReport:', err);
       throw new Error('Não foi possível ler os dados do formulário.');
@@ -158,9 +162,9 @@ export function initReportFormAutosave({ overlay, job, existingReport, buildRepo
     setStatus('saved');
   };
 
-  const enqueuePersist = () => {
+  const enqueuePersist = (opts = {}) => {
     saveQueue = saveQueue
-      .then(() => persistToIndexedDB())
+      .then(() => persistToIndexedDB(opts))
       .catch((err) => {
         console.error('[Auto-save] IndexedDB:', err);
         setStatus('error', err?.message ? String(err.message).slice(0, 80) : '');
@@ -176,14 +180,14 @@ export function initReportFormAutosave({ overlay, job, existingReport, buildRepo
     }
     clearTimeout(debounceTimer);
     const persist = () => {
-      void enqueuePersist();
+      void enqueuePersist({ includeSignatures: false });
     };
     if (immediate) {
       debounceTimer = setTimeout(persist, 0);
       return;
     }
     debounceTimer = setTimeout(() => {
-      scheduleIdle(persist, 1200);
+      scheduleIdle(persist, 1800);
     }, DEBOUNCE_MS);
   };
 
@@ -220,20 +224,20 @@ export function initReportFormAutosave({ overlay, job, existingReport, buildRepo
 
   const onBeforeUnload = () => {
     clearTimeout(debounceTimer);
-    void enqueuePersist();
+    void enqueuePersist({ includeSignatures: true });
   };
 
   const onVisibility = () => {
     if (document.visibilityState === 'hidden') {
       clearTimeout(debounceTimer);
-      void enqueuePersist();
+      void enqueuePersist({ includeSignatures: true });
     }
   };
 
   /** Bloqueio do tablet / app em background — gravar já (pagehide é mais fiável que só visibility). */
   const onPageHide = () => {
     clearTimeout(debounceTimer);
-    void enqueuePersist();
+    void enqueuePersist({ includeSignatures: true });
   };
 
   overlay.addEventListener('input', onActivity, true);
@@ -259,7 +263,7 @@ export function initReportFormAutosave({ overlay, job, existingReport, buildRepo
 
     flush: () => {
       clearTimeout(debounceTimer);
-      return enqueuePersist();
+      return enqueuePersist({ includeSignatures: true });
     },
 
     destroy: () => {

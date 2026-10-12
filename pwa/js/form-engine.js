@@ -2527,6 +2527,8 @@ export async function bindFormFieldInteractions(overlay) {
   });
 
   overlay.querySelectorAll('[data-toggle-field]').forEach((input) => {
+    if (input.dataset.toggleBound === '1') return;
+    input.dataset.toggleBound = '1';
     input.addEventListener('change', () => {
       const wrap = input.closest('[data-toggle-wrap]');
       const label = overlay.querySelector(`[data-state-label="${input.dataset.toggleField}"]`);
@@ -2538,6 +2540,8 @@ export async function bindFormFieldInteractions(overlay) {
   });
 
   overlay.querySelectorAll('[data-verification-bulk-ok]').forEach((btn) => {
+    if (btn.dataset.verifyBulkBound === '1') return;
+    btn.dataset.verifyBulkBound = '1';
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       e.preventDefault();
@@ -2547,6 +2551,21 @@ export async function bindFormFieldInteractions(overlay) {
   });
 
   overlay.querySelectorAll('[data-verification-field]').forEach((wrap) => {
+    if (wrap.dataset.verifyBound === '1') {
+      if (wrap.dataset.empilhadoresVerify === '1') {
+        const fieldId = wrap.dataset.verificationField;
+        const fieldItems =
+          EMPILHADORES_PER_MACHINE_FIELD_DEFS.find((field) => field.id === fieldId)?.items || [];
+        updateEmpilhadoresVerificationProgress(wrap, fieldItems);
+        updateVerificationBulkOkBtnState(wrap);
+      } else {
+        updateVerificationAccordionProgress(wrap);
+        updateVerificationBulkOkBtnState(wrap);
+      }
+      return;
+    }
+    wrap.dataset.verifyBound = '1';
+
     if (wrap.dataset.empilhadoresVerify === '1') {
       const fieldId = wrap.dataset.verificationField;
       const fieldItems =
@@ -2609,6 +2628,8 @@ export async function bindFormFieldInteractions(overlay) {
   });
 
   overlay.querySelectorAll('.material-qty-input').forEach((input) => {
+    if (input.dataset.materialBound === '1') return;
+    input.dataset.materialBound = '1';
     const fieldWrap = input.closest('.material-qty-field');
     const syncMaterial = () => {
       fieldWrap?.classList.toggle('has-value', String(input.value).trim() !== '');
@@ -2620,6 +2641,8 @@ export async function bindFormFieldInteractions(overlay) {
   });
 
   overlay.querySelectorAll('.form-input-unit-input').forEach((input) => {
+    if (input.dataset.unitBound === '1') return;
+    input.dataset.unitBound = '1';
     const fieldWrap = input.closest('.form-input-unit-field');
     const syncUnit = () => {
       fieldWrap?.classList.toggle('has-value', String(input.value).trim() !== '');
@@ -2631,6 +2654,8 @@ export async function bindFormFieldInteractions(overlay) {
   });
 
   overlay.querySelectorAll('[data-dynamic-table]').forEach((wrap) => {
+    if (wrap.dataset.dynTableBound === '1') return;
+    wrap.dataset.dynTableBound = '1';
     const columns = JSON.parse(wrap.dataset.columns || '[]');
     const colKeys = columns.map((c) => columnKey(c));
     const defaultRow = JSON.parse(wrap.dataset.defaultRow || '{}');
@@ -2692,6 +2717,8 @@ export async function bindFormFieldInteractions(overlay) {
   }
 
   overlay.querySelectorAll('[data-multi-checkbox]').forEach((group) => {
+    if (group.dataset.multiBound === '1') return;
+    group.dataset.multiBound = '1';
     group.querySelectorAll('.multi-check-item').forEach((btn) => {
       btn.addEventListener('click', (e) => {
         e.preventDefault();
@@ -2707,6 +2734,8 @@ export async function bindFormFieldInteractions(overlay) {
   });
 
   overlay.querySelectorAll('[data-component-toggle]').forEach((group) => {
+    if (group.dataset.componentBound === '1') return;
+    group.dataset.componentBound = '1';
     group.querySelectorAll('.component-toggle-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
         group.querySelectorAll('.component-toggle-btn').forEach((b) => b.classList.remove('selected'));
@@ -2728,6 +2757,8 @@ export async function bindFormFieldInteractions(overlay) {
   evaluateFieldDependencies(overlay);
 
   overlay.querySelectorAll('.matrix-accordion-toolbar').forEach((toolbar) => {
+    if (toolbar.dataset.matrixToolbarBound === '1') return;
+    toolbar.dataset.matrixToolbarBound = '1';
     const toggle = () => {
       toggleMatrixAccordionItem(toolbar.closest('.matrix-accordion-item'));
     };
@@ -2745,6 +2776,8 @@ export async function bindFormFieldInteractions(overlay) {
   });
 
   overlay.querySelectorAll('[data-matrix-bulk-good]').forEach((btn) => {
+    if (btn.dataset.matrixBulkBound === '1') return;
+    btn.dataset.matrixBulkBound = '1';
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       e.preventDefault();
@@ -2754,6 +2787,14 @@ export async function bindFormFieldInteractions(overlay) {
   });
 
   overlay.querySelectorAll('[data-matrix-field]').forEach((wrap) => {
+    if (wrap.dataset.matrixBound === '1') {
+      wrap.querySelectorAll('.matrix-accordion-item').forEach((catEl) => {
+        updateMatrixCategoryProgress(catEl);
+        updateMatrixBulkGoodBtnState(catEl);
+      });
+      return;
+    }
+    wrap.dataset.matrixBound = '1';
     wrap.querySelectorAll('.matrix-row').forEach((row) => {
       syncMatrixRowState(row);
       row.querySelectorAll('.matrix-opt').forEach((btn) => {
@@ -2776,6 +2817,8 @@ export async function bindFormFieldInteractions(overlay) {
   });
 
   overlay.querySelectorAll('[data-legal-verdict]').forEach((group) => {
+    if (group.dataset.legalBound === '1') return;
+    group.dataset.legalBound = '1';
     group.querySelectorAll('.legal-verdict-card').forEach((card) => {
       card.addEventListener('click', () => {
         group.querySelectorAll('.legal-verdict-card').forEach((c) => {

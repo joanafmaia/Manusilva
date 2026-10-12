@@ -145,15 +145,17 @@ function scheduleTechDashboardRefresh(reason = 'data') {
     return;
   }
   if (techDashboardRefreshTimer) clearTimeout(techDashboardRefreshTimer);
+  const delay = reason === 'data' || reason === 'poll' ? 520 : 280;
   techDashboardRefreshTimer = setTimeout(() => {
     techDashboardRefreshTimer = null;
     if (isReportFormOpen()) return;
     invalidateTechListCaches();
     refreshTechCalendar().catch(console.error);
-  }, 280);
+  }, delay);
 }
 
 async function refreshTechDashboardChrome() {
+  if (isReportFormOpen()) return;
   renderOfflineToggle();
   await refreshPendingSyncCount();
   await renderTechConnectivityBar();
@@ -208,12 +210,15 @@ function bindTechDashboardDataListeners() {
     }
   });
   window.addEventListener('trabalhos-pendentes-changed', () => {
+    if (isReportFormOpen()) return;
     refreshTechDashboardChrome().catch(console.error);
   });
   window.addEventListener('online', () => {
+    if (isReportFormOpen()) return;
     refreshTechDashboardChrome().catch(console.error);
   });
   window.addEventListener('offline', () => {
+    if (isReportFormOpen()) return;
     refreshTechDashboardChrome().catch(console.error);
   });
 }
@@ -1571,21 +1576,17 @@ function updateTechCalendarVisibility() {
     strip.style.removeProperty('display');
   }
 
-  // Força o navegador a processar o novo layout antes de desenhar os cards.
-  void body?.offsetHeight;
 }
 
-/** Força o browser a recalcular dimensões após trocar de vista. */
+/** Recalcula layout após trocar de vista (sem disparar resize global). */
 function scheduleCalendarResize() {
-  setTimeout(() => {
+  requestAnimationFrame(() => {
     const active =
       techCalendarView === 'month'
         ? document.getElementById('tech-month-calendar')
         : document.getElementById('calendar-strip');
-    // Leitura de offsetHeight força reflow da nova grelha
     void active?.offsetHeight;
-    window.dispatchEvent(new Event('resize'));
-  }, 50);
+  });
 }
 
 function renderCalendarTitle() {
@@ -1662,7 +1663,12 @@ function bindTechMonthCalendarEvents(container) {
   const selectMonthDay = (cell) => {
     selectedDate = cell.dataset.techMonthDay;
     if (techJobsTab === 'agendados') techTabDataCacheKey = null;
-    renderMonthCalendar();
+    /* Só atualiza a seleção — evita redesenhar a grelha inteira do mês. */
+    container.querySelectorAll('[data-tech-month-day]').forEach((el) => {
+      const on = el.dataset.techMonthDay === selectedDate;
+      el.classList.toggle('selected-cell', on);
+      el.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
     if (techJobsTab === 'agendados') {
       loadTechTabData().then(() => renderJobs()).catch(console.error);
     } else {

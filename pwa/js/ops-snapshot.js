@@ -9,6 +9,9 @@ import { replaceReportsCache } from './relatorios-db.js';
 import { isReportFormOpen } from './ui-yield.js';
 
 const SNAPSHOT_ID = 'latest';
+const SNAPSHOT_DEBOUNCE_MS = 45_000;
+let snapshotTimer = null;
+let snapshotPendingTechId = '';
 
 function slimReportForSnapshot(report) {
   if (!report || typeof report !== 'object') return report;
@@ -25,11 +28,7 @@ function slimReportForSnapshot(report) {
   return { ...report, data: nextData };
 }
 
-/**
- * Grava o estado operacional atual (após sync online).
- * @param {string} [technicianId]
- */
-export async function persistOpsSnapshot(technicianId = '') {
+async function writeOpsSnapshot(technicianId = '') {
   if (isReportFormOpen()) return;
 
   const { getJobsSnapshot } = await import('./trabalhos-db.js');
@@ -50,6 +49,25 @@ export async function persistOpsSnapshot(technicianId = '') {
     servicos,
     reports,
   });
+}
+
+/**
+ * Grava o estado operacional atual (após sync online).
+ * Debounce para não escrever IndexedDB a cada troca de separador no tablet.
+ * @param {string} [technicianId]
+ */
+export async function persistOpsSnapshot(technicianId = '') {
+  if (isReportFormOpen()) return;
+  snapshotPendingTechId = String(technicianId || snapshotPendingTechId || '');
+  if (snapshotTimer) return;
+  snapshotTimer = setTimeout(() => {
+    snapshotTimer = null;
+    const techId = snapshotPendingTechId;
+    snapshotPendingTechId = '';
+    void writeOpsSnapshot(techId).catch((err) => {
+      console.warn('[OpsSnapshot] Gravacao adiada falhou:', err);
+    });
+  }, SNAPSHOT_DEBOUNCE_MS);
 }
 
 /**
