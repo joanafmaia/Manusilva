@@ -60,6 +60,10 @@ import {
   clearOpenReportForm,
   consumeOpenReportFormIntent,
 } from './report-form-resume.js';
+import {
+  acquireFormScreenWakeLock,
+  releaseFormScreenWakeLock,
+} from './screen-wake-lock.js';
 import { VISITAS_FIELD_ID, VISIT_DATES_FIELD_ID, normalizeVisitasForService } from './deslocacao-field.js';
 import { ensureProductionCatalog, isProductionCatalogReady } from './clients-catalog.js';
 import { ensureRelatoriosForServicos } from './relatorios-db.js';
@@ -361,6 +365,7 @@ export async function openJobForm(jobId, options = {}) {
         jobId,
         editPending: editPending === true,
       });
+      void acquireFormScreenWakeLock();
     }
 
     bindFormEvents(overlay, job, client, tech, service, existingReport, { viewOnly });
@@ -384,6 +389,7 @@ export async function openJobForm(jobId, options = {}) {
     showToast('Não foi possível abrir este relatório.', 'error', 7000);
     document.getElementById('form-overlay')?.remove();
     document.body.style.overflow = '';
+    void releaseFormScreenWakeLock();
   }
 }
 
@@ -563,6 +569,7 @@ export async function openServicoReportForm(servicoId, options = {}) {
         reportId: existingReport?.id || resolvedReportId || undefined,
         editPending: editPending === true,
       });
+      void acquireFormScreenWakeLock();
     }
 
     bindFormEvents(overlay, job, client, tech, service, existingReport, {
@@ -588,6 +595,7 @@ export async function openServicoReportForm(servicoId, options = {}) {
     showToast('Não foi possível abrir este relatório.', 'error', 7000);
     document.getElementById('form-overlay')?.remove();
     document.body.style.overflow = '';
+    void releaseFormScreenWakeLock();
   }
 }
 
@@ -1652,6 +1660,7 @@ function closeForm(overlay) {
   overlay?.__offlineCleanup?.();
   clearEdicaoState();
   clearOpenReportForm();
+  void releaseFormScreenWakeLock();
   existingReportRef = null;
   signaturesRestoredFromReport = false;
   signaturePadsReady = false;
