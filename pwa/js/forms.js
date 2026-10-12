@@ -55,6 +55,11 @@ import {
   commitSignatureSnapshot,
 } from './signatures.js';
 import { initReportFormAutosave } from './report-form-autosave.js';
+import {
+  markOpenReportForm,
+  clearOpenReportForm,
+  consumeOpenReportFormIntent,
+} from './report-form-resume.js';
 import { VISITAS_FIELD_ID, VISIT_DATES_FIELD_ID, normalizeVisitasForService } from './deslocacao-field.js';
 import { ensureProductionCatalog, isProductionCatalogReady } from './clients-catalog.js';
 import { ensureRelatoriosForServicos } from './relatorios-db.js';
@@ -189,10 +194,11 @@ function fotoPersistPayload(state) {
 
 /**
  * @param {string} jobId
- * @param {{ editPending?: boolean, viewOnly?: boolean }} [options]
+ * @param {{ editPending?: boolean, viewOnly?: boolean, resumeAfterLock?: boolean }} [options]
  */
 export async function openJobForm(jobId, options = {}) {
   const viewOnly = options.viewOnly === true;
+  const resumeAfterLock = options.resumeAfterLock === true;
   if (!jobId) {
     showToast('Trabalho inválido.', 'error');
     return;
@@ -276,6 +282,7 @@ export async function openJobForm(jobId, options = {}) {
     const conflictChoice = await resolveReportOpenConflict(jobId, serverReport, {
       editPending: editPendingOpt,
       viewOnly,
+      resumeAfterLock,
     });
     if (conflictChoice === 'cancel') {
       hideFormLoadingOverlay();
@@ -348,6 +355,14 @@ export async function openJobForm(jobId, options = {}) {
     requestAnimationFrame(() => overlay.classList.add('show'));
     if (viewOnly) overlay.classList.add('form-overlay--readonly');
 
+    if (!viewOnly) {
+      markOpenReportForm({
+        kind: 'job',
+        jobId,
+        editPending: editPending === true,
+      });
+    }
+
     bindFormEvents(overlay, job, client, tech, service, existingReport, { viewOnly });
 
     await bindFormFieldInteractions(overlay);
@@ -356,7 +371,9 @@ export async function openJobForm(jobId, options = {}) {
       bindEquipamentoFieldComboboxes(overlay, equipamentos, service);
     }
 
-    if (trabalhoIdEmEdicao) {
+    if (resumeAfterLock) {
+      showToast('Formulário reaberto após o bloqueio do tablet. O rascunho foi recuperado.', 'info', 5000);
+    } else if (trabalhoIdEmEdicao) {
       showToast('Pode editar o relatório enquanto aguarda aprovação do RH.', 'info', 4000);
     } else if (existingReport?.status === 'draft' || existingReport?._localSavedAt) {
       showToast('Rascunho recuperado automaticamente da memória do tablet.', 'info', 4000);
@@ -373,10 +390,11 @@ export async function openJobForm(jobId, options = {}) {
 /**
  * Abre formulário de relatório dentro de um serviço (visita multi-relatório).
  * @param {string} servicoId
- * @param {{ serviceType: string, reportId?: string, viewOnly?: boolean, editPending?: boolean, createNew?: boolean }} options
+ * @param {{ serviceType: string, reportId?: string, viewOnly?: boolean, editPending?: boolean, createNew?: boolean, resumeAfterLock?: boolean }} options
  */
 export async function openServicoReportForm(servicoId, options = {}) {
-  const { serviceType, reportId, viewOnly = false, createNew = false } = options;
+  const { serviceType, reportId, viewOnly = false, createNew = false, resumeAfterLock = false } =
+    options;
   if (!servicoId || !serviceType) {
     showToast('Serviço ou tipo de relatório em falta.', 'error');
     return;
@@ -452,6 +470,7 @@ export async function openServicoReportForm(servicoId, options = {}) {
     const conflictChoice = await resolveReportOpenConflict(draftKey, serverReport, {
       editPending: editPendingOpt,
       viewOnly,
+      resumeAfterLock,
     });
     if (conflictChoice === 'cancel') {
       hideFormLoadingOverlay();
@@ -536,6 +555,16 @@ export async function openServicoReportForm(servicoId, options = {}) {
     requestAnimationFrame(() => overlay.classList.add('show'));
     if (viewOnly) overlay.classList.add('form-overlay--readonly');
 
+    if (!viewOnly) {
+      markOpenReportForm({
+        kind: 'servico',
+        servicoId,
+        serviceType,
+        reportId: existingReport?.id || resolvedReportId || undefined,
+        editPending: editPending === true,
+      });
+    }
+
     bindFormEvents(overlay, job, client, tech, service, existingReport, {
       viewOnly,
       servicoVisitMode,
@@ -546,7 +575,9 @@ export async function openServicoReportForm(servicoId, options = {}) {
       bindEquipamentoFieldComboboxes(overlay, equipamentos, service);
     }
 
-    if (trabalhoIdEmEdicao) {
+    if (resumeAfterLock) {
+      showToast('Formulário reaberto após o bloqueio do tablet. O rascunho foi recuperado.', 'info', 5000);
+    } else if (trabalhoIdEmEdicao) {
       showToast('Pode editar o relatório enquanto aguarda aprovação do RH.', 'info', 4000);
     } else if (existingReport?.status === 'draft' || existingReport?._localSavedAt) {
       showToast('Rascunho recuperado automaticamente da memória do tablet.', 'info', 4000);
@@ -1581,10 +1612,46 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport, opt
   });
 }
 
+/**
+ * Reabre o formulário que estava aberto quando o tablet bloqueou / a página recarregou.
+ * @returns {Promise<boolean>} true se tentou reabrir
+ */
+export async function tryResumeOpenReportForm() {
+  if (document.getElementById('form-overlay')?.classList.contains('show')) {
+    return false;
+  }
+  const intent = consumeOpenReportFormIntent();
+  if (!intent) return false;
+
+  try {
+    if (intent.kind === 'job' && intent.jobId) {
+      await openJobForm(intent.jobId, {
+        editPending: intent.editPending === true,
+        resumeAfterLock: true,
+      });
+      return true;
+    }
+    if (intent.kind === 'servico' && intent.servicoId && intent.serviceType) {
+      await openServicoReportForm(intent.servicoId, {
+        serviceType: intent.serviceType,
+        reportId: intent.reportId,
+        editPending: intent.editPending === true,
+        resumeAfterLock: true,
+      });
+      return true;
+    }
+  } catch (err) {
+    console.warn('[Form] Reabrir após bloqueio do tablet:', err);
+    clearOpenReportForm();
+  }
+  return false;
+}
+
 function closeForm(overlay) {
   const servicoReturnId = overlay?.dataset?.servicoReturnId || '';
   overlay?.__offlineCleanup?.();
   clearEdicaoState();
+  clearOpenReportForm();
   existingReportRef = null;
   signaturesRestoredFromReport = false;
   signaturePadsReady = false;

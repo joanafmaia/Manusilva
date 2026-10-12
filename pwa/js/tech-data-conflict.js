@@ -157,6 +157,10 @@ export function promptReportDataConflict(conflict) {
  * @returns {Promise<'default' | 'server' | 'local' | 'cancel'>}
  */
 export async function resolveReportOpenConflict(jobId, serverReport, options = {}) {
+  if (options.resumeAfterLock) {
+    /* Após bloqueio do tablet: preferir o rascunho local sem modal. */
+    return 'local';
+  }
   const conflict = await detectReportDataConflict(jobId, serverReport, options);
   if (!conflict) return 'default';
   return promptReportDataConflict(conflict);

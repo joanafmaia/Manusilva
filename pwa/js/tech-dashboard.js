@@ -771,6 +771,17 @@ export async function initTechDashboard() {
     void persistOpsSnapshot(session.technicianId).catch(() => {});
     scheduleWarmFormsModule();
 
+    /* Se o tablet bloqueou a meio do relatório e a página recarregou, reabrir o rascunho. */
+    try {
+      const { peekOpenReportFormIntent } = await import('./report-form-resume.js');
+      if (peekOpenReportFormIntent()) {
+        const { tryResumeOpenReportForm } = await loadFormsModule();
+        await tryResumeOpenReportForm();
+      }
+    } catch (err) {
+      console.warn('[Técnico] Reabrir formulário após bloqueio:', err);
+    }
+
     import('./tech-realtime.js')
       .then(({ initTechRealtime }) => initTechRealtime())
       .catch((err) => {

@@ -3,10 +3,24 @@
  */
 
 import { isBrowserOffline } from './network-status.js';
+import { hasOpenReportFormIntent } from './report-form-resume.js';
 
 const STORAGE_KEY = 'manusilva_app_build_id';
 const RECOVERY_KEY = 'manusilva_module_recovery';
 const FORCE_BUST_KEY = 'manusilva_force_bust';
+
+/** Evita reload forçado enquanto o técnico está a preencher (ou após bloqueio do tablet). */
+function shouldDeferFreshNavigation() {
+  try {
+    if (typeof document !== 'undefined') {
+      const overlay = document.getElementById('form-overlay');
+      if (overlay?.classList.contains('show')) return true;
+    }
+  } catch {
+    /* ignore */
+  }
+  return hasOpenReportFormIntent();
+}
 
 export function getCachedAppBuildId() {
   try {
@@ -131,6 +145,10 @@ export async function ensureFreshAppBuild(buildId) {
 
     const previous = localStorage.getItem(STORAGE_KEY);
     if (previous && previous !== current) {
+      if (shouldDeferFreshNavigation()) {
+        /* Mantém o formulário aberto; a atualização corre depois de fechar. */
+        return false;
+      }
       localStorage.setItem(STORAGE_KEY, current);
       if (isBrowserOffline()) return false;
       await purgeBrowserCaches();
@@ -196,6 +214,8 @@ function bindBfcacheGuard() {
   bfcacheGuardBound = true;
   window.addEventListener('pageshow', (event) => {
     if (!event.persisted) return;
+    /* Bloqueio do tablet restaura a página do bfcache — um reload aqui fecha o formulário. */
+    if (shouldDeferFreshNavigation()) return;
     if (isBrowserOffline()) return;
     try {
       if (sessionStorage.getItem('manusilva_bfcache_bust')) return;

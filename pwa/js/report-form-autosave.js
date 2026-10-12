@@ -230,9 +230,16 @@ export function initReportFormAutosave({ overlay, job, existingReport, buildRepo
     }
   };
 
+  /** Bloqueio do tablet / app em background — gravar já (pagehide é mais fiável que só visibility). */
+  const onPageHide = () => {
+    clearTimeout(debounceTimer);
+    void enqueuePersist();
+  };
+
   overlay.addEventListener('input', onActivity, true);
   overlay.addEventListener('change', onActivity, true);
   window.addEventListener('beforeunload', onBeforeUnload);
+  window.addEventListener('pagehide', onPageHide);
   document.addEventListener('visibilitychange', onVisibility);
 
   return {
@@ -263,6 +270,7 @@ export function initReportFormAutosave({ overlay, job, existingReport, buildRepo
       overlay.removeEventListener('input', onActivity, true);
       overlay.removeEventListener('change', onActivity, true);
       window.removeEventListener('beforeunload', onBeforeUnload);
+      window.removeEventListener('pagehide', onPageHide);
       document.removeEventListener('visibilitychange', onVisibility);
       setStatus('idle');
     },
