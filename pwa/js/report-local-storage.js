@@ -98,16 +98,18 @@ async function photoInputToBlob(value) {
   }
 }
 
-/** Separa fotos pesadas do JSON do relatório. */
+/** Separa fotos pesadas do JSON do relatório (antes do clone — evita JSON.stringify de MB). */
 function stripPhotosFromReport(report) {
-  const copy = cloneJson(report);
-  const data = copy.data || {};
-  delete data.fotoAntesBase64;
-  delete data.fotoDepoisBase64;
-  delete data.fotoAntesFile;
-  delete data.fotoDepoisFile;
-  copy.data = data;
-  return copy;
+  const rawData = report?.data && typeof report.data === 'object' ? report.data : {};
+  const lightData = { ...rawData };
+  delete lightData.fotoAntesBase64;
+  delete lightData.fotoDepoisBase64;
+  delete lightData.fotoAntesFile;
+  delete lightData.fotoDepoisFile;
+  /* data: URLs também são enormes — não entram no clone do rascunho. */
+  if (String(lightData.fotoAntesUrl || '').startsWith('data:')) delete lightData.fotoAntesUrl;
+  if (String(lightData.fotoDepoisUrl || '').startsWith('data:')) delete lightData.fotoDepoisUrl;
+  return cloneJson({ ...report, data: lightData });
 }
 
 async function mergePhotosIntoReport(record) {

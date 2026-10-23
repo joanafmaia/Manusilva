@@ -335,22 +335,13 @@ export async function openJobForm(jobId, options = {}) {
 
     resetFotoState(job, existingReport);
 
-    let equipamentos = [];
-    if (!viewOnly && job.clientId) {
-      try {
-        const { fetchClienteEquipamentos } = await import('./cliente-equipamentos-db.js');
-        equipamentos = await fetchClienteEquipamentos(job.clientId);
-      } catch (err) {
-        console.warn('[Form] Equipamentos do cliente:', err);
-      }
-    }
-
     const overlay = document.createElement('div');
     overlay.id = 'form-overlay';
     overlay.className = 'form-overlay form-overlay--tech';
+    /* Abrir já — equipamentos do cliente carregam depois (não bloqueiam o toque). */
     overlay.innerHTML = await buildFormHTML(job, client, tech, service, existingReport, {
       viewOnly,
-      equipamentos,
+      equipamentos: [],
     });
     hideFormLoadingOverlay();
     document.body.appendChild(overlay);
@@ -372,8 +363,14 @@ export async function openJobForm(jobId, options = {}) {
 
     await bindFormFieldInteractions(overlay);
 
-    if (!viewOnly && equipamentos.length) {
-      bindEquipamentoFieldComboboxes(overlay, equipamentos, service);
+    if (!viewOnly && job.clientId) {
+      void import('./cliente-equipamentos-db.js')
+        .then(async ({ fetchClienteEquipamentos }) => {
+          const equipamentos = await fetchClienteEquipamentos(job.clientId);
+          if (!equipamentos.length || !document.getElementById('form-overlay')) return;
+          bindEquipamentoFieldComboboxes(overlay, equipamentos, service);
+        })
+        .catch((err) => console.warn('[Form] Equipamentos do cliente:', err));
     }
 
     if (resumeAfterLock) {
@@ -536,22 +533,12 @@ export async function openServicoReportForm(servicoId, options = {}) {
 
     resetFotoState(job, existingReport);
 
-    let equipamentos = [];
-    if (!viewOnly && job.clientId) {
-      try {
-        const { fetchClienteEquipamentos } = await import('./cliente-equipamentos-db.js');
-        equipamentos = await fetchClienteEquipamentos(job.clientId);
-      } catch (err) {
-        console.warn('[Form] Equipamentos do cliente:', err);
-      }
-    }
-
     const overlay = document.createElement('div');
     overlay.id = 'form-overlay';
     overlay.className = 'form-overlay form-overlay--tech';
     overlay.innerHTML = await buildFormHTML(job, client, tech, service, existingReport, {
       viewOnly,
-      equipamentos,
+      equipamentos: [],
       servicoVisitMode,
     });
     hideFormLoadingOverlay();
@@ -578,8 +565,14 @@ export async function openServicoReportForm(servicoId, options = {}) {
     });
     await bindFormFieldInteractions(overlay);
 
-    if (!viewOnly && equipamentos.length) {
-      bindEquipamentoFieldComboboxes(overlay, equipamentos, service);
+    if (!viewOnly && job.clientId) {
+      void import('./cliente-equipamentos-db.js')
+        .then(async ({ fetchClienteEquipamentos }) => {
+          const equipamentos = await fetchClienteEquipamentos(job.clientId);
+          if (!equipamentos.length || !document.getElementById('form-overlay')) return;
+          bindEquipamentoFieldComboboxes(overlay, equipamentos, service);
+        })
+        .catch((err) => console.warn('[Form] Equipamentos do cliente:', err));
     }
 
     if (resumeAfterLock) {
@@ -939,6 +932,17 @@ function buildReportFromForm(overlay, job, existingReport, signaturePads, report
       ...(() => {
         const antes = fotoPersistPayload(fotoAntesState);
         const depois = fotoPersistPayload(fotoDepoisState);
+        /* Auto-save: só Blob/URL remota — nunca meter data: URL gigante no payload. */
+        if (skipSignatures) {
+          const slimUrl = (url) =>
+            url && !String(url).startsWith('data:') ? url : null;
+          return {
+            fotoAntesUrl: slimUrl(antes.url),
+            fotoAntesFile: antes.file || null,
+            fotoDepoisUrl: slimUrl(depois.url),
+            fotoDepoisFile: depois.file || null,
+          };
+        }
         return {
           fotoAntesUrl: antes.url,
           fotoAntesBase64: antes.base64,
@@ -1214,22 +1218,21 @@ async function rerenderEmpilhadoresChecklist(overlay, machineIndex) {
   await bindEmpilhadoresMaquinasInteractions(overlay);
 }
 
-async function handleEmpilhadoresRowChange(overlay) {
+/** Ao editar IDs da máquina: só grava — não redesenha o checklist inteiro (muito pesado no tablet). */
+function handleEmpilhadoresRowChange(overlay) {
   formAutosave?.markDirty();
-  const panel = overlay.querySelector('[data-lazy-checklist="true"]');
-  if (panel?.dataset.lazyLoaded !== 'true') return;
-  const { collectEmpilhadoresMaquinas, getActiveMaquinaIndex } =
-    await import('./views/relatorio-empilhadores-maquinas.js');
-  const maquinas = collectEmpilhadoresMaquinas(overlay);
-  const idx = Math.min(getActiveMaquinaIndex(overlay), Math.max(0, maquinas.length - 1));
-  await rerenderEmpilhadoresChecklist(overlay, idx);
+  void import('./views/relatorio-empilhadores-maquinas.js')
+    .then(({ collectEmpilhadoresMaquinas }) => {
+      collectEmpilhadoresMaquinas(overlay);
+    })
+    .catch((err) => console.warn('[Form] Empilhadores collect:', err));
 }
 
 async function bindEmpilhadoresMaquinasInteractions(overlay) {
   const { initEmpilhadoresMaquinasForm } = await import('./views/relatorio-empilhadores-maquinas.js');
   initEmpilhadoresMaquinasForm(overlay, {
     onRowChange: () => {
-      void handleEmpilhadoresRowChange(overlay);
+      handleEmpilhadoresRowChange(overlay);
     },
     onMaquinaSelect: (index) => {
       void rerenderEmpilhadoresChecklist(overlay, index);
@@ -1388,10 +1391,15 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport, opt
   if (!viewOnly && service?.id === 'manutencao_baterias_grandes') {
     void import('./views/relatorio-grandes.js').then(
       ({ init: initGrandesBatteryTable, refreshGrandesMachineSelectsInOverlay }) => {
+        let grandesSelectTimer = null;
         initGrandesBatteryTable(overlay, {
           onRowChange: () => {
             formAutosave?.markDirty();
-            refreshGrandesMachineSelectsInOverlay(overlay);
+            /* Não reconstruir selects a cada tecla — só após pausa. */
+            clearTimeout(grandesSelectTimer);
+            grandesSelectTimer = setTimeout(() => {
+              refreshGrandesMachineSelectsInOverlay(overlay);
+            }, 450);
           },
         });
         refreshGrandesMachineSelectsInOverlay(overlay);

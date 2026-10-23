@@ -160,10 +160,15 @@ function debounce(fn, ms) {
 }
 
 export async function bindClientComboboxes(overlay) {
+  const wraps = overlay?.querySelectorAll?.('[data-client-combobox]');
+  if (!wraps?.length) return;
+
   await ensureProductionCatalog();
   const catalog = getProductionClientsCatalog();
 
-  overlay.querySelectorAll('[data-client-combobox]').forEach((wrap) => {
+  wraps.forEach((wrap) => {
+    if (wrap.dataset.comboBound === '1') return;
+    wrap.dataset.comboBound = '1';
     const input = wrap.querySelector('.client-combobox-input');
     const hidden = wrap.querySelector('.client-combobox-id');
     const list = wrap.querySelector('.client-combobox-list');

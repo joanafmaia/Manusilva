@@ -98,6 +98,8 @@ let techTabDataCacheKey = null;
 let techDashboardRefreshTimer = null;
 let techDashboardListenersBound = false;
 let techDashboardRefreshInFlight = false;
+/** Se pediram refresh enquanto outro ainda corria — repetir no fim. */
+let techDashboardRefreshPending = false;
 let techRemotePollTimer = null;
 let techRemotePollStarted = false;
 let lastTechDashboardPaintAt = 0;
@@ -400,15 +402,18 @@ function setTechJobsTab(tabId) {
   updateTechCalendarWrapVisibility();
   updateTechTabBadges();
 
+  ensureTechJobsShell();
+  /* Pintar já com o cache — a rede atualiza depois (tablet responde ao toque). */
   if (tabId === 'agendados') {
-    ensureTechJobsShell();
+    renderTechCalendarUiOnly();
+    renderJobs();
     refreshTechCalendar()
       .then(() => scheduleCalendarResize())
       .catch(console.error);
     return;
   }
 
-  ensureTechJobsShell();
+  renderJobs();
   loadTechTabData()
     .then(() => renderJobs())
     .catch(console.error);
@@ -459,14 +464,8 @@ async function loadTechTabData() {
     await ensureServicosLoadedSafe();
     const { persistOpsSnapshot } = await import('./ops-snapshot.js');
     void persistOpsSnapshot(session.technicianId).catch(() => {});
-  } else if (techJobsTab === 'agendados') {
-    const weekOfSelected = getWeekDates(new Date(`${selectedDate}T12:00:00`));
-    await ensureTrabalhosSemana(
-      session.technicianId,
-      weekOfSelected[0],
-      weekOfSelected[weekOfSelected.length - 1],
-    );
   }
+  /* Agendados: loadPeriodJobsFromSupabase já cobre a semana/mês visível — sem 2.º ensure. */
 
   techTabDataCacheKey = cacheKey;
 }
@@ -1540,18 +1539,28 @@ async function loadPeriodJobsFromSupabase() {
 }
 
 async function refreshTechCalendar() {
-  if (techDashboardRefreshInFlight) return;
+  if (techDashboardRefreshInFlight) {
+    techDashboardRefreshPending = true;
+    return;
+  }
   techDashboardRefreshInFlight = true;
+  techDashboardRefreshPending = false;
   try {
+    /* Resposta imediata ao toque — dados do servidor em seguida. */
+    renderTechCalendar();
     await loadPeriodJobsFromSupabase();
     await loadTechTabData();
     renderTechCalendar();
-    await refreshTechDashboardChrome();
+    void refreshTechDashboardChrome().catch(console.error);
   } catch (err) {
     console.error('[Técnico] Calendário:', err);
   } finally {
     techDashboardRefreshInFlight = false;
     lastTechDashboardPaintAt = Date.now();
+    if (techDashboardRefreshPending) {
+      techDashboardRefreshPending = false;
+      void refreshTechCalendar().catch(console.error);
+    }
   }
 }
 
@@ -1795,13 +1804,13 @@ function renderCalendarStrip() {
   strip.querySelectorAll('.cal-day').forEach((btn) => {
     btn.addEventListener('click', () => {
       selectedDate = btn.dataset.date;
-      if (techJobsTab === 'agendados') techTabDataCacheKey = null;
-      renderCalendarStrip();
-      if (techJobsTab === 'agendados') {
-        loadTechTabData().then(() => renderJobs()).catch(console.error);
-      } else {
-        renderJobs();
-      }
+      /* Só atualiza a seleção — não redesenha a faixa nem espera rede. */
+      strip.querySelectorAll('.cal-day').forEach((el) => {
+        const on = el.dataset.date === selectedDate;
+        el.classList.toggle('selected', on);
+        el.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
+      renderJobs();
     });
   });
 }

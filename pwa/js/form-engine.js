@@ -1136,10 +1136,15 @@ export function collectReportValues(overlay) {
 
   overlay.querySelectorAll('[data-dynamic-table]').forEach((wrap) => {
     const fieldId = wrap.dataset.dynamicTable;
-    const columns = JSON.parse(wrap.dataset.columns || '[]');
+    if (!wrap.__msDynMeta) {
+      wrap.__msDynMeta = {
+        columns: JSON.parse(wrap.dataset.columns || '[]'),
+        columnTypes: JSON.parse(wrap.dataset.columnTypes || '{}'),
+      };
+    }
+    const columns = wrap.__msDynMeta.columns;
     const rows = [];
-    const storedColumnTypes = JSON.parse(wrap.dataset.columnTypes || '{}');
-    const fieldDef = { columnTypes: { ...storedColumnTypes } };
+    const fieldDef = { columnTypes: { ...wrap.__msDynMeta.columnTypes } };
     columns.forEach((col) => {
       const key = columnKey(col);
       if (!fieldDef.columnTypes[key]) {
@@ -2589,8 +2594,7 @@ export async function bindFormFieldInteractions(overlay) {
 
     const pulseCard = (card) => {
       if (!card) return;
-      card.classList.remove('verification-card--pulse');
-      void card.offsetWidth;
+      /* Sem forçar reflow (offsetWidth) — no tablet isso atrasa cada toque. */
       card.classList.add('verification-card--pulse');
       card.addEventListener('animationend', () => card.classList.remove('verification-card--pulse'), { once: true });
     };
@@ -2656,10 +2660,16 @@ export async function bindFormFieldInteractions(overlay) {
   overlay.querySelectorAll('[data-dynamic-table]').forEach((wrap) => {
     if (wrap.dataset.dynTableBound === '1') return;
     wrap.dataset.dynTableBound = '1';
-    const columns = JSON.parse(wrap.dataset.columns || '[]');
+    if (!wrap.__msDynMeta) {
+      wrap.__msDynMeta = {
+        columns: JSON.parse(wrap.dataset.columns || '[]'),
+        columnTypes: JSON.parse(wrap.dataset.columnTypes || '{}'),
+      };
+    }
+    const columns = wrap.__msDynMeta.columns;
     const colKeys = columns.map((c) => columnKey(c));
     const defaultRow = JSON.parse(wrap.dataset.defaultRow || '{}');
-    const storedColumnTypes = JSON.parse(wrap.dataset.columnTypes || '{}');
+    const storedColumnTypes = wrap.__msDynMeta.columnTypes;
     const tbody = wrap.querySelector('.dynamic-table-body');
     const fieldId = wrap.dataset.dynamicTable;
     const fieldDef = { id: fieldId, columnTypes: { ...storedColumnTypes }, columns };
