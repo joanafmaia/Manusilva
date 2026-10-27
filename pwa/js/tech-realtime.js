@@ -32,7 +32,6 @@ import { jobMatchesTechnician, reportMatchesTechnicianTeam } from './job-technic
 import { getJob, getTechnician } from './tech-app-core.js';
 import { getReportsForServico, servicoToCalendarItem } from './servicos-panel-utils.js';
 import { getSession } from './session.js';
-import { isReportFormOpen } from './ui-yield.js';
 
 let channel = null;
 let pageHideBound = false;
@@ -57,8 +56,6 @@ function servicoMatchesCurrentTech(servico) {
 
 /** Re-renderiza a aba ativa da dashboard (mesmo fluxo do evento db-updated). */
 function notifyChange() {
-  /* Com formulário aberto, não disparar redesenhos da dashboard. */
-  if (isReportFormOpen()) return;
   window.dispatchEvent(new CustomEvent('db-updated'));
 }
 

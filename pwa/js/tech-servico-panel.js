@@ -185,7 +185,70 @@ function openAddReportPicker(servicoId, _overlay) {
  * Modal com lista de relatórios do serviço e opção de adicionar novo.
  * @param {string} servicoId
  */
-function bindTechServicoDetailActions(overlay, servicoId, reports) {
+export async function openTechServicoDetail(servicoId) {
+  const servico = getServico(servicoId);
+  if (!servico) {
+    showToast('Serviço não encontrado. Atualize o calendário.', 'warning', 6000);
+    return;
+  }
+
+  try {
+    const { ensureRelatoriosForServicos } = await import('./relatorios-db.js');
+    const { purgeLocallyDeletedFromCache } = await import('./report-deleted-local.js');
+    const { hydrateLocalReportsIntoCache } = await import('./report-local-storage.js');
+    await ensureRelatoriosForServicos([servicoId]).catch(() => {});
+    await purgeLocallyDeletedFromCache();
+    await hydrateLocalReportsIntoCache();
+  } catch (err) {
+    console.warn('[Tech] Pré-carga relatórios da visita:', err);
+  }
+
+  const client = getClient(servico.clientId);
+  const reports = getReportsForServico(servicoId);
+  const reportsHtml = reports.length
+    ? reports.map((r) => buildReportRow(servico, r, reports)).join('')
+    : '<p class="text-muted">Ainda não há relatórios nesta visita. Adicione o primeiro abaixo.</p>';
+
+  const canAdd = SERVICE_TYPES.length > 0;
+  const concludeUi = canShowServicoVisitConcludeAction(servicoId);
+
+  const content = `
+    <dl class="job-detail-grid" style="margin-bottom:1rem">
+      <div><dt>Cliente</dt><dd>${escapeHtml(client?.name || '—')}</dd></div>
+      <div><dt>Data</dt><dd>${escapeHtml(formatDateLong(servico.date))}</dd></div>
+    </dl>
+    <h4 style="margin:0 0 0.5rem;font-size:0.9375rem">Relatórios desta visita</h4>
+    <div class="tech-servico-reports-legend" role="list" aria-label="Legenda de estados">
+      <span class="tech-servico-reports-legend__item tech-servico-reports-legend__item--incomplete">Em curso</span>
+      <span class="tech-servico-reports-legend__item tech-servico-reports-legend__item--ready">Pronto — aguarda visita</span>
+      <span class="tech-servico-reports-legend__item tech-servico-reports-legend__item--pending">Pendente RH</span>
+    </div>
+    <div class="tech-servico-reports-list">${reportsHtml}</div>
+    ${
+      concludeUi.show
+        ? `<p class="tech-servico-visit-hint text-muted" role="status">${escapeHtml(concludeUi.hint)}</p>`
+        : concludeUi.hint
+          ? `<p class="tech-servico-visit-hint text-muted">${escapeHtml(concludeUi.hint)}</p>`
+          : ''
+    }
+  `;
+
+  const actions = `
+    <button type="button" class="btn-ghost" id="tech-servico-close">Fechar</button>
+    ${
+      concludeUi.show
+        ? `<button type="button" class="btn-primary" id="tech-servico-conclude">Assinar e concluir visita</button>`
+        : ''
+    }
+    ${canAdd ? '<button type="button" class="btn-secondary" id="tech-servico-add">+ Adicionar relatório</button>' : ''}
+  `;
+
+  const overlay = openModal(
+    `${client?.name || 'Visita'} — ${formatDateLong(servico.date)}`,
+    content,
+    actions,
+  );
+
   overlay.querySelector('#tech-servico-close')?.addEventListener('click', closeModal);
   overlay.querySelector('#tech-servico-conclude')?.addEventListener('click', () => {
     closeModal();
@@ -233,86 +296,4 @@ function bindTechServicoDetailActions(overlay, servicoId, reports) {
       }
     });
   });
-}
-
-export async function openTechServicoDetail(servicoId) {
-  const servico = getServico(servicoId);
-  if (!servico) {
-    showToast('Serviço não encontrado. Atualize o calendário.', 'warning', 6000);
-    return;
-  }
-
-  const client = getClient(servico.clientId);
-  let reports = getReportsForServico(servicoId);
-  const canAdd = SERVICE_TYPES.length > 0;
-
-  const buildBody = (reportList) => {
-    const concludeUi = canShowServicoVisitConcludeAction(servicoId);
-    const reportsHtml = reportList.length
-      ? reportList.map((r) => buildReportRow(servico, r, reportList)).join('')
-      : '<p class="text-muted">Ainda não há relatórios nesta visita. Adicione o primeiro abaixo.</p>';
-    return {
-      concludeUi,
-      content: `
-    <dl class="job-detail-grid" style="margin-bottom:1rem">
-      <div><dt>Cliente</dt><dd>${escapeHtml(client?.name || '—')}</dd></div>
-      <div><dt>Data</dt><dd>${escapeHtml(formatDateLong(servico.date))}</dd></div>
-    </dl>
-    <h4 style="margin:0 0 0.5rem;font-size:0.9375rem">Relatórios desta visita</h4>
-    <div class="tech-servico-reports-legend" role="list" aria-label="Legenda de estados">
-      <span class="tech-servico-reports-legend__item tech-servico-reports-legend__item--incomplete">Em curso</span>
-      <span class="tech-servico-reports-legend__item tech-servico-reports-legend__item--ready">Pronto — aguarda visita</span>
-      <span class="tech-servico-reports-legend__item tech-servico-reports-legend__item--pending">Pendente RH</span>
-    </div>
-    <div class="tech-servico-reports-list">${reportsHtml}</div>
-    ${
-      concludeUi.show
-        ? `<p class="tech-servico-visit-hint text-muted" role="status">${escapeHtml(concludeUi.hint)}</p>`
-        : concludeUi.hint
-          ? `<p class="tech-servico-visit-hint text-muted">${escapeHtml(concludeUi.hint)}</p>`
-          : ''
-    }
-  `,
-      actions: `
-    <button type="button" class="btn-ghost" id="tech-servico-close">Fechar</button>
-    ${
-      concludeUi.show
-        ? `<button type="button" class="btn-primary" id="tech-servico-conclude">Assinar e concluir visita</button>`
-        : ''
-    }
-    ${canAdd ? '<button type="button" class="btn-secondary" id="tech-servico-add">+ Adicionar relatório</button>' : ''}
-  `,
-    };
-  };
-
-  /* Abrir já com cache — sincronizar em fundo e atualizar a lista. */
-  const initial = buildBody(reports);
-  const overlay = openModal(
-    `${client?.name || 'Visita'} — ${formatDateLong(servico.date)}`,
-    initial.content,
-    initial.actions,
-  );
-  bindTechServicoDetailActions(overlay, servicoId, reports);
-
-  void (async () => {
-    try {
-      const { ensureRelatoriosForServicos } = await import('./relatorios-db.js');
-      const { purgeLocallyDeletedFromCache } = await import('./report-deleted-local.js');
-      const { hydrateLocalReportsIntoCache } = await import('./report-local-storage.js');
-      await ensureRelatoriosForServicos([servicoId]).catch(() => {});
-      await purgeLocallyDeletedFromCache();
-      await hydrateLocalReportsIntoCache();
-    } catch (err) {
-      console.warn('[Tech] Pré-carga relatórios da visita:', err);
-      return;
-    }
-    if (!overlay.isConnected) return;
-    reports = getReportsForServico(servicoId);
-    const next = buildBody(reports);
-    const body = overlay.querySelector('.modal-body') || overlay.querySelector('.modal-content');
-    const actionsEl = overlay.querySelector('.modal-actions');
-    if (body) body.innerHTML = next.content;
-    if (actionsEl) actionsEl.innerHTML = next.actions;
-    bindTechServicoDetailActions(overlay, servicoId, reports);
-  })();
 }

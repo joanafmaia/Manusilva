@@ -7,7 +7,7 @@ import { mergeReportInCache } from './relatorios-db.js';
 import { isReportLocallyDeleted } from './report-deleted-local.js';
 import { scheduleIdle, yieldToPaint } from './ui-yield.js';
 
-const DEBOUNCE_MS = 3200;
+const DEBOUNCE_MS = 2600;
 const PHOTO_WAIT_POLL_MS = 50;
 const SAVED_INDICATOR_MS = 12000;
 
@@ -158,10 +158,7 @@ export function initReportFormAutosave({ overlay, job, existingReport, buildRepo
       setStatus('idle');
       return;
     }
-    /* Enquanto escreve, IndexedDB basta — merge no cache da dashboard satura o tablet. */
-    if (opts.includeSignatures === true) {
-      mergeReportInCache(saved);
-    }
+    mergeReportInCache(saved);
     setStatus('saved');
   };
 

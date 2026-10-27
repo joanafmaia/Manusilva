@@ -410,10 +410,6 @@ function selectValueMatchesOption(current, option) {
 export function refreshGrandesMachineSelectsInOverlay(overlay) {
   if (!overlay) return;
   const options = readGrandesBatteryMaquinaOptionsFromOverlay(overlay);
-  const fingerprint = options.map((opt) => opt.value).join('|');
-  if (overlay.__msGrandesMaquinaFp === fingerprint) return;
-  overlay.__msGrandesMaquinaFp = fingerprint;
-
   overlay.querySelectorAll('[data-maquina-select]').forEach((select) => {
     const current = select.value?.trim() || '';
     const optionHtml = options

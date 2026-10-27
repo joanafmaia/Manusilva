@@ -83,13 +83,10 @@ function collectReportsLinkedToServico(servicoId) {
     add(report);
   }
 
-  /* Índice cobre o caso normal. Só faz scan completo se a visita ainda não tiver bucket
-     (legado raro) — evita O(todos os relatórios) em cada clique no calendário. */
-  if (out.length === 0) {
-    for (const report of filterOutLocallyDeletedReports(getReportsSnapshot())) {
-      if (sameEntityId(report.servicoId, key) || sameEntityId(report.jobId, key)) {
-        add(report);
-      }
+  // Legacy: relatórios ligados só por trabalho_id = id da visita (sem servico_id na BD)
+  for (const report of filterOutLocallyDeletedReports(getReportsSnapshot())) {
+    if (sameEntityId(report.servicoId, key) || sameEntityId(report.jobId, key)) {
+      add(report);
     }
   }
 
