@@ -76,6 +76,15 @@ export async function saveReportDraft(report, options = {}) {
     submittedAt: report.submittedAt || new Date().toISOString(),
   };
 
+  /* Visitas: id tem de ser UUID — senão o upsert faz INSERT e nascem duplicados. */
+  if (draft.servicoId) {
+    const { isUuid } = await import('./relatorios-db.js');
+    const { createServicoReportId } = await import('./servicos-panel-utils.js');
+    if (!draft.id || !isUuid(draft.id)) {
+      draft.id = createServicoReportId();
+    }
+  }
+
   const { saveLocalReportDraft } = await import('./report-local-storage.js');
   const { mergeReportInCache } = await import('./relatorios-db.js');
 

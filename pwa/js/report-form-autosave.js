@@ -3,9 +3,10 @@
  */
 
 import { saveLocalReportDraft } from './report-local-storage.js';
-import { mergeReportInCache } from './relatorios-db.js';
+import { mergeReportInCache, isUuid } from './relatorios-db.js';
 import { isReportLocallyDeleted } from './report-deleted-local.js';
 import { scheduleIdle, yieldToPaint } from './ui-yield.js';
+import { createServicoReportId } from './servicos-panel-utils.js';
 
 const DEBOUNCE_MS = 2600;
 const PHOTO_WAIT_POLL_MS = 50;
@@ -49,7 +50,16 @@ export function initReportFormAutosave({ overlay, job, existingReport, buildRepo
     };
   }
 
-  const reportId = existingReport?.id || `rep-draft-${job.id}`;
+  const existingId = existingReport?.id ? String(existingReport.id) : '';
+  const reportId =
+    existingId && isUuid(existingId)
+      ? existingId
+      : job?.servicoId || existingReport?.servicoId
+        ? createServicoReportId()
+        : existingId || `rep-draft-${job.id}`;
+  if (existingReport && existingReport.id !== reportId) {
+    existingReport.id = reportId;
+  }
   let debounceTimer = null;
   let destroyed = false;
   let saveQueue = Promise.resolve();
@@ -138,6 +148,8 @@ export function initReportFormAutosave({ overlay, job, existingReport, buildRepo
       throw new Error('Não foi possível ler os dados do formulário.');
     }
 
+    if (destroyed) return;
+
     if (!report?.jobId && !report?.servicoId) {
       throw new Error('Rascunho sem identificador do trabalho ou da visita.');
     }
@@ -154,6 +166,7 @@ export function initReportFormAutosave({ overlay, job, existingReport, buildRepo
     }
 
     const saved = await saveLocalReportDraft(report);
+    if (destroyed) return;
     if (!saved) {
       setStatus('idle');
       return;

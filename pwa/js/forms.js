@@ -469,10 +469,18 @@ export async function openServicoReportForm(servicoId, options = {}) {
 
     const servicoVisitMode = !viewOnly;
 
-    const resolvedReportId =
-      reportId || serverReport?.id || (createNew ? createServicoReportId() : null);
+    /* Sempre UUID estável — ids tipo rep-draft-{servico} geravam INSERTs duplicados no servidor. */
+    const incomingId = reportId || serverReport?.id || null;
+    let resolvedReportId = incomingId;
+    if (!viewOnly) {
+      const { isUuid } = await import('./relatorios-db.js');
+      if (!resolvedReportId || !isUuid(String(resolvedReportId))) {
+        resolvedReportId = createServicoReportId();
+      }
+    }
 
-    const draftKey = resolvedReportId || `svc:${servicoId}:${serviceType}`;
+    /* Chave de rascunho local pode ser o id antigo; o id gravado passa a ser o UUID. */
+    const draftKey = incomingId || resolvedReportId || `svc:${servicoId}:${serviceType}`;
     const conflictChoice = await resolveReportOpenConflict(draftKey, serverReport, {
       editPending: editPendingOpt,
       viewOnly,
@@ -508,6 +516,14 @@ export async function openServicoReportForm(servicoId, options = {}) {
       existingReport = await resolveReportForServico(servicoId, serviceType, serverReport, {
         editPending: editPendingOpt,
       });
+    }
+
+    if (existingReport && resolvedReportId) {
+      existingReport = {
+        ...existingReport,
+        id: resolvedReportId,
+        servicoId: existingReport.servicoId || servicoId,
+      };
     }
 
     if (existingReport?.status === 'approved' && !viewOnly) {
@@ -936,6 +952,10 @@ function buildReportFromForm(overlay, job, existingReport, signaturePads, report
     data: {
       values,
       signatures,
+      /* Preservar conclusão do técnico — o auto-save não pode limpar este flag. */
+      ...(existingReport?.data?.technicianCompleted === true
+        ? { technicianCompleted: true }
+        : {}),
       ...(() => {
         const antes = fotoPersistPayload(fotoAntesState);
         const depois = fotoPersistPayload(fotoDepoisState);
@@ -1528,6 +1548,10 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport, opt
           return;
         }
 
+        /* Parar auto-save já — senão uma gravação em curso apaga technicianCompleted. */
+        formAutosave?.destroy();
+        formAutosave = null;
+
         if (!canReachServer()) {
           report.data = {
             ...(await attachOfflineFotosToReportData(report.data, {
@@ -1541,8 +1565,6 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport, opt
             technicianCompleted: true,
           };
           await saveReportDraft(report, { silent: true });
-          formAutosave?.destroy();
-          formAutosave = null;
           closeForm(overlay);
           window.dispatchEvent(new CustomEvent('db-updated'));
           return;
@@ -1552,8 +1574,6 @@ function bindFormEvents(overlay, job, client, tech, service, existingReport, opt
           ...(await persistServicoVisitFotos(report, overlay)),
           technicianCompleted: true,
         };
-        formAutosave?.destroy();
-        formAutosave = null;
         await saveReportDraft(report, { silent: true });
         closeForm(overlay);
         window.dispatchEvent(new CustomEvent('db-updated'));

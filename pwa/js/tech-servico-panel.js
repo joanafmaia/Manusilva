@@ -23,7 +23,6 @@ import {
   resolveJobContextForReport,
 } from './servicos-panel-utils.js';
 import { formatOrdemLabel } from './report-review-ui.js';
-import { renderWorkStateBadge } from './calendar-event-state.js';
 import { canShowServicoVisitConcludeAction } from './servicos-submit-workflow.js';
 import { openServicoVisitSubmit } from './tech-servico-signatures.js';
 
@@ -87,14 +86,6 @@ function buildReportRow(servico, report, servicoReports) {
     opLabel && opLabel !== '—'
       ? `<span class="tech-servico-report-op text-muted">${escapeHtml(opLabel)}</span>`
       : '';
-  const pseudoJob = {
-    id: servico.id,
-    clientId: servico.clientId,
-    serviceType: report.serviceType,
-    date: servico.date,
-    status: report.status === 'rejected' ? 'rejected' : 'scheduled',
-    rejectionNote: report.rejectionNote,
-  };
   const action = reportActionForStatus(report.status);
   const btnLabel =
     action === 'view' ? 'Ver' : action === 'start' ? 'Iniciar' : report.status === 'rejected' ? 'Corrigir' : 'Continuar';
@@ -121,7 +112,6 @@ function buildReportRow(servico, report, servicoReports) {
         <div class="tech-servico-report-row__top">
           <span>${serviceIconHtml(st, 'ms-icon')} ${escapeHtml(typeLabel)}</span>
           ${opHtml}
-          ${renderWorkStateBadge(pseudoJob, report)}
         </div>
         <p class="tech-servico-report-row__status">${servicoReportStatusPill(report)}</p>
         ${rejection}
