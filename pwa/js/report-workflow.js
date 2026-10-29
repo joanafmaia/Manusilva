@@ -647,6 +647,20 @@ async function approveReportOnce(reportId, options = {}) {
       showToast('Relatório aprovado, mas o cliente não tem e-mail registado.', 'warning');
     }
 
+    if (options.skipPrint !== true) {
+      try {
+        const { printApprovedReportPdfs } = await import('./report-print.js');
+        await printApprovedReportPdfs(reportId);
+      } catch (printErr) {
+        console.warn('[Print] Após aprovação:', printErr);
+        showToast(
+          'Relatório aprovado. Se a impressão não abriu, use o PDF no relatório.',
+          'warning',
+          7000,
+        );
+      }
+    }
+
     const approvedReport = getReport(reportId) || reportForPdf;
     if (
       reportHasPedidoOrcamento(approvedReport) &&
