@@ -11,7 +11,6 @@ import {
   updateServico,
   formatServicosError,
   getServico,
-  invalidateServicosCache,
   removeServicoFromCache,
 } from './servicos-db.js';
 import { deleteRelatoriosByServico } from './relatorios-db.js';
@@ -143,7 +142,8 @@ export async function deleteServico(servicoId, options = {}) {
     const { error } = await supabase.from('servicos').delete().eq('id', servicoId);
     if (error) throw error;
 
-    invalidateServicosCache();
+    /* Só remove este serviço do cache — invalidateServicosCache() esvaziava o
+       calendário RH até refresh (getAdminCalendarItems lê getServicosSnapshot). */
     removeServicoFromCache(servicoId);
     await ensureJobsLoaded(true);
     showToast('Serviço eliminado.', 'success');
